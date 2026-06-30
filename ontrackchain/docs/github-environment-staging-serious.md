@@ -20,7 +20,7 @@ Este documento complementa:
 
 Workflow canônico:
 
-- [staging-serious-window.yml](../.github/workflows/staging-serious-window.yml)
+- [staging-serious-window.yml](../../.github/workflows/staging-serious-window.yml)
 
 Nome do workflow no GitHub Actions:
 

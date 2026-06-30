@@ -45,7 +45,7 @@ Organizar os documentos canônicos do Ontrackchain em grupos claros, reduzindo s
 - [Checklist de Evidência Mínima da Primeira Janela Séria](./first-serious-window-evidence-checklist.md): critério canônico para validar P0-01, P0-05, P0-06 e `RUN-STG-01`.
 - [Runbook do Primeiro Disparo Real](./first-serious-window-first-dispatch-runbook.md): roteiro operacional canônico da primeira janela, com `prepare-serious-window-dispatch`, inputs recomendados, artifact esperado e fechamento pós-run.
 - [Template de Sign-Off da Janela Seria](./staging-serious-window-signoff-template.md): modelo padronizado para aprovar ou bloquear a janela com referência ao artifact oficial.
-- [Workflow manual de janela séria](../.github/workflows/staging-serious-window.yml): rito controlado de CI/CD para executar `prepare_staging_window.py --run` com `GitHub Environment` aprovado.
+- [Workflow manual de janela séria](../../.github/workflows/staging-serious-window.yml): rito controlado de CI/CD para executar `prepare_staging_window.py --run` com `GitHub Environment` aprovado.
 - `python scripts/prepare_staging_window.py`: prepara a janela séria gerando `.env.staging.private`, `window packet` e diretórios-base no modo `baseline` ou `homologated`.
 - `python scripts/prepare_staging_window.py --validate|--preflight`: reaproveita `.env.staging.private` preenchido para persistir gates locais e, opcionalmente, os preflights reais antes da janela completa.
 - `python scripts/prepare_staging_window.py --run`: encadeia `prepare -> validate -> preflight -> run_staging_window` em um gate unico, falhando cedo e persistindo o payload consolidado da execucao.

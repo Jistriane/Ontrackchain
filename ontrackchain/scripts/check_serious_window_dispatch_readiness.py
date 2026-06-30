@@ -11,7 +11,7 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_GOVERNANCE_WEEKLY_DIR = REPO_ROOT / "docs" / "governance-weekly"
-DEFAULT_WORKFLOW_FILE = REPO_ROOT / ".github" / "workflows" / "staging-serious-window.yml"
+DEFAULT_WORKFLOW_FILE = REPO_ROOT.parent / ".github" / "workflows" / "staging-serious-window.yml"
 WINDOW_ID_PATTERN = re.compile(r"stg-(\d{4}-\d{2}-\d{2})-[a-z0-9]+")
 
 

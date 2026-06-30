@@ -11,7 +11,7 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_GOVERNANCE_WEEKLY_DIR = REPO_ROOT / "docs" / "governance-weekly"
-DEFAULT_WORKFLOW_FILE = REPO_ROOT / ".github" / "workflows" / "staging-serious-window.yml"
+DEFAULT_WORKFLOW_FILE = REPO_ROOT.parent / ".github" / "workflows" / "staging-serious-window.yml"
 
 
 def load_module(module_name: str, relative_path: str):

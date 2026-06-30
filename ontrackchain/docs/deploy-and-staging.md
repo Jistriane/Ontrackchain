@@ -11,7 +11,7 @@ Descrever como promover o scaffold atual para um ambiente de staging controlado,
 
 Este documento cobre o processo tecnico. Ele nao substitui automacao futura de CI/CD nem procedimento formal de change management.
 
-Para execucao controlada via GitHub Actions, use tambem o workflow manual [staging-serious-window.yml](../.github/workflows/staging-serious-window.yml), que materializa `.env.staging.private` a partir de um `GitHub Environment` aprovado e executa o gate unico `prepare -> validate -> preflight -> run`. A configuracao do environment e do secret multi-linha esta detalhada em [GitHub Environment para Staging Sério](github-environment-staging-serious.md).
+Para execucao controlada via GitHub Actions, use tambem o workflow manual [staging-serious-window.yml](../../.github/workflows/staging-serious-window.yml), que materializa `.env.staging.private` a partir de um `GitHub Environment` aprovado e executa o gate unico `prepare -> validate -> preflight -> run`. A configuracao do environment e do secret multi-linha esta detalhada em [GitHub Environment para Staging Sério](github-environment-staging-serious.md).
 
 Para a primeira execucao seria, use tambem o [Checklist de Evidencia Minima da Primeira Janela Seria](first-serious-window-evidence-checklist.md) como filtro explicito de entrada, execucao e saida.
 

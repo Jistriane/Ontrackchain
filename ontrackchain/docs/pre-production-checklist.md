@@ -93,7 +93,7 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 
 - [ ] staging tecnico foi validado
 - [ ] staging regulatorio foi validado
-- [ ] workflow manual [staging-serious-window.yml](../.github/workflows/staging-serious-window.yml) foi executado para a janela alvo
+- [ ] workflow manual [staging-serious-window.yml](../../.github/workflows/staging-serious-window.yml) foi executado para a janela alvo
 - [ ] o `GitHub Environment` da janela possui approvals coerentes e secret `STAGING_WINDOW_PRIVATE_ENV`
 - [ ] o artifact `serious-staging-window-<janela>` foi anexado ao sign-off da promocao
 - [ ] rollback de aplicacao foi testado

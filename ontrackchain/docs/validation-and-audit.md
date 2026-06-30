@@ -105,8 +105,8 @@ npx playwright test tests/e2e/critical-path.spec.ts tests/e2e/compliance-flows.s
 
 Workflows:
 
-- [e2e-tests.yml](../.github/workflows/e2e-tests.yml)
-- [quality-gates.yml](../.github/workflows/quality-gates.yml)
+- [e2e-tests.yml](../../.github/workflows/e2e-tests.yml)
+- [quality-gates.yml](../../.github/workflows/quality-gates.yml)
 
 ### O que a pipeline faz
 

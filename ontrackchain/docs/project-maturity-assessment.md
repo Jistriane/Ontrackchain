@@ -87,8 +87,8 @@ Principais artefatos considerados:
 - [`apps/compliance-api/tests/test_risk_provider.py`](../apps/compliance-api/tests/test_risk_provider.py)
 - [`apps/monitoring-api/src/monitoring_api/main.py`](../apps/monitoring-api/src/monitoring_api/main.py)
 - [`apps/report-api/src/report_api/main.py`](../apps/report-api/src/report_api/main.py)
-- [`.github/workflows/e2e-tests.yml`](../.github/workflows/e2e-tests.yml)
-- [`.github/workflows/quality-gates.yml`](../.github/workflows/quality-gates.yml)
+- [`.github/workflows/e2e-tests.yml`](../../.github/workflows/e2e-tests.yml)
+- [`.github/workflows/quality-gates.yml`](../../.github/workflows/quality-gates.yml)
 - [`scripts/smoke_runtime.py`](../scripts/smoke_runtime.py)
 - [`scripts/run_staging_window.py`](../scripts/run_staging_window.py)
 

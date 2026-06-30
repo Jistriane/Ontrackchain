@@ -121,7 +121,7 @@ Gate:
 
 Evidencias:
 
-- workflow [e2e-tests.yml](../.github/workflows/e2e-tests.yml) executando:
+- workflow [e2e-tests.yml](../../.github/workflows/e2e-tests.yml) executando:
   - `npm run test:e2e:oidc-critical`
   - `npm run test:e2e`
   - `npm run test:e2e:dev-auth`
@@ -282,7 +282,7 @@ Gate:
 - `build`, `smoke` e `playwright` verdes
 - artefatos de falha publicados
 - workflow `quality-gates` verde com `security-baseline`, `frontend-audit`, `postgres-schema`, `frontend-typecheck` e `python-quality`
-- workflow manual [staging-serious-window.yml](../.github/workflows/staging-serious-window.yml) executado para a janela regulatoria com `window_id`, `mode` e `environment_name` aprovados
+- workflow manual [staging-serious-window.yml](../../.github/workflows/staging-serious-window.yml) executado para a janela regulatoria com `window_id`, `mode` e `environment_name` aprovados
 - validacao pos-deploy orientada a `OIDC` e integracoes reais, sem dependencias de fixture
 
 Evidencias:
