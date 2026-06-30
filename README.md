@@ -337,10 +337,10 @@ sequenceDiagram
 flowchart LR
   req[X-Request-Id] --> svc[Serviço]
   org[X-Org-Id] --> svc
-  svc --> log[audit_logs]
-  log --> query[audit (UI ADMIN)]
-  log --> export[export CSV | JSON]
-  export --> evidence[file_hash + trilha]
+  svc --> auditLogs[audit_logs]
+  auditLogs --> auditUI[audit UI ADMIN]
+  auditLogs --> exportUI[export CSV ou JSON]
+  exportUI --> evidence[file_hash + trilha]
 ```
 
 ## Documentação
