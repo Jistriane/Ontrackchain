@@ -81,7 +81,7 @@ Entregar uma base operacional para:
   - [Investigação e Compliance (MVP)](#diagram-mvp-flows)
   - [Billing por Créditos (MVP)](#diagram-billing)
   - [Trilha de Auditoria (request_id)](#diagram-audit)
-- Docs operacionais: [Índice de Documentação](file:///home/jistriane/Ontracktchain/ontrackchain/docs/README.md)
+- Docs operacionais: [Índice de Documentação](./docs/README.md)
 
 <a id="diagram-project"></a>
 ## Diagrama de Fluxo do Projeto
@@ -345,23 +345,23 @@ flowchart LR
 
 ## Documentação
 
-- [Índice de Documentação](file:///home/jistriane/Ontracktchain/ontrackchain/docs/README.md)
-- [Arquitetura](file:///home/jistriane/Ontracktchain/ontrackchain/docs/architecture.md)
-- [Contratos de API](file:///home/jistriane/Ontracktchain/ontrackchain/docs/api-contracts.md)
-- [Board de Prioridades do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-priority-board.md)
-- [Plano de Execução para 90%](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-execution-plan-to-90.md)
-- [Plano Operacional Trimestral para 95%](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-operational-plan-to-95.md)
-- [Matriz Operacional de Execução para 95%](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-operational-execution-board.md)
-- [Gates de Release para Staging Sério](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-release-gates.md)
-- [Deploy e Staging](file:///home/jistriane/Ontracktchain/ontrackchain/docs/deploy-and-staging.md)
-- [Checklist Pré-Produção](file:///home/jistriane/Ontracktchain/ontrackchain/docs/pre-production-checklist.md)
-- [CI/CD e Release](file:///home/jistriane/Ontracktchain/ontrackchain/docs/ci-cd-and-release.md)
-- [Validação e Auditoria](file:///home/jistriane/Ontracktchain/ontrackchain/docs/validation-and-audit.md)
-- [Compliance e Controles de Segurança](file:///home/jistriane/Ontracktchain/ontrackchain/docs/compliance-and-security-controls.md)
-- [Readiness Regulatório](file:///home/jistriane/Ontracktchain/ontrackchain/docs/regulatory-readiness.md)
-- [Variáveis de Ambiente](file:///home/jistriane/Ontracktchain/ontrackchain/docs/environment-variables.md)
-- [ADRs](file:///home/jistriane/Ontracktchain/ontrackchain/docs/adrs/README.md)
-- [Migrations PostgreSQL](file:///home/jistriane/Ontracktchain/ontrackchain/infra/postgres/migrations/README.md)
+- [Índice de Documentação](./docs/README.md)
+- [Arquitetura](./docs/architecture.md)
+- [Contratos de API](./docs/api-contracts.md)
+- [Board de Prioridades do Projeto](./docs/project-priority-board.md)
+- [Plano de Execução para 90%](./docs/project-execution-plan-to-90.md)
+- [Plano Operacional Trimestral para 95%](./docs/project-operational-plan-to-95.md)
+- [Matriz Operacional de Execução para 95%](./docs/project-operational-execution-board.md)
+- [Gates de Release para Staging Sério](./docs/project-release-gates.md)
+- [Deploy e Staging](./docs/deploy-and-staging.md)
+- [Checklist Pré-Produção](./docs/pre-production-checklist.md)
+- [CI/CD e Release](./docs/ci-cd-and-release.md)
+- [Validação e Auditoria](./docs/validation-and-audit.md)
+- [Compliance e Controles de Segurança](./docs/compliance-and-security-controls.md)
+- [Readiness Regulatório](./docs/regulatory-readiness.md)
+- [Variáveis de Ambiente](./docs/environment-variables.md)
+- [ADRs](./docs/adrs/README.md)
+- [Migrations PostgreSQL](./infra/postgres/migrations/README.md)
 
 ## Quick Start
 
