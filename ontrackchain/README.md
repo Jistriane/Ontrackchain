@@ -97,7 +97,7 @@ flowchart LR
   ui --> traefik
 
   subgraph identity[Identidade]
-    keycloak[Keycloak (OIDC)]
+    keycloak[Keycloak OIDC]
   end
 
   traefik --> auth[auth-service]
@@ -126,8 +126,8 @@ flowchart LR
   rep --> redis
 
   subgraph external[Integrações Externas]
-    trm[AML-KYT Provider (TRM)]
-    rpc[RPC Providers (primary + fallback)]
+    trm[AML-KYT Provider TRM]
+    rpc[RPC Providers primary + fallback]
   end
 
   comp --> trm
@@ -148,8 +148,8 @@ flowchart LR
   mon --> ui
 
   subgraph governance[Governança e Evidências]
-    scripts[scripts (preflights, homologation, staging window)]
-    artifacts[(artifacts (checks, manifests, dossier))]
+    scripts[scripts preflights homologation staging window]
+    artifacts[artifacts checks manifests dossier]
   end
 
   scripts --> artifacts
