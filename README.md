@@ -90,7 +90,7 @@ Entregar uma base operacional para:
 flowchart LR
   user[Usuário/Admin] --> ui[Frontend Next.js]
 
-  subgraph edge[Gateway / Edge]
+  subgraph edge[Gateway - Edge]
     traefik[Traefik + ForwardAuth]
   end
 
@@ -126,7 +126,7 @@ flowchart LR
   rep --> redis
 
   subgraph external[Integrações Externas]
-    trm[AML/KYT Provider (TRM)]
+    trm[AML-KYT Provider (TRM)]
     rpc[RPC Providers (primary + fallback)]
   end
 
@@ -168,32 +168,32 @@ flowchart TD
   start([Iniciar janela]) --> windowId[Definir window_id]
   windowId --> envExample[.env.staging.example]
   envExample --> envPrivate[Gerar .env.staging.private e preencher em canal seguro]
-  envExample --> ownershipDoc[docs/staging-env-ownership.md]
+  envExample --> ownershipDoc[docs: staging-env-ownership.md]
 
   envExample --> coverage[check_staging_env_ownership_coverage.py]
   ownershipDoc --> coverage
-  coverage --> checks1[artifacts/staging/checks/ownership-coverage-<window_id>.json]
+  coverage --> checks1[artifacts: staging: checks: ownership-coverage-<window_id>.json]
 
   ownershipDoc --> handoff[check_staging_env_handoff.py]
-  handoff --> checks2[artifacts/staging/checks/handoff-<window_id>.json]
+  handoff --> checks2[artifacts: staging: checks: handoff-<window_id>.json]
 
   envPrivate --> placeholders[check_staging_env_placeholders.py]
-  placeholders --> checks3[artifacts/staging/checks/placeholders-<window_id>.json]
+  placeholders --> checks3[artifacts: staging: checks: placeholders-<window_id>.json]
 
   envExample --> packet[render_staging_window_packet.py]
   ownershipDoc --> packet
-  packet --> windowPacket[artifacts/staging/window-packet-<window_id>.md]
+  packet --> windowPacket[artifacts: staging: window-packet-<window_id>.md]
 
   envPrivate --> preOidc[preflight_oidc_serious_env.py]
-  preOidc --> checks4[artifacts/staging/checks/oidc-preflight-<window_id>.json]
+  preOidc --> checks4[artifacts: staging: checks: oidc-preflight-<window_id>.json]
 
   envPrivate --> preExt[preflight_external_integrations.py]
-  preExt --> checks5[artifacts/staging/checks/external-preflight-<window_id>.json]
+  preExt --> checks5[artifacts: staging: checks: external-preflight-<window_id>.json]
 
   envPrivate --> homolog[homologation_external_evidence.py (mode both)]
-  homolog --> homologJson[artifacts/homologation/external_homologation_<mode>_<stamp>.json]
-  homolog --> homologManifest[artifacts/homologation/external_homologation_<mode>_<stamp>.json.manifest.json]
-  homolog --> checks6[artifacts/staging/checks/homologation-<window_id>.json]
+  homolog --> homologJson[artifacts: homologation: external_homologation_<mode>_<stamp>.json]
+  homolog --> homologManifest[artifacts: homologation: external_homologation_<mode>_<stamp>.json.manifest.json]
+  homolog --> checks6[artifacts: staging: checks: homologation-<window_id>.json]
 
   windowPacket --> dossier[build_staging_release_dossier.py]
   checks1 --> dossier
@@ -201,10 +201,10 @@ flowchart TD
   checks3 --> dossier
   homologJson --> dossier
   homologManifest --> dossier
-  dossier --> dossierJson[artifacts/staging/dossiers/staging_release_dossier_<window_id>_<stamp>.json]
-  dossier --> dossierManifest[artifacts/staging/dossiers/staging_release_dossier_<window_id>_<stamp>.json.manifest.json]
+  dossier --> dossierJson[artifacts: staging: dossiers: staging_release_dossier_<window_id>_<stamp>.json]
+  dossier --> dossierManifest[artifacts: staging: dossiers: staging_release_dossier_<window_id>_<stamp>.json.manifest.json]
 
-  dossierManifest --> done([Go/No-Go: status ok + manifests anexaveis])
+  dossierManifest --> done([Go-No-Go: status ok + manifests anexaveis])
 ```
 
 <a id="diagram-mvp-flows"></a>
@@ -224,7 +224,7 @@ sequenceDiagram
   participant PG as PostgreSQL (RLS)
   participant R as Redis/Queue
   participant RPC as RPC Provider (primary/fallback)
-  participant TRM as AML/KYT Provider (TRM)
+  participant TRM as AML-KYT Provider (TRM)
 
   U->>FE: Solicita fluxo (estimate)
   FE->>GW: Request autenticada (X-Request-Id)
@@ -252,7 +252,7 @@ sequenceDiagram
     COMP-->>FE: Cotacao
     FE->>GW: POST /start (quote_id)
     GW->>COMP: POST /start
-    COMP->>TRM: Verificação AML/KYT (quando habilitado)
+    COMP->>TRM: Verificação AML-KYT (quando habilitado)
     COMP->>RPC: Evidências on-chain (quando aplicável)
     COMP->>PG: Persistir achados + auditoria (RLS)
     COMP-->>FE: report_id
@@ -338,8 +338,8 @@ flowchart LR
   req[X-Request-Id] --> svc[Serviço]
   org[X-Org-Id] --> svc
   svc --> log[audit_logs]
-  log --> query[/audit (UI ADMIN)/]
-  log --> export[export CSV/JSON]
+  log --> query[audit (UI ADMIN)]
+  log --> export[export CSV | JSON]
   export --> evidence[file_hash + trilha]
 ```
 
