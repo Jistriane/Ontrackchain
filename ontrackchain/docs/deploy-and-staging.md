@@ -11,7 +11,9 @@ Descrever como promover o scaffold atual para um ambiente de staging controlado,
 
 Este documento cobre o processo tecnico. Ele nao substitui automacao futura de CI/CD nem procedimento formal de change management.
 
-Para a primeira execucao seria, use tambem o [Checklist de Evidencia Minima da Primeira Janela Seria](file:///home/jistriane/Ontracktchain/ontrackchain/docs/first-serious-window-evidence-checklist.md) como filtro explicito de entrada, execucao e saida.
+Para execucao controlada via GitHub Actions, use tambem o workflow manual [staging-serious-window.yml](../.github/workflows/staging-serious-window.yml), que materializa `.env.staging.private` a partir de um `GitHub Environment` aprovado e executa o gate unico `prepare -> validate -> preflight -> run`. A configuracao do environment e do secret multi-linha esta detalhada em [GitHub Environment para Staging Sério](github-environment-staging-serious.md).
+
+Para a primeira execucao seria, use tambem o [Checklist de Evidencia Minima da Primeira Janela Seria](first-serious-window-evidence-checklist.md) como filtro explicito de entrada, execucao e saida.
 
 ## Estrategia Atual
 
@@ -70,22 +72,22 @@ cp .env.staging.example .env.staging.private
 ```
 
 Depois substitua todos os placeholders `__FILL_*__` por secrets e URLs reais do ambiente.
-Use a matriz de ownership em [Ownership do `.env.staging`](file:///home/jistriane/Ontracktchain/ontrackchain/docs/staging-env-ownership.md) para distribuir o preenchimento por owner e apoio antes da janela.
+Use a matriz de ownership em [Ownership do `.env.staging`](staging-env-ownership.md) para distribuir o preenchimento por owner e apoio antes da janela.
 
 Valide o arquivo privado antes dos preflights:
 
 ```bash
-python scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md > artifacts/staging/checks/ownership-coverage-stg-YYYYMMDD-a.json
-python scripts/render_staging_window_packet.py --window-id stg-YYYYMMDD-a --output-file artifacts/staging/window-packet-stg-YYYYMMDD-a.md
-python scripts/check_staging_env_placeholders.py --file .env.staging.private > artifacts/staging/checks/placeholders-stg-YYYYMMDD-a.json
-python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md > artifacts/staging/checks/handoff-stg-YYYYMMDD-a.json
+python scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md > artifacts/staging/checks/ownership-coverage-stg-YYYY-MM-DD-a.json
+python scripts/render_staging_window_packet.py --window-id stg-YYYY-MM-DD-a --output-file artifacts/staging/window-packet-stg-YYYY-MM-DD-a.md
+python scripts/check_staging_env_placeholders.py --file .env.staging.private > artifacts/staging/checks/placeholders-stg-YYYY-MM-DD-a.json
+python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md > artifacts/staging/checks/handoff-stg-YYYY-MM-DD-a.json
 ```
 
 Ou, preferencialmente, execute a janela inteira de forma orquestrada:
 
 ```bash
 python scripts/run_staging_window.py \
-  --window-id stg-YYYYMMDD-a \
+  --window-id stg-YYYY-MM-DD-a \
   --private-env-file .env.staging.private
 ```
 
@@ -136,6 +138,7 @@ OIDC_AUTHORIZATION_URL=https://auth.staging.ontrackchain.com/realms/ontrackchain
 OIDC_ORG_CLAIM=org \
 OIDC_PLAN_CLAIM=plan \
 OIDC_ROLE_CLAIM=otk_role \
+MFA_EXTERNAL_PROVIDER_HOMOLOGATED=false \
 JWT_HS256_SECRET=*** \
 MFA_TOTP_SECRET=*** \
 KEYCLOAK_ADMIN_PASSWORD=*** \
@@ -172,13 +175,18 @@ Preserve como evidencia:
 - resultado do `preflight_oidc_serious_env.py`
 - resultado do `smoke_auth_oidc_mode.py`
 - relatorios do Playwright critico e completo
+- quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true`, artefato de homologacao contendo download auditado de `legal_report`
 
 ### 9. Preflight antes de homologacao AML/KYT e RPC
 
 Antes de abrir janela de provider real, valide a configuracao esperada:
 
-- baseline recomendado: [`.env.staging.example`](file:///home/jistriane/Ontracktchain/ontrackchain/.env.staging.example)
-- ownership recomendado: [Ownership do `.env.staging`](file:///home/jistriane/Ontracktchain/ontrackchain/docs/staging-env-ownership.md)
+- baseline recomendado: [`.env.staging.example`](../.env.staging.example)
+- ownership recomendado: [Ownership do `.env.staging`](staging-env-ownership.md)
+- execute `python scripts/prepare_staging_window.py --window-id <janela> --mode baseline|homologated` para gerar template privado, `window packet` e diretórios-base da janela
+- apos preencher `.env.staging.private`, execute `python scripts/prepare_staging_window.py --window-id <janela> --mode baseline|homologated --validate` para persistir os gates locais antes da janela completa
+- se quiser antecipar tambem os preflights reais, execute `python scripts/prepare_staging_window.py --window-id <janela> --mode baseline|homologated --preflight`; esse modo implica validacao local
+- para um gate unico, execute `python scripts/prepare_staging_window.py --window-id <janela> --mode baseline|homologated --run`; esse modo implica validacao local, preflights e chama o runner completo apenas quando tudo estiver verde
 - execute `python scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md` para bloquear drift entre placeholders do baseline e a matriz de owners
 - execute `python scripts/render_staging_window_packet.py --window-id <janela> --output-file artifacts/staging/window-packet-<janela>.md` para gerar um pacote redigido da janela antes do preenchimento dos secrets
 - nao promova o ambiente enquanto existir qualquer placeholder `__FILL_*__`
@@ -207,11 +215,25 @@ python scripts/preflight_external_integrations.py
 Atalho recomendado:
 
 ```bash
+python scripts/prepare_staging_window.py --window-id <janela> --mode baseline
 set -a
 . ./.env.staging.private
 set +a
 python scripts/preflight_external_integrations.py
 ```
+
+Ou, depois do preenchimento do `.env.staging.private`, prefira:
+
+```bash
+python scripts/prepare_staging_window.py --window-id <janela> --mode baseline --run
+```
+
+Opcao equivalente em CI/CD controlado:
+
+- abrir o workflow manual `Staging Serious Window`
+- informar `window_id`, `mode` e `environment_name`
+- garantir que o `GitHub Environment` selecionado possui o secret `STAGING_WINDOW_PRIVATE_ENV`
+- usar o artefato `serious-staging-window-<janela>` como pacote oficial de `checks`, `dossier`, `window packet` e `homologation`
 
 Depois do preflight e durante a janela controlada, gere a trilha anexavel:
 
@@ -241,11 +263,11 @@ Consolidacao final recomendada:
 
 ```bash
 python scripts/build_staging_release_dossier.py \
-  --window-id stg-YYYYMMDD-a \
-  --window-packet artifacts/staging/window-packet-stg-YYYYMMDD-a.md \
-  --ownership-coverage-check artifacts/staging/checks/ownership-coverage-stg-YYYYMMDD-a.json \
-  --placeholder-check artifacts/staging/checks/placeholders-stg-YYYYMMDD-a.json \
-  --handoff-check artifacts/staging/checks/handoff-stg-YYYYMMDD-a.json \
+  --window-id stg-YYYY-MM-DD-a \
+  --window-packet artifacts/staging/window-packet-stg-YYYY-MM-DD-a.md \
+  --ownership-coverage-check artifacts/staging/checks/ownership-coverage-stg-YYYY-MM-DD-a.json \
+  --placeholder-check artifacts/staging/checks/placeholders-stg-YYYY-MM-DD-a.json \
+  --handoff-check artifacts/staging/checks/handoff-stg-YYYY-MM-DD-a.json \
   --homologation-artifact artifacts/homologation/<artefato>.json \
   --homologation-manifest artifacts/homologation/<artefato>.json.manifest.json
 ```
@@ -254,7 +276,7 @@ Atalho operacional recomendado:
 
 ```bash
 python scripts/run_staging_window.py \
-  --window-id stg-YYYYMMDD-a \
+  --window-id stg-YYYY-MM-DD-a \
   --private-env-file .env.staging.private
 ```
 
@@ -301,7 +323,7 @@ local -> staging serio/regulatorio -> producao
 
 - `AUTH_MODE=oidc`
 - `DEV_AUTH_ENABLED=false`
-- validar [smoke_auth_oidc_mode.py](file:///home/jistriane/Ontracktchain/ontrackchain/scripts/smoke_auth_oidc_mode.py) antes do `playwright` critico
+- validar [smoke_auth_oidc_mode.py](../scripts/smoke_auth_oidc_mode.py) antes do `playwright` critico
 
 ```bash
 ONTRACKCHAIN_EXPECTED_AUTH_MODE=oidc \
@@ -405,7 +427,7 @@ Um deploy pode ser considerado aceito quando:
 
 ## Proximos Passos Recomendados
 
-- automatizar esse fluxo em pipeline dedicada
+- institucionalizar `staging-serious-window.yml` como gate manual oficial da janela regulatoria
 - introduzir secrets manager
 - separar staging tecnico de staging regulatorio
 - adicionar validacao de backup/restore ao processo

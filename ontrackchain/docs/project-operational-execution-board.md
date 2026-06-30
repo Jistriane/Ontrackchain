@@ -16,11 +16,11 @@ Traduzir o plano trimestral e o board estrategico em uma matriz executavel unica
 
 Este documento complementa:
 
-- [Plano Operacional Trimestral para 95%](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-operational-plan-to-95.md)
-- [Board de Prioridades do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-priority-board.md)
-- [Registro de Riscos do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-risk-register.md)
-- [Runbook de Governanca Semanal](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-weekly-governance-runbook.md)
-- [Checklist de Evidencia Minima da Primeira Janela Seria](file:///home/jistriane/Ontracktchain/ontrackchain/docs/first-serious-window-evidence-checklist.md)
+- [Plano Operacional Trimestral para 95%](project-operational-plan-to-95.md)
+- [Board de Prioridades do Projeto](project-priority-board.md)
+- [Registro de Riscos do Projeto](project-risk-register.md)
+- [Runbook de Governanca Semanal](project-weekly-governance-runbook.md)
+- [Checklist de Evidencia Minima da Primeira Janela Seria](first-serious-window-evidence-checklist.md)
 
 ## Regra de Status
 
@@ -67,7 +67,7 @@ Este documento complementa:
 | `P0-02` | T1 | `in_progress` | P0 | Auth | Backend/Auth + Frontend | Security Champion de Auth | `T1-S2` | `R-02` | evidencia de MFA serio e runbook de indisponibilidade | `P0-01` | evidencia de MFA serio ou federado e runbook de indisponibilidade | fluxo sensivel protegido com trilha auditavel e sem fallback silencioso |
 | `P0-05` | T1 | `in_progress` | P0 | Compliance | Compliance/Backend | Owner de Integracao AML | `T1-S1` | `R-05`, `R-06` | bundle de homologacao externa AML/KYT em `live` | contrato, credenciais, provider | `provider-readiness` verde e homologacao externa em modo `live` | provider real operando com timeout, retry, degradacao honesta e evidencias anexaveis |
 | `P0-06` | T1 | `in_progress` | P0 | Investigation | Backend Core | Owner de Integracao RPC | `T1-S1` | `R-07` | bundle de homologacao RPC com primario e fallback | providers aceitos, segredos, endpoints | `rpc-readiness` verde com `primary_url + fallback_url` | investigacao homologada com fallback funcional e evidencias de janela |
-| `RUN-STG-01` | T1 | `ready` | P1 | Release | DevOps/Platform | Release Manager Tecnico | `T1-S2` | `R-13`, `R-16` | dossier de janela `ok` com checks persistidos | `P0-01`, `P0-05`, `P0-06` minimamente prontos | execucao real do `run_staging_window.py` com outputs persistidos | dossier de janela `ok` anexado ao sign-off |
+| `RUN-STG-01` | T1 | `ready` | P1 | Release | DevOps/Platform | Release Manager Tecnico | `T1-S2` | `R-13`, `R-16` | dossier de janela `ok` e artifact `serious-staging-window-<janela>` | `P0-01`, `P0-05`, `P0-06` minimamente prontos; `GitHub Environment` com `STAGING_WINDOW_PRIVATE_ENV` | execucao real do workflow `Staging Serious Window` com artifact anexavel | dossier de janela `ok` e artifact do workflow anexados ao sign-off |
 | `P1-01` | T2 | `in_progress` | P0 | Governanca | Security/Platform | Security Officer Operacional | `T2-S1` | `R-11` | sign-off formal de retention/recovery | baseline publicada | aprovacao formal de retention/recovery | sign-off formal registrado e politica tratada como controle aceito |
 | `P2-02` | T2 | `in_progress` | P1 | Operacao | Platform/SRE | Incident Manager | `T2-S1` | `R-15` | aceite formal de owners, SLA e runbooks | owners e runbooks publicados | aceite formal dos owners, SLA e ritos | ownership operacional aceito e exercitado em incidente/janela |
 | `GOV-01` | T2 | `todo` | P1 | Governanca | Security/Compliance | Data Governance Owner | `T2-S2` | `R-11`, `R-12` | matriz minima de classificacao de evidencias | `P1-01` | classificacao minima de evidencias por sensibilidade | classificacao aplicada aos fluxos e artefatos mais criticos |
@@ -139,8 +139,8 @@ Este documento complementa:
 - usar esta matriz como camada operacional entre o board estrategico e a execucao semanal
 - atualizar o `Status Atual` somente com evidencia, nunca por expectativa
 - considerar `blocked` sempre que o impedimento depender de credencial, provider, owner externo ou aceite formal
-- refletir no [Board de Prioridades do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-priority-board.md) apenas as mudancas de leitura estrategica, e nao cada movimento operacional de curto ciclo
-- executar a revisao da matriz pelo rito definido no [Runbook de Governanca Semanal](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-weekly-governance-runbook.md)
+- refletir no [Board de Prioridades do Projeto](project-priority-board.md) apenas as mudancas de leitura estrategica, e nao cada movimento operacional de curto ciclo
+- executar a revisao da matriz pelo rito definido no [Runbook de Governanca Semanal](project-weekly-governance-runbook.md)
 
 ## Suposicoes
 

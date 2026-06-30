@@ -33,9 +33,28 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run staging window, dossier, packet, ownership, handoff, preflight and homologation regression tests
+      - name: Run staging window, dossier, packet, ownership, handoff, dispatch readiness, dispatch packet, preflight and homologation regression tests
         working-directory: ontrackchain
-        run: python -m unittest tests.test_check_staging_env_placeholders tests.test_check_staging_env_ownership_coverage tests.test_check_staging_env_handoff tests.test_render_staging_window_packet tests.test_build_staging_release_dossier tests.test_run_staging_window tests.test_preflight_guards tests.test_homologation_external_evidence
+        run: python -m unittest tests.test_check_staging_env_placeholders tests.test_check_staging_env_ownership_coverage tests.test_check_staging_env_handoff tests.test_check_serious_window_dispatch_readiness tests.test_render_serious_window_dispatch_packet tests.test_render_staging_private_env_templates tests.test_render_staging_window_packet tests.test_prepare_staging_window tests.test_render_staging_window_signoff tests.test_render_staging_window_weekly_governance tests.test_postprocess_staging_window_artifact tests.test_build_staging_release_dossier tests.test_run_staging_window tests.test_preflight_guards tests.test_homologation_external_evidence
+
+  serious-window-onboarding-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Smoke test serious window onboarding targets from root
+        run: |
+          make help-serious-window
+          make prepare-serious-window-dispatch WINDOW_ID="stg-2026-07-06-a"
+          make postprocess-serious-window-dry-run RUN_URL="https://github.com/example/repo/actions/runs/789"
+
+      - name: Smoke test serious window onboarding targets from app
+        working-directory: ontrackchain
+        run: |
+          make help-serious-window
+          make prepare-serious-window-dispatch WINDOW_ID="stg-2026-07-06-a"
+          make postprocess-serious-window-dry-run RUN_URL="https://github.com/example/repo/actions/runs/789"
 
   frontend-audit:
     runs-on: ubuntu-latest

@@ -451,8 +451,12 @@ test("OIDC federado prefere linked_user_id em trilhas administrativas e no downl
       )}&report_type=legal_report&created_at=${encodeURIComponent(generatedBody.created_at)}`,
       { headers: { "x-request-id": reportDownloadRequestId } }
     );
-    expect(reportDownload.status()).toBe(403);
-    await expect(reportDownload.json()).resolves.toMatchObject({ detail: "mfa_not_homologated_for_oidc" });
+    if (config.mfa?.provider_homologated) {
+      expect(reportDownload.status()).toBe(200);
+    } else {
+      expect(reportDownload.status()).toBe(403);
+      await expect(reportDownload.json()).resolves.toMatchObject({ detail: "mfa_not_homologated_for_oidc" });
+    }
 
     const monitoringEntries = await getAuditEntriesByRequestId(
       page,
@@ -484,7 +488,18 @@ test("OIDC federado prefere linked_user_id em trilhas administrativas e no downl
     ).toBeTruthy();
 
     const reportEntries = await getAuditEntriesByRequestId(page, reportDownloadRequestId, "report_downloaded");
-    expect(reportEntries).toHaveLength(0);
+    if (config.mfa?.provider_homologated) {
+      expect(
+        reportEntries.some(
+          (entry: any) =>
+            entry.user_id === LINKED_USER_ID &&
+            entry.metadata?.external_user_id === externalUserId &&
+            entry.metadata?.report_id === generatedBody.report_id
+        )
+      ).toBeTruthy();
+    } else {
+      expect(reportEntries).toHaveLength(0);
+    }
   } finally {
     psqlExec(`
       DELETE FROM audit_logs

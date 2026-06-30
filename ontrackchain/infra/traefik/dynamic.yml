@@ -16,6 +16,8 @@ http:
           - "X-Plan"
           - "X-Role"
           - "X-Auth-Method"
+          - "X-MFA-Mode"
+          - "X-MFA-Provider-Homologated"
 
   routers:
     keycloak:

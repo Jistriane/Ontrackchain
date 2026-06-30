@@ -15,7 +15,7 @@ Garantir que o scaffold continue:
 
 Arquivo:
 
-- [smoke_runtime.py](file:///home/jistriane/Ontracktchain/ontrackchain/scripts/smoke_runtime.py)
+- [smoke_runtime.py](../scripts/smoke_runtime.py)
 
 Executa validacao end-to-end por HTTP real contra o gateway.
 
@@ -68,10 +68,10 @@ python scripts/smoke_runtime.py
 
 Arquivos:
 
-- [critical-path.spec.ts](file:///home/jistriane/Ontracktchain/ontrackchain/apps/frontend/tests/e2e/critical-path.spec.ts)
-- [compliance-flows.spec.ts](file:///home/jistriane/Ontracktchain/ontrackchain/apps/frontend/tests/e2e/compliance-flows.spec.ts)
-- [ui-home.spec.ts](file:///home/jistriane/Ontracktchain/ontrackchain/apps/frontend/tests/e2e/ui-home.spec.ts)
-- [api-consumer.spec.ts](file:///home/jistriane/Ontracktchain/ontrackchain/apps/frontend/tests/e2e/api-consumer.spec.ts)
+- [critical-path.spec.ts](../apps/frontend/tests/e2e/critical-path.spec.ts)
+- [compliance-flows.spec.ts](../apps/frontend/tests/e2e/compliance-flows.spec.ts)
+- [ui-home.spec.ts](../apps/frontend/tests/e2e/ui-home.spec.ts)
+- [api-consumer.spec.ts](../apps/frontend/tests/e2e/api-consumer.spec.ts)
 
 ### Cobertura relevante
 
@@ -105,8 +105,8 @@ npx playwright test tests/e2e/critical-path.spec.ts tests/e2e/compliance-flows.s
 
 Workflows:
 
-- [e2e-tests.yml](file:///home/jistriane/Ontracktchain/ontrackchain/.github/workflows/e2e-tests.yml)
-- [quality-gates.yml](file:///home/jistriane/Ontracktchain/ontrackchain/.github/workflows/quality-gates.yml)
+- [e2e-tests.yml](../.github/workflows/e2e-tests.yml)
+- [quality-gates.yml](../.github/workflows/quality-gates.yml)
 
 ### O que a pipeline faz
 

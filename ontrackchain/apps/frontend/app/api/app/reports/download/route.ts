@@ -22,7 +22,7 @@ export async function GET(request: Request) {
         headers: { "content-type": "application/json" }
       });
     }
-    if (twofa !== "ok") {
+    if (twofa !== "ok" && twofa !== "managed_externally_homologated") {
       return new Response(JSON.stringify({ detail: "2fa_required" }), {
         status: 403,
         headers: { "content-type": "application/json" }

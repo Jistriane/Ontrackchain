@@ -34,7 +34,7 @@ Essa ordem impacta:
 
 ## Investigacao — Limites por Chain
 
-Fonte: [main.py](file:///home/jistriane/Ontracktchain/ontrackchain/apps/investigation-api/src/investigation_api/main.py)
+Fonte: [main.py](../apps/investigation-api/src/investigation_api/main.py)
 
 ### EVM (`ethereum`, `polygon`, `bsc`, `arbitrum`, `base`)
 
@@ -62,7 +62,7 @@ Observacao:
 
 ## Investigacao — Concorrencia MVP
 
-Fonte: [agent_concurrency.py](file:///home/jistriane/Ontracktchain/ontrackchain/apps/investigation-api/src/investigation_api/config/agent_concurrency.py)
+Fonte: [agent_concurrency.py](../apps/investigation-api/src/investigation_api/config/agent_concurrency.py)
 
 | Plano | Max investigacoes concorrentes |
 |---|---:|
@@ -85,7 +85,7 @@ Comportamento esperado:
 
 ## Catalogo de Report Types
 
-Fonte: [main.py](file:///home/jistriane/Ontracktchain/ontrackchain/apps/investigation-api/src/investigation_api/main.py)
+Fonte: [main.py](../apps/investigation-api/src/investigation_api/main.py)
 
 | Canonico | Min Plan | Formato | Observacao |
 |---|---|---|---|
@@ -108,7 +108,7 @@ Fonte: [main.py](file:///home/jistriane/Ontracktchain/ontrackchain/apps/investig
 
 ## Compliance — Operacoes
 
-Fonte: [main.py](file:///home/jistriane/Ontracktchain/ontrackchain/apps/compliance-api/src/compliance_api/main.py)
+Fonte: [main.py](../apps/compliance-api/src/compliance_api/main.py)
 
 | Canonico | Min Plan | Formato | Referencia |
 |---|---|---|---|
@@ -126,7 +126,7 @@ Fonte: [main.py](file:///home/jistriane/Ontracktchain/ontrackchain/apps/complian
 
 ## Monitoring — Operacoes
 
-Fonte: [main.py](file:///home/jistriane/Ontracktchain/ontrackchain/apps/monitoring-api/src/monitoring_api/main.py)
+Fonte: [main.py](../apps/monitoring-api/src/monitoring_api/main.py)
 
 | Canonico | Min Plan | Duracao | Formato |
 |---|---|---|---|
@@ -178,6 +178,6 @@ O plano considerado no `quote` precisa permanecer valido no `start`.
 
 ## Recomendacoes
 
-- usar este documento junto com [api-contracts.md](file:///home/jistriane/Ontracktchain/ontrackchain/docs/api-contracts.md)
+- usar este documento junto com [api-contracts.md](api-contracts.md)
 - manter atualizacao sincronizada sempre que houver mudanca em catalogo ou limites
 - no futuro, centralizar esse conhecimento em endpoint/versionamento de produto

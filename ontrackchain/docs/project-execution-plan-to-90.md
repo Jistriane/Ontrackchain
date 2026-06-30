@@ -12,9 +12,9 @@ para:
 
 Este documento complementa:
 
-- [Avaliacao de Maturidade do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-maturity-assessment.md)
-- [Board de Prioridades do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-priority-board.md)
-- [Readiness Regulatorio](file:///home/jistriane/Ontracktchain/ontrackchain/docs/regulatory-readiness.md)
+- [Avaliacao de Maturidade do Projeto](./project-maturity-assessment.md)
+- [Board de Prioridades do Projeto](./project-priority-board.md)
+- [Readiness Regulatorio](./regulatory-readiness.md)
 
 ## Meta Executiva
 
@@ -30,6 +30,23 @@ Condicoes para considerar a meta atingida:
 - retention, backup/restore e exportacao segura de evidencias definidos e testados
 - pipeline com gates adicionais de qualidade, schema e seguranca
 - operacao com runbooks e capacidade de diagnostico mais madura
+
+## Plano de Continuidade (Proximas 2 Semanas)
+
+Prioridade unica: encerrar os bloqueadores de credibilidade de `staging` serio antes de abrir novas features.
+
+Entregas foco:
+
+- `Auth/OIDC`: executar o fluxo `OIDC` fora de `local|test` com segredos nao-dev e sem `localhost` em URLs publicas.
+- `MFA serio`: decidir e homologar o caminho de segundo fator em ambiente serio para fluxos sensiveis (delegado ao IdP ou equivalente operacional).
+- `Providers`: preparar e validar credenciais/URLs reais de AML/KYT e RPC com readiness e degradacao honesta.
+- `Evidencia`: executar pelo menos uma janela seria completa com `run_staging_window.py`, gerando dossier anexavel e go/no-go.
+
+Critério objetivo de Go/No-Go:
+
+- smoke + Playwright continuam verdes
+- preflights serios bloqueiam defaults inseguros e placeholders
+- dossier final contem checks, homologacao e manifestos coerentes
 
 ## Estrategia de Execucao
 
@@ -344,7 +361,7 @@ Leitura do estado atual:
 
 Template operacional:
 
-- ver [keycloak-oidc-template.md](file:///home/jistriane/Ontracktchain/ontrackchain/docs/keycloak-oidc-template.md) para checklist de realm, client, claims, redirects e variaveis de ambiente prontas para preenchimento
+- ver [keycloak-oidc-template.md](./keycloak-oidc-template.md) para checklist de realm, client, claims, redirects e variaveis de ambiente prontas para preenchimento
 
 ##### Bloqueadores Externos da Sprint 1
 

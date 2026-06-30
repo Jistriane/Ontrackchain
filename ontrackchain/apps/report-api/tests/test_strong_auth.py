@@ -15,6 +15,7 @@ class StrongAuthForLegalReportTests(unittest.TestCase):
             x_role="ADMIN",
             x_2fa="ok",
             x_mfa_mode="local_totp",
+            x_mfa_provider_homologated=None,
         )
 
     def test_rejects_oidc_mfa_until_homologated(self) -> None:
@@ -24,6 +25,7 @@ class StrongAuthForLegalReportTests(unittest.TestCase):
                 x_role="ADMIN",
                 x_2fa="managed_externally",
                 x_mfa_mode="external_provider",
+                x_mfa_provider_homologated="false",
             )
 
         self.assertEqual(ctx.exception.status_code, 403)
@@ -36,10 +38,20 @@ class StrongAuthForLegalReportTests(unittest.TestCase):
                 x_role="ADMIN",
                 x_2fa="pending",
                 x_mfa_mode="local_totp",
+                x_mfa_provider_homologated=None,
             )
 
         self.assertEqual(ctx.exception.status_code, 403)
         self.assertEqual(ctx.exception.detail, "2fa_required")
+
+    def test_accepts_homologated_oidc_mfa(self) -> None:
+        _require_strong_auth_for_legal_report(
+            x_auth_method="jwt",
+            x_role="ADMIN",
+            x_2fa="managed_externally_homologated",
+            x_mfa_mode="external_provider",
+            x_mfa_provider_homologated="true",
+        )
 
 
 if __name__ == "__main__":

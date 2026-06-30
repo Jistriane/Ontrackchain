@@ -13,12 +13,12 @@ Consolidar os principais riscos tecnicos, operacionais e regulatorios do Ontrack
 
 Este documento complementa:
 
-- [Avaliacao de Maturidade do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-maturity-assessment.md)
-- [Plano de Execucao para 90%](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-execution-plan-to-90.md)
-- [Board de Prioridades do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-priority-board.md)
-- [Gates de Release para Staging Serio](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-release-gates.md)
-- [Readiness Regulatorio](file:///home/jistriane/Ontracktchain/ontrackchain/docs/regulatory-readiness.md)
-- [Plano Operacional Trimestral para 95%](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-operational-plan-to-95.md)
+- [Avaliacao de Maturidade do Projeto](project-maturity-assessment.md)
+- [Plano de Execucao para 90%](project-execution-plan-to-90.md)
+- [Board de Prioridades do Projeto](project-priority-board.md)
+- [Gates de Release para Staging Serio](project-release-gates.md)
+- [Readiness Regulatorio](regulatory-readiness.md)
+- [Plano Operacional Trimestral para 95%](project-operational-plan-to-95.md)
 
 ## Resumo Executivo
 

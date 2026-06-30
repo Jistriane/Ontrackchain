@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.cookiejar
 import importlib.util
 import io
 import json
@@ -10,6 +11,7 @@ import os
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from contextlib import redirect_stderr, redirect_stdout
@@ -114,6 +116,60 @@ def request_json(
                 continue
             return 599, {"error": str(exc)}, {}
     return 599, {"error": "unexpected_retry_exit"}, {}
+
+
+def request_opener_json(
+    *,
+    opener,
+    base_url: str,
+    method: str,
+    path: str,
+    headers: dict[str, str],
+    data: dict[str, Any] | None = None,
+) -> tuple[int, dict[str, Any], dict[str, str]]:
+    body = None if data is None else json.dumps(data).encode("utf-8")
+    req = urllib.request.Request(f"{base_url}{path}", data=body, headers=headers, method=method)
+    for attempt in range(4):
+        try:
+            with opener.open(req) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+                return response.status, payload, dict(response.headers)
+        except urllib.error.HTTPError as exc:
+            raw = exc.read().decode("utf-8")
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError:
+                payload = {"raw": raw}
+            return exc.code, payload, dict(exc.headers)
+        except urllib.error.URLError as exc:
+            if attempt < 3:
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            return 599, {"error": str(exc)}, {}
+    return 599, {"error": "unexpected_retry_exit"}, {}
+
+
+def request_opener_raw(
+    *,
+    opener,
+    base_url: str,
+    method: str,
+    path: str,
+    headers: dict[str, str],
+) -> tuple[int, bytes, dict[str, str]]:
+    req = urllib.request.Request(f"{base_url}{path}", data=None, headers=headers, method=method)
+    for attempt in range(4):
+        try:
+            with opener.open(req) as response:
+                return response.status, response.read(), dict(response.headers)
+        except urllib.error.HTTPError as exc:
+            return exc.code, exc.read(), dict(exc.headers)
+        except urllib.error.URLError as exc:
+            if attempt < 3:
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            return 599, str(exc).encode("utf-8"), {}
+    return 599, b"unexpected_retry_exit", {}
 
 
 def load_module(module_name: str, relative_path: str):
@@ -432,6 +488,152 @@ def run_rpc_homologation(
     }
 
 
+def run_oidc_legal_report_homologation(
+    *,
+    base_url: str,
+    oidc_token: str,
+) -> dict[str, Any]:
+    errors: list[str] = []
+    login_request_id = os.getenv("ONTRACKCHAIN_HOMOLOGATION_OIDC_LOGIN_REQUEST_ID") or f"homologation-oidc-login-{uuid.uuid4().hex[:12]}"
+    generate_request_id = os.getenv("ONTRACKCHAIN_HOMOLOGATION_OIDC_GENERATE_REQUEST_ID") or f"homologation-oidc-generate-{uuid.uuid4().hex[:12]}"
+    download_request_id = os.getenv("ONTRACKCHAIN_HOMOLOGATION_OIDC_DOWNLOAD_REQUEST_ID") or f"homologation-oidc-download-{uuid.uuid4().hex[:12]}"
+    case_id = os.getenv("ONTRACKCHAIN_HOMOLOGATION_OIDC_LEGAL_CASE_ID") or f"oidc-legal-{uuid.uuid4().hex[:12]}"
+
+    bearer_headers = {
+        "content-type": "application/json",
+        "Authorization": f"Bearer {oidc_token}",
+    }
+    jar = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+
+    config_status, config_payload, _ = request_json(
+        base_url=base_url,
+        method="GET",
+        path="/auth/config",
+        headers={"content-type": "application/json"},
+    )
+    session_status, session_payload, _ = request_opener_json(
+        opener=opener,
+        base_url=base_url,
+        method="POST",
+        path="/api/session/start",
+        headers={"content-type": "application/json", "X-Request-Id": login_request_id},
+        data={"token": oidc_token},
+    )
+    generated_status, generated_payload, _ = request_json(
+        base_url=base_url,
+        method="POST",
+        path="/api/v1/reports/generate",
+        headers={**bearer_headers, "X-Request-Id": generate_request_id},
+        data={"case_id": case_id, "report_type": "legal_report", "include_onchain_hash": False},
+    )
+
+    report_id = generated_payload.get("report_id")
+    created_at = generated_payload.get("created_at")
+    expected_hash = generated_payload.get("file_hash_sha256")
+    download_status = None
+    download_headers: dict[str, str] = {}
+    downloaded_hash = None
+    evidence_status = None
+    evidence_payload: dict[str, Any] = {}
+    download_content_length = 0
+
+    if report_id and created_at:
+        query = urllib.parse.urlencode(
+            {
+                "report_id": report_id,
+                "case_id": case_id,
+                "report_type": "legal_report",
+                "created_at": created_at,
+            }
+        )
+        download_status, content, download_headers = request_opener_raw(
+            opener=opener,
+            base_url=base_url,
+            method="GET",
+            path=f"/api/app/reports/download?{query}",
+            headers={"X-Request-Id": download_request_id},
+        )
+        download_content_length = len(content)
+        downloaded_hash = hashlib.sha256(content).hexdigest() if download_status == 200 else None
+
+        evidence_status, evidence_payload, _ = request_json(
+            base_url=base_url,
+            method="POST",
+            path="/api/v1/audit/evidence-export",
+            headers={**bearer_headers, "X-Request-Id": download_request_id},
+            data={
+                "request_id": download_request_id,
+                "resource_type": "report",
+                "limit": 100,
+                "include_audit_logs": True,
+                "include_credit_ledger": False,
+                "include_reports": True,
+            },
+        )
+
+    cookie_snapshot = {cookie.name: cookie.value for cookie in jar}
+    audit_count = (((evidence_payload.get("sections") or {}).get("audit_logs") or {}).get("count")) if evidence_payload else None
+
+    if config_status != 200:
+        errors.append(f"auth-config: esperado HTTP 200, recebido {config_status}")
+    if ((config_payload.get("mfa") or {}).get("provider_homologated")) is not True:
+        errors.append("auth-config: esperado mfa.provider_homologated=true")
+    if session_status != 200:
+        errors.append(f"oidc-session-start: esperado HTTP 200, recebido {session_status}")
+    if session_payload.get("authMode") != "oidc":
+        errors.append(f"oidc-session-start: esperado authMode=oidc, recebido={session_payload.get('authMode')}")
+    if cookie_snapshot.get("otc_2fa") != "managed_externally_homologated":
+        errors.append(
+            "oidc-session-start: esperado cookie otc_2fa=managed_externally_homologated, "
+            f"recebido={cookie_snapshot.get('otc_2fa')}"
+        )
+    if generated_status != 200:
+        errors.append(f"legal-report-generate: esperado HTTP 200, recebido {generated_status}")
+    if not report_id:
+        errors.append("legal-report-generate: report_id ausente")
+    if not created_at:
+        errors.append("legal-report-generate: created_at ausente")
+    if not expected_hash:
+        errors.append("legal-report-generate: file_hash_sha256 ausente")
+    if download_status != 200:
+        errors.append(f"legal-report-download: esperado HTTP 200, recebido {download_status}")
+    if expected_hash and downloaded_hash != expected_hash:
+        errors.append(
+            "legal-report-download: hash divergente "
+            f"expected={expected_hash} computed={downloaded_hash}"
+        )
+    if evidence_status != 200:
+        errors.append(f"legal-report-evidence-export: esperado HTTP 200, recebido {evidence_status}")
+    if not audit_count:
+        errors.append("legal-report-evidence-export: esperado pelo menos um audit_log correlacionado ao request_id")
+
+    return {
+        "mode": "oidc_legal_report",
+        "request_id": download_request_id,
+        "session_request_id": login_request_id,
+        "generate_request_id": generate_request_id,
+        "case_id": case_id,
+        "report_id": report_id,
+        "status": "ok" if not errors else "failed",
+        "errors": errors,
+        "checks": {
+            "auth_config": {"http_status": config_status, "payload": config_payload},
+            "session_start": {"http_status": session_status, "payload": session_payload, "cookies": cookie_snapshot},
+            "report_generate": {"http_status": generated_status, "payload": generated_payload},
+            "report_download": {
+                "http_status": download_status,
+                "content_length": download_content_length,
+                "content_type": download_headers.get("Content-Type") or download_headers.get("content-type"),
+                "content_disposition": download_headers.get("Content-Disposition")
+                or download_headers.get("content-disposition"),
+                "downloaded_hash": downloaded_hash,
+            },
+            "evidence_export": {"http_status": evidence_status, "payload": evidence_payload},
+        },
+    }
+
+
 def write_artifacts(*, payload: dict[str, Any], mode: str, output_dir: Path) -> tuple[Path, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     stamp = utc_stamp()
@@ -453,6 +655,9 @@ def write_artifacts(*, payload: dict[str, Any], mode: str, output_dir: Path) -> 
             "compliance_request_id": ((payload.get("runs") or {}).get("compliance") or {}).get("request_id"),
             "rpc_request_id": ((payload.get("runs") or {}).get("rpc") or {}).get("request_id"),
             "rpc_case_id": ((payload.get("runs") or {}).get("rpc") or {}).get("case_id"),
+            "oidc_legal_report_request_id": ((payload.get("runs") or {}).get("oidc_legal_report") or {}).get("request_id"),
+            "oidc_legal_report_case_id": ((payload.get("runs") or {}).get("oidc_legal_report") or {}).get("case_id"),
+            "oidc_legal_report_report_id": ((payload.get("runs") or {}).get("oidc_legal_report") or {}).get("report_id"),
         },
     }
     manifest_path = output_dir / f"{artifact_path.name}.manifest.json"
@@ -494,6 +699,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--poll-seconds", type=float, default=float(os.getenv("ONTRACKCHAIN_HOMOLOGATION_POLL_SECONDS", "1.5")))
     parser.add_argument("--output-dir", default=os.getenv("ONTRACKCHAIN_HOMOLOGATION_OUTPUT_DIR", str(DEFAULT_OUTPUT_DIR)))
     parser.add_argument("--skip-preflight", action="store_true")
+    parser.add_argument(
+        "--include-oidc-legal-report",
+        action="store_true",
+        default=os.getenv("MFA_EXTERNAL_PROVIDER_HOMOLOGATED", "false").strip().lower() in {"1", "true", "yes", "on"},
+    )
+    parser.add_argument("--oidc-token", default=os.getenv("ONTRACKCHAIN_HOMOLOGATION_OIDC_TOKEN", ""))
     return parser.parse_args()
 
 
@@ -549,6 +760,19 @@ def main() -> int:
                 poll_seconds=args.poll_seconds,
             )
             payload["errors"].extend(payload["runs"]["rpc"]["errors"])
+        if args.include_oidc_legal_report:
+            if not args.oidc_token.strip():
+                payload["runs"]["oidc_legal_report"] = {
+                    "mode": "oidc_legal_report",
+                    "status": "failed",
+                    "errors": ["oidc-token-ausente: definir ONTRACKCHAIN_HOMOLOGATION_OIDC_TOKEN para validar legal_report homologado"],
+                }
+            else:
+                payload["runs"]["oidc_legal_report"] = run_oidc_legal_report_homologation(
+                    base_url=args.base_url,
+                    oidc_token=args.oidc_token.strip(),
+                )
+            payload["errors"].extend(payload["runs"]["oidc_legal_report"]["errors"])
     except Exception as exc:  # noqa: BLE001
         payload["errors"].append(f"execucao_inesperada: {exc}")
 

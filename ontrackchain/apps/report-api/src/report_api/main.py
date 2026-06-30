@@ -113,13 +113,19 @@ def _require_strong_auth_for_legal_report(
     x_role: Optional[str],
     x_2fa: Optional[str],
     x_mfa_mode: Optional[str],
+    x_mfa_provider_homologated: Optional[str],
 ) -> None:
     if (x_auth_method or "").lower() not in {"jwt", "dev_jwt"}:
         raise HTTPException(status_code=403, detail="legal_report_requires_jwt_auth")
     if (x_role or "").upper() not in {"ADMIN"}:
         raise HTTPException(status_code=403, detail="legal_report_requires_admin_role")
-    if (x_mfa_mode or "").lower() == "external_provider":
-        raise HTTPException(status_code=403, detail="mfa_not_homologated_for_oidc")
+    normalized_mfa_mode = (x_mfa_mode or "").lower()
+    if normalized_mfa_mode == "external_provider":
+        if (x_mfa_provider_homologated or "").lower() != "true":
+            raise HTTPException(status_code=403, detail="mfa_not_homologated_for_oidc")
+        if x_2fa not in {"managed_externally", "managed_externally_homologated", "ok"}:
+            raise HTTPException(status_code=403, detail="2fa_required")
+        return
     if x_2fa != "ok":
         raise HTTPException(status_code=403, detail="2fa_required")
 
@@ -497,9 +503,83 @@ async def generate_report(body: GenerateReportRequest) -> GenerateReportResponse
     )
 
 
-@app.get("/api/v1/reports/{report_id}")
-async def get_report(report_id: str) -> dict:
-    raise HTTPException(status_code=404, detail="not_implemented")
+@app.get("/api/v1/reports/{report_id}", response_model=GenerateReportResponse)
+async def get_report(
+    report_id: str,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_auth_method: Optional[str] = Header(default=None, alias="X-Auth-Method"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+    x_2fa: Optional[str] = Header(default=None, alias="X-2FA"),
+    x_mfa_mode: Optional[str] = Header(default=None, alias="X-MFA-Mode"),
+    x_mfa_provider_homologated: Optional[str] = Header(default=None, alias="X-MFA-Provider-Homologated"),
+) -> GenerateReportResponse:
+    if not x_org_id:
+        raise HTTPException(status_code=401, detail="missing_org_context")
+
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                  external_report_id,
+                  case_id,
+                  report_type_requested,
+                  report_type,
+                  content_type,
+                  file_hash,
+                  onchain_hash,
+                  created_at
+                FROM reports
+                WHERE external_report_id = %s
+                """,
+                (report_id,),
+            )
+            row = cur.fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="report_not_found")
+
+    report_type = row.get("report_type") or row.get("report_type_requested")
+    if not report_type:
+        raise HTTPException(status_code=409, detail="report_missing_type")
+
+    if report_type == "legal_report":
+        _require_strong_auth_for_legal_report(
+            x_auth_method=x_auth_method,
+            x_role=x_role,
+            x_2fa=x_2fa,
+            x_mfa_mode=x_mfa_mode,
+            x_mfa_provider_homologated=x_mfa_provider_homologated,
+        )
+
+    created_at = row.get("created_at")
+    if isinstance(created_at, datetime):
+        created_at_value = created_at.astimezone(timezone.utc).isoformat()
+    else:
+        created_at_value = str(created_at) if created_at else ""
+
+    case_id = row.get("case_id")
+    if not case_id:
+        raise HTTPException(status_code=409, detail="report_missing_case_id")
+
+    file_hash = row.get("file_hash")
+    if not file_hash:
+        raise HTTPException(status_code=409, detail="report_missing_hash")
+
+    content_type = row.get("content_type") or "application/pdf"
+
+    return GenerateReportResponse(
+        report_id=row.get("external_report_id") or report_id,
+        case_id=str(case_id),
+        report_type_requested=row.get("report_type_requested") or report_type,
+        report_type=report_type,
+        created_at=created_at_value,
+        file_hash_sha256=file_hash,
+        onchain_hash=row.get("onchain_hash"),
+        content_type=content_type,
+    )
 
 
 @app.get("/api/v1/reports/{report_id}/download")
@@ -517,6 +597,7 @@ async def download_report(
     x_role: Optional[str] = Header(default=None, alias="X-Role"),
     x_2fa: Optional[str] = Header(default=None, alias="X-2FA"),
     x_mfa_mode: Optional[str] = Header(default=None, alias="X-MFA-Mode"),
+    x_mfa_provider_homologated: Optional[str] = Header(default=None, alias="X-MFA-Provider-Homologated"),
 ) -> Response:
     canonical_report_type, _ = resolve_report_type(report_type)
     expected_report_id = _compute_report_id(case_id, canonical_report_type)
@@ -528,6 +609,7 @@ async def download_report(
             x_role=x_role,
             x_2fa=x_2fa,
             x_mfa_mode=x_mfa_mode,
+            x_mfa_provider_homologated=x_mfa_provider_homologated,
         )
     content = _build_pdf_bytes(case_id=case_id, report_type=canonical_report_type, created_at=created_at)
     file_hash_sha256 = hashlib.sha256(content).hexdigest()

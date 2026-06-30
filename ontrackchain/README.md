@@ -72,6 +72,11 @@ Entregar uma base operacional para:
 - Dados: `PostgreSQL` com `RLS` como default e `Redis` para fila/cache onde aplicável.
 - Observabilidade: `Prometheus -> Alertmanager -> monitoring-api`, com UI de triagem e export auditado.
 - Governança: `scripts/` geram checks, manifests e dossier anexável para janelas sérias de `staging`.
+- Pós-processamento local da janela séria agora pode ser feito com `make postprocess-serious-window RUN_URL=<github-actions-run-url>`.
+- Onboarding rápido do rito: `make prepare-serious-window-dispatch WINDOW_ID=stg-2026-07-06-a` e `make postprocess-serious-window-dry-run RUN_URL=<github-actions-run-url>`.
+- Preparação completa do disparo real: `make prepare-serious-window-dispatch WINDOW_ID=stg-2026-07-06-a`.
+- Preflight local do disparo real: `make preflight-serious-window-dispatch WINDOW_ID=stg-2026-07-06-a`.
+- Pacote copy/paste do disparo real: `make render-serious-window-dispatch-packet WINDOW_ID=stg-2026-07-06-a`.
 
 ## Navegação Rápida
 

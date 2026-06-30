@@ -12,7 +12,7 @@ Mesmo assim, a prontidao regulatoria continua travada porque faltam:
 
 ## Decisao
 
-Adotar uma baseline de retention e recovery publicada em [retention-and-recovery-policy.md](file:///home/jistriane/Ontracktchain/ontrackchain/docs/retention-and-recovery-policy.md), com os seguintes principios:
+Adotar uma baseline de retention e recovery publicada em [retention-and-recovery-policy.md](../retention-and-recovery-policy.md), com os seguintes principios:
 
 - `audit_logs` e evidencias regulatorias entram em classe critica
 - a politica define retention online, retention arquivada e regra de descarte

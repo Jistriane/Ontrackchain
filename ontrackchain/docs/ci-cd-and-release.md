@@ -8,8 +8,9 @@ Documentar o pipeline atual de validacao automatizada e o processo recomendado d
 
 Workflow existente:
 
-- [e2e-tests.yml](file:///home/jistriane/Ontracktchain/ontrackchain/.github/workflows/e2e-tests.yml)
-- [quality-gates.yml](file:///home/jistriane/Ontracktchain/ontrackchain/.github/workflows/quality-gates.yml)
+- [e2e-tests.yml](../.github/workflows/e2e-tests.yml)
+- [quality-gates.yml](../.github/workflows/quality-gates.yml)
+- [staging-serious-window.yml](../.github/workflows/staging-serious-window.yml)
 
 Nome:
 
@@ -26,6 +27,15 @@ Jobs atuais:
 - `playwright`
 - `frontend-typecheck`
 - `python-quality`
+
+Workflow manual dedicado:
+
+- `Staging Serious Window`
+- disparo via `workflow_dispatch`
+- exige `GitHub Environment` com aprovacoes e secret `STAGING_WINDOW_PRIVATE_ENV`
+- executa `python scripts/prepare_staging_window.py --window-id <janela> --mode <baseline|homologated> --run`
+- publica `checks`, `dossiers`, `window packet`, templates redigidos e evidencias de homologacao como artefato anexavel
+- configuracao operacional detalhada em [GitHub Environment para Staging Sério](github-environment-staging-serious.md)
 
 ## O que a Pipeline Faz
 
@@ -152,15 +162,15 @@ npx playwright test
 
 ### Cobertura adicional ja institucionalizada
 
-- drift de schema e coerencia entre migrations via [check_postgres_schema.py](file:///home/jistriane/Ontracktchain/ontrackchain/scripts/check_postgres_schema.py)
-- baseline de seguranca contra placeholders/defaults via [check_security_baseline.py](file:///home/jistriane/Ontracktchain/ontrackchain/scripts/check_security_baseline.py)
+- drift de schema e coerencia entre migrations via [check_postgres_schema.py](../scripts/check_postgres_schema.py)
+- baseline de seguranca contra placeholders/defaults via [check_security_baseline.py](../scripts/check_security_baseline.py)
 - regressao de preflights, homologacao, `window packet`, `release dossier` e `staging window runner`
 
 ## Workflow `quality-gates`
 
 ### Security Baseline
 
-- executa [check_security_baseline.py](file:///home/jistriane/Ontracktchain/ontrackchain/scripts/check_security_baseline.py)
+- executa [check_security_baseline.py](../scripts/check_security_baseline.py)
 - bloqueia placeholders/secrets de demo fora da allowlist explicita do projeto
 - protege especialmente contra reintroducao acidental de `change-me`, `default TOTP secret`, hashes fake e blocos de private key em caminhos sensiveis
 
@@ -170,7 +180,9 @@ npx playwright test
   - `check_staging_env_placeholders.py`
   - `check_staging_env_ownership_coverage.py`
   - `check_staging_env_handoff.py`
+  - `render_staging_private_env_templates.py`
   - `render_staging_window_packet.py`
+  - `prepare_staging_window.py`
   - `build_staging_release_dossier.py`
   - `run_staging_window.py`
   - `preflight_oidc_serious_env.py`
@@ -182,22 +194,22 @@ npx playwright test
 
 - instala dependencias do frontend com `npm ci`
 - executa `npm audit --omit=dev --audit-level=critical`
-- usa o frontend atualizado para [package.json](file:///home/jistriane/Ontracktchain/ontrackchain/apps/frontend/package.json) e [package-lock.json](file:///home/jistriane/Ontracktchain/ontrackchain/apps/frontend/package-lock.json)
+- usa o frontend atualizado para [package.json](../apps/frontend/package.json) e [package-lock.json](../apps/frontend/package-lock.json)
 - criterio bloqueante atual: apenas `critical`
 - findings `high` conhecidos do ecossistema `Next.js` permanecem sinalizados como backlog de upgrade major e nao bloqueiam este gate inicial
 
 ### Postgres Schema
 
-- executa [check_postgres_schema.py](file:///home/jistriane/Ontracktchain/ontrackchain/scripts/check_postgres_schema.py)
+- executa [check_postgres_schema.py](../scripts/check_postgres_schema.py)
 - valida numeração contínua das migrations
 - valida que `README.md` referencia todas as migrations atuais
-- valida que contratos de schema introduzidos em `infra/postgres/migrations/*.sql` também existem em [init.sql](file:///home/jistriane/Ontracktchain/ontrackchain/infra/postgres/init.sql)
+- valida que contratos de schema introduzidos em `infra/postgres/migrations/*.sql` também existem em [init.sql](../infra/postgres/init.sql)
 
 ### Frontend Typecheck
 
 - instala dependencias do frontend com `npm ci`
 - executa `npm run typecheck`
-- usa [package.json](file:///home/jistriane/Ontracktchain/ontrackchain/apps/frontend/package.json) com `tsc -p tsconfig.json --noEmit`
+- usa [package.json](../apps/frontend/package.json) com `tsc -p tsconfig.json --noEmit`
 
 ### Python Quality
 
@@ -212,11 +224,91 @@ npx playwright test
   - `packages/agents`
 - instala `ruff`
 - roda `ruff check --select F,E9`
-- roda [check_python_app.py](file:///home/jistriane/Ontracktchain/ontrackchain/scripts/check_python_app.py) para validação sintática localizável por app
+- roda [check_python_app.py](../scripts/check_python_app.py) para validação sintática localizável por app
 
 Objetivo:
 
 - transformar `P1-05` em gate real e preparar `P1-06` e `P1-07` sobre uma base de qualidade mínima por componente
+
+## Workflow `staging-serious-window`
+
+### Proposito do workflow
+
+- executar a janela séria em trilho controlado de CI/CD, sem depender de shell local e sem versionar `.env.staging.private`
+
+### Quando usar
+
+- apos merge ou cut controlado que precise de evidência oficial de `staging`
+- quando a janela exigir aprovação manual antes de tocar providers reais
+- quando o sign-off precisar de artefatos anexáveis produzidos pelo runner oficial
+
+### Entradas obrigatorias
+
+- `window_id`: identificador operacional da janela, no formato `stg-YYYY-MM-DD-x`
+- `mode`: `baseline` ou `homologated`
+- `environment_name`: `GitHub Environment` que centraliza aprovacoes e o secret `STAGING_WINDOW_PRIVATE_ENV`
+
+### Preparacao local recomendada antes do disparo
+
+Antes de abrir o `workflow_dispatch`, preparar o rito com:
+
+```bash
+make prepare-serious-window-dispatch \
+  WINDOW_ID="stg-2026-07-06-a"
+```
+
+### Sequencia executada
+
+1. faz `checkout` do repositorio
+2. prepara `ci-artifacts/`
+3. valida que o secret `STAGING_WINDOW_PRIVATE_ENV` existe no `GitHub Environment`
+4. materializa `.env.staging.private` apenas no runner efemero
+5. executa `python scripts/prepare_staging_window.py --window-id <janela> --mode <modo> --run`
+6. publica artefato unico contendo:
+   - `ci-artifacts/prepare-staging-window-output.json`
+   - `ci-artifacts/staging-serious-window-signoff.md`
+   - `artifacts/staging/checks/`
+   - `artifacts/staging/dossiers/`
+   - `artifacts/staging/templates/`
+   - `artifacts/staging/window-packet-<janela>.md`
+   - `artifacts/homologation/`
+
+### Pos-processamento local recomendado
+
+Depois de baixar o artifact do workflow, executar o pos-processamento local completo com:
+
+```bash
+make postprocess-serious-window-dry-run \
+  RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
+make postprocess-serious-window \
+  RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
+```
+
+O comando acima:
+
+- atualiza `ci-artifacts/staging-serious-window-signoff.md`
+- gera o sign-off versionado em `docs/governance-weekly/`
+- sincroniza o registro semanal da mesma janela
+
+Se precisar executar os passos separadamente:
+
+```bash
+python scripts/render_staging_window_signoff.py \
+  --payload-file ci-artifacts/prepare-staging-window-output.json \
+  --output-file ci-artifacts/staging-serious-window-signoff.md \
+  --governance-weekly-dir docs/governance-weekly
+
+python scripts/render_staging_window_weekly_governance.py \
+  --payload-file ci-artifacts/prepare-staging-window-output.json \
+  --governance-weekly-dir docs/governance-weekly \
+  --run-url "https://github.com/<org>/<repo>/actions/runs/<run_id>"
+```
+
+### Controles de seguranca
+
+- o secret nao e publicado como artefato nem escrito em documentação
+- aprovacoes podem ser forçadas pelo proprio `GitHub Environment`
+- a execucao falha cedo quando o secret da janela nao esta presente ou quando `validate/preflight/run` retornam erro
 
 ## Estrategia de Release Recomendada
 
@@ -335,11 +427,11 @@ job 7: smoke pos-deploy
 
 - CI ainda rebuilda a stack em runners diferentes
 - a promocao tecnica automatizada ainda usa trilho `dev-compatible` para cobrir o smoke runtime
-- a janela séria de `staging` já possui runner único, mas a execução real ainda depende de segredos e providers externos homologados
+- a janela séria de `staging` agora possui workflow dedicado, mas a execucao real ainda depende de providers externos homologados e da qualidade do secret entregue ao `GitHub Environment`
 
 ## Recomendacao Imediata
 
 O proximo passo mais valioso para CI/CD e:
 
 - reduzir duplicacao entre jobs com imagem/cache ou compose reaproveitavel
-- executar `run_staging_window.py` em ambiente sério controlado, anexando o dossier como evidência oficial de release
+- promover `staging-serious-window.yml` a rito oficial da janela regulatoria, anexando o artefato `serious-staging-window-<janela>` como evidência oficial de release

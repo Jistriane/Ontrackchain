@@ -82,6 +82,11 @@ Entregar uma base operacional para:
   - [Billing por Créditos (MVP)](#diagram-billing)
   - [Trilha de Auditoria (request_id)](#diagram-audit)
 - Docs operacionais: [Índice de Documentação](./ontrackchain/docs/README.md)
+- Preparação completa do disparo real pela raiz: `make prepare-serious-window-dispatch WINDOW_ID=stg-2026-07-06-a`
+- Preflight do disparo real pela raiz: `make preflight-serious-window-dispatch WINDOW_ID=stg-2026-07-06-a`
+- Pacote copy/paste do disparo real pela raiz: `make render-serious-window-dispatch-packet WINDOW_ID=stg-2026-07-06-a`
+- Fechamento oficial da janela pela raiz: `make postprocess-serious-window RUN_URL=<github-actions-run-url>`
+- Ajuda complementar da raiz: `make help-serious-window`
 
 <a id="diagram-project"></a>
 ## Diagrama de Fluxo do Projeto
@@ -123,7 +128,6 @@ flowchart LR
   rep --> pg
 
   inv --> redis
-  rep --> redis
 
   subgraph external[Integrações Externas]
     trm[AML-KYT Provider TRM]
@@ -378,6 +382,17 @@ docker compose up -d --build
 cd ontrackchain
 python scripts/smoke_runtime.py
 cd apps/frontend && npx playwright test tests/e2e/critical-path.spec.ts tests/e2e/compliance-flows.spec.ts
+```
+
+### 2.1. Preparar e fechar a janela séria a partir da raiz
+
+```bash
+make prepare-serious-window-dispatch \
+  WINDOW_ID="stg-2026-07-06-a"
+make postprocess-serious-window-dry-run \
+  RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
+make postprocess-serious-window \
+  RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
 ```
 
 ### 3. Endpoints locais

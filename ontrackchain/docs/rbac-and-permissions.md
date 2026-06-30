@@ -132,7 +132,7 @@ Objetivo:
 - quando o principal autenticado vem do `OIDC` sem correspondencia na tabela local `users`, a trilha persiste `external_user_id` no `metadata` e grava `user_id = null` para nao quebrar o `FK`
 - o mesmo principio de compatibilidade agora vale para criacao de `cases` e `quotes`: o runtime nao falha por `FK` quando o principal vem do IdP sem espelho local
 - quando `X-Linked-User-Id` esta presente, os fluxos core de `investigation`, `monitoring` e `compliance` passam a preferir esse identificador para persistencia relacional, preservando o principal externo em `metadata.external_user_id`
-- a decisao arquitetural alvo para evoluir esse ponto foi registrada em [ADR-006](file:///home/jistriane/Ontracktchain/ontrackchain/docs/adrs/ADR-006-identidade-federada-e-users-locais.md)
+- a decisao arquitetural alvo para evoluir esse ponto foi registrada em [ADR-006](adrs/ADR-006-identidade-federada-e-users-locais.md)
 
 ### 2. Legal Report
 

@@ -4,10 +4,10 @@
 
 Definir o rito semanal oficial para acompanhar a evolução do projeto com base em:
 
-- [Board de Prioridades do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-priority-board.md)
-- [Matriz Operacional de Execução para 95%](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-operational-execution-board.md)
-- [Plano Operacional Trimestral para 95%](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-operational-plan-to-95.md)
-- [Registro de Riscos do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-risk-register.md)
+- [Board de Prioridades do Projeto](project-priority-board.md)
+- [Matriz Operacional de Execução para 95%](project-operational-execution-board.md)
+- [Plano Operacional Trimestral para 95%](project-operational-plan-to-95.md)
+- [Registro de Riscos do Projeto](project-risk-register.md)
 
 Este runbook existe para evitar:
 
@@ -18,8 +18,8 @@ Este runbook existe para evitar:
 
 Registros gerados por este rito devem ser armazenados em:
 
-- [Registros Semanais de Governança](file:///home/jistriane/Ontracktchain/ontrackchain/docs/governance-weekly/README.md)
-  - usar o template: [Template de Registro Semanal](file:///home/jistriane/Ontracktchain/ontrackchain/docs/governance-weekly/_template-weekly-governance.md)
+- [Registros Semanais de Governança](governance-weekly/README.md)
+  - usar o template: [Template de Registro Semanal](governance-weekly/_template-weekly-governance.md)
 
 ## Quando Executar
 
@@ -41,14 +41,15 @@ Registros gerados por este rito devem ser armazenados em:
 
 Antes da reunião, o facilitador deve reunir:
 
-1. estado mais recente da [Matriz Operacional de Execução para 95%](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-operational-execution-board.md)
-2. leitura macro atual do [Board de Prioridades do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-priority-board.md)
-3. riscos ativos do [Registro de Riscos do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-risk-register.md)
+1. estado mais recente da [Matriz Operacional de Execução para 95%](project-operational-execution-board.md)
+2. leitura macro atual do [Board de Prioridades do Projeto](project-priority-board.md)
+3. riscos ativos do [Registro de Riscos do Projeto](project-risk-register.md)
 4. evidências da semana:
    - dossiers
    - bundles de homologação
    - preflights
    - testes ou execuções operacionais
+   - artifact `serious-staging-window-<janela>` quando houver janela séria via CI controlado
    - sign-offs formais recebidos
 5. lista de itens `blocked`, itens com prazo alvo vencido e itens sem artefato atualizado
 
@@ -60,6 +61,7 @@ Checklist do facilitador:
 - consolidar links dos artefatos da semana
 - marcar previamente itens sem evidência como candidatos a `blocked`
 - identificar se houve mudança de risco ou dependência externa
+- confirmar qual `GitHub Environment` foi usado nas janelas sérias da semana, quando aplicável
 - revisar se a baseline estratégica continua coerente com a execução
 
 ## Agenda Recomendada
@@ -118,7 +120,7 @@ Objetivo:
 
 Saída:
 
-- [Registro de Riscos do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-risk-register.md) revisado quando houver mudança material
+- [Registro de Riscos do Projeto](project-risk-register.md) revisado quando houver mudança material
 
 ### 4. Decisões de Prioridade
 
@@ -134,7 +136,7 @@ Objetivo:
 
 Saída:
 
-- [Board de Prioridades do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-priority-board.md) atualizado apenas se houver mudança estratégica real
+- [Board de Prioridades do Projeto](project-priority-board.md) atualizado apenas se houver mudança estratégica real
 
 ### 5. Fechamento
 
@@ -207,9 +209,9 @@ Ao final de cada reunião, devem existir:
 
 Registro inicial publicado:
 
-- [Governança Semanal 2026-06-29](file:///home/jistriane/Ontracktchain/ontrackchain/docs/governance-weekly/2026-06-29-weekly-governance.md)
-- rascunho da janela do dia: [Governança Semanal 2026-06-30](file:///home/jistriane/Ontracktchain/ontrackchain/docs/governance-weekly/2026-06-30-weekly-governance.md)
-- rascunho do próximo ciclo: [Governança Semanal 2026-07-06](file:///home/jistriane/Ontracktchain/ontrackchain/docs/governance-weekly/2026-07-06-weekly-governance.md)
+- [Governança Semanal 2026-06-29](governance-weekly/2026-06-29-weekly-governance.md)
+- rascunho da janela do dia: [Governança Semanal 2026-06-30](governance-weekly/2026-06-30-weekly-governance.md)
+- rascunho do próximo ciclo: [Governança Semanal 2026-07-06](governance-weekly/2026-07-06-weekly-governance.md)
 
 ## Checklist de Fechamento
 

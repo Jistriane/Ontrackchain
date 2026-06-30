@@ -131,6 +131,15 @@ def build_dossier_payload(
                     ),
                     "rpc_request_id": ((homologation_payload.get("runs") or {}).get("rpc") or {}).get("request_id"),
                     "rpc_case_id": ((homologation_payload.get("runs") or {}).get("rpc") or {}).get("case_id"),
+                    "oidc_legal_report_request_id": (
+                        (homologation_payload.get("runs") or {}).get("oidc_legal_report") or {}
+                    ).get("request_id"),
+                    "oidc_legal_report_case_id": (
+                        (homologation_payload.get("runs") or {}).get("oidc_legal_report") or {}
+                    ).get("case_id"),
+                    "oidc_legal_report_report_id": (
+                        (homologation_payload.get("runs") or {}).get("oidc_legal_report") or {}
+                    ).get("report_id"),
                 },
                 "manifest": homologation_manifest_payload,
             },

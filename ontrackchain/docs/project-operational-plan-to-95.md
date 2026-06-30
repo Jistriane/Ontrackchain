@@ -14,11 +14,11 @@ para:
 
 Este documento complementa:
 
-- [Avaliacao de Maturidade do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-maturity-assessment.md)
-- [Readiness Regulatorio](file:///home/jistriane/Ontracktchain/ontrackchain/docs/regulatory-readiness.md)
-- [Registro de Riscos do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-risk-register.md)
-- [Board de Prioridades do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-priority-board.md)
-- [Matriz Operacional de Execucao para 95%](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-operational-execution-board.md)
+- [Avaliacao de Maturidade do Projeto](project-maturity-assessment.md)
+- [Readiness Regulatorio](regulatory-readiness.md)
+- [Registro de Riscos do Projeto](project-risk-register.md)
+- [Board de Prioridades do Projeto](project-priority-board.md)
+- [Matriz Operacional de Execucao para 95%](project-operational-execution-board.md)
 
 ## Resumo Executivo
 

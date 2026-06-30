@@ -19,6 +19,12 @@ EXPECTED_DEV_AUTH_ENABLED = os.getenv("ONTRACKCHAIN_EXPECTED_DEV_AUTH_ENABLED", 
     "on",
 }
 EXPECTED_OIDC_PROVIDER = os.getenv("ONTRACKCHAIN_EXPECTED_OIDC_PROVIDER", "keycloak")
+EXPECTED_MFA_PROVIDER_HOMOLOGATED = os.getenv("ONTRACKCHAIN_EXPECTED_MFA_PROVIDER_HOMOLOGATED", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 EXPECTED_ORG_CLAIM = os.getenv("ONTRACKCHAIN_EXPECTED_OIDC_ORG_CLAIM")
 EXPECTED_PLAN_CLAIM = os.getenv("ONTRACKCHAIN_EXPECTED_OIDC_PLAN_CLAIM")
 EXPECTED_ROLE_CLAIM = os.getenv("ONTRACKCHAIN_EXPECTED_OIDC_ROLE_CLAIM")
@@ -93,8 +99,9 @@ def main() -> int:
         f"auth_config: mfa.managed_by esperado=oidc_provider recebido={config_payload}",
     )
     _assert(
-        mfa.get("provider_homologated") is False,
-        f"auth_config: mfa.provider_homologated esperado=false recebido={config_payload}",
+        mfa.get("provider_homologated") is EXPECTED_MFA_PROVIDER_HOMOLOGATED,
+        "auth_config: mfa.provider_homologated "
+        f"esperado={EXPECTED_MFA_PROVIDER_HOMOLOGATED} recebido={config_payload}",
     )
 
     claims = oidc.get("claims") or {}

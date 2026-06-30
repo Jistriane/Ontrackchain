@@ -4,7 +4,7 @@
 
 Nomear owners operacionais minimos por dominio e padronizar tempos de resposta esperados para incidentes do Ontrackchain.
 
-Este documento complementa [runbooks.md](file:///home/jistriane/Ontracktchain/ontrackchain/docs/runbooks.md) e [retention-and-recovery-policy.md](file:///home/jistriane/Ontracktchain/ontrackchain/docs/retention-and-recovery-policy.md).
+Este documento complementa [runbooks.md](./runbooks.md) e [retention-and-recovery-policy.md](./retention-and-recovery-policy.md).
 
 ## Matriz de Owners
 

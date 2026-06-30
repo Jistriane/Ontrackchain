@@ -106,7 +106,7 @@ Estado atual: `ready_for_approval`
 - owners de retention, recovery e cadeia de custodia nomeados
 - scripts de `backup_postgres.sh` e `restore_postgres.sh` disponiveis
 - evidencia recente de restore controlado em banco isolado com `RTO` observado e manifesto JSON anexado
-- referencia cruzada com [ADR-008](file:///home/jistriane/Ontracktchain/ontrackchain/docs/adrs/ADR-008-retention-e-recovery-baseline.md)
+- referencia cruzada com [ADR-008](adrs/ADR-008-retention-e-recovery-baseline.md)
 
 ### Aprovações Necessarias
 

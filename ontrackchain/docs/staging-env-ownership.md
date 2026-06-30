@@ -6,10 +6,10 @@ Nomear owners explicitos para cada classe de placeholder `__FILL_*__` do arquivo
 
 Este documento complementa:
 
-- [`.env.staging.example`](file:///home/jistriane/Ontracktchain/ontrackchain/.env.staging.example)
-- [Variaveis de Ambiente](file:///home/jistriane/Ontracktchain/ontrackchain/docs/environment-variables.md)
-- [Deploy e Staging](file:///home/jistriane/Ontracktchain/ontrackchain/docs/deploy-and-staging.md)
-- [Owners e SLAs Operacionais](file:///home/jistriane/Ontracktchain/ontrackchain/docs/operational-ownership-and-slas.md)
+- [`.env.staging.example`](../.env.staging.example)
+- [Variaveis de Ambiente](environment-variables.md)
+- [Deploy e Staging](deploy-and-staging.md)
+- [Owners e SLAs Operacionais](operational-ownership-and-slas.md)
 
 ## Regra Geral
 
@@ -29,6 +29,7 @@ Este documento complementa:
 | `__FILL_STAGING_KEYCLOAK_B2B_CLIENT_SECRET__` | `Backend/Auth` | `Security` | client secret do IdP registrado e testado |
 | `__FILL_STAGING_JWT_HS256_SECRET__` | `Backend/Auth` | `Security` | secret HS256 nao-dev com rotacao planejada |
 | `__FILL_STAGING_MFA_TOTP_SECRET__` | `Backend/Auth` | `Security` | secret TOTP nao-dev ou decisao formal de desuso no ambiente |
+| `__FILL_STAGING_HOMOLOGATION_OIDC_TOKEN__` | `Backend/Auth` | `Security` | token OIDC administrativo temporario e controlado para evidenciar `legal_report` homologado |
 | `__FILL_STAGING_RPC_PRIMARY_URL__` | `Backend Core` | `Platform/DBA` | endpoint RPC primario valido com owner e limite conhecido |
 | `__FILL_STAGING_RPC_FALLBACK_URL__` | `Backend Core` | `Platform/DBA` | endpoint fallback distinto do primario e validado |
 | `__FILL_STAGING_ALERTMANAGER_WEBHOOK_BEARER_TOKEN__` | `Platform/SRE` | `Security` | token configurado entre `Alertmanager` e `monitoring-api` |
@@ -44,6 +45,7 @@ Este documento complementa:
 - `KEYCLOAK_B2B_CLIENT_SECRET`
 - `JWT_HS256_SECRET`
 - `MFA_TOTP_SECRET`
+- `ONTRACKCHAIN_HOMOLOGATION_OIDC_TOKEN`
 
 Owner principal:
 
@@ -95,7 +97,7 @@ Sign-off recomendado:
 
 ## Sequencia Recomendada
 
-1. Copiar [`.env.staging.example`](file:///home/jistriane/Ontracktchain/ontrackchain/.env.staging.example) para `.env.staging.private`
+1. Copiar [`.env.staging.example`](../.env.staging.example) para `.env.staging.private`
 2. Distribuir os placeholders por owner desta matriz
 3. Executar `python scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md`
 4. Gerar um pacote redigido da janela com `python scripts/render_staging_window_packet.py --window-id <janela> --output-file artifacts/staging/window-packet-<janela>.md`
@@ -107,7 +109,7 @@ Atalho recomendado:
 
 ```bash
 python scripts/run_staging_window.py \
-  --window-id stg-YYYYMMDD-a \
+  --window-id stg-YYYY-MM-DD-a \
   --private-env-file .env.staging.private
 ```
 
@@ -131,7 +133,7 @@ Enquanto qualquer linha permanecer com `pending`, o checker deve falhar e a jane
 
 | Grupo | Owner | Data | Status | Observacoes |
 | --- | --- | --- | --- | --- |
-| Auth/OIDC | `pending` | `pending` | `pending` | preencher secrets e claims finais |
+| Auth/OIDC | `pending` | `pending` | `pending` | preencher secrets, claims finais e token OIDC de homologacao quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true` |
 | Compliance/AML | `pending` | `pending` | `pending` | confirmar URL e credencial TRM da janela |
 | Investigation/RPC | `pending` | `pending` | `pending` | confirmar primario/fallback e limites |
 | Platform/Operations | `pending` | `pending` | `pending` | confirmar senha DB, Grafana e webhook |

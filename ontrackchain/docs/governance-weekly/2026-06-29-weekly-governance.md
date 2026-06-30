@@ -8,11 +8,11 @@
 
 ## Evidências Revisadas
 
-- publicação da [Matriz Operacional de Execução para 95%](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-operational-execution-board.md)
-- publicação do [Runbook de Governança Semanal](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-weekly-governance-runbook.md)
-- baseline de maturidade recalibrada em [project-maturity-assessment.md](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-maturity-assessment.md)
-- readiness regulatório recalibrado em [regulatory-readiness.md](file:///home/jistriane/Ontracktchain/ontrackchain/docs/regulatory-readiness.md)
-- registro de riscos alinhado em [project-risk-register.md](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-risk-register.md)
+- publicação da [Matriz Operacional de Execução para 95%](../project-operational-execution-board.md)
+- publicação do [Runbook de Governança Semanal](../project-weekly-governance-runbook.md)
+- baseline de maturidade recalibrada em [project-maturity-assessment.md](../project-maturity-assessment.md)
+- readiness regulatório recalibrado em [regulatory-readiness.md](../regulatory-readiness.md)
+- registro de riscos alinhado em [project-risk-register.md](../project-risk-register.md)
 - trilha séria de `staging` documentada e runner consolidado em `run_staging_window.py`
 
 ## Itens Atualizados

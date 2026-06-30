@@ -12,10 +12,10 @@ para:
 
 Este board complementa:
 
-- [Avaliacao de Maturidade do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-maturity-assessment.md)
-- [Plano de Execucao para 90%](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-execution-plan-to-90.md)
-- [Matriz Operacional de Execucao para 95%](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-operational-execution-board.md)
-- [Runbook de Governanca Semanal](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-weekly-governance-runbook.md)
+- [Avaliacao de Maturidade do Projeto](project-maturity-assessment.md)
+- [Plano de Execucao para 90%](project-execution-plan-to-90.md)
+- [Matriz Operacional de Execucao para 95%](project-operational-execution-board.md)
+- [Runbook de Governanca Semanal](project-weekly-governance-runbook.md)
 
 ## Como Ler Este Board
 
@@ -31,7 +31,7 @@ Cada item possui:
 Camada de uso:
 
 - este documento continua sendo a visao estrategica de prioridade e sequenciamento
-- a [Matriz Operacional de Execucao para 95%](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-operational-execution-board.md) passa a ser a camada de acompanhamento semanal por evidência, owner nominal, prazo alvo, risco e artefato esperado
+- a [Matriz Operacional de Execucao para 95%](project-operational-execution-board.md) passa a ser a camada de acompanhamento semanal por evidência, owner nominal, prazo alvo, risco e artefato esperado
 
 Status sugeridos:
 
@@ -248,7 +248,7 @@ Meta:
 - validar bloqueios
 - ajustar owner se necessario
 - atualizar primeiro a matriz operacional e depois refletir aqui apenas mudancas estrategicas
-- seguir agenda, entradas e saídas obrigatórias do [Runbook de Governanca Semanal](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-weekly-governance-runbook.md)
+- seguir agenda, entradas e saídas obrigatórias do [Runbook de Governanca Semanal](project-weekly-governance-runbook.md)
 
 ### Revisao por Sprint
 

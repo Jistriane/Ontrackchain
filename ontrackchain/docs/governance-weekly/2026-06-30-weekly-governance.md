@@ -8,18 +8,20 @@
 
 ## Contexto da Janela Séria
 
-- `window_id`: `stg-2026-06-30-a`
+- `window_id`: `stg-2026-07-06-a`
+- `mode`: `baseline`
+- `environment_name`: `staging-serious`
 - status esperado: `RUN-STG-01` de `ready -> in_progress` ou `ready -> done` (apenas se dossier final estiver `ok`)
 - checklist canônico:
-  - [Checklist de Evidência Mínima da Primeira Janela Séria](file:///home/jistriane/Ontracktchain/ontrackchain/docs/first-serious-window-evidence-checklist.md)
-- pacote copy/paste:
-  - [Pacote de Execução da Primeira Janela Séria](file:///home/jistriane/Ontracktchain/ontrackchain/docs/first-serious-window-command-pack.md)
-- passo a passo:
-  - [Passo a Passo Executável da Primeira Janela Séria](file:///home/jistriane/Ontracktchain/ontrackchain/docs/first-serious-window-execution-walkthrough.md)
+  - [Checklist de Evidência Mínima da Primeira Janela Séria](../first-serious-window-evidence-checklist.md)
+- runbook operacional:
+  - [Runbook do Primeiro Disparo Real](../first-serious-window-first-dispatch-runbook.md)
+- template de sign-off:
+  - [Template de Sign-Off da Janela Seria](../staging-serious-window-signoff-template.md)
 
 ## Evidências Revisadas
 
-- 
+- sem evidências registradas ainda
 
 ## Itens Atualizados
 
@@ -60,12 +62,13 @@
 
 ## Decisões
 
-- 
+- manter a primeira janela séria vinculada ao rito canônico consolidado para `stg-2026-07-06-a`
 
 ## Ações da Próxima Semana
 
-- 
+- executar o fluxo `prepare -> workflow_dispatch -> postprocess` usando o runbook canônico da janela séria
 
 ## Observações
 
+- este registro representa o ciclo de planejamento fechado em `2026-06-30`, mas a janela operacional canônica associada a ele foi consolidada como `stg-2026-07-06-a`
 - este registro deve capturar os paths dos artefatos gerados pelo runner, incluindo homologação e dossier

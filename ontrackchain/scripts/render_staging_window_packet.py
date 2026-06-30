@@ -117,7 +117,11 @@ def parse_expected_modes(file_path: Path) -> dict[str, str]:
             continue
         key, value = stripped.split("=", 1)
         key = key.strip()
-        if key in {"ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE", "ONTRACKCHAIN_EXPECT_RPC_MODE"}:
+        if key in {
+            "ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE",
+            "ONTRACKCHAIN_EXPECT_RPC_MODE",
+            "MFA_EXTERNAL_PROVIDER_HOMOLOGATED",
+        }:
             values[key] = value.strip()
     return values
 
@@ -170,6 +174,7 @@ def build_packet_model(
             "compliance": expected_modes.get("ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE", "unknown"),
             "rpc": expected_modes.get("ONTRACKCHAIN_EXPECT_RPC_MODE", "unknown"),
         },
+        "mfa_external_provider_homologated": expected_modes.get("MFA_EXTERNAL_PROVIDER_HOMOLOGATED", "false"),
         "owners": owners,
         "placeholders": sorted(placeholder_rows, key=lambda item: item["variable"]),
         "handoff": handoff_rows,
@@ -196,6 +201,7 @@ def render_packet_markdown(model: dict) -> str:
         f"- Ownership: `{model['ownership_file']}`",
         f"- Compliance mode esperado: `{model['expected_modes']['compliance']}`",
         f"- RPC mode esperado: `{model['expected_modes']['rpc']}`",
+        f"- MFA federado homologado: `{model['mfa_external_provider_homologated']}`",
         "",
         "## Sequencia Operacional",
         "",
@@ -262,6 +268,7 @@ def render_packet_markdown(model: dict) -> str:
             "- Este pacote e redigido: nao inclui secrets nem valores reais de `.env.staging.private`.",
             "- Use este artefato como anexo da janela e como referencia de handoff entre owners.",
             "- Se qualquer owner ou status continuar em `pending`, a janela deve ser bloqueada pelos checkers dedicados.",
+            "- `ONTRACKCHAIN_HOMOLOGATION_OIDC_TOKEN` so precisa ser resolvido quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true`.",
             "",
         ]
     )

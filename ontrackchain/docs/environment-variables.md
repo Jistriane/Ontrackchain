@@ -6,21 +6,21 @@ Documentar as variaveis de ambiente relevantes do scaffold atual e como elas se 
 
 Fonte principal:
 
-- [`.env.example`](file:///home/jistriane/Ontracktchain/ontrackchain/.env.example)
-- [`.env.staging.example`](file:///home/jistriane/Ontracktchain/ontrackchain/.env.staging.example)
-- [Ownership do `.env.staging`](file:///home/jistriane/Ontracktchain/ontrackchain/docs/staging-env-ownership.md)
-- [`docker-compose.yml`](file:///home/jistriane/Ontracktchain/ontrackchain/docker-compose.yml)
+- [`.env.example`](../.env.example)
+- [`.env.staging.example`](../.env.staging.example)
+- [Ownership do `.env.staging`](staging-env-ownership.md)
+- [`docker-compose.yml`](../docker-compose.yml)
 - classes `Settings` dos servicos
 
 Template serio para homologacao:
 
-- use [`.env.staging.example`](file:///home/jistriane/Ontracktchain/ontrackchain/.env.staging.example) como baseline de `staging` para OIDC, AML/KYT e RPC
+- use [`.env.staging.example`](../.env.staging.example) como baseline de `staging` para OIDC, AML/KYT e RPC
 - o arquivo assume `APP_ENV=staging`, `AUTH_MODE=oidc`, `DEV_AUTH_ENABLED=false`, `COMPLIANCE_TRM_ENABLED=true` e `INVESTIGATION_RPC_ENABLED=true`
 - todos os campos `__FILL_*__` devem ser substituidos por secrets/URLs reais antes de rodar `preflight_oidc_serious_env.py`, `preflight_external_integrations.py` e `homologation_external_evidence.py`
 - execute `python scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md` para garantir que nenhum placeholder novo entrou no baseline sem owner, apoio e evidencia
 - execute `python scripts/render_staging_window_packet.py --window-id <janela> --output-file artifacts/staging/window-packet-<janela>.md` para registrar um pacote redigido da janela antes do preenchimento do `.env.staging.private`
 - execute `python scripts/check_staging_env_placeholders.py --file .env.staging.private` antes dos preflights para bloquear placeholders, ausencias e valores vazios em chaves criticas
-- distribua cada placeholder `__FILL_*__` conforme a matriz em [Ownership do `.env.staging`](file:///home/jistriane/Ontracktchain/ontrackchain/docs/staging-env-ownership.md) antes do preenchimento
+- distribua cada placeholder `__FILL_*__` conforme a matriz em [Ownership do `.env.staging`](staging-env-ownership.md) antes do preenchimento
 - execute `python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md` antes da janela para validar que todos os grupos obrigatorios sairam de `pending`
 - persista os JSONs desses checkers em `artifacts/staging/checks/` para que possam ser consolidados depois por `python scripts/build_staging_release_dossier.py`
 - para executar a janela ponta a ponta e persistir checks, preflights, homologacao e dossier em uma unica chamada, prefira `python scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private`
@@ -136,6 +136,8 @@ Servicos que usam:
 | `MFA_TOTP_PERIOD_SECONDS` | `30` | janela base do TOTP |
 | `MFA_TOTP_DIGITS` | `6` | numero de digitos do codigo TOTP |
 | `MFA_TOTP_WINDOW` | `1` | tolerancia de janelas adjacentes para validacao do TOTP |
+| `MFA_EXTERNAL_PROVIDER_HOMOLOGATED` | `false` | quando `true`, permite tratar o MFA federado do provedor OIDC como homologado para fluxos sensiveis |
+| `ONTRACKCHAIN_HOMOLOGATION_OIDC_TOKEN` | vazio | token OIDC administrativo temporario usado para provar download homologado de `legal_report` via runner de janela |
 | `OIDC_ISSUER_URL` | `http://auth.localhost:8080/realms/ontrackchain` | issuer do provedor OIDC |
 | `OIDC_AUDIENCE` | `ontrackchain-api` | audience do token OIDC |
 | `OIDC_CLIENT_ID` | `ontrackchain-web` | client id OIDC, usado como fallback de audience |
@@ -148,6 +150,8 @@ Servicos que usam:
 Observacao atual de planejamento:
 
 - para a `Sprint 1` o preset arquitetural escolhido e `OIDC_PROVIDER=keycloak`
+- `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=false` continua sendo o default conservador; so deve virar `true` apos validacao formal do MFA federado no ambiente serio
+- quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true`, a janela seria deve fornecer `ONTRACKCHAIN_HOMOLOGATION_OIDC_TOKEN` para que a homologacao externa prove o download auditado de `legal_report`
 - o primeiro corte serio de login deve usar `Redirect Web`, nao token manual colado no frontend
 - o preset `generic` continua util como fallback tecnico, mas nao e mais a referencia principal do proximo incremento
 - o host recomendado do Keycloak passou a ser um subdominio dedicado, preferencialmente `auth.ontrackchain.com`
@@ -169,9 +173,9 @@ Checklist minimo para Keycloak:
 
 Template de preenchimento:
 
-- ver [keycloak-oidc-template.md](file:///home/jistriane/Ontracktchain/ontrackchain/docs/keycloak-oidc-template.md) para um bloco `env`, exemplo de realm/client e checklist de rollout
-- ver [README.md](file:///home/jistriane/Ontracktchain/ontrackchain/infra/keycloak/README.md) para subir o `Keycloak` local, credenciais iniciais e limites conhecidos do scaffold
-- copiar [`.env.staging.example`](file:///home/jistriane/Ontracktchain/ontrackchain/.env.staging.example) para o arquivo privado do ambiente-alvo e substituir todos os placeholders `__FILL_*__`
+- ver [keycloak-oidc-template.md](keycloak-oidc-template.md) para um bloco `env`, exemplo de realm/client e checklist de rollout
+- ver [README.md](../infra/keycloak/README.md) para subir o `Keycloak` local, credenciais iniciais e limites conhecidos do scaffold
+- copiar [`.env.staging.example`](../.env.staging.example) para o arquivo privado do ambiente-alvo e substituir todos os placeholders `__FILL_*__`
 - executar `python scripts/check_staging_env_placeholders.py --file .env.staging.private` antes dos preflights para garantir que nao restaram placeholders ou secrets vazios
 - executar `python scripts/preflight_oidc_serious_env.py` antes do `smoke_auth_oidc_mode.py` em `staging|production`
 - executar `python scripts/preflight_external_integrations.py` antes das janelas de homologacao AML/KYT e RPC em `staging|production`
@@ -205,7 +209,7 @@ Observacao de escopo:
 
 ### Auth Service
 
-Variaveis observadas em [main.py](file:///home/jistriane/Ontracktchain/ontrackchain/apps/auth-service/src/auth_service/main.py):
+Variaveis observadas em [main.py](../apps/auth-service/src/auth_service/main.py):
 
 - `APP_ENV`
 - `AUTH_MODE`
@@ -236,14 +240,14 @@ Variaveis observadas em [main.py](file:///home/jistriane/Ontracktchain/ontrackch
 
 ### Public API
 
-Variaveis observadas em [main.py](file:///home/jistriane/Ontracktchain/ontrackchain/apps/public-api/src/public_api/main.py):
+Variaveis observadas em [main.py](../apps/public-api/src/public_api/main.py):
 
 - `REDIS_HOST`
 - `REDIS_PORT`
 
 ### Investigation API
 
-Variaveis observadas em [main.py](file:///home/jistriane/Ontracktchain/ontrackchain/apps/investigation-api/src/investigation_api/main.py):
+Variaveis observadas em [main.py](../apps/investigation-api/src/investigation_api/main.py):
 
 - `POSTGRES_HOST`
 - `POSTGRES_PORT`
@@ -255,7 +259,7 @@ Variaveis observadas em [main.py](file:///home/jistriane/Ontracktchain/ontrackch
 
 ### Compliance API
 
-Variaveis observadas em [main.py](file:///home/jistriane/Ontracktchain/ontrackchain/apps/compliance-api/src/compliance_api/main.py):
+Variaveis observadas em [main.py](../apps/compliance-api/src/compliance_api/main.py):
 
 - `POSTGRES_HOST`
 - `POSTGRES_PORT`
@@ -271,7 +275,7 @@ Observacao:
 
 ### Monitoring API
 
-Variaveis observadas em [main.py](file:///home/jistriane/Ontracktchain/ontrackchain/apps/monitoring-api/src/monitoring_api/main.py):
+Variaveis observadas em [main.py](../apps/monitoring-api/src/monitoring_api/main.py):
 
 - `POSTGRES_HOST`
 - `POSTGRES_PORT`
@@ -302,7 +306,7 @@ Observacao:
 
 ### Report API
 
-Variaveis observadas em [main.py](file:///home/jistriane/Ontracktchain/ontrackchain/apps/report-api/src/report_api/main.py):
+Variaveis observadas em [main.py](../apps/report-api/src/report_api/main.py):
 
 - `POSTGRES_HOST`
 - `POSTGRES_PORT`

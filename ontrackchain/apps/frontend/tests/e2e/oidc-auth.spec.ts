@@ -35,7 +35,9 @@ test("login OIDC com Keycloak fecha sessao e chega ao dashboard", async ({ page,
 
   const cookies = await page.context().cookies();
   expect(cookies.some((cookie) => cookie.name === "otc_token")).toBeTruthy();
-  expect(cookies.find((cookie) => cookie.name === "otc_2fa")?.value).toBe("managed_externally");
+  expect(cookies.find((cookie) => cookie.name === "otc_2fa")?.value).toBe(
+    config.mfa?.provider_homologated ? "managed_externally_homologated" : "managed_externally"
+  );
 });
 
 test("logout limpa a sessao OIDC local e exige novo login", async ({ page, request, baseURL }) => {

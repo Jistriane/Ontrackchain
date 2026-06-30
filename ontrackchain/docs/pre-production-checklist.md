@@ -11,11 +11,11 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 - marque cada item apenas com evidencia objetiva
 - nao avance para producao com itens criticos abertos
 - use este documento junto com:
-  - [Readiness Regulatorio](file:///home/jistriane/Ontracktchain/ontrackchain/docs/regulatory-readiness.md)
-  - [Validacao e Auditoria](file:///home/jistriane/Ontracktchain/ontrackchain/docs/validation-and-audit.md)
-  - [Deploy e Staging](file:///home/jistriane/Ontracktchain/ontrackchain/docs/deploy-and-staging.md)
-  - [Retention e Recovery](file:///home/jistriane/Ontracktchain/ontrackchain/docs/retention-and-recovery-policy.md)
-  - [Owners e SLAs Operacionais](file:///home/jistriane/Ontracktchain/ontrackchain/docs/operational-ownership-and-slas.md)
+  - [Readiness Regulatorio](regulatory-readiness.md)
+  - [Validacao e Auditoria](validation-and-audit.md)
+  - [Deploy e Staging](deploy-and-staging.md)
+  - [Retention e Recovery](retention-and-recovery-policy.md)
+  - [Owners e SLAs Operacionais](operational-ownership-and-slas.md)
 
 ## 1. Aplicacao e Runtime
 
@@ -40,9 +40,10 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 ## 3. Autenticacao e Autorizacao
 
 - [ ] JWT de staging/producao nao reutiliza secrets dev
-- [ ] `python scripts/preflight_oidc_serious_env.py` passa com `APP_ENV=staging|production`, `AUTH_MODE=oidc`, `DEV_AUTH_ENABLED=false` e secrets nao-dev
+- [ ] `python scripts/preflight_oidc_serious_env.py` passa com `APP_ENV=staging|production`, `AUTH_MODE=oidc`, `DEV_AUTH_ENABLED=false`, `MFA_EXTERNAL_PROVIDER_HOMOLOGATED` coerente com a janela e secrets nao-dev
 - [ ] `python scripts/smoke_auth_oidc_mode.py` passa no ambiente alvo com `effective_auth_mode=oidc` e `/auth/issue-dev-token` desabilitado
 - [ ] MFA/2FA real substituiu o mock onde necessario
+- [ ] quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true`, existe `ONTRACKCHAIN_HOMOLOGATION_OIDC_TOKEN` controlado para prova funcional do `legal_report`
 - [ ] matriz RBAC foi definida por dominio
 - [ ] `audit_logs` continua restrito a `ADMIN`
 - [ ] `legal_report` continua exigindo `JWT + ADMIN + 2FA`
@@ -71,13 +72,13 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 - [ ] controles de acesso sensiveis estao documentados
 - [ ] retention minima de `audit_logs` foi definida
 - [ ] owners de retention e recovery foram formalizados
-- [ ] sign-off de `Security` e `Compliance` em [Retention e Recovery](file:///home/jistriane/Ontracktchain/ontrackchain/docs/retention-and-recovery-policy.md) foi registrado
+- [ ] sign-off de `Security` e `Compliance` em [Retention e Recovery](retention-and-recovery-policy.md) foi registrado
 - [ ] secrets nao estao em repositório nem em `.env` indevido
 - [ ] `npm audit --omit=dev --audit-level=critical --prefix apps/frontend` passou
 - [ ] alertas de seguranca/operacao foram configurados
 - [ ] existe runbook de incidente para falhas criticas
 - [ ] owners e SLA base por dominio foram formalizados
-- [ ] aceite operacional em [Owners e SLAs Operacionais](file:///home/jistriane/Ontracktchain/ontrackchain/docs/operational-ownership-and-slas.md) foi registrado
+- [ ] aceite operacional em [Owners e SLAs Operacionais](operational-ownership-and-slas.md) foi registrado
 
 ## 7. Observabilidade
 
@@ -92,6 +93,9 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 
 - [ ] staging tecnico foi validado
 - [ ] staging regulatorio foi validado
+- [ ] workflow manual [staging-serious-window.yml](../.github/workflows/staging-serious-window.yml) foi executado para a janela alvo
+- [ ] o `GitHub Environment` da janela possui approvals coerentes e secret `STAGING_WINDOW_PRIVATE_ENV`
+- [ ] o artifact `serious-staging-window-<janela>` foi anexado ao sign-off da promocao
 - [ ] rollback de aplicacao foi testado
 - [ ] rollback/restore de banco foi testado
 - [ ] owners de deploy, seguranca e banco estao definidos
@@ -102,11 +106,13 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 - [ ] `python scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md` passa sem placeholders sem owner, mappings obsoletos ou linhas incompletas na matriz
 - [ ] `python scripts/render_staging_window_packet.py --window-id <janela> --output-file artifacts/staging/window-packet-<janela>.md` gerou pacote redigido anexavel para a janela
 - [ ] `python scripts/check_staging_env_placeholders.py --file .env.staging.private` passa sem placeholders `__FILL_*__`, variaveis criticas ausentes ou vazias
-- [ ] handoff de placeholders em [Ownership do `.env.staging`](file:///home/jistriane/Ontracktchain/ontrackchain/docs/staging-env-ownership.md) foi preenchido ou explicitamente revisado para a janela
+- [ ] handoff de placeholders em [Ownership do `.env.staging`](staging-env-ownership.md) foi preenchido ou explicitamente revisado para a janela
 - [ ] `python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md` passa sem grupos ausentes, campos `pending`, datas invalidas ou status fora da politica
 - [ ] `python scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private` executou a janela ponta a ponta com persistencia dos JSONs de checks/preflights
+- [ ] `python scripts/prepare_staging_window.py --window-id <janela> --mode baseline|homologated --run` foi exercitado como gate unico canonico, localmente ou via CI controlado
 - [ ] `python scripts/preflight_external_integrations.py` passa com `ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=live` antes da janela AML/KYT
 - [ ] `python scripts/homologation_external_evidence.py --mode compliance` gera artefato `status=ok` anexavel ao gate
+- [ ] quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true`, `python scripts/homologation_external_evidence.py --mode both --include-oidc-legal-report` gera artefato `status=ok` com download auditado de `legal_report`
 - [ ] `python scripts/build_staging_release_dossier.py ...` gerou dossier consolidado com status final `ok`
 - [ ] `GET /internal/provider-readiness` retorna `ready=true` e `details.operating_mode=live`
 - [ ] `GET /api/v1/compliance/operations` retorna `kyc_wallet.capability_status=live`
@@ -166,4 +172,5 @@ Nao avancar para pre-producao real se qualquer item abaixo estiver aberto:
 - confirmacao de backup e restore
 - consulta de `audit_logs` com eventos do run atual
 - prova de bloqueio e liberacao correta do `legal_report`
+- artifact `serious-staging-window-<janela>` ou pacote equivalente contendo `checks`, `window packet`, `homologation` e `dossier`
 - se houver mudanca no scaffold local, output de `npm run test:e2e:dev-auth` como evidencia auxiliar

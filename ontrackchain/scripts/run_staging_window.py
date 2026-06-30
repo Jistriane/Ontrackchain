@@ -228,6 +228,12 @@ def run_window(
 
     env_values = load_env_values(private_env_file)
     effective_rpc_expected_mode = rpc_expected_mode or env_values.get("ONTRACKCHAIN_EXPECT_RPC_MODE", "live")
+    include_oidc_legal_report = env_values.get("MFA_EXTERNAL_PROVIDER_HOMOLOGATED", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
     with temporary_environ(env_values):
         oidc_exit_code, oidc_payload = run_module_main(
@@ -280,6 +286,11 @@ def run_window(
                 effective_rpc_expected_mode,
                 "--output-dir",
                 str(homologation_output_dir),
+                *(
+                    ["--include-oidc-legal-report"]
+                    if include_oidc_legal_report
+                    else []
+                ),
             ],
             "homologation_external_evidence_window",
         )

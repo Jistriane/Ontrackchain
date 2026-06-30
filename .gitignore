@@ -16,8 +16,10 @@ dist/
 build/
 artifacts/
 ontrackchain/artifacts/
+ontrackchain/ci-artifacts/
 ontrackchain/apps/frontend/playwright-report/
 ontrackchain/apps/frontend/test-results/
+*.tsbuildinfo
 
 .idea/
 .vscode/

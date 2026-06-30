@@ -54,6 +54,7 @@ def main() -> int:
     next_public_app_env = _env("NEXT_PUBLIC_APP_ENV")
     next_public_dev_auth_enabled = _as_bool(_env("NEXT_PUBLIC_DEV_AUTH_ENABLED", "false"))
     oidc_provider = _env("OIDC_PROVIDER")
+    mfa_external_provider_homologated = _as_bool(_env("MFA_EXTERNAL_PROVIDER_HOMOLOGATED", "false"))
 
     allow_insecure_public_urls = _as_bool(_env("ONTRACKCHAIN_ALLOW_INSECURE_OIDC_URLS", "false"))
     allow_localhost_urls = _as_bool(_env("ONTRACKCHAIN_ALLOW_LOCALHOST_OIDC_URLS", "false"))
@@ -84,6 +85,8 @@ def main() -> int:
         errors.append(
             f"OIDC_PROVIDER: esperado um preset valido em {sorted(ALLOWED_OIDC_PROVIDERS)}, recebido={oidc_provider or '<vazio>'}"
         )
+    elif mfa_external_provider_homologated and oidc_provider == "generic":
+        errors.append("MFA_EXTERNAL_PROVIDER_HOMOLOGATED: nao e permitido com OIDC_PROVIDER=generic em ambiente serio")
 
     required_strings = {
         "OIDC_AUDIENCE": _env("OIDC_AUDIENCE"),
@@ -137,6 +140,7 @@ def main() -> int:
         "next_public_app_env": next_public_app_env,
         "next_public_dev_auth_enabled": next_public_dev_auth_enabled,
         "oidc_provider": oidc_provider,
+        "mfa_external_provider_homologated": mfa_external_provider_homologated,
         "allow_insecure_public_urls": allow_insecure_public_urls,
         "allow_localhost_urls": allow_localhost_urls,
         "status": "ok" if not errors else "failed",

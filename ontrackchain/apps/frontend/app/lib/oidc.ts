@@ -27,6 +27,10 @@ export type AuthConfig = {
   };
 };
 
+export function isOidcMfaProviderHomologated(config: AuthConfig | null | undefined): boolean {
+  return config?.mfa?.provider_homologated === true;
+}
+
 type OidcLoginState = {
   codeVerifier: string;
   redirectUri: string;

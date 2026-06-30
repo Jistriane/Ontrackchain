@@ -99,7 +99,7 @@
 - `effective_auth_mode` reflete o modo realmente aceito pelo backend
 - quando `AUTH_MODE=dev`, mas `DEV_AUTH_ENABLED=false` ou `APP_ENV` estiver fora de `local|test`, o backend expõe `effective_auth_mode=oidc` e o login dev deve ser tratado como bloqueado
 - em `effective_auth_mode=dev`, `mfa` expõe metadados do `TOTP` local do scaffold; o segredo compartilhado permanece em variavel de ambiente do `auth-service`
-- em `effective_auth_mode=oidc`, `mfa.method=external_provider`, `mfa.managed_by=oidc_provider` e `mfa.provider_homologated=false` deixam explicito que o segundo fator do provedor ainda nao vale como prova homologada para downloads sensiveis
+- em `effective_auth_mode=oidc`, `mfa.method=external_provider` e `mfa.managed_by=oidc_provider` deixam explicito que o segundo fator vem do provedor OIDC; `mfa.provider_homologated` define se esse fator ja pode ser aceito nos downloads sensiveis
 
 ### `POST /auth/issue-dev-token`
 
@@ -1226,7 +1226,27 @@ Observacao operacional:
 
 ### `GET /api/v1/reports/{report_id}`
 
-- Uso: reservado; retorna `404 not_implemented`
+- Uso: obter metadados persistidos do report (para montar UX e parametros de download)
+- Headers:
+  - `X-Org-Id` (obrigatorio)
+- Regras para `legal_report`:
+  - `X-Auth-Method=jwt`
+  - `X-Role=ADMIN`
+  - `X-2FA=ok` para fluxo local `dev_jwt + TOTP`
+  - ou `X-2FA=managed_externally|managed_externally_homologated` quando `X-MFA-Mode=external_provider` e `X-MFA-Provider-Homologated=true`
+- Respostas:
+  - `200` com:
+    - `report_id`
+    - `case_id`
+    - `report_type_requested`
+    - `report_type`
+    - `created_at`
+    - `file_hash_sha256`
+    - `onchain_hash`
+    - `content_type`
+  - `401 missing_org_context`
+  - `404 report_not_found`
+  - `409 report_missing_type|report_missing_case_id|report_missing_hash`
 
 ### `GET /api/v1/reports/{report_id}/download`
 
@@ -1238,7 +1258,8 @@ Observacao operacional:
 - Regras para `legal_report`:
   - `X-Auth-Method=jwt`
   - `X-Role=ADMIN`
-  - `X-2FA=ok`
+  - `X-2FA=ok` para fluxo local `dev_jwt + TOTP`
+  - ou `X-2FA=managed_externally|managed_externally_homologated` quando `X-MFA-Mode=external_provider` e `X-MFA-Provider-Homologated=true`
 - Auditoria:
   - gera `report_downloaded` quando ha contexto de organizacao
 

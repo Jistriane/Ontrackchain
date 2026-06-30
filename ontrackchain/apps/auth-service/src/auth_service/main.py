@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     oidc_org_claim: Optional[str] = None
     oidc_plan_claim: Optional[str] = None
     oidc_role_claim: Optional[str] = None
+    mfa_external_provider_homologated: bool = False
     postgres_host: str = "postgres"
     postgres_port: int = 5432
     postgres_user: str = "ontrackchain"
@@ -384,6 +385,7 @@ def _build_jwt_context(
         "role": role,
         "auth_method": "jwt" if auth_method_label == "jwt" else auth_method_label,
         "mfa_mode": "external_provider" if auth_method_label == "jwt" else "local_totp",
+        "mfa_provider_homologated": settings.mfa_external_provider_homologated if auth_method_label == "jwt" else True,
     }
 
 
@@ -469,6 +471,7 @@ async def validate(response: Response, auth: dict = Depends(_require_auth)) -> d
     response.headers["X-Role"] = auth["role"]
     response.headers["X-Auth-Method"] = auth["auth_method"]
     response.headers["X-MFA-Mode"] = auth["mfa_mode"]
+    response.headers["X-MFA-Provider-Homologated"] = "true" if auth.get("mfa_provider_homologated") else "false"
     return {"status": "ok", "linked_user_id": auth.get("linked_user_id")}
 
 
@@ -534,7 +537,7 @@ async def auth_config() -> dict:
             "method": "external_provider",
             "managed_by": "oidc_provider",
             "provider": _normalized_oidc_provider(),
-            "provider_homologated": False,
+            "provider_homologated": settings.mfa_external_provider_homologated,
         },
     }
 

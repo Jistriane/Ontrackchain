@@ -6,12 +6,12 @@ Definir criterios minimos de promocao para staging serio, reduzindo o risco de p
 
 Este documento complementa:
 
-- [Avaliacao de Maturidade do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-maturity-assessment.md)
-- [Plano de Execucao para 90%](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-execution-plan-to-90.md)
-- [Board de Prioridades do Projeto](file:///home/jistriane/Ontracktchain/ontrackchain/docs/project-priority-board.md)
-- [Checklist Pre-Producao](file:///home/jistriane/Ontracktchain/ontrackchain/docs/pre-production-checklist.md)
-- [Runbooks Operacionais](file:///home/jistriane/Ontracktchain/ontrackchain/docs/runbooks.md)
-- [Checklist de Evidencia Minima da Primeira Janela Seria](file:///home/jistriane/Ontracktchain/ontrackchain/docs/first-serious-window-evidence-checklist.md)
+- [Avaliacao de Maturidade do Projeto](project-maturity-assessment.md)
+- [Plano de Execucao para 90%](project-execution-plan-to-90.md)
+- [Board de Prioridades do Projeto](project-priority-board.md)
+- [Checklist Pre-Producao](pre-production-checklist.md)
+- [Runbooks Operacionais](runbooks.md)
+- [Checklist de Evidencia Minima da Primeira Janela Seria](first-serious-window-evidence-checklist.md)
 
 ## Meta de Promocao
 
@@ -70,7 +70,7 @@ Evidencias:
 - login real funcional em ambiente alvo
 - teste de protecao de rotas administrativas
 - prova de propagacao de headers de contexto
-- `python scripts/preflight_oidc_serious_env.py` validando matriz seria de `OIDC`, `DEV_AUTH_ENABLED=false`, secrets nao-dev e URLs publicas nao-locais
+- `python scripts/preflight_oidc_serious_env.py` validando matriz seria de `OIDC`, `DEV_AUTH_ENABLED=false`, `MFA_EXTERNAL_PROVIDER_HOMOLOGATED`, secrets nao-dev e URLs publicas nao-locais
 - `python scripts/smoke_auth_oidc_mode.py` validando `effective_auth_mode=oidc` e `dev_auth_disabled`
 - gate `playwright` com `test:e2e:oidc-critical` verde
 
@@ -121,7 +121,7 @@ Gate:
 
 Evidencias:
 
-- workflow [e2e-tests.yml](file:///home/jistriane/Ontracktchain/ontrackchain/.github/workflows/e2e-tests.yml) executando:
+- workflow [e2e-tests.yml](../.github/workflows/e2e-tests.yml) executando:
   - `npm run test:e2e:oidc-critical`
   - `npm run test:e2e`
   - `npm run test:e2e:dev-auth`
@@ -199,11 +199,12 @@ Evidencias:
 - `python scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md` validando que cada placeholder `__FILL_*__` possui owner, apoio e evidencia explicitos na matriz
 - `python scripts/render_staging_window_packet.py --window-id <janela> --output-file artifacts/staging/window-packet-<janela>.md` gerando um pacote redigido da janela com baseline, handoff atual e sequencia operacional
 - `python scripts/check_staging_env_placeholders.py --file .env.staging.private` validando ausencia de placeholders `__FILL_*__`, ausencias e vazios em chaves criticas do ambiente serio
-- matriz de handoff em [Ownership do `.env.staging`](file:///home/jistriane/Ontracktchain/ontrackchain/docs/staging-env-ownership.md) preenchida ou revisada pelos owners da janela
+- matriz de handoff em [Ownership do `.env.staging`](staging-env-ownership.md) preenchida ou revisada pelos owners da janela
 - `python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md` validando grupos obrigatorios, owner, data e status permitidos (`approved|reviewed|waived`)
 - `python scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private` orquestrando a janela, persistindo JSONs de checks/preflights e bloqueando continuidade em caso de falha
 - `python scripts/preflight_external_integrations.py` validando `ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=live` ou `ONTRACKCHAIN_EXPECT_RPC_MODE=live|fallback_only` conforme a janela
 - `python scripts/homologation_external_evidence.py --mode compliance|rpc|both` gerando artefato anexavel com manifest e `request_id` correlacionado
+- quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true`, o artefato de `homologation_external_evidence.py` deve incluir prova de `legal_report` via OIDC com download `200` e `report_downloaded` correlacionado
 - `python scripts/build_staging_release_dossier.py` consolidando `window packet`, JSONs dos checkers e homologacao em um dossier unico anexavel para sign-off
 - `provider-readiness` em modo `live`
 - catalogo `/api/v1/compliance/operations` expondo `kyc_wallet.capability_status=live`
@@ -281,6 +282,7 @@ Gate:
 - `build`, `smoke` e `playwright` verdes
 - artefatos de falha publicados
 - workflow `quality-gates` verde com `security-baseline`, `frontend-audit`, `postgres-schema`, `frontend-typecheck` e `python-quality`
+- workflow manual [staging-serious-window.yml](../.github/workflows/staging-serious-window.yml) executado para a janela regulatoria com `window_id`, `mode` e `environment_name` aprovados
 - validacao pos-deploy orientada a `OIDC` e integracoes reais, sem dependencias de fixture
 
 Evidencias:
@@ -288,6 +290,8 @@ Evidencias:
 - pipeline verde no commit candidato
 - logs e artefatos acessiveis
 - evidencias de validacao pos-deploy quando aplicavel
+- artifact `serious-staging-window-<janela>` anexado ou referenciado no sign-off
+- prova de que o `GitHub Environment` da janela continha `STAGING_WINDOW_PRIVATE_ENV` e approvals coerentes com o rito serio
 
 Bloqueadores tipicos:
 
@@ -295,6 +299,7 @@ Bloqueadores tipicos:
 - deploy sem E2E minimo
 - pipeline sem criterio confiavel de falha
 - ausencia de evidencia consolidada do smoke pos-deploy tecnico
+- execucao manual fora do workflow oficial sem pacote anexavel equivalente
 
 ### 9. Dados, Retention e Restore
 
@@ -361,6 +366,8 @@ Antes de promover, anexar ou referenciar:
 - prova de export auditado em `/monitoring`
 - prova de restore ou evidencia do ultimo teste de restore
 - lista de excecoes abertas com owner e prazo
+- artifact `serious-staging-window-<janela>` do workflow manual com `checks`, `dossier`, `window packet` e `homologation`
+- sign-off preenchido usando [Template de Sign-Off da Janela Seria](staging-serious-window-signoff-template.md)
 
 ## Checklist de Aprovacao
 
@@ -374,6 +381,7 @@ Antes de promover, anexar ou referenciar:
 | Reports e downloads auditados | Sim | `pending` |
 | Alerting e triagem globais operacionais | Sim | `pending` |
 | Pipeline verde com smoke e E2E | Sim | `pending` |
+| Workflow `staging-serious-window` executado e anexado | Sim | `pending` |
 | Backup + restore comprovados | Sim | `pending` |
 | Runbooks e owners minimos | Nao, mas recomendado | `ready_for_approval` |
 

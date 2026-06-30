@@ -1,0 +1,196 @@
+name: Staging Serious Window
+
+run-name: >-
+  Serious staging window / ${{ inputs.window_id }} / ${{ inputs.mode }} / ${{ inputs.environment_name }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      window_id:
+        description: "Window identifier, for example stg-2026-06-30-a"
+        required: true
+        type: string
+      mode:
+        description: "Serious staging mode"
+        required: true
+        default: baseline
+        type: choice
+        options:
+          - baseline
+          - homologated
+      environment_name:
+        description: "GitHub Environment with approvals and STAGING_WINDOW_PRIVATE_ENV"
+        required: true
+        default: staging-serious
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-serious-window-${{ inputs.environment_name }}
+  cancel-in-progress: false
+
+jobs:
+  run-serious-window:
+    name: Run serious staging window
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ inputs.environment_name }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ontrackchain
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Prepare CI artifacts directory
+        run: mkdir -p ci-artifacts
+
+      - name: Validate required serious window secret
+        env:
+          STAGING_WINDOW_PRIVATE_ENV: ${{ secrets.STAGING_WINDOW_PRIVATE_ENV }}
+        run: |
+          if [ -z "${STAGING_WINDOW_PRIVATE_ENV}" ]; then
+            echo "Missing required environment secret STAGING_WINDOW_PRIVATE_ENV for '${{ inputs.environment_name }}'." >&2
+            exit 1
+          fi
+
+      - name: Materialize .env.staging.private
+        env:
+          STAGING_WINDOW_PRIVATE_ENV: ${{ secrets.STAGING_WINDOW_PRIVATE_ENV }}
+        run: |
+          umask 077
+          printf '%s\n' "${STAGING_WINDOW_PRIVATE_ENV}" > .env.staging.private
+          python - <<'PY'
+          from pathlib import Path
+          target = Path(".env.staging.private")
+          line_count = len(target.read_text(encoding="utf-8").splitlines())
+          print(f"Materialized {target} with {line_count} logical lines.")
+          PY
+
+      - name: Run one-click serious staging gate
+        run: |
+          set -o pipefail
+          python scripts/prepare_staging_window.py \
+            --window-id "${{ inputs.window_id }}" \
+            --mode "${{ inputs.mode }}" \
+            --run 2>&1 | tee ci-artifacts/prepare-staging-window-output.json
+
+      - name: Publish workflow summary
+        if: always()
+        run: |
+          {
+            echo "## Serious staging window"
+            echo
+            echo "- Window ID: \`${{ inputs.window_id }}\`"
+            echo "- Mode: \`${{ inputs.mode }}\`"
+            echo "- Environment: \`${{ inputs.environment_name }}\`"
+            echo "- Checks directory: \`artifacts/staging/checks\`"
+            echo "- Dossiers directory: \`artifacts/staging/dossiers\`"
+            echo "- Homologation directory: \`artifacts/homologation\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Append payload status summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload_file = Path("ci-artifacts/prepare-staging-window-output.json")
+          summary_file = Path("ci-artifacts/prepare-staging-window-summary.md")
+
+          if not payload_file.exists():
+              summary_file.write_text(
+                  "## Payload status\n\n- Payload file was not generated.\n",
+                  encoding="utf-8",
+              )
+              raise SystemExit(0)
+
+          try:
+              payload = json.loads(payload_file.read_text(encoding="utf-8"))
+          except json.JSONDecodeError as exc:
+              summary_file.write_text(
+                  "## Payload status\n\n"
+                  f"- Payload file is not valid JSON: `{exc}`\n",
+                  encoding="utf-8",
+              )
+              raise SystemExit(0)
+
+          lines = [
+              "## Payload status",
+              "",
+              f"- Overall status: `{payload.get('status', 'unknown')}`",
+              f"- Validation status: `{payload.get('validation', {}).get('status', 'unknown')}`",
+              f"- Preflight status: `{payload.get('preflight', {}).get('status', 'unknown')}`",
+              f"- Run status: `{payload.get('run', {}).get('status', 'unknown')}`",
+          ]
+
+          artifacts = payload.get("artifacts", {})
+          if artifacts:
+              lines.extend(
+                  [
+                      "",
+                      "## Artifact paths",
+                      "",
+                      f"- Private env file: `{artifacts.get('private_env_file', 'n/a')}`",
+                      f"- Window packet file: `{artifacts.get('window_packet_file', 'n/a')}`",
+                      f"- Checks directory: `{artifacts.get('checks_dir', 'n/a')}`",
+                      f"- Dossiers directory: `{artifacts.get('dossiers_dir', 'n/a')}`",
+                      f"- Homologation directory: `{artifacts.get('homologation_dir', 'n/a')}`",
+                  ]
+              )
+
+          next_steps = payload.get("next_steps", [])
+          if next_steps:
+              lines.extend(["", "## Next steps", ""])
+              lines.extend(f"- {step}" for step in next_steps[:5])
+
+          summary_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+          cat ci-artifacts/prepare-staging-window-summary.md >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Render sign-off draft from payload
+        if: always()
+        run: |
+          python scripts/render_staging_window_signoff.py \
+            --payload-file ci-artifacts/prepare-staging-window-output.json \
+            --output-file ci-artifacts/staging-serious-window-signoff.md \
+            --run-name "Serious staging window / ${{ inputs.window_id }} / ${{ inputs.mode }} / ${{ inputs.environment_name }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Append sign-off draft summary
+        if: always()
+        run: |
+          {
+            echo
+            echo "## Sign-off draft"
+            echo
+            echo "- Draft file: \`ci-artifacts/staging-serious-window-signoff.md\`"
+            echo "- Run URL: \`${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Remove ephemeral private env file
+        if: always()
+        run: rm -f .env.staging.private
+
+      - name: Upload serious staging artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: serious-staging-window-${{ inputs.window_id }}
+          path: |
+            ontrackchain/ci-artifacts
+            ontrackchain/artifacts/staging/checks
+            ontrackchain/artifacts/staging/dossiers
+            ontrackchain/artifacts/staging/templates
+            ontrackchain/artifacts/staging/window-packet-${{ inputs.window_id }}.md
+            ontrackchain/artifacts/homologation
+          if-no-files-found: warn
+          retention-days: 30

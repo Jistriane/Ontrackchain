@@ -3,6 +3,9 @@ import { cookies } from "next/headers";
 import { isConfiguredDevAuthButDisabled, resolveEffectiveAuthMode } from "../../../lib/auth-runtime";
 
 type AuthConfigResponse = {
+  mfa?: {
+    provider_homologated?: boolean;
+  };
   oidc?: {
     client_id?: string | null;
     token_url?: string | null;
@@ -110,6 +113,7 @@ export async function POST(request: Request) {
   }
 
   if (authMode === "oidc") {
+    const config = await loadOidcConfig(authBaseUrl, requestId);
     let token = body.token?.trim();
     const code = body.code?.trim();
     const codeVerifier = body.codeVerifier?.trim();
@@ -151,7 +155,11 @@ export async function POST(request: Request) {
     }
 
     cookies().set("otc_token", token, { httpOnly: true, sameSite: "lax", path: "/" });
-    cookies().set("otc_2fa", "managed_externally", { httpOnly: true, sameSite: "lax", path: "/" });
+    cookies().set("otc_2fa", config?.mfa?.provider_homologated ? "managed_externally_homologated" : "managed_externally", {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/"
+    });
     return new Response(JSON.stringify({ require2fa: false, authMode }), {
       status: 200,
       headers: { "content-type": "application/json" }

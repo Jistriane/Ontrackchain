@@ -104,6 +104,121 @@ class CheckStagingEnvPlaceholdersTests(unittest.TestCase):
         self.assertEqual(payload["empty_required"], [])
         self.assertEqual(payload["missing_required"], [])
 
+    def test_allows_oidc_homologation_token_placeholder_when_mfa_homologation_is_disabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            env_path = Path(tmp_dir) / ".env.staging.private"
+            env_path.write_text(
+                "\n".join(
+                    [
+                        "APP_ENV=staging",
+                        "AUTH_MODE=oidc",
+                        "DEV_AUTH_ENABLED=false",
+                        "MFA_EXTERNAL_PROVIDER_HOMOLOGATED=false",
+                        "ONTRACKCHAIN_HOMOLOGATION_OIDC_TOKEN=__FILL_STAGING_HOMOLOGATION_OIDC_TOKEN__",
+                        "KEYCLOAK_ADMIN_PASSWORD=strong-password",
+                        "JWT_HS256_SECRET=top-secret",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            exit_code, payload = MODULE.build_payload(
+                file_path=env_path,
+                required_non_empty=[
+                    "APP_ENV",
+                    "AUTH_MODE",
+                    "DEV_AUTH_ENABLED",
+                    "KEYCLOAK_ADMIN_PASSWORD",
+                    "JWT_HS256_SECRET",
+                ],
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["unresolved_placeholders"], [])
+        self.assertEqual(payload["conditionally_allowed_placeholders"], ["ONTRACKCHAIN_HOMOLOGATION_OIDC_TOKEN"])
+
+    def test_requires_oidc_homologation_token_placeholder_to_be_resolved_when_mfa_homologation_is_enabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            env_path = Path(tmp_dir) / ".env.staging.private"
+            env_path.write_text(
+                "\n".join(
+                    [
+                        "APP_ENV=staging",
+                        "AUTH_MODE=oidc",
+                        "DEV_AUTH_ENABLED=false",
+                        "MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true",
+                        "ONTRACKCHAIN_HOMOLOGATION_OIDC_TOKEN=__FILL_STAGING_HOMOLOGATION_OIDC_TOKEN__",
+                        "KEYCLOAK_ADMIN_PASSWORD=strong-password",
+                        "JWT_HS256_SECRET=top-secret",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            exit_code, payload = MODULE.build_payload(
+                file_path=env_path,
+                required_non_empty=[
+                    "APP_ENV",
+                    "AUTH_MODE",
+                    "DEV_AUTH_ENABLED",
+                    "KEYCLOAK_ADMIN_PASSWORD",
+                    "JWT_HS256_SECRET",
+                ],
+            )
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(
+            payload["unresolved_placeholders"],
+            [
+                {
+                    "name": "ONTRACKCHAIN_HOMOLOGATION_OIDC_TOKEN",
+                    "value": "__FILL_STAGING_HOMOLOGATION_OIDC_TOKEN__",
+                }
+            ],
+        )
+        self.assertEqual(payload["conditionally_allowed_placeholders"], [])
+
+    def test_allows_empty_primary_rpc_url_when_expected_mode_is_fallback_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            env_path = Path(tmp_dir) / ".env.staging.private"
+            env_path.write_text(
+                "\n".join(
+                    [
+                        "APP_ENV=staging",
+                        "AUTH_MODE=oidc",
+                        "ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=live",
+                        "ONTRACKCHAIN_EXPECT_RPC_MODE=fallback_only",
+                        "COMPLIANCE_TRM_SCREENING_URL=https://trm.example.com/screening",
+                        "COMPLIANCE_TRM_API_KEY=trm-key",
+                        "INVESTIGATION_RPC_PRIMARY_URL=",
+                        "INVESTIGATION_RPC_FALLBACK_URL=https://rpc-fallback.example.com",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            exit_code, payload = MODULE.build_payload(
+                file_path=env_path,
+                required_non_empty=[
+                    "APP_ENV",
+                    "AUTH_MODE",
+                    "COMPLIANCE_TRM_SCREENING_URL",
+                    "COMPLIANCE_TRM_API_KEY",
+                    "INVESTIGATION_RPC_PRIMARY_URL",
+                ],
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["empty_required"], [])
+        self.assertIn("INVESTIGATION_RPC_FALLBACK_URL", payload["effective_required_non_empty"])
+        self.assertNotIn("INVESTIGATION_RPC_PRIMARY_URL", payload["effective_required_non_empty"])
+
     def test_output_payload_is_json_serializable(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             env_path = Path(tmp_dir) / ".env.staging.private"

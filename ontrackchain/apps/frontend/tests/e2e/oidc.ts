@@ -3,6 +3,9 @@ import { expect, type APIRequestContext, type Page } from "@playwright/test";
 export type AuthConfigResponse = {
   auth_mode?: "dev" | "oidc";
   effective_auth_mode?: "dev" | "oidc";
+  mfa?: {
+    provider_homologated?: boolean;
+  };
   oidc?: {
     authorization_url?: string | null;
   };
