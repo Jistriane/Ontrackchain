@@ -1,0 +1,43 @@
+groups:
+  - name: ontrack-compliance-operational
+    interval: 15s
+    rules:
+      - alert: OntrackComplianceQueuedBacklog
+        expr: ontrack_compliance_platform_operational_alert_status{code="compliance_queued_backlog"} == 1
+        for: 1m
+        labels:
+          severity: warning
+          service: compliance-api
+        annotations:
+          summary: Backlog de compliance em queued
+          description: O volume de casos de compliance em fila excedeu o limiar operacional.
+
+      - alert: OntrackComplianceFailedCasesRecent
+        expr: ontrack_compliance_platform_operational_alert_status{code="compliance_failed_cases_recent"} == 1
+        for: 1m
+        labels:
+          severity: critical
+          service: compliance-api
+        annotations:
+          summary: Falhas recentes em compliance
+          description: Existem casos de compliance falhos nas ultimas 24 horas.
+
+      - alert: OntrackComplianceExpiredQuotesBacklog
+        expr: ontrack_compliance_platform_operational_alert_status{code="compliance_expired_quotes_backlog"} == 1
+        for: 2m
+        labels:
+          severity: warning
+          service: compliance-api
+        annotations:
+          summary: Acumulo de quotes expirados
+          description: Existe backlog de quotes de compliance expirados e nao consumidos.
+
+      - alert: OntrackComplianceCompletedWithoutReport
+        expr: ontrack_compliance_platform_operational_alert_status{code="compliance_completed_without_report"} == 1
+        for: 2m
+        labels:
+          severity: warning
+          service: compliance-api
+        annotations:
+          summary: Casos concluidos sem relatorio
+          description: Existem casos de compliance concluidos sem relatorio persistido.

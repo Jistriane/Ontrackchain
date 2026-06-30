@@ -1,0 +1,1779 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import uuid
+import urllib.request
+from datetime import datetime, timedelta, timezone
+from typing import Annotated, Literal, Optional
+from uuid import UUID
+
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi.responses import JSONResponse, Response
+from ontrackchain_shared import (
+    is_available_for_plan,
+    normalize_plan,
+    normalize_slug,
+    plan_rank,
+    pricing_table_hash,
+    resolve_canonical_identifier,
+)
+from pydantic import BaseModel, Field
+from pydantic_settings import BaseSettings
+from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
+
+from compliance_api.risk_provider import TrmRiskProviderConfig, describe_provider_readiness, screen_address
+
+
+class Settings(BaseSettings):
+    postgres_host: str = "postgres"
+    postgres_port: int = 5432
+    postgres_user: str = "ontrackchain"
+    postgres_password: str = "ontrackchain"
+    postgres_db: str = "ontrackchain"
+    credit_value_brl: float = 1.0
+    report_api_base_url: str = "http://report-api:8004"
+    compliance_internal_metrics_enabled: bool = True
+    compliance_queued_cases_warn_threshold: int = 5
+    compliance_failed_last_24h_critical_threshold: int = 1
+    compliance_expired_quotes_warn_threshold: int = 10
+    compliance_completed_without_report_warn_threshold: int = 3
+    compliance_provider_degraded_warn_threshold: int = 1
+    compliance_risk_provider: str = "trm_labs"
+    compliance_trm_enabled: bool = False
+    compliance_trm_screening_url: str = ""
+    compliance_trm_api_key: str = ""
+    compliance_trm_api_key_header: str = "Authorization"
+    compliance_trm_api_key_prefix: str = "Bearer "
+    compliance_trm_timeout_ms: int = 1500
+    compliance_trm_max_retries: int = 1
+
+
+settings = Settings()
+
+app = FastAPI(title="OnTrackChain Compliance API")
+
+SUPPORTED_CHAINS = {"ethereum", "polygon", "bsc", "arbitrum", "base", "bitcoin"}
+QUOTE_TTL_MINUTES = 15
+CALCULATION_VERSION = "v1.0"
+
+COMPLIANCE_OPERATION_ALIASES = {
+    "kyc": "kyc_wallet",
+    "wallet_kyc": "kyc_wallet",
+    "due_diligence": "due_diligence",
+    "dd": "due_diligence",
+    "sof": "source_of_funds",
+    "source_of_funds": "source_of_funds",
+    "sanctions": "sanctions_check",
+    "sanctions_check": "sanctions_check",
+}
+
+COMPLIANCE_OPERATION_CATALOG = {
+    "kyc_wallet": {
+        "label": "KYC de Wallet",
+        "description": "Screening inicial de wallet com score AML/KYT e recomendacao.",
+        "min_plan": "starter",
+        "aliases_accepted": ["kyc", "wallet_kyc"],
+        "deprecated_aliases": [],
+        "chains_supported": sorted(SUPPORTED_CHAINS),
+        "avg_duration_seconds": 15,
+        "output_format": "json",
+        "regulatory_reference": "Lei 9.613/98 | Res. BCB 520",
+        "tags": ["kyc", "aml", "screening"],
+    },
+    "due_diligence": {
+        "label": "Due Diligence",
+        "description": "Analise ampliada da contraparte com red flags e score de conforto.",
+        "min_plan": "professional",
+        "aliases_accepted": ["due_diligence", "dd"],
+        "deprecated_aliases": [],
+        "chains_supported": sorted(SUPPORTED_CHAINS),
+        "avg_duration_seconds": 90,
+        "output_format": "json+pdf",
+        "regulatory_reference": "Res. BCB 520 Art. 44-47",
+        "tags": ["dd", "counterparty", "compliance"],
+    },
+    "source_of_funds": {
+        "label": "Source of Funds",
+        "description": "Analise de origem de fundos com estimativa de risco por fluxo.",
+        "min_plan": "professional",
+        "aliases_accepted": ["source_of_funds", "sof"],
+        "deprecated_aliases": [],
+        "chains_supported": sorted(SUPPORTED_CHAINS),
+        "avg_duration_seconds": 120,
+        "output_format": "json+pdf",
+        "regulatory_reference": "Res. BCB 520 | Lei 9.613/98",
+        "tags": ["sof", "funds", "aml"],
+    },
+    "sanctions_check": {
+        "label": "Sanctions Check",
+        "description": "Consulta consolidada em listas restritivas e sancoes.",
+        "min_plan": "starter",
+        "aliases_accepted": ["sanctions", "sanctions_check"],
+        "deprecated_aliases": [],
+        "chains_supported": sorted(SUPPORTED_CHAINS),
+        "avg_duration_seconds": 10,
+        "output_format": "json",
+        "regulatory_reference": "OFAC | UN | EU | COAF",
+        "tags": ["sanctions", "lists", "screening"],
+    },
+}
+
+COMPLIANCE_PRICING_TABLE = {
+    "operation_cost": {
+        "kyc_wallet": 1.0,
+        "due_diligence": 3.0,
+        "source_of_funds": 4.0,
+        "sanctions_check": 0.75,
+    },
+    "chain_multiplier": {
+        "ethereum": 1.0,
+        "polygon": 0.8,
+        "bsc": 0.8,
+        "arbitrum": 0.9,
+        "base": 0.8,
+        "bitcoin": 1.5,
+    },
+    "plan_discount": {
+        "starter": 0.0,
+        "professional": 0.0,
+        "enterprise": 0.15,
+    },
+}
+
+
+def _dsn() -> str:
+    return (
+        f"host={settings.postgres_host} port={settings.postgres_port} "
+        f"dbname={settings.postgres_db} user={settings.postgres_user} password={settings.postgres_password}"
+    )
+
+
+@app.on_event("startup")
+async def _startup() -> None:
+    app.state.pool = ConnectionPool(conninfo=_dsn(), kwargs={"row_factory": dict_row})
+
+
+@app.on_event("shutdown")
+async def _shutdown() -> None:
+    pool: ConnectionPool = app.state.pool
+    pool.close()
+
+
+def get_pool() -> ConnectionPool:
+    return app.state.pool
+
+
+def _apply_rls_context(conn, org_id: Optional[str]) -> None:
+    if not org_id:
+        raise HTTPException(status_code=401, detail="missing_org_context")
+    with conn.cursor() as cur:
+        cur.execute("SELECT set_config('app.organization_id', %s, true)", (org_id,))
+
+
+def _require_org_id(org_id: Optional[str]) -> str:
+    if not org_id:
+        raise HTTPException(status_code=401, detail="missing_org_context")
+    return org_id
+
+
+def _normalize_chain(chain: str) -> str:
+    return normalize_slug(chain)
+
+
+def _validate_chain(chain: str) -> str:
+    normalized = _normalize_chain(chain)
+    if normalized not in SUPPORTED_CHAINS:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "unsupported_chain",
+                "message": "Chain fora do escopo do MVP",
+                "supported_chains": sorted(SUPPORTED_CHAINS),
+            },
+        )
+    return normalized
+
+
+def _resolve_operation(raw_input: str) -> tuple[str, Optional[dict]]:
+    try:
+        canonical, was_alias = resolve_canonical_identifier(
+            raw_input,
+            canonical_values=list(COMPLIANCE_OPERATION_CATALOG.keys()),
+            aliases=COMPLIANCE_OPERATION_ALIASES,
+        )
+    except KeyError:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "invalid_compliance_operation",
+                "message": f"operation '{raw_input}' nao reconhecida",
+                "valid_operations": sorted(COMPLIANCE_OPERATION_CATALOG.keys()),
+                "accepted_aliases": sorted(COMPLIANCE_OPERATION_ALIASES.keys()),
+            },
+        ) from None
+    if not was_alias:
+        return canonical, None
+    return canonical, {"warning": "operation_alias_resolved", "requested": raw_input, "canonical": canonical}
+
+
+def _is_operation_available(operation: str, plan: str) -> bool:
+    canonical, _ = _resolve_operation(operation)
+    min_plan = COMPLIANCE_OPERATION_CATALOG[canonical]["min_plan"]
+    return is_available_for_plan(min_plan, plan)
+
+
+def _required_plan_for_operation(operation: str) -> str:
+    canonical, _ = _resolve_operation(operation)
+    return str(COMPLIANCE_OPERATION_CATALOG[canonical]["min_plan"])
+
+
+def _build_operation_detail(canonical: str, current_plan: str, include_deprecated: bool) -> dict:
+    meta = COMPLIANCE_OPERATION_CATALOG[canonical]
+    available = _is_operation_available(canonical, current_plan)
+    capability = _build_operation_capability(canonical)
+    return {
+        "canonical": canonical,
+        "label": meta["label"],
+        "description": meta["description"],
+        "cost_credits": float(COMPLIANCE_PRICING_TABLE["operation_cost"][canonical]),
+        "available": available,
+        "upgrade_required": None if available else meta["min_plan"],
+        "min_plan": meta["min_plan"],
+        "aliases_accepted": list(meta["aliases_accepted"]),
+        "deprecated_aliases": list(meta["deprecated_aliases"]) if include_deprecated else [],
+        "chains_supported": meta["chains_supported"],
+        "avg_duration_seconds": meta["avg_duration_seconds"],
+        "output_format": meta["output_format"],
+        "regulatory_reference": meta["regulatory_reference"],
+        "tags": meta["tags"],
+        "provider": capability["provider"],
+        "provider_status": capability["provider_status"],
+        "degraded_reason": capability["degraded_reason"],
+        "capability_status": capability["capability_status"],
+        "delivery_mode": capability["delivery_mode"],
+        "capability_details": capability["details"],
+    }
+
+
+def _get_compliance_provider_readiness():
+    return describe_provider_readiness(
+        provider_name=settings.compliance_risk_provider,
+        trm_config=_get_trm_provider_config(),
+    )
+
+
+def _build_operation_capability(operation: str) -> dict:
+    canonical, _ = _resolve_operation(operation)
+    readiness = _get_compliance_provider_readiness()
+
+    if canonical == "kyc_wallet":
+        return {
+            "operation": canonical,
+            "provider": readiness.provider_name,
+            "provider_status": "live" if readiness.ready else "degraded",
+            "degraded_reason": None if readiness.ready else readiness.degraded_reason,
+            "capability_status": "live" if readiness.ready else "degraded",
+            "delivery_mode": "risk_check_instant",
+            "details": readiness.details,
+        }
+
+    degraded_reason_map = {
+        "due_diligence": "manual_review_required",
+        "source_of_funds": "manual_review_required",
+        "sanctions_check": "sanctions_provider_not_integrated",
+    }
+    delivery_mode_map = {
+        "due_diligence": "manual_review_pending",
+        "source_of_funds": "manual_review_pending",
+        "sanctions_check": "list_screening_pending",
+    }
+    return {
+        "operation": canonical,
+        "provider": "manual_review" if canonical != "sanctions_check" else "sanctions_lists",
+        "provider_status": "degraded",
+        "degraded_reason": degraded_reason_map[canonical],
+        "capability_status": "degraded",
+        "delivery_mode": delivery_mode_map[canonical],
+        "details": {
+            "provider_dependency": None,
+            "requires_human_review": canonical in {"due_diligence", "source_of_funds"},
+            "ready_for_live_homologation": False,
+        },
+    }
+
+
+def _derive_kyc_recommendation(risk_score: Optional[int], provider_status: str) -> Optional[str]:
+    if provider_status != "live" or risk_score is None:
+        return None
+    if risk_score >= 80:
+        return "ESCALATE"
+    if risk_score >= 50:
+        return "MONITOR"
+    return "ALLOW"
+
+
+def _record_optional_compliance_audit(
+    *,
+    pool: ConnectionPool,
+    org_id: Optional[str],
+    user_id: Optional[str],
+    linked_user_id: Optional[str],
+    request_id: str,
+    action: str,
+    resource_type: str,
+    metadata: dict,
+) -> None:
+    if not org_id:
+        return
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=user_id,
+        linked_user_id=linked_user_id,
+    )
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            _record_audit_log(
+                cur,
+                organization_id=org_id,
+                user_id=effective_user_id,
+                action=action,
+                resource_type=resource_type,
+                resource_id=None,
+                metadata={**metadata, "request_id": request_id, "external_user_id": external_actor_user_id},
+            )
+        conn.commit()
+
+
+def _pricing_table_hash() -> str:
+    return pricing_table_hash(COMPLIANCE_PRICING_TABLE)
+
+
+def _calculate_quote_cost(operation: str, chain: str, plan: str) -> dict:
+    operation_cost = float(COMPLIANCE_PRICING_TABLE["operation_cost"][operation])
+    chain_multiplier = float(COMPLIANCE_PRICING_TABLE["chain_multiplier"].get(chain, 1.0))
+    subtotal = operation_cost * chain_multiplier
+    discount_pct = float(COMPLIANCE_PRICING_TABLE["plan_discount"].get(plan, 0.0))
+    discount = subtotal * discount_pct
+    total = subtotal - discount
+    breakdown = [
+        {
+            "item": f"Operacao de compliance: {operation}",
+            "base_cost": operation_cost,
+            "chain": chain,
+            "chain_multiplier": chain_multiplier,
+            "subtotal": round(subtotal, 4),
+        }
+    ]
+    return {
+        "breakdown": breakdown,
+        "subtotal_credits": round(subtotal, 4),
+        "plan_discount": round(discount, 4),
+        "total_credits": round(total, 4),
+        "pricing_table_hash": _pricing_table_hash(),
+        "calculation_version": CALCULATION_VERSION,
+    }
+
+
+def _build_compliance_quote_payload(
+    *,
+    address: str,
+    chain: str,
+    operation_requested: str,
+    plan: str,
+) -> dict:
+    warnings: list[dict] = []
+    canonical_operation, alias_warning = _resolve_operation(operation_requested)
+    if alias_warning:
+        warnings.append(alias_warning)
+    if not _is_operation_available(canonical_operation, plan):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "operation_not_available_on_plan",
+                "operation": canonical_operation,
+                "required_plan": _required_plan_for_operation(canonical_operation),
+                "current_plan": plan,
+            },
+        )
+    quote = _calculate_quote_cost(canonical_operation, chain, plan)
+    quote_id = uuid.uuid4()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=QUOTE_TTL_MINUTES)
+    total_credits = float(quote["total_credits"])
+    return {
+        "quote_id": quote_id,
+        "expires_at": expires_at,
+        "operation_requested": operation_requested,
+        "operation_canonical": canonical_operation,
+        "breakdown": quote["breakdown"],
+        "subtotal_credits": float(quote["subtotal_credits"]),
+        "plan_discount": float(quote["plan_discount"]),
+        "total_credits": total_credits,
+        "total_brl_estimate": round(total_credits * float(settings.credit_value_brl), 2),
+        "pricing_table_hash": quote["pricing_table_hash"],
+        "calculation_version": quote["calculation_version"],
+        "plan": plan,
+        "chain": chain,
+        "address": address,
+        "warnings": warnings,
+    }
+
+
+def _persist_compliance_quote(cur, *, org_id: str, user_id: Optional[str], quote_payload: dict) -> None:
+    persisted_user_id = _resolve_persisted_user_id(cur, user_id)
+    cur.execute(
+        """
+        INSERT INTO compliance_quotes (
+          id, organization_id, user_id, plan, plan_snapshot, operation_requested, operation_canonical,
+          chain, target_address, quote_breakdown, subtotal_credits, plan_discount, total_credits,
+          pricing_table_hash, calculation_version, expires_at
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            quote_payload["quote_id"],
+            org_id,
+            persisted_user_id,
+            quote_payload["plan"],
+            quote_payload["plan"],
+            quote_payload["operation_requested"],
+            quote_payload["operation_canonical"],
+            quote_payload["chain"],
+            quote_payload["address"],
+            json.dumps(quote_payload["breakdown"]),
+            quote_payload["subtotal_credits"],
+            quote_payload["plan_discount"],
+            quote_payload["total_credits"],
+            quote_payload["pricing_table_hash"],
+            quote_payload["calculation_version"],
+            quote_payload["expires_at"],
+        ),
+    )
+
+
+def _record_credit_ledger(cur, *, org_id: str, case_id: str, amount: float, balance_after: float, metadata: dict) -> None:
+    cur.execute(
+        """
+        INSERT INTO credit_ledger (org_id, case_id, action, amount, balance_after, metadata)
+        VALUES (%s, %s, 'PRE_HOLD', %s, %s, %s::jsonb)
+        """,
+        (org_id, case_id, amount, balance_after, json.dumps(metadata)),
+    )
+
+
+def _resolve_persisted_user_id(cur, user_id: Optional[str]) -> Optional[str]:
+    if not user_id:
+        return None
+    try:
+        candidate_user_id = str(UUID(str(user_id)))
+        cur.execute("SELECT 1 FROM users WHERE id = %s", (candidate_user_id,))
+        if cur.fetchone():
+            return candidate_user_id
+    except (TypeError, ValueError):
+        return None
+    return None
+
+
+def _resolve_actor_ids(
+    *,
+    external_user_id: Optional[str],
+    linked_user_id: Optional[str],
+) -> tuple[Optional[str], Optional[str]]:
+    effective_user_id = linked_user_id or external_user_id
+    if linked_user_id and external_user_id and linked_user_id != external_user_id:
+        return effective_user_id, external_user_id
+    return effective_user_id, None
+
+
+def _record_audit_log(
+    cur,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    action: str,
+    resource_type: str,
+    resource_id: Optional[str],
+    metadata: dict,
+) -> None:
+    normalized_metadata = dict(metadata)
+    persisted_user_id = _resolve_persisted_user_id(cur, user_id)
+    if user_id and not persisted_user_id:
+        normalized_metadata.setdefault("external_user_id", str(user_id))
+
+    cur.execute(
+        """
+        INSERT INTO audit_logs (organization_id, user_id, action, resource_type, resource_id, metadata)
+        VALUES (%s, %s, %s, %s, %s, %s::jsonb)
+        """,
+        (organization_id, persisted_user_id, action, resource_type, resource_id, json.dumps(normalized_metadata)),
+    )
+
+
+def _build_compliance_platform_snapshot(*, pool: ConnectionPool) -> dict:
+    provider_readiness = describe_provider_readiness(
+        provider_name=settings.compliance_risk_provider,
+        trm_config=_get_trm_provider_config(),
+    )
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                  (SELECT COUNT(*) FROM compliance_quotes WHERE used_at IS NULL AND expires_at > NOW()) AS open_quotes_total,
+                  (SELECT COUNT(*) FROM compliance_quotes WHERE used_at IS NULL AND expires_at <= NOW()) AS expired_quotes_total,
+                  (SELECT COUNT(*) FROM cases WHERE case_type = 'compliance' AND status = 'queued') AS queued_cases_total,
+                  (SELECT COUNT(*) FROM cases WHERE case_type = 'compliance' AND status = 'processing') AS processing_cases_total,
+                  (SELECT COUNT(*) FROM cases WHERE case_type = 'compliance' AND status = 'completed') AS completed_cases_total,
+                  (SELECT COUNT(*) FROM cases WHERE case_type = 'compliance' AND status = 'completed' AND completed_at >= NOW() - INTERVAL '24 hour') AS completed_cases_last_24h,
+                  (SELECT COUNT(*) FROM cases WHERE case_type = 'compliance' AND status = 'failed') AS failed_cases_total,
+                  (SELECT COUNT(*) FROM cases WHERE case_type = 'compliance' AND status = 'failed' AND completed_at >= NOW() - INTERVAL '24 hour') AS failed_cases_last_24h,
+                  (
+                    SELECT COUNT(*)
+                    FROM cases c
+                    WHERE c.case_type = 'compliance'
+                      AND c.status = 'completed'
+                      AND NOT EXISTS (SELECT 1 FROM reports r WHERE r.case_id = c.id)
+                  ) AS completed_without_report_total,
+                  (SELECT COUNT(*) FROM reports) AS reports_total,
+                  (SELECT COUNT(*) FROM reports WHERE created_at >= NOW() - INTERVAL '24 hour') AS reports_last_24h,
+                  (SELECT COUNT(*) FROM reports WHERE report_type = 'legal_report' AND created_at >= NOW() - INTERVAL '24 hour') AS legal_reports_last_24h,
+                  (SELECT COUNT(*) FROM reports WHERE report_type = 'coaf_ready_report' AND created_at >= NOW() - INTERVAL '24 hour') AS coaf_reports_last_24h,
+                  (SELECT COUNT(DISTINCT organization_id) FROM reports WHERE created_at >= NOW() - INTERVAL '24 hour') AS orgs_with_reports_last_24h,
+                  (
+                    SELECT COUNT(*)
+                    FROM audit_logs
+                    WHERE action = 'compliance_risk_checked'
+                      AND created_at >= NOW() - INTERVAL '24 hour'
+                      AND COALESCE(metadata->>'provider_status', '') = 'live'
+                  ) AS risk_checks_live_last_24h,
+                  (
+                    SELECT COUNT(*)
+                    FROM audit_logs
+                    WHERE action = 'compliance_risk_checked'
+                      AND created_at >= NOW() - INTERVAL '24 hour'
+                      AND COALESCE(metadata->>'provider_status', '') = 'degraded'
+                  ) AS risk_checks_degraded_last_24h,
+                  (
+                    SELECT COUNT(*)
+                    FROM audit_logs
+                    WHERE action = 'compliance_risk_checked'
+                      AND created_at >= NOW() - INTERVAL '24 hour'
+                      AND COALESCE(metadata->>'provider', '') = %s
+                  ) AS risk_checks_last_24h
+                """
+                ,
+                (settings.compliance_risk_provider,),
+            )
+            summary = cur.fetchone() or {}
+
+    return {
+        "catalog": {
+            "operations_total": len(COMPLIANCE_OPERATION_CATALOG),
+        },
+        "quotes": {
+            "open_total": int(summary.get("open_quotes_total") or 0),
+            "expired_total": int(summary.get("expired_quotes_total") or 0),
+        },
+        "cases": {
+            "queued_total": int(summary.get("queued_cases_total") or 0),
+            "processing_total": int(summary.get("processing_cases_total") or 0),
+            "completed_total": int(summary.get("completed_cases_total") or 0),
+            "completed_last_24h": int(summary.get("completed_cases_last_24h") or 0),
+            "failed_total": int(summary.get("failed_cases_total") or 0),
+            "failed_last_24h": int(summary.get("failed_cases_last_24h") or 0),
+            "completed_without_report_total": int(summary.get("completed_without_report_total") or 0),
+        },
+        "reports": {
+            "total": int(summary.get("reports_total") or 0),
+            "last_24h": int(summary.get("reports_last_24h") or 0),
+            "legal_last_24h": int(summary.get("legal_reports_last_24h") or 0),
+            "coaf_last_24h": int(summary.get("coaf_reports_last_24h") or 0),
+            "orgs_with_reports_last_24h": int(summary.get("orgs_with_reports_last_24h") or 0),
+        },
+        "audit": {
+            "risk_checks_last_24h": int(summary.get("risk_checks_last_24h") or 0),
+            "risk_checks_live_last_24h": int(summary.get("risk_checks_live_last_24h") or 0),
+            "risk_checks_degraded_last_24h": int(summary.get("risk_checks_degraded_last_24h") or 0),
+        },
+        "provider": {
+            "name": provider_readiness.provider_name,
+            "supported": provider_readiness.provider_supported,
+            "enabled": provider_readiness.enabled,
+            "configured": provider_readiness.configured,
+            "ready": provider_readiness.ready,
+            "degraded_reason": provider_readiness.degraded_reason,
+            "details": provider_readiness.details,
+        },
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def _build_compliance_platform_alerts(snapshot: dict) -> list[dict]:
+    alerts: list[dict] = []
+
+    def append_alert(
+        *,
+        code: str,
+        severity: str,
+        status: str,
+        metric: str,
+        value: float,
+        threshold: float,
+        title: str,
+        message: str,
+        recommended_action: str,
+    ) -> None:
+        alerts.append(
+            {
+                "code": code,
+                "severity": severity,
+                "status": status,
+                "metric": metric,
+                "value": value,
+                "threshold": threshold,
+                "title": title,
+                "message": message,
+                "recommended_action": recommended_action,
+            }
+        )
+
+    queued_total = snapshot["cases"]["queued_total"]
+    failed_last_24h = snapshot["cases"]["failed_last_24h"]
+    expired_quotes_total = snapshot["quotes"]["expired_total"]
+    completed_without_report_total = snapshot["cases"]["completed_without_report_total"]
+    degraded_risk_checks = snapshot["audit"]["risk_checks_degraded_last_24h"]
+
+    append_alert(
+        code="compliance_queued_backlog",
+        severity="warning",
+        status="open" if queued_total >= settings.compliance_queued_cases_warn_threshold else "closed",
+        metric="cases.queued_total",
+        value=float(queued_total),
+        threshold=float(settings.compliance_queued_cases_warn_threshold),
+        title="Backlog de compliance em queued",
+        message="O volume de casos de compliance em fila excedeu o limiar operacional.",
+        recommended_action="Verificar worker/processamento e gargalos na promocao ou execução.",
+    )
+    append_alert(
+        code="compliance_failed_cases_recent",
+        severity="critical",
+        status="open" if failed_last_24h >= settings.compliance_failed_last_24h_critical_threshold else "closed",
+        metric="cases.failed_last_24h",
+        value=float(failed_last_24h),
+        threshold=float(settings.compliance_failed_last_24h_critical_threshold),
+        title="Falhas recentes em compliance",
+        message="Existem casos de compliance falhos nas ultimas 24 horas.",
+        recommended_action="Inspecionar casos falhos, dependencias de report e trilha de auditoria.",
+    )
+    append_alert(
+        code="compliance_expired_quotes_backlog",
+        severity="warning",
+        status="open" if expired_quotes_total >= settings.compliance_expired_quotes_warn_threshold else "closed",
+        metric="quotes.expired_total",
+        value=float(expired_quotes_total),
+        threshold=float(settings.compliance_expired_quotes_warn_threshold),
+        title="Quotes expirados acumulados",
+        message="Existe acúmulo de quotes de compliance expirados e nao consumidos.",
+        recommended_action="Revisar abandono do fluxo quote -> start e adequacao de UX/comercial.",
+    )
+    append_alert(
+        code="compliance_completed_without_report",
+        severity="warning",
+        status="open"
+        if completed_without_report_total >= settings.compliance_completed_without_report_warn_threshold
+        else "closed",
+        metric="cases.completed_without_report_total",
+        value=float(completed_without_report_total),
+        threshold=float(settings.compliance_completed_without_report_warn_threshold),
+        title="Casos concluidos sem relatorio",
+        message="Existem casos de compliance concluidos sem relatorio persistido.",
+        recommended_action="Verificar pipeline de geracao/persistencia de reports e reconciliação operacional.",
+    )
+    append_alert(
+        code="compliance_provider_degraded_recent",
+        severity="warning",
+        status="open" if degraded_risk_checks >= settings.compliance_provider_degraded_warn_threshold else "closed",
+        metric="audit.risk_checks_degraded_last_24h",
+        value=float(degraded_risk_checks),
+        threshold=float(settings.compliance_provider_degraded_warn_threshold),
+        title="Provider AML/KYT em degradacao recente",
+        message="O provider de risk-check retornou degradacao controlada no periodo recente.",
+        recommended_action="Validar credenciais, endpoint do provider e readiness da integracao externa.",
+    )
+    return alerts
+
+
+def _render_compliance_platform_prometheus_metrics(snapshot: dict, alerts: list[dict]) -> str:
+    alert_open_total = sum(1 for alert in alerts if alert["status"] == "open")
+    critical_open_total = sum(1 for alert in alerts if alert["status"] == "open" and alert["severity"] == "critical")
+    lines = [
+        "# HELP ontrack_compliance_platform_catalog_operations_total Operacoes canonicas do catalogo de compliance.",
+        "# TYPE ontrack_compliance_platform_catalog_operations_total gauge",
+        f"ontrack_compliance_platform_catalog_operations_total {snapshot['catalog']['operations_total']}",
+        "# HELP ontrack_compliance_platform_quotes_open_total Quotes em aberto e ainda validos.",
+        "# TYPE ontrack_compliance_platform_quotes_open_total gauge",
+        f"ontrack_compliance_platform_quotes_open_total {snapshot['quotes']['open_total']}",
+        "# HELP ontrack_compliance_platform_quotes_expired_unused_total Quotes expirados e nao consumidos.",
+        "# TYPE ontrack_compliance_platform_quotes_expired_unused_total gauge",
+        f"ontrack_compliance_platform_quotes_expired_unused_total {snapshot['quotes']['expired_total']}",
+        "# HELP ontrack_compliance_platform_cases_queued_total Casos de compliance em queued.",
+        "# TYPE ontrack_compliance_platform_cases_queued_total gauge",
+        f"ontrack_compliance_platform_cases_queued_total {snapshot['cases']['queued_total']}",
+        "# HELP ontrack_compliance_platform_cases_processing_total Casos de compliance em processing.",
+        "# TYPE ontrack_compliance_platform_cases_processing_total gauge",
+        f"ontrack_compliance_platform_cases_processing_total {snapshot['cases']['processing_total']}",
+        "# HELP ontrack_compliance_platform_cases_completed_total Casos de compliance concluidos.",
+        "# TYPE ontrack_compliance_platform_cases_completed_total gauge",
+        f"ontrack_compliance_platform_cases_completed_total {snapshot['cases']['completed_total']}",
+        "# HELP ontrack_compliance_platform_cases_completed_last_24h Casos de compliance concluidos nas ultimas 24 horas.",
+        "# TYPE ontrack_compliance_platform_cases_completed_last_24h gauge",
+        f"ontrack_compliance_platform_cases_completed_last_24h {snapshot['cases']['completed_last_24h']}",
+        "# HELP ontrack_compliance_platform_cases_failed_total Casos de compliance falhos.",
+        "# TYPE ontrack_compliance_platform_cases_failed_total gauge",
+        f"ontrack_compliance_platform_cases_failed_total {snapshot['cases']['failed_total']}",
+        "# HELP ontrack_compliance_platform_cases_failed_last_24h Casos de compliance falhos nas ultimas 24 horas.",
+        "# TYPE ontrack_compliance_platform_cases_failed_last_24h gauge",
+        f"ontrack_compliance_platform_cases_failed_last_24h {snapshot['cases']['failed_last_24h']}",
+        "# HELP ontrack_compliance_platform_cases_completed_without_report_total Casos concluidos sem relatorio persistido.",
+        "# TYPE ontrack_compliance_platform_cases_completed_without_report_total gauge",
+        f"ontrack_compliance_platform_cases_completed_without_report_total {snapshot['cases']['completed_without_report_total']}",
+        "# HELP ontrack_compliance_platform_reports_total Relatorios persistidos.",
+        "# TYPE ontrack_compliance_platform_reports_total gauge",
+        f"ontrack_compliance_platform_reports_total {snapshot['reports']['total']}",
+        "# HELP ontrack_compliance_platform_reports_last_24h Relatorios gerados nas ultimas 24 horas.",
+        "# TYPE ontrack_compliance_platform_reports_last_24h gauge",
+        f"ontrack_compliance_platform_reports_last_24h {snapshot['reports']['last_24h']}",
+        "# HELP ontrack_compliance_platform_reports_legal_last_24h Relatorios juridicos nas ultimas 24 horas.",
+        "# TYPE ontrack_compliance_platform_reports_legal_last_24h gauge",
+        f"ontrack_compliance_platform_reports_legal_last_24h {snapshot['reports']['legal_last_24h']}",
+        "# HELP ontrack_compliance_platform_reports_coaf_last_24h Relatorios COAF-ready nas ultimas 24 horas.",
+        "# TYPE ontrack_compliance_platform_reports_coaf_last_24h gauge",
+        f"ontrack_compliance_platform_reports_coaf_last_24h {snapshot['reports']['coaf_last_24h']}",
+        "# HELP ontrack_compliance_platform_orgs_with_reports_last_24h_total Organizacoes com relatorios nas ultimas 24 horas.",
+        "# TYPE ontrack_compliance_platform_orgs_with_reports_last_24h_total gauge",
+        f"ontrack_compliance_platform_orgs_with_reports_last_24h_total {snapshot['reports']['orgs_with_reports_last_24h']}",
+        "# HELP ontrack_compliance_platform_risk_checks_last_24h Risk checks executados nas ultimas 24 horas.",
+        "# TYPE ontrack_compliance_platform_risk_checks_last_24h gauge",
+        f"ontrack_compliance_platform_risk_checks_last_24h {snapshot['audit']['risk_checks_last_24h']}",
+        "# HELP ontrack_compliance_platform_risk_checks_live_last_24h Risk checks resolvidos com provider live nas ultimas 24 horas.",
+        "# TYPE ontrack_compliance_platform_risk_checks_live_last_24h gauge",
+        f"ontrack_compliance_platform_risk_checks_live_last_24h {snapshot['audit']['risk_checks_live_last_24h']}",
+        "# HELP ontrack_compliance_platform_risk_checks_degraded_last_24h Risk checks em degradacao controlada nas ultimas 24 horas.",
+        "# TYPE ontrack_compliance_platform_risk_checks_degraded_last_24h gauge",
+        f"ontrack_compliance_platform_risk_checks_degraded_last_24h {snapshot['audit']['risk_checks_degraded_last_24h']}",
+        "# HELP ontrack_compliance_platform_provider_supported Estado de suporte do provider AML/KYT configurado.",
+        "# TYPE ontrack_compliance_platform_provider_supported gauge",
+        f"ontrack_compliance_platform_provider_supported {1 if snapshot['provider']['supported'] else 0}",
+        "# HELP ontrack_compliance_platform_provider_enabled Estado de habilitacao do provider AML/KYT configurado.",
+        "# TYPE ontrack_compliance_platform_provider_enabled gauge",
+        f"ontrack_compliance_platform_provider_enabled {1 if snapshot['provider']['enabled'] else 0}",
+        "# HELP ontrack_compliance_platform_provider_configured Estado de configuracao do provider AML/KYT configurado.",
+        "# TYPE ontrack_compliance_platform_provider_configured gauge",
+        f"ontrack_compliance_platform_provider_configured {1 if snapshot['provider']['configured'] else 0}",
+        "# HELP ontrack_compliance_platform_provider_ready Estado de prontidao do provider AML/KYT configurado.",
+        "# TYPE ontrack_compliance_platform_provider_ready gauge",
+        f"ontrack_compliance_platform_provider_ready {1 if snapshot['provider']['ready'] else 0}",
+        "# HELP ontrack_compliance_platform_operational_alerts_open_total Total de alertas operacionais abertos.",
+        "# TYPE ontrack_compliance_platform_operational_alerts_open_total gauge",
+        f"ontrack_compliance_platform_operational_alerts_open_total {alert_open_total}",
+        "# HELP ontrack_compliance_platform_operational_alerts_critical_open_total Total de alertas operacionais criticos abertos.",
+        "# TYPE ontrack_compliance_platform_operational_alerts_critical_open_total gauge",
+        f"ontrack_compliance_platform_operational_alerts_critical_open_total {critical_open_total}",
+        "# HELP ontrack_compliance_platform_operational_alert_status Estado do alerta operacional avaliado pela aplicacao.",
+        "# TYPE ontrack_compliance_platform_operational_alert_status gauge",
+    ]
+    for alert in alerts:
+        alert_status = 1 if alert["status"] == "open" else 0
+        lines.append(
+            "ontrack_compliance_platform_operational_alert_status"
+            f'{{code="{alert["code"]}",severity="{alert["severity"]}",metric="{alert["metric"]}"}} {alert_status}'
+        )
+    return "\n".join(lines) + "\n"
+
+
+class KycWalletRequest(BaseModel):
+    address: str
+    chain: str = "ethereum"
+    entity_name: Optional[str] = None
+    declared_source: Optional[str] = None
+
+
+class KycWalletResponse(BaseModel):
+    address: str
+    chain: str
+    provider: str
+    provider_status: Literal["live", "degraded"]
+    degraded_reason: Optional[str] = None
+    capability_status: Literal["live", "degraded"]
+    risk_score: Optional[int] = Field(default=None, ge=0, le=100)
+    aml_flags: list[str]
+    recommendation: Optional[str]
+    report_id: Optional[str]
+    checked_at: str
+
+
+class RiskCheckDimensions(BaseModel):
+    ownership: int = Field(ge=0, le=100)
+    behavioral: int = Field(ge=0, le=100)
+    counterparty: int = Field(ge=0, le=100)
+    exposure: int = Field(ge=0, le=100)
+    aml: int = Field(ge=0, le=100)
+
+
+class RiskCheckResponse(BaseModel):
+    address: str
+    chain: str
+    provider: str
+    provider_status: Literal["live", "degraded"]
+    degraded_reason: Optional[str] = None
+    risk_score: Optional[int] = Field(default=None, ge=0, le=100)
+    dimensions: Optional[RiskCheckDimensions] = None
+    checked_at: str
+
+
+class DueDiligenceRequest(BaseModel):
+    address: str
+    chain: str = "ethereum"
+    counterparty_context: str
+
+
+class DueDiligenceResponse(BaseModel):
+    address: str
+    chain: str
+    provider: str
+    provider_status: Literal["live", "degraded"]
+    degraded_reason: Optional[str] = None
+    capability_status: Literal["live", "degraded"]
+    dd_score: Optional[int] = Field(default=None, ge=0, le=100)
+    red_flags: list[str]
+    comfort_level: Optional[str]
+    checked_at: str
+
+
+class SourceOfFundsRequest(BaseModel):
+    address: str
+    chain: str = "ethereum"
+    amount: float
+    purpose: str
+
+
+class SourceOfFundsResponse(BaseModel):
+    address: str
+    chain: str
+    provider: str
+    provider_status: Literal["live", "degraded"]
+    degraded_reason: Optional[str] = None
+    capability_status: Literal["live", "degraded"]
+    origin_analysis: dict
+    suspicious_pct: Optional[float] = None
+    clean_pct: Optional[float] = None
+    checked_at: str
+
+
+class SanctionsCheckResponse(BaseModel):
+    address: str
+    chain: str
+    provider: str
+    provider_status: Literal["live", "degraded"]
+    degraded_reason: Optional[str] = None
+    capability_status: Literal["live", "degraded"]
+    lists: list[str]
+    hit: Optional[bool] = None
+    matched_lists: list[str]
+    entity_name: Optional[str]
+    designation_date: Optional[str]
+    checked_at: str
+
+
+class ComplianceCatalogItem(BaseModel):
+    canonical: str
+    label: str
+    description: str
+    cost_credits: float
+    available: bool
+    upgrade_required: Optional[str]
+    min_plan: str
+    aliases_accepted: list[str]
+    deprecated_aliases: list[str]
+    chains_supported: list[str]
+    avg_duration_seconds: int
+    output_format: str
+    regulatory_reference: Optional[str]
+    tags: list[str]
+    provider: str
+    provider_status: Literal["live", "degraded"]
+    degraded_reason: Optional[str]
+    capability_status: Literal["live", "degraded"]
+    delivery_mode: str
+    capability_details: dict
+
+
+class ComplianceCatalogResponse(BaseModel):
+    plan: str
+    total: int
+    generated_at: str
+    operations: list[ComplianceCatalogItem]
+    note_deprecated: str
+
+
+class EstimateComplianceRequest(BaseModel):
+    address: str
+    chain: str = "ethereum"
+    operation: str = "kyc_wallet"
+
+
+class EstimateComplianceResponse(BaseModel):
+    quote_id: uuid.UUID
+    expires_at: str
+    operation_requested: str
+    operation_canonical: str
+    breakdown: list[dict]
+    subtotal_credits: float
+    plan_discount: float
+    total_credits: float
+    total_brl_estimate: float
+    credits_available: float
+    can_proceed: bool
+    calculation_version: str
+    pricing_table_hash: str
+    plan: str
+    chain: str
+    warnings: list[dict]
+    legal_notice: str
+
+
+class StartComplianceRequest(BaseModel):
+    quote_id: uuid.UUID
+    confirmed: bool = False
+
+
+class StartComplianceResponse(BaseModel):
+    case_id: uuid.UUID
+    status: str
+    operation_requested: str
+    operation_canonical: str
+    credits_required: float
+    billing_action: str
+    plan: str
+    chain: str
+    warnings: list[dict]
+
+
+class RequoteComplianceResponse(BaseModel):
+    status: str
+    message: str
+    original_quote: dict
+    new_quote: dict
+    action_required: str
+    note: str
+
+
+class GenerateComplianceReportRequest(BaseModel):
+    report_type: Optional[str] = None
+    include_onchain_hash: bool = False
+
+
+class GenerateComplianceReportResponse(BaseModel):
+    case_id: uuid.UUID
+    report_id: str
+    report_type_requested: str
+    report_type_canonical: str
+    created_at: str
+    file_hash_sha256: str
+    onchain_hash: Optional[str]
+    content_type: str
+
+
+@app.get("/health")
+async def health() -> dict:
+    return {"status": "ok"}
+
+
+@app.get("/internal/metrics/prometheus")
+async def internal_compliance_prometheus_metrics(pool: ConnectionPool = Depends(get_pool)) -> Response:
+    if not settings.compliance_internal_metrics_enabled:
+        raise HTTPException(status_code=404, detail="internal_metrics_disabled")
+
+    snapshot = _build_compliance_platform_snapshot(pool=pool)
+    alerts = _build_compliance_platform_alerts(snapshot)
+    return Response(
+        content=_render_compliance_platform_prometheus_metrics(snapshot, alerts),
+        media_type="text/plain; version=0.0.4",
+    )
+
+
+@app.get("/internal/provider-readiness")
+async def internal_compliance_provider_readiness() -> dict:
+    if not settings.compliance_internal_metrics_enabled:
+        raise HTTPException(status_code=404, detail="internal_metrics_disabled")
+
+    readiness = describe_provider_readiness(
+        provider_name=settings.compliance_risk_provider,
+        trm_config=_get_trm_provider_config(),
+    )
+    return {
+        "provider": readiness.provider_name,
+        "provider_supported": readiness.provider_supported,
+        "enabled": readiness.enabled,
+        "configured": readiness.configured,
+        "ready": readiness.ready,
+        "degraded_reason": readiness.degraded_reason,
+        "details": readiness.details,
+    }
+
+
+@app.get("/api/v1/compliance/operations", response_model=ComplianceCatalogResponse)
+async def get_operations_catalog(
+    include_deprecated: bool = Query(default=False),
+    include_unavailable: bool = Query(default=False),
+    x_plan: Annotated[Optional[str], Header(alias="X-Plan")] = None,
+) -> ComplianceCatalogResponse:
+    plan = normalize_plan(x_plan or "professional")
+    catalog = [
+        _build_operation_detail(canonical, plan, include_deprecated)
+        for canonical in COMPLIANCE_OPERATION_CATALOG.keys()
+    ]
+    if not include_unavailable:
+        catalog = [item for item in catalog if item["available"]]
+
+    return ComplianceCatalogResponse(
+        plan=plan,
+        total=len(catalog),
+        generated_at=datetime.now(timezone.utc).isoformat(),
+        operations=[ComplianceCatalogItem(**item) for item in catalog],
+        note_deprecated=(
+            "aliases_accepted sao aceitos para compatibilidade retroativa. "
+            "deprecated_aliases serao removidos em v2 (Jan/2027). Migre para os canonicos."
+        ),
+    )
+
+
+@app.get("/api/v1/compliance/operations/{operation_identifier}", response_model=ComplianceCatalogItem)
+async def get_operation_detail(
+    operation_identifier: str,
+    include_deprecated: bool = Query(default=True),
+    x_plan: Annotated[Optional[str], Header(alias="X-Plan")] = None,
+) -> ComplianceCatalogItem:
+    plan = normalize_plan(x_plan or "professional")
+    canonical, _ = _resolve_operation(operation_identifier)
+    return ComplianceCatalogItem(**_build_operation_detail(canonical, plan, include_deprecated))
+
+
+@app.post("/api/v1/compliance/estimate", response_model=EstimateComplianceResponse)
+async def estimate_compliance(
+    body: EstimateComplianceRequest,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_plan: Annotated[Optional[str], Header(alias="X-Plan")] = None,
+) -> EstimateComplianceResponse:
+    org_id = _require_org_id(x_org_id)
+    plan = normalize_plan(x_plan or "professional")
+    effective_user_id, _ = _resolve_actor_ids(external_user_id=x_user_id, linked_user_id=x_linked_user_id)
+    chain = _validate_chain(body.chain)
+    quote_payload = _build_compliance_quote_payload(
+        address=body.address,
+        chain=chain,
+        operation_requested=body.operation,
+        plan=plan,
+    )
+
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            cur.execute("SELECT credits_available FROM organizations WHERE id = %s", (org_id,))
+            org = cur.fetchone()
+            if not org:
+                raise HTTPException(status_code=404, detail="organization_not_found")
+            available = float(org["credits_available"])
+            _persist_compliance_quote(cur, org_id=org_id, user_id=effective_user_id, quote_payload=quote_payload)
+        conn.commit()
+
+    return EstimateComplianceResponse(
+        quote_id=quote_payload["quote_id"],
+        expires_at=quote_payload["expires_at"].isoformat(),
+        operation_requested=quote_payload["operation_requested"],
+        operation_canonical=quote_payload["operation_canonical"],
+        breakdown=quote_payload["breakdown"],
+        subtotal_credits=quote_payload["subtotal_credits"],
+        plan_discount=quote_payload["plan_discount"],
+        total_credits=quote_payload["total_credits"],
+        total_brl_estimate=quote_payload["total_brl_estimate"],
+        credits_available=available,
+        can_proceed=available >= quote_payload["total_credits"],
+        calculation_version=quote_payload["calculation_version"],
+        pricing_table_hash=quote_payload["pricing_table_hash"],
+        plan=plan,
+        chain=chain,
+        warnings=quote_payload["warnings"],
+        legal_notice=(
+            "Valores baseados na tabela de pricing v1.0. O debito final pode variar apenas por mudanca "
+            "explicita de plano ou expiracao do quote."
+        ),
+    )
+
+
+@app.post("/api/v1/compliance/start", response_model=StartComplianceResponse)
+async def start_compliance(
+    body: StartComplianceRequest,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_plan: Annotated[Optional[str], Header(alias="X-Plan")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> StartComplianceResponse:
+    org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    if not body.confirmed:
+        raise HTTPException(status_code=412, detail="quote_confirmation_required")
+
+    plan = normalize_plan(x_plan or "professional")
+    now = datetime.now(timezone.utc)
+    warnings: list[dict] = []
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT *
+                FROM compliance_quotes
+                WHERE id = %s
+                  AND organization_id = %s
+                """,
+                (body.quote_id, org_id),
+            )
+            quote_row = cur.fetchone()
+            if not quote_row:
+                raise HTTPException(
+                    status_code=404,
+                    detail={
+                        "error": "quote_not_found",
+                        "message": "Quote nao encontrado ou nao pertence a organizacao.",
+                        "action": "Solicite um novo quote via POST /api/v1/compliance/estimate",
+                    },
+                )
+            if quote_row["used_at"] is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "error": "quote_already_used",
+                        "message": "Este quote ja foi consumido anteriormente.",
+                        "case_id": str(quote_row["used_for_case_id"]) if quote_row["used_for_case_id"] else None,
+                    },
+                )
+            if quote_row["expires_at"] <= now:
+                raise HTTPException(
+                    status_code=410,
+                    detail={
+                        "error": "quote_expired",
+                        "message": f"Quote expirou em {quote_row['expires_at'].isoformat()}.",
+                        "ttl_minutes": QUOTE_TTL_MINUTES,
+                        "action": "Solicite um novo quote. Precos podem ter sido atualizados.",
+                        "requote_url": "/api/v1/compliance/estimate",
+                    },
+                )
+
+            quote_plan = normalize_plan(str(quote_row["plan_snapshot"]))
+            estimated_cost = float(quote_row["total_credits"])
+            if str(quote_row["operation_requested"]) != str(quote_row["operation_canonical"]):
+                warnings.append(
+                    {
+                        "warning": "operation_alias_resolved",
+                        "requested": str(quote_row["operation_requested"]),
+                        "canonical": str(quote_row["operation_canonical"]),
+                    }
+                )
+
+            if plan != quote_plan:
+                if plan_rank(plan) < plan_rank(quote_plan):
+                    raise HTTPException(
+                        status_code=402,
+                        detail={
+                            "error": "plan_downgraded_since_quote",
+                            "message": (
+                                f"O quote foi emitido no plano {quote_plan.upper()} mas o plano atual e "
+                                f"{plan.upper()}."
+                            ),
+                            "quote_plan": quote_plan,
+                            "current_plan": plan,
+                            "operation": str(quote_row["operation_canonical"]),
+                            "upgrade_url": "/billing/upgrade",
+                            "requote_url": "/api/v1/compliance/estimate",
+                        },
+                    )
+
+                new_quote_payload = _build_compliance_quote_payload(
+                    address=str(quote_row["target_address"]),
+                    chain=str(quote_row["chain"]),
+                    operation_requested=str(quote_row["operation_requested"]),
+                    plan=plan,
+                )
+                _persist_compliance_quote(cur, org_id=org_id, user_id=effective_user_id, quote_payload=new_quote_payload)
+                conn.commit()
+                return JSONResponse(
+                    status_code=202,
+                    content=RequoteComplianceResponse(
+                        status="requote_required",
+                        message=f"Seu plano foi atualizado para {plan.upper()} desde a emissao do quote.",
+                        original_quote={
+                            "quote_id": str(quote_row["id"]),
+                            "plan_snapshot": quote_plan,
+                            "operation_requested": str(quote_row["operation_requested"]),
+                            "operation_canonical": str(quote_row["operation_canonical"]),
+                            "total_credits": estimated_cost,
+                            "expires_at": quote_row["expires_at"].isoformat(),
+                        },
+                        new_quote={
+                            "quote_id": str(new_quote_payload["quote_id"]),
+                            "plan_snapshot": new_quote_payload["plan"],
+                            "operation_requested": new_quote_payload["operation_requested"],
+                            "operation_canonical": new_quote_payload["operation_canonical"],
+                            "total_credits": new_quote_payload["total_credits"],
+                            "expires_at": new_quote_payload["expires_at"].isoformat(),
+                            "warnings": new_quote_payload["warnings"],
+                        },
+                        action_required="Confirme o novo quote via POST /api/v1/compliance/start",
+                        note="O preco pode ter mudado conforme a tabela do novo plano.",
+                    ).model_dump(),
+                )
+
+            if not _is_operation_available(str(quote_row["operation_canonical"]), plan):
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "error": "operation_not_available_on_plan",
+                        "operation": str(quote_row["operation_canonical"]),
+                        "required_plan": _required_plan_for_operation(str(quote_row["operation_canonical"])),
+                        "current_plan": plan,
+                    },
+                )
+
+            cur.execute(
+                "SELECT id, credits_available, credits_reserved FROM organizations WHERE id = %s",
+                (org_id,),
+            )
+            org = cur.fetchone()
+            if not org:
+                raise HTTPException(status_code=404, detail="organization_not_found")
+            if float(org["credits_available"]) < estimated_cost:
+                raise HTTPException(
+                    status_code=402,
+                    detail={
+                        "code": "insufficient_credits",
+                        "credits_required": estimated_cost,
+                        "credits_available": float(org["credits_available"]),
+                    },
+                )
+
+            new_available = round(float(org["credits_available"]) - estimated_cost, 4)
+            new_reserved = round(float(org["credits_reserved"]) + estimated_cost, 4)
+            cur.execute(
+                "UPDATE organizations SET credits_available = %s, credits_reserved = %s, updated_at = NOW() WHERE id = %s",
+                (new_available, new_reserved, org_id),
+            )
+            persisted_user_id = _resolve_persisted_user_id(cur, effective_user_id)
+            cur.execute(
+                """
+                INSERT INTO cases (
+                  organization_id, user_id, title, case_type, status,
+                  target_address, target_chain, context_narrative,
+                  credits_estimated, created_at, metadata
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+                RETURNING id
+                """,
+                (
+                    org_id,
+                    persisted_user_id,
+                    f"Compliance {quote_row['operation_canonical']} {quote_row['target_address']}",
+                    "compliance",
+                    "queued",
+                    quote_row["target_address"],
+                    quote_row["chain"],
+                    None,
+                    estimated_cost,
+                    now,
+                    json.dumps(
+                        {
+                            "quote_id": str(body.quote_id),
+                            "operation_requested": str(quote_row["operation_requested"]),
+                            "operation_canonical": str(quote_row["operation_canonical"]),
+                            "requested_by_role": x_role or "UNKNOWN",
+                            "external_user_id": (
+                                external_actor_user_id
+                                if external_actor_user_id
+                                else (effective_user_id if effective_user_id and not persisted_user_id else None)
+                            ),
+                            "org_plan": plan,
+                        }
+                    ),
+                ),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=500, detail="failed_to_create_case")
+            _record_audit_log(
+                cur,
+                organization_id=org_id,
+                user_id=effective_user_id,
+                action="case_started",
+                resource_type="case",
+                resource_id=str(row["id"]),
+                metadata={
+                    "request_id": request_id,
+                    "case_type": "compliance",
+                    "status": "queued",
+                    "credits_estimated": estimated_cost,
+                    "quote_id": str(body.quote_id),
+                    "operation_requested": str(quote_row["operation_requested"]),
+                    "operation_canonical": str(quote_row["operation_canonical"]),
+                    "external_user_id": external_actor_user_id,
+                },
+            )
+            _record_credit_ledger(
+                cur,
+                org_id=org_id,
+                case_id=str(row["id"]),
+                amount=estimated_cost,
+                balance_after=new_available,
+                metadata={
+                    "request_id": request_id,
+                    "quote_id": str(body.quote_id),
+                    "operation_requested": str(quote_row["operation_requested"]),
+                    "operation_canonical": str(quote_row["operation_canonical"]),
+                    "chain": str(quote_row["chain"]),
+                },
+            )
+            cur.execute(
+                "UPDATE compliance_quotes SET used_at = NOW(), used_for_case_id = %s WHERE id = %s",
+                (row["id"], body.quote_id),
+            )
+        conn.commit()
+
+    return StartComplianceResponse(
+        case_id=row["id"],
+        status="queued",
+        operation_requested=str(quote_row["operation_requested"]),
+        operation_canonical=str(quote_row["operation_canonical"]),
+        credits_required=estimated_cost,
+        billing_action="PRE_HOLD",
+        plan=plan,
+        chain=str(quote_row["chain"]),
+        warnings=warnings,
+    )
+
+
+def _default_report_type_for_operation(operation: str) -> str:
+    mapping = {
+        "kyc_wallet": "compliance_aml",
+        "due_diligence": "compliance_aml",
+        "source_of_funds": "compliance_aml",
+        "sanctions_check": "risk_check_instant",
+    }
+    return mapping.get(operation, "compliance_aml")
+
+
+def _generate_report_for_case(case_id: str, report_type: str, include_onchain_hash: bool) -> dict:
+    payload = json.dumps(
+        {
+            "case_id": case_id,
+            "report_type": report_type,
+            "include_onchain_hash": include_onchain_hash,
+        }
+    ).encode("utf-8")
+    request = urllib.request.Request(
+        f"{settings.report_api_base_url}/api/v1/reports/generate",
+        data=payload,
+        headers={"content-type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request) as response:
+        return json.loads(response.read().decode())
+
+
+def _get_trm_provider_config() -> TrmRiskProviderConfig:
+    return TrmRiskProviderConfig(
+        enabled=settings.compliance_trm_enabled,
+        screening_url=settings.compliance_trm_screening_url,
+        api_key=settings.compliance_trm_api_key,
+        api_key_header=settings.compliance_trm_api_key_header,
+        api_key_prefix=settings.compliance_trm_api_key_prefix,
+        timeout_ms=settings.compliance_trm_timeout_ms,
+        max_retries=settings.compliance_trm_max_retries,
+    )
+
+
+@app.post("/api/v1/compliance/cases/{case_id}/report", response_model=GenerateComplianceReportResponse)
+async def generate_compliance_report(
+    case_id: UUID,
+    body: GenerateComplianceReportRequest,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> GenerateComplianceReportResponse:
+    org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT c.id, c.organization_id, c.metadata
+                FROM cases c
+                WHERE c.id = %s
+                  AND c.organization_id = %s
+                  AND c.case_type = 'compliance'
+                """,
+                (case_id, org_id),
+            )
+            case_row = cur.fetchone()
+            if not case_row:
+                raise HTTPException(status_code=404, detail="compliance_case_not_found")
+
+            metadata = case_row["metadata"] or {}
+            operation = metadata.get("operation_canonical", "kyc_wallet")
+            requested_report_type = body.report_type or _default_report_type_for_operation(operation)
+            report = _generate_report_for_case(str(case_id), requested_report_type, body.include_onchain_hash)
+
+            cur.execute(
+                """
+                INSERT INTO reports (
+                  case_id, organization_id, external_report_id, report_type_requested, report_type,
+                  content_type, file_hash, onchain_hash, is_coaf_ready, created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                RETURNING id
+                """,
+                (
+                    case_id,
+                    org_id,
+                    report["report_id"],
+                    report["report_type_requested"],
+                    report["report_type"],
+                    report["content_type"],
+                    report["file_hash_sha256"],
+                    report["onchain_hash"],
+                    report["report_type"] == "coaf_ready_report",
+                ),
+            )
+            _record_audit_log(
+                cur,
+                organization_id=org_id,
+                user_id=effective_user_id,
+                action="report_generated",
+                resource_type="case",
+                resource_id=str(case_id),
+                metadata={
+                    "request_id": request_id,
+                    "report_id": report["report_id"],
+                    "report_type_requested": report["report_type_requested"],
+                    "report_type_canonical": report["report_type"],
+                    "created_at": report["created_at"],
+                    "content_type": report["content_type"],
+                    "file_hash_sha256": report["file_hash_sha256"],
+                    "external_user_id": external_actor_user_id,
+                },
+            )
+        conn.commit()
+    return GenerateComplianceReportResponse(
+        case_id=case_id,
+        report_id=report["report_id"],
+        report_type_requested=report["report_type_requested"],
+        report_type_canonical=report["report_type"],
+        created_at=report["created_at"],
+        file_hash_sha256=report["file_hash_sha256"],
+        onchain_hash=report["onchain_hash"],
+        content_type=report["content_type"],
+    )
+
+
+@app.post("/api/v1/compliance/kyc-wallet", response_model=KycWalletResponse)
+async def kyc_wallet(
+    body: KycWalletRequest,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> KycWalletResponse:
+    request_id = x_request_id or str(uuid.uuid4())
+    normalized_chain = _validate_chain(body.chain)
+    provider_outcome = screen_address(
+        provider_name=settings.compliance_risk_provider,
+        trm_config=_get_trm_provider_config(),
+        address=body.address,
+        chain=normalized_chain,
+        entity_name=body.entity_name,
+        declared_source=body.declared_source,
+        request_id=request_id,
+    )
+    response = KycWalletResponse(
+        address=body.address,
+        chain=normalized_chain,
+        provider=provider_outcome.provider_name,
+        provider_status=provider_outcome.provider_status,
+        degraded_reason=provider_outcome.degraded_reason,
+        capability_status="live" if provider_outcome.provider_status == "live" else "degraded",
+        risk_score=provider_outcome.risk_score,
+        aml_flags=[],
+        recommendation=_derive_kyc_recommendation(
+            provider_outcome.risk_score,
+            provider_outcome.provider_status,
+        ),
+        report_id=None,
+        checked_at=datetime.now(timezone.utc).isoformat(),
+    )
+    _record_optional_compliance_audit(
+        pool=pool,
+        org_id=x_org_id,
+        user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+        request_id=request_id,
+        action="compliance_kyc_wallet_checked",
+        resource_type="address",
+        metadata={
+            "address": body.address,
+            "chain": normalized_chain,
+            "provider": response.provider,
+            "provider_status": response.provider_status,
+            "degraded_reason": response.degraded_reason,
+            "capability_status": response.capability_status,
+            "risk_score": response.risk_score,
+            "recommendation": response.recommendation,
+        },
+    )
+    return response
+
+
+@app.post("/api/v1/compliance/risk-check", response_model=RiskCheckResponse)
+async def risk_check(
+    body: KycWalletRequest,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> RiskCheckResponse:
+    org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    normalized_chain = _validate_chain(body.chain)
+    provider_outcome = screen_address(
+        provider_name=settings.compliance_risk_provider,
+        trm_config=_get_trm_provider_config(),
+        address=body.address,
+        chain=normalized_chain,
+        entity_name=body.entity_name,
+        declared_source=body.declared_source,
+        request_id=request_id,
+    )
+    dimensions = (
+        RiskCheckDimensions(**provider_outcome.dimensions)
+        if provider_outcome.dimensions
+        else None
+    )
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            _record_audit_log(
+                cur,
+                organization_id=org_id,
+                user_id=effective_user_id,
+                action="compliance_risk_checked",
+                resource_type="address",
+                resource_id=None,
+                metadata={
+                    "request_id": request_id,
+                    "address": body.address,
+                    "chain": normalized_chain,
+                    "provider": provider_outcome.provider_name,
+                    "provider_status": provider_outcome.provider_status,
+                    "degraded_reason": provider_outcome.degraded_reason,
+                    "risk_score": provider_outcome.risk_score,
+                    "dimensions": dimensions.model_dump() if dimensions else None,
+                    "latency_ms": provider_outcome.latency_ms,
+                    "retries_used": provider_outcome.retries_used,
+                    "score_source": provider_outcome.score_source,
+                    "upstream_status_code": provider_outcome.upstream_status_code,
+                    "screening_host": provider_outcome.screening_host,
+                    "request_id_forwarded": provider_outcome.request_id_forwarded,
+                    "provider_payload": provider_outcome.raw_payload,
+                    "external_user_id": external_actor_user_id,
+                },
+            )
+        conn.commit()
+    return RiskCheckResponse(
+        address=body.address,
+        chain=normalized_chain,
+        provider=provider_outcome.provider_name,
+        provider_status=provider_outcome.provider_status,
+        degraded_reason=provider_outcome.degraded_reason,
+        risk_score=provider_outcome.risk_score,
+        dimensions=dimensions,
+        checked_at=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+@app.post("/api/v1/compliance/due-diligence", response_model=DueDiligenceResponse)
+async def due_diligence(
+    body: DueDiligenceRequest,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> DueDiligenceResponse:
+    request_id = x_request_id or str(uuid.uuid4())
+    normalized_chain = _validate_chain(body.chain)
+    capability = _build_operation_capability("due_diligence")
+    response = DueDiligenceResponse(
+        address=body.address,
+        chain=normalized_chain,
+        provider=capability["provider"],
+        provider_status=capability["provider_status"],
+        degraded_reason=capability["degraded_reason"],
+        capability_status=capability["capability_status"],
+        dd_score=None,
+        red_flags=[],
+        comfort_level=None,
+        checked_at=datetime.now(timezone.utc).isoformat(),
+    )
+    _record_optional_compliance_audit(
+        pool=pool,
+        org_id=x_org_id,
+        user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+        request_id=request_id,
+        action="compliance_due_diligence_checked",
+        resource_type="address",
+        metadata={
+            "address": body.address,
+            "chain": normalized_chain,
+            "provider": response.provider,
+            "provider_status": response.provider_status,
+            "degraded_reason": response.degraded_reason,
+            "capability_status": response.capability_status,
+            "delivery_mode": capability["delivery_mode"],
+            "counterparty_context_present": bool(body.counterparty_context.strip()),
+        },
+    )
+    return response
+
+
+@app.post("/api/v1/compliance/source-of-funds", response_model=SourceOfFundsResponse)
+async def source_of_funds(
+    body: SourceOfFundsRequest,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> SourceOfFundsResponse:
+    request_id = x_request_id or str(uuid.uuid4())
+    normalized_chain = _validate_chain(body.chain)
+    capability = _build_operation_capability("source_of_funds")
+    response = SourceOfFundsResponse(
+        address=body.address,
+        chain=normalized_chain,
+        provider=capability["provider"],
+        provider_status=capability["provider_status"],
+        degraded_reason=capability["degraded_reason"],
+        capability_status=capability["capability_status"],
+        origin_analysis={
+            "status": capability["delivery_mode"],
+            "requires_human_review": True,
+        },
+        suspicious_pct=None,
+        clean_pct=None,
+        checked_at=datetime.now(timezone.utc).isoformat(),
+    )
+    _record_optional_compliance_audit(
+        pool=pool,
+        org_id=x_org_id,
+        user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+        request_id=request_id,
+        action="compliance_source_of_funds_checked",
+        resource_type="address",
+        metadata={
+            "address": body.address,
+            "chain": normalized_chain,
+            "provider": response.provider,
+            "provider_status": response.provider_status,
+            "degraded_reason": response.degraded_reason,
+            "capability_status": response.capability_status,
+            "delivery_mode": capability["delivery_mode"],
+            "amount": body.amount,
+            "purpose": body.purpose,
+        },
+    )
+    return response
+
+
+@app.get("/api/v1/compliance/sanctions-check/{address}", response_model=SanctionsCheckResponse)
+async def sanctions_check(
+    address: str,
+    pool: ConnectionPool = Depends(get_pool),
+    chain: str = "ethereum",
+    lists: str = Query(default="OFAC,UN,EU,COAF"),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> SanctionsCheckResponse:
+    request_id = x_request_id or str(uuid.uuid4())
+    normalized_chain = _validate_chain(chain)
+    resolved_lists = [s.strip() for s in lists.split(",") if s.strip()]
+    capability = _build_operation_capability("sanctions_check")
+    response = SanctionsCheckResponse(
+        address=address,
+        chain=normalized_chain,
+        provider=capability["provider"],
+        provider_status=capability["provider_status"],
+        degraded_reason=capability["degraded_reason"],
+        capability_status=capability["capability_status"],
+        lists=resolved_lists,
+        hit=None,
+        matched_lists=[],
+        entity_name=None,
+        designation_date=None,
+        checked_at=datetime.now(timezone.utc).isoformat(),
+    )
+    _record_optional_compliance_audit(
+        pool=pool,
+        org_id=x_org_id,
+        user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+        request_id=request_id,
+        action="compliance_sanctions_checked",
+        resource_type="address",
+        metadata={
+            "address": address,
+            "chain": normalized_chain,
+            "provider": response.provider,
+            "provider_status": response.provider_status,
+            "degraded_reason": response.degraded_reason,
+            "capability_status": response.capability_status,
+            "delivery_mode": capability["delivery_mode"],
+            "lists": resolved_lists,
+        },
+    )
+    return response

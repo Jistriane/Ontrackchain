@@ -1,0 +1,43 @@
+groups:
+  - name: ontrack-monitoring-operational
+    interval: 15s
+    rules:
+      - alert: OntrackMonitoringAlertSpike
+        expr: ontrack_monitoring_platform_operational_alert_status{code="monitoring_alert_spike"} == 1
+        for: 1m
+        labels:
+          severity: warning
+          service: monitoring-api
+        annotations:
+          summary: Pico recente de alertas de monitoring
+          description: O volume de alertas emitidos na ultima hora excedeu o limiar operacional.
+
+      - alert: OntrackMonitoringCriticalAlertVolume
+        expr: ontrack_monitoring_platform_operational_alert_status{code="monitoring_critical_alert_volume"} == 1
+        for: 1m
+        labels:
+          severity: critical
+          service: monitoring-api
+        annotations:
+          summary: Alertas criticos recentes em monitoring
+          description: Existem alertas criticos emitidos nas ultimas 24 horas.
+
+      - alert: OntrackMonitoringExpiredQuotesBacklog
+        expr: ontrack_monitoring_platform_operational_alert_status{code="monitoring_expired_quotes_backlog"} == 1
+        for: 2m
+        labels:
+          severity: warning
+          service: monitoring-api
+        annotations:
+          summary: Acumulo de quotes expirados
+          description: Existe backlog de quotes de monitoring expirados e nao consumidos.
+
+      - alert: OntrackMonitoringOpenQuotesBacklog
+        expr: ontrack_monitoring_platform_operational_alert_status{code="monitoring_open_quotes_backlog"} == 1
+        for: 2m
+        labels:
+          severity: warning
+          service: monitoring-api
+        annotations:
+          summary: Acumulo de quotes em aberto
+          description: O volume de quotes ainda abertos excedeu o limiar operacional.

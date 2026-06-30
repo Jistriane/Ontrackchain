@@ -1,0 +1,137 @@
+name: Quality Gates — Per App
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  security-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check security baseline
+        working-directory: ontrackchain
+        run: python scripts/check_security_baseline.py
+
+  preflight-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run staging window, dossier, packet, ownership, handoff, preflight and homologation regression tests
+        working-directory: ontrackchain
+        run: python -m unittest tests.test_check_staging_env_placeholders tests.test_check_staging_env_ownership_coverage tests.test_check_staging_env_handoff tests.test_render_staging_window_packet tests.test_build_staging_release_dossier tests.test_run_staging_window tests.test_preflight_guards tests.test_homologation_external_evidence
+
+  frontend-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: ontrackchain/apps/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: ontrackchain/apps/frontend
+        run: npm ci
+
+      - name: Run frontend production audit
+        working-directory: ontrackchain/apps/frontend
+        run: npm audit --omit=dev --audit-level=critical
+
+  postgres-schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate postgres schema bootstrap vs migrations
+        working-directory: ontrackchain
+        run: python scripts/check_postgres_schema.py
+
+  frontend-typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: ontrackchain/apps/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: ontrackchain/apps/frontend
+        run: npm ci
+
+      - name: Run frontend typecheck
+        working-directory: ontrackchain/apps/frontend
+        run: npm run typecheck
+
+  python-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - name: auth-service
+            path: apps/auth-service
+          - name: public-api
+            path: apps/public-api
+          - name: monitoring-api
+            path: apps/monitoring-api
+          - name: investigation-api
+            path: apps/investigation-api
+          - name: compliance-api
+            path: apps/compliance-api
+          - name: report-api
+            path: apps/report-api
+          - name: shared
+            path: packages/shared
+          - name: agents
+            path: packages/agents
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ruff
+        run: python -m pip install ruff
+
+      - name: Run ruff correctness gate
+        working-directory: ontrackchain
+        run: ruff check "${{ matrix.target.path }}" --select F,E9
+
+      - name: Run Python compile gate
+        working-directory: ontrackchain
+        run: python scripts/check_python_app.py "${{ matrix.target.path }}"

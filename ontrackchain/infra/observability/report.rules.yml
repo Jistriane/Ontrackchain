@@ -1,0 +1,43 @@
+groups:
+  - name: ontrack-report-operational
+    interval: 15s
+    rules:
+      - alert: OntrackReportDownloadVolume
+        expr: ontrack_report_platform_operational_alert_status{code="report_download_volume"} == 1
+        for: 1m
+        labels:
+          severity: warning
+          service: report-api
+        annotations:
+          summary: Volume alto de downloads de relatorio
+          description: O volume de downloads de relatorio nas ultimas 24 horas excedeu o limiar operacional.
+
+      - alert: OntrackReportPendingOnchainBacklog
+        expr: ontrack_report_platform_operational_alert_status{code="report_pending_onchain_backlog"} == 1
+        for: 2m
+        labels:
+          severity: warning
+          service: report-api
+        annotations:
+          summary: Backlog de hash on-chain pendente
+          description: Existem relatorios persistidos com hash on-chain ainda pendente.
+
+      - alert: OntrackReportLegalDownloadSecurityViolation
+        expr: ontrack_report_platform_operational_alert_status{code="report_legal_download_security_violation"} == 1
+        for: 1m
+        labels:
+          severity: critical
+          service: report-api
+        annotations:
+          summary: Possivel violacao de 2FA em download juridico
+          description: Foi detectado download auditado de legal_report sem 2FA valido.
+
+      - alert: OntrackReportPersistedWithoutDownloadBacklog
+        expr: ontrack_report_platform_operational_alert_status{code="report_persisted_without_download_backlog"} == 1
+        for: 2m
+        labels:
+          severity: warning
+          service: report-api
+        annotations:
+          summary: Relatorios persistidos sem download
+          description: Existe backlog de relatorios persistidos ainda sem download auditado.

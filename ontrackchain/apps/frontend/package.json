@@ -1,0 +1,27 @@
+{
+  "name": "ontrackchain-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "next dev -H 0.0.0.0 -p 3000",
+    "build": "next build",
+    "start": "next start -H 0.0.0.0 -p 3000",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:e2e:reset-state": "docker compose -f ../../docker-compose.yml exec -T postgres psql -U ontrackchain -d ontrackchain -c \"UPDATE organizations SET credits_available = 1000.0000, credits_reserved = 0, credits_used_total = 0, updated_at = NOW() WHERE id = '00000000-0000-0000-0000-000000000001';\"",
+    "test:e2e": "playwright test",
+    "test:e2e:oidc-critical": "playwright test tests/e2e/oidc-auth.spec.ts tests/e2e/compliance-flows.spec.ts",
+    "test:e2e:dev-auth": "playwright test tests/e2e/critical-path.spec.ts && playwright test tests/e2e/compliance-flows.spec.ts --grep \"2FA\""
+  },
+  "dependencies": {
+    "next": "^14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.46.0",
+    "@types/node": "20.14.10",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "typescript": "5.5.3"
+  }
+}

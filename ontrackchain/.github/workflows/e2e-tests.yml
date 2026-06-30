@@ -1,0 +1,267 @@
+name: Validation — Smoke and E2E
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start stack
+        working-directory: ontrackchain
+        run: docker compose up -d --build
+
+      - name: Wait for gateway
+        working-directory: ontrackchain
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://localhost:8080/ >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Gateway did not become ready in time"
+          docker compose ps
+          docker compose logs --tail=200
+          exit 1
+
+      - name: Collect Docker diagnostics
+        if: always()
+        working-directory: ontrackchain
+        run: |
+          mkdir -p ci-artifacts
+          docker compose ps > ci-artifacts/docker-compose-ps.txt
+          docker compose logs --tail=300 > ci-artifacts/docker-compose-logs.txt
+
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-diagnostics
+          path: ontrackchain/ci-artifacts
+          retention-days: 30
+
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start stack
+        working-directory: ontrackchain
+        run: docker compose up -d --build
+
+      - name: Wait for gateway
+        working-directory: ontrackchain
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://localhost:8080/ >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Gateway did not become ready in time"
+          docker compose ps
+          docker compose logs --tail=200
+          exit 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run smoke runtime
+        working-directory: ontrackchain
+        env:
+          ONTRACKCHAIN_BASE_URL: http://localhost:8080
+          ONTRACKCHAIN_API_KEY: otc_live_demo_key
+        run: python scripts/smoke_runtime.py
+
+      - name: Collect Docker diagnostics
+        if: always()
+        working-directory: ontrackchain
+        run: |
+          mkdir -p ci-artifacts
+          docker compose ps > ci-artifacts/docker-compose-ps.txt
+          docker compose logs --tail=300 > ci-artifacts/docker-compose-logs.txt
+
+      - name: Upload smoke diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-diagnostics
+          path: ontrackchain/ci-artifacts
+          retention-days: 30
+
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: smoke
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start stack
+        working-directory: ontrackchain
+        run: docker compose up -d --build
+
+      - name: Wait for gateway
+        working-directory: ontrackchain
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://localhost:8080/ >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Gateway did not become ready in time"
+          docker compose ps
+          docker compose logs --tail=200
+          exit 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        working-directory: ontrackchain/apps/frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: ontrackchain/apps/frontend
+        run: npx playwright install chromium --with-deps
+
+      - name: Run Playwright OIDC critical gate
+        working-directory: ontrackchain/apps/frontend
+        env:
+          TEST_BASE_URL: http://localhost:8080
+          ONTRACKCHAIN_API_KEY: otc_live_demo_key
+        run: npm run test:e2e:oidc-critical
+
+      - name: Run Playwright full regression
+        working-directory: ontrackchain/apps/frontend
+        env:
+          TEST_BASE_URL: http://localhost:8080
+          ONTRACKCHAIN_API_KEY: otc_live_demo_key
+        run: npm run test:e2e
+
+      - name: Collect Docker diagnostics
+        if: always()
+        working-directory: ontrackchain
+        run: |
+          mkdir -p ci-artifacts
+          docker compose ps > ci-artifacts/docker-compose-ps.txt
+          docker compose logs --tail=300 > ci-artifacts/docker-compose-logs.txt
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: ontrackchain/apps/frontend/test-results
+          retention-days: 30
+
+      - name: Upload playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-html-report
+          path: ontrackchain/apps/frontend/playwright-report
+          retention-days: 30
+
+      - name: Upload playwright diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-diagnostics
+          path: ontrackchain/ci-artifacts
+          retention-days: 30
+
+  playwright-dev-auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: smoke
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start stack in dev auth mode
+        working-directory: ontrackchain
+        env:
+          AUTH_MODE: dev
+          DEV_AUTH_ENABLED: "true"
+          NEXT_PUBLIC_AUTH_MODE: dev
+          NEXT_PUBLIC_DEV_AUTH_ENABLED: "true"
+        run: docker compose up -d --build
+
+      - name: Wait for gateway
+        working-directory: ontrackchain
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://localhost:8080/ >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Gateway did not become ready in time"
+          docker compose ps
+          docker compose logs --tail=200
+          exit 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        working-directory: ontrackchain/apps/frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: ontrackchain/apps/frontend
+        run: npx playwright install chromium --with-deps
+
+      - name: Run Playwright dev auth regression
+        working-directory: ontrackchain/apps/frontend
+        env:
+          TEST_BASE_URL: http://localhost:8080
+          ONTRACKCHAIN_API_KEY: otc_live_demo_key
+        run: npm run test:e2e:dev-auth
+
+      - name: Collect Docker diagnostics
+        if: always()
+        working-directory: ontrackchain
+        run: |
+          mkdir -p ci-artifacts
+          docker compose ps > ci-artifacts/docker-compose-ps.txt
+          docker compose logs --tail=300 > ci-artifacts/docker-compose-logs.txt
+
+      - name: Upload dev-auth test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-dev-auth-results
+          path: ontrackchain/apps/frontend/test-results
+          retention-days: 30
+
+      - name: Upload dev-auth HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-dev-auth-html-report
+          path: ontrackchain/apps/frontend/playwright-report
+          retention-days: 30
+
+      - name: Upload dev-auth diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-dev-auth-diagnostics
+          path: ontrackchain/ci-artifacts
+          retention-days: 30

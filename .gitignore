@@ -1,0 +1,31 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+node_modules/
+.next/
+dist/
+build/
+artifacts/
+ontrackchain/artifacts/
+ontrackchain/apps/frontend/playwright-report/
+ontrackchain/apps/frontend/test-results/
+
+.idea/
+.vscode/
+
+MODO ARQUITETO - RULES CONSOLIDADAS.md
+Agentes Especializados.md
+Arquitetura Completa Ontrackchain.md
+Links Ontrackchain.md
+logo.jpeg
+Logo Oficial Ontrackchain.jpeg
+ONTRACKCHAIN — GitHub Issues Completas por Etapa de Desenvolvimento.csv

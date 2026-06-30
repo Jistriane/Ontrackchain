@@ -1,0 +1,355 @@
+{
+  "realm": "ontrackchain",
+  "displayName": "OnTrackChain",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 5,
+  "accessTokenLifespan": 900,
+  "refreshTokenMaxReuse": 0,
+  "ssoSessionMaxLifespan": 36000,
+  "roles": {
+    "realm": [
+      {
+        "name": "otk_admin"
+      },
+      {
+        "name": "otk_analyst"
+      },
+      {
+        "name": "otk_tester"
+      },
+      {
+        "name": "otk_auditor"
+      },
+      {
+        "name": "otk_viewer"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "ontrackchain-web",
+      "name": "OnTrackChain Web App",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8080/*",
+        "http://localhost:8080/oidc/callback",
+        "http://129.121.38.250/*",
+        "http://129.121.38.250/oidc/callback",
+        "https://app.ontrackchain.com/*",
+        "https://app.ontrackchain.com/oidc/callback",
+        "https://ontrackchain.com/*",
+        "https://ontrackchain.com/oidc/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:8080",
+        "http://129.121.38.250",
+        "https://app.ontrackchain.com",
+        "https://ontrackchain.com"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "access.token.lifespan": "900",
+        "oauth2.device.authorization.grant.enabled": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "organization-id-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "organization_id",
+            "claim.name": "org",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "plan-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "plan",
+            "claim.name": "plan",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "otk-role-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "otk_role",
+            "claim.name": "otk_role",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience-api-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "ontrackchain-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "ontrackchain-api",
+      "name": "OnTrackChain API Backend",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false
+    },
+    {
+      "clientId": "ontrackchain-b2b",
+      "name": "OnTrackChain B2B Integrations",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "secret": "change-me-b2b-secret"
+    }
+  ],
+  "users": [
+    {
+      "username": "system@ontrackchain.com",
+      "email": "system@ontrackchain.com",
+      "firstName": "System",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "realmRoles": [
+        "otk_admin"
+      ],
+      "attributes": {
+        "organization_id": [
+          "00000000-0000-0000-0000-000000000001"
+        ],
+        "plan": [
+          "enterprise"
+        ],
+        "otk_role": [
+          "otk_admin"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "SystemPass123!",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "kmd@ontrackchain.com",
+      "email": "kmd@ontrackchain.com",
+      "firstName": "KMD",
+      "lastName": "Tester",
+      "enabled": true,
+      "emailVerified": true,
+      "realmRoles": [
+        "otk_tester"
+      ],
+      "attributes": {
+        "organization_id": [
+          "00000000-0000-0000-0000-000000000001"
+        ],
+        "plan": [
+          "professional"
+        ],
+        "otk_role": [
+          "otk_tester"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "KmdPass123!",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "jibso@ontrackchain.com",
+      "email": "jibso@ontrackchain.com",
+      "firstName": "JIBSO",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "realmRoles": [
+        "otk_admin"
+      ],
+      "attributes": {
+        "organization_id": [
+          "00000000-0000-0000-0000-000000000001"
+        ],
+        "plan": [
+          "enterprise"
+        ],
+        "otk_role": [
+          "otk_admin"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "JIBSOPass123!",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "auditor@ontrackchain.com",
+      "email": "auditor@ontrackchain.com",
+      "firstName": "Alice",
+      "lastName": "Auditor",
+      "enabled": true,
+      "emailVerified": true,
+      "realmRoles": [
+        "otk_auditor"
+      ],
+      "attributes": {
+        "organization_id": [
+          "00000000-0000-0000-0000-000000000001"
+        ],
+        "plan": [
+          "professional"
+        ],
+        "otk_role": [
+          "otk_auditor"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "AuditorPass123!",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "analyst@ontrackchain.com",
+      "email": "analyst@ontrackchain.com",
+      "firstName": "Ana",
+      "lastName": "Analyst",
+      "enabled": true,
+      "emailVerified": true,
+      "realmRoles": [
+        "otk_analyst"
+      ],
+      "attributes": {
+        "organization_id": [
+          "00000000-0000-0000-0000-000000000001"
+        ],
+        "plan": [
+          "professional"
+        ],
+        "otk_role": [
+          "otk_analyst"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "AnalystPass123!",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "viewer@ontrackchain.com",
+      "email": "viewer@ontrackchain.com",
+      "firstName": "Vera",
+      "lastName": "Viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "realmRoles": [
+        "otk_viewer"
+      ],
+      "attributes": {
+        "organization_id": [
+          "00000000-0000-0000-0000-000000000001"
+        ],
+        "plan": [
+          "professional"
+        ],
+        "otk_role": [
+          "otk_viewer"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "ViewerPass123!",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "sem-org@ontrackchain.com",
+      "email": "sem-org@ontrackchain.com",
+      "firstName": "Sem",
+      "lastName": "Org",
+      "enabled": true,
+      "emailVerified": true,
+      "realmRoles": [
+        "otk_analyst"
+      ],
+      "attributes": {
+        "plan": [
+          "professional"
+        ],
+        "otk_role": [
+          "otk_analyst"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "SemOrgPass123!",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

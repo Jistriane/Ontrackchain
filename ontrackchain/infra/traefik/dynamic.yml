@@ -1,0 +1,134 @@
+http:
+  middlewares:
+    public-ratelimit:
+      rateLimit:
+        average: 10
+        period: 1h
+
+    auth:
+      forwardAuth:
+        address: "http://auth-service:9000/validate"
+        trustForwardHeader: true
+        authResponseHeaders:
+          - "X-Org-Id"
+          - "X-User-Id"
+          - "X-Linked-User-Id"
+          - "X-Plan"
+          - "X-Role"
+          - "X-Auth-Method"
+
+  routers:
+    keycloak:
+      entryPoints: ["web"]
+      rule: "Host(`auth.localhost`) || Host(`auth.ontrackchain.com`)"
+      service: "keycloak"
+      priority: 300
+
+    auth:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/auth`)"
+      service: "auth-service"
+      priority: 200
+
+    public:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/public`)"
+      middlewares: ["public-ratelimit"]
+      service: "public-api"
+      priority: 150
+
+    investigation:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/api/v1/investigation`)"
+      middlewares: ["auth"]
+      service: "investigation-api"
+      priority: 150
+
+    report-types:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/api/v1/report-types`)"
+      middlewares: ["auth"]
+      service: "investigation-api"
+      priority: 150
+
+    billing:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/api/v1/billing`)"
+      middlewares: ["auth"]
+      service: "investigation-api"
+      priority: 150
+
+    audit:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/api/v1/audit`)"
+      middlewares: ["auth"]
+      service: "investigation-api"
+      priority: 150
+
+    compliance:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/api/v1/compliance`)"
+      middlewares: ["auth"]
+      service: "compliance-api"
+      priority: 150
+
+    monitoring:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/api/v1/monitoring`)"
+      middlewares: ["auth"]
+      service: "monitoring-api"
+      priority: 150
+
+    reports:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/api/v1/reports`)"
+      middlewares: ["auth"]
+      service: "report-api"
+      priority: 150
+
+    frontend:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/`)"
+      service: "frontend"
+      priority: 1
+
+  services:
+    keycloak:
+      loadBalancer:
+        servers:
+          - url: "http://keycloak:8080"
+
+    auth-service:
+      loadBalancer:
+        servers:
+          - url: "http://auth-service:9000"
+
+    public-api:
+      loadBalancer:
+        servers:
+          - url: "http://public-api:8000"
+
+    investigation-api:
+      loadBalancer:
+        servers:
+          - url: "http://investigation-api:8001"
+
+    compliance-api:
+      loadBalancer:
+        servers:
+          - url: "http://compliance-api:8002"
+
+    monitoring-api:
+      loadBalancer:
+        servers:
+          - url: "http://monitoring-api:8003"
+
+    report-api:
+      loadBalancer:
+        servers:
+          - url: "http://report-api:8004"
+
+    frontend:
+      loadBalancer:
+        servers:
+          - url: "http://frontend:3000"

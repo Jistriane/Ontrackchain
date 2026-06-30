@@ -1,0 +1,12 @@
+groups:
+  - name: ontrack-platform-operational
+    interval: 15s
+    rules:
+      - alert: OntrackPlatformWatchdog
+        expr: vector(1)
+        labels:
+          severity: info
+          service: platform
+        annotations:
+          summary: Watchdog da plataforma ativo
+          description: Alerta sentinela para validar a cadeia Prometheus -> Alertmanager -> receiver interno.

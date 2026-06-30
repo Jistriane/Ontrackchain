@@ -1,0 +1,63 @@
+groups:
+  - name: ontrack-investigation-operational
+    interval: 15s
+    rules:
+      - alert: OntrackInvestigationWaitingBacklog
+        expr: ontrack_investigation_platform_operational_alert_status{code="investigation_waiting_backlog"} == 1
+        for: 1m
+        labels:
+          severity: warning
+          service: investigation-api
+        annotations:
+          summary: Backlog global na fila waiting
+          description: A fila global waiting ultrapassou o limiar operacional configurado.
+
+      - alert: OntrackInvestigationRetryDue
+        expr: ontrack_investigation_platform_operational_alert_status{code="investigation_retry_due"} == 1
+        for: 1m
+        labels:
+          severity: warning
+          service: investigation-api
+        annotations:
+          summary: Retries vencidos pendentes
+          description: Existem retries globais prontos para processamento e ainda nao consumidos.
+
+      - alert: OntrackInvestigationDlqOpen
+        expr: ontrack_investigation_platform_operational_alert_status{code="investigation_dlq_open"} == 1
+        for: 1m
+        labels:
+          severity: critical
+          service: investigation-api
+        annotations:
+          summary: DLQ global aberta
+          description: Ha cases em falha permanente aguardando intervencao operacional.
+
+      - alert: OntrackInvestigationQueuedStale
+        expr: ontrack_investigation_platform_operational_alert_status{code="investigation_queued_stale"} == 1
+        for: 2m
+        labels:
+          severity: warning
+          service: investigation-api
+        annotations:
+          summary: Item queued envelhecido
+          description: O item mais antigo da fila queued excedeu o SLA operacional configurado.
+
+      - alert: OntrackInvestigationDlqStale
+        expr: ontrack_investigation_platform_operational_alert_status{code="investigation_dlq_stale"} == 1
+        for: 2m
+        labels:
+          severity: critical
+          service: investigation-api
+        annotations:
+          summary: Item em DLQ envelhecido
+          description: Existe item em DLQ aberto ha mais tempo do que o permitido operacionalmente.
+
+      - alert: OntrackInvestigationConcurrencySaturation
+        expr: ontrack_investigation_platform_operational_alert_status{code="investigation_concurrency_saturation"} == 1
+        for: 1m
+        labels:
+          severity: warning
+          service: investigation-api
+        annotations:
+          summary: Concorrencia global saturada
+          description: O limite global de concorrencia do worker foi atingido.
