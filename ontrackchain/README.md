@@ -111,8 +111,8 @@ flowchart LR
   traefik --> rep[report-api]
 
   subgraph data[Dados]
-    pg[(PostgreSQL + RLS)]
-    redis[(Redis)]
+    pg[PostgreSQL RLS]
+    redis[Redis]
   end
 
   auth --> pg
@@ -165,35 +165,35 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-  start([Iniciar janela]) --> windowId[Definir window_id]
-  windowId --> envExample[.env.staging.example]
-  envExample --> envPrivate[Gerar .env.staging.private e preencher em canal seguro]
-  envExample --> ownershipDoc[docs: staging-env-ownership.md]
+  start[Iniciar janela] --> windowId[Definir window_id]
+  windowId --> envExample[env staging example]
+  envExample --> envPrivate[env staging private preenchido em canal seguro]
+  envExample --> ownershipDoc[staging env ownership md]
 
   envExample --> coverage[check_staging_env_ownership_coverage.py]
   ownershipDoc --> coverage
-  coverage --> checks1[artifacts: staging: checks: ownership-coverage-<window_id>.json]
+  coverage --> checks1[ownership coverage window_id json]
 
   ownershipDoc --> handoff[check_staging_env_handoff.py]
-  handoff --> checks2[artifacts: staging: checks: handoff-<window_id>.json]
+  handoff --> checks2[handoff window_id json]
 
   envPrivate --> placeholders[check_staging_env_placeholders.py]
-  placeholders --> checks3[artifacts: staging: checks: placeholders-<window_id>.json]
+  placeholders --> checks3[placeholders window_id json]
 
   envExample --> packet[render_staging_window_packet.py]
   ownershipDoc --> packet
-  packet --> windowPacket[artifacts: staging: window-packet-<window_id>.md]
+  packet --> windowPacket[window packet window_id md]
 
   envPrivate --> preOidc[preflight_oidc_serious_env.py]
-  preOidc --> checks4[artifacts: staging: checks: oidc-preflight-<window_id>.json]
+  preOidc --> checks4[oidc preflight window_id json]
 
   envPrivate --> preExt[preflight_external_integrations.py]
-  preExt --> checks5[artifacts: staging: checks: external-preflight-<window_id>.json]
+  preExt --> checks5[external preflight window_id json]
 
-  envPrivate --> homolog[homologation_external_evidence.py (mode both)]
-  homolog --> homologJson[artifacts: homologation: external_homologation_<mode>_<stamp>.json]
-  homolog --> homologManifest[artifacts: homologation: external_homologation_<mode>_<stamp>.json.manifest.json]
-  homolog --> checks6[artifacts: staging: checks: homologation-<window_id>.json]
+  envPrivate --> homolog[homologation external evidence mode both]
+  homolog --> homologJson[external homologation mode stamp json]
+  homolog --> homologManifest[external homologation mode stamp manifest json]
+  homolog --> checks6[homologation window_id json]
 
   windowPacket --> dossier[build_staging_release_dossier.py]
   checks1 --> dossier
@@ -201,10 +201,10 @@ flowchart TD
   checks3 --> dossier
   homologJson --> dossier
   homologManifest --> dossier
-  dossier --> dossierJson[artifacts: staging: dossiers: staging_release_dossier_<window_id>_<stamp>.json]
-  dossier --> dossierManifest[artifacts: staging: dossiers: staging_release_dossier_<window_id>_<stamp>.json.manifest.json]
+  dossier --> dossierJson[staging release dossier window_id stamp json]
+  dossier --> dossierManifest[staging release dossier window_id stamp manifest json]
 
-  dossierManifest --> done([Go-No-Go: status ok + manifests anexaveis])
+  dossierManifest --> done[Go-No-Go status ok e manifests anexaveis]
 ```
 
 <a id="diagram-mvp-flows"></a>
