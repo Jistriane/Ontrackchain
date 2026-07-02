@@ -13,6 +13,38 @@ Este repositorio tem dois papeis:
 
 Hoje o projeto ja opera como plataforma funcional, mas ainda nao concluiu toda a prontidao regulatoria/operacional para uma janela seria com prova real de ponta a ponta.
 
+## Navegacao Rapida
+
+- [Ontrackchain](#ontrackchain)
+  - [Visao Geral](#visao-geral)
+  - [Navegacao Rapida](#navegacao-rapida)
+  - [Estado Atual](#estado-atual)
+  - [Scorecard Oficial](#scorecard-oficial)
+  - [Bloqueadores Atuais](#bloqueadores-atuais)
+  - [Arquitetura em 60 Segundos](#arquitetura-em-60-segundos)
+  - [Servicos Principais](#servicos-principais)
+  - [Fluxos Canonicos](#fluxos-canonicos)
+    - [Fluxo de Autenticacao OIDC e MFA](#fluxo-de-autenticacao-oidc-e-mfa)
+    - [Fluxo de Investigacao e Billing](#fluxo-de-investigacao-e-billing)
+    - [Fluxo de Screening, Bloqueio e ROS](#fluxo-de-screening-bloqueio-e-ros)
+    - [Modelo do Core Regulatorio](#modelo-do-core-regulatorio)
+    - [Fluxo ROS e COAF](#fluxo-ros-e-coaf)
+    - [Fluxo de Block Lift e Manual Review](#fluxo-de-block-lift-e-manual-review)
+    - [Fluxo de Operacao Global](#fluxo-de-operacao-global)
+    - [Fluxo da Janela Seria](#fluxo-da-janela-seria)
+    - [Fluxo Detalhado da Janela Seria](#fluxo-detalhado-da-janela-seria)
+    - [Fluxo de CI/CD e Promocao](#fluxo-de-cicd-e-promocao)
+  - [Validacao e Qualidade](#validacao-e-qualidade)
+  - [Operacao da Janela Seria](#operacao-da-janela-seria)
+  - [Quick Start](#quick-start)
+    - [1. Subir a stack local](#1-subir-a-stack-local)
+    - [2. Validar runtime e UI](#2-validar-runtime-e-ui)
+    - [3. Endpoints locais padrao](#3-endpoints-locais-padrao)
+  - [Navegacao Canonica](#navegacao-canonica)
+  - [Estrutura do Repositorio](#estrutura-do-repositorio)
+  - [Riscos Residuais Conhecidos](#riscos-residuais-conhecidos)
+  - [Proximo Passo Recomendado](#proximo-passo-recomendado)
+
 ## Estado Atual
 
 - scorecard oficial atual:
@@ -157,38 +189,301 @@ flowchart LR
 
 ## Fluxos Canonicos
 
-### Investigacao + Billing
+### Fluxo de Autenticacao OIDC e MFA
 
-```text
-estimate -> start -> PRE_HOLD -> queue -> RPC -> CONFIRMED ou REFUND
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as Usuario/Admin
+  participant FE as Frontend
+  participant GW as Gateway
+  participant AUTH as auth-service
+  participant KC as Keycloak
+  participant PG as PostgreSQL
+
+  U->>FE: Acessa area protegida
+  FE->>GW: Request sem sessao valida
+  GW->>AUTH: Verifica contexto autenticado
+  AUTH-->>FE: Exige login OIDC
+
+  FE->>KC: Redirect para autenticacao
+  KC-->>FE: Callback com code/token
+  FE->>AUTH: Troca code por sessao
+  AUTH->>KC: Valida issuer, audience e claims
+  AUTH->>PG: Persiste sessao, org_id, plano e papel
+  AUTH-->>FE: JWT/sessao autenticada
+
+  FE->>GW: Nova request autenticada
+  GW->>AUTH: Verifica JWT, RBAC e requisito de 2FA
+
+  alt Fluxo comum
+    AUTH-->>GW: Acesso permitido
+    GW-->>FE: Request segue para API alvo
+  else Fluxo sensivel
+    AUTH->>PG: Verifica TOTP ou MFA federado homologado
+    alt MFA valido
+      AUTH-->>GW: Acesso permitido
+      GW-->>FE: Request segue para API alvo
+    else MFA ausente ou invalido
+      AUTH-->>FE: Bloqueia operacao sensivel
+    end
+  end
 ```
 
-### Screening + Bloqueio + ROS
+### Fluxo de Investigacao e Billing
 
-```text
-compliance-worker -> sanctions_hits_cache
-  -> GET sanctions-check
-  -> preventive_blocks quando aplicavel
-  -> ros_records quando o caso exige ROS
-  -> evidence_trail + audit_logs
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as Usuario/Admin
+  participant FE as Frontend
+  participant GW as Gateway
+  participant INV as investigation-api
+  participant W as investigation-worker
+  participant PG as PostgreSQL
+  participant R as Redis
+  participant RPC as RPC primary/fallback
+
+  U->>FE: Solicita estimate
+  FE->>GW: POST /estimate
+  GW->>INV: Encaminha request autenticada
+  INV->>PG: Persiste quote e auditoria
+  INV-->>FE: quote_id + custo
+
+  U->>FE: Confirma start
+  FE->>GW: POST /start (quote_id)
+  GW->>INV: Encaminha request
+  INV->>PG: Cria PRE_HOLD e operacao
+  INV->>R: Enfileira job
+  R-->>W: Entrega workload
+  W->>RPC: Consulta on-chain com retry/fallback
+  W->>PG: Persiste resultado + status final
+
+  alt Execucao bem-sucedida
+    W->>PG: Confirma hold
+    W-->>FE: Resultado completo
+  else Falha ou cancelamento
+    W->>PG: Reverte/refunda hold
+    W-->>FE: Status failed/refund
+  end
 ```
 
-### Operacao Global
-
-```text
-Prometheus -> Alertmanager -> monitoring-api -> UI /monitoring -> export auditado
-```
-
-### Janela Seria
+### Fluxo de Screening, Bloqueio e ROS
 
 ```mermaid
 flowchart TD
-  start[Definir window_id] --> ownership[Ownership handoff placeholders]
-  ownership --> preflight[prepare validate preflight]
+  feeds[Feeds OFAC UN EU OpenSanctions] --> worker[compliance-worker]
+  worker --> meta[sanctions_lists_meta]
+  worker --> cache[sanctions_hits_cache]
+
+  user[Usuario ou operador] --> api[compliance-api]
+  api --> check[GET sanctions-check]
+  check --> cache
+  cache --> decision{Hit ou risco relevante?}
+
+  decision -- Nao --> audit[audit_logs]
+  decision -- Sim --> block[preventive_blocks]
+  block --> evidence[evidence_trail]
+  block --> rosDecision{Caso exige ROS/COAF?}
+  rosDecision -- Sim --> ros[ros_records]
+  ros --> report[report-api]
+  rosDecision -- Nao --> report
+  report --> audit
+  evidence --> audit
+```
+
+### Modelo do Core Regulatorio
+
+```mermaid
+flowchart TD
+  subgraph Intake[Onboarding e screening]
+    cp[counterparties]
+    hist[counterparty_history]
+    cache[sanctions_hits_cache]
+    meta[sanctions_lists_meta]
+  end
+
+  subgraph Controls[Controles regulatorios]
+    block[preventive_blocks]
+    ros[ros_records]
+  end
+
+  subgraph Evidence[Evidencia e auditoria]
+    ev[evidence_trail]
+    audit[audit_logs]
+    reports[report-api / reports]
+  end
+
+  meta --> cache
+  cp --> hist
+  cp --> cache
+  cache --> block
+  cache --> ros
+  block --> ev
+  ros --> ev
+  ros --> reports
+  block --> audit
+  ros --> audit
+  ev --> audit
+```
+
+### Fluxo ROS e COAF
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant OP as Operador/Admin
+  participant API as compliance-api
+  participant PG as PostgreSQL
+  participant EV as evidence_trail
+  participant REP as report-api
+  participant AUD as audit_logs
+
+  OP->>API: Avalia contraparte ou caso sensivel
+  API->>PG: Consulta counterparties, hits e bloqueios
+  API->>PG: Decide gerar ROS/COAF
+  API->>PG: Cria ros_records com status inicial
+  API->>EV: Registra coaf_report_generated
+  API->>REP: Gera artefato do relatorio
+  REP-->>API: report_id + file_hash
+  API->>AUD: Audita geracao do ROS
+
+  alt Caso aprovado
+    OP->>API: Aprova ROS
+    API->>PG: Atualiza ros_records para approved
+    API->>EV: Registra coaf_report_approved
+    API->>AUD: Audita aprovacao
+  else Caso rejeitado
+    OP->>API: Rejeita ROS com motivo
+    API->>PG: Atualiza ros_records para rejected
+    API->>EV: Registra coaf_report_rejected
+    API->>AUD: Audita rejeicao
+  end
+
+  opt Submissao manual ao COAF
+    OP->>API: Informa protocolo e recibo
+    API->>PG: Atualiza ros_records para submitted_manual
+    API->>EV: Registra coaf_report_submitted_manual
+    API->>AUD: Audita protocolo e recibo
+  end
+```
+
+### Fluxo de Block Lift e Manual Review
+
+```mermaid
+flowchart TD
+  start[Operador solicita acao sensivel] --> kind{Tipo de operacao}
+
+  kind -->|block lift| lift[POST compliance blocks slash block_id slash lift]
+  kind -->|due_diligence ou source_of_funds| manual[manual_review_required]
+  kind -->|legal_report ou ROS/COAF| sensitive[MFA forte obrigatorio]
+
+  manual --> queue[Fila e rito manual]
+  queue --> auditManual[audit_logs]
+
+  lift --> auth[Validar usuario vinculado]
+  auth --> mfa{X-MFA-Mode external_provider e provider homologado?}
+  mfa -- Nao --> deny[403 external_provider_mfa_required]
+  mfa -- Sim --> liftOk[Atualiza preventive_blocks]
+  liftOk --> ev[Registra preventive_block_lifted]
+  ev --> audit[audit_logs]
+
+  sensitive --> mfa2{MFA homologado disponivel?}
+  mfa2 -- Nao --> deny2[403 provider_mfa_required]
+  mfa2 -- Sim --> execute[Permite fluxo sensivel]
+  execute --> audit
+```
+
+### Fluxo de Operacao Global
+
+```mermaid
+flowchart LR
+  prom[Prometheus] --> am[Alertmanager]
+  am --> mon[monitoring-api]
+  mon --> pg[(PostgreSQL)]
+  mon --> ui[UI /monitoring]
+
+  ui --> filters[Filtros dinamicos]
+  ui --> ack[Ack individual/em lote]
+  ui --> export[Export CSV/JSON]
+
+  ack --> audit[audit_logs]
+  export --> audit
+  filters --> pg
+```
+
+### Fluxo da Janela Seria
+
+```mermaid
+flowchart TD
+  start[Definir window_id] --> gate[Gate agregado da janela]
+  gate --> ownership[Ownership handoff placeholders]
+  ownership --> env[.env.staging.private com dados reais]
+  env --> preflight[prepare validate preflight]
   preflight --> bundle[regulatory readiness bundle quando aplicavel]
-  bundle --> run[run_staging_window ou workflow GitHub]
-  run --> dossier[dossier signoff weekly governance]
-  dossier --> decision[go no-go com evidencia anexavel]
+  bundle --> run{Execucao local ou GitHub Actions?}
+  run --> dossier[dossier checks homologation]
+  dossier --> signoff[sign-off weekly governance]
+  signoff --> decision[go no-go com evidencia anexavel]
+```
+
+### Fluxo Detalhado da Janela Seria
+
+```mermaid
+flowchart TD
+  start[Definir window_id] --> sheet[Manual fill sheet]
+  sheet --> owners[Ownership e handoff]
+  owners --> env[.env.staging.private]
+
+  env --> prepare[prepare_staging_window.py]
+  prepare --> packet[window packet]
+  prepare --> checks[artifacts slash staging slash checks]
+
+  checks --> validate{validate e preflight ok?}
+  validate -- Nao --> warroom[war room e live tracking]
+  warroom --> rerun[rerodar prepare validate preflight]
+  rerun --> validate
+
+  validate -- Sim --> bundle[run_regulatory_readiness_bundle.py quando aplicavel]
+  bundle --> homolog[artifacts slash homologation]
+  bundle --> dossier[build_staging_release_dossier.py]
+
+  dossier --> run{run_staging_window local ou GitHub Actions}
+  run --> signoff[sign-off draft]
+  signoff --> weekly[weekly governance]
+  weekly --> decision{go ou no-go}
+
+  decision -- no-go --> warroom
+  decision -- go --> archive[dossier e evidencias anexadas]
+```
+
+### Fluxo de CI/CD e Promocao
+
+```mermaid
+flowchart TD
+  dev[Push ou PR] --> qg[quality-gates.yml]
+  qg --> unit[Checks por app]
+  qg --> contracts[Lint typecheck validacoes]
+
+  dev --> e2e[e2e-tests.yml]
+  e2e --> auth[Playwright dev-auth e oidc-critical]
+  e2e --> critical[Critical path e compliance flows]
+
+  unit --> gate{Pipeline verde?}
+  contracts --> gate
+  auth --> gate
+  critical --> gate
+
+  gate -- Nao --> fix[Corrigir codigo ou config]
+  fix --> dev
+
+  gate -- Sim --> prep[prepare-serious-window-dispatch]
+  prep --> serious[staging-serious-window.yml ou run_staging_window.py]
+  serious --> artifacts[checks homologation dossier sign-off draft]
+  artifacts --> review[war room e weekly governance]
+  review --> promote{go ou no-go}
+  promote -- no-go --> prep
+  promote -- go --> main[Promocao controlada e evidencia anexada]
 ```
 
 ## Validacao e Qualidade

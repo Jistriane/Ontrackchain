@@ -106,9 +106,12 @@ O checker `check_staging_env_placeholders.py` identificou placeholders ainda abe
 
 Para destravar a janela sem ambiguidade, usar o checklist canônico por owner:
 
+- [Ownership do `.env.staging`](../staging-env-ownership.md)
 - [Folha de Preenchimento Manual `stg-2026-07-06-a`](./2026-07-06-staging-serious-window-manual-fill-sheet.md)
 - [Checklist de Provisionamento por Owner para Janela Seria](../staging-serious-window-owner-provisioning-checklist.md)
 - [Matriz de Execucao por Owner para Janela Seria](../staging-serious-window-war-room-matrix.md)
+- [War Room da Janela `stg-2026-07-06-a`](./2026-07-06-staging-serious-window-war-room.md)
+- [Tracking ao Vivo da Janela `stg-2026-07-06-a`](./2026-07-06-staging-serious-window-live-tracking.md)
 
 Ordem recomendada:
 
@@ -117,4 +120,6 @@ Ordem recomendada:
 3. `Auth/OIDC`
 4. `Investigation/RPC`
 5. `Compliance/AML`
-6. rerodar `prepare_staging_window.py --validate --preflight`
+6. atualizar `Data/Status` e checkpoints nos artefatos vivos
+7. rerodar `prepare_staging_window.py --validate --preflight`
+8. seguir para `run_staging_window.py` ou `run-serious-window-local` apenas se o gate agregado retornar `status=ok`

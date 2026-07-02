@@ -130,16 +130,30 @@ Sequencia tecnica correspondente:
 3. executar `python scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md`
 4. gerar um pacote redigido da janela com `python scripts/render_staging_window_packet.py --window-id <janela> --output-file artifacts/staging/window-packet-<janela>.md`
 5. preencher os valores reais em canal seguro
-6. executar `python scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private`
-7. anexar o `window packet`, os JSONs em `artifacts/staging/checks/`, a homologacao e o dossier final ao sign-off da janela
+6. rerodar o gate agregado com `python scripts/prepare_staging_window.py --window-id <janela> --mode baseline --private-env-file .env.staging.private --validate --preflight`
+7. seguir para `python scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private` apenas se o gate agregado retornar `status=ok`
+8. anexar o `window packet`, os JSONs em `artifacts/staging/checks/`, a homologacao e o dossier final ao sign-off da janela
 
-Atalho recomendado:
+Atalho recomendado para o gate agregado:
+
+```bash
+python scripts/prepare_staging_window.py \
+  --window-id stg-YYYY-MM-DD-a \
+  --mode baseline \
+  --private-env-file .env.staging.private \
+  --validate \
+  --preflight
+```
+
+Atalho recomendado para execucao ponta a ponta, somente depois do gate agregado verde:
 
 ```bash
 python scripts/run_staging_window.py \
   --window-id stg-YYYY-MM-DD-a \
   --private-env-file .env.staging.private
 ```
+
+O gate agregado acima deve ser a ultima verificacao antes da execucao ponta a ponta.
 
 O runner acima encapsula, em ordem, os gates de `ownership coverage`, `window packet`, placeholders, handoff, `preflight_oidc_serious_env.py`, `preflight_external_integrations.py`, `homologation_external_evidence.py` e `build_staging_release_dossier.py`.
 
