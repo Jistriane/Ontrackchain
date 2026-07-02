@@ -72,6 +72,8 @@ def _validate_compliance(
     provider = _env("COMPLIANCE_RISK_PROVIDER", "trm_labs")
     screening_url = _env("COMPLIANCE_TRM_SCREENING_URL")
     api_key = _env("COMPLIANCE_TRM_API_KEY")
+    ofac_source_url = _env("COMPLIANCE_OFAC_SDN_SOURCE_URL")
+    eu_sanctions_source_url = _env("COMPLIANCE_EU_SANCTIONS_SOURCE_URL")
     timeout_ms = _parse_positive_int(
         "COMPLIANCE_TRM_TIMEOUT_MS",
         _env("COMPLIANCE_TRM_TIMEOUT_MS"),
@@ -103,6 +105,24 @@ def _validate_compliance(
         if api_key in PLACEHOLDER_VALUES:
             errors.append("COMPLIANCE_TRM_API_KEY: credencial ausente ou placeholder detectado")
 
+    if ofac_source_url:
+        _validate_url(
+            name="COMPLIANCE_OFAC_SDN_SOURCE_URL",
+            value=ofac_source_url,
+            require_https=not allow_insecure_urls,
+            forbid_localhost=not allow_localhost_urls,
+            errors=errors,
+        )
+
+    if eu_sanctions_source_url:
+        _validate_url(
+            name="COMPLIANCE_EU_SANCTIONS_SOURCE_URL",
+            value=eu_sanctions_source_url,
+            require_https=not allow_insecure_urls,
+            forbid_localhost=not allow_localhost_urls,
+            errors=errors,
+        )
+
     return {
         "expect_mode": expect_mode,
         "provider": provider,
@@ -111,6 +131,11 @@ def _validate_compliance(
         "api_key_present": bool(api_key),
         "timeout_ms": timeout_ms,
         "max_retries": max_retries,
+        "sanctions_source_overrides": {
+            "ofac_present": bool(ofac_source_url),
+            "eu_present": bool(eu_sanctions_source_url),
+            "eu_tokenized": "token=" in eu_sanctions_source_url.lower(),
+        },
     }
 
 

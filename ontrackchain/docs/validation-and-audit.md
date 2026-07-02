@@ -2,220 +2,194 @@
 
 ## Objetivo
 
-Garantir que o scaffold continue:
+Garantir que o Ontrackchain continue:
 
 - executavel
 - rastreavel
-- consistente financeiramente
-- seguro em fluxos sensiveis
+- auditavel
+- honesto em cenarios degradados
+- seguro em fluxos regulatorios sensiveis
 
 ## Camadas de Validacao
 
 ### 1. Smoke Runtime
 
-Arquivo:
+Arquivo principal:
 
-- [smoke_runtime.py](../scripts/smoke_runtime.py)
+- `scripts/smoke_runtime.py`
 
-Executa validacao end-to-end por HTTP real contra o gateway.
+O que prova hoje:
 
-### Cobertura atual do smoke
+- `quote -> start` e `plan lock`
+- investigation assincrona com worker real
+- `report_generated` e `report_downloaded`
+- enforcement de `legal_report`
+- correlacao por `request_id`
+- metadados do provider RPC no resultado final
+- consistencia de hash do arquivo baixado
 
-- monitoring:
-  - catalogo
-  - estimate
-  - start
-- compliance:
-  - catalogo
-  - catalogo com capability operacional (`provider_status`, `capability_status`, `delivery_mode`) validando `kyc_wallet` e `due_diligence`
-  - estimate
-  - start
-  - report
-- `legal_report`:
-  - bloqueio antes do 2FA
-  - download liberado apos 2FA
-- investigation:
-  - concorrencia/queue
-  - finalizacao
-  - resultado final preservando `kyw_summary.rpc.provider_status` e `rpc_source`
-- billing:
-  - efeitos colaterais de `PRE_HOLD`
-  - `plan lock`
-- auditoria:
-  - `case_started`
-  - `report_generated`
-  - `report_downloaded`
-- integridade:
-  - hash do arquivo baixado igual ao hash informado
+### 2. Playwright E2E
 
-### Como rodar o smoke
+Suites relevantes:
 
-```bash
-python scripts/smoke_runtime.py
-```
+- `tests/e2e/critical-path.spec.ts`
+- `tests/e2e/compliance-flows.spec.ts`
+- trilho `OIDC` critico
+- trilho `dev-auth` apenas para regressao do scaffold local
 
-### O que o smoke prova hoje
+O que cobre hoje:
 
-- `X-Request-Id` e propagado ponta a ponta
-- `audit_logs.metadata.request_id` recebe o valor esperado
-- `resource_type/resource_id` batem com o case correto
-- `report_id` e `file_hash_sha256` do audit log batem com a resposta da API
-- `report_downloaded` so aparece apos acesso efetivo ao `report-api`
-- `legal_download_pre_2fa` nao gera `report_downloaded`
-- `investigation/{case_id}/result` preserva metadados do provider RPC no payload final do caso
+- login e callback OIDC
+- dashboard e navegacao principal
+- `/audit` e `/monitoring`
+- export administrativo auditado
+- `legal_report` antes/depois de `2FA`
+- fluxos de compliance e monitoring visiveis pelo browser real
 
-## 2. Playwright E2E
+### 3. Testes Focados de Compliance e Worker
 
-Arquivos:
+Coberturas importantes:
 
-- [critical-path.spec.ts](../apps/frontend/tests/e2e/critical-path.spec.ts)
-- [compliance-flows.spec.ts](../apps/frontend/tests/e2e/compliance-flows.spec.ts)
-- [ui-home.spec.ts](../apps/frontend/tests/e2e/ui-home.spec.ts)
-- [api-consumer.spec.ts](../apps/frontend/tests/e2e/api-consumer.spec.ts)
+- `tests/test_sanctions_sync_worker.py`
+- `tests/test_worker_source_url_overrides.py`
+- `tests/test_preflight_guards.py`
+- `tests/test_check_sanctions_sync_status.py`
+- `tests/test_check_compliance_provider_runtime.py`
+- `tests/test_sprint2_compliance_agents.py`
 
-### Cobertura relevante
+O que essas suites cobrem:
 
-- fluxo `OIDC` critico validado por browser real
-- regressao local de `dev auth` isolada do gate sério
-- dashboard e navegação principal
-- consulta administrativa de auditoria em `/audit`
-- investigation estimate/start/status
-- billing balance
-- monitoramento e alertas
-- incidentes globais de plataforma com:
-  - filtro por `severity` e `receiver`
-  - paginação cursor-based
-  - selecao acumulada com persistencia em `sessionStorage`
-  - export `CSV|JSON` do recorte filtrado ou dos itens selecionados
-- compliance risk-check/report
-- `legal_report`:
-  - `403` antes do 2FA
-  - `200` apos 2FA
-  - audit log sem `report_downloaded` antes
-  - audit log com `report_downloaded` depois
+- sync de listas com fallback
+- override de `source_url` por env
+- preflight de feeds externos e URLs serias
+- validacao pos-sync em `sanctions_lists_meta`
+- agentes de bloqueio, contraparte e ROS
 
-### Como rodar
+### 4. Preflights e Janela Seria
 
-```bash
-cd apps/frontend
-npx playwright test tests/e2e/critical-path.spec.ts tests/e2e/compliance-flows.spec.ts
-```
+Scripts canonicos:
 
-## 3. CI
+- `preflight_oidc_serious_env.py`
+- `preflight_external_integrations.py`
+- `check_staging_env_placeholders.py`
+- `check_staging_env_handoff.py`
+- `check_staging_env_ownership_coverage.py`
+- `run_staging_window.py`
 
-Workflows:
+O que eles validam:
 
-- [e2e-tests.yml](../../.github/workflows/e2e-tests.yml)
-- [quality-gates.yml](../../.github/workflows/quality-gates.yml)
+- auth serio sem fallback indevido para `dev`
+- URLs, retries, timeouts e secrets de integracoes externas
+- ausencia de placeholders criticos
+- ownership e handoff do `.env.staging.private`
+- consolidacao da janela em dossier e manifestos
 
-### O que a pipeline faz
+### 5. Runtime do Provider AML/KYT
 
-- sobe a stack docker
-- espera o gateway responder
-- instala dependencias do frontend
-- instala browser do Playwright
-- roda toda a suite Playwright
-- publica artefatos
-- executa quality gates de schema, baseline de seguranca, qualidade Python/TypeScript e regressao dos preflights/homologacao
+Script canonico:
+
+- `scripts/check_compliance_provider_runtime.py`
+
+O que valida:
+
+- `GET /internal/provider-readiness` em `ready=true`
+- `GET /api/v1/compliance/operations/kyc_wallet` com `provider_status=live`
+- `POST /api/v1/compliance/kyc-wallet` com `provider_status=live`
+- convergencia entre configuracao interna e contrato publico do runtime
+
+### 6. Pos-Sync de Sancoes
+
+Script canonico:
+
+- `scripts/check_sanctions_sync_status.py`
+
+O que valida:
+
+- `OFAC_SDN`, `UN_CSNU` e `EU_CONSOLIDATED` em `ACTIVE/SUCCESS`
+- divergencia entre `source_url` persistido e override configurado
+- endurecimento adicional quando `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` esta preenchida
 
 ## Trilha de Auditoria
 
-## Eventos principais auditados
+### `audit_logs`
+
+Eventos principais observados:
 
 - `case_started`
 - `case_completed`
 - `case_failed`
-- `case_flagged_billing_recalc_required`
 - `compliance_risk_checked`
-- `report_generated`
+- `compliance_sanctions_checked`
+- `preventive_block_evaluated`
+- `coaf_report_generated`
+- `coaf_report_approved`
+- `coaf_report_rejected`
+- `coaf_report_submitted_manual`
 - `report_downloaded`
 - `operational_alerts_exported`
+- `authorization_denied`
 
-## Estrategia de correlacao
+### `evidence_trail`
 
-Cada fluxo critico deve carregar `X-Request-Id`.
+Eventos relevantes em uso:
 
-Esse identificador e propagado por:
+- `SANCTIONS_CHECKED`
+- `SANCTIONS_HIT`
+- `BLOCK_*`
+- `COUNTERPARTY_ONBOARDED`
+- `COAF_ROS_GENERATED`
+- `COAF_ROS_APPROVED`
+- `COAF_ROS_REJECTED`
+- `COAF_ROS_SUBMITTED_MANUAL`
 
-- frontend proxies
-- APIs de dominio
-- smoke runtime
-- testes E2E sensiveis
+## Comandos Recomendados
 
-## O que validar em `audit_logs`
+### Runtime local
 
-- `metadata.request_id`
-- `action`
-- `resource_type`
-- `resource_id`
-- `report_id` quando aplicavel
-- `file_hash_sha256` quando aplicavel
-- `selected_count`, `exported_count` e `filters` quando `action=operational_alerts_exported`
-
-## Exemplo de trilha completa
-
-```text
-smoke-<run>-compliance_report
-  -> report_generated
-  -> resource_type=case
-  -> resource_id=<case_id>
-  -> metadata.report_id=<report_id>
-  -> metadata.file_hash_sha256=<sha256>
-
-smoke-<run>-compliance_report_download
-  -> report_downloaded
-  -> metadata.case_id=<case_id>
-  -> metadata.report_id=<report_id>
-  -> metadata.file_hash_sha256=<sha256>
-
-pw-monitoring-export-audit-<run>
-  -> operational_alerts_exported
-  -> resource_type=operational_alerts
-  -> metadata.request_id=<request_id>
-  -> metadata.scope=filtered|selected
-  -> metadata.format=json|csv
-  -> metadata.exported_count=<n>
+```bash
+python scripts/smoke_runtime.py
+cd apps/frontend
+npm ci
+npm run test:e2e:oidc-critical
+npm run test:e2e
 ```
 
-## Seguranca Validada
+### Integracoes externas e sancoes
 
-### Legal Report
+```bash
+python scripts/preflight_external_integrations.py
+make check-compliance-provider-runtime \
+  INTERNAL_BASE_URL=http://compliance-api:8002 \
+  PUBLIC_BASE_URL=http://localhost:8080
+make run-eu-sanctions-window-local WINDOW_ID=stg-YYYY-MM-DD-eu
+python scripts/check_sanctions_sync_status.py
+```
 
-Requisitos de sucesso:
+### Janela seria completa
 
-- auth deve ser `jwt`
-- role deve ser `ADMIN`
-- `X-2FA=ok`
+```bash
+python scripts/run_staging_window.py \
+  --window-id stg-YYYY-MM-DD-a \
+  --private-env-file .env.staging.private
+```
 
-### O que e testado
+## Gaps Residuais de Validacao
 
-- tentativa negada antes do 2FA
-- ausencia de `report_downloaded` na tentativa negada
-- sucesso apos 2FA
-- presenca de `report_downloaded` no sucesso
+- `AML/KYT` live ainda depende de credenciais reais e homologacao recorrente; o checker novo valida runtime, mas nao substitui a evidencia institucional da janela seria
+- o feed da UE pode depender de URL tokenizada real para fechar a prova operacional
+- `due_diligence` e `source_of_funds` ainda nao possuem harness regulatorio equivalente ao screening local de sancoes
+- os runners e checkers atuais ainda precisam ser exercitados de forma recorrente nas janelas homologadas
 
-## Critérios de Aceitacao Tecnica Atuais
+## Criterios Tecnicos Atuais
 
-- stack sobe localmente
+- stack sobe com `docker compose`
 - smoke runtime passa
-- Playwright critical/compliance passa
-- hashes de report sao reproduziveis
-- `report_downloaded` fica auditado
-- `operational_alerts_exported` fica auditado quando operadores exportam backlog global
-- `legal_report` respeita `JWT + ADMIN + 2FA`
-- `audit_logs` continua acessivel apenas para `ADMIN`
-
-## Riscos Residuais
-
-- smoke runtime tecnico ainda usa trilho `dev-compatible` em parte da validacao local
-- a tela `/audit` ja possui paginação operacional `page/limit`, mas ainda nao possui paginação cursor-based propria para volumes extremos
-- a retention policy ainda precisa de aprovacao formal de Security/Compliance
-- o bundle multi-dominio atual cobre `audit_logs`, `credit_ledger` e metadados persistidos de `reports`, mas ainda nao toda a trilha ampliada de compliance/manual review
-
-## Recomendacoes de Evolucao
-
-- evoluir a tela `/audit` de paginação `page/limit` para cursor-based e filtros operacionais mais ricos quando o volume exigir
-- ampliar o bundle atual para artefatos de compliance/manual review mais especializados
-- adicionar metricas/alertas para downloads sensiveis
-- incluir esses checks em gates de PR mais restritivos
-- expandir validacao negativa para outros fluxos sensiveis alem de `legal_report`
+- Playwright critico/compliance passa
+- hashes de report continuam reproduziveis
+- `report_downloaded` continua auditado
+- `coaf_report_*` deixa trilha em `audit_logs` e `evidence_trail`
+- `check_compliance_provider_runtime.py` e parte do rito quando houver janela de homologacao `AML/KYT live`
+- `make run-eu-sanctions-window-local` e parte do rito quando houver janela de sancoes da UE com persistencia de artefatos
+- `make run-eu-sanctions-window` permanece disponivel para execucao mais controlada
+- `make check-eu-sanctions-window` permanece como validacao pontual do estado persistido
+- `check_sanctions_sync_status.py` continua como checker generico para o estado persistido das listas

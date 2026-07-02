@@ -74,6 +74,7 @@ def build_signoff_model(
 
     release_dossier = run_steps.get("release_dossier") or {}
     homologation = run_steps.get("homologation") or {}
+    regulatory_bundle = run_steps.get("regulatory_readiness_bundle") or {}
 
     model = {
         "window_id": window_id,
@@ -91,6 +92,7 @@ def build_signoff_model(
         "dossier_path": release_dossier.get("artifact_file") or "pending",
         "window_packet_path": artifacts.get("window_packet_file") or run_files.get("window_packet_file") or "pending",
         "homologation_path": homologation.get("artifact_file") or "pending",
+        "regulatory_bundle_path": regulatory_bundle.get("output_file") or "pending",
         "payload_json_path": str(payload_file),
         "auth_oidc_status": safe_get_step_status(run_steps, "oidc_preflight", default=preflight_status),
         "mfa_status": (
@@ -99,6 +101,12 @@ def build_signoff_model(
             else "baseline_only"
         ),
         "compliance_status": safe_get_step_status(run_steps, "external_preflight", default=preflight_status),
+        "aml_kyt_runtime_status": safe_get_step_status(
+            run_steps, "regulatory_readiness_bundle", default=run_status
+        ),
+        "eu_feed_status": safe_get_step_status(
+            run_steps, "regulatory_readiness_bundle", default=run_status
+        ),
         "investigation_rpc_status": safe_get_step_status(run_steps, "external_preflight", default=preflight_status),
         "reports_evidence_status": safe_get_step_status(run_steps, "release_dossier", default=run_status),
         "ci_cd_status": overall_status,
@@ -137,6 +145,7 @@ def render_signoff_markdown(model: dict[str, Any]) -> str:
         f"- dossier: `{format_inline_value(model['dossier_path'])}`",
         f"- window packet: `{format_inline_value(model['window_packet_path'])}`",
         f"- homologation: `{format_inline_value(model['homologation_path'])}`",
+        f"- regulatory-readiness-bundle: `{format_inline_value(model['regulatory_bundle_path'])}`",
         f"- payload JSON: `{format_inline_value(model['payload_json_path'])}`",
         "",
         "## Gates Revisados",
@@ -144,6 +153,8 @@ def render_signoff_markdown(model: dict[str, Any]) -> str:
         f"- auth/OIDC: `{format_inline_value(model['auth_oidc_status'])}`",
         f"- MFA/2FA: `{format_inline_value(model['mfa_status'])}`",
         f"- compliance: `{format_inline_value(model['compliance_status'])}`",
+        f"- AML/KYT runtime gate: `{format_inline_value(model['aml_kyt_runtime_status'])}`",
+        f"- feed UE tokenizado: `{format_inline_value(model['eu_feed_status'])}`",
         f"- investigation/RPC: `{format_inline_value(model['investigation_rpc_status'])}`",
         f"- reports e evidencias: `{format_inline_value(model['reports_evidence_status'])}`",
         f"- CI/CD: `{format_inline_value(model['ci_cd_status'])}`",

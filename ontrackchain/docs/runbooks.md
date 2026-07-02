@@ -6,6 +6,21 @@ Concentrar respostas operacionais iniciais para os incidentes mais provaveis do 
 
 Este documento e intencionalmente pragmatica: ele serve para reduzir tempo de diagnostico em development e staging tecnico/regulatorio.
 
+## Escopo Canonico
+
+Use este documento para:
+
+- diagnosticar incidentes e falhas operacionais apos um sintoma observavel
+- orientar resposta inicial por severidade, sinais, verificacao e acao
+- acelerar troubleshooting em `development`, `staging` tecnico e janelas regulatorias em curso
+
+Nao use este documento como fonte primaria para:
+
+- fluxo tecnico de deploy e promocao: use [Deploy e Staging](deploy-and-staging.md)
+- condução da primeira janela seria, war room e sign-off: use [Primeiro Disparo Real da Janela Seria](first-serious-window-first-dispatch-runbook.md)
+- decisao executiva de `go/no-go`: use [Gates de Release para Staging Serio](project-release-gates.md)
+- preenchimento de owners, handoff e placeholders da janela: use [Checklist de Provisionamento por Owner para Janela Seria](staging-serious-window-owner-provisioning-checklist.md)
+
 ## Severidades
 
 | Severidade | Definicao | Acao Inicial |
@@ -466,12 +481,14 @@ curl -u admin:admin http://localhost:3001/api/dashboards/uid/ontrack-compliance-
 - executar `python scripts/preflight_external_integrations.py` com `ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=live` e `ONTRACKCHAIN_EXPECT_RPC_MODE=disabled` para validar URL, credencial e parametros antes da janela
 - definir `ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=live` no shell da janela para que o artefato automatizado capture o mesmo preflight da homologacao
 - validar que o endpoint `GET /api/v1/compliance/operations` expoe capability operacional para `kyc_wallet`
+- executar `make check-compliance-provider-runtime INTERNAL_BASE_URL=<url-interna> PUBLIC_BASE_URL=<url-publica>` como gate leve antes da homologacao pesada
 - reservar janela curta de homologacao com owner de Compliance/Backend e observabilidade ativa
 
 ### Runbook 16A — Homologacao AML/KYT live controlada — Execucao
 
 1. Confirmar readiness sem chamada externa:
-   - `GET /internal/provider-readiness`
+   - preferencialmente via `make check-compliance-provider-runtime`
+   - ou, manualmente, `GET /internal/provider-readiness`
    - esperado: `ready=true` e `details.operating_mode=live`
 2. Confirmar capability publica do catalogo:
    - `GET /api/v1/compliance/operations`
@@ -582,6 +599,79 @@ curl -u admin:admin http://localhost:3001/api/dashboards/uid/ontrack-compliance-
 - o resultado final da investigation preserva `analysis_version=rpc_provider_v1`
 - `kyw_summary.rpc.rpc_source` identifica `provider_primary` ou `provider_fallback`
 - a evidência do run fica disponível para anexar ao gate de release
+
+## Runbook 16C — Homologacao do feed UE tokenizado
+
+### Runbook 16C — Homologacao do feed UE tokenizado — Preparacao
+
+- obter a URL XML tokenizada oficial do feed da UE
+- preencher `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` no `.env.staging.private`
+- confirmar que `DATABASE_URL` aponta para o banco do ambiente-alvo
+- executar `python scripts/preflight_external_integrations.py` para validar `https` e bloquear URLs locais
+- rebuildar ou reexecutar o `compliance-worker` com a env atualizada
+- reservar janela curta com owner de Compliance/Backend e observabilidade do worker ativa
+
+### Runbook 16C — Homologacao do feed UE tokenizado — Execucao
+
+1. Confirmar precondicao de override:
+   - `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` presente
+   - esperado: URL XML tokenizada com `token=`
+2. Reexecutar o worker de compliance:
+   - esperado: tentativa real de sync de `EU_CONSOLIDATED`
+   - esperado: override persistido antes do sync
+3. Executar o gate canônico da janela UE:
+   - preferencialmente `make run-eu-sanctions-window WINDOW_ID=<janela>`
+   - ou, de forma pontual, `make check-eu-sanctions-window`
+   - esperado: `EU_CONSOLIDATED` em `status=ACTIVE`
+   - esperado: `EU_CONSOLIDATED.last_sync_status=SUCCESS`
+   - esperado: `sanctions_lists_meta.source_url` igual ao override configurado
+4. Revisar os artefatos persistidos em `artifacts/staging/checks/`:
+   - `<janela>-eu-sanctions-preflight.json`
+   - `<janela>-eu-sanctions-sync.json`
+5. Anexar os artefatos do runner ao sign-off da janela
+
+### Runbook 16C — Homologacao do feed UE tokenizado — Comandos Exatos
+
+```bash
+export WINDOW_ID=stg-$(date +%F)-eu
+make run-eu-sanctions-window-local WINDOW_ID=$WINDOW_ID
+```
+
+Se o arquivo privado nao estiver no caminho padrao ou se voce quiser isolar a saida:
+
+```bash
+export WINDOW_ID=stg-$(date +%F)-eu
+make rerun-compliance-worker
+make run-eu-sanctions-window \
+  WINDOW_ID=$WINDOW_ID \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  CHECKS_DIR=artifacts/staging/checks
+```
+
+### Runbook 16C — Homologacao do feed UE tokenizado — Evidencias Minimas
+
+- `python scripts/preflight_external_integrations.py` com `status=ok`
+- `make check-eu-sanctions-window` com `status=ok`
+- `EU_CONSOLIDATED` em `ACTIVE/SUCCESS`
+- `source_url` persistido igual ao valor de `COMPLIANCE_EU_SANCTIONS_SOURCE_URL`
+- `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` contendo `token=`
+- log operacional ou evidência do `compliance-worker` anexado ao pacote da janela
+
+### Runbook 16C — Homologacao do feed UE tokenizado — Falhas Aceitaveis
+
+- `403` da UE antes do provisionamento da URL tokenizada:
+  - a janela deve ser marcada como `nao concluida`
+  - o erro deve aparecer explicitamente no checker ou no `status_reason`
+- divergencia entre override configurado e `source_url` persistido:
+  - a janela deve falhar
+  - nunca tratar como sucesso parcial
+
+### Runbook 16C — Homologacao do feed UE tokenizado — Resultado Esperado
+
+- `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` valido e tokenizado
+- `EU_CONSOLIDATED` em `ACTIVE/SUCCESS`
+- `source_url` persistido convergente com o override
+- checker pos-sync verde e anexavel ao gate de release
 
 ## Runbook 17 — Observabilidade de report indisponivel
 

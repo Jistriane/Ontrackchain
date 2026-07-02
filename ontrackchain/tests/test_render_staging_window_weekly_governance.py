@@ -49,6 +49,10 @@ def _write_payload(target: Path, *, overall_status: str = "ok") -> None:
                         "status": "ok" if overall_status == "ok" else "failed",
                         "artifact_file": "artifacts/homologation/external_homologation_both_20260706T120000Z.json",
                     },
+                    "regulatory_readiness_bundle": {
+                        "status": "ok" if overall_status == "ok" else "failed",
+                        "output_file": "artifacts/staging/checks/stg-2026-07-06-a-regulatory-readiness-bundle.json",
+                    },
                 }
             },
         },
@@ -86,6 +90,7 @@ def _write_weekly_file(target: Path) -> None:
                 "- window packet: `pending`",
                 "- dossier: `pending`",
                 "- homologation: `pending`",
+                "- regulatory-readiness-bundle: `pending`",
                 "",
                 "## Itens Atualizados",
                 "",
@@ -128,6 +133,7 @@ class RenderStagingWindowWeeklyGovernanceTests(unittest.TestCase):
         self.assertIn("- overall status: `ok`", content)
         self.assertIn("- dossier: `artifacts/staging/dossiers/staging_release_dossier_stg-2026-07-06-a.json`", content)
         self.assertIn("- homologation: `artifacts/homologation/external_homologation_both_20260706T120000Z.json`", content)
+        self.assertIn("- regulatory-readiness-bundle: `artifacts/staging/checks/stg-2026-07-06-a-regulatory-readiness-bundle.json`", content)
         self.assertIn("  - status atual: `done`", content)
 
     def test_main_can_resolve_weekly_file_from_governance_directory(self) -> None:

@@ -132,7 +132,7 @@ class ComplianceEndpointContractTests(unittest.TestCase):
         self.assertEqual(metadata["amount"], 1200.5)
         self.assertEqual(metadata["purpose"], "treasury top-up")
 
-    def test_sanctions_check_returns_degraded_capability_instead_of_false_negative(self) -> None:
+    def test_sanctions_check_returns_live_local_cache_capability(self) -> None:
         with patch.object(main, "_record_optional_compliance_audit") as audit_mock:
             response = asyncio.run(
                 main.sanctions_check(
@@ -147,10 +147,10 @@ class ComplianceEndpointContractTests(unittest.TestCase):
 
         self.assertEqual(response.address, "0x456")
         self.assertEqual(response.chain, "base")
-        self.assertEqual(response.provider, "sanctions_lists")
-        self.assertEqual(response.provider_status, "degraded")
-        self.assertEqual(response.degraded_reason, "sanctions_provider_not_integrated")
-        self.assertEqual(response.capability_status, "degraded")
+        self.assertEqual(response.provider, "sanctions_lists_cache")
+        self.assertEqual(response.provider_status, "live")
+        self.assertIsNone(response.degraded_reason)
+        self.assertEqual(response.capability_status, "live")
         self.assertEqual(response.lists, ["OFAC", "UN", "COAF"])
         self.assertIsNone(response.hit)
         self.assertEqual(response.matched_lists, [])
@@ -159,7 +159,7 @@ class ComplianceEndpointContractTests(unittest.TestCase):
         audit_mock.assert_called_once()
         metadata = audit_mock.call_args.kwargs["metadata"]
         self.assertEqual(metadata["lists"], ["OFAC", "UN", "COAF"])
-        self.assertEqual(metadata["delivery_mode"], "list_screening_pending")
+        self.assertEqual(metadata["delivery_mode"], "local_cache")
 
 
 if __name__ == "__main__":

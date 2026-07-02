@@ -42,7 +42,7 @@ class OperationsCatalogCapabilityTests(unittest.TestCase):
         self.assertEqual(item["delivery_mode"], "risk_check_instant")
         self.assertEqual(item["capability_details"]["operating_mode"], "live")
 
-    def test_operations_catalog_includes_degraded_manual_review_capabilities(self) -> None:
+    def test_operations_catalog_includes_live_sanctions_and_manual_review_capabilities(self) -> None:
         response = asyncio.run(
             main.get_operations_catalog(
                 include_deprecated=False,
@@ -62,11 +62,14 @@ class OperationsCatalogCapabilityTests(unittest.TestCase):
         self.assertEqual(dd.delivery_mode, "manual_review_pending")
         self.assertTrue(dd.capability_details["requires_human_review"])
 
-        self.assertEqual(sanctions.provider, "sanctions_lists")
-        self.assertEqual(sanctions.provider_status, "degraded")
-        self.assertEqual(sanctions.degraded_reason, "sanctions_provider_not_integrated")
-        self.assertEqual(sanctions.delivery_mode, "list_screening_pending")
-        self.assertFalse(sanctions.capability_details["ready_for_live_homologation"])
+        self.assertEqual(sanctions.provider, "sanctions_lists_cache")
+        self.assertEqual(sanctions.provider_status, "live")
+        self.assertIsNone(sanctions.degraded_reason)
+        self.assertEqual(sanctions.capability_status, "live")
+        self.assertEqual(sanctions.delivery_mode, "local_cache")
+        self.assertEqual(sanctions.capability_details["provider_dependency"], "sanctions_lists_meta")
+        self.assertEqual(sanctions.capability_details["screening_source"], "sanctions_hits_cache")
+        self.assertTrue(sanctions.capability_details["ready_for_live_homologation"])
 
     def test_operation_detail_route_returns_capability_fields(self) -> None:
         response = asyncio.run(

@@ -2,102 +2,72 @@
 
 ## Objetivo
 
-Consolidar os controles tecnicos e operacionais que ja existem no scaffold e indicar os gaps residuais para uma Fase 2 mais aderente a cenarios regulados.
-
-`[[diagram: fluxo de controle de seguranca e compliance do Ontrackchain mostrando cliente -> frontend -> Traefik/ForwardAuth -> APIs de dominio; propagacao de X-Org-Id, X-User-Id, X-Plan, X-Role, X-Auth-Method e X-Request-Id; PostgreSQL com RLS e audit_logs como trilha central; download de legal_report bloqueado antes de 2FA e liberado apenas para JWT ADMIN com X-2FA=ok ]]`
+Consolidar os controles tecnicos e operacionais implementados no runtime atual do Ontrackchain e separar claramente o que ja esta operacional do que ainda depende de homologacao, provider real ou aceite formal.
 
 ## Controles Implementados
 
 ### 1. Isolamento Multi-tenant
 
-- Controle principal: `PostgreSQL RLS`
-- Regra: tabelas sensiveis exigem contexto de organizacao
-- Objetivo: impedir vazamento cross-tenant mesmo em caso de erro de aplicacao
-- Complemento:
-  - contexto injetado por sessao SQL
-  - uso de guarda SQL para evitar queries sem `org_id`
+- `PostgreSQL RLS` habilitado nas tabelas multi-tenant
+- contexto SQL baseado em `app.organization_id`
+- policies alinhadas ao padrao do projeto
+- objetivo: impedir vazamento cross-tenant mesmo diante de erro de aplicacao
 
-### 2. Autenticacao e Contexto Centralizados
+### 2. Auth e Contexto Centralizados
 
-- Controle principal: `Traefik ForwardAuth`
-- Fontes aceitas:
-  - JWT
-  - API Key
-- Contexto propagado:
-  - `X-Org-Id`
-  - `X-User-Id`
-  - `X-Plan`
-  - `X-Role`
-  - `X-Auth-Method`
+- `Traefik ForwardAuth` como ponto unico de validacao
+- `auth-service` suporta `JWT`, `API Key` e `OIDC`
+- enriquecimento de contexto com `X-Org-Id`, `X-User-Id`, `X-Linked-User-Id`, `X-Role`, `X-Plan`, `X-Auth-Method`
+- `linked_user_id` conecta identidades federadas a usuarios persistidos para mutacoes sensiveis
 
-### 3. Controle Financeiro e Billing
+### 3. MFA em Fluxos Sensiveis
 
-- Fluxo obrigatorio:
-  - `estimate -> quote_id -> start`
-- Controles:
-  - `quote` com TTL
-  - `plan lock`
-  - reserva via `PRE_HOLD`
-  - fechamento via `CONFIRMED` ou `REFUND`
-- Objetivo:
-  - previsibilidade de cobranca
-  - bloqueio de downgrade oportunista
-  - rastreabilidade financeira
+Controles ativos:
 
-### 4. Auditoria e Correlacao
+- `legal_report` exige auth forte e segundo fator valido
+- `ROS/COAF` exige `external_provider` homologado
+- `block lift` exige `external_provider` homologado
 
-- Tabela central: `audit_logs`
-- Eventos auditados no estado atual:
-  - `case_started`
-  - `case_completed`
-  - `case_failed`
-  - `case_flagged_billing_recalc_required`
-  - `compliance_risk_checked`
-  - `report_generated`
-  - `report_downloaded`
-  - `operational_alerts_exported`
-- Correlacao:
-  - `X-Request-Id`
-  - `resource_type`
-  - `resource_id`
-  - `report_id`
-  - `file_hash_sha256`
+Observacao operacional:
 
-### 5. Controle de Acesso a Relatorios Sensiveis
+- o trilho `TOTP` local continua valido apenas para o scaffold `dev`
+- o trilho serio depende de MFA federado homologado
 
-- Escopo atual: `legal_report`
-- Requisitos obrigatorios:
-  - `X-Auth-Method=jwt`
-  - `X-Role=ADMIN`
-  - `X-2FA=ok`
-- Garantia validada:
-  - tentativa antes do 2FA retorna `403`
-  - tentativa negada nao gera `report_downloaded`
-  - sucesso apos 2FA gera `report_downloaded`
+### 4. Trilha Operacional e Trilha Regulatoria
 
-### 6. Integridade de Relatorios
+- `audit_logs` registra eventos de negocio, leitura privilegiada, negacoes e exportacoes
+- `evidence_trail` registra eventos regulatorios append-only com encadeamento `SHA-256`
+- hashes deterministas sao usados em relatorios, bloqueios, contrapartes e comprovantes COAF
 
-- `report_id` deterministico
-- `download` reproduzivel a partir de:
-  - `case_id`
-  - `report_type`
-  - `created_at`
-- Hash de integridade:
-  - `file_hash_sha256`
-- Garantia validada:
-  - hash retornado pela API bate com o arquivo baixado
-  - hash bate com `audit_logs.metadata.file_hash_sha256`
+### 5. Screening de Sancoes e Sync Local
 
-### 7. Contencao Operacional de Carga
+- `compliance-worker` sincroniza feeds para `sanctions_hits_cache`
+- screening direto de carteira usa cache local, nao chamada externa por request
+- overrides operacionais:
+  - `COMPLIANCE_OFAC_SDN_SOURCE_URL`
+  - `COMPLIANCE_EU_SANCTIONS_SOURCE_URL`
+- `preflight_external_integrations.py`, `check_sanctions_sync_status.py` e `run_eu_sanctions_window.py` endurecem a governanca do feed
 
-- Investigacao com limite por plano
-- Limite global de concorrencia para MVP
-- Comportamento:
-  - dentro do limite: `processing`
-  - acima do limite: `202 queued` com `position_in_queue`
-- Objetivo:
-  - evitar degradacao abrupta
-  - proteger estabilidade do scaffold
+### 6. Enforcement Regulatorio
+
+- `preventive_blocks` registra acao, gatilhos, base regulatoria, score e hash de evidencia
+- `counterparties` registra KYC/KYB, PEP, sanctions clearance, DD reforcada e calendario de revisao
+- `ros_records` modela geracao, aprovacao/rejeicao e submissao manual de ROS/COAF
+
+## Matriz de Controles
+
+| Area | Controle Atual | Estado | Observacao |
+| --- | --- | --- | --- |
+| Tenant isolation | `RLS` + contexto SQL | forte | aderente ao padrao `app.organization_id` |
+| Auth | `ForwardAuth` + `JWT|API Key|OIDC` | forte | homologacao seria ainda pendente |
+| MFA sensivel | `legal_report`, `ROS/COAF`, `block lift` | medio/forte | trilho serio exige homologacao externa |
+| Auditoria | `audit_logs` + `request_id` | forte | boa cobertura operacional |
+| Evidencia regulatoria | `evidence_trail` + `SHA-256` | forte | source of truth unico e teste cruzado reduzem drift atual |
+| Screening de sancoes | cache local + worker | forte | catalogo e endpoint direto convergem para `live` via cache local |
+| AML/KYT live | provider-aware + runtime gate | parcial | falta homologacao com credenciais reais e evidencia recorrente |
+| DD/SoF | `manual_review_required` | parcial | comportamento intencional do produto atual |
+| ROS/COAF | workflow completo | forte | submissao final segue manual e auditada |
+| Operacao seria | preflight + dossier + ownership | forte | faltam sign-offs formais recorrentes |
 
 ## Controles Validados Automaticamente
 
@@ -105,89 +75,55 @@ Consolidar os controles tecnicos e operacionais que ja existem no scaffold e ind
 
 - `quote -> start`
 - `plan lock`
-- fila/concurrency de investigation
-- `report_generated`
-- `report_downloaded`
+- `report_generated` e `report_downloaded`
+- enforcement de `legal_report`
+- metadados de provider RPC no resultado final
 - correlacao por `request_id`
-- hash do arquivo
-- `legal_report` antes/depois do 2FA
 
 ### Playwright
 
-- fluxo `OIDC` critico e regressao local de autenticacao controlada
-- jornada critica do usuario
-- trilha de auditoria via browser real
-- validacao negativa e positiva do `legal_report`
+- fluxos `critical-path` e `compliance-flows`
+- trilho `OIDC` critico
+- `legal_report` antes/depois de `2FA`
+- backlog administrativo e export auditado
 
-## Gaps Residuais
+### Preflights e Checks Operacionais
 
-### 1. Autenticacao de Producao
+- `preflight_oidc_serious_env.py`
+- `preflight_external_integrations.py`
+- `check_staging_env_placeholders.py`
+- `check_staging_env_handoff.py`
+- `check_compliance_provider_runtime.py`
+- `run_eu_sanctions_window.py`
+- `check_sanctions_sync_status.py`
 
-- Estado atual:
-  - `OIDC` local validado com `Keycloak + PKCE`
-  - `TOTP` real no fluxo JWT local
-- Gap:
-  - homologar IdP corporativo e MFA serio em ambiente nao-dev
+## Gaps Residuais Reais
 
-### 2. Controles de Tentativa Negada
+### 1. Provider `AML/KYT` em modo live
 
-- Estado atual:
-  - tentativa negada de `legal_report` e validada, mas nao ha evento dedicado de auditoria negativa persistido
-- Gap:
-  - registrar `download_blocked_pre_2fa` ou equivalente
+- o roteador e honesto e observavel
+- o gate `check-compliance-provider-runtime` ja existe
+- faltam credenciais reais, homologacao externa e evidencias recorrentes
 
-### 3. Retention e Governanca de Logs
+### 2. MFA federado homologado
 
-- Estado atual:
-  - `audit_logs` existe e possui RLS
-- Gap:
-  - retention policy
-  - estrategia de arquivamento
-  - trilha de exportacao segura
+- o contrato serio esta implementado
+- falta homologacao operacional fora do runtime local
 
-### 4. Compliance Regulatorio Profundo
+### 4. `due_diligence` e `source_of_funds`
 
-- Estado atual:
-  - baseline de COAF/BCB
-  - `risk-check` com dimensoes
-- Gap:
-  - schema mais completo
-  - versao de formularios/relatorios
-  - classificacao de evidencias
+- continuam em `manual_review_required`
+- isso deve ser tratado como gap de produto/compliance, nao como erro de documentacao
 
-### 5. Execucao Assincrona Real
+### 5. Cadeia formal de custodia
 
-- Estado atual:
-  - worker real com Redis para investigation
-  - DLQ operacional, retry/backoff e snapshot administrativo
-- Gap:
-  - isolamento mais forte, idempotencia ampliada e hardening de producao
-
-## Matriz Resumida
-
-| Area | Controle Atual | Nivel | Gap Principal |
-|---|---|---|---|
-| Tenant isolation | `RLS` + contexto SQL | Forte | auditar queries negadas |
-| Auth | `ForwardAuth` + JWT/API Key | Medio | IdP/MFA real |
-| Billing | `quote -> start -> PRE_HOLD` | Forte | reconciliação mais rica |
-| Audit trail | `audit_logs` + `request_id` | Forte | retention/export |
-| Reports sensiveis | `JWT + ADMIN + 2FA` | Forte | auditar negacoes explicitamente |
-| Concurrency | worker Redis + DLQ + limites por plano | Forte | hardening/idempotencia |
-| Compliance | baseline KYW/COAF | Medio | schema regulatorio ampliado |
+- hashes, manifestos e dossier existem
+- ainda faltam sign-off formal, classificacao de sensibilidade e rotina institucionalizada de aceite
 
 ## Recomendacoes Imediatas
 
-- adicionar auditoria explicita para acessos negados sensiveis
-- expandir a tela de auditoria atual com exportacao e filtros mais ricos
-- formalizar retention de `audit_logs`
-- evoluir autenticacao dev para fluxo real antes de staging regulado
+- homologar `AML/KYT` live com `check-compliance-provider-runtime` verde e evidencias da janela seria
+- rodar a janela UE com `run-eu-sanctions-window-local` quando `EU_CONSOLIDATED` estiver no escopo
+- registrar formalmente sign-off de retention/recovery e owners operacionais
+- manter `manual_review_required` explicitamente documentado ate existir motor homologado para DD/SoF
 
-## Criterio de Maturidade para Proxima Fase
-
-O projeto pode avancar para uma Fase 2 regulatoria quando:
-
-- auth serio deixar de depender de trilhos locais controlados
-- auditoria puder ser consultada pela operacao
-- eventos negativos sensiveis forem persistidos
-- trilha operacional e exportacao auditada estiverem maduras para uso controlado
-- schema de compliance/report estiver versionado

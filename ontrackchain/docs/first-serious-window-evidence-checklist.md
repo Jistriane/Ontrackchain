@@ -7,7 +7,8 @@ Definir a evidência mínima necessária para considerar a primeira janela séri
 Este documento cobre especificamente:
 
 - `P0-01`
-- `P0-05`
+- `P0-02`
+- `P0-03`
 - `P0-06`
 - `RUN-STG-01`
 
@@ -49,6 +50,9 @@ Artefatos obrigatórios esperados ao final:
 - `artifacts/staging/checks/ownership-coverage-<janela>.json`
 - `artifacts/staging/checks/placeholders-<janela>.json`
 - `artifacts/staging/checks/handoff-<janela>.json`
+- `artifacts/staging/checks/<janela>-eu-sanctions-preflight.json` quando `P0-03` estiver no escopo
+- `artifacts/staging/checks/<janela>-eu-sanctions-sync.json` quando `P0-03` estiver no escopo
+- `artifacts/staging/checks/<janela>-regulatory-readiness-bundle.json` quando `P0-02` e `P0-03` forem executados juntos
 - `artifacts/staging/window-packet-<janela>.md`
 - `artifacts/homologation/<artefato>.json`
 - `artifacts/homologation/<artefato>.json.manifest.json`
@@ -110,38 +114,72 @@ O pacote gerado em `ci-artifacts/` e a copia versionada em `docs/governance-week
 - login funcionando apenas no ambiente local
 - autenticação visualmente valida, mas sem prova de backend em modo `oidc`
 
-### 2. `P0-05` — AML/KYT real em modo `live`
+### 2. `P0-02` — AML/KYT real em modo `live`
 
-#### Criterio de Entrada — `P0-05`
+#### Criterio de Entrada — `P0-02`
 
 - contrato ou acesso operacional ao provider disponivel
 - credenciais validas no `.env.staging.private`
 - `COMPLIANCE_TRM_ENABLED=true`
 - expectativa de modo definida como `live`
 
-#### Evidencia Minima de Execucao — `P0-05`
+#### Evidencia Minima de Execucao — `P0-02`
 
 - `python scripts/preflight_external_integrations.py` com expectativa `compliance=live`
+- `make check-compliance-provider-runtime` com runtime convergente para `live`
+- preferencialmente, `make run-regulatory-readiness-bundle` quando a janela tambem incluir `P0-03`
 - `provider-readiness` em modo `live`
 - `python scripts/homologation_external_evidence.py --mode compliance` ou `--mode both`
 - artefato de homologacao com `request_id` correlacionado
 - evidência de `/audit` anexada ao bundle
 - resposta controlada de degradacao, erro ou timeout documentada quando ocorrer
 
-#### Criterio de Saida — `P0-05`
+#### Criterio de Saida — `P0-02`
 
 - provider AML/KYT operando com chamada real ou homologacao externa controlada
 - trilha auditavel por `request_id`
 - evidencias persistidas em artefato e manifesto
 
-#### Bloqueadores Classicos — `P0-05`
+#### Bloqueadores Classicos — `P0-02`
 
 - retorno stub disfarcado de sucesso real
 - readiness verde sem chamada homologada
 - provider configurado, mas sem bundle anexavel
 - degradacao silenciosa sem telemetria clara
 
-### 3. `P0-06` — RPC primario com fallback homologado
+### 3. `P0-03` — Feed UE tokenizado com `EU_CONSOLIDATED` convergente
+
+#### Criterio de Entrada — `P0-03`
+
+- `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` preenchida no `.env.staging.private`
+- URL tokenizada oficial obtida com o owner responsavel
+- `DATABASE_URL` apontando para o banco do ambiente serio
+- worker de compliance apto a ser reexecutado com a env atualizada
+
+#### Evidencia Minima de Execucao — `P0-03`
+
+- `python scripts/preflight_external_integrations.py` com `status=ok`
+- `make run-eu-sanctions-window-local` ou fluxo equivalente
+- `make check-eu-sanctions-window`
+- preferencialmente, `make run-regulatory-readiness-bundle` quando a janela tambem incluir `P0-02`
+- `EU_CONSOLIDATED` em `ACTIVE/SUCCESS`
+- `source_url` persistido igual ao override configurado
+- `status_reason` sem erro residual critico
+
+#### Criterio de Saida — `P0-03`
+
+- o feed UE deixou de depender de ajuste manual fora do rito
+- a convergencia pos-sync ficou comprovada por artefato anexavel
+- o override tokenizado ficou rastreavel no ambiente serio
+
+#### Bloqueadores Classicos — `P0-03`
+
+- URL da UE ausente ou sem `token=`
+- `status=ACTIVE`, mas `last_sync_status!=SUCCESS`
+- override configurado diferente do `source_url` persistido
+- worker reexecutado sem prova de convergencia no banco
+
+### 4. `P0-06` — RPC primario com fallback homologado
 
 #### Criterio de Entrada — `P0-06`
 
@@ -172,11 +210,11 @@ O pacote gerado em `ci-artifacts/` e a copia versionada em `docs/governance-week
 - investigacao sem metadados do provider no resultado final
 - endpoint aceito apenas em ambiente local
 
-### 4. `RUN-STG-01` — Primeira janela seria completa
+### 5. `RUN-STG-01` — Primeira janela seria completa
 
 #### Criterio de Entrada — `RUN-STG-01`
 
-- `P0-01`, `P0-05` e `P0-06` com ambiente minimo pronto para execucao
+- `P0-01`, `P0-02`, `P0-03` e `P0-06` com ambiente minimo pronto para execucao
 - matriz de ownership e handoff atualizada
 - arquivo privado sem placeholders
 - janela identificada por `window_id`
@@ -208,10 +246,11 @@ O pacote gerado em `ci-artifacts/` e a copia versionada em `docs/governance-week
 1. preencher `.env.staging.private`
 2. validar ownership, placeholders e handoff
 3. validar `OIDC` serio
-4. validar integrações externas
-5. executar homologacao externa
-6. consolidar dossier
-7. registrar a semana no runbook de governanca
+4. validar integracoes externas
+5. validar feed UE tokenizado quando a janela incluir sancoes europeias
+6. executar homologacao externa
+7. consolidar dossier
+8. registrar a semana no runbook de governanca
 
 ## Evidencia Minima por Fase
 
@@ -228,7 +267,7 @@ O pacote gerado em `ci-artifacts/` e a copia versionada em `docs/governance-week
 Antes de declarar a primeira janela seria como executada, responder:
 
 1. houve autenticação federada real em ambiente serio?
-2. houve homologacao AML/KYT real ou controlada com bundle anexavel?
+2. houve homologacao AML/KYT real ou controlada com `check-compliance-provider-runtime` verde e bundle anexavel?
 3. houve homologacao RPC real ou controlada com bundle anexavel?
 4. o runner `run_staging_window.py` produziu dossier final utilizavel?
 5. existe alguma dependencia critica ainda escondida fora dos artefatos?

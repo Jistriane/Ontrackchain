@@ -123,6 +123,7 @@ class ExternalIntegrationsPreflightTests(PreflightTestCase):
                 "COMPLIANCE_TRM_API_KEY": "trm-live-key",
                 "COMPLIANCE_TRM_TIMEOUT_MS": "4000",
                 "COMPLIANCE_TRM_MAX_RETRIES": "2",
+                "COMPLIANCE_EU_SANCTIONS_SOURCE_URL": "https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList_1_1/content?token=abc123",
                 "INVESTIGATION_RPC_ENABLED": "true",
                 "INVESTIGATION_RPC_PROVIDER": "evm_rpc",
                 "INVESTIGATION_RPC_PRIMARY_URL": "",
@@ -137,6 +138,9 @@ class ExternalIntegrationsPreflightTests(PreflightTestCase):
         self.assertEqual(payload["errors"], [])
         self.assertEqual(payload["compliance"]["expect_mode"], "live")
         self.assertEqual(payload["rpc"]["expect_mode"], "fallback_only")
+        self.assertTrue(payload["compliance"]["sanctions_source_overrides"]["eu_present"])
+        self.assertTrue(payload["compliance"]["sanctions_source_overrides"]["eu_tokenized"])
+        self.assertFalse(payload["compliance"]["sanctions_source_overrides"]["ofac_present"])
 
     def test_rejects_insecure_or_invalid_provider_setup(self) -> None:
         exit_code, payload = self._run_main(
@@ -151,6 +155,7 @@ class ExternalIntegrationsPreflightTests(PreflightTestCase):
                 "COMPLIANCE_TRM_API_KEY": "change-me",
                 "COMPLIANCE_TRM_TIMEOUT_MS": "0",
                 "COMPLIANCE_TRM_MAX_RETRIES": "-1",
+                "COMPLIANCE_EU_SANCTIONS_SOURCE_URL": "http://localhost:8080/eu.xml?token=test",
                 "INVESTIGATION_RPC_ENABLED": "true",
                 "INVESTIGATION_RPC_PROVIDER": "other",
                 "INVESTIGATION_RPC_PRIMARY_URL": "http://localhost:8545",
@@ -169,6 +174,10 @@ class ExternalIntegrationsPreflightTests(PreflightTestCase):
             payload["errors"],
         )
         self.assertIn("COMPLIANCE_TRM_TIMEOUT_MS: esperado valor >= 1, recebido=0", payload["errors"])
+        self.assertIn(
+            "COMPLIANCE_EU_SANCTIONS_SOURCE_URL: em ambiente serio deve usar https (http://localhost:8080/eu.xml?token=test)",
+            payload["errors"],
+        )
         self.assertIn("INVESTIGATION_RPC_PROVIDER: esperado=evm_rpc recebido=other", payload["errors"])
         self.assertIn(
             "INVESTIGATION_RPC_PRIMARY_URL: em ambiente serio deve usar https (http://localhost:8545)",

@@ -9,6 +9,7 @@ Este documento complementa:
 - [Runbook do Primeiro Disparo Real](first-serious-window-first-dispatch-runbook.md)
 - [GitHub Environment para Staging Serio](github-environment-staging-serious.md)
 - [Gates de Release para Staging Sério](project-release-gates.md)
+- [Template de War Room da Janela Seria](governance-weekly/_template-staging-serious-window-war-room.md)
 
 ## Quando Usar
 
@@ -31,11 +32,26 @@ make postprocess-serious-window \
   RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
 ```
 
+Para execucao local ponta a ponta, sem GitHub Actions, usar:
+
+```bash
+make run-serious-window-local \
+  WINDOW_ID="stg-2026-07-06-a" \
+  MODE="baseline"
+```
+
 O comando acima:
 
 - atualiza `ci-artifacts/staging-serious-window-signoff.md`
 - gera a copia versionada em `docs/governance-weekly/`
 - sincroniza o registro semanal da mesma janela
+
+Antes do sign-off final, quando houver coordenacao multi-owner da janela, registrar tambem:
+
+- o war room versionado em `docs/governance-weekly/<data>-staging-serious-window-war-room.md`
+- o tracking ao vivo em `docs/governance-weekly/<data>-staging-serious-window-live-tracking.md`
+- a decisao `go` ou `no-go` do war room
+- os bloqueadores ainda abertos e o owner da escalacao
 
 Se precisar executar os passos separadamente:
 
@@ -84,12 +100,18 @@ python scripts/render_staging_window_weekly_governance.py \
 - window packet:
 - homologation:
 - payload JSON:
+- gate runtime AML/KYT:
+- regulatory-readiness-bundle:
+- eu-sanctions-preflight:
+- eu-sanctions-sync:
 
 ## Gates Revisados
 
 - auth/OIDC:
 - MFA/2FA:
 - compliance:
+- AML/KYT runtime gate:
+- feed UE tokenizado:
 - investigation/RPC:
 - reports e evidencias:
 - CI/CD:
@@ -130,6 +152,9 @@ python scripts/render_staging_window_weekly_governance.py \
 - `preflight.status=ok`
 - `run.status=ok`
 - artifact `serious-staging-window-<janela>` preservado
+- quando houver `AML/KYT live`, gate de runtime e bundle externo anexados
+- quando houver `EU_CONSOLIDATED`, JSONs `eu-sanctions-preflight/sync` anexados
+- quando `P0-02` e `P0-03` forem exercitados em conjunto, bundle `regulatory-readiness` anexado
 
 ## Suposicoes
 

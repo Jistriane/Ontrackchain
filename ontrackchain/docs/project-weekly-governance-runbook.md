@@ -8,6 +8,7 @@ Definir o rito semanal oficial para acompanhar a evolução do projeto com base 
 - [Matriz Operacional de Execução para 95%](project-operational-execution-board.md)
 - [Plano Operacional Trimestral para 95%](project-operational-plan-to-95.md)
 - [Registro de Riscos do Projeto](project-risk-register.md)
+- [Scorecard Oficial do Projeto](project-kpi-scorecard.md)
 
 Este runbook existe para evitar:
 
@@ -20,6 +21,7 @@ Registros gerados por este rito devem ser armazenados em:
 
 - [Registros Semanais de Governança](governance-weekly/README.md)
   - usar o template: [Template de Registro Semanal](governance-weekly/_template-weekly-governance.md)
+  - quando houver recalibracao material de nota, usar tambem: [Template de Atualizacao de KPI](governance-weekly/_template-kpi-scorecard-update.md)
 
 ## Quando Executar
 
@@ -44,14 +46,21 @@ Antes da reunião, o facilitador deve reunir:
 1. estado mais recente da [Matriz Operacional de Execução para 95%](project-operational-execution-board.md)
 2. leitura macro atual do [Board de Prioridades do Projeto](project-priority-board.md)
 3. riscos ativos do [Registro de Riscos do Projeto](project-risk-register.md)
-4. evidências da semana:
+4. leitura atual do [Scorecard Oficial do Projeto](project-kpi-scorecard.md)
+5. evidências da semana:
    - dossiers
    - bundles de homologação
    - preflights
    - testes ou execuções operacionais
+   - resultado de `make check-compliance-provider-runtime` quando houver `AML/KYT live`
+   - `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json` quando houver `P0-03`
    - artifact `serious-staging-window-<janela>` quando houver janela séria via CI controlado
    - sign-offs formais recebidos
-5. lista de itens `blocked`, itens com prazo alvo vencido e itens sem artefato atualizado
+6. lista de itens `blocked`, itens com prazo alvo vencido e itens sem artefato atualizado
+7. quando houver janela seria ativa ou planejada:
+   - [Matriz de Execucao por Owner para Janela Seria](staging-serious-window-war-room-matrix.md)
+   - [Template de War Room da Janela Seria](governance-weekly/_template-staging-serious-window-war-room.md)
+   - [Template de Tracking ao Vivo da Janela Seria](governance-weekly/_template-staging-serious-window-live-tracking.md)
 
 ## Preparação Prévia
 
@@ -63,6 +72,7 @@ Checklist do facilitador:
 - identificar se houve mudança de risco ou dependência externa
 - confirmar qual `GitHub Environment` foi usado nas janelas sérias da semana, quando aplicável
 - revisar se a baseline estratégica continua coerente com a execução
+- confirmar se a matriz de war room da janela seria precisa de escalacao adicional por owner
 
 ## Agenda Recomendada
 
@@ -172,6 +182,15 @@ Ao final de cada reunião, devem existir:
 - lista de owners nominais da próxima semana
 - decisões estratégicas, se houver
 - escalações externas necessárias
+- explicitação dos artefatos `AML/KYT` e UE revisados quando estiverem no escopo
+- scorecard recalibrado quando houver mudança material de nota
+- matriz de war room revisada quando houver janela seria no ciclo
+- war room versionado quando houver decisao `go/no-go` formal da janela
+- tracking ao vivo versionado quando houver acompanhamento minuto a minuto da janela
+
+Quando houver recalibracao relevante do scorecard, anexar ou embutir um bloco baseado em:
+
+- [Template de Atualizacao de KPI](governance-weekly/_template-kpi-scorecard-update.md)
 
 ## Template de Registro Semanal
 
@@ -181,10 +200,13 @@ Ao final de cada reunião, devem existir:
 ## Leitura do Ciclo
 - Baseline técnica:
 - Readiness regulatório:
+- KPI total consolidado:
 - Foco da semana:
 
 ## Evidências Revisadas
-- 
+- artifact `serious-staging-window-<janela>` quando houver janela séria
+- bundle AML/KYT + gate runtime quando `P0-02` estiver no escopo
+- `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json` quando `P0-03` estiver no escopo
 
 ## Itens Atualizados
 - ID:

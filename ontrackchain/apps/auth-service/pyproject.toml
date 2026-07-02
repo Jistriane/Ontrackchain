@@ -13,6 +13,7 @@ dependencies = [
   "pydantic-settings>=2.3.4",
   "psycopg[binary]>=3.2.1",
   "psycopg-pool>=3.2.2",
+  "redis[asyncio]>=5.0.0",
 ]
 
 [tool.hatch.build.targets.wheel]

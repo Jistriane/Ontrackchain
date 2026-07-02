@@ -4,7 +4,22 @@
 
 Nomear owners operacionais minimos por dominio e padronizar tempos de resposta esperados para incidentes do Ontrackchain.
 
-Este documento complementa [runbooks.md](./runbooks.md) e [retention-and-recovery-policy.md](./retention-and-recovery-policy.md).
+Este documento complementa [runbooks.md](./runbooks.md), [retention-and-recovery-policy.md](./retention-and-recovery-policy.md) e a [Matriz de Execucao por Owner para Janela Seria](./staging-serious-window-war-room-matrix.md).
+
+## Escopo Canonico
+
+Use este documento para:
+
+- consultar ownership nominal por dominio e backups operacionais
+- alinhar tempos-base de resposta por severidade
+- entender qual trilha deve assumir incidente, recovery ou escalacao
+
+Nao use este documento como fonte primaria para:
+
+- preencher owners reais, datas e status da janela corrente: use [Ownership do `.env.staging`](./staging-env-ownership.md)
+- executar handoff e validacoes por dominio da janela: use [Checklist de Provisionamento por Owner para Janela Seria](./staging-serious-window-owner-provisioning-checklist.md)
+- coordenar o war room vivo e dependencias em tempo real: use [Matriz de Execucao por Owner para Janela Seria](./staging-serious-window-war-room-matrix.md)
+- decidir promocao formal da janela: use [Gates de Release para Staging Serio](./project-release-gates.md)
 
 ## Matriz de Owners
 
@@ -13,7 +28,7 @@ Este documento complementa [runbooks.md](./runbooks.md) e [retention-and-recover
 | Gateway/Frontend | Frontend Platform | Platform/SRE | `traefik`, `frontend`, rotas `/api/app/*`, UX operacional |
 | Auth/OIDC | Backend/Auth | Security | `auth-service`, `Keycloak`, `OIDC`, claims, MFA |
 | Investigation/Billing | Backend Core | Platform/DBA | `investigation-api`, `investigation-worker`, `credit_ledger`, fila e DLQ |
-| Compliance/AML | Compliance/Backend | Security | `compliance-api`, provider AML/KYT, score e degradacao controlada |
+| Compliance/AML | Compliance/Backend | Security | `compliance-api`, provider AML/KYT, gate de runtime, score e degradacao controlada |
 | Monitoring/Alerting | Platform/SRE | Backend Core | `prometheus`, `grafana`, `alertmanager`, `monitoring-api`, incidentes globais |
 | Reports/Evidencias | Backend Core | Compliance | `report-api`, hashes, downloads auditados, export bundles |
 | Banco/Recovery | Platform/DBA | Security | PostgreSQL, backup, restore, retention e legal hold |
@@ -41,7 +56,9 @@ Este documento complementa [runbooks.md](./runbooks.md) e [retention-and-recover
 - Todo incidente aberto deve registrar `request_id` quando houver correlacao tecnica disponivel.
 - Nenhum workaround fora de `local|test` pode ser aplicado sem owner tecnico do dominio.
 - Casos `P0/P1` que afetem evidencias, auditoria ou recovery exigem envolvimento de `Security`.
+- Janelas `AML/KYT live` e feed UE tokenizado exigem owner de `Compliance/AML` presente ou explicitamente delegando o sign-off.
 - Restore deve ocorrer preferencialmente em banco isolado antes de qualquer acao destrutiva no banco principal.
+- Durante war room de janela seria, usar a [Matriz de Execucao por Owner para Janela Seria](./staging-serious-window-war-room-matrix.md) como coordenador operacional de dependencias, escalacoes e criterio de `no-go`.
 
 ## Criterios para Fechar `P2-02`
 

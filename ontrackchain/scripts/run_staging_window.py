@@ -143,6 +143,7 @@ def run_window(
     handoff_output_file = checks_dir / f"handoff-{window_id}.json"
     oidc_preflight_output_file = checks_dir / f"oidc-preflight-{window_id}.json"
     external_preflight_output_file = checks_dir / f"external-preflight-{window_id}.json"
+    regulatory_bundle_output_file = checks_dir / f"{window_id}-regulatory-readiness-bundle.json"
     homologation_output_file = checks_dir / f"homologation-{window_id}.json"
 
     ownership_module = load_module("check_staging_env_ownership_coverage", "scripts/check_staging_env_ownership_coverage.py")
@@ -270,8 +271,49 @@ def run_window(
         for step_name in ("oidc_preflight", "external_preflight")
     )
     if preflight_failed:
+        payload["steps"]["regulatory_readiness_bundle"] = step_payload(status="skipped", reason="preflight_failed")
         payload["steps"]["homologation"] = step_payload(status="skipped", reason="preflight_failed")
         payload["steps"]["release_dossier"] = step_payload(status="skipped", reason="preflight_failed")
+        payload["status"] = "failed"
+        return 1, payload
+
+    with temporary_environ(env_values):
+        regulatory_bundle_exit_code, regulatory_bundle_payload = run_module_main(
+            "scripts/run_regulatory_readiness_bundle.py",
+            [
+                "run_regulatory_readiness_bundle.py",
+                "--window-id",
+                window_id,
+                "--private-env-file",
+                str(private_env_file),
+                "--checks-dir",
+                str(checks_dir),
+            ],
+            "regulatory_readiness_bundle_window",
+        )
+    write_json_file(regulatory_bundle_output_file, regulatory_bundle_payload)
+    payload["steps"]["regulatory_readiness_bundle"] = step_payload(
+        status=regulatory_bundle_payload.get("status", "failed"),
+        exit_code=regulatory_bundle_exit_code,
+        output_file=str(regulatory_bundle_output_file),
+    )
+    if regulatory_bundle_exit_code != 0:
+        enabled_scope = (regulatory_bundle_payload.get("scope") or {}).get(
+            "compliance_runtime_enabled"
+        ) or (regulatory_bundle_payload.get("scope") or {}).get("eu_window_enabled")
+        if enabled_scope or regulatory_bundle_payload.get("errors"):
+            payload["errors"].append("regulatory_readiness_bundle: falhou")
+
+    regulatory_bundle_failed = (
+        payload["steps"]["regulatory_readiness_bundle"]["status"] == "failed"
+    )
+    if regulatory_bundle_failed:
+        payload["steps"]["homologation"] = step_payload(
+            status="skipped", reason="regulatory_readiness_bundle_failed"
+        )
+        payload["steps"]["release_dossier"] = step_payload(
+            status="skipped", reason="regulatory_readiness_bundle_failed"
+        )
         payload["status"] = "failed"
         return 1, payload
 
@@ -325,6 +367,7 @@ def run_window(
         handoff_check=handoff_output_file,
         homologation_artifact=homologation_artifact,
         homologation_manifest=homologation_manifest,
+        regulatory_readiness_bundle=regulatory_bundle_output_file,
         generated_at=generated_at,
     )
     dossier_artifact_file, dossier_manifest_file = dossier_module.write_dossier_artifacts(

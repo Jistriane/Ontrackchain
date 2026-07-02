@@ -15,6 +15,8 @@ Este documento complementa:
 - [Checklist de Evidência Mínima da Primeira Janela Séria](first-serious-window-evidence-checklist.md)
 - [Gates de Release para Staging Sério](project-release-gates.md)
 - [Template de Sign-Off da Janela Seria](staging-serious-window-signoff-template.md)
+- [Template de War Room da Janela Seria](governance-weekly/_template-staging-serious-window-war-room.md)
+- [Template de Tracking ao Vivo da Janela Seria](governance-weekly/_template-staging-serious-window-live-tracking.md)
 
 ## Quando Usar
 
@@ -23,6 +25,20 @@ Use este runbook quando:
 - a janela seria for disparada pela primeira vez via GitHub Actions
 - o owner operacional precisar de um roteiro unico de go/no-go
 - a governanca semanal exigir um pacote minimo de evidencia anexavel
+
+## Escopo Canonico
+
+Use este documento para:
+
+- coordenar o primeiro disparo real da janela seria
+- preparar o war room, o tracking ao vivo e o sign-off
+- decidir o rito operacional antes, durante e depois do `Run workflow`
+
+Nao use este documento como fonte primaria para:
+
+- comandos completos de deploy tecnico: use [Deploy e Staging](deploy-and-staging.md)
+- preenchimento detalhado por owner: use [Checklist de Provisionamento por Owner](staging-serious-window-owner-provisioning-checklist.md)
+- criterio formal de aprovacao: use [Gates de Release para Staging Serio](project-release-gates.md)
 
 ## Inputs Recomendados
 
@@ -66,6 +82,35 @@ make render-serious-window-dispatch-packet \
   WINDOW_ID="stg-2026-07-06-a"
 ```
 
+Se a intencao for executar a janela inteira localmente antes do rito oficial no GitHub Actions, usar o comando canônico:
+
+```bash
+make run-serious-window-local \
+  WINDOW_ID="stg-2026-07-06-a" \
+  MODE="baseline"
+```
+
+Esse alvo encadeia `prepare -> validate -> preflight -> run -> postprocess` e atualiza:
+
+- `ci-artifacts/prepare-staging-window-output.json`
+- `ci-artifacts/staging-serious-window-signoff.md`
+- `docs/governance-weekly/<data>-staging-serious-window-signoff.md`
+- `docs/governance-weekly/<data>-weekly-governance.md`
+
+Se a janela exigir coordenacao multi-owner antes do disparo, abrir tambem o war room versionado do ciclo:
+
+- [War Room da Janela `stg-2026-07-06-a`](governance-weekly/2026-07-06-staging-serious-window-war-room.md)
+- [Tracking ao Vivo da Janela `stg-2026-07-06-a`](governance-weekly/2026-07-06-staging-serious-window-live-tracking.md)
+- [Folha de Preenchimento Manual `stg-2026-07-06-a`](governance-weekly/2026-07-06-staging-serious-window-manual-fill-sheet.md)
+
+Fluxo recomendado de preparacao humana:
+
+1. abrir a [Folha de Preenchimento Manual `stg-2026-07-06-a`](governance-weekly/2026-07-06-staging-serious-window-manual-fill-sheet.md)
+2. preencher facilitador, canal principal, bridge principal e owners online
+3. espelhar os mesmos dados no war room e no tracking ao vivo
+4. rerodar `prepare_staging_window.py --validate --preflight`
+5. so seguir para `Run workflow` quando o gate agregado estiver verde
+
 ## Preflight Humano de Aprovação
 
 Perguntas objetivas antes do disparo:
@@ -105,6 +150,9 @@ Ao final do run oficial, o artifact `serious-staging-window-<janela>` deve conte
 - `artifacts/staging/templates/`
 - `artifacts/staging/window-packet-<janela>.md`
 - `artifacts/homologation/`
+- quando `P0-02` estiver no escopo, bundle de homologacao `AML/KYT live` e referencia ao gate de runtime
+- quando `P0-03` estiver no escopo, `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json`
+- quando `P0-02` e/ou `P0-03` estiverem no escopo, `<janela>-regulatory-readiness-bundle.json`
 
 ## No-Go e Escalacao
 
@@ -137,7 +185,10 @@ Em `## Evidências Revisadas`, registrar:
 - artifact `serious-staging-window-<janela>`
 - status geral e status de `validation`, `preflight` e `run`
 - paths relevantes do `window packet`, `checks`, `homologation` e `dossier`
+- quando `P0-02` estiver no escopo, resultado de `make check-compliance-provider-runtime` e bundle AML/KYT
+- quando `P0-03` estiver no escopo, paths de `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json`
 - caminho do draft `ci-artifacts/staging-serious-window-signoff.md`
+- decisao do war room e IDs de bloqueadores ativos, quando houver
 
 Comando unico recomendado para pos-processar o artifact baixado:
 
@@ -160,6 +211,8 @@ No registro semanal, o comando sincroniza automaticamente:
 - artifact da janela
 - `overall status`, `validation`, `preflight` e `run`
 - `window packet`, `dossier` e `homologation`
+- gate de runtime `AML/KYT` quando aplicavel
+- JSONs da janela UE quando aplicavel
 - status do item `RUN-STG-01`
 
 Se precisar rodar os passos individualmente, manter como fallback:
@@ -191,6 +244,8 @@ python scripts/render_staging_window_weekly_governance.py \
 - preflight status:
 - run status:
 - owners presentes:
+- gate runtime AML/KYT:
+- artefatos da janela UE:
 - bloqueios externos:
 ```
 

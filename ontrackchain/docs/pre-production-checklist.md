@@ -16,6 +16,7 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
   - [Deploy e Staging](deploy-and-staging.md)
   - [Retention e Recovery](retention-and-recovery-policy.md)
   - [Owners e SLAs Operacionais](operational-ownership-and-slas.md)
+- [Checklist de Provisionamento por Owner para Janela Seria](staging-serious-window-owner-provisioning-checklist.md)
 
 ## 1. Aplicacao e Runtime
 
@@ -102,7 +103,7 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 
 ## 9. Integracoes Externas
 
-- [ ] providers AML/KYT reais foram validados
+- [ ] providers AML/KYT reais foram validados com `make check-compliance-provider-runtime` verde e homologacao externa anexada
 - [ ] `python scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md` passa sem placeholders sem owner, mappings obsoletos ou linhas incompletas na matriz
 - [ ] `python scripts/render_staging_window_packet.py --window-id <janela> --output-file artifacts/staging/window-packet-<janela>.md` gerou pacote redigido anexavel para a janela
 - [ ] `python scripts/check_staging_env_placeholders.py --file .env.staging.private` passa sem placeholders `__FILL_*__`, variaveis criticas ausentes ou vazias
@@ -111,6 +112,7 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 - [ ] `python scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private` executou a janela ponta a ponta com persistencia dos JSONs de checks/preflights
 - [ ] `python scripts/prepare_staging_window.py --window-id <janela> --mode baseline|homologated --run` foi exercitado como gate unico canonico, localmente ou via CI controlado
 - [ ] `python scripts/preflight_external_integrations.py` passa com `ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=live` antes da janela AML/KYT
+- [ ] `make check-compliance-provider-runtime` fica verde com runtime convergente para `live`
 - [ ] `python scripts/homologation_external_evidence.py --mode compliance` gera artefato `status=ok` anexavel ao gate
 - [ ] quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true`, `python scripts/homologation_external_evidence.py --mode both --include-oidc-legal-report` gera artefato `status=ok` com download auditado de `legal_report`
 - [ ] `python scripts/build_staging_release_dossier.py ...` gerou dossier consolidado com status final `ok`
@@ -118,6 +120,8 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 - [ ] `GET /api/v1/compliance/operations` retorna `kyc_wallet.capability_status=live`
 - [ ] `POST /api/v1/compliance/risk-check` foi executado com `X-Request-Id` dedicado e evidência auditável
 - [ ] bundle exportado de `/audit` foi anexado para a homologacao AML/KYT live
+- [ ] quando houver feed UE no escopo, `make run-eu-sanctions-window-local WINDOW_ID=<janela>` gera `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json`
+- [ ] quando houver feed UE no escopo, `EU_CONSOLIDATED` converge para `ACTIVE/SUCCESS` com `source_url` persistido coerente com o override
 - [ ] RPC primario e fallback foram validados
 - [ ] `python scripts/preflight_external_integrations.py` passa com `ONTRACKCHAIN_EXPECT_RPC_MODE=live|fallback_only` antes da janela RPC
 - [ ] `python scripts/homologation_external_evidence.py --mode rpc --rpc-expected-mode live|fallback_only` gera artefato `status=ok` anexavel ao gate
@@ -173,4 +177,6 @@ Nao avancar para pre-producao real se qualquer item abaixo estiver aberto:
 - consulta de `audit_logs` com eventos do run atual
 - prova de bloqueio e liberacao correta do `legal_report`
 - artifact `serious-staging-window-<janela>` ou pacote equivalente contendo `checks`, `window packet`, `homologation` e `dossier`
+- quando houver `AML/KYT live`, resultado de `make check-compliance-provider-runtime` anexado ao pacote
+- quando houver feed UE, `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json` anexados ao pacote
 - se houver mudanca no scaffold local, output de `npm run test:e2e:dev-auth` como evidencia auxiliar

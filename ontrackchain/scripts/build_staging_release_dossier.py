@@ -55,6 +55,7 @@ def build_dossier_payload(
     handoff_check: Path,
     homologation_artifact: Path,
     homologation_manifest: Path,
+    regulatory_readiness_bundle: Path | None,
     generated_at: str,
 ) -> dict[str, Any]:
     required_paths = [
@@ -65,6 +66,8 @@ def build_dossier_payload(
         homologation_artifact,
         homologation_manifest,
     ]
+    if regulatory_readiness_bundle is not None:
+        required_paths.append(regulatory_readiness_bundle)
     errors = validate_required_files(required_paths)
     if errors:
         return {
@@ -80,6 +83,11 @@ def build_dossier_payload(
     handoff_payload = load_json_file(handoff_check)
     homologation_payload = load_json_file(homologation_artifact)
     homologation_manifest_payload = load_json_file(homologation_manifest)
+    regulatory_bundle_payload = (
+        load_json_file(regulatory_readiness_bundle)
+        if regulatory_readiness_bundle is not None
+        else None
+    )
 
     checks_status = {
         "ownership_coverage": ownership_payload.get("status", "unknown"),
@@ -87,10 +95,14 @@ def build_dossier_payload(
         "handoff_check": handoff_payload.get("status", "unknown"),
         "homologation": homologation_payload.get("status", "unknown"),
     }
+    if regulatory_bundle_payload is not None:
+        checks_status["regulatory_readiness_bundle"] = regulatory_bundle_payload.get(
+            "status", "unknown"
+        )
 
     status = "ok" if all(value == "ok" for value in checks_status.values()) else "failed"
 
-    return {
+    result = {
         "kind": "staging_release_dossier",
         "status": status,
         "generated_at": generated_at,
@@ -151,6 +163,29 @@ def build_dossier_payload(
             "homologation": homologation_payload,
         },
     }
+    if regulatory_readiness_bundle is not None and regulatory_bundle_payload is not None:
+        result["artifacts"]["regulatory_readiness_bundle"] = file_ref(
+            regulatory_readiness_bundle
+        )
+        result["summaries"]["regulatory_readiness_bundle"] = {
+            "scope": regulatory_bundle_payload.get("scope", {}),
+            "steps": {
+                "compliance_provider_runtime": (
+                    (regulatory_bundle_payload.get("steps") or {}).get(
+                        "compliance_provider_runtime"
+                    )
+                    or {}
+                ).get("status", "unknown"),
+                "eu_sanctions_window": (
+                    (regulatory_bundle_payload.get("steps") or {}).get(
+                        "eu_sanctions_window"
+                    )
+                    or {}
+                ).get("status", "unknown"),
+            },
+        }
+        result["sources"]["regulatory_readiness_bundle"] = regulatory_bundle_payload
+    return result
 
 
 def write_dossier_artifacts(*, payload: dict[str, Any], window_id: str, output_dir: Path) -> tuple[Path, Path]:
@@ -188,6 +223,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--handoff-check", required=True)
     parser.add_argument("--homologation-artifact", required=True)
     parser.add_argument("--homologation-manifest", required=True)
+    parser.add_argument("--regulatory-readiness-bundle")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--generated-at", help="timestamp ISO-8601 para reproducibilidade em testes")
     return parser.parse_args()
@@ -204,6 +240,11 @@ def main() -> int:
         handoff_check=Path(args.handoff_check),
         homologation_artifact=Path(args.homologation_artifact),
         homologation_manifest=Path(args.homologation_manifest),
+        regulatory_readiness_bundle=(
+            Path(args.regulatory_readiness_bundle)
+            if args.regulatory_readiness_bundle
+            else None
+        ),
         generated_at=generated_at,
     )
     artifact_path, manifest_path = write_dossier_artifacts(

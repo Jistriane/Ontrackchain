@@ -146,6 +146,20 @@ class RunStagingWindowTests(unittest.TestCase):
                     return 0, {"status": "ok", "auth_mode": "oidc", "errors": []}
                 if relative_path.endswith("preflight_external_integrations.py"):
                     return 0, {"status": "ok", "compliance": {"expect_mode": "live"}, "rpc": {"expect_mode": "fallback_only"}, "errors": []}
+                if relative_path.endswith("run_regulatory_readiness_bundle.py"):
+                    return 0, {
+                        "kind": "regulatory_readiness_bundle",
+                        "status": "ok",
+                        "scope": {
+                            "compliance_runtime_enabled": True,
+                            "eu_window_enabled": False,
+                        },
+                        "steps": {
+                            "compliance_provider_runtime": {"status": "ok"},
+                            "eu_sanctions_window": {"status": "skipped"},
+                        },
+                        "errors": [],
+                    }
                 if relative_path.endswith("homologation_external_evidence.py"):
                     output_dir = Path(argv[argv.index("--output-dir") + 1])
                     output_dir.mkdir(parents=True, exist_ok=True)
@@ -198,6 +212,7 @@ class RunStagingWindowTests(unittest.TestCase):
             self.assertEqual(payload["steps"]["window_packet"]["status"], "ok")
             self.assertEqual(payload["steps"]["oidc_preflight"]["status"], "ok")
             self.assertEqual(payload["steps"]["external_preflight"]["status"], "ok")
+            self.assertEqual(payload["steps"]["regulatory_readiness_bundle"]["status"], "ok")
             self.assertEqual(payload["steps"]["homologation"]["status"], "ok")
             self.assertEqual(payload["steps"]["release_dossier"]["status"], "ok")
             self.assertTrue(packet_file.exists())
@@ -206,6 +221,7 @@ class RunStagingWindowTests(unittest.TestCase):
             self.assertTrue((checks_dir / "handoff-stg-2026-06-29-a.json").exists())
             self.assertTrue((checks_dir / "oidc-preflight-stg-2026-06-29-a.json").exists())
             self.assertTrue((checks_dir / "external-preflight-stg-2026-06-29-a.json").exists())
+            self.assertTrue((checks_dir / "stg-2026-06-29-a-regulatory-readiness-bundle.json").exists())
             self.assertTrue((checks_dir / "homologation-stg-2026-06-29-a.json").exists())
             self.assertTrue(Path(payload["steps"]["release_dossier"]["artifact_file"]).exists())
             self.assertTrue(Path(payload["steps"]["release_dossier"]["manifest_file"]).exists())
@@ -285,8 +301,60 @@ class RunStagingWindowTests(unittest.TestCase):
             self.assertEqual(payload["status"], "failed")
             self.assertEqual(payload["steps"]["oidc_preflight"]["status"], "ok")
             self.assertEqual(payload["steps"]["external_preflight"]["status"], "failed")
+            self.assertEqual(payload["steps"]["regulatory_readiness_bundle"]["status"], "skipped")
             self.assertEqual(payload["steps"]["homologation"]["status"], "skipped")
             self.assertEqual(payload["steps"]["release_dossier"]["status"], "skipped")
+
+    def test_run_window_skips_homologation_when_regulatory_bundle_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            base = Path(tmp_dir)
+            env_file = base / ".env.staging.example"
+            private_env_file = base / ".env.staging.private"
+            ownership_file = base / "staging-env-ownership.md"
+            checks_dir = base / "artifacts" / "checks"
+            packet_file = base / "artifacts" / "window-packet.md"
+
+            _write_env_file(env_file)
+            _write_private_env_file(private_env_file)
+            _write_ownership_file(ownership_file)
+
+            def fake_run_module_main(relative_path: str, argv: list[str], module_name: str):
+                if relative_path.endswith("preflight_oidc_serious_env.py"):
+                    return 0, {"status": "ok", "errors": []}
+                if relative_path.endswith("preflight_external_integrations.py"):
+                    return 0, {"status": "ok", "errors": []}
+                if relative_path.endswith("run_regulatory_readiness_bundle.py"):
+                    return 1, {
+                        "kind": "regulatory_readiness_bundle",
+                        "status": "failed",
+                        "scope": {
+                            "compliance_runtime_enabled": True,
+                            "eu_window_enabled": True,
+                        },
+                        "errors": ["compliance_provider_runtime: falhou"],
+                    }
+                raise AssertionError(f"nao deveria chegar em {relative_path}")
+
+            with patch.object(MODULE, "run_module_main", side_effect=fake_run_module_main):
+                exit_code, payload = MODULE.run_window(
+                    window_id="stg-2026-06-29-a",
+                    env_file=env_file,
+                    private_env_file=private_env_file,
+                    ownership_file=ownership_file,
+                    checks_dir=checks_dir,
+                    window_packet_file=packet_file,
+                    homologation_mode="both",
+                    rpc_expected_mode=None,
+                    homologation_output_dir=base / "artifacts" / "homologation",
+                    dossier_output_dir=base / "artifacts" / "dossiers",
+                    generated_at="2026-06-29T12:00:00+00:00",
+                )
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["steps"]["regulatory_readiness_bundle"]["status"], "failed")
+        self.assertEqual(payload["steps"]["homologation"]["status"], "skipped")
+        self.assertEqual(payload["steps"]["release_dossier"]["status"], "skipped")
 
 
 if __name__ == "__main__":

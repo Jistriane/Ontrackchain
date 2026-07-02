@@ -2,293 +2,172 @@
 
 ## Visao Geral
 
-O `Ontrackchain` e uma plataforma modular para investigacao e compliance on-chain, estruturada como um conjunto de servicos independentes atras de um gateway unico.
+O `Ontrackchain` e uma plataforma modular para investigacao e compliance on-chain, organizada como servicos independentes atras de um gateway unico, com enforcement de tenant no banco e camadas separadas de auditoria operacional e evidencia regulatoria.
 
-`[[diagram: arquitetura do scaffold Ontrackchain com Traefik como gateway na borda, encaminhando requests autenticadas para auth-service, investigation-api, compliance-api, monitoring-api, report-api e frontend Next.js; PostgreSQL com RLS compartilhado pelos servicos de dominio; Redis apoiando investigation e monitoring; fluxo de browser -> frontend -> proxies internos -> gateway -> APIs; audit_logs e credit_ledger como trilhas centrais; legal_report exigindo JWT ADMIN e 2FA antes do report-api ]]`
+`[[diagram: arquitetura atual do Ontrackchain com Traefik e ForwardAuth na borda; frontend Next.js; auth-service; investigation-api; compliance-api; monitoring-api; report-api; PostgreSQL com RLS; Redis; evidence_trail append-only; audit_logs; sanctions_hits_cache; preventive_blocks; counterparties; ros_records; compliance-worker sincronizando OFAC, UN e EU; fluxo de staging serio com preflight, homologation e dossier ]]`
 
-## Componentes
+## Boundaries do Sistema
 
-### Gateway
+### Edge e Identidade
 
-- `Traefik`
-- Responsabilidade:
-  - roteamento por `PathPrefix`
-  - `ForwardAuth` central
-  - propagacao de contexto autenticado
+- `Traefik` faz roteamento por `PathPrefix`.
+- `auth-service` valida `JWT`, `API Key` e contexto `OIDC`.
 - Headers propagados:
   - `X-Org-Id`
   - `X-User-Id`
+  - `X-Linked-User-Id`
   - `X-Plan`
   - `X-Role`
   - `X-Auth-Method`
-
-### Auth Service
-
-- Emite token JWT de desenvolvimento
-- Valida `Bearer token` e `X-API-Key`
-- Resolve contexto autorizado para o gateway
-- Funciona como pilar de:
-  - autenticacao
-  - enriquecimento de contexto
-  - enforcement inicial de RBAC
-
-### Investigation API
-
-- Dominio de investigacao on-chain
-- Responsabilidades:
-  - catalogo de `report-types`
-  - cotacao (`estimate`)
-  - execucao (`start`)
-  - status/resultados
-  - billing de investigation
-  - audit logs consolidados
-- Regras criticas:
-  - fluxo obrigatorio `quote -> start`
-  - `plan lock` entre cotacao e execucao
-  - controle de concorrencia por plano e global
-  - se limite estourar: retorna `202` com `position_in_queue`
-  - Bitcoin MVP limitado a `3 hops`
-
-### Compliance API
-
-- Dominio de screening e relatorios de compliance
-- Responsabilidades:
-  - catalogo de operacoes
-  - `estimate/start`
-  - `risk-check`
-  - geracao de report compliance
-  - trilha auditavel por `request_id`
-  - métricas agregadas internas para observabilidade central
-- Regras criticas:
-  - aliases resolvidos para identificadores canonicos
-  - `report_generated` registra `report_id`, `file_hash_sha256`, `created_at`
-
-### Monitoring API
-
-- Dominio de watchlists e alertas
-- Responsabilidades:
-  - catalogo de operacoes
-  - `estimate/start`
-  - criacao/listagem de watchlists
-  - persistencia de alertas
-  - endpoint de teste para disparo de alerta
-  - receiver interno do `Alertmanager` para incidentes globais de plataforma
-  - listagem administrativa de incidentes globais com filtros, cursor e total filtrado
-  - catalogo dinamico de `service` e `receiver` para a UI administrativa
-  - acknowledge unitario e em lote para triagem operacional
-  - export administrativo `CSV|JSON` com trilha em `audit_logs`
-- Regras criticas:
-  - `plan lock`
-  - `audit_logs` em `case_started`
-  - tabela `monitoring_alerts` com RLS
-
-### Report API
-
-- Dominio de renderizacao/download de relatorios
-- Responsabilidades:
-  - gerar bytes deterministas de PDF
-  - disponibilizar download reproduzivel
-  - registrar auditoria de download
-  - métricas agregadas internas para observabilidade central
-- Regras criticas:
-  - `report_id` deterministico
-  - `file_hash_sha256` deterministico
-  - `legal_report` exige:
-    - `X-Auth-Method=jwt`
-    - `X-Role=ADMIN`
-    - `X-2FA=ok`
-  - `report_downloaded` gera audit log quando ha contexto de org
-
-### Frontend
-
-- `Next.js 14`
-- Responsabilidades:
-  - UI operacional do scaffold
-  - fluxo `OIDC` com callback dedicado e sessao local controlada
-  - proxies internos para o gateway
-  - propagacao de `X-Request-Id`
-  - consulta operacional de `audit_logs` para operadores `ADMIN`
-  - tela `/monitoring` com filtros dinamicos, selecao acumulada e export administrativo auditado
-- Papeis principais:
-  - impedir acesso a `legal_report` antes do 2FA
-  - servir como caminho real para validacao E2E
-  - persistir recorte, cursor e selecao da triagem administrativa em `sessionStorage`
-
-### PostgreSQL
-
-- Fonte central de estado
-- Tabelas-chave:
-  - `organizations`
-  - `users`
-  - `cases`
-  - `reports`
-  - `credit_ledger`
-  - `audit_logs`
-  - `watchlists`
-  - `watchlist_items`
-  - `monitoring_alerts`
-  - `operational_alert_events`
-- Regras criticas:
-  - `RLS` habilitado nas tabelas multi-tenant
-  - contexto obrigatorio via `app.organization_id`
-  - validacao de API Key via funcao SQL segura
-
-### Redis
-
-- Apoio a `public-api`, `investigation-api` e `monitoring-api`
-- No estado atual, sustenta o worker assíncrono real de `investigation`
-- Filas canônicas:
-  - `investigation:queue:ready`
-  - `investigation:queue:waiting`
-  - `investigation:queue:retry`
-- Também armazena contadores voláteis de concorrência por organização e global
-
-## Fluxos Canonicos
-
-### Billing
-
-```text
-estimate -> quote_id (TTL 15 min) -> start -> PRE_HOLD -> CONFIRMED | REFUND
-```
-
-Regras:
-
-- downgrade apos quote bloqueia execucao com `402`
-- upgrade apos quote exige `202 requote_required`
-- execucao sem confirmacao explicita falha
+  - `X-MFA-Mode`
+  - `X-MFA-Provider-Homologated`
+  - `X-Request-Id`
 
 ### Investigacao
 
-```text
-cliente -> estimate -> quote
-cliente -> start
-  -> se dentro do limite: case processing/queued
-  -> se acima do limite: 202 + position_in_queue
-worker interno (Redis) -> promote waiting -> process -> retry/backoff -> complete/fail
-billing -> confirmed/refund
-audit -> case_started/case_promoted_from_queue/case_completed/case_failed
-```
+- `investigation-api` concentra `estimate`, `start`, `status`, `result` e trilha de billing.
+- `Redis` suporta fila real, retry/backoff, DLQ e contadores de concorrencia.
+- `RPC readiness` e metadados do provider entram no payload final do caso.
 
-Observabilidade operacional atual:
+### Compliance
 
-- snapshot `ADMIN` via `GET /api/v1/investigation/admin/operations`
-- métricas de fila (`ready`, `waiting`, `retry_pending`, `retry_due`)
-- contadores de concorrência por organização e global
-- throughput da última hora e média recente de duração dos `agent_runs`
-- DLQ explícita para falhas permanentes com `GET /api/v1/investigation/admin/dlq`
-- requeue manual controlado por `ADMIN`, com novo `PRE_HOLD` antes de retornar o case para `queued|processing`
-- resolução administrativa da DLQ com `acknowledged|discarded`, sem alterar o `status=failed`
-- alertas operacionais avaliados em `GET /api/v1/investigation/admin/alerts`
-- métricas Prometheus compatíveis em `GET /api/v1/investigation/admin/metrics`
-- scraping central real via endpoint interno `GET /internal/metrics/prometheus` consumido pelo `Prometheus`
-- regras de alerta carregadas em `infra/observability/investigation.rules.yml`
-- dashboards operacionais provisionados no `Grafana`, alimentados pelo datasource `Prometheus`
-- `monitoring-api` tambem exporta agregados internos para `GET /internal/metrics/prometheus`
-- regras de `monitoring` carregadas em `infra/observability/monitoring.rules.yml`
-- `compliance-api` tambem exporta agregados internos para `GET /internal/metrics/prometheus`
-- regras de `compliance` carregadas em `infra/observability/compliance.rules.yml`
-- `report-api` tambem exporta agregados internos para `GET /internal/metrics/prometheus`
-- regras de `report` carregadas em `infra/observability/report.rules.yml`
-- `Alertmanager` recebe as regras do `Prometheus` e entrega webhooks internos ao `monitoring-api`
-- `platform.rules.yml` adiciona um watchdog sentinela para validar a cadeia `Prometheus -> Alertmanager -> receiver`
-- incidentes globais sao persistidos em `operational_alert_events`, sem acoplamento com `audit_logs` multi-tenant
-- `operational_alert_events` agora separa `status` tecnico (`firing/resolved`) de `triage_status` operacional (`pending/acknowledged`)
-- a UI `/monitoring` permite triagem manual de incidentes globais sem alterar a verdade tecnica do alerta
-- a UI `/monitoring` suporta recorte por `status`, `triage_status`, `service`, `receiver` e `severity`, com paginação cursor-based e `total_count`
-- a UI `/monitoring` permite selecionar incidentes em multiplas paginas do mesmo recorte, persistir esse estado na aba atual e exportar `filtered|selected` em `CSV|JSON`
-- cada export administrativo gera `operational_alerts_exported` em `audit_logs`, correlacionado por `request_id`
-- trade-off atual: endpoint interno nao e publico via Traefik, mas ainda depende de isolamento de rede do ambiente
+- `compliance-api` concentra catalogo, `risk-check`, `kyc-wallet`, `sanctions-check`, `preventive blocks` e `counterparties`.
+- `SanctionsEngine` consulta `sanctions_hits_cache` e `sanctions_lists_meta` localmente.
+- `PreventiveBlockAgent` encapsula a decisao regulatoria e persiste `preventive_blocks`.
+- `CounterpartyAgent` classifica risco, PEP, KYC/KYB e periodicidade de revisao.
 
-### Incidentes Globais de Plataforma
+### Reports e ROS/COAF
 
-```text
-Prometheus rules -> Alertmanager -> monitoring-api webhook
-  -> operational_alert_events
-  -> UI /monitoring (filtros dinamicos + cursor + selecao acumulada)
-    -> acknowledge unitario/lote
-    -> export filtered|selected
-      -> frontend proxy valida token no auth-service
-      -> monitoring-api exporta arquivo
-      -> audit_logs registra operational_alerts_exported
-```
+- `report-api` gera relatorios deterministas e controla downloads sensiveis.
+- O mesmo servico implementa o workflow `ROS/COAF`:
+  - `PENDING_GENERATION`
+  - `PENDING_APPROVAL`
+  - `APPROVED`
+  - `REJECTED`
+  - `SUBMITTED_MANUAL`
 
-### Compliance Report
+### Monitoring e Operacao Global
 
-```text
-estimate -> start -> report_generated -> download -> report_downloaded
-```
+- `monitoring-api` recebe webhooks do `Alertmanager`.
+- `operational_alert_events` guarda incidentes globais fora do dominio multi-tenant de negocio.
+- UI `/monitoring` suporta filtros, paginacao cursor-based, ack em lote e export auditado.
 
-Correlacao validada:
+## Camadas de Dados
 
-- `request_id`
-- `resource_id`
-- `report_id`
-- `file_hash_sha256`
+### Trilha Operacional
 
-### Legal Report com 2FA
+- `audit_logs`: eventos de negocio e administracao correlacionados por `request_id`.
+- `credit_ledger`: trilha financeira do `quote -> start -> PRE_HOLD -> CONFIRMED/REFUND`.
+
+### Trilha Regulatoria
+
+- `evidence_trail`: append-only com `event_hash`, `prev_event_hash`, `retain_until` e base regulatoria.
+- `preventive_blocks`: snapshot da decisao de bloqueio, hash de evidencia e vinculo opcional com `evidence_trail`.
+- `ros_records`: estado do ROS, prazo de submissao, comprovante e hash de recibo.
+- `counterparties` e `counterparty_history`: onboarding e historico regulado de contraparte.
+
+### Cache e Metadados de Sancoes
+
+- `sanctions_lists_meta`: configuracao do feed, status, source, hash e agenda de sync.
+- `sanctions_hits_cache`: entidades sancionadas e enderecos por lista.
+- `compliance-worker`: sincroniza OFAC, UN, EU, OpenSanctions e deadlines de ROS.
+
+## Tabelas-Chave
+
+| Tabela | Papel |
+| --- | --- |
+| `audit_logs` | auditoria operacional multi-tenant |
+| `evidence_trail` | cadeia imutavel de evidencias regulatorias |
+| `credit_ledger` | trilha de cobranca e reserva |
+| `preventive_blocks` | decisao e revisao de bloqueios |
+| `counterparties` | cadastro regulado de contrapartes |
+| `counterparty_history` | historico de mudancas em contrapartes |
+| `sanctions_lists_meta` | configuracao/sync das listas |
+| `sanctions_hits_cache` | cache local para screening |
+| `ros_records` | workflow de ROS/COAF |
+| `operational_alert_events` | incidentes globais de plataforma |
+
+## Fluxos Canonicos
+
+### Screening de Sancoes
 
 ```text
-login -> cookie otc_token
-2FA pendente -> cookie otc_2fa=pending
-download legal_report -> 403
-verificacao 2FA -> otc_2fa=ok
-download legal_report -> 200
-audit -> report_downloaded
+compliance-worker -> sanctions_lists_meta/sanctions_hits_cache
+  -> GET /api/v1/compliance/sanctions-check/{address}
+  -> audit_logs + evidence_trail
 ```
 
-## Decisoes Arquiteturais Relevantes
+Observacao importante:
 
-### 1. RLS no banco em vez de isolamento apenas na aplicacao
+- o endpoint direto `sanctions-check` e o catalogo de operacoes agora convergem para `provider=sanctions_lists_cache`, `provider_status=live` e `delivery_mode=local_cache`
 
-- Motivo: reduzir risco de vazamento cross-tenant
-- Beneficio: ultima linha de defesa no banco
-- Trade-off: maior rigor nas queries e no bootstrap
+### Bloqueio Preventivo
 
-### 2. Gateway com ForwardAuth central
+```text
+sanctions-check local + contexto AML/manual flags
+  -> PreventiveBlockAgent
+  -> preventive_blocks
+  -> audit_logs
+  -> evidence_trail
+  -> ros_records (quando exige ROS)
+```
 
-- Motivo: padronizar contexto e evitar replicacao de auth em cada servico
-- Beneficio: uniformidade de `X-* headers`
-- Trade-off: dependencia forte do `auth-service`
+### Onboarding de Contrapartes
 
-### 3. Billing por quote explicito
+```text
+POST /api/v1/compliance/counterparties
+  -> CounterpartyAgent.assess()
+  -> counterparties
+  -> counterparty_history
+  -> evidence_trail
+```
 
-- Motivo: previsibilidade financeira e enforcement por plano
-- Beneficio: trilha clara de cobranca
-- Trade-off: mais estados de negocio
+### ROS/COAF
 
-### 4. Auditoria append-only
+```text
+POST /api/v1/reports/ros-coaf
+  -> reports + ros_records(status=PENDING_APPROVAL)
+  -> evidence_trail(COAF_ROS_GENERATED)
 
-- Motivo: compliance, rastreabilidade e investigacao forense
-- Beneficio: correlacao ponta a ponta
-- Trade-off: necessidade de filtros e retention futura
+POST /api/v1/reports/ros-coaf/{id}/approve
+  -> ros_records(APPROVED|REJECTED)
+  -> evidence_trail(COAF_ROS_APPROVED|COAF_ROS_REJECTED)
 
-### 5. Report deterministico
+POST /api/v1/reports/ros-coaf/{id}/submitted
+  -> ros_records(SUBMITTED_MANUAL)
+  -> evidence_trail(COAF_ROS_SUBMITTED_MANUAL)
+```
 
-- Motivo: permitir reproducao de hash e validacao automatizada
-- Beneficio: smoke/E2E conseguem comprovar integridade
-- Trade-off: ainda nao representa renderer final de producao
+## Regras Criticas
 
-## Regras de Negocio Criticas
+- `RLS` sempre baseado em `app.organization_id`
+- `linked_user_id` e obrigatorio para mutacoes sensiveis que precisam de usuario persistido
+- `lift` de bloqueio exige MFA externo homologado
+- `legal_report` e `ROS/COAF` exigem auth forte e MFA homologado
+- `evidence_trail` e `INSERT ONLY`
+- listas de sancoes sao sincronizadas localmente; a aplicacao nao depende de chamada externa por request
 
-- `org_id` sempre obrigatorio para dominios protegidos
-- aliases de operacao e report sao sempre resolvidos para valores canonicos
-- `legal_report` nao pode ser baixado por API Key
-- `audit_logs` e `credit_ledger` devem receber `request_id` nos fluxos criticos
-- `report_downloaded` so deve existir quando o report-api e realmente alcançado
+## Drift Tecnico Residual
 
-## Escopo Atual vs Futuro
+- o catalogo de eventos da trilha regulatoria agora esta consolidado com `evidence_trail.py` como `source of truth`, importado por `evidence_integration.py` e cruzado por `tests/test_evidence_event_catalog_sync.py`
+- `due_diligence` e `source_of_funds` permanecem desenhados para `manual_review_required`, o que e uma decisao atual de produto e nao um bug
 
-### MVP
+## Decisoes Arquiteturais Atuais
 
-- EVM-first
-- Bitcoin basico ate `3 hops`
-- watchlists e alertas persistidos
-- compliance/reporting scaffold
+### 1. Screening local de sancoes em vez de API call por request
 
-### Fase 2
+- reduz latencia e dependencia externa em tempo real
+- permite operacao degradada controlada durante falhas de provider
+- exige governanca forte de sync, hash e preflight de feed
 
-- autenticacao OIDC e 2FA reais para ambientes fortes
-- provedores reais AML/KYT e RPC com fallback
-- politicas de retention, backup/restore e exportacao segura multi-dominio
-- OpenAPI formal e paginacao mais rica para trilhas de auditoria
-- schema regulatorio e versionamento de evidencias mais maduros
+### 2. Dupla trilha `audit_logs` + `evidence_trail`
+
+- `audit_logs` cobre operacao e suporte
+- `evidence_trail` cobre prova regulatoria e integridade temporal
+- aumenta custo documental, mas evita misturar observabilidade com cadeia de custodia
+
+### 3. ROS/COAF manual assistido, nao submissao automatica externa
+
+- reduz risco de acoplamento prematuro com portal/regulador
+- preserva trilha de aprovacao humana obrigatoria
+- deixa a submissao final como passo humano auditado

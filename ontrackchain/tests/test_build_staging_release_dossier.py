@@ -45,6 +45,7 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
             handoff_check = base / "handoff.json"
             homologation_artifact = base / "homologation.json"
             homologation_manifest = base / "homologation.manifest.json"
+            regulatory_bundle = base / "regulatory-bundle.json"
 
             window_packet.write_text("# Packet\n", encoding="utf-8")
             _write_json(
@@ -96,6 +97,21 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                     "artifact_file_sha256": "abc123",
                 },
             )
+            _write_json(
+                regulatory_bundle,
+                {
+                    "kind": "regulatory_readiness_bundle",
+                    "status": "ok",
+                    "scope": {
+                        "compliance_runtime_enabled": True,
+                        "eu_window_enabled": True,
+                    },
+                    "steps": {
+                        "compliance_provider_runtime": {"status": "ok"},
+                        "eu_sanctions_window": {"status": "ok"},
+                    },
+                },
+            )
 
             payload = MODULE.build_dossier_payload(
                 window_id="stg-2026-06-29-a",
@@ -105,12 +121,18 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                 handoff_check=handoff_check,
                 homologation_artifact=homologation_artifact,
                 homologation_manifest=homologation_manifest,
+                regulatory_readiness_bundle=regulatory_bundle,
                 generated_at="2026-06-29T12:00:00+00:00",
             )
 
         self.assertEqual(payload["status"], "ok")
         self.assertEqual(payload["checks_status"]["homologation"], "ok")
+        self.assertEqual(payload["checks_status"]["regulatory_readiness_bundle"], "ok")
         self.assertEqual(payload["summaries"]["homologation"]["runs"]["rpc_case_id"], "case_1")
+        self.assertEqual(
+            payload["summaries"]["regulatory_readiness_bundle"]["steps"]["eu_sanctions_window"],
+            "ok",
+        )
         self.assertIn("sha256", payload["artifacts"]["window_packet"])
 
     def test_build_payload_fails_when_required_file_is_missing(self) -> None:
@@ -127,6 +149,7 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                 handoff_check=base / "missing-handoff.json",
                 homologation_artifact=base / "missing-homologation.json",
                 homologation_manifest=base / "missing-homologation.manifest.json",
+                regulatory_readiness_bundle=base / "missing-regulatory-bundle.json",
                 generated_at="2026-06-29T12:00:00+00:00",
             )
 
@@ -142,6 +165,7 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
             handoff_check = base / "handoff.json"
             homologation_artifact = base / "homologation.json"
             homologation_manifest = base / "homologation.manifest.json"
+            regulatory_bundle = base / "regulatory-bundle.json"
             output_dir = base / "dossiers"
 
             window_packet.write_text("# Packet\n", encoding="utf-8")
@@ -150,6 +174,7 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
             _write_json(handoff_check, {"status": "ok", "missing_groups": [], "incomplete_groups": [], "invalid_statuses": [], "invalid_dates": []})
             _write_json(homologation_artifact, {"status": "ok", "mode": "both", "artifact_file": "/tmp/h.json", "manifest_file": "/tmp/h.json.manifest.json", "runs": {}})
             _write_json(homologation_manifest, {"kind": "external_homologation_evidence", "status": "ok"})
+            _write_json(regulatory_bundle, {"kind": "regulatory_readiness_bundle", "status": "ok", "scope": {}, "steps": {}})
 
             stdout = io.StringIO()
             with patch.object(
@@ -171,6 +196,8 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                     str(homologation_artifact),
                     "--homologation-manifest",
                     str(homologation_manifest),
+                    "--regulatory-readiness-bundle",
+                    str(regulatory_bundle),
                     "--output-dir",
                     str(output_dir),
                     "--generated-at",

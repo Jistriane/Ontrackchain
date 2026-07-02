@@ -9,6 +9,9 @@
 - mode: `baseline`
 - environment_name: `staging-serious`
 - artifact: `serious-staging-window-stg-2026-07-06-a`
+- war room relacionado: [War Room da Janela `stg-2026-07-06-a`](2026-07-06-staging-serious-window-war-room.md)
+- tracking ao vivo relacionado: [Tracking ao Vivo da Janela `stg-2026-07-06-a`](2026-07-06-staging-serious-window-live-tracking.md)
+- folha de preenchimento manual: [Folha de Preenchimento Manual `stg-2026-07-06-a`](2026-07-06-staging-serious-window-manual-fill-sheet.md)
 
 ## Status Consolidado
 
@@ -37,9 +40,9 @@
 
 ## Excecoes ou Bloqueios
 
-- bloqueios externos: `none_declared`
+- bloqueios externos: `WR-01`, `WR-02`, `WR-03`, `WR-04`
 - excecoes aceitas: `none_declared`
-- risco residual: `pending_execucao_real`
+- risco residual: `janela ainda em no-go operacional ate resolver handoff, placeholders e dependencias externas reais`
 
 ## Aprovadores
 
@@ -50,13 +53,14 @@
 
 ## Decisao Final
 
-- decisao: `pending`
-- proximo passo: executar o workflow e substituir todos os campos `pending` por links, paths e status reais
-- owner do proximo passo: `Release Manager Tecnico`
+- decisao: `pending_no_go`
+- proximo passo: resolver os bloqueadores do war room e rerodar o gate agregado antes de qualquer execucao real
+- owner do proximo passo: `owners nominais por trilha com coordenacao do facilitador/Release Manager Tecnico`
 
 ## Regras de Atualizacao
 
 - substituir `run url` pelo link real do GitHub Actions
 - manter o nome do artifact exatamente como publicado
+- alinhar a decisao final do sign-off com a decisao do war room da mesma janela
 - mudar a decisao para `approved` somente se `overall`, `validation`, `preflight` e `run` forem `ok`
 - se houver falha, registrar explicitamente se o bloqueio ocorreu em `validation`, `preflight` ou `run`

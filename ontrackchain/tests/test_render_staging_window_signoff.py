@@ -51,6 +51,10 @@ def _write_payload(target: Path, *, overall_status: str = "ok") -> None:
                         "status": "ok" if overall_status == "ok" else "failed",
                         "artifact_file": "artifacts/homologation/homologation-stg-2026-07-06-a.json",
                     },
+                    "regulatory_readiness_bundle": {
+                        "status": "ok" if overall_status == "ok" else "failed",
+                        "output_file": "artifacts/staging/checks/stg-2026-07-06-a-regulatory-readiness-bundle.json",
+                    },
                     "release_dossier": {
                         "status": "ok" if overall_status == "ok" else "failed",
                         "artifact_file": "artifacts/staging/dossiers/staging_release_dossier_stg-2026-07-06-a.json",
@@ -93,6 +97,8 @@ class RenderStagingWindowSignoffTests(unittest.TestCase):
         self.assertIn("overall status: `ok`", content)
         self.assertIn("preflight status: `ok`", content)
         self.assertIn("dossier: `artifacts/staging/dossiers/staging_release_dossier_stg-2026-07-06-a.json`", content)
+        self.assertIn("regulatory-readiness-bundle: `artifacts/staging/checks/stg-2026-07-06-a-regulatory-readiness-bundle.json`", content)
+        self.assertIn("AML/KYT runtime gate: `ok`", content)
         self.assertIn("## Regras de Atualizacao", content)
 
     def test_main_marks_failed_payload_as_blocked(self) -> None:

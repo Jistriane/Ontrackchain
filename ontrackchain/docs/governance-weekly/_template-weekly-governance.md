@@ -31,6 +31,15 @@
 - dossier:
 - homologation:
 
+## KPI da Semana
+
+- construção técnica:
+- prontidão regulatória:
+- KPI total consolidado:
+- houve recalibração material?: `sim | nao`
+- template detalhado de KPI:
+  - [Template de Atualização de KPI](./_template-kpi-scorecard-update.md)
+
 ## Itens Atualizados
 
 - ID:

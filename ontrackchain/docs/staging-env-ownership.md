@@ -10,6 +10,23 @@ Este documento complementa:
 - [Variaveis de Ambiente](environment-variables.md)
 - [Deploy e Staging](deploy-and-staging.md)
 - [Owners e SLAs Operacionais](operational-ownership-and-slas.md)
+- [Checklist de Provisionamento por Owner para Janela Seria](staging-serious-window-owner-provisioning-checklist.md)
+- [Matriz de Execucao por Owner para Janela Seria](staging-serious-window-war-room-matrix.md)
+- [Folha de Preenchimento Manual da Janela `stg-2026-07-06-a`](governance-weekly/2026-07-06-staging-serious-window-manual-fill-sheet.md)
+
+## Escopo Canonico
+
+Use este documento para:
+
+- atribuir ownership nominal aos placeholders e grupos de handoff do `.env.staging.private`
+- registrar `Data` e `Status` humanos que bloqueiam ou liberam o preflight da janela
+- cruzar owners do ambiente com os dominios operacionais executados no war room
+
+Nao use este documento como fonte primaria para:
+
+- coordenar war room, tracking ou decisao `go/no-go`: use os artefatos vivos em `docs/governance-weekly/`
+- executar o primeiro rito operacional da janela: use [Primeiro Disparo Real da Janela Seria](first-serious-window-first-dispatch-runbook.md)
+- preencher rapidamente contatos, canais e bridges da janela corrente: use a [Folha de Preenchimento Manual da Janela `stg-2026-07-06-a`](governance-weekly/2026-07-06-staging-serious-window-manual-fill-sheet.md)
 
 ## Regra Geral
 
@@ -35,6 +52,7 @@ Este documento complementa:
 | `__FILL_STAGING_ALERTMANAGER_WEBHOOK_BEARER_TOKEN__` | `Platform/SRE` | `Security` | token configurado entre `Alertmanager` e `monitoring-api` |
 | `__FILL_STAGING_TRM_SCREENING_URL__` | `Compliance/Backend` | `Security` | URL oficial do provider AML/KYT homologada para a janela |
 | `__FILL_STAGING_TRM_API_KEY__` | `Compliance/Backend` | `Security` | API key do provider com trilha de provisionamento |
+| `__FILL_STAGING_COMPLIANCE_EU_SANCTIONS_SOURCE_URL__` | `Compliance/Backend` | `Security` | URL XML tokenizada da lista da UE obtida no portal oficial e validada para a janela |
 | `__FILL_STAGING_GRAFANA_ADMIN_PASSWORD__` | `Platform/SRE` | `Security` | senha admin nao-dev armazenada em secret manager |
 
 ## Agrupamento por Dominio
@@ -59,6 +77,7 @@ Sign-off recomendado:
 
 - `COMPLIANCE_TRM_SCREENING_URL`
 - `COMPLIANCE_TRM_API_KEY`
+- `COMPLIANCE_EU_SANCTIONS_SOURCE_URL`
 
 Owner principal:
 
@@ -95,15 +114,24 @@ Sign-off recomendado:
 
 - `Security`
 
-## Sequencia Recomendada
+## Sequencia Recomendada de Desbloqueio
 
-1. Copiar [`.env.staging.example`](../.env.staging.example) para `.env.staging.private`
-2. Distribuir os placeholders por owner desta matriz
-3. Executar `python scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md`
-4. Gerar um pacote redigido da janela com `python scripts/render_staging_window_packet.py --window-id <janela> --output-file artifacts/staging/window-packet-<janela>.md`
-5. Preencher os valores reais em canal seguro
-6. Executar `python scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private`
-7. Anexar o `window packet`, os JSONs em `artifacts/staging/checks/`, a homologacao e o dossier final ao sign-off da janela
+1. preencher o `Gate Agregado da Janela` e os placeholders transversais na folha manual e nos artefatos vivos
+2. destravar `Platform/Operations`
+3. destravar `Auth/OIDC`
+4. destravar `Investigation/RPC`
+5. destravar `Compliance/AML`
+6. rerodar o gate agregado da janela
+
+Sequencia tecnica correspondente:
+
+1. copiar [`.env.staging.example`](../.env.staging.example) para `.env.staging.private`
+2. distribuir os placeholders por owner desta matriz
+3. executar `python scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md`
+4. gerar um pacote redigido da janela com `python scripts/render_staging_window_packet.py --window-id <janela> --output-file artifacts/staging/window-packet-<janela>.md`
+5. preencher os valores reais em canal seguro
+6. executar `python scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private`
+7. anexar o `window packet`, os JSONs em `artifacts/staging/checks/`, a homologacao e o dossier final ao sign-off da janela
 
 Atalho recomendado:
 
@@ -131,9 +159,18 @@ Status aceitos:
 
 Enquanto qualquer linha permanecer com `pending`, o checker deve falhar e a janela nao deve seguir para `preflight_oidc_serious_env.py`, `preflight_external_integrations.py` ou `homologation_external_evidence.py`.
 
+Scaffold controlado atual:
+
+- a coluna `Owner` pode ser pre-preenchida com o responsavel nominal do dominio
+- as colunas `Data` e `Status` continuam bloqueadoras ate confirmacao humana da janela
+- nao promover `reviewed`, `approved` ou `waived` sem evidencias reais do owner correspondente
+- preencher primeiro facilitador, canal principal, bridge principal e checkpoint na folha manual antes de avancar nos dominios
+- usar o [Checklist de Provisionamento por Owner para Janela Seria](staging-serious-window-owner-provisioning-checklist.md) para executar o preenchimento por dominio antes do gate agregado
+- usar a [Matriz de Execucao por Owner para Janela Seria](staging-serious-window-war-room-matrix.md) durante o war room da janela para coordenar dependencias, comandos e escalacoes
+
 | Grupo | Owner | Data | Status | Observacoes |
 | --- | --- | --- | --- | --- |
-| Auth/OIDC | `pending` | `pending` | `pending` | preencher secrets, claims finais e token OIDC de homologacao quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true` |
-| Compliance/AML | `pending` | `pending` | `pending` | confirmar URL e credencial TRM da janela |
-| Investigation/RPC | `pending` | `pending` | `pending` | confirmar primario/fallback e limites |
-| Platform/Operations | `pending` | `pending` | `pending` | confirmar senha DB, Grafana e webhook |
+| Auth/OIDC | `Backend/Auth` | `pending` | `pending` | preencher secrets, claims finais e token OIDC de homologacao quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true` |
+| Compliance/AML | `Compliance/Backend` | `pending` | `pending` | confirmar URL, credencial TRM e, se necessario, a URL XML tokenizada da UE para a janela |
+| Investigation/RPC | `Backend Core` | `pending` | `pending` | confirmar primario/fallback e limites |
+| Platform/Operations | `Platform/SRE` | `pending` | `pending` | confirmar senha DB, Grafana e webhook |

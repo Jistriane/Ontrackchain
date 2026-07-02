@@ -127,7 +127,8 @@ services:
 
   investigation-api:
     build:
-      context: ./apps/investigation-api
+      context: .
+      dockerfile: apps/investigation-api/Dockerfile
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
@@ -158,7 +159,8 @@ services:
 
   investigation-worker:
     build:
-      context: ./apps/investigation-api
+      context: .
+      dockerfile: apps/investigation-api/Dockerfile
     command: ["python", "-m", "investigation_api.worker"]
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
@@ -220,6 +222,32 @@ services:
       - traefik.http.routers.compliance.priority=100
       - traefik.http.routers.compliance.middlewares=auth@docker
       - traefik.http.services.compliance.loadbalancer.server.port=8002
+
+  compliance-worker:
+    build:
+      context: .
+      dockerfile: apps/compliance-api/Dockerfile
+    command: ["python", "-m", "compliance_api.worker"]
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:-ontrackchain}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ontrackchain}
+      POSTGRES_DB: ${POSTGRES_DB:-ontrackchain}
+      OPENSANCTIONS_API_KEY: ${OPENSANCTIONS_API_KEY:-}
+      COMPLIANCE_OFAC_SDN_SOURCE_URL: ${COMPLIANCE_OFAC_SDN_SOURCE_URL:-}
+      COMPLIANCE_EU_SANCTIONS_SOURCE_URL: ${COMPLIANCE_EU_SANCTIONS_SOURCE_URL:-}
+      COMPLIANCE_WORKER_IDLE_WAIT_SECONDS: ${COMPLIANCE_WORKER_IDLE_WAIT_SECONDS:-60}
+      COMPLIANCE_WORKER_OFAC_SYNC_SECONDS: ${COMPLIANCE_WORKER_OFAC_SYNC_SECONDS:-21600}
+      COMPLIANCE_WORKER_UN_SYNC_SECONDS: ${COMPLIANCE_WORKER_UN_SYNC_SECONDS:-86400}
+      COMPLIANCE_WORKER_EU_SYNC_SECONDS: ${COMPLIANCE_WORKER_EU_SYNC_SECONDS:-86400}
+      COMPLIANCE_WORKER_OPENSANCTIONS_SYNC_SECONDS: ${COMPLIANCE_WORKER_OPENSANCTIONS_SYNC_SECONDS:-86400}
+      COMPLIANCE_WORKER_ROS_DEADLINE_SCAN_SECONDS: ${COMPLIANCE_WORKER_ROS_DEADLINE_SCAN_SECONDS:-3600}
+    depends_on:
+      - postgres
+      - compliance-api
+    networks:
+      - ontrackchain
 
   monitoring-api:
     build:

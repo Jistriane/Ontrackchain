@@ -1,465 +1,353 @@
 # Ontrackchain
 
-<p align="center">
-  <img src="./ontrackchain/docs/assets/logo.jpeg" alt="Ontrackchain" width="720" />
-</p>
+![Ontrackchain](./ontrackchain/docs/assets/logo.jpeg)
 
-Plataforma multi-tenant de investigação e compliance on-chain com foco em trilha auditável, billing controlado por créditos e enforcement de segurança em fluxos sensíveis.
+Plataforma multi-tenant de investigacao e compliance on-chain com foco em trilha auditavel, billing por creditos, screening local de sancoes e enforcement forte em fluxos regulatorios sensiveis.
+
+## Visao Geral
+
+Este repositorio tem dois papeis:
+
+- a raiz concentra onboarding, workflows e atalhos operacionais via `Makefile`
+- a aplicacao vive em [`./ontrackchain`](./ontrackchain/README.md), com servicos, docs, infra, scripts e testes
+
+Hoje o projeto ja opera como plataforma funcional, mas ainda nao concluiu toda a prontidao regulatoria/operacional para uma janela seria com prova real de ponta a ponta.
 
 ## Estado Atual
 
-- Scaffold executável com `docker compose`
-- Gateway central com `Traefik` + `ForwardAuth`
-- Banco `PostgreSQL` com `RLS` obrigatório
-- Frontend `Next.js` com proxies autenticados
-- APIs separadas por domínio:
+- scorecard oficial atual:
+  - `91%` de construcao tecnica
+  - `78%` de prontidao regulatoria/operacional
+  - `87%` de construcao total consolidada
+- stack executavel com `docker compose`:
+  - `Traefik`
+  - `FastAPI`
+  - `Next.js 14`
+  - `PostgreSQL`
+  - `Redis`
+  - `Prometheus`
+  - `Alertmanager`
+  - `Grafana`
+  - `Keycloak` no profile `oidc`
+- runtime segmentado por dominio:
   - `auth-service`
   - `public-api`
   - `investigation-api`
+  - `investigation-worker`
   - `compliance-api`
+  - `compliance-worker`
   - `monitoring-api`
   - `report-api`
-- Validação automatizada por:
-  - `scripts/smoke_runtime.py`
-  - `Playwright` (`critical-path` + `compliance-flows`)
-- Observabilidade central inicial com `Prometheus` para `investigation`
-- Dashboard operacional provisionado em `Grafana`
-- Observabilidade central expandida para `monitoring`
-- Observabilidade central expandida para `compliance`
-- Observabilidade central expandida para `report`
-- Alerting ativo com `Alertmanager` e receiver interno no `monitoring-api`
-- UI administrativa `/audit` consulta `audit_logs` com filtros operacionais para `ADMIN`
-- UI administrativa `/monitoring` exibe incidentes globais de plataforma recebidos do `Alertmanager`
-- janela séria de `staging` agora pode ser executada ponta a ponta via `run_staging_window.py`, persistindo checks, preflights, homologação e dossier final
-- Triagem manual separa `status` técnico do alerta e `triage_status` operacional na UI `/monitoring`
-- Lista de incidentes globais agora suporta paginação cursor-based para backlog operacional
-- Resumo da lista paginada agora exibe volume filtrado total do backlog operacional
-- A triagem administrativa agora suporta filtro adicional por severidade (`info|warning|critical`)
-- A triagem administrativa agora também suporta filtro por `receiver`
-- Os filtros de `service` e `receiver` da UI administrativa agora são carregados dinamicamente do backend
-- A UI administrativa permite reconhecimento em lote dos incidentes pendentes do recorte filtrado
-- A UI administrativa agora suporta export do recorte filtrado ou dos incidentes selecionados em `CSV|JSON`
-- Cada export administrativo agora gera trilha em `audit_logs` com `request_id`, escopo, formato e filtros aplicados
-- A UI administrativa também suporta seleção manual por linha para reconhecimento parcial controlado
-- A seleção manual agora pode acumular incidentes em múltiplas páginas dentro do mesmo recorte filtrado
-- O recorte e a seleção manual acumulada agora sobrevivem a refresh da página na mesma aba via `sessionStorage`
-- A mesma aba agora restaura também a página atual do backlog paginado após refresh
+  - `frontend`
+- trilha operacional e regulatoria implementada:
+  - `audit_logs`
+  - `evidence_trail` append-only com encadeamento `SHA-256`
+  - `preventive_blocks`
+  - `counterparties` + `counterparty_history`
+  - `sanctions_lists_meta` + `sanctions_hits_cache`
+  - `ros_records`
+- observabilidade operacional madura:
+  - backlog global em `/monitoring`
+  - ack em lote
+  - filtros dinamicos
+  - export auditado em `CSV|JSON`
+- janela seria de staging consolidada com:
+  - `prepare_staging_window.py`
+  - `run_staging_window.py`
+  - `run_regulatory_readiness_bundle.py`
+  - war room
+  - live tracking
+  - sign-off
+  - dossier anexavel
 
-## Objetivo do MVP
+## Scorecard Oficial
 
-Entregar uma base operacional para:
+| Lente | Leitura Atual | Fonte Canonica |
+| --- | ---: | --- |
+| Construcao tecnica | `91%` | [`project-kpi-scorecard.md`](./ontrackchain/docs/project-kpi-scorecard.md) |
+| Prontidao regulatoria/operacional | `78%` | [`project-kpi-scorecard.md`](./ontrackchain/docs/project-kpi-scorecard.md) |
+| Total consolidado | `87%` | [`project-kpi-scorecard.md`](./ontrackchain/docs/project-kpi-scorecard.md) |
 
-- investigação on-chain multi-chain com foco inicial EVM
-- compliance e geração de relatórios auditáveis
-- monitoramento com watchlists e alertas
-- billing por créditos com cotação prévia e `plan lock`
-- isolamento rigoroso por organização
+Leitura mais honesta do momento:
 
-## Princípios Arquiteturais
+- o produto esta majoritariamente construido
+- o principal gargalo atual nao e mais ausencia de codigo
+- o gap residual esta concentrado em homologacao externa, credenciais reais, URL tokenizada da UE, MFA federado serio e sign-off institucional recorrente
 
-- `multi-tenant by design`: nenhuma query sensivel deve escapar de `org_id`
-- `on-chain mínimo`: o MVP trabalha principalmente off-chain, com preparo para registro/evidência futura
-- `quote -> start`: operações cobráveis exigem cotação prévia
-- `append-only audit`: eventos relevantes geram trilha em `audit_logs`
-- `request correlation`: fluxos criticos propagam `X-Request-Id`
-- `segurança > funcionalidade`: `legal_report` exige `JWT + ADMIN + 2FA`
+## Bloqueadores Atuais
 
-## Arquitetura em 60 segundos
+| Iniciativa | Estado | O que falta para fechar |
+| --- | --- | --- |
+| `P0-01` OIDC + MFA federado serio | `blocked` | homologacao formal recorrente e trilho serio com evidencia real |
+| `P0-02` `AML/KYT live` | `ready` | credencial real, gate de runtime verde e evidencia anexavel da janela |
+| `P0-03` feed UE `EU_CONSOLIDATED` | `ready` | `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` tokenizada e JSONs persistidos |
+| Janela `stg-2026-07-06-a` | `no-go` | owners online, handoff, placeholders e secrets reais no `.env.staging.private` |
 
-- Edge: `Traefik + ForwardAuth` concentra roteamento e enforcement inicial de auth.
-- Identidade: `Keycloak (OIDC)` + `auth-service` para sessão, RBAC e requisitos de `2FA` em fluxos sensíveis.
-- Domínios: APIs separadas (`public`, `investigation`, `compliance`, `monitoring`, `report`) para reduzir acoplamento e facilitar governança.
-- Dados: `PostgreSQL` com `RLS` como default e `Redis` para fila/cache onde aplicável.
-- Observabilidade: `Prometheus -> Alertmanager -> monitoring-api`, com UI de triagem e export auditado.
-- Governança: `scripts/` geram checks, manifests e dossier anexável para janelas sérias de `staging`.
+## Arquitetura em 60 Segundos
 
-## Navegação Rápida
-
-- Diagramas:
-  - [Fluxo do Projeto](#diagram-project)
-  - [Janela Séria de Staging](#diagram-staging-window)
-  - [Investigação e Compliance (MVP)](#diagram-mvp-flows)
-  - [Billing por Créditos (MVP)](#diagram-billing)
-  - [Trilha de Auditoria (request_id)](#diagram-audit)
-- Docs operacionais: [Índice de Documentação](./ontrackchain/docs/README.md)
-- Preparação completa do disparo real pela raiz: `make prepare-serious-window-dispatch WINDOW_ID=stg-2026-07-06-a`
-- Preflight do disparo real pela raiz: `make preflight-serious-window-dispatch WINDOW_ID=stg-2026-07-06-a`
-- Pacote copy/paste do disparo real pela raiz: `make render-serious-window-dispatch-packet WINDOW_ID=stg-2026-07-06-a`
-- Fechamento oficial da janela pela raiz: `make postprocess-serious-window RUN_URL=<github-actions-run-url>`
-- Ajuda complementar da raiz: `make help-serious-window`
-
-<a id="diagram-project"></a>
-## Diagrama de Fluxo do Projeto
+- edge: `Traefik + ForwardAuth` concentram roteamento, middleware e contexto autenticado
+- identidade: `auth-service` suporta `dev` e `oidc`; `Keycloak` entra no profile `oidc`
+- investigacao: `investigation-api` e `investigation-worker` fazem `estimate -> start -> queue -> result` com retry/backoff e metadados do provider RPC
+- compliance: `compliance-api` expone `kyc-wallet`, `sanctions-check`, `preventive blocks` e `counterparties`; `compliance-worker` sincroniza OFAC, UN, EU e deadlines de ROS
+- reports: `report-api` gera relatorios deterministas e implementa o fluxo `ROS/COAF`
+- monitoring: `monitoring-api` recebe webhooks do `Alertmanager` e alimenta o backlog global operacional
+- dados: `PostgreSQL` usa `RLS`; `Redis` suporta fila/cache; migrations versionam o core regulatorio
+- governanca: scripts de preflight, homologacao, packet, dossier e postprocess sustentam o rito da janela seria
 
 ```mermaid
 flowchart LR
-  user[Usuário/Admin] --> ui[Frontend Next.js]
-
-  subgraph edge[Gateway - Edge]
-    traefik[Traefik + ForwardAuth]
-  end
-
-  ui --> traefik
-
-  subgraph identity[Identidade]
-    keycloak[Keycloak OIDC]
-  end
+  user[Usuario Admin] --> frontend[Frontend Next.js]
+  frontend --> traefik[Traefik ForwardAuth]
 
   traefik --> auth[auth-service]
-  auth --> keycloak
-  keycloak --> auth
-
   traefik --> public[public-api]
   traefik --> inv[investigation-api]
   traefik --> comp[compliance-api]
   traefik --> mon[monitoring-api]
   traefik --> rep[report-api]
 
-  subgraph data[Dados]
-    pg[PostgreSQL RLS]
-    redis[Redis]
-  end
+  keycloak[Keycloak OIDC profile] --> auth
+  auth --> keycloak
+
+  invw[investigation-worker] --> inv
+  compw[compliance-worker] --> comp
+
+  pg[(PostgreSQL RLS)]
+  redis[(Redis)]
 
   auth --> pg
   public --> pg
   inv --> pg
+  inv --> redis
+  invw --> pg
+  invw --> redis
   comp --> pg
+  compw --> pg
   mon --> pg
+  mon --> redis
   rep --> pg
 
-  inv --> redis
+  rpc[RPC primary fallback] --> inv
+  trm[AML KYT provider] --> comp
+  feeds[OFAC UN EU OpenSanctions] --> compw
 
-  subgraph external[Integrações Externas]
-    trm[AML-KYT Provider TRM]
-    rpc[RPC Providers primary + fallback]
-  end
-
-  comp --> trm
-  inv --> rpc
-  comp --> rpc
-
-  subgraph obs[Observabilidade]
-    prom[Prometheus]
-    am[Alertmanager]
-  end
-
+  prom[Prometheus] --> am[Alertmanager]
   inv --> prom
-  mon --> prom
   comp --> prom
+  mon --> prom
   rep --> prom
-  prom --> am
   am --> mon
-  mon --> ui
 
-  subgraph governance[Governança e Evidências]
-    scripts[scripts preflights homologation staging window]
-    artifacts[artifacts checks manifests dossier]
-  end
-
-  scripts --> artifacts
-  scripts --> traefik
-  scripts --> auth
-  scripts --> comp
-  scripts --> inv
-  scripts --> mon
+  scripts[scripts staging compliance readiness] --> artifacts[artifacts checks dossiers homologation]
 ```
 
-<a id="diagram-staging-window"></a>
-## Diagrama de Fluxo — Janela Séria de Staging
+## Servicos Principais
+
+| Componente | Responsabilidade |
+| --- | --- |
+| `auth-service` | `JWT`, `OIDC`, `2FA`, RBAC e headers de contexto |
+| `public-api` | superficie publica e catalogos expostos pelo gateway |
+| `investigation-api` | `estimate`, `start`, `status`, billing e metadados RPC |
+| `investigation-worker` | fila real, retry/backoff, concorrencia e processamento assincrono |
+| `compliance-api` | `kyc-wallet`, `sanctions-check`, `preventive blocks` e `counterparties` |
+| `compliance-worker` | sync de listas, override de `source_url`, deadlines de ROS e readiness regulatorio |
+| `monitoring-api` | webhooks do `Alertmanager`, backlog global e exports auditados |
+| `report-api` | downloads fortes, relatorios deterministas e fluxo `ROS/COAF` |
+| `frontend` | UI operacional, `/audit`, `/monitoring`, dashboard e callbacks OIDC |
+
+## Fluxos Canonicos
+
+### Investigacao + Billing
+
+```text
+estimate -> start -> PRE_HOLD -> queue -> RPC -> CONFIRMED ou REFUND
+```
+
+### Screening + Bloqueio + ROS
+
+```text
+compliance-worker -> sanctions_hits_cache
+  -> GET sanctions-check
+  -> preventive_blocks quando aplicavel
+  -> ros_records quando o caso exige ROS
+  -> evidence_trail + audit_logs
+```
+
+### Operacao Global
+
+```text
+Prometheus -> Alertmanager -> monitoring-api -> UI /monitoring -> export auditado
+```
+
+### Janela Seria
 
 ```mermaid
 flowchart TD
-  start[Iniciar janela] --> windowId[Definir window_id]
-  windowId --> envExample[env staging example]
-  envExample --> envPrivate[env staging private preenchido em canal seguro]
-  envExample --> ownershipDoc[staging env ownership md]
-
-  envExample --> coverage[check_staging_env_ownership_coverage.py]
-  ownershipDoc --> coverage
-  coverage --> checks1[ownership coverage window_id json]
-
-  ownershipDoc --> handoff[check_staging_env_handoff.py]
-  handoff --> checks2[handoff window_id json]
-
-  envPrivate --> placeholders[check_staging_env_placeholders.py]
-  placeholders --> checks3[placeholders window_id json]
-
-  envExample --> packet[render_staging_window_packet.py]
-  ownershipDoc --> packet
-  packet --> windowPacket[window packet window_id md]
-
-  envPrivate --> preOidc[preflight_oidc_serious_env.py]
-  preOidc --> checks4[oidc preflight window_id json]
-
-  envPrivate --> preExt[preflight_external_integrations.py]
-  preExt --> checks5[external preflight window_id json]
-
-  envPrivate --> homolog[homologation external evidence mode both]
-  homolog --> homologJson[external homologation mode stamp json]
-  homolog --> homologManifest[external homologation mode stamp manifest json]
-  homolog --> checks6[homologation window_id json]
-
-  windowPacket --> dossier[build_staging_release_dossier.py]
-  checks1 --> dossier
-  checks2 --> dossier
-  checks3 --> dossier
-  homologJson --> dossier
-  homologManifest --> dossier
-  dossier --> dossierJson[staging release dossier window_id stamp json]
-  dossier --> dossierManifest[staging release dossier window_id stamp manifest json]
-
-  dossierManifest --> done[Go-No-Go status ok e manifests anexaveis]
+  start[Definir window_id] --> ownership[Ownership handoff placeholders]
+  ownership --> preflight[prepare validate preflight]
+  preflight --> bundle[regulatory readiness bundle quando aplicavel]
+  bundle --> run[run_staging_window ou workflow GitHub]
+  run --> dossier[dossier signoff weekly governance]
+  dossier --> decision[go no-go com evidencia anexavel]
 ```
 
-<a id="diagram-mvp-flows"></a>
-## Diagrama de Fluxo — Investigação e Compliance (MVP)
+## Validacao e Qualidade
 
-```mermaid
-sequenceDiagram
-  autonumber
-  participant U as Usuário/Admin (UI)
-  participant FE as Frontend (Next.js)
-  participant GW as Gateway (Traefik + ForwardAuth)
-  participant AUTH as auth-service
-  participant INV as investigation-api
-  participant COMP as compliance-api
-  participant REP as report-api
-  participant MON as monitoring-api
-  participant PG as PostgreSQL (RLS)
-  participant R as Redis/Queue
-  participant RPC as RPC Provider (primary/fallback)
-  participant TRM as AML-KYT Provider (TRM)
+O baseline atual de validacao combina:
 
-  U->>FE: Solicita fluxo (estimate)
-  FE->>GW: Request autenticada (X-Request-Id)
-  GW->>AUTH: Validação JWT + RBAC (+2FA quando exigido)
-  AUTH->>PG: Leitura/escrita de sessão/2FA (RLS)
-  AUTH-->>GW: Resultado authz
+- `scripts/smoke_runtime.py` para fluxos core, `plan lock`, hashes e auditoria
+- `Playwright` para `critical-path`, `compliance-flows`, `oidc-critical` e `dev-auth`
+- testes focados de preflight, dossier, packet, postprocess, sanctions sync, provider runtime e readiness bundle
+- quality gates por app em [`.github/workflows/quality-gates.yml`](./.github/workflows/quality-gates.yml)
+- workflow dedicado da janela seria em [`.github/workflows/staging-serious-window.yml`](./.github/workflows/staging-serious-window.yml)
 
-  alt Investigação (quote -> start)
-    GW->>INV: POST /estimate
-    INV->>PG: Persistir cotacao e auditoria (RLS)
-    INV-->>FE: Cotacao + custo em creditos
-    FE->>GW: POST /start (quote_id)
-    GW->>INV: POST /start
-    INV->>PG: Reservar créditos / registrar operação (RLS)
-    INV->>R: Enfileirar job
-    R-->>INV: Processar job
-    INV->>RPC: Consultas on-chain (retry + fallback)
-    INV->>PG: Persistir resultados + audit trail (RLS)
-    INV-->>FE: Status + resultado
-  end
-
-  alt Compliance e Relatório
-    GW->>COMP: POST /estimate
-    COMP->>PG: Persistir cotacao + auditoria (RLS)
-    COMP-->>FE: Cotacao
-    FE->>GW: POST /start (quote_id)
-    GW->>COMP: POST /start
-    COMP->>TRM: Verificação AML-KYT (quando habilitado)
-    COMP->>RPC: Evidências on-chain (quando aplicável)
-    COMP->>PG: Persistir achados + auditoria (RLS)
-    COMP-->>FE: report_id
-    GW->>REP: GET /reports/{report_id}
-    REP->>PG: Carregar metadados + trilha (RLS)
-    REP-->>FE: Download (com audit)
-  end
-
-  opt Monitoramento (operação global)
-    MON->>PG: Registrar incidentes/triagem (RLS quando aplicavel)
-    MON-->>FE: UI /monitoring (filtros, ack, export auditado)
-  end
-```
-
-<a id="diagram-billing"></a>
-## Diagrama de Fluxo — Billing por Créditos (MVP)
-
-```mermaid
-sequenceDiagram
-  autonumber
-  participant U as Usuário/Admin (UI)
-  participant FE as Frontend (Next.js)
-  participant GW as Gateway (Traefik + ForwardAuth)
-  participant S as Serviço Domínio (investigation/compliance/report)
-  participant PG as PostgreSQL (RLS)
-  participant AUD as audit_logs
-
-  U->>FE: Solicita cotação (estimate)
-  FE->>GW: POST /estimate (X-Org-Id + X-Request-Id)
-  GW->>S: POST /estimate
-  S->>PG: Registrar quote + custo (RLS)
-  S->>AUD: audit(quote_created)
-  S-->>FE: quote_id + custo
-
-  U->>FE: Confirma execução (start)
-  FE->>GW: POST /start (quote_id)
-  GW->>S: POST /start
-  S->>PG: Criar credit_hold (PRE_HOLD) e vincular a operacao (RLS)
-  S->>AUD: audit(credit_hold_created)
-
-  alt Execução bem-sucedida
-    S->>PG: Atualizar hold -> CONFIRMED (debito efetivo)
-    S->>AUD: audit(credit_hold_confirmed)
-    S-->>FE: status=completed
-  else Execução falhou/cancelada
-    S->>PG: Atualizar hold -> REFUND (estorno)
-    S->>AUD: audit(credit_hold_refunded)
-    S-->>FE: status=failed
-  end
-```
-
-```mermaid
-stateDiagram-v2
-  [*] --> PRE_HOLD
-  PRE_HOLD --> CONFIRMED: sucesso
-  PRE_HOLD --> REFUND: falha/cancelamento/timeout
-  CONFIRMED --> [*]
-  REFUND --> [*]
-```
-
-<a id="diagram-audit"></a>
-## Diagrama de Fluxo — Trilha de Auditoria (request_id)
-
-```mermaid
-sequenceDiagram
-  autonumber
-  participant FE as Frontend (Next.js)
-  participant GW as Gateway (Traefik + ForwardAuth)
-  participant S as Serviço (public/investigation/compliance/monitoring/report)
-  participant PG as PostgreSQL (RLS)
-  participant AUD as audit_logs
-
-  FE->>GW: Request HTTP com X-Request-Id + X-Org-Id
-  GW->>S: Encaminha headers (correlation)
-  S->>PG: Operação de negócio (RLS)
-  S->>AUD: Insert audit_log (request_id, org_id, actor, action, resource, status)
-  AUD->>PG: Persistência (append-only)
-  S-->>FE: Response (inclui request_id quando aplicavel)
-```
-
-```mermaid
-flowchart LR
-  req[X-Request-Id] --> svc[Serviço]
-  org[X-Org-Id] --> svc
-  svc --> auditLogs[audit_logs]
-  auditLogs --> auditUI[audit UI ADMIN]
-  auditLogs --> exportUI[export CSV ou JSON]
-  exportUI --> evidence[file_hash + trilha]
-```
-
-## Documentação
-
-- [Índice de Documentação](./ontrackchain/docs/README.md)
-- [Arquitetura](./ontrackchain/docs/architecture.md)
-- [Contratos de API](./ontrackchain/docs/api-contracts.md)
-- [Board de Prioridades do Projeto](./ontrackchain/docs/project-priority-board.md)
-- [Plano de Execução para 90%](./ontrackchain/docs/project-execution-plan-to-90.md)
-- [Plano Operacional Trimestral para 95%](./ontrackchain/docs/project-operational-plan-to-95.md)
-- [Matriz Operacional de Execução para 95%](./ontrackchain/docs/project-operational-execution-board.md)
-- [Gates de Release para Staging Sério](./ontrackchain/docs/project-release-gates.md)
-- [Deploy e Staging](./ontrackchain/docs/deploy-and-staging.md)
-- [Checklist Pré-Produção](./ontrackchain/docs/pre-production-checklist.md)
-- [CI/CD e Release](./ontrackchain/docs/ci-cd-and-release.md)
-- [Validação e Auditoria](./ontrackchain/docs/validation-and-audit.md)
-- [Compliance e Controles de Segurança](./ontrackchain/docs/compliance-and-security-controls.md)
-- [Readiness Regulatório](./ontrackchain/docs/regulatory-readiness.md)
-- [Variáveis de Ambiente](./ontrackchain/docs/environment-variables.md)
-- [ADRs](./ontrackchain/docs/adrs/README.md)
-- [Migrations PostgreSQL](./ontrackchain/infra/postgres/migrations/README.md)
-
-## Quick Start
-
-### 1. Subir a stack
-
-```bash
-cd ontrackchain
-docker compose up -d --build
-```
-
-### 2. Validar o scaffold
+Comandos recomendados:
 
 ```bash
 cd ontrackchain
 python scripts/smoke_runtime.py
-cd apps/frontend && npx playwright test tests/e2e/critical-path.spec.ts tests/e2e/compliance-flows.spec.ts
+
+cd apps/frontend
+npm ci
+npm run typecheck
+npm run test:e2e:oidc-critical
+npm run test:e2e
 ```
 
-### 2.1. Preparar e fechar a janela séria a partir da raiz
+## Operacao da Janela Seria
+
+Atalhos principais pela raiz:
 
 ```bash
-make prepare-serious-window-dispatch \
-  WINDOW_ID="stg-2026-07-06-a"
-make postprocess-serious-window-dry-run \
-  RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
-make postprocess-serious-window \
-  RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
+make help-serious-window
+make prepare-serious-window-dispatch WINDOW_ID=stg-2026-07-06-a
+make render-serious-window-dispatch-packet WINDOW_ID=stg-2026-07-06-a
+make postprocess-serious-window-dry-run RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
+make postprocess-serious-window RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
 ```
 
-### 3. Endpoints locais
+Atalhos adicionais relevantes:
 
-Os ports abaixo refletem o baseline atual do `.env.example`. Se o seu `.env` sobrescrever algum valor, use o port configurado localmente.
+```bash
+make run-serious-window-local WINDOW_ID=stg-2026-07-06-a MODE=baseline
+make check-compliance-provider-runtime INTERNAL_BASE_URL=http://compliance-api:8002 PUBLIC_BASE_URL=http://localhost:8080
+make run-eu-sanctions-window-local WINDOW_ID=stg-2026-07-06-a
+make run-regulatory-readiness-bundle WINDOW_ID=stg-2026-07-06-a
+```
 
-- App/Gateway: `http://localhost:8080`
-- Dashboard Traefik: `http://localhost:8081`
+O workflow serio no GitHub Actions:
+
+- materializa `.env.staging.private` a partir de secret do environment
+- executa `prepare_staging_window.py --run`
+- publica resumo do payload
+- renderiza draft de sign-off
+- sobe `ci-artifacts`, `artifacts/staging/*` e `artifacts/homologation`
+
+Estado operacional atual da janela canônica:
+
+- `window_id`: `stg-2026-07-06-a`
+- status: `no-go`
+- motivo principal: handoff humano e placeholders ainda nao preenchidos com dados reais
+- artefatos vivos: war room, live tracking, manual fill sheet e sign-off versionado em `docs/governance-weekly/`
+
+## Quick Start
+
+### 1. Subir a stack local
+
+```bash
+cd ontrackchain
+cp .env.example .env
+docker compose up -d --build
+```
+
+Para exercitar OIDC localmente:
+
+```bash
+cd ontrackchain
+docker compose --profile oidc up -d --build
+```
+
+### 2. Validar runtime e UI
+
+```bash
+cd ontrackchain
+python scripts/smoke_runtime.py
+
+cd apps/frontend
+npm ci
+npm run test:e2e:dev-auth
+```
+
+### 3. Endpoints locais padrao
+
+Os ports abaixo refletem `ontrackchain/.env.example`.
+
+- app gateway: `http://localhost:8080`
+- dashboard do Traefik: `http://localhost:8081`
+- Keycloak profile `oidc`: `http://localhost:8088`
 - Prometheus: `http://localhost:9091`
 - Alertmanager: `http://localhost:9093`
 - Grafana: `http://localhost:3002`
 - PostgreSQL: `localhost:5432`
 - Redis: `localhost:6379`
 
-## Estrutura do Repositório
+## Navegacao Canonica
+
+- [README interno da aplicacao](./ontrackchain/README.md)
+- [Indice de documentacao](./ontrackchain/docs/README.md)
+- [Arquitetura](./ontrackchain/docs/architecture.md)
+- [Contratos de API](./ontrackchain/docs/api-contracts.md)
+- [Deploy e Staging](./ontrackchain/docs/deploy-and-staging.md)
+- [Gates de Release para Staging Serio](./ontrackchain/docs/project-release-gates.md)
+- [Validacao e Auditoria](./ontrackchain/docs/validation-and-audit.md)
+- [Scorecard Oficial do Projeto](./ontrackchain/docs/project-kpi-scorecard.md)
+- [Readiness Regulatorio](./ontrackchain/docs/regulatory-readiness.md)
+- [ADRs](./ontrackchain/docs/adrs/README.md)
+- [Migrations PostgreSQL](./ontrackchain/infra/postgres/migrations/README.md)
+
+## Estrutura do Repositorio
 
 ```text
-ontrackchain/
-├── apps/
-│   ├── auth-service/
-│   ├── public-api/
-│   ├── investigation-api/
-│   ├── compliance-api/
-│   ├── monitoring-api/
-│   ├── report-api/
-│   └── frontend/
-├── infra/
-│   ├── postgres/
-│   └── traefik/
-├── packages/
-│   ├── shared/
-│   └── agents/
-├── scripts/
-│   ├── smoke_runtime.py
-│   ├── backup_postgres.sh
-│   └── restore_postgres.sh
-├── docker-compose.yml
-└── .env.example
+Ontrackchain/
+├── .github/
+│   └── workflows/
+├── Makefile
+├── README.md
+├── ONTRACKCHAIN  Arquitetura Expandida v3.0.md
+└── ontrackchain/
+    ├── apps/
+    │   ├── auth-service/
+    │   ├── public-api/
+    │   ├── investigation-api/
+    │   ├── compliance-api/
+    │   ├── monitoring-api/
+    │   ├── report-api/
+    │   └── frontend/
+    ├── docs/
+    ├── infra/
+    ├── packages/
+    ├── scripts/
+    ├── tests/
+    ├── docker-compose.yml
+    ├── Makefile
+    ├── .env.example
+    └── README.md
 ```
-
-## Fluxos Críticos Cobertos
-
-- Investigação: estimate -> start -> queue/concurrency -> complete/fail
-- Compliance: estimate -> start -> report -> download
-- Monitoring: estimate -> start -> watchlist -> alert
-- Billing: `PRE_HOLD -> CONFIRMED/REFUND`
-- Auditoria: `request_id -> action -> resource -> report_id -> file_hash`
-- Segurança: `legal_report` bloqueado antes de `2FA`
-- Operação global: incidente de plataforma pode ser marcado como `acknowledged` sem alterar `firing|resolved`
-- Operação global: backlog administrativo de incidentes pode ser exportado em `CSV|JSON` com trilha `operational_alerts_exported`
 
 ## Riscos Residuais Conhecidos
 
-- O fluxo de autenticação ainda depende do scaffold dev em ambiente local, mas o 2FA de sessões JWT agora usa TOTP real no `auth-service`
-- A observabilidade central cobre `investigation`, `monitoring`, `compliance` e `report`
-- O roteamento ativo de alertas depende do token interno `Alertmanager -> monitoring-api`
-- Ambientes com volume persistido precisam aplicar `0006_add_operational_alert_triage.sql` para habilitar a triagem manual
-- Ambientes com volume persistido precisam aplicar `0007_add_operational_alert_cursor_index.sql` para paginação estável de incidentes globais
-- O export administrativo auditado dos incidentes globais depende de contexto válido no proxy server-side do frontend
-- Integrações AML/KYT e providers blockchain ainda são mockadas/parciais
-- Bitcoin continua limitado a `3 hops` no MVP
+- `AML/KYT` live ainda depende de credenciais reais e homologacao recorrente
+- `due_diligence` e `source_of_funds` seguem intencionalmente em `manual_review_required`
+- o feed `EU_CONSOLIDATED` ainda depende de URL tokenizada real para fechar prova operacional seria
+- `legal_report`, `ROS/COAF` e `block lift` exigem MFA serio homologado para janela forte
+- retention/recovery, owners e sign-off ainda precisam de aceite institucional recorrente
+- a janela `stg-2026-07-06-a` continua `no-go` ate o preenchimento humano dos placeholders e handoffs
 
-## Próximo Passo Recomendado
+## Proximo Passo Recomendado
 
-Seguir para Fase 2 com foco em:
+Focar nas iniciativas que mais movem o scorecard e destravam a janela seria:
 
-- endurecimento de compliance/regulatório
-- evoluir políticas de alerting, deduplicação e escalonamento
-- evolução de UI de auditoria e operação
-- integrações reais de dados e scoring
+- fechar `P0-02` com provider `AML/KYT live` real
+- fechar `P0-03` com feed UE tokenizado e bundle anexado
+- avancar `P0-01` com MFA/OIDC federado serio homologado
+- executar a primeira janela seria completa com owners online, artefatos reais e sign-off formal

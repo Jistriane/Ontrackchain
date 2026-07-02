@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import uuid
 import urllib.request
@@ -10,6 +9,15 @@ from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import JSONResponse, Response
+from ontrackchain_agents.counterparty_agent import CounterpartyAgent, CounterpartyInput
+from ontrackchain_agents.evidence_integration import emit_evidence_event_sync
+from ontrackchain_agents.preventive_block import (
+    PreventiveBlockAgent,
+    SanctionsHit,
+    SanctionsResult,
+    WalletContext,
+)
+from ontrackchain_agents.sanctions_engine import SanctionsScreener, ScreeningResult
 from ontrackchain_shared import (
     is_available_for_plan,
     normalize_plan,
@@ -48,6 +56,7 @@ class Settings(BaseSettings):
     compliance_trm_api_key_prefix: str = "Bearer "
     compliance_trm_timeout_ms: int = 1500
     compliance_trm_max_retries: int = 1
+    opensanctions_api_key: str = ""
 
 
 settings = Settings()
@@ -279,19 +288,33 @@ def _build_operation_capability(operation: str) -> dict:
             "details": readiness.details,
         }
 
+    if canonical == "sanctions_check":
+        return {
+            "operation": canonical,
+            "provider": "sanctions_lists_cache",
+            "provider_status": "live",
+            "degraded_reason": None,
+            "capability_status": "live",
+            "delivery_mode": "local_cache",
+            "details": {
+                "provider_dependency": "sanctions_lists_meta",
+                "requires_human_review": False,
+                "ready_for_live_homologation": True,
+                "screening_source": "sanctions_hits_cache",
+            },
+        }
+
     degraded_reason_map = {
         "due_diligence": "manual_review_required",
         "source_of_funds": "manual_review_required",
-        "sanctions_check": "sanctions_provider_not_integrated",
     }
     delivery_mode_map = {
         "due_diligence": "manual_review_pending",
         "source_of_funds": "manual_review_pending",
-        "sanctions_check": "list_screening_pending",
     }
     return {
         "operation": canonical,
-        "provider": "manual_review" if canonical != "sanctions_check" else "sanctions_lists",
+        "provider": "manual_review",
         "provider_status": "degraded",
         "degraded_reason": degraded_reason_map[canonical],
         "capability_status": "degraded",
@@ -344,6 +367,67 @@ def _record_optional_compliance_audit(
                 metadata={**metadata, "request_id": request_id, "external_user_id": external_actor_user_id},
             )
         conn.commit()
+
+
+def _record_optional_compliance_evidence(
+    *,
+    pool: ConnectionPool,
+    org_id: Optional[str],
+    user_id: Optional[str],
+    linked_user_id: Optional[str],
+    event_type: str,
+    event_payload: dict,
+    case_id: Optional[str] = None,
+    regulatory_basis: Optional[list[str]] = None,
+) -> None:
+    if not org_id:
+        return
+    effective_user_id, _ = _resolve_actor_ids(
+        external_user_id=user_id,
+        linked_user_id=linked_user_id,
+    )
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            emit_evidence_event_sync(
+                cur=cur,
+                org_id=org_id,
+                event_type=event_type,
+                event_payload=event_payload,
+                actor_user_id=effective_user_id,
+                case_id=case_id,
+                regulatory_basis=regulatory_basis or [],
+            )
+        conn.commit()
+
+
+def _screen_address_local(
+    *,
+    pool: ConnectionPool,
+    address: str,
+    chain: str,
+    entity_name: Optional[str] = None,
+    entity_document: Optional[str] = None,
+) -> ScreeningResult:
+    with pool.connection() as conn:
+        screener = SanctionsScreener(conn)
+        return screener.screen_address(
+            address=address,
+            chain=chain,
+            entity_name=entity_name,
+            entity_document=entity_document,
+        )
+
+
+def _require_external_provider_2fa(
+    *,
+    x_mfa_mode: Optional[str],
+    x_mfa_provider_homologated: Optional[str],
+) -> None:
+    if x_mfa_mode != "external_provider":
+        raise HTTPException(status_code=403, detail="mfa_external_provider_required")
+    if str(x_mfa_provider_homologated).lower() != "true":
+        raise HTTPException(status_code=403, detail="mfa_provider_not_homologated")
 
 
 def _pricing_table_hash() -> str:
@@ -983,6 +1067,92 @@ class GenerateComplianceReportResponse(BaseModel):
     file_hash_sha256: str
     onchain_hash: Optional[str]
     content_type: str
+
+
+class BlockEvaluateRequest(BaseModel):
+    address: str
+    chain: str = "ethereum"
+    aml_score: int = Field(default=0, ge=0, le=100)
+    is_self_custody: bool = False
+    owner_identified: bool = True
+    is_international_transfer: bool = False
+    has_direct_mixer_contact: bool = False
+    has_chain_hopping: bool = False
+    structuring_detected: bool = False
+    entity_name: Optional[str] = None
+    entity_document: Optional[str] = None
+    case_id: Optional[uuid.UUID] = None
+
+
+class BlockEvaluateResponse(BaseModel):
+    address: str
+    chain: str
+    action: str
+    requires_coaf_report: bool
+    decision_confidence: float
+    regulatory_basis: list[str]
+    matched_lists: list[str]
+    evidence_hash: Optional[str]
+    block_id: Optional[uuid.UUID]
+    screened_at: str
+
+
+class BlockLiftRequest(BaseModel):
+    reason: str
+
+
+class BlockLiftResponse(BaseModel):
+    block_id: uuid.UUID
+    status: str
+    review_status: str
+    lifted_at: str
+
+
+class CounterpartyCreateRequest(BaseModel):
+    counterparty_type: str
+    legal_name: str
+    trading_name: Optional[str] = None
+    document_type: str
+    document_number: str
+    document_country: str = "BRA"
+    registration_data: dict = Field(default_factory=dict)
+    beneficial_owners: list[dict] = Field(default_factory=list)
+    wallet_addresses: list[dict] = Field(default_factory=list)
+    declared_risk_context: Optional[str] = None
+    onchain_risk_score: Optional[int] = Field(default=None, ge=0, le=100)
+
+
+class CounterpartyCreateResponse(BaseModel):
+    counterparty_id: uuid.UUID
+    legal_name: str
+    risk_level: int
+    kyc_status: str
+    sanctions_cleared: bool
+    is_pep: bool
+    enhanced_dd_required: bool
+    next_review_date: str
+    status: str
+
+
+class CounterpartyListItem(BaseModel):
+    id: uuid.UUID
+    legal_name: str
+    counterparty_type: str
+    document_type: str
+    document_number: str
+    risk_level: int
+    kyc_status: str
+    sanctions_cleared: bool
+    is_pep: bool
+    enhanced_dd_required: bool
+    next_review_date: Optional[str]
+    status: str
+    created_at: str
+
+
+class CounterpartyListResponse(BaseModel):
+    items: list[CounterpartyListItem]
+    total: int
 
 
 @app.get("/health")
@@ -1743,19 +1913,25 @@ async def sanctions_check(
     normalized_chain = _validate_chain(chain)
     resolved_lists = [s.strip() for s in lists.split(",") if s.strip()]
     capability = _build_operation_capability("sanctions_check")
+    screening = _screen_address_local(
+        pool=pool,
+        address=address,
+        chain=normalized_chain,
+    )
+    first_hit = screening.hits[0] if screening.hits else None
     response = SanctionsCheckResponse(
         address=address,
         chain=normalized_chain,
-        provider=capability["provider"],
-        provider_status=capability["provider_status"],
+        provider="sanctions_lists_cache",
+        provider_status="live",
         degraded_reason=capability["degraded_reason"],
-        capability_status=capability["capability_status"],
+        capability_status="live",
         lists=resolved_lists,
-        hit=None,
-        matched_lists=[],
-        entity_name=None,
-        designation_date=None,
-        checked_at=datetime.now(timezone.utc).isoformat(),
+        hit=screening.has_hit,
+        matched_lists=[hit.list_name for hit in screening.hits],
+        entity_name=first_hit.entity_name if first_hit else None,
+        designation_date=first_hit.designation_date if first_hit else None,
+        checked_at=screening.screened_at,
     )
     _record_optional_compliance_audit(
         pool=pool,
@@ -1772,8 +1948,508 @@ async def sanctions_check(
             "provider_status": response.provider_status,
             "degraded_reason": response.degraded_reason,
             "capability_status": response.capability_status,
-            "delivery_mode": capability["delivery_mode"],
+            "delivery_mode": "local_cache",
             "lists": resolved_lists,
+            "matched_lists": response.matched_lists,
+            "screening_duration_ms": screening.screening_duration_ms,
         },
     )
+    _record_optional_compliance_evidence(
+        pool=pool,
+        org_id=x_org_id,
+        user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+        event_type="SANCTIONS_HIT" if screening.has_hit else "SANCTIONS_CHECKED",
+        event_payload={
+            "address": address,
+            "chain": normalized_chain,
+            "matched_lists": response.matched_lists,
+            "hit": screening.has_hit,
+            "screening_duration_ms": screening.screening_duration_ms,
+        },
+        regulatory_basis=["BCB 520 Art. 43 §2° V", "BCB 520 Art. 34 III"],
+    )
     return response
+
+
+@app.post("/api/v1/compliance/blocks/evaluate", response_model=BlockEvaluateResponse)
+async def evaluate_block(
+    body: BlockEvaluateRequest,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> BlockEvaluateResponse:
+    request_id = x_request_id or str(uuid.uuid4())
+    org_id = _require_org_id(x_org_id)
+    normalized_chain = _validate_chain(body.chain)
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+
+    screening = _screen_address_local(
+        pool=pool,
+        address=body.address,
+        chain=normalized_chain,
+        entity_name=body.entity_name,
+        entity_document=body.entity_document,
+    )
+    sanctions_result = SanctionsResult(
+        address=body.address,
+        chain=normalized_chain,
+        has_hit=screening.has_hit,
+        hits=[
+            SanctionsHit(
+                list_name=hit.list_name,
+                entity_name=hit.entity_name,
+                confidence=hit.confidence,
+                designation_date=hit.designation_date,
+                regulatory_basis=hit.regulatory_basis,
+            )
+            for hit in screening.hits
+        ],
+        screened_lists=screening.screened_lists,
+        screening_duration_ms=screening.screening_duration_ms,
+    )
+    wallet_context = WalletContext(
+        address=body.address,
+        chain=normalized_chain,
+        aml_score=body.aml_score,
+        is_self_custody=body.is_self_custody,
+        owner_identified=body.owner_identified,
+        is_international_transfer=body.is_international_transfer,
+        has_direct_mixer_contact=body.has_direct_mixer_contact,
+        has_chain_hopping=body.has_chain_hopping,
+        structuring_detected=body.structuring_detected,
+    )
+
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+
+        class _EvidenceProxy:
+            def __init__(self, cur) -> None:
+                self.cur = cur
+
+            async def record_event(self, **kwargs) -> Optional[str]:
+                return emit_evidence_event_sync(
+                    cur=self.cur,
+                    org_id=kwargs["org_id"],
+                    event_type=kwargs["event_type"],
+                    event_payload=kwargs["event_payload"],
+                    actor_user_id=str(kwargs["auth"].user_id) if kwargs["auth"].user_id else None,
+                    actor_agent_id=kwargs["auth"].agent_id,
+                    case_id=str(kwargs["case_id"]) if kwargs.get("case_id") else None,
+                    regulatory_basis=kwargs.get("regulatory_basis"),
+                )
+
+        class _DbProxy:
+            def __init__(self, cur) -> None:
+                self.cur = cur
+
+            async def execute(self, query: str, params: dict) -> None:
+                sql = (
+                    query.replace("%(id)s", "%s")
+                    .replace("%(org_id)s", "%s")
+                    .replace("%(case_id)s", "%s")
+                    .replace("%(address)s", "%s")
+                    .replace("%(chain)s", "%s")
+                    .replace("%(action)s", "%s")
+                    .replace("%(triggers)s", "%s::jsonb")
+                    .replace("%(regulatory_basis)s", "%s")
+                    .replace("%(aml_score)s", "%s")
+                    .replace("%(sanctions_hits)s", "%s::jsonb")
+                    .replace("%(confidence)s", "%s")
+                    .replace("%(analysis_context)s", "%s::jsonb")
+                    .replace("%(agent)s", "%s")
+                    .replace("%(coaf_required)s", "%s")
+                    .replace("%(evidence_hash)s", "%s")
+                    .replace("%(evidence_trail_hash)s", "%s")
+                )
+                ordered = (
+                    params["id"],
+                    params["org_id"],
+                    params["case_id"],
+                    params["address"],
+                    params["chain"],
+                    params["action"],
+                    params["triggers"],
+                    params["regulatory_basis"],
+                    params["aml_score"],
+                    params["sanctions_hits"],
+                    params["confidence"],
+                    params["analysis_context"],
+                    params["agent"],
+                    params["coaf_required"],
+                    params["evidence_hash"],
+                    params["evidence_trail_hash"],
+                )
+                self.cur.execute(sql, ordered)
+
+        with conn.cursor() as cur:
+            persisted_user_id = _resolve_persisted_user_id(cur, effective_user_id)
+            agent = PreventiveBlockAgent(
+                evidence_svc=_EvidenceProxy(cur),
+                db=_DbProxy(cur),
+            )
+            auth_ctx = type(
+                "AuthCtx",
+                (),
+                {
+                    "user_id": UUID(str(persisted_user_id)) if persisted_user_id else None,
+                    "agent_id": None,
+                    "org_id": UUID(org_id),
+                    "ip_address": None,
+                },
+            )()
+            decision = await agent.evaluate(
+                wallet_context=wallet_context,
+                sanctions_result=sanctions_result,
+                auth=auth_ctx,
+                case_id=body.case_id,
+            )
+            _record_audit_log(
+                cur,
+                organization_id=org_id,
+                user_id=effective_user_id,
+                action="preventive_block_evaluated",
+                resource_type="address",
+                resource_id=str(decision.block_id) if decision.block_id else None,
+                metadata={
+                    "request_id": request_id,
+                    "address": body.address,
+                    "chain": normalized_chain,
+                    "action": decision.action,
+                    "matched_lists": [hit.list_name for hit in screening.hits],
+                    "external_user_id": external_actor_user_id,
+                },
+            )
+        conn.commit()
+
+    return BlockEvaluateResponse(
+        address=body.address,
+        chain=normalized_chain,
+        action=decision.action,
+        requires_coaf_report=decision.requires_coaf_report,
+        decision_confidence=decision.decision_confidence,
+        regulatory_basis=decision.regulatory_basis,
+        matched_lists=[hit.list_name for hit in screening.hits],
+        evidence_hash=decision.evidence_hash,
+        block_id=decision.block_id,
+        screened_at=screening.screened_at,
+    )
+
+
+@app.post("/api/v1/compliance/blocks/{block_id}/lift", response_model=BlockLiftResponse)
+async def lift_block(
+    block_id: uuid.UUID,
+    body: BlockLiftRequest,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_mfa_mode: Annotated[Optional[str], Header(alias="X-MFA-Mode")] = None,
+    x_mfa_provider_homologated: Annotated[Optional[str], Header(alias="X-MFA-Provider-Homologated")] = None,
+) -> BlockLiftResponse:
+    org_id = _require_org_id(x_org_id)
+    _require_external_provider_2fa(
+        x_mfa_mode=x_mfa_mode,
+        x_mfa_provider_homologated=x_mfa_provider_homologated,
+    )
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    if not effective_user_id:
+        raise HTTPException(status_code=401, detail="missing_user_context")
+
+    lifted_at = datetime.now(timezone.utc).isoformat()
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            persisted_user_id = _resolve_persisted_user_id(cur, effective_user_id)
+            if not persisted_user_id:
+                raise HTTPException(status_code=403, detail="linked_user_required_for_block_lift")
+            cur.execute(
+                """
+                UPDATE preventive_blocks
+                   SET status = 'LIFTED',
+                       review_status = 'LIFTED',
+                       lifted_at = %s,
+                       lifted_by_user_id = %s,
+                       lifted_reason = %s,
+                       reviewed_at = %s,
+                       reviewed_by_user_id = %s,
+                       review_note = %s
+                 WHERE id = %s
+                   AND organization_id = %s
+                RETURNING id, status, review_status, case_id, target_address, target_chain
+                """,
+                (
+                    lifted_at,
+                    persisted_user_id,
+                    body.reason,
+                    lifted_at,
+                    persisted_user_id,
+                    body.reason,
+                    str(block_id),
+                    org_id,
+                ),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="preventive_block_not_found")
+            _record_audit_log(
+                cur,
+                organization_id=org_id,
+                user_id=persisted_user_id,
+                action="preventive_block_lifted",
+                resource_type="preventive_block",
+                resource_id=str(block_id),
+                metadata={
+                    "reason": body.reason,
+                    "target_address": row["target_address"],
+                    "target_chain": row["target_chain"],
+                    "external_user_id": external_actor_user_id,
+                },
+            )
+            emit_evidence_event_sync(
+                cur=cur,
+                org_id=org_id,
+                event_type="BLOCK_LIFTED",
+                event_payload={
+                    "block_id": str(block_id),
+                    "reason": body.reason,
+                    "target_address": row["target_address"],
+                    "target_chain": row["target_chain"],
+                },
+                actor_user_id=persisted_user_id,
+                case_id=str(row["case_id"]) if row["case_id"] else None,
+                regulatory_basis=["IN BCB 739 Art. 1° VII", "BCB 520 Art. 43 §2° VI"],
+            )
+        conn.commit()
+    return BlockLiftResponse(
+        block_id=block_id,
+        status=row["status"],
+        review_status=row["review_status"],
+        lifted_at=lifted_at,
+    )
+
+
+@app.post("/api/v1/compliance/counterparties", response_model=CounterpartyCreateResponse)
+async def create_counterparty(
+    body: CounterpartyCreateRequest,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> CounterpartyCreateResponse:
+    _ = x_request_id or str(uuid.uuid4())
+    org_id = _require_org_id(x_org_id)
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    if not effective_user_id:
+        raise HTTPException(status_code=401, detail="missing_user_context")
+
+    screening = _screen_address_local(
+        pool=pool,
+        address=(body.wallet_addresses[0]["address"] if body.wallet_addresses else body.document_number),
+        chain=(body.wallet_addresses[0].get("chain", "ethereum") if body.wallet_addresses else "ethereum"),
+        entity_name=body.legal_name,
+        entity_document=body.document_number,
+    )
+    assessment = CounterpartyAgent().assess(
+        CounterpartyInput(
+            counterparty_type=body.counterparty_type,
+            legal_name=body.legal_name,
+            trading_name=body.trading_name,
+            document_type=body.document_type,
+            document_number=body.document_number,
+            document_country=body.document_country,
+            registration_data=body.registration_data,
+            beneficial_owners=body.beneficial_owners,
+            wallet_addresses=body.wallet_addresses,
+            declared_risk_context=body.declared_risk_context,
+        ),
+        sanctions_result=screening,
+        onchain_risk_score=body.onchain_risk_score,
+    )
+
+    counterparty_id = uuid.uuid4()
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            persisted_user_id = _resolve_persisted_user_id(cur, effective_user_id)
+            if not persisted_user_id:
+                raise HTTPException(status_code=403, detail="linked_user_required_for_counterparty_creation")
+            cur.execute(
+                """
+                INSERT INTO counterparties (
+                    id, organization_id, created_by_user_id,
+                    counterparty_type, legal_name, trading_name,
+                    document_type, document_number, document_country,
+                    document_verified, registration_data, beneficial_owners, wallet_addresses,
+                    risk_level, risk_rationale, risk_classified_by, risk_classified_at,
+                    onchain_risk_score, onchain_analysis,
+                    is_pep, pep_detail,
+                    sanctions_cleared, sanctions_check_date, sanctions_hits,
+                    kyc_status,
+                    enhanced_dd_required, enhanced_dd_status,
+                    next_review_date, review_frequency_days,
+                    status, status_changed_at, status_changed_by,
+                    evidence_hash
+                )
+                VALUES (
+                    %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s::jsonb, %s::jsonb, %s::jsonb,
+                    %s, %s, %s, NOW(),
+                    %s, %s::jsonb,
+                    %s, %s::jsonb,
+                    %s, NOW(), %s::jsonb,
+                    %s,
+                    %s, %s,
+                    %s, %s,
+                    %s, NOW(), %s,
+                    %s
+                )
+                """,
+                (
+                    str(counterparty_id),
+                    org_id,
+                    persisted_user_id,
+                    body.counterparty_type,
+                    body.legal_name,
+                    body.trading_name,
+                    body.document_type,
+                    body.document_number,
+                    body.document_country,
+                    True,
+                    json.dumps(body.registration_data),
+                    json.dumps(body.beneficial_owners),
+                    json.dumps(body.wallet_addresses),
+                    assessment.risk_level,
+                    assessment.risk_rationale,
+                    persisted_user_id,
+                    assessment.onchain_risk_score,
+                    json.dumps(assessment.onchain_analysis),
+                    assessment.is_pep,
+                    json.dumps(assessment.pep_detail),
+                    assessment.sanctions_cleared,
+                    json.dumps(assessment.sanctions_hits),
+                    assessment.kyc_status,
+                    assessment.enhanced_dd_required,
+                    assessment.enhanced_dd_status,
+                    assessment.next_review_date.isoformat(),
+                    assessment.review_frequency_days,
+                    assessment.status,
+                    persisted_user_id,
+                    assessment.evidence_hash,
+                ),
+            )
+            _record_audit_log(
+                cur,
+                organization_id=org_id,
+                user_id=persisted_user_id,
+                action="counterparty_created",
+                resource_type="counterparty",
+                resource_id=str(counterparty_id),
+                metadata={
+                    "legal_name": body.legal_name,
+                    "risk_level": assessment.risk_level,
+                    "kyc_status": assessment.kyc_status,
+                    "external_user_id": external_actor_user_id,
+                },
+            )
+            emit_evidence_event_sync(
+                cur=cur,
+                org_id=org_id,
+                event_type="COUNTERPARTY_ONBOARDED",
+                event_payload={
+                    "counterparty_id": str(counterparty_id),
+                    "legal_name": body.legal_name,
+                    "risk_level": assessment.risk_level,
+                    "kyc_status": assessment.kyc_status,
+                    "sanctions_cleared": assessment.sanctions_cleared,
+                },
+                actor_user_id=persisted_user_id,
+                regulatory_basis=["BCB 520 Art. 47", "IN BCB 739 Art. 1° IV"],
+            )
+        conn.commit()
+
+    return CounterpartyCreateResponse(
+        counterparty_id=counterparty_id,
+        legal_name=body.legal_name,
+        risk_level=assessment.risk_level,
+        kyc_status=assessment.kyc_status,
+        sanctions_cleared=assessment.sanctions_cleared,
+        is_pep=assessment.is_pep,
+        enhanced_dd_required=assessment.enhanced_dd_required,
+        next_review_date=assessment.next_review_date.isoformat(),
+        status=assessment.status,
+    )
+
+
+@app.get("/api/v1/compliance/counterparties", response_model=CounterpartyListResponse)
+async def list_counterparties(
+    pool: ConnectionPool = Depends(get_pool),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+) -> CounterpartyListResponse:
+    org_id = _require_org_id(x_org_id)
+    items: list[CounterpartyListItem] = []
+    total = 0
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) AS total FROM counterparties WHERE organization_id = %s", (org_id,))
+            total = int(cur.fetchone()["total"])
+            cur.execute(
+                """
+                SELECT
+                    id,
+                    legal_name,
+                    counterparty_type,
+                    document_type,
+                    document_number,
+                    risk_level,
+                    kyc_status,
+                    sanctions_cleared,
+                    is_pep,
+                    enhanced_dd_required,
+                    next_review_date,
+                    status,
+                    created_at
+                FROM counterparties
+                WHERE organization_id = %s
+                ORDER BY created_at DESC, id DESC
+                LIMIT %s OFFSET %s
+                """,
+                (org_id, limit, offset),
+            )
+            rows = cur.fetchall()
+    for row in rows:
+        items.append(
+            CounterpartyListItem(
+                id=row["id"],
+                legal_name=row["legal_name"],
+                counterparty_type=row["counterparty_type"],
+                document_type=row["document_type"],
+                document_number=row["document_number"],
+                risk_level=row["risk_level"],
+                kyc_status=row["kyc_status"],
+                sanctions_cleared=row["sanctions_cleared"],
+                is_pep=row["is_pep"],
+                enhanced_dd_required=row["enhanced_dd_required"],
+                next_review_date=row["next_review_date"].isoformat() if row["next_review_date"] else None,
+                status=row["status"],
+                created_at=row["created_at"].isoformat(),
+            )
+        )
+    return CounterpartyListResponse(items=items, total=total)

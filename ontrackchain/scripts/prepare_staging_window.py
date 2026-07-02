@@ -342,6 +342,7 @@ def prepare_window(
         "Escolher o canal seguro para preencher secrets.",
         f"Preencher placeholders do arquivo `{private_env_file}`.",
         "Atualizar `docs/staging-env-ownership.md` em `## Registro de Handoff`.",
+        "Se a janela incluir `P0-02/P0-03`, confirmar `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` e reachability do `compliance-api` para o bundle regulatorio embutido.",
         f"Executar `python scripts/run_staging_window.py --window-id {window_id} --private-env-file {private_env_file}`.",
     ]
     if mode == "homologated":

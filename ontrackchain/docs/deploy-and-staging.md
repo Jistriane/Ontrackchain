@@ -15,6 +15,21 @@ Para execucao controlada via GitHub Actions, use tambem o workflow manual [stagi
 
 Para a primeira execucao seria, use tambem o [Checklist de Evidencia Minima da Primeira Janela Seria](first-serious-window-evidence-checklist.md) como filtro explicito de entrada, execucao e saida.
 
+## Escopo Canonico
+
+Use este documento para:
+
+- preparar e validar o deploy tecnico do ambiente
+- executar a cadeia tecnica de `prepare -> validate -> preflight -> run`
+- entender os comandos, artefatos e criterios tecnicos do rito consolidado
+
+Use os documentos abaixo quando o foco nao for deploy tecnico:
+
+- [Checklist de Provisionamento por Owner](staging-serious-window-owner-provisioning-checklist.md): preencher owners, handoff e placeholders por dominio
+- [Primeiro Disparo Real da Janela Seria](first-serious-window-first-dispatch-runbook.md): conduzir o primeiro rito operacional e o uso do war room
+- [Gates de Release para Staging Serio](project-release-gates.md): decidir `go/no-go` formal
+- [Folha de Preenchimento Manual da Janela `stg-2026-07-06-a`](governance-weekly/2026-07-06-staging-serious-window-manual-fill-sheet.md): preencher rapidamente owners, canais, bridges e validacoes da janela atual
+
 ## Estrategia Atual
 
 O projeto esta organizado para deploy baseado em containers, com `docker compose` como mecanismo principal no ambiente local e como referencia funcional para empacotamento.
@@ -177,56 +192,47 @@ Preserve como evidencia:
 - relatorios do Playwright critico e completo
 - quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true`, artefato de homologacao contendo download auditado de `legal_report`
 
-### 9. Preflight antes de homologacao AML/KYT e RPC
+### 9. Rito Consolidado da Janela
 
-Antes de abrir janela de provider real, valide a configuracao esperada:
+Fluxo tecnico recomendado:
 
-- baseline recomendado: [`.env.staging.example`](../.env.staging.example)
-- ownership recomendado: [Ownership do `.env.staging`](staging-env-ownership.md)
-- execute `python scripts/prepare_staging_window.py --window-id <janela> --mode baseline|homologated` para gerar template privado, `window packet` e diretórios-base da janela
-- apos preencher `.env.staging.private`, execute `python scripts/prepare_staging_window.py --window-id <janela> --mode baseline|homologated --validate` para persistir os gates locais antes da janela completa
-- se quiser antecipar tambem os preflights reais, execute `python scripts/prepare_staging_window.py --window-id <janela> --mode baseline|homologated --preflight`; esse modo implica validacao local
-- para um gate unico, execute `python scripts/prepare_staging_window.py --window-id <janela> --mode baseline|homologated --run`; esse modo implica validacao local, preflights e chama o runner completo apenas quando tudo estiver verde
-- execute `python scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md` para bloquear drift entre placeholders do baseline e a matriz de owners
-- execute `python scripts/render_staging_window_packet.py --window-id <janela> --output-file artifacts/staging/window-packet-<janela>.md` para gerar um pacote redigido da janela antes do preenchimento dos secrets
-- nao promova o ambiente enquanto existir qualquer placeholder `__FILL_*__`
-- execute `python scripts/check_staging_env_placeholders.py --file .env.staging.private` antes de `preflight_oidc_serious_env.py` e `preflight_external_integrations.py`
-- execute `python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md` para bloquear grupos ainda em `pending`, datas invalidas ou status fora da politica da janela
-- persista os JSONs dos checkers em `artifacts/staging/checks/` para alimentar o dossier final da janela
-- prefira `python scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private` para executar a cadeia completa com falha honesta e saídas persistidas
-
-```bash
-APP_ENV=staging \
-ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=live \
-ONTRACKCHAIN_EXPECT_RPC_MODE=fallback_only \
-COMPLIANCE_TRM_ENABLED=true \
-COMPLIANCE_TRM_SCREENING_URL=https://provider.example/screening \
-COMPLIANCE_TRM_API_KEY=*** \
-COMPLIANCE_TRM_TIMEOUT_MS=1500 \
-COMPLIANCE_TRM_MAX_RETRIES=1 \
-INVESTIGATION_RPC_ENABLED=true \
-INVESTIGATION_RPC_PRIMARY_URL= \
-INVESTIGATION_RPC_FALLBACK_URL=https://rpc-fallback.example \
-INVESTIGATION_RPC_TIMEOUT_MS=1500 \
-INVESTIGATION_RPC_MAX_RETRIES=1 \
-python scripts/preflight_external_integrations.py
-```
-
-Atalho recomendado:
+1. gerar a base da janela:
 
 ```bash
 python scripts/prepare_staging_window.py --window-id <janela> --mode baseline
-set -a
-. ./.env.staging.private
-set +a
-python scripts/preflight_external_integrations.py
 ```
 
-Ou, depois do preenchimento do `.env.staging.private`, prefira:
+1. preencher `.env.staging.private` fora do repositório e validar ownership/placeholders pelo checklist operacional:
+
+- [Checklist de Provisionamento por Owner](staging-serious-window-owner-provisioning-checklist.md)
+- [Ownership do `.env.staging`](staging-env-ownership.md)
+
+1. executar o gate tecnico unico:
 
 ```bash
 python scripts/prepare_staging_window.py --window-id <janela> --mode baseline --run
 ```
+
+1. para a execucao ponta a ponta local, preferir:
+
+```bash
+make run-serious-window-local WINDOW_ID=<janela> MODE=baseline
+```
+
+1. para a conducao operacional do primeiro rito, usar:
+
+- [Primeiro Disparo Real da Janela Seria](first-serious-window-first-dispatch-runbook.md)
+- [Gates de Release para Staging Serio](project-release-gates.md)
+- [War Room da Janela](governance-weekly/2026-07-06-staging-serious-window-war-room.md), quando houver coordenacao multi-owner
+
+Comandos auxiliares continuam canônicos para janelas com provedores reais:
+
+- `make check-compliance-provider-runtime`
+- `make run-eu-sanctions-window-local`
+- `make run-regulatory-readiness-bundle`
+- `python scripts/check_sanctions_sync_status.py`
+
+Se o checker rodar fora da rede do `docker compose`, substitua `INTERNAL_BASE_URL` por um endpoint interno realmente alcancavel no ambiente-alvo. O `compose` atual nao publica `8002` no host.
 
 Opcao equivalente em CI/CD controlado:
 

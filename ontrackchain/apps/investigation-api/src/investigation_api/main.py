@@ -19,6 +19,7 @@ from redis.asyncio import Redis
 
 from investigation_api.config.agent_concurrency import CONCURRENCY_LIMITS_MVP
 from investigation_api.rpc_provider import RpcProviderConfig, describe_rpc_readiness
+from ontrackchain_agents.evidence_integration import emit_evidence_event_sync
 
 logger = logging.getLogger(__name__)
 
@@ -718,6 +719,40 @@ def _record_audit_log(
             json.dumps(normalized_metadata),
         ),
     )
+
+    # ─── EVIDENCE TRAIL: piggyback no audit_log existente ─────────────────────
+    # Mapeia ações do audit_log para event_types da evidence_trail
+    _AUDIT_TO_EVIDENCE: dict[str, str] = {
+        "case_started":           "CASE_CREATED",
+        "case_completed":         "INVESTIGATION_COMPLETED",
+        "case_failed":            "CASE_UPDATED",
+        "compliance_risk_checked":"SANCTIONS_CHECKED",
+        "report_generated":       "REPORT_GENERATED",
+        "report_downloaded":      "REPORT_DOWNLOADED",
+        "operational_alerts_exported": "EVIDENCE_EXPORTED",
+    }
+    evidence_event_type = _AUDIT_TO_EVIDENCE.get(action)
+    if evidence_event_type:
+        case_id_str = (
+            str(resource_id)
+            if resource_id and resource_type == "case"
+            else normalized_metadata.get("case_id")
+        )
+        emit_evidence_event_sync(
+            cur=cur,
+            org_id=organization_id,
+            event_type=evidence_event_type,
+            event_payload={
+                "action": action,
+                "resource_type": resource_type,
+                "resource_id": str(resource_id) if resource_id else None,
+                **{k: v for k, v in normalized_metadata.items()
+                   if k not in ("external_user_id",)},  # evita duplicação
+            },
+            actor_user_id=persisted_user_id,
+            case_id=case_id_str,
+            regulatory_basis=["BCB 520 Art. 43 — Registro de operação"],
+        )
 
 
 def _record_authorization_denial(

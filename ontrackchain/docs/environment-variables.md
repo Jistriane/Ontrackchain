@@ -24,6 +24,7 @@ Template serio para homologacao:
 - execute `python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md` antes da janela para validar que todos os grupos obrigatorios sairam de `pending`
 - persista os JSONs desses checkers em `artifacts/staging/checks/` para que possam ser consolidados depois por `python scripts/build_staging_release_dossier.py`
 - para executar a janela ponta a ponta e persistir checks, preflights, homologacao e dossier em uma unica chamada, prefira `python scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private`
+- para organizar o provisionamento fora do repositorio por responsavel nominal, seguir o [Checklist de Provisionamento por Owner para Janela Seria](staging-serious-window-owner-provisioning-checklist.md)
 
 ## Variaveis Globais
 
@@ -106,6 +107,8 @@ Servicos que usam:
 | `COMPLIANCE_TRM_API_KEY_PREFIX` | `Bearer ` | prefixo aplicado antes da credencial no header |
 | `COMPLIANCE_TRM_TIMEOUT_MS` | `1500` | timeout por tentativa do provider AML/KYT |
 | `COMPLIANCE_TRM_MAX_RETRIES` | `1` | numero maximo de retries no adapter de `risk-check` |
+| `COMPLIANCE_OFAC_SDN_SOURCE_URL` | vazio | override opcional do `source_url` persistido em `sanctions_lists_meta` para o feed OFAC/SDN; o worker aplica o valor antes do sync |
+| `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` | vazio | override opcional do `source_url` persistido em `sanctions_lists_meta` para o feed EU; use para URLs XML tokenizadas obtidas no portal oficial |
 | `REPORT_INTERNAL_METRICS_ENABLED` | `true` | habilita endpoint interno agregado de report para scraping do Prometheus |
 | `REPORT_DOWNLOADS_LAST_24H_WARN_THRESHOLD` | `10` | limiar de alerta para volume alto de downloads de relatorio |
 | `REPORT_PENDING_ONCHAIN_WARN_THRESHOLD` | `3` | limiar para backlog de hash on-chain pendente |
@@ -138,6 +141,14 @@ Servicos que usam:
 | `MFA_TOTP_WINDOW` | `1` | tolerancia de janelas adjacentes para validacao do TOTP |
 | `MFA_EXTERNAL_PROVIDER_HOMOLOGATED` | `false` | quando `true`, permite tratar o MFA federado do provedor OIDC como homologado para fluxos sensiveis |
 | `ONTRACKCHAIN_HOMOLOGATION_OIDC_TOKEN` | vazio | token OIDC administrativo temporario usado para provar download homologado de `legal_report` via runner de janela |
+| `ONTRACKCHAIN_COMPLIANCE_INTERNAL_BASE_URL` | vazio | override opcional da base usada por `check_compliance_provider_runtime.py` para acessar `GET /internal/provider-readiness` |
+| `ONTRACKCHAIN_COMPLIANCE_PUBLIC_BASE_URL` | vazio | override opcional da base publica usada por `check_compliance_provider_runtime.py` para acessar o catalogo e `kyc-wallet` |
+| `ONTRACKCHAIN_EXPECTED_PLAN` | `professional` | plano enviado no checker leve de runtime AML/KYT quando a rota publica exigir contexto de plano |
+| `ONTRACKCHAIN_COMPLIANCE_SAMPLE_ADDRESS` | `0x000000000000000000000000000000000000dEaD` | carteira de amostra usada pelo checker leve de runtime AML/KYT |
+| `ONTRACKCHAIN_COMPLIANCE_SAMPLE_CHAIN` | `ethereum` | chain da carteira de amostra usada pelo checker leve de runtime AML/KYT |
+| `ONTRACKCHAIN_BEARER_TOKEN` | vazio | token opcional para o checker leve de runtime AML/KYT quando a rota publica exigir `Authorization: Bearer` |
+| `ONTRACKCHAIN_API_KEY` | vazio | API key opcional para o checker leve de runtime AML/KYT e para homologacoes externas |
+| `ONTRACKCHAIN_HTTP_TIMEOUT_SECONDS` | `10` | timeout HTTP do checker leve de runtime AML/KYT |
 | `OIDC_ISSUER_URL` | `http://auth.localhost:8080/realms/ontrackchain` | issuer do provedor OIDC |
 | `OIDC_AUDIENCE` | `ontrackchain-api` | audience do token OIDC |
 | `OIDC_CLIENT_ID` | `ontrackchain-web` | client id OIDC, usado como fallback de audience |
@@ -152,6 +163,7 @@ Observacao atual de planejamento:
 - para a `Sprint 1` o preset arquitetural escolhido e `OIDC_PROVIDER=keycloak`
 - `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=false` continua sendo o default conservador; so deve virar `true` apos validacao formal do MFA federado no ambiente serio
 - quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true`, a janela seria deve fornecer `ONTRACKCHAIN_HOMOLOGATION_OIDC_TOKEN` para que a homologacao externa prove o download auditado de `legal_report`
+- `check_compliance_provider_runtime.py` usa `ONTRACKCHAIN_COMPLIANCE_INTERNAL_BASE_URL` e `ONTRACKCHAIN_COMPLIANCE_PUBLIC_BASE_URL` quando presentes; se ausentes, cai para defaults locais e pode exigir execucao de dentro da rede do ambiente
 - o primeiro corte serio de login deve usar `Redirect Web`, nao token manual colado no frontend
 - o preset `generic` continua util como fallback tecnico, mas nao e mais a referencia principal do proximo incremento
 - o host recomendado do Keycloak passou a ser um subdominio dedicado, preferencialmente `auth.ontrackchain.com`
@@ -272,6 +284,7 @@ Variaveis observadas em [main.py](../apps/compliance-api/src/compliance_api/main
 Observacao:
 
 - `REPORT_API_BASE_URL` tem default `http://report-api:8004`
+- o worker de compliance tambem observa `COMPLIANCE_OFAC_SDN_SOURCE_URL` e `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` para sobrescrever o `source_url` persistido antes da sincronizacao das listas
 
 ### Monitoring API
 
@@ -330,6 +343,7 @@ Variaveis observadas em [main.py](../apps/report-api/src/report_api/main.py):
 - preferir `AUTH_MODE=oidc`
 - selecionar `OIDC_PROVIDER` antes de sobrescrever claims manualmente
 - preencher issuer, JWKS/authorization endpoint e claims do provedor real quando necessario
+- quando o feed publico da UE responder com `403`, preencher `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` com a URL XML tokenizada obtida em `https://webgate.ec.europa.eu/fsd/fsf#!/files`
 
 Presets atuais:
 

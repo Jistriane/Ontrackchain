@@ -2,180 +2,150 @@
 
 ## Objetivo
 
-Relacionar cada fluxo critico do scaffold com:
+Relacionar os fluxos criticos do Ontrackchain com:
 
-- eventos auditados
-- identificadores de correlacao
-- artefatos gerados
+- eventos em `audit_logs`
+- eventos em `evidence_trail`
+- hashes e identificadores de correlacao
+- artefatos operacionais e regulatorios
 - validacao automatizada existente
-
-Este documento ajuda a responder: "que evidencia tecnica o sistema gera hoje para provar que um fluxo ocorreu da forma esperada?"
 
 ## Estrutura da Evidencia
 
-Cada evidencia relevante deve idealmente permitir correlacao entre:
+Toda evidencia relevante deve permitir correlacao entre:
 
-- request
-- usuario/organizacao
+- `request_id`
+- `organization_id`
+- ator (`user_id` ou `linked_user_id`)
 - recurso afetado
-- relatorio gerado ou baixado
-- hash do artefato
+- hash do artefato ou snapshot
+- base regulatoria quando aplicavel
 
 ## Matriz Atual
 
-| Fluxo | Evento(s) | Chaves de Correlacao | Artefato | Validacao Atual |
-|---|---|---|---|---|
-| Investigation start | `case_started` | `request_id`, `resource_id` | case | smoke |
-| Investigation complete | `case_completed` | `request_id`, `resource_id` | status final | smoke parcial |
-| Investigation fail | `case_failed` | `request_id`, `resource_id` | status final | cobertura indireta |
-| Billing drift | `case_flagged_billing_recalc_required` | `request_id`, `resource_id` | ajuste pendente | smoke |
-| Compliance risk check | `compliance_risk_checked` | `request_id`, endereco, chain | score e dimensoes | Playwright |
-| Compliance report generate | `report_generated` | `request_id`, `resource_id`, `report_id`, `file_hash_sha256` | report logico | smoke + Playwright |
-| Compliance report download | `report_downloaded` | `request_id`, `case_id`, `report_id`, `file_hash_sha256` | PDF baixado | smoke |
-| Legal report pre-2FA | ausencia de `report_downloaded` | `request_id` | tentativa negada | smoke + Playwright |
-| Legal report pos-2FA | `report_downloaded` | `request_id`, `case_id`, `report_id`, `file_hash_sha256` | PDF baixado | smoke + Playwright |
-| Monitoring start | `case_started` | `request_id`, `resource_id` | case/watchlist | smoke |
-| Monitoring alert | alerta persistido | `watchlist_id`, `address`, `chain` | `monitoring_alerts` | smoke + Playwright |
-| Operational alert export | `operational_alerts_exported` | `request_id`, `organization_id`, `filters`, `scope` | arquivo `CSV/JSON` + trilha de auditoria | Playwright |
-| RBAC deny (core admin) | `authorization_denied` | `request_id`, `effective_role`, `allowed_roles`, `endpoint` | tentativa negada em `monitoring`, `investigation` ou `audit/logs` | Playwright |
+| Fluxo | `audit_logs` | `evidence_trail` | Chaves | Artefato | Validacao |
+| --- | --- | --- | --- | --- | --- |
+| Investigation start | `case_started` | opcional por integracao | `request_id`, `case_id` | case | smoke |
+| Investigation complete | `case_completed` | opcional por integracao | `request_id`, `case_id` | resultado final | smoke |
+| Compliance risk check | `compliance_risk_checked` | nao obrigatoria | `request_id`, `address`, `chain` | payload do provider | smoke/tests |
+| Sanctions check sem hit | `compliance_sanctions_checked` | `SANCTIONS_CHECKED` | `request_id`, `address`, `chain` | cache local | endpoint/testes |
+| Sanctions check com hit | `compliance_sanctions_checked` | `SANCTIONS_HIT` | `request_id`, `address`, `chain`, `matched_lists` | hit cacheado | endpoint/testes |
+| Preventive block | `preventive_block_evaluated` | `BLOCK_*` conforme decisao | `request_id`, `block_id`, `evidence_hash` | `preventive_blocks` | testes/domain |
+| Block lift | `preventive_block_lifted` | `BLOCK_LIFTED` | `block_id`, `lifted_at` | update controlado | endpoint |
+| Counterparty onboarding | `counterparty_created` ou equivalente | `COUNTERPARTY_ONBOARDED` | `counterparty_id`, `document_number`, `evidence_hash` | `counterparties` | endpoint |
+| ROS gerado | `coaf_report_generated` | `COAF_ROS_GENERATED` | `ros_id`, `report_id`, `file_hash_sha256` | `reports` + `ros_records` | endpoint/runtime |
+| ROS aprovado | `coaf_report_approved` | `COAF_ROS_APPROVED` | `ros_id`, `status` | `ros_records` | endpoint/runtime |
+| ROS rejeitado | `coaf_report_rejected` | `COAF_ROS_REJECTED` | `ros_id`, `rejection_reason` | `ros_records` | endpoint/runtime |
+| ROS submetido manualmente | `coaf_report_submitted_manual` | `COAF_ROS_SUBMITTED_MANUAL` | `ros_id`, `coaf_protocol_number`, `coaf_receipt_hash` | `ros_records` | endpoint/runtime |
+| Download de relatorio | `report_downloaded` | `REPORT_DOWNLOADED` quando integrado | `request_id`, `report_id`, `file_hash_sha256` | PDF | smoke/E2E |
+| Export administrativo global | `operational_alerts_exported` | nao obrigatoria | `request_id`, `scope`, `format` | CSV/JSON | Playwright |
+| Bundle de evidencia | `evidence_bundle_exported` | `EVIDENCE_EXPORTED` quando aplicavel | `request_id`, filtros | bundle JSON | UI/API |
+| Negacao administrativa | `authorization_denied` | nao obrigatoria | `request_id`, `effective_role`, endpoint | tentativa negada | Playwright |
 
 ## Evidencias por Dominio
 
-### Investigation
+### Sancoes e Compliance
 
-Evidencias disponiveis:
+Fontes:
 
-- `audit_logs` com `case_started`, `case_completed`, `case_failed`
-- `credit_ledger` com trilha financeira
-- `cases` com estado final
+- `sanctions_lists_meta`
+- `sanctions_hits_cache`
+- `audit_logs`
+- `evidence_trail`
+- `artifacts/homologation/`
 
-Principais chaves:
+Chaves relevantes:
 
-- `request_id`
-- `case_id`
-- `organization_id`
-
-### Compliance
-
-Evidencias disponiveis:
-
-- `compliance_risk_checked`
-- `report_generated`
-- `report_downloaded`
-- `file_hash_sha256`
-
-Principais chaves:
-
-- `request_id`
-- `case_id`
-- `report_id`
-- `file_hash_sha256`
-
-### Monitoring
-
-Evidencias disponiveis:
-
-- `case_started`
-- `monitoring_alerts`
-- `operational_alert_events`
-- `operational_alerts_exported`
-
-Principais chaves:
-
-- `request_id`
-- `watchlist_id`
+- `list_name`
+- `source_url`
+- `last_sync_hash`
 - `address`
-- `receiver`
-- `service`
+- `matched_lists`
+- `request_id`
 
-## Artefatos Auditaveis
+### Bloqueios Preventivos
 
-### `audit_logs`
+Fontes:
 
-Campos de maior valor:
+- `preventive_blocks`
+- `audit_logs`
+- `evidence_trail`
 
-- `organization_id`
-- `user_id`
-- `action`
-- `resource_type`
-- `resource_id`
-- `metadata.request_id`
-- `metadata.report_id`
-- `metadata.file_hash_sha256`
+Chaves relevantes:
 
-### `credit_ledger`
+- `block_id`
+- `evidence_hash`
+- `evidence_trail_event_hash`
+- `coaf_ros_required`
 
-Campos de maior valor:
+### Contrapartes
 
-- `organization_id`
-- `entry_type`
-- `credits`
-- `metadata.quote_id`
-- `metadata.request_id`
+Fontes:
 
-### `reports`
+- `counterparties`
+- `counterparty_history`
+- `evidence_trail`
 
-Campos de maior valor:
+Chaves relevantes:
 
-- `case_id`
-- `report_type_requested`
-- `external_report_id`
-- `content_type`
+- `counterparty_id`
+- `document_type`
+- `document_number`
+- `risk_level`
+- `next_review_date`
 
-## O que o Smoke Valida Hoje
+### ROS/COAF
 
-- request IDs deterministas por etapa
-- correlacao `request_id -> action`
-- correlacao `request_id -> resource_id`
-- correlacao `request_id -> report_id`
-- correlacao `request_id -> file_hash_sha256`
-- ausencia de download auditado antes do 2FA
-- presenca de download auditado apos o 2FA
+Fontes:
 
-## O que o Playwright Valida Hoje
+- `ros_records`
+- `reports`
+- `audit_logs`
+- `evidence_trail`
 
-- jornada real do browser
-- fluxo `OIDC` critico e regressao local de autenticacao controlada
-- tentativa negada de `legal_report`
-- tentativa bem-sucedida apos 2FA
-- presenca/ausencia correta de `report_downloaded`
+Chaves relevantes:
 
-## Gaps de Evidencia
+- `ros_id`
+- `report_id`
+- `pdf_hash`
+- `coaf_protocol_number`
+- `coaf_receipt_hash`
+- `submission_deadline`
 
-### 1. Eventos Negados Persistidos
+## Evidencias Operacionais de Staging
 
-- hoje a tentativa negada pode ser inferida por ausencia de evento de download
-- gap:
-  - nao existe ainda um evento dedicado como `report_download_blocked`
+Artefatos relevantes:
 
-### 2. Exportacao de Evidencia
+- `artifacts/staging/checks/*.json`
+- `artifacts/staging/checks/*-eu-sanctions-preflight.json`
+- `artifacts/staging/checks/*-eu-sanctions-sync.json`
+- `artifacts/staging/window-packet-*.md`
+- `artifacts/staging/dossiers/*.json`
+- `artifacts/homologation/*.json`
+- `*.manifest.json`
 
-- existe export administrativo auditado para incidentes globais de plataforma
-- avancou:
-  - agora existe bundle auditado e filtravel cruzando `audit_logs`, `credit_ledger` e metadados de `reports`
-- gap residual:
-  - ainda falta expandir o bundle para artefatos complementares de compliance/manual review quando houver necessidade regulatoria especifica
+Scripts canonicos:
 
-### 3. Versionamento de Artefatos
+- `prepare_staging_window.py`
+- `run_staging_window.py`
+- `preflight_external_integrations.py`
+- `check_compliance_provider_runtime.py`
+- `run_eu_sanctions_window.py`
+- `check_sanctions_sync_status.py`
+- `build_staging_release_dossier.py`
 
-- os relatorios sao deterministas, mas ainda nao ha versionamento de template/renderer
+## Gaps Residuais da Matriz
 
-### 4. Cadeia Operacional
-
-- nao ha trilha formal de aprovacao humana ou revisao juridica
+- nem todo evento negativo sensivel possui espelho em `evidence_trail`; parte continua apenas em `audit_logs`
+- janelas `AML/KYT live` e UE ainda dependem de evidencia institucional recorrente, apesar dos guardrails tecnicos estarem prontos
+- artefatos de manual review para `due_diligence` e `source_of_funds` ainda nao estao modelados como bundle regulatorio proprio
 
 ## Uso Recomendado
 
-Esta matriz deve ser consultada quando:
+Consultar esta matriz quando:
 
-- houver incidente
-- for necessario demonstrar trilha de auditoria
-- uma nova feature impactar fluxo sensivel
-- for criada nova validacao automatizada
+- um fluxo sensivel for alterado
+- houver incidente regulatorio ou operacional
+- for necessario anexar prova tecnica a uma janela seria
+- um novo endpoint passar a gerar hash, evidencia ou export controlado
 
-## Evolucao Recomendada
-
-- adicionar eventos explicitos de negacao
-- expandir o bundle atual para incluir mais dominios alem de `audit_logs`, `credit_ledger` e `reports`, preservando filtros por `request_id`, `case_id`, `report_id`
-- incluir hash e versionamento de template em todos os reports sensiveis
-- ligar esta matriz a dashboards/consultas operacionais no frontend

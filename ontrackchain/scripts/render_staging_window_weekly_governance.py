@@ -73,6 +73,7 @@ def build_weekly_sync_model(
     run_payload = (payload.get("run") or {}).get("payload") or {}
     release_dossier = safe_get_step(run_payload, "release_dossier")
     homologation = safe_get_step(run_payload, "homologation")
+    regulatory_bundle = safe_get_step(run_payload, "regulatory_readiness_bundle")
     artifact_name = f"serious-staging-window-{window_id}"
     artifact_ref = f"artifact `{artifact_name}`"
 
@@ -100,6 +101,7 @@ def build_weekly_sync_model(
         "window_packet_path": safe_get_value((payload.get("artifacts") or {}).get("window_packet_file")),
         "dossier_path": safe_get_value(release_dossier.get("artifact_file")),
         "homologation_path": safe_get_value(homologation.get("artifact_file")),
+        "regulatory_bundle_path": safe_get_value(regulatory_bundle.get("output_file")),
         "run_stg_status": run_stg_status,
         "next_evidence": next_evidence,
         "payload_json_path": str(payload_file),
@@ -120,6 +122,20 @@ def update_weekly_governance_markdown(content: str, model: dict[str, str]) -> st
     replace_line(lines, "- window packet:", f"- window packet: `{model['window_packet_path']}`")
     replace_line(lines, "- dossier:", f"- dossier: `{model['dossier_path']}`")
     replace_line(lines, "- homologation:", f"- homologation: `{model['homologation_path']}`")
+    try:
+        replace_line(
+            lines,
+            "- regulatory-readiness-bundle:",
+            f"- regulatory-readiness-bundle: `{model['regulatory_bundle_path']}`",
+        )
+    except ValueError:
+        for index, line in enumerate(lines):
+            if line.startswith("- homologation:"):
+                lines.insert(
+                    index + 1,
+                    f"- regulatory-readiness-bundle: `{model['regulatory_bundle_path']}`",
+                )
+                break
 
     replace_after_anchor(lines, "- ID: `RUN-STG-01`", "  - status atual:", f"  - status atual: `{model['run_stg_status']}`")
     replace_after_anchor(

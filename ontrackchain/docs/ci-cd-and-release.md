@@ -6,25 +6,33 @@ Documentar o pipeline atual de validacao automatizada e o processo recomendado d
 
 ## Pipeline Atual
 
-Workflow existente:
+Workflows canônicos:
 
 - [e2e-tests.yml](../../.github/workflows/e2e-tests.yml)
 - [quality-gates.yml](../../.github/workflows/quality-gates.yml)
 - [staging-serious-window.yml](../../.github/workflows/staging-serious-window.yml)
 
-Nome:
+Workflow de regressao end-to-end:
 
 - `Validation — Smoke and E2E`
 
-Jobs atuais:
+Jobs atuais em `Validation — Smoke and E2E`:
+
+- `build`
+- `smoke`
+- `playwright`
+- `playwright-dev-auth`
+
+Workflow de qualidade por componente:
+
+- `Quality Gates — Per App`
+
+Jobs atuais em `Quality Gates — Per App`:
 
 - `security-baseline`
 - `preflight-regressions`
 - `frontend-audit`
 - `postgres-schema`
-- `build`
-- `smoke`
-- `playwright`
 - `frontend-typecheck`
 - `python-quality`
 
@@ -38,6 +46,8 @@ Workflow manual dedicado:
 - configuracao operacional detalhada em [GitHub Environment para Staging Sério](github-environment-staging-serious.md)
 
 ## O que a Pipeline Faz
+
+As secoes abaixo descrevem primeiro o workflow `Validation — Smoke and E2E`, depois os gates adicionais de `Quality Gates — Per App` e por fim o workflow manual `Staging Serious Window`.
 
 ## Job `build`
 
@@ -149,6 +159,39 @@ npx playwright test
 
 - sobe `test-results`
 - sobe `playwright-diagnostics`
+
+## Job `playwright-dev-auth`
+
+### 17. Checkout + Build da Stack em `dev auth`
+
+- sobe a stack com `AUTH_MODE=dev` e `DEV_AUTH_ENABLED=true`
+
+### 18. Espera o Gateway
+
+- repete o gate de readiness
+
+### 19. Setup Node.js + Dependencias
+
+- instala dependencias do frontend e browsers do Playwright
+
+### 20. Executa Suite `dev-auth`
+
+Variaveis atuais:
+
+- `TEST_BASE_URL=http://localhost:8080`
+- `ONTRACKCHAIN_API_KEY=otc_live_demo_key`
+
+Comando:
+
+```bash
+npm run test:e2e:dev-auth
+```
+
+### 21. Publica Artefatos
+
+- sobe `playwright-dev-auth-results`
+- sobe `playwright-dev-auth-html-report`
+- sobe `playwright-dev-auth-diagnostics`
 
 ## Cobertura Atual da CI
 
@@ -349,6 +392,10 @@ Checklist:
 - trilha auditavel consultavel
 - `legal_report` com enforcement correto
 - readiness regulatorio revisado
+- bundle `AML/KYT live` e gate de runtime anexados quando o escopo exigir
+- JSONs da janela UE anexados quando o escopo exigir `EU_CONSOLIDATED`
+- quando houver `AML/KYT live`, `make check-compliance-provider-runtime` verde e anexado
+- quando houver feed UE, `make run-eu-sanctions-window-local` ou fluxo equivalente com JSONs anexados
 
 ## Processo Recomendado de Release
 
@@ -360,6 +407,7 @@ PR -> CI -> merge -> staging tecnico -> staging regulatorio -> aprovacao -> prod
 
 - CI verde
 - smoke verde no ambiente alvo
+- artefatos obrigatorios da janela anexados quando houver provider real
 - nenhuma regressao em:
   - `plan lock`
   - `report_generated`

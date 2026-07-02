@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS reports (
   file_path VARCHAR(500),
   file_hash VARCHAR(64),
   onchain_hash VARCHAR(255),
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   is_coaf_ready BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -105,7 +106,8 @@ CREATE TABLE IF NOT EXISTS reports (
 ALTER TABLE reports
   ADD COLUMN IF NOT EXISTS external_report_id VARCHAR(64),
   ADD COLUMN IF NOT EXISTS report_type_requested VARCHAR(50),
-  ADD COLUMN IF NOT EXISTS content_type VARCHAR(100);
+  ADD COLUMN IF NOT EXISTS content_type VARCHAR(100),
+  ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 CREATE TABLE IF NOT EXISTS watchlists (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -275,7 +277,20 @@ CREATE INDEX IF NOT EXISTS idx_cases_org_id ON cases(organization_id);
 CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(status);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_case_id ON agent_runs(case_id);
 CREATE INDEX IF NOT EXISTS idx_reports_case_id ON reports(case_id);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_reports_external_report_id ON reports(external_report_id) WHERE external_report_id IS NOT NULL;
+DROP INDEX IF EXISTS uq_reports_external_report_id;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'uq_reports_external_report_id'
+      AND conrelid = 'reports'::regclass
+  ) THEN
+    ALTER TABLE reports
+      ADD CONSTRAINT uq_reports_external_report_id UNIQUE (external_report_id);
+  END IF;
+END
+$$;
 CREATE INDEX IF NOT EXISTS idx_watchlists_org_id ON watchlists(organization_id);
 CREATE INDEX IF NOT EXISTS idx_watchlist_items_watchlist_id ON watchlist_items(watchlist_id);
 CREATE INDEX IF NOT EXISTS idx_monitoring_alerts_org_id ON monitoring_alerts(organization_id);

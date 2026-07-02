@@ -11,7 +11,8 @@ from functools import lru_cache
 from typing import Annotated, Optional
 
 import jwt
-from fastapi import Depends, FastAPI, Header, HTTPException, Response
+import redis.asyncio as aioredis
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 from psycopg.rows import dict_row
@@ -46,6 +47,9 @@ class Settings(BaseSettings):
     postgres_user: str = "ontrackchain"
     postgres_password: str = "ontrackchain"
     postgres_db: str = "ontrackchain"
+    # Redis — blocklist Stage 1 (pre-screening preventivo)
+    redis_host: str = "redis"
+    redis_port: int = 6379
 
 
 settings = Settings()
@@ -75,12 +79,19 @@ def _dsn() -> str:
 @app.on_event("startup")
 async def _startup() -> None:
     app.state.pool = ConnectionPool(conninfo=_dsn(), kwargs={"row_factory": dict_row})
+    # Redis client para pre-screening Stage 1 (blocklist preventiva)
+    app.state.redis = aioredis.Redis(
+        host=settings.redis_host,
+        port=settings.redis_port,
+        decode_responses=True,
+    )
 
 
 @app.on_event("shutdown")
 async def _shutdown() -> None:
     pool: ConnectionPool = app.state.pool
     pool.close()
+    await app.state.redis.aclose()
 
 
 def get_pool() -> ConnectionPool:
@@ -461,8 +472,61 @@ async def health() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/validate/block-check")
+async def validate_block_check(
+    request: Request,
+    response: Response,
+) -> dict:
+    """
+    Endpoint de pre-screening Stage 1 — blocklist Redis.
+
+    Chamado como ForwardAuth pelo Traefik para rotas de escrita
+    (transações, investigações, relatórios) ANTES da validação de JWT.
+
+    Latência alvo: < 50ms (Redis SISMEMBER O(1)).
+
+    Retorna 200 se o endereço NÃO está bloqueado.
+    Retorna 451 (Legal Reason) se está na blocklist confirmada.
+    O Traefik interpreta qualquer não-2xx como bloqueio e retorna 403 ao client.
+    """
+    from auth_service.pre_screening import pre_screen_blocklist
+
+    redis_client: aioredis.Redis = request.app.state.redis
+    blocked_response = await pre_screen_blocklist(request, redis_client)
+
+    if blocked_response is not None:
+        # Copia headers do response de bloqueio para o response atual
+        for key, value in blocked_response.headers.items():
+            response.headers[key] = value
+        response.status_code = 451
+        return {"status": "blocked", "stage": "gateway_pre_screening"}
+
+    return {"status": "pass", "stage": "gateway_pre_screening"}
+
+
 @app.get("/validate")
-async def validate(response: Response, auth: dict = Depends(_require_auth)) -> dict:
+async def validate(
+    request: Request,
+    response: Response,
+    auth: dict = Depends(_require_auth),
+) -> dict:
+    """
+    Validação JWT/OIDC com pre-screening de blocklist integrado.
+    Stage 1 (Redis) é executado antes de qualquer processamento de auth.
+    """
+    # Stage 1: Pre-screening blocklist antes de validar JWT
+    from auth_service.pre_screening import pre_screen_blocklist
+
+    redis_client: aioredis.Redis = request.app.state.redis
+    blocked_response = await pre_screen_blocklist(request, redis_client)
+
+    if blocked_response is not None:
+        for key, value in blocked_response.headers.items():
+            response.headers[key] = value
+        response.status_code = 451
+        return {"status": "blocked", "stage": "gateway_pre_screening"}
+
+    # Stage 2: Validação JWT/OIDC normal
     response.headers["X-Org-Id"] = auth["org_id"]
     response.headers["X-User-Id"] = auth["user_id"]
     if auth.get("linked_user_id"):
@@ -471,7 +535,9 @@ async def validate(response: Response, auth: dict = Depends(_require_auth)) -> d
     response.headers["X-Role"] = auth["role"]
     response.headers["X-Auth-Method"] = auth["auth_method"]
     response.headers["X-MFA-Mode"] = auth["mfa_mode"]
-    response.headers["X-MFA-Provider-Homologated"] = "true" if auth.get("mfa_provider_homologated") else "false"
+    response.headers["X-MFA-Provider-Homologated"] = (
+        "true" if auth.get("mfa_provider_homologated") else "false"
+    )
     return {"status": "ok", "linked_user_id": auth.get("linked_user_id")}
 
 
