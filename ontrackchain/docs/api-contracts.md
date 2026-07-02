@@ -76,7 +76,6 @@ Response exemplo:
 }
 ```
 
-
 ### `POST /api/v1/compliance/blocks/evaluate`
 
 Uso:
@@ -319,6 +318,118 @@ Uso:
 - exportar backlog global em `csv|json`
 - gera `operational_alerts_exported` em `audit_logs`
 
+## Operations API
+
+### `GET /api/v1/operations/work-items`
+
+Uso:
+
+- listar a fila operacional compartilhada por `module`, `resource_type`, `queue_status`, `owner_user_id` e `limit`
+
+Comportamento atual:
+
+- roda no `compliance-api`
+- aplica `RLS` por `organization_id`
+- suporta o bootstrap atual do frontend em `sanctions` e `alerts`
+
+Query params relevantes:
+
+- `module`
+- `resource_type`
+- `queue_status`
+- `owner_user_id`
+- `limit`
+
+Response exemplo:
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "module": "sanctions",
+      "resource_type": "sanctions_screening",
+      "resource_id": "uuid",
+      "case_id": null,
+      "owner_user_id": null,
+      "queue_status": "UNDER_REVIEW",
+      "priority": "high",
+      "due_at": "2026-07-02T20:00:00Z",
+      "title": "Sanctions HIT • 0xabc...",
+      "note": "hit exige triagem",
+      "metadata": {
+        "address": "0xabc...",
+        "chain": "ethereum",
+        "owner_label": "analyst-a"
+      },
+      "created_at": "2026-07-02T12:00:00Z",
+      "updated_at": "2026-07-02T12:05:00Z",
+      "last_activity_at": "2026-07-02T12:05:00Z"
+    }
+  ]
+}
+```
+
+### `POST /api/v1/operations/work-items`
+
+Uso:
+
+- criar ou fazer `upsert` da fila compartilhada por `organization_id + resource_type + resource_id`
+
+Corpo:
+
+```json
+{
+  "module": "alerts",
+  "resource_type": "operational_alert",
+  "resource_id": "uuid",
+  "case_id": null,
+  "priority": "critical",
+  "queue_status": "UNDER_REVIEW",
+  "due_at": null,
+  "title": "Alert HighErrorRate",
+  "note": "incidente aberto para triagem",
+  "metadata": {
+    "service": "monitoring-api",
+    "severity": "critical",
+    "triage_status": "pending"
+  }
+}
+```
+
+Observacoes:
+
+- o endpoint aceita os modulos `alerts`, `sanctions`, `blocks`, `reports`, `ros_coaf`, `counterparties` e `evidence`
+- `sanctions` persiste o `owner` textual atual em `metadata.owner_label`, porque o assignment formal por `owner_user_id` ainda nao esta completo no frontend
+
+### `PATCH /api/v1/operations/work-items/{work_item_id}`
+
+Uso:
+
+- atualizar prioridade, status, prazo, titulo, nota e `metadata`
+
+Regras importantes:
+
+- transicoes invalidas retornam `409 invalid_transition`
+- `REJECTED` exige nota e retorna `422 note_required_for_rejected` se ausente
+
+### `GET /api/v1/operations/work-items/{work_item_id}/timeline`
+
+Uso:
+
+- recuperar timeline operacional de transicoes e eventos do work-item
+
+### `POST /api/v1/operations/work-items/{work_item_id}/comments`
+
+Uso:
+
+- registrar comentario estruturado de `note`, `decision` ou `handoff`
+
+Leitura canonica atual do frontend:
+
+- `/sanctions` consome `GET/POST/PATCH /work-items` como fonte primaria da fila operacional
+- `/alerts` consome `GET/POST/PATCH /work-items` para rastrear incidentes e encerrar o item compartilhado ao fazer `ack`
+
 ## Erros Relevantes
 
 ### Auth e RBAC
@@ -342,6 +453,8 @@ Uso:
 - `422 rejection_reason_required`
 - `422 coaf_protocol_number_required`
 - `422 coaf_receipt_hash_must_be_sha256`
+- `409 invalid_transition`
+- `422 note_required_for_rejected`
 
 ## Notas de Contrato
 

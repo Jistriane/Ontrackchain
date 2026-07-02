@@ -1,42 +1,29 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "../../components/i18n-provider";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
-
-type AuditLogEntry = {
-  id: string;
-  user_id: string | null;
-  action: string;
-  resource_type: string;
-  resource_id: string | null;
-  request_id: string | null;
-  report_id: string | null;
-  file_hash_sha256: string | null;
-  metadata: Record<string, unknown>;
-  created_at: string | null;
-};
-
-type AuditResponse = {
-  data: AuditLogEntry[];
-  page: number;
-  count: number;
-  limit: number;
-  total: number;
-  total_pages: number;
-  has_more: boolean;
-  filters?: Record<string, string | null>;
-};
-
-type AuditFilters = {
-  requestId: string;
-  action: string;
-  resourceType: string;
-  reportId: string;
-  resourceId: string;
-  limit: string;
-};
+import {
+  buildAuditLogQuery,
+  extractAuditApiError,
+  type AuditLogEntry,
+  type AuditLogQueryFilters,
+  type AuditLogsResponse
+} from "../lib/audit-log";
+import {
+  buildBlocksHref,
+  buildCaseHref,
+  buildCounterpartyHref,
+  buildEvidenceHref,
+  buildInvestigateHref,
+  buildReportsHref,
+  buildRosHref,
+  buildSanctionsHref,
+  inferLogOperationalContext
+} from "../lib/operational-context";
+type AuditFilters = AuditLogQueryFilters;
 
 const DEFAULT_FILTERS: AuditFilters = {
   requestId: "",
@@ -47,20 +34,9 @@ const DEFAULT_FILTERS: AuditFilters = {
   limit: "50"
 };
 
-function buildQuery(filters: AuditFilters, page: number) {
-  const params = new URLSearchParams();
-  if (filters.requestId.trim()) params.set("request_id", filters.requestId.trim());
-  if (filters.action.trim()) params.set("action", filters.action.trim());
-  if (filters.resourceType.trim()) params.set("resource_type", filters.resourceType.trim());
-  if (filters.reportId.trim()) params.set("report_id", filters.reportId.trim());
-  if (filters.resourceId.trim()) params.set("resource_id", filters.resourceId.trim());
-  params.set("page", String(page));
-  params.set("limit", filters.limit);
-  return params.toString();
-}
-
 export default function AuditPage() {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
   const [filters, setFilters] = useState<AuditFilters>(DEFAULT_FILTERS);
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [count, setCount] = useState(0);
@@ -75,19 +51,31 @@ export default function AuditPage() {
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
   const latestRequestRef = useRef(0);
 
+  function filtersFromSearchParams(): AuditFilters {
+    return {
+      requestId: searchParams.get("request_id") ?? "",
+      action: searchParams.get("action") ?? "",
+      resourceType: searchParams.get("resource_type") ?? "",
+      reportId: searchParams.get("report_id") ?? "",
+      resourceId: searchParams.get("resource_id") ?? "",
+      limit: searchParams.get("limit") ?? DEFAULT_FILTERS.limit
+    };
+  }
+
   async function fetchLogs(nextFilters: AuditFilters, page = 1) {
     const requestNumber = latestRequestRef.current + 1;
     latestRequestRef.current = requestNumber;
     setLoading(true);
     setError(null);
     setNotice(null);
-    const query = buildQuery(nextFilters, page);
+    const query = buildAuditLogQuery(nextFilters, page);
     const res = await fetch(`/api/app/audit/logs?${query}`, { cache: "no-store" });
-    const data = (await res.json().catch(() => null)) as AuditResponse | { error?: string } | null;
+    const data = (await res.json().catch(() => null)) as AuditLogsResponse | { error?: string } | null;
     if (requestNumber !== latestRequestRef.current) {
       return;
     }
     if (!res.ok) {
+      const apiError = extractAuditApiError(data);
       setLogs([]);
       setCount(0);
       setTotal(0);
@@ -96,8 +84,8 @@ export default function AuditPage() {
       setHasMore(false);
       setSelectedLog(null);
       setError(
-        data && "error" in data && data.error
-          ? t("audit.errorLoadWithMessage", { message: resolveApiErrorMessage(t, data.error, data.error) })
+        apiError
+          ? t("audit.errorLoadWithMessage", { message: resolveApiErrorMessage(t, apiError, apiError) })
           : t("audit.errorLoad")
       );
       setLoading(false);
@@ -117,18 +105,21 @@ export default function AuditPage() {
   }
 
   useEffect(() => {
-    fetchLogs(DEFAULT_FILTERS).catch(() => {
+    const nextFilters = filtersFromSearchParams();
+    setFilters(nextFilters);
+    fetchLogs(nextFilters).catch(() => {
       if (latestRequestRef.current > 1) {
         return;
       }
       setError(t("audit.errorLoad"));
       setLoading(false);
     });
-  }, [t]);
+  }, [searchParams, t]);
 
   const activeFilterCount = useMemo(() => {
     return [filters.requestId, filters.action, filters.resourceType, filters.reportId, filters.resourceId].filter((value) => value.trim()).length;
   }, [filters]);
+  const selectedContext = useMemo(() => (selectedLog ? inferLogOperationalContext(selectedLog) : null), [selectedLog]);
 
   function updateFilter<K extends keyof AuditFilters>(key: K, value: AuditFilters[K]) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -220,7 +211,7 @@ export default function AuditPage() {
       </MetricGrid>
 
       <Panel title={t("audit.filters.title")} description={t("audit.filters.description")}>
-        <div className="otc-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+        <div className="otc-grid otc-grid--audit-filters">
           <label className="otc-field">
             {t("audit.filters.requestId")}
             <input className="otc-input" data-testid="audit-filter-request-id" value={filters.requestId} onChange={(e) => updateFilter("requestId", e.target.value)} />
@@ -262,7 +253,7 @@ export default function AuditPage() {
             </select>
           </label>
         </div>
-        <div className="otc-controls" style={{ marginTop: 16 }}>
+        <div className="otc-controls otc-audit-summary">
           <button type="button" className="otc-button otc-button--accent" data-testid="audit-search-btn" onClick={() => void onSearch()}>
             {t("audit.actions.search")}
           </button>
@@ -282,9 +273,9 @@ export default function AuditPage() {
       {error ? <Message tone="error"><span data-testid="audit-error">{error}</span></Message> : null}
       {notice ? <Message tone="success"><span data-testid="audit-export-notice">{notice}</span></Message> : null}
 
-      <section className="otc-grid" style={{ gridTemplateColumns: "minmax(0, 1.5fr) minmax(320px, 1fr)" }}>
+      <section className="otc-grid otc-audit-layout">
         <Panel title={t("audit.events.title")} description={t("audit.events.description")}>
-          <div className="otc-controls" style={{ marginBottom: 16 }}>
+          <div className="otc-controls otc-audit-pagination">
             <button
               type="button"
               className="otc-button otc-button--ghost"
@@ -317,15 +308,15 @@ export default function AuditPage() {
                     type="button"
                     data-testid="audit-row"
                     onClick={() => setSelectedLog(entry)}
-                    style={{ textAlign: "left", borderColor: isSelected ? "rgba(70, 220, 255, 0.55)" : undefined }}
+                    className={`otc-button otc-button--ghost otc-button--stack-start otc-audit-row${isSelected ? " otc-audit-row--selected" : ""}`}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                    <div className="otc-audit-row__header">
                       <strong>{entry.action}</strong>
                       <span className="otc-muted">{entry.created_at ?? t("audit.noTimestamp")}</span>
                     </div>
-                    <div style={{ marginTop: 8 }}>{entry.resource_type}{entry.resource_id ? ` • ${entry.resource_id}` : ""}</div>
-                    <div className="otc-muted" style={{ marginTop: 8 }}>request_id: {entry.request_id ?? t("audit.notAvailable")}</div>
-                    <div className="otc-muted" style={{ marginTop: 4 }}>report_id: {entry.report_id ?? t("audit.notAvailable")}</div>
+                    <div className="otc-audit-row__resource">{entry.resource_type}{entry.resource_id ? ` • ${entry.resource_id}` : ""}</div>
+                    <div className="otc-muted otc-audit-row__meta">request_id: {entry.request_id ?? t("audit.notAvailable")}</div>
+                    <div className="otc-muted otc-audit-row__meta otc-audit-row__meta--tight">report_id: {entry.report_id ?? t("audit.notAvailable")}</div>
                   </button>
                 );
               })}
@@ -344,9 +335,56 @@ export default function AuditPage() {
               <div><strong>{t("audit.details.requestId")}:</strong> {selectedLog.request_id ?? t("audit.notAvailable")}</div>
               <div><strong>{t("audit.details.reportId")}:</strong> {selectedLog.report_id ?? t("audit.notAvailable")}</div>
               <div><strong>{t("audit.details.sha")}:</strong> {selectedLog.file_hash_sha256 ?? t("audit.notAvailable")}</div>
-              <div style={{ marginTop: 8 }}>
+              <div><strong>{t("audit.details.caseId")}:</strong> {selectedContext?.caseId || t("audit.notAvailable")}</div>
+              <div>
+                <strong>{t("audit.details.addressChain")}:</strong>{" "}
+                {selectedContext?.address ? `${selectedContext.address} • ${selectedContext.chain}` : t("audit.notAvailable")}
+              </div>
+              <div><strong>{t("audit.details.counterpartyId")}:</strong> {selectedContext?.counterpartyId || t("audit.notAvailable")}</div>
+              <div><strong>{t("audit.details.rosId")}:</strong> {selectedContext?.rosId || t("audit.notAvailable")}</div>
+              <div className="otc-audit-pill">
                 <Pill>{selectedLog.resource_type}</Pill>
               </div>
+              {selectedContext ? (
+                <div className="otc-controls otc-controls--spaced">
+                  {buildCaseHref(selectedContext.caseId) ? (
+                    <a className="otc-button otc-button--ghost" href={buildCaseHref(selectedContext.caseId) ?? undefined}>
+                      {t("audit.details.openCase")}
+                    </a>
+                  ) : null}
+                  <a className="otc-button otc-button--ghost" href={buildEvidenceHref(selectedContext, { domain: "all", fallbackResourceType: "audit_log" })}>
+                    {t("audit.details.openEvidence")}
+                  </a>
+                  <a className="otc-button otc-button--ghost" href={buildReportsHref(selectedContext)}>
+                    {t("audit.details.openReports")}
+                  </a>
+                  {buildInvestigateHref(selectedContext) ? (
+                    <a className="otc-button otc-button--ghost" href={buildInvestigateHref(selectedContext, { includeCaseId: true }) ?? undefined}>
+                      {t("audit.details.openInvestigate")}
+                    </a>
+                  ) : null}
+                  {buildSanctionsHref(selectedContext) ? (
+                    <a className="otc-button otc-button--ghost" href={buildSanctionsHref(selectedContext) ?? undefined}>
+                      {t("audit.details.openSanctions")}
+                    </a>
+                  ) : null}
+                  {buildBlocksHref(selectedContext) ? (
+                    <a className="otc-button otc-button--ghost" href={buildBlocksHref(selectedContext) ?? undefined}>
+                      {t("audit.details.openBlocks")}
+                    </a>
+                  ) : null}
+                  {buildCounterpartyHref(selectedContext) ? (
+                    <a className="otc-button otc-button--ghost" href={buildCounterpartyHref(selectedContext) ?? undefined}>
+                      {t("audit.details.openCounterparty")}
+                    </a>
+                  ) : null}
+                  {buildRosHref(selectedContext) ? (
+                    <a className="otc-button otc-button--ghost" href={buildRosHref(selectedContext) ?? undefined}>
+                      {t("audit.details.openRos")}
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
               <CodeBlock>
                 <span data-testid="audit-metadata">{JSON.stringify(selectedLog.metadata, null, 2)}</span>
               </CodeBlock>

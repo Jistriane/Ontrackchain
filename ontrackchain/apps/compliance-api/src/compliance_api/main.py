@@ -31,6 +31,7 @@ from pydantic_settings import BaseSettings
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
+from compliance_api.operations import router as operations_router
 from compliance_api.risk_provider import TrmRiskProviderConfig, describe_provider_readiness, screen_address
 
 
@@ -62,6 +63,7 @@ class Settings(BaseSettings):
 settings = Settings()
 
 app = FastAPI(title="OnTrackChain Compliance API")
+app.include_router(operations_router)
 
 SUPPORTED_CHAINS = {"ethereum", "polygon", "bsc", "arbitrum", "base", "bitcoin"}
 QUOTE_TTL_MINUTES = 15

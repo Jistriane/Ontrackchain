@@ -213,6 +213,29 @@ export default function MonitoringPage() {
     return JSON.stringify({ status, triageStatus, service, receiver, severity });
   }
 
+  function caseAuditHref(caseId: string, reportId?: string | null) {
+    const params = new URLSearchParams({
+      resource_type: "case",
+      resource_id: caseId
+    });
+    if (reportId) {
+      params.set("report_id", reportId);
+    }
+    return `/audit?${params.toString()}`;
+  }
+
+  function caseEvidenceHref(caseId: string, reportId?: string | null) {
+    const params = new URLSearchParams({
+      domain: reportId ? "reports" : "all",
+      resource_type: "case",
+      resource_id: caseId
+    });
+    if (reportId) {
+      params.set("report_id", reportId);
+    }
+    return `/evidence?${params.toString()}`;
+  }
+
   function clearPersistedPlatformAlertSelection() {
     if (typeof window === "undefined") {
       return;
@@ -927,6 +950,26 @@ export default function MonitoringPage() {
 
         {selectedAlert ? (
           <div data-testid="alert-details-panel" className="otc-monitoring-banner">
+            <div className="otc-monitoring-actions">
+              <a
+                className="otc-button otc-button--ghost"
+                href={`/sanctions?address=${encodeURIComponent(selectedAlert.address)}&chain=${encodeURIComponent(selectedAlert.chain)}&autostart=1`}
+              >
+                {t("monitoring.alerts.openSanctions")}
+              </a>
+              <a
+                className="otc-button otc-button--ghost"
+                href={`/investigate?address=${encodeURIComponent(selectedAlert.address)}&chain=${encodeURIComponent(selectedAlert.chain)}&report_type=technical_basic`}
+              >
+                {t("monitoring.alerts.openInvestigate")}
+              </a>
+              <a
+                className="otc-button otc-button--ghost"
+                href={`/evidence?domain=sanctions&resource_id=${encodeURIComponent(selectedAlert.id)}`}
+              >
+                {t("monitoring.alerts.openEvidence")}
+              </a>
+            </div>
             <CodeBlock>
               {JSON.stringify(selectedAlert, null, 2)}
             </CodeBlock>
@@ -1005,6 +1048,17 @@ export default function MonitoringPage() {
                         {t("monitoring.worker.queue")}={entry.queue_state ?? t("common.notAvailable")} • {t("monitoring.worker.attempts")}={entry.attempt_count} • {t("monitoring.worker.duration")}={entry.duration_ms ?? 0}ms
                       </div>
                       {entry.last_error ? <div className="otc-monitoring-detail--subtle">{t("monitoring.worker.errorPrefix")}: {entry.last_error}</div> : null}
+                      <div className="otc-monitoring-actions">
+                        <a className="otc-button otc-button--ghost" href={`/cases/${entry.case_id}`}>
+                          {t("monitoring.worker.openCase")}
+                        </a>
+                        <a className="otc-button otc-button--ghost" href={caseAuditHref(entry.case_id, null)}>
+                          {t("monitoring.worker.openAudit")}
+                        </a>
+                        <a className="otc-button otc-button--ghost" href={caseEvidenceHref(entry.case_id, null)}>
+                          {t("monitoring.worker.openEvidence")}
+                        </a>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1063,6 +1117,11 @@ export default function MonitoringPage() {
                       {alert.metric}: {alert.value} / {t("monitoring.worker.threshold")} {alert.threshold}
                     </div>
                     <div className="otc-monitoring-detail--subtle">{alert.recommended_action}</div>
+                    <div className="otc-monitoring-actions">
+                      <a className="otc-button otc-button--ghost" href={`/alerts?severity=${encodeURIComponent(alert.severity)}`}>
+                        {t("monitoring.worker.openAlerts")}
+                      </a>
+                    </div>
                   </div>
                 ))}
             </div>
@@ -1427,6 +1486,15 @@ export default function MonitoringPage() {
                     <div className="otc-monitoring-detail--subtle">{t("monitoring.dlq.note")}: {entry.dlq_resolution_note}</div>
                   ) : null}
                   <div className="otc-monitoring-actions">
+                    <a className="otc-button otc-button--ghost" href={`/cases/${entry.case_id}`}>
+                      {t("monitoring.dlq.openCase")}
+                    </a>
+                    <a className="otc-button otc-button--ghost" href={caseAuditHref(entry.case_id, null)}>
+                      {t("monitoring.dlq.openAudit")}
+                    </a>
+                    <a className="otc-button otc-button--ghost" href={caseEvidenceHref(entry.case_id, null)}>
+                      {t("monitoring.dlq.openEvidence")}
+                    </a>
                     <button
                       type="button"
                       data-testid={`dlq-requeue-btn-${entry.case_id}`}

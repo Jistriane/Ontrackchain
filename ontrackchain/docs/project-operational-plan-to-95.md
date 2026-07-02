@@ -24,6 +24,7 @@ Leitura recomendada:
 Premissa central:
 
 - o maior ganho remanescente nao vem de novos modulos, e sim de homologacao, coerencia contratual final e governanca formal
+- ainda assim, o endurecimento operacional agora deve privilegiar a expansao da fila compartilhada `work-items` para os cockpits regulatorios que ainda operam local-first
 
 Baseline canônica de referencia:
 
@@ -32,23 +33,23 @@ Baseline canônica de referencia:
 
 ## Trimestre 1 — Homologacao Real
 
-### Objetivo
+### Objetivo do T1
 
 - fechar os gaps externos que ainda impedem uma leitura regulatoria mais forte
 
-### Meta de Saida
+### Meta de Saida do T1
 
 - baseline tecnica sustentada em `91%+`
 - prontidao regulatoria em torno de `82%`
 
-### Itens Prioritarios
+### Itens Prioritarios do T1
 
 | Ordem | Item | Dominio | Impacto |
 | --- | --- | --- | --- |
 | 1 | Desbloquear e homologar `OIDC` e MFA federado serio | Auth | muito alto |
 | 2 | Executar provider `AML/KYT` em `live` com `check-compliance-provider-runtime` | Compliance | muito alto |
 | 3 | Executar feed UE tokenizado real e validar `EU_CONSOLIDATED` com runner dedicado | Sancoes | muito alto |
-| 4 | Sustentar catalogo `sanctions_check` alinhado e coberto por testes | Contrato/Produto | medio |
+| 4 | Expandir `work-items` para `blocks`, `reports`, `counterparties`, `evidence` e `ros-coaf` | Operacao/Produto | medio |
 | 5 | Executar janela seria completa com dossier aceito e JSONs de checks anexados | Release | alto |
 
 Leitura operacional do T1 apos a baseline de `2026-07-01`:
@@ -59,37 +60,37 @@ Leitura operacional do T1 apos a baseline de `2026-07-01`:
 
 ## Trimestre 2 — Governanca Aceita
 
-### Objetivo
+### Objetivo do T2
 
 - transformar baseline tecnica em operacao institucionalmente aceita
 
-### Meta de Saida
+### Meta de Saida do T2
 
 - baseline tecnica em torno de `93%`
 - prontidao regulatoria em torno de `88%`
 
-### Itens Prioritarios
+### Itens Prioritarios do T2
 
 | Ordem | Item | Dominio | Impacto |
 | --- | --- | --- | --- |
 | 1 | Obter sign-off formal de retention/recovery | Governanca | alto |
 | 2 | Executar janelas serias recorrentes com historico comparavel | Release | alto |
-| 3 | Alinhar inventario/catalogo de eventos da `evidence_trail` | Evidencias | medio |
+| 3 | Expor timeline/comentarios de `work-items` nas telas regulatorias | Evidencias/Operacao | medio |
 | 4 | Formalizar owners, SLA e runbooks com aceite | Operacao | alto |
 | 5 | Estruturar artefatos de manual review para DD/SoF | Compliance | medio |
 
 ## Trimestre 3 — Cadeia de Custodia Forte
 
-### Objetivo
+### Objetivo do T3
 
 - institucionalizar confiabilidade, segredos e incident response
 
-### Meta de Saida
+### Meta de Saida do T3
 
 - baseline tecnica em `95%`
 - prontidao regulatoria acima de `90%`, ainda sem alegar producao automatica plena
 
-### Itens Prioritarios
+### Itens Prioritarios do T3
 
 | Ordem | Item | Dominio | Impacto |
 | --- | --- | --- | --- |
@@ -108,7 +109,7 @@ Leitura operacional do T1 apos a baseline de `2026-07-01`:
 | KPI total consolidado | `87%` baseline, `90%+` ao fim do T1, `92%+` no T2, `95%` no T3 |
 | Janelas serias com dossier aceito | `>= 2` ate o fim do T2 |
 | Sign-offs formais pendentes | `0` para retention/recovery e ownership ate o fim do T2 |
-| Gaps contratuais conhecidos | `0` para `sanctions_check` e inventario de eventos ate o fim do T2 |
+| Gaps contratuais conhecidos | `0` para `sanctions_check`, inventario de eventos e proxies `work-items` criticos ate o fim do T2 |
 | Artefatos recorrentes anexados | `100%` das janelas AML/KYT e UE com JSONs e bundles em `artifacts/staging/checks/` |
 
 ## Decisao Recomendada

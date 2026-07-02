@@ -11,6 +11,7 @@ Centralizar os documentos canonicos do Ontrackchain de forma coerente com o runt
 - [README raiz](../README.md): estado atual, quick start e mapa principal do repositorio.
 - [Arquitetura](./architecture.md): desenho macro, modulos regulatorios e fluxo de dados real.
 - [Contratos de API](./api-contracts.md): contratos HTTP principais, catalogos operacionais e regras de `plan lock`.
+- [Cobertura do Frontend](./frontend-coverage-matrix.md): matriz canonica de telas `prontas/parciais/faltando` cruzada com os contratos reais.
 
 ### Operacao e Release
 
@@ -84,6 +85,9 @@ A documentacao principal agora reflete explicitamente:
 - `run_eu_sanctions_window.py` e alvos `make run-eu-sanctions-window*` para a janela UE
 - `run_regulatory_readiness_bundle.py` e `make run-regulatory-readiness-bundle` para anexar runtime AML/KYT + janela UE em um bundle unico
 - `run_staging_window.py` e `make run-serious-window-local*` como rito consolidado da janela seria
+- `regulatory_work_items` como fila operacional multiusuario persistida no servidor, com `timeline` e comentarios
+- `sanctions` consumindo a fila compartilhada como fonte primaria com fallback local controlado
+- `alerts` com rastreamento por incidente em `work-items` e sincronizacao de fechamento via `ack`
 - fluxo `ROS/COAF` com aprovacao/rejeicao/submissao manual
 - pacote operacional da janela seria com `war room`, `tracking ao vivo`, `manual fill sheet` e `sign-off`
 - diferenca entre endpoints live, capacidades degradadas e gaps ainda abertos

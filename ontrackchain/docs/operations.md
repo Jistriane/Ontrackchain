@@ -79,6 +79,7 @@ docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/pos
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0010_preventive_blocks.sql
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0011_counterparties.sql
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0012_sanctions_cache_ros_records.sql
+docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0013_regulatory_work_items.sql
 ```
 
 ## Compliance e Sancoes
@@ -108,6 +109,27 @@ Observacoes:
 - `INTERNAL_BASE_URL` deve apontar para um endpoint que consiga resolver `GET /internal/provider-readiness`
 - no host local via `docker compose`, prefira rodar o target acima de dentro da rede/container ou informar uma URL interna realmente roteavel; `localhost:8002` nao e publicado pelo `compose` atual
 - `PUBLIC_BASE_URL` deve apontar para a rota publica que expoe `/api/v1/compliance/*`
+
+## Fila Operacional Compartilhada
+
+Primeira camada multiusuario persistida no servidor:
+
+- backend: `apps/compliance-api/src/compliance_api/operations.py`
+- proxies frontend: `apps/frontend/app/api/app/operations/work-items/*`
+- tabelas: `regulatory_work_items`, `regulatory_work_events`, `regulatory_work_comments`
+
+Validacao minima em ambiente com volume persistido:
+
+```bash
+docker compose exec -T postgres psql -U ontrackchain -d ontrackchain \
+  < infra/postgres/migrations/0013_regulatory_work_items.sql
+```
+
+Leitura operacional atual:
+
+- `/sanctions` usa a fila compartilhada como fonte primaria e degrada para `localStorage` apenas quando o backend nao responde
+- `/alerts` rastreia incidentes em `work-items` e tenta fechar o item compartilhado quando o `ack` e concluido
+- os demais cockpits regulatorios ainda aguardam migracao gradual para a mesma camada
 
 ### Quando o feed da UE responder `403`
 
@@ -182,6 +204,15 @@ Verifique:
 - nao use `docker compose down -v` como correcao padrao
 - prefira aplicar as migrations faltantes
 
+### 6. `sanctions` ou `alerts` nao persistem na fila compartilhada
+
+Verifique:
+
+- se a migration `0013_regulatory_work_items.sql` foi aplicada no volume atual
+- se o gateway/auth esta propagando `X-Org-Id`, `X-User-Id`, `X-Linked-User-Id`, `X-MFA-Mode` e `X-2FA`
+- se o `compliance-api` foi rebuildado apos a adicao de `operations.py`
+- se os proxies App Router em `apps/frontend/app/api/app/operations/work-items/*` estao respondendo sem `401`
+
 ## Operacao Segura de Mudancas
 
 Quando tocar compliance/regulatorio:
@@ -193,4 +224,5 @@ Quando tocar compliance/regulatorio:
 - rodar `check_sanctions_sync_status.py` quando a mudanca envolver sync de sancoes
 - rodar `make check-compliance-provider-runtime` quando a mudanca envolver homologacao `AML/KYT live`
 - rodar `make run-eu-sanctions-window-local` quando a mudanca envolver a janela UE com artefatos persistidos
+- aplicar `0013_regulatory_work_items.sql` quando a mudanca envolver a fila operacional compartilhada
 - revisar `audit_logs` e `evidence_trail` no fluxo alterado

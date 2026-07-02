@@ -31,6 +31,7 @@ Interpretacao:
 | Bloqueio preventivo | coberto | `preventive_blocks` + evidencia + audit log | refinamento de operacao/manual review |
 | Onboarding regulado de contraparte | coberto | `counterparties` + `counterparty_history` | documentar artefatos de manual review complementares |
 | ROS/COAF | coberto | `ros_records` + `reports` + `evidence_trail` | submissao continua manual por desenho |
+| Fila operacional compartilhada | coberto parcialmente | `regulatory_work_items` + `events/comments` + integracao em `sanctions` e `alerts` | expandir para os demais cockpits e expor timeline/comentarios na UI |
 | Auth forte | coberto parcialmente | OIDC + MFA federado previsto | homologacao formal fora do contexto local |
 | Billing auditavel | coberto | `credit_ledger` + `audit_logs` | reconciliacao financeira mais rica |
 | Cadeia de custodia | coberto parcialmente | `evidence_trail`, manifestos, dossier | sign-off formal e classificacao de evidencias |
@@ -66,6 +67,12 @@ Interpretacao:
 - submissao manual com `coaf_protocol_number` e `coaf_receipt_hash`
 - eventos regulatorios correspondentes na trilha de evidencia
 
+### Fila Operacional Compartilhada
+
+- `regulatory_work_items`, `regulatory_work_events` e `regulatory_work_comments` ja existem com `RLS` por organizacao
+- `sanctions` sincroniza sua fila operacional no backend e degrada para fallback local apenas quando necessario
+- `alerts` rastreia incidentes em `work-items` e sincroniza o fechamento do item compartilhado quando ocorre `ack`
+
 ## Gaps Regulatorios Reais
 
 ### 1. Homologacao externa
@@ -84,6 +91,11 @@ Interpretacao:
 
 - artefatos, hashes e manifestos existem
 - faltam classificacao formal de sensibilidade e sign-off institucional recorrente
+
+### 4. Expansao da fila compartilhada
+
+- a camada multiusuario ja existe, mas ainda nao cobre `blocks`, `reports`, `counterparties`, `evidence` e `ros-coaf`
+- timeline e comentarios ainda nao estao expostos nas UIs regulatorias que ja usam `work-items`
 
 ### 5. Manual review estruturado
 

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import type { Locale, MessageKey } from "../app/lib/i18n";
 import { useI18n } from "./i18n-provider";
@@ -8,6 +8,7 @@ import { useI18n } from "./i18n-provider";
 type NavItem = {
   href: string;
   label: MessageKey;
+  icon: ReactNode;
 };
 
 type AppShellProps = {
@@ -42,12 +43,167 @@ type ModuleCardProps = {
   href?: string;
 };
 
+function NavIcon({ children }: { children: ReactNode }) {
+  return (
+    <span className="otc-nav__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        {children}
+      </svg>
+    </span>
+  );
+}
+
 const NAV_ITEMS: NavItem[] = [
-  { href: "/investigate", label: "nav.investigate" },
-  { href: "/monitoring", label: "nav.monitoring" },
-  { href: "/audit", label: "nav.audit" },
-  { href: "/dashboard", label: "nav.dashboard" },
-  { href: "/billing", label: "nav.billing" }
+  {
+    href: "/dashboard",
+    label: "nav.dashboard",
+    icon: (
+      <NavIcon>
+        <path d="M4 13h7V4H4z" />
+        <path d="M13 20h7v-9h-7z" />
+        <path d="M13 4h7v5h-7z" />
+        <path d="M4 20h7v-5H4z" />
+      </NavIcon>
+    )
+  },
+  {
+    href: "/investigate",
+    label: "nav.investigate",
+    icon: (
+      <NavIcon>
+        <circle cx="11" cy="11" r="6" />
+        <path d="m20 20-4.2-4.2" />
+      </NavIcon>
+    )
+  },
+  {
+    href: "/monitoring",
+    label: "nav.monitoring",
+    icon: (
+      <NavIcon>
+        <path d="M4 18h16" />
+        <path d="M7 15V9" />
+        <path d="M12 15V6" />
+        <path d="M17 15v-3" />
+      </NavIcon>
+    )
+  },
+  {
+    href: "/alerts",
+    label: "nav.alerts",
+    icon: (
+      <NavIcon>
+        <path d="M12 22a2.5 2.5 0 0 0 2.5-2.5h-5A2.5 2.5 0 0 0 12 22" />
+        <path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16z" />
+      </NavIcon>
+    )
+  },
+  {
+    href: "/audit",
+    label: "nav.audit",
+    icon: (
+      <NavIcon>
+        <path d="M12 3 5 6v6c0 4.2 2.7 7.7 7 9 4.3-1.3 7-4.8 7-9V6z" />
+        <path d="m9.5 12 1.7 1.7 3.3-3.4" />
+      </NavIcon>
+    )
+  },
+  {
+    href: "/counterparties",
+    label: "nav.counterparties",
+    icon: (
+      <NavIcon>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="8.5" cy="7" r="3.5" />
+        <path d="M20 8v6" />
+        <path d="M17 11h6" />
+      </NavIcon>
+    )
+  },
+  {
+    href: "/sanctions",
+    label: "nav.sanctions",
+    icon: (
+      <NavIcon>
+        <path d="M12 3 4 7v5c0 4.5 3 8.2 8 9.8 5-1.6 8-5.3 8-9.8V7z" />
+        <path d="M9.5 12.2 11 13.7 14.6 10.1" />
+      </NavIcon>
+    )
+  },
+  {
+    href: "/blocks",
+    label: "nav.blocks",
+    icon: (
+      <NavIcon>
+        <path d="M6 9h12" />
+        <path d="M6 15h12" />
+        <path d="M10 3h4" />
+        <path d="M10 21h4" />
+        <path d="M8 7 4 12l4 5" />
+        <path d="M16 7 20 12l-4 5" />
+      </NavIcon>
+    )
+  },
+  {
+    href: "/evidence",
+    label: "nav.evidence",
+    icon: (
+      <NavIcon>
+        <path d="M12 3 5 7v5c0 4 2.5 7.4 7 9 4.5-1.6 7-5 7-9V7z" />
+        <path d="M10 12h4" />
+        <path d="M12 10v4" />
+      </NavIcon>
+    )
+  },
+  {
+    href: "/ros-coaf",
+    label: "nav.rosCoaf",
+    icon: (
+      <NavIcon>
+        <path d="M6 3h12v18H6z" />
+        <path d="M9 7h6" />
+        <path d="M9 11h6" />
+        <path d="M9 15h6" />
+      </NavIcon>
+    )
+  },
+  {
+    href: "/reports",
+    label: "nav.reports",
+    icon: (
+      <NavIcon>
+        <path d="M6 3h12v18H6z" />
+        <path d="M9 7h6" />
+        <path d="M9 11h6" />
+        <path d="M9 15h6" />
+        <path d="M8 19h8" />
+      </NavIcon>
+    )
+  },
+  {
+    href: "/billing",
+    label: "nav.billing",
+    icon: (
+      <NavIcon>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+        <circle cx="9.5" cy="7" r="3.5" />
+        <path d="M20 8v6" />
+        <path d="M17 11h6" />
+      </NavIcon>
+    )
+  },
+  {
+    href: "/team",
+    label: "nav.team",
+    icon: (
+      <NavIcon>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="8.5" cy="7" r="3.5" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a3.5 3.5 0 0 1 0 6.75" />
+      </NavIcon>
+    )
+  }
 ];
 
 function joinClasses(...parts: Array<string | undefined>) {
@@ -104,6 +260,18 @@ function BrandLockup({
 export function AppShell({ title, subtitle, activePath, eyebrow, actions, children }: AppShellProps) {
   const { locale, setLocale, t, locales } = useI18n();
   const resolvedEyebrow = eyebrow ?? t("app.eyebrow");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem("otc-sidebar-collapsed");
+    if (stored === "true") {
+      setSidebarCollapsed(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("otc-sidebar-collapsed", sidebarCollapsed ? "true" : "false");
+  }, [sidebarCollapsed]);
 
   return (
     <div className="otc-shell">
@@ -115,17 +283,6 @@ export function AppShell({ title, subtitle, activePath, eyebrow, actions, childr
             </a>
             <p className="otc-brand__eyebrow">{resolvedEyebrow}</p>
           </div>
-          <nav className="otc-nav" aria-label={t("nav.aria")}>
-            {NAV_ITEMS.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                className={joinClasses("otc-nav__link", activePath === item.href ? "otc-nav__link--active" : undefined)}
-              >
-                {t(item.label)}
-              </a>
-            ))}
-          </nav>
           <div className="otc-topbar__meta">
             <label className="otc-locale">
               <span className="otc-locale__label">{t("locale.label")}</span>
@@ -137,25 +294,66 @@ export function AppShell({ title, subtitle, activePath, eyebrow, actions, childr
                 ))}
               </select>
             </label>
-            <span className="otc-status-pill">{t("topbar.online")}</span>
-            <span className="otc-ghost-pill">{t("topbar.systemUser")}</span>
-            <a href="/login" className="otc-nav__link">
+            <a href="/login" className="otc-topbar__logout">
               {t("topbar.logout")}
             </a>
           </div>
         </header>
 
-        <main className="otc-page otc-theme">
-          <section className="otc-hero otc-panel">
-            <div>
-              <p className="otc-hero__eyebrow">{resolvedEyebrow}</p>
-              <h1 className="otc-hero__title">{title}</h1>
-              <p className="otc-hero__subtitle">{subtitle}</p>
+        <div className={joinClasses("otc-workspace", sidebarCollapsed ? "otc-workspace--collapsed" : undefined)}>
+          <aside className={joinClasses("otc-sidebar", "otc-panel", sidebarCollapsed ? "otc-sidebar--collapsed" : undefined)}>
+            <div className="otc-sidebar__header">
+              <p className="otc-sidebar__eyebrow">{t("nav.aria")}</p>
+              <button
+                type="button"
+                className="otc-button otc-button--ghost otc-sidebar__toggle"
+                aria-label={sidebarCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+                onClick={() => setSidebarCollapsed((current) => !current)}
+                title={sidebarCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  {sidebarCollapsed ? <path d="m9 6 6 6-6 6" /> : <path d="m15 6-6 6 6 6" />}
+                </svg>
+              </button>
             </div>
-            {actions ? <div className="otc-actions">{actions}</div> : null}
-          </section>
-          {children}
-        </main>
+            <nav className="otc-nav otc-nav--sidebar" aria-label={t("nav.aria")}>
+              {NAV_ITEMS.map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  data-tooltip={sidebarCollapsed ? t(item.label) : undefined}
+                  className={joinClasses(
+                    "otc-nav__link",
+                    "otc-nav__link--sidebar",
+                    item.href === "/dashboard" ? "otc-nav__link--primary" : undefined,
+                    activePath === item.href ? "otc-nav__link--active" : undefined
+                  )}
+                >
+                  <span className="otc-nav__item">
+                    {item.icon}
+                    <span className={joinClasses("otc-nav__text", sidebarCollapsed ? "otc-nav__text--hidden" : undefined)}>{t(item.label)}</span>
+                  </span>
+                </a>
+              ))}
+            </nav>
+            <div className={joinClasses("otc-sidebar__footer", sidebarCollapsed ? "otc-sidebar__footer--collapsed" : undefined)}>
+              <span className="otc-status-pill">{t("topbar.online")}</span>
+              <span className={joinClasses("otc-ghost-pill", sidebarCollapsed ? "otc-ghost-pill--compact" : undefined)}>{t("topbar.systemUser")}</span>
+            </div>
+          </aside>
+
+          <main className="otc-page otc-theme">
+            <section className="otc-hero otc-panel">
+              <div>
+                <p className="otc-hero__eyebrow">{resolvedEyebrow}</p>
+                <h1 className="otc-hero__title">{title}</h1>
+                <p className="otc-hero__subtitle">{subtitle}</p>
+              </div>
+              {actions ? <div className="otc-actions">{actions}</div> : null}
+            </section>
+            {children}
+          </main>
+        </div>
       </div>
     </div>
   );

@@ -66,10 +66,10 @@ Leitura executiva oficial:
 | Arquitetura e Runtime | 13% | 94% | stack coerente, compose operacional, boundaries claros e migrations reguladas |
 | Auth e Identidade | 8% | 88% | trilho serio desenhado, runtime bom, homologacao externa ainda pendente |
 | Investigation + Billing | 9% | 90% | worker real, fallback, trilha financeira e contratos operacionais |
-| Compliance Core | 18% | 90% | sancoes locais, bloqueios, contrapartes e ROS/COAF ja implementados |
+| Compliance Core | 18% | 90% | sancoes locais, bloqueios, contrapartes, ROS/COAF e a base inicial de `work-items` ja implementados |
 | Monitoring Operacional | 8% | 91% | backlog global, triagem, export auditado e surface operacional consistente |
 | Reports e Evidencias | 12% | 92% | `evidence_trail`, hashes, bundles e ROS auditado bem integrados |
-| Frontend Operacional | 6% | 89% | `/audit` e `/monitoring` maduros, UX regulatoria ainda evolutiva |
+| Frontend Operacional | 6% | 89% | `/audit` e `/monitoring` maduros; `sanctions` e `alerts` ja usam fila compartilhada, faltando expandir para os demais cockpits |
 | Observabilidade e Alerting | 7% | 88% | boa cobertura, ainda faltam sinais de seguranca mais fortes |
 | Testes e CI/CD | 11% | 94% | smoke, E2E, preflights, runners e checks bem institucionalizados |
 | Seguranca e Governanca Tecnica | 8% | 85% | controles tecnicos fortes, faltam alguns aceites formais e recorrencia |
@@ -109,7 +109,7 @@ Leitura oficial arredondada:
 | Bloco | Peso | Nota Atual | Justificativa resumida |
 | --- | ---: | ---: | --- |
 | Plataforma base e arquitetura | 18% | 94% | runtime, stack, RLS, servicos centrais e boundaries consolidados |
-| Compliance core implementado | 18% | 90% | `sanctions`, `preventive_blocks`, `counterparties`, `ROS/COAF` e `evidence_trail` implementados |
+| Compliance core implementado | 18% | 90% | `sanctions`, `preventive_blocks`, `counterparties`, `ROS/COAF`, `evidence_trail` e a base de `work-items` implementados |
 | Testes, CI/CD e guardrails | 10% | 94% | smoke, E2E, preflights, gates e runners ja institucionalizados |
 | Observabilidade e operacao | 8% | 89% | monitoring, alerting, exports e runbooks maduros |
 | Frontend operacional | 6% | 89% | areas administrativas e trilhas de suporte operacionais |
@@ -176,6 +176,7 @@ Durante a governanca semanal:
   - MFA federado em trilho serio
   - sign-off institucional de retention/recovery e owners
   - repetibilidade operacional com evidencias recorrentes
+  - expansao da fila compartilhada para todos os cockpits regulatorios
 
 ## Metas de Evolucao
 

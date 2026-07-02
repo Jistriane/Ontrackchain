@@ -132,6 +132,25 @@ Cache de listas de sanções e registros de ROS COAF.
   - geração automática → aprovação CO (2FA obrigatório) → submissão manual COAF ONLINE
   - prazo 24h com alerta em T+20h (Lei 9.613/98 Art. 11-B)
 
+### `0013_regulatory_work_items.sql` — Sprint 2 (2026-07-02)
+
+Camada operacional multiusuário persistida para módulos regulatórios.
+**Base regulatória: BCB 520 Art. 45 II + IN BCB 739 Art. 1° IV, V, VII e VIII.**
+
+- tabela `regulatory_work_items` — fila operacional compartilhada por `tenant`
+- tabela `regulatory_work_events` — timeline auditável de transições
+- tabela `regulatory_work_comments` — comentários estruturados para handoff e decisão
+- `RLS` por `organization_id`
+- índices por módulo, owner, SLA, atividade e correlação por recurso
+- suporte inicial aos módulos:
+  - `alerts`
+  - `sanctions`
+  - `blocks`
+  - `reports`
+  - `ros_coaf`
+  - `counterparties`
+  - `evidence`
+
 ## Aplicacao Local
 
 Rode as migrations em ordem:
@@ -149,6 +168,7 @@ docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/pos
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0010_preventive_blocks.sql
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0011_counterparties.sql
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0012_sanctions_cache_ros_records.sql
+docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0013_regulatory_work_items.sql
 ```
 
 ## Quando Usar

@@ -36,6 +36,15 @@ O `Ontrackchain` e uma plataforma modular para investigacao e compliance on-chai
 - `PreventiveBlockAgent` encapsula a decisao regulatoria e persiste `preventive_blocks`.
 - `CounterpartyAgent` classifica risco, PEP, KYC/KYB e periodicidade de revisao.
 
+### Operacoes Compartilhadas
+
+- `compliance-api` agora tambem expõe `POST/GET/PATCH /api/v1/operations/work-items*`.
+- a camada `operations` persiste fila multiusuario por `organization_id`, com `RLS`, timeline e comentarios estruturados.
+- a primeira integracao ativa no frontend cobre:
+  - `sanctions` como workspace multiusuario primario, mantendo fallback local
+  - `alerts` com rastreamento por incidente e sincronizacao de fechamento via `ack`
+- o modelo evita criar um microservico novo e reaproveita o mesmo contexto de auth, tenant e auditoria do `compliance-api`.
+
 ### Reports e ROS/COAF
 
 - `report-api` gera relatorios deterministas e controla downloads sensiveis.
@@ -58,6 +67,9 @@ O `Ontrackchain` e uma plataforma modular para investigacao e compliance on-chai
 
 - `audit_logs`: eventos de negocio e administracao correlacionados por `request_id`.
 - `credit_ledger`: trilha financeira do `quote -> start -> PRE_HOLD -> CONFIRMED/REFUND`.
+- `regulatory_work_items`: fila operacional compartilhada por modulo/recurso com prioridade, owner, SLA e status.
+- `regulatory_work_events`: timeline auditavel das transicoes da fila compartilhada.
+- `regulatory_work_comments`: comentarios estruturados para handoff, decisao e contexto operacional.
 
 ### Trilha Regulatoria
 
@@ -86,6 +98,9 @@ O `Ontrackchain` e uma plataforma modular para investigacao e compliance on-chai
 | `sanctions_hits_cache` | cache local para screening |
 | `ros_records` | workflow de ROS/COAF |
 | `operational_alert_events` | incidentes globais de plataforma |
+| `regulatory_work_items` | fila compartilhada multiusuario por modulo/recurso |
+| `regulatory_work_events` | timeline das transicoes dos work-items |
+| `regulatory_work_comments` | comentarios de handoff e decisao |
 
 ## Fluxos Canonicos
 
@@ -100,6 +115,7 @@ compliance-worker -> sanctions_lists_meta/sanctions_hits_cache
 Observacao importante:
 
 - o endpoint direto `sanctions-check` e o catalogo de operacoes agora convergem para `provider=sanctions_lists_cache`, `provider_status=live` e `delivery_mode=local_cache`
+- a UI `/sanctions` agora sincroniza o resultado em `regulatory_work_items` como fila compartilhada primaria, com fallback local para continuidade operacional
 
 ### Bloqueio Preventivo
 
@@ -137,6 +153,25 @@ POST /api/v1/reports/ros-coaf/{id}/submitted
   -> ros_records(SUBMITTED_MANUAL)
   -> evidence_trail(COAF_ROS_SUBMITTED_MANUAL)
 ```
+
+### Fila Operacional Compartilhada
+
+```text
+frontend (/sanctions, /alerts)
+  -> proxies App Router /api/app/operations/work-items*
+  -> compliance-api /api/v1/operations/work-items*
+  -> regulatory_work_items + regulatory_work_events + regulatory_work_comments
+```
+
+Estados iniciais suportados:
+
+- `UNDER_REVIEW`
+- `ESCALATED`
+- `READY`
+- `APPROVED`
+- `SUBMITTED`
+- `CLOSED`
+- `REJECTED`
 
 ## Regras Criticas
 

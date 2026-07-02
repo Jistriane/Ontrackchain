@@ -27,6 +27,11 @@ Sustentar `90%+` tecnico sem regressao e elevar a prontidao regulatoria para a p
 3. feed `EU_CONSOLIDATED` ainda depende de URL tokenizada real
 4. sign-off institucional de retention/recovery ainda nao concluido
 
+Observacao importante de baseline:
+
+- a fila compartilhada multiusuario `regulatory_work_items` ja foi entregue para `sanctions` e `alerts`
+- o gap de produto mudou para expansao dessa camada aos demais cockpits regulatorios, nao mais para ausencia total de handoff persistido no servidor
+
 Leitura operacional atual:
 
 - `P0-01` continua `blocked` ate existir evidencia externa e aceite institucional do trilho serio de identidade
@@ -57,6 +62,7 @@ Entregas:
 Entregas:
 
 - comentarios e inventario de eventos da `evidence_trail` alinhados
+- timeline/comentarios de `work-items` expostos progressivamente nas UIs regulatorias
 - sign-off formal de retention/recovery
 - rotina recorrente de janela seria
 
@@ -76,8 +82,9 @@ Entregas:
 | N90-03 | Ativar feed UE tokenizado real | P0 | fechar janela de sancoes europeias |
 | N90-04 | Sustentar catalogo `sanctions_check` alinhado | P1 | evitar regressao de contrato |
 | N90-05 | Sustentar inventario da `evidence_trail` alinhado | P2 | evitar regressao documental/regulatoria |
-| N90-06 | Formalizar sign-off de retention/recovery | P1 | institucionalizar a cadeia de custodia |
-| N90-07 | Estruturar manual review de DD/SoF | P1 | reduzir gap regulatorio residual |
+| N90-06 | Expandir `work-items` para os cockpits regulatorios restantes | P1 | reduzir ilhas locais e fortalecer handoff multiusuario |
+| N90-07 | Formalizar sign-off de retention/recovery | P1 | institucionalizar a cadeia de custodia |
+| N90-08 | Estruturar manual review de DD/SoF | P1 | reduzir gap regulatorio residual |
 
 ## Criterio de Go/No-Go Atual
 

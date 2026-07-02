@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "../../components/i18n-provider";
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
 
@@ -14,6 +14,7 @@ type ReportTypeItem = {
 
 export default function InvestigatePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t } = useI18n();
   const [address, setAddress] = useState("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045");
   const [chain, setChain] = useState("ethereum");
@@ -38,6 +39,23 @@ export default function InvestigatePage() {
       })
       .catch(() => setCatalog([]));
   }, []);
+
+  useEffect(() => {
+    const nextReportType = searchParams.get("report_type");
+    const nextChain = searchParams.get("chain");
+    const nextAddress = searchParams.get("address");
+    if (nextReportType) {
+      setReportType(nextReportType);
+    }
+    if (nextChain) {
+      setChain(nextChain);
+    }
+    if (nextAddress) {
+      setAddress(nextAddress);
+    }
+    setQuote(null);
+    setError(null);
+  }, [searchParams]);
 
   async function onEstimate() {
     setError(null);

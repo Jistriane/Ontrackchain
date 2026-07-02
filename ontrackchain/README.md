@@ -46,10 +46,14 @@ O estado atual do produto e de plataforma tecnicamente funcional, mas ainda com 
 - trilha operacional e regulatoria implementada:
   - `audit_logs`
   - `evidence_trail` append-only com `SHA-256`
+  - `regulatory_work_items` + `regulatory_work_events` + `regulatory_work_comments`
   - `preventive_blocks`
   - `counterparties` + `counterparty_history`
   - `sanctions_lists_meta` + `sanctions_hits_cache`
   - `ros_records`
+- camada operacional compartilhada ja conectada ao frontend:
+  - `sanctions` usa backend como fonte primaria da fila operacional, com fallback local
+  - `alerts` rastreia incidentes em `work-items` e sincroniza o encerramento via `ack`
 - janela seria consolidada com:
   - `prepare_staging_window.py`
   - `run_staging_window.py`
@@ -102,10 +106,11 @@ Entregar uma base operacional para:
 - identidade: `auth-service` suporta `dev` e `oidc`; `Keycloak` entra como provider no profile `oidc`
 - investigacao: `investigation-api` + `investigation-worker` fazem fila real, retry/backoff e metadados do provider RPC
 - compliance: `compliance-api` expõe `kyc-wallet`, `sanctions-check`, `preventive blocks` e `counterparties`
+- operacoes: `compliance-api` tambem expõe `work-items` multiusuario por modulo para fila compartilhada, timeline e comentarios
 - sync regulatorio: `compliance-worker` sincroniza OFAC, UN, UE e deadlines de ROS
 - reports: `report-api` gera relatorios deterministas e implementa o fluxo `ROS/COAF`
 - monitoring: `monitoring-api` recebe webhooks do `Alertmanager` e alimenta o backlog global
-- dados: `PostgreSQL` usa `RLS`; `Redis` suporta fila/cache; migrations regulam o core evolutivo
+- dados: `PostgreSQL` usa `RLS`; `Redis` suporta fila/cache; migrations regulam o core evolutivo e a fila compartilhada
 
 ```mermaid
 flowchart LR
@@ -139,6 +144,9 @@ flowchart LR
   mon --> pg
   mon --> redis
   rep --> pg
+  work[(regulatory_work_items)]
+  comp --> work
+  frontend --> work
 
   rpc[RPC primary fallback] --> inv
   trm[AML KYT provider] --> comp
@@ -155,6 +163,7 @@ flowchart LR
 | Lift de bloqueio | exige `X-MFA-Mode=external_provider` e `X-MFA-Provider-Homologated=true` | [`docs/compliance-and-security-controls.md`](./docs/compliance-and-security-controls.md) |
 | Contrapartes | onboarding/listagem com KYC/KYB, PEP e historico regulado | [`docs/architecture.md`](./docs/architecture.md) |
 | ROS/COAF | geracao, aprovacao/rejeicao e submissao manual com trilha auditada | [`docs/api-contracts.md`](./docs/api-contracts.md) |
+| Fila operacional compartilhada | `POST/GET/PATCH /api/v1/operations/work-items*` para handoff, prioridade, prazo, comentarios e timeline | [`docs/api-contracts.md`](./docs/api-contracts.md) |
 | Sync de listas | `compliance-worker` sincroniza OFAC, UN, UE e suporta override de `source_url` | [`docs/operations.md`](./docs/operations.md) |
 
 ## Fluxos Canonicos
@@ -217,6 +226,9 @@ docker compose --profile oidc up -d --build
 
 ```bash
 python scripts/smoke_runtime.py
+
+docker compose exec -T postgres psql -U ontrackchain -d ontrackchain \
+  < infra/postgres/migrations/0013_regulatory_work_items.sql
 
 cd apps/frontend
 npm ci

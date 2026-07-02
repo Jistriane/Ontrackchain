@@ -272,6 +272,84 @@ CREATE TABLE IF NOT EXISTS credit_ledger (
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
+CREATE TABLE IF NOT EXISTS regulatory_work_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES organizations(id),
+  module VARCHAR(50) NOT NULL,
+  resource_type VARCHAR(50) NOT NULL,
+  resource_id UUID NOT NULL,
+  case_id UUID REFERENCES cases(id),
+  report_external_id VARCHAR(64),
+  owner_user_id UUID REFERENCES users(id),
+  assigned_by_user_id UUID REFERENCES users(id),
+  queue_status VARCHAR(40) NOT NULL DEFAULT 'UNDER_REVIEW',
+  priority VARCHAR(20) NOT NULL DEFAULT 'normal',
+  due_at TIMESTAMPTZ,
+  sla_breached BOOLEAN NOT NULL DEFAULT FALSE,
+  title VARCHAR(255),
+  note TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_activity_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_regulatory_work_items_resource
+    UNIQUE (organization_id, resource_type, resource_id),
+  CONSTRAINT ck_regulatory_work_items_module
+    CHECK (module IN ('alerts', 'sanctions', 'blocks', 'reports', 'ros_coaf', 'counterparties', 'evidence')),
+  CONSTRAINT ck_regulatory_work_items_resource_type
+    CHECK (resource_type IN (
+      'operational_alert',
+      'sanctions_screening',
+      'preventive_block',
+      'formal_report_case',
+      'ros_record',
+      'counterparty',
+      'evidence_event'
+    )),
+  CONSTRAINT ck_regulatory_work_items_queue_status
+    CHECK (queue_status IN ('UNDER_REVIEW', 'ESCALATED', 'READY', 'APPROVED', 'SUBMITTED', 'CLOSED', 'REJECTED')),
+  CONSTRAINT ck_regulatory_work_items_priority
+    CHECK (priority IN ('critical', 'high', 'normal'))
+);
+
+CREATE TABLE IF NOT EXISTS regulatory_work_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  work_item_id UUID NOT NULL REFERENCES regulatory_work_items(id) ON DELETE CASCADE,
+  organization_id UUID NOT NULL REFERENCES organizations(id),
+  actor_user_id UUID REFERENCES users(id),
+  event_type VARCHAR(50) NOT NULL,
+  from_status VARCHAR(40),
+  to_status VARCHAR(40),
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS regulatory_work_comments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  work_item_id UUID NOT NULL REFERENCES regulatory_work_items(id) ON DELETE CASCADE,
+  organization_id UUID NOT NULL REFERENCES organizations(id),
+  actor_user_id UUID REFERENCES users(id),
+  comment_type VARCHAR(30) NOT NULL DEFAULT 'note',
+  body TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT ck_regulatory_work_comments_type
+    CHECK (comment_type IN ('note', 'decision', 'handoff'))
+);
+
+CREATE OR REPLACE FUNCTION update_regulatory_work_items_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  NEW.last_activity_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS regulatory_work_items_updated_at ON regulatory_work_items;
+CREATE TRIGGER regulatory_work_items_updated_at
+  BEFORE UPDATE ON regulatory_work_items
+  FOR EACH ROW EXECUTE FUNCTION update_regulatory_work_items_updated_at();
+
 CREATE INDEX IF NOT EXISTS idx_users_org_id ON users(organization_id);
 CREATE INDEX IF NOT EXISTS idx_cases_org_id ON cases(organization_id);
 CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(status);
@@ -323,6 +401,21 @@ CREATE INDEX IF NOT EXISTS idx_monitoring_quotes_expires_at ON monitoring_quotes
 CREATE INDEX IF NOT EXISTS idx_monitoring_quotes_plan_drift ON monitoring_quotes(plan_snapshot, organization_id, used_at) WHERE used_at IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_credit_ledger_org_id ON credit_ledger(org_id);
 CREATE INDEX IF NOT EXISTS idx_credit_ledger_case_id ON credit_ledger(case_id);
+CREATE INDEX IF NOT EXISTS idx_regulatory_work_items_org_module_status_due
+  ON regulatory_work_items(organization_id, module, queue_status, due_at);
+CREATE INDEX IF NOT EXISTS idx_regulatory_work_items_org_owner_status_due
+  ON regulatory_work_items(organization_id, owner_user_id, queue_status, due_at);
+CREATE INDEX IF NOT EXISTS idx_regulatory_work_items_org_case
+  ON regulatory_work_items(organization_id, case_id)
+  WHERE case_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_regulatory_work_items_org_activity
+  ON regulatory_work_items(organization_id, last_activity_at DESC);
+CREATE INDEX IF NOT EXISTS idx_regulatory_work_items_org_resource
+  ON regulatory_work_items(organization_id, resource_type, resource_id);
+CREATE INDEX IF NOT EXISTS idx_regulatory_work_events_work_item
+  ON regulatory_work_events(work_item_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_regulatory_work_comments_work_item
+  ON regulatory_work_comments(work_item_id, created_at DESC);
 
 INSERT INTO organizations (id, name, plan, credits_available, credits_reserved, credits_used_total)
 VALUES (
@@ -382,6 +475,9 @@ ALTER TABLE investigation_quotes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE compliance_quotes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE monitoring_quotes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credit_ledger ENABLE ROW LEVEL SECURITY;
+ALTER TABLE regulatory_work_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE regulatory_work_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE regulatory_work_comments ENABLE ROW LEVEL SECURITY;
 
 CREATE OR REPLACE FUNCTION check_rls_context()
 RETURNS BOOLEAN AS $$
@@ -560,6 +656,39 @@ CREATE POLICY credit_ledger_isolation ON credit_ledger
   WITH CHECK (
     check_rls_context()
     AND org_id = NULLIF(current_setting('app.organization_id', true), '')::uuid
+  );
+
+DROP POLICY IF EXISTS regulatory_work_items_tenant_isolation ON regulatory_work_items;
+CREATE POLICY regulatory_work_items_tenant_isolation ON regulatory_work_items
+  USING (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', true), '')::uuid
+  )
+  WITH CHECK (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', true), '')::uuid
+  );
+
+DROP POLICY IF EXISTS regulatory_work_events_tenant_isolation ON regulatory_work_events;
+CREATE POLICY regulatory_work_events_tenant_isolation ON regulatory_work_events
+  USING (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', true), '')::uuid
+  )
+  WITH CHECK (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', true), '')::uuid
+  );
+
+DROP POLICY IF EXISTS regulatory_work_comments_tenant_isolation ON regulatory_work_comments;
+CREATE POLICY regulatory_work_comments_tenant_isolation ON regulatory_work_comments
+  USING (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', true), '')::uuid
+  )
+  WITH CHECK (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', true), '')::uuid
   );
 
 CREATE OR REPLACE FUNCTION validate_api_key_and_get_context(

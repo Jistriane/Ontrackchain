@@ -40,6 +40,8 @@ Hoje o projeto ja opera como plataforma funcional, mas ainda nao concluiu toda a
     - [1. Subir a stack local](#1-subir-a-stack-local)
     - [2. Validar runtime e UI](#2-validar-runtime-e-ui)
     - [3. Endpoints locais padrao](#3-endpoints-locais-padrao)
+    - [4. Rotas locais principais do frontend](#4-rotas-locais-principais-do-frontend)
+    - [5. Atalhos operacionais localhost atualizados](#5-atalhos-operacionais-localhost-atualizados)
   - [Navegacao Canonica](#navegacao-canonica)
   - [Estrutura do Repositorio](#estrutura-do-repositorio)
   - [Riscos Residuais Conhecidos](#riscos-residuais-conhecidos)
@@ -74,10 +76,14 @@ Hoje o projeto ja opera como plataforma funcional, mas ainda nao concluiu toda a
 - trilha operacional e regulatoria implementada:
   - `audit_logs`
   - `evidence_trail` append-only com encadeamento `SHA-256`
+  - `regulatory_work_items` + `regulatory_work_events` + `regulatory_work_comments`
   - `preventive_blocks`
   - `counterparties` + `counterparty_history`
   - `sanctions_lists_meta` + `sanctions_hits_cache`
   - `ros_records`
+- camada operacional compartilhada ja conectada ao frontend:
+  - `sanctions` usa backend como fonte primaria da fila operacional, com fallback local
+  - `alerts` rastreia incidentes em `work-items` e sincroniza encerramento via `ack`
 - observabilidade operacional madura:
   - backlog global em `/monitoring`
   - ack em lote
@@ -121,9 +127,10 @@ Leitura mais honesta do momento:
 - identidade: `auth-service` suporta `dev` e `oidc`; `Keycloak` entra no profile `oidc`
 - investigacao: `investigation-api` e `investigation-worker` fazem `estimate -> start -> queue -> result` com retry/backoff e metadados do provider RPC
 - compliance: `compliance-api` expone `kyc-wallet`, `sanctions-check`, `preventive blocks` e `counterparties`; `compliance-worker` sincroniza OFAC, UN, EU e deadlines de ROS
+- operacoes: `compliance-api` tambem expõe `work-items` multiusuario por modulo para fila compartilhada, timeline e handoff operacional
 - reports: `report-api` gera relatorios deterministas e implementa o fluxo `ROS/COAF`
 - monitoring: `monitoring-api` recebe webhooks do `Alertmanager` e alimenta o backlog global operacional
-- dados: `PostgreSQL` usa `RLS`; `Redis` suporta fila/cache; migrations versionam o core regulatorio
+- dados: `PostgreSQL` usa `RLS`; `Redis` suporta fila/cache; migrations versionam o core regulatorio e a fila compartilhada
 - governanca: scripts de preflight, homologacao, packet, dossier e postprocess sustentam o rito da janela seria
 
 ```mermaid
@@ -158,6 +165,9 @@ flowchart LR
   mon --> pg
   mon --> redis
   rep --> pg
+  work[(regulatory_work_items)]
+  comp --> work
+  frontend --> work
 
   rpc[RPC primary fallback] --> inv
   trm[AML KYT provider] --> comp
@@ -182,6 +192,7 @@ flowchart LR
 | `investigation-api` | `estimate`, `start`, `status`, billing e metadados RPC |
 | `investigation-worker` | fila real, retry/backoff, concorrencia e processamento assincrono |
 | `compliance-api` | `kyc-wallet`, `sanctions-check`, `preventive blocks` e `counterparties` |
+| `operations` via `compliance-api` | fila compartilhada por modulo, status, comentarios e timeline de handoff |
 | `compliance-worker` | sync de listas, override de `source_url`, deadlines de ROS e readiness regulatorio |
 | `monitoring-api` | webhooks do `Alertmanager`, backlog global e exports auditados |
 | `report-api` | downloads fortes, relatorios deterministas e fluxo `ROS/COAF` |
@@ -502,6 +513,9 @@ Comandos recomendados:
 cd ontrackchain
 python scripts/smoke_runtime.py
 
+docker compose exec -T postgres psql -U ontrackchain -d ontrackchain \
+  < infra/postgres/migrations/0013_regulatory_work_items.sql
+
 cd apps/frontend
 npm ci
 npm run typecheck
@@ -579,12 +593,44 @@ Os ports abaixo refletem `ontrackchain/.env.example`.
 
 - app gateway: `http://localhost:8080`
 - dashboard do Traefik: `http://localhost:8081`
-- Keycloak profile `oidc`: `http://localhost:8088`
+- Keycloak OIDC publico: `http://auth.localhost:8080`
+- Keycloak profile `oidc` admin/debug: `http://localhost:8088`
 - Prometheus: `http://localhost:9091`
 - Alertmanager: `http://localhost:9093`
 - Grafana: `http://localhost:3002`
 - PostgreSQL: `localhost:5432`
 - Redis: `localhost:6379`
+
+### 4. Rotas locais principais do frontend
+
+Todas as rotas abaixo passam pelo gateway local em `http://localhost:8080`.
+
+- landing/app shell: `http://localhost:8080/`
+- dashboard operacional: `http://localhost:8080/dashboard`
+- investigação: `http://localhost:8080/investigate`
+- monitoramento: `http://localhost:8080/monitoring`
+- auditoria: `http://localhost:8080/audit`
+- trilha de evidências: `http://localhost:8080/evidence`
+- central de alertas: `http://localhost:8080/alerts`
+- fila compartilhada conectada em alertas: `http://localhost:8080/alerts?status=firing&triage_status=pending`
+- reports formais: `http://localhost:8080/reports`
+- contrapartes: `http://localhost:8080/counterparties`
+- sanções: `http://localhost:8080/sanctions`
+- fila compartilhada conectada em sanções: `http://localhost:8080/sanctions?address=<address>&chain=<chain>&case_id=<case_id>&autostart=1`
+- bloqueios preventivos: `http://localhost:8080/blocks`
+- ROS/COAF: `http://localhost:8080/ros-coaf`
+- billing: `http://localhost:8080/billing`
+- team management local-first: `http://localhost:8080/team`
+
+### 5. Atalhos operacionais localhost atualizados
+
+- alertas pendentes: `http://localhost:8080/alerts?status=firing&triage_status=pending`
+- billing com usuários convidados: `http://localhost:8080/team?filter_status=invited`
+- reports com caso pré-selecionado: `http://localhost:8080/reports?case_id=<case_id>`
+- sanctions com autostart: `http://localhost:8080/sanctions?address=<address>&chain=<chain>&case_id=<case_id>&autostart=1`
+- blocks com autostart: `http://localhost:8080/blocks?address=<address>&chain=<chain>&case_id=<case_id>&autostart=1`
+- audit filtrado por caso: `http://localhost:8080/audit?resource_type=case&resource_id=<case_id>&request_id=<case_id>`
+- evidence filtrado por caso: `http://localhost:8080/evidence?domain=all&resource_type=case&resource_id=<case_id>&request_id=<case_id>`
 
 ## Navegacao Canonica
 
@@ -592,6 +638,7 @@ Os ports abaixo refletem `ontrackchain/.env.example`.
 - [Indice de documentacao](./ontrackchain/docs/README.md)
 - [Arquitetura](./ontrackchain/docs/architecture.md)
 - [Contratos de API](./ontrackchain/docs/api-contracts.md)
+- [Cobertura do Frontend](./ontrackchain/docs/frontend-coverage-matrix.md)
 - [Deploy e Staging](./ontrackchain/docs/deploy-and-staging.md)
 - [Gates de Release para Staging Serio](./ontrackchain/docs/project-release-gates.md)
 - [Validacao e Auditoria](./ontrackchain/docs/validation-and-audit.md)
@@ -608,7 +655,6 @@ Ontrackchain/
 │   └── workflows/
 ├── Makefile
 ├── README.md
-├── ONTRACKCHAIN  Arquitetura Expandida v3.0.md
 └── ontrackchain/
     ├── apps/
     │   ├── auth-service/

@@ -3,7 +3,137 @@ import { redirect } from "next/navigation";
 import { AppShell, MetricCard, MetricGrid, ModuleCard, ModuleGrid, Panel, Pill } from "../../components/ui";
 import { LOCALE_COOKIE_NAME, normalizeLocale, translate, type MessageKey } from "../lib/i18n";
 
-export default function DashboardPage() {
+type BillingBalanceResponse = {
+  credits_available: number;
+  credits_reserved: number;
+  credits_used_total: number;
+};
+
+type Watchlist = {
+  id: string;
+  name: string;
+  priority: string;
+};
+
+type OperationsSnapshot = {
+  queue: {
+    ready: number;
+    waiting: number;
+    retry_pending: number;
+    retry_due: number;
+    wake_signals: number;
+  };
+  concurrency: {
+    org_active: number;
+    org_limit: number;
+    global_active: number;
+    global_limit: number;
+    plan: string;
+  };
+  throughput: {
+    completed_last_hour: number;
+    failed_last_hour: number;
+    billing_recalc_last_hour: number;
+    avg_duration_ms_last_20: number;
+  };
+  states: {
+    queued: number;
+    processing: number;
+    dlq_failed: number;
+    dlq_resolved: number;
+  };
+  recent_cases: Array<{
+    case_id: string;
+    status: string;
+    target_address: string;
+    target_chain: string;
+    created_at: string | null;
+    completed_at: string | null;
+    queue_state: string | null;
+    last_error: string | null;
+    attempt_count: number;
+    report_type_canonical: string | null;
+    charged_cost: number | null;
+    duration_ms: number | null;
+  }>;
+  generated_at: string;
+};
+
+type PlatformOperationalAlertsSnapshot = {
+  total_count: number;
+};
+
+function formatDate(value: string | null | undefined, locale: string) {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }).format(parsed);
+}
+
+function buildAuditHref(caseId: string) {
+  const params = new URLSearchParams({
+    resource_type: "case",
+    resource_id: caseId,
+    request_id: caseId
+  });
+  return `/audit?${params.toString()}`;
+}
+
+function buildEvidenceHref(caseId: string) {
+  const params = new URLSearchParams({
+    domain: "all",
+    resource_type: "case",
+    resource_id: caseId,
+    request_id: caseId
+  });
+  return `/evidence?${params.toString()}`;
+}
+
+function buildReportsHref(caseId: string, reportType: string | null) {
+  const params = new URLSearchParams({ case_id: caseId });
+  if (reportType) {
+    params.set("report_type", reportType);
+  }
+  return `/reports?${params.toString()}`;
+}
+
+function buildSanctionsHref(caseId: string, address: string, chain: string) {
+  const params = new URLSearchParams({
+    case_id: caseId,
+    address,
+    chain,
+    autostart: "1"
+  });
+  return `/sanctions?${params.toString()}`;
+}
+
+function buildBlocksHref(caseId: string, address: string, chain: string) {
+  const params = new URLSearchParams({
+    case_id: caseId,
+    address,
+    chain,
+    autostart: "1"
+  });
+  return `/blocks?${params.toString()}`;
+}
+
+async function fetchJson<T>(input: RequestInfo, init: RequestInit): Promise<{ ok: true; data: T } | { ok: false; status: number }> {
+  const res = await fetch(input, init);
+  if (!res.ok) {
+    return { ok: false, status: res.status };
+  }
+  const data = (await res.json().catch(() => null)) as T | null;
+  if (!data) {
+    return { ok: false, status: 502 };
+  }
+  return { ok: true, data };
+}
+
+export default async function DashboardPage() {
   const cookieStore = cookies();
   const token = cookieStore.get("otc_token")?.value;
   const twofa = cookieStore.get("otc_2fa")?.value;
@@ -14,6 +144,31 @@ export default function DashboardPage() {
     redirect("/login");
   }
 
+  const requestId = crypto.randomUUID();
+  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
+  const headers = { Authorization: `Bearer ${token}`, "X-Request-Id": requestId };
+
+  const [watchlistsRes, billingRes, operationsRes, platformAlertsRes] = await Promise.all([
+    fetchJson<Watchlist[]>(`${baseUrl}/api/v1/monitoring/watchlists`, { method: "GET", headers, cache: "no-store" }),
+    fetchJson<BillingBalanceResponse>(`${baseUrl}/api/v1/billing/balance`, { method: "GET", headers, cache: "no-store" }),
+    fetchJson<OperationsSnapshot>(`${baseUrl}/api/v1/investigation/admin/operations`, { method: "GET", headers, cache: "no-store" }),
+    fetchJson<PlatformOperationalAlertsSnapshot>(
+      `${baseUrl}/api/v1/monitoring/operational-alerts?status=firing&triage_status=pending&limit=1`,
+      { method: "GET", headers, cache: "no-store" }
+    )
+  ]);
+
+  const watchlistsCount = watchlistsRes.ok ? watchlistsRes.data.length : null;
+  const creditsAvailable = billingRes.ok ? billingRes.data.credits_available : null;
+  const creditsReserved = billingRes.ok ? billingRes.data.credits_reserved : null;
+  const creditsUsedTotal = billingRes.ok ? billingRes.data.credits_used_total : null;
+  const orgActive = operationsRes.ok ? operationsRes.data.concurrency.org_active : null;
+  const orgLimit = operationsRes.ok ? operationsRes.data.concurrency.org_limit : null;
+  const queuedCount = operationsRes.ok ? operationsRes.data.states.queued : null;
+  const processingCount = operationsRes.ok ? operationsRes.data.states.processing : null;
+  const firingPendingAlertsTotal = platformAlertsRes.ok ? platformAlertsRes.data.total_count : null;
+  const recentCases = operationsRes.ok ? operationsRes.data.recent_cases.slice(0, 10) : [];
+
   return (
     <AppShell
       title={t("dashboard.title")}
@@ -22,86 +177,139 @@ export default function DashboardPage() {
       actions={<div data-testid="user-menu" className="otc-ghost-pill">{t("dashboard.sessionActive")}</div>}
     >
       <MetricGrid>
-        <MetricCard label={t("dashboard.stats.researches")} value="90" meta={t("dashboard.stats.researchesMeta")} />
-        <MetricCard label={t("dashboard.stats.activeAnalysts")} value="2 / 3" meta={t("dashboard.stats.activeAnalystsMeta")} />
-        <MetricCard label={t("dashboard.stats.monitoredWallets")} value="2" meta={t("dashboard.stats.monitoredWalletsMeta")} />
-        <MetricCard label={t("dashboard.stats.avgScore")} value="24 / 100" meta={t("dashboard.stats.avgScoreMeta")} accent />
+        <MetricCard
+          label={t("dashboard.kpis.queue")}
+          value={queuedCount === null ? t("common.notAvailable") : queuedCount}
+          meta={t("dashboard.kpis.queueMeta")}
+        />
+        <MetricCard
+          label={t("dashboard.kpis.processing")}
+          value={processingCount === null ? t("common.notAvailable") : processingCount}
+          meta={t("dashboard.kpis.processingMeta")}
+        />
+        <MetricCard
+          label={t("dashboard.kpis.orgConcurrency")}
+          value={orgActive === null || orgLimit === null ? t("common.notAvailable") : `${orgActive} / ${orgLimit}`}
+          meta={t("dashboard.kpis.orgConcurrencyMeta")}
+          accent
+        />
+        <MetricCard
+          label={t("dashboard.kpis.watchlists")}
+          value={watchlistsCount === null ? t("common.notAvailable") : watchlistsCount}
+          meta={t("dashboard.kpis.watchlistsMeta")}
+        />
       </MetricGrid>
 
-      <Panel title={t("dashboard.history.title")} description={t("dashboard.history.description")}>
+      <MetricGrid>
+        <MetricCard
+          label={t("dashboard.kpis.alertsFiring")}
+          value={firingPendingAlertsTotal === null ? t("common.notAvailable") : firingPendingAlertsTotal}
+          meta={t("dashboard.kpis.alertsFiringMeta")}
+          accent
+        />
+        <MetricCard
+          label={t("dashboard.kpis.credits")}
+          value={creditsAvailable === null ? t("common.notAvailable") : String(creditsAvailable)}
+          meta={t("dashboard.kpis.creditsMeta")}
+        />
+        <MetricCard
+          label={t("dashboard.kpis.creditsReserved")}
+          value={creditsReserved === null ? t("common.notAvailable") : String(creditsReserved)}
+          meta={t("dashboard.kpis.creditsReservedMeta")}
+        />
+        <MetricCard
+          label={t("dashboard.kpis.creditsUsed")}
+          value={creditsUsedTotal === null ? t("common.notAvailable") : String(creditsUsedTotal)}
+          meta={t("dashboard.kpis.creditsUsedMeta")}
+        />
+      </MetricGrid>
+
+      <Panel title={t("dashboard.quickActions.title")} description={t("dashboard.quickActions.description")}>
+        <div className="otc-controls">
+          <a className="otc-link-button" href="/alerts?status=firing&triage_status=pending">
+            {t("dashboard.quickActions.openPendingAlerts")}
+          </a>
+          <a className="otc-link-button" href="/monitoring">
+            {t("dashboard.quickActions.openMonitoring")}
+          </a>
+          <a className="otc-link-button" href="/reports">
+            {t("dashboard.quickActions.openReports")}
+          </a>
+          <a className="otc-link-button" href="/evidence">
+            {t("dashboard.quickActions.openEvidence")}
+          </a>
+          <a className="otc-link-button" href="/billing">
+            {t("dashboard.quickActions.openBilling")}
+          </a>
+          <a className="otc-link-button" href="/team">
+            {t("dashboard.quickActions.openTeam")}
+          </a>
+        </div>
+      </Panel>
+
+      <Panel title={t("dashboard.cases.title")} description={t("dashboard.cases.description")}>
         <table className="otc-table">
           <thead>
             <tr>
-              <th>{t("dashboard.history.user")}</th>
-              <th>{t("dashboard.history.role")}</th>
-              <th>{t("dashboard.history.researches")}</th>
-              <th>{t("dashboard.history.status")}</th>
-              <th>{t("dashboard.history.score")}</th>
-              <th>{t("dashboard.history.network")}</th>
-              <th>{t("dashboard.history.lastResearch")}</th>
-              <th>{t("dashboard.history.actions")}</th>
+              <th>{t("dashboard.cases.caseId")}</th>
+              <th>{t("dashboard.cases.reportType")}</th>
+              <th>{t("dashboard.cases.status")}</th>
+              <th>{t("dashboard.cases.chain")}</th>
+              <th>{t("dashboard.cases.createdAt")}</th>
+              <th>{t("dashboard.cases.completedAt")}</th>
+              <th>{t("dashboard.cases.cost")}</th>
+              <th>{t("dashboard.cases.actions")}</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>
-                <strong>System User</strong>
-                <div className="otc-muted">system@ontrackchain.com</div>
-              </td>
-              <td>{t("dashboard.history.admin")}</td>
-              <td>
-                <strong>88</strong>
-              </td>
-              <td>
-                <span style={{ color: "#7ff0c2" }}>74 ok</span> • <span style={{ color: "#ff9daa" }}>14 fail</span>
-              </td>
-              <td>
-                <strong style={{ color: "#7ff0ff" }}>13 / 100</strong>
-              </td>
-              <td>ETHEREUM</td>
-              <td>18/06/2026, 00:01</td>
-              <td>
-                <a className="otc-link-button" href="/audit">
-                  {t("dashboard.history.view")}
-                </a>
-              </td>
-            </tr>
-            <tr>
-              <td>
-                <strong>KMD</strong>
-                <div className="otc-muted">kmd@ontrackchain.com</div>
-              </td>
-              <td>{t("dashboard.history.tester")}</td>
-              <td>
-                <strong>2</strong>
-              </td>
-              <td>
-                <span style={{ color: "#7ff0c2" }}>2 ok</span>
-              </td>
-              <td>
-                <strong style={{ color: "#7ff0ff" }}>35 / 70</strong>
-              </td>
-              <td>BITCOIN</td>
-              <td>18/06/2026, 15:38</td>
-              <td>
-                <a className="otc-link-button" href="/audit">
-                  {t("dashboard.history.view")}
-                </a>
-              </td>
-            </tr>
-            <tr>
-              <td>
-                <strong>JIBSO</strong>
-                <div className="otc-muted">jibso@ontrackchain.com</div>
-              </td>
-              <td>{t("dashboard.history.admin")}</td>
-              <td>0</td>
-              <td>--</td>
-              <td>-- / --</td>
-              <td>--</td>
-              <td>--</td>
-              <td className="otc-muted">{t("dashboard.history.noRecords")}</td>
-            </tr>
+            {recentCases.length ? (
+              recentCases.map((entry) => (
+                <tr key={entry.case_id}>
+                  <td>
+                    <strong>{entry.case_id}</strong>
+                    {entry.last_error ? <div className="otc-muted">{entry.last_error}</div> : null}
+                  </td>
+                  <td>{entry.report_type_canonical ?? t("common.notAvailable")}</td>
+                  <td>{entry.status}</td>
+                  <td>{entry.target_chain}</td>
+                  <td>{formatDate(entry.created_at, locale) ?? t("common.notAvailable")}</td>
+                  <td>{formatDate(entry.completed_at, locale) ?? t("common.notAvailable")}</td>
+                  <td>{typeof entry.charged_cost === "number" ? entry.charged_cost : t("common.notAvailable")}</td>
+                  <td>
+                    <div className="otc-controls">
+                      <a className="otc-link-button" href={`/cases/${entry.case_id}`}>
+                        {t("dashboard.cases.open")}
+                      </a>
+                      <a className="otc-link-button" href={buildAuditHref(entry.case_id)}>
+                        {t("dashboard.cases.openAudit")}
+                      </a>
+                      <a className="otc-link-button" href={buildEvidenceHref(entry.case_id)}>
+                        {t("dashboard.cases.openEvidence")}
+                      </a>
+                      <a className="otc-link-button" href={buildReportsHref(entry.case_id, entry.report_type_canonical)}>
+                        {t("dashboard.cases.openReports")}
+                      </a>
+                      {entry.target_address ? (
+                        <a className="otc-link-button" href={buildSanctionsHref(entry.case_id, entry.target_address, entry.target_chain)}>
+                          {t("dashboard.cases.openSanctions")}
+                        </a>
+                      ) : null}
+                      {entry.target_address ? (
+                        <a className="otc-link-button" href={buildBlocksHref(entry.case_id, entry.target_address, entry.target_chain)}>
+                          {t("dashboard.cases.openBlocks")}
+                        </a>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={8} className="otc-muted">
+                  {operationsRes.ok ? t("dashboard.cases.empty") : t("dashboard.cases.unavailable")}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </Panel>
@@ -130,40 +338,52 @@ export default function DashboardPage() {
             footer={t("dashboard.modules.dueDiligence.footer")}
           />
           <ModuleCard
+            href="/counterparties"
             title={t("dashboard.modules.counterparties.title")}
             description={t("dashboard.modules.counterparties.description")}
-            badge={<Pill tone="warning">{t("dashboard.modules.soon")}</Pill>}
+            badge={<Pill>{t("dashboard.modules.active")}</Pill>}
             footer={t("dashboard.modules.counterparties.footer")}
           />
           <ModuleCard
+            href="/sanctions"
             title={t("dashboard.modules.sanctions.title")}
             description={t("dashboard.modules.sanctions.description")}
-            badge={<Pill tone="warning">{t("dashboard.modules.soon")}</Pill>}
+            badge={<Pill>{t("dashboard.modules.active")}</Pill>}
             footer={t("dashboard.modules.sanctions.footer")}
           />
           <ModuleCard
+            href="/blocks"
+            title={t("dashboard.modules.blocks.title")}
+            description={t("dashboard.modules.blocks.description")}
+            badge={<Pill>{t("dashboard.modules.active")}</Pill>}
+            footer={t("dashboard.modules.blocks.footer")}
+          />
+          <ModuleCard
+            href="/evidence"
             title={t("dashboard.modules.evidence.title")}
             description={t("dashboard.modules.evidence.description")}
-            badge={<Pill tone="warning">{t("dashboard.modules.soon")}</Pill>}
+            badge={<Pill>{t("dashboard.modules.active")}</Pill>}
             footer={t("dashboard.modules.evidence.footer")}
           />
           <ModuleCard
+            href="/alerts"
             title={t("dashboard.modules.alerts.title")}
             description={t("dashboard.modules.alerts.description")}
-            badge={<Pill tone="warning">{t("dashboard.modules.soon")}</Pill>}
+            badge={<Pill>{t("dashboard.modules.active")}</Pill>}
             footer={t("dashboard.modules.alerts.footer")}
           />
           <ModuleCard
             title={t("dashboard.modules.reports.title")}
             description={t("dashboard.modules.reports.description")}
-            badge={<Pill tone="warning">{t("dashboard.modules.soon")}</Pill>}
+            href="/reports"
+            badge={<Pill>{t("dashboard.modules.active")}</Pill>}
             footer={t("dashboard.modules.reports.footer")}
           />
           <ModuleCard
-            href="/billing"
+            href="/team"
             title={t("dashboard.modules.team.title")}
             description={t("dashboard.modules.team.description")}
-            badge={<Pill tone="warning">{t("dashboard.modules.soon")}</Pill>}
+            badge={<Pill>{t("dashboard.modules.active")}</Pill>}
             footer={t("dashboard.modules.team.footer")}
           />
         </ModuleGrid>

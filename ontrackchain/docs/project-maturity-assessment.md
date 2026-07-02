@@ -33,6 +33,7 @@ Interpretacao:
 
 - o projeto ultrapassou o corte de scaffold avancado e hoje possui core regulatorio funcional em runtime real
 - o ganho de maturidade veio principalmente de `evidence_trail`, `preventive_blocks`, `counterparties`, `sanctions cache` e `ROS/COAF`
+- a camada `regulatory_work_items` passou a existir como fila compartilhada multiusuario no servidor, ja conectada a `sanctions` e `alerts`
 - o gap residual mudou de natureza: menos ausencia de codigo, mais homologacao externa, alinhamento final de contratos e sign-off formal
 
 ## Regua Utilizada
@@ -71,10 +72,10 @@ Resultado atual:
 | Arquitetura e Runtime | 94% | stack coerente, migrations reguladas e boundary claro |
 | Auth e Identidade | 88% | trilho serio desenhado, homologacao externa ainda pendente |
 | Investigation + Billing | 90% | worker real, fallback e trilha financeira operacional |
-| Compliance Core | 90% | sancoes locais, bloqueios, contrapartes e ROS ja implementados |
+| Compliance Core | 90% | sancoes locais, bloqueios, contrapartes, ROS e fila compartilhada inicial via `work-items` ja implementados |
 | Monitoring Operacional | 91% | backlog global, triagem e export auditado |
 | Reports e Evidencias | 92% | hashes deterministas, evidence trail e ROS auditado |
-| Frontend Operacional | 89% | `/audit` e `/monitoring` maduros, UX regulatoria ainda pode evoluir |
+| Frontend Operacional | 89% | `/audit` e `/monitoring` maduros; `sanctions` e `alerts` ja sincronizam fila compartilhada, mas a expansao para outros cockpits ainda pode evoluir |
 | Observabilidade e Alerting | 88% | cobertura boa, ainda faltam sinais de seguranca mais fortes |
 | Testes e CI/CD | 94% | smoke, E2E e preflights bem institucionalizados |
 | Seguranca e Governanca | 85% | controles tecnicos fortes; sign-off formal e rotina seria ainda incompletos |
@@ -89,6 +90,8 @@ Resultado atual:
 - `check_sanctions_sync_status.py` e rito serio de feed de sancoes
 - `check_compliance_provider_runtime.py` como gate leve de runtime AML/KYT
 - `run_eu_sanctions_window.py` e alvos `make run-eu-sanctions-window*` para a janela UE
+- `regulatory_work_items` + `regulatory_work_events` + `regulatory_work_comments` como fila compartilhada multiusuario por modulo/recurso
+- integracao inicial dessa fila no frontend via `sanctions` e `alerts`
 
 ## O Que Ainda Segura o Projeto
 
@@ -97,6 +100,7 @@ Resultado atual:
 - `AML/KYT` live ainda depende de credenciais e homologacao real
 - `due_diligence` e `source_of_funds` permanecem em `manual_review_required`
 - falta prova recorrente institucional de janelas externas, apesar dos runners e checkers ja estarem prontos
+- a fila compartilhada ainda nao cobre todos os cockpits regulatorios; `blocks`, `reports`, `counterparties`, `evidence` e `ros-coaf` seguem em migracao gradual
 
 ### Regulatorio-operacional
 
