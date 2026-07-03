@@ -105,6 +105,66 @@ def build_window_packet_path(window_id: str, packet_path: str | None) -> Path:
     return DEFAULT_WINDOW_PACKET_DIR / f"window-packet-{window_id}.md"
 
 
+def determine_validation_scope(regulatory_bundle_payload: dict[str, Any]) -> list[str]:
+    """
+    Extract expected validation scope from regulatory bundle payload.
+
+    P0-01 (OIDC) is always included.
+    P0-02/P0-03 (Regulatory) are included if enabled in the bundle scope.
+
+    Args:
+        regulatory_bundle_payload: The payload from run_regulatory_readiness_bundle
+
+    Returns:
+        List of P0 items in scope
+    """
+    scope = ["P0-01"]  # OIDC always in scope
+    regulatory_scope = regulatory_bundle_payload.get("scope", {})
+    if regulatory_scope.get("compliance_runtime_enabled") or regulatory_scope.get("eu_window_enabled"):
+        scope.extend(["P0-02", "P0-03"])
+    return scope
+
+
+def run_final_artifact_validation(
+    *,
+    window_id: str,
+    checks_dir: Path,
+    dossier_output_dir: Path,
+    expected_scope: list[str],
+) -> tuple[int, dict[str, Any]]:
+    """
+    Run final validation of serious window artifact completeness.
+
+    Args:
+        window_id: Window identifier
+        checks_dir: Path to checks directory
+        dossier_output_dir: Path to dossiers directory
+        expected_scope: List of P0 items expected in this window
+
+    Returns:
+        (exit_code, validation_payload)
+    """
+    try:
+        validation_module = load_module(
+            "validate_serious_window_artifact",
+            "scripts/validate_serious_window_artifact.py",
+        )
+        exit_code, validation_payload = validation_module.validate_artifact(
+            window_id=window_id,
+            checks_dir=checks_dir,
+            dossiers_dir=dossier_output_dir,
+            scope=expected_scope,
+        )
+        return exit_code, validation_payload
+    except Exception as exc:  # noqa: BLE001
+        return 1, {
+            "status": "failed",
+            "errors": [f"Validation runner failed: {exc}"],
+            "missing_artifacts": [],
+            "found_artifacts": [],
+        }
+
+
 def run_window(
     *,
     window_id: str,
@@ -482,6 +542,23 @@ def run_window(
     )
     if dossier_payload.get("status") != "ok":
         payload["errors"].append("release_dossier: falhou")
+
+    # Final artifact validation sanity check
+    expected_validation_scope = determine_validation_scope(regulatory_bundle_payload)
+    artifact_validation_exit_code, artifact_validation_payload = run_final_artifact_validation(
+        window_id=window_id,
+        checks_dir=checks_dir,
+        dossier_output_dir=dossier_output_dir,
+        expected_scope=expected_validation_scope,
+    )
+    payload["steps"]["final_artifact_validation"] = step_payload(
+        status=artifact_validation_payload.get("status", "failed"),
+        exit_code=artifact_validation_exit_code,
+        scope=expected_validation_scope,
+        missing_artifacts=artifact_validation_payload.get("missing_artifacts", []),
+    )
+    if artifact_validation_exit_code != 0:
+        payload["errors"].append("final_artifact_validation: falhou")
 
     payload["status"] = "ok" if not payload["errors"] else "failed"
     return (0 if payload["status"] == "ok" else 1), payload

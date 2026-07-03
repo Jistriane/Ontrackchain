@@ -205,7 +205,18 @@ class RunStagingWindowTests(unittest.TestCase):
                     }
                 raise AssertionError(f"Chamado inesperado: {relative_path} / {module_name}")
 
-            with patch.object(MODULE, "run_module_main", side_effect=fake_run_module_main):
+            def fake_run_final_artifact_validation(**kwargs):
+                return 0, {
+                    "status": "ok",
+                    "window_id": kwargs["window_id"],
+                    "scope": kwargs["expected_scope"],
+                    "errors": [],
+                    "missing_artifacts": [],
+                    "found_artifacts": [],
+                }
+
+            with patch.object(MODULE, "run_module_main", side_effect=fake_run_module_main), \
+                 patch.object(MODULE, "run_final_artifact_validation", side_effect=fake_run_final_artifact_validation):
                 exit_code, payload = MODULE.run_window(
                     window_id="stg-2026-06-29-a",
                     env_file=env_file,
@@ -230,6 +241,8 @@ class RunStagingWindowTests(unittest.TestCase):
             self.assertEqual(payload["steps"]["regulatory_readiness_bundle"]["status"], "ok")
             self.assertEqual(payload["steps"]["homologation"]["status"], "ok")
             self.assertEqual(payload["steps"]["release_dossier"]["status"], "ok")
+            self.assertEqual(payload["steps"]["final_artifact_validation"]["status"], "ok")
+            self.assertEqual(payload["steps"]["final_artifact_validation"]["scope"], ["P0-01", "P0-02", "P0-03"])
             self.assertTrue(packet_file.exists())
             self.assertTrue((checks_dir / "ownership-coverage-stg-2026-06-29-a.json").exists())
             self.assertTrue((checks_dir / "placeholders-stg-2026-06-29-a.json").exists())
