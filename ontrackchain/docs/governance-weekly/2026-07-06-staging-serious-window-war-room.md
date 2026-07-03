@@ -136,6 +136,7 @@
 - `<janela>-eu-sanctions-preflight.json`: `pending`
 - `<janela>-eu-sanctions-sync.json`: `pending`
 - `regulatory-readiness-bundle.json`: `pending`
+- `regulatory-readiness-bundle.md`: `pending`
 - `prepare-staging-window-output.json`: `pending`
 
 ## Decisoes

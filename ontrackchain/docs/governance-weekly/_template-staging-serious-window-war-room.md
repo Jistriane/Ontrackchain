@@ -105,6 +105,7 @@
 - `<janela>-eu-sanctions-preflight.json`:
 - `<janela>-eu-sanctions-sync.json`:
 - `regulatory-readiness-bundle.json`:
+- `regulatory-readiness-bundle.md`:
 - `prepare-staging-window-output.json`:
 
 ## Decisoes

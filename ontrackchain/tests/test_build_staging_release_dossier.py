@@ -46,6 +46,7 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
             homologation_artifact = base / "homologation.json"
             homologation_manifest = base / "homologation.manifest.json"
             regulatory_bundle = base / "regulatory-bundle.json"
+            regulatory_bundle_summary = base / "regulatory-bundle.md"
 
             window_packet.write_text("# Packet\n", encoding="utf-8")
             _write_json(
@@ -112,6 +113,7 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                     },
                 },
             )
+            regulatory_bundle_summary.write_text("# Regulatory Bundle\n", encoding="utf-8")
 
             payload = MODULE.build_dossier_payload(
                 window_id="stg-2026-06-29-a",
@@ -122,6 +124,7 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                 homologation_artifact=homologation_artifact,
                 homologation_manifest=homologation_manifest,
                 regulatory_readiness_bundle=regulatory_bundle,
+                regulatory_readiness_bundle_summary=regulatory_bundle_summary,
                 generated_at="2026-06-29T12:00:00+00:00",
             )
 
@@ -133,6 +136,7 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
             payload["summaries"]["regulatory_readiness_bundle"]["steps"]["eu_sanctions_window"],
             "ok",
         )
+        self.assertIn("regulatory_readiness_bundle_summary", payload["artifacts"])
         self.assertIn("sha256", payload["artifacts"]["window_packet"])
 
     def test_build_payload_fails_when_required_file_is_missing(self) -> None:
@@ -150,6 +154,7 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                 homologation_artifact=base / "missing-homologation.json",
                 homologation_manifest=base / "missing-homologation.manifest.json",
                 regulatory_readiness_bundle=base / "missing-regulatory-bundle.json",
+                regulatory_readiness_bundle_summary=base / "missing-regulatory-bundle.md",
                 generated_at="2026-06-29T12:00:00+00:00",
             )
 
@@ -166,6 +171,7 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
             homologation_artifact = base / "homologation.json"
             homologation_manifest = base / "homologation.manifest.json"
             regulatory_bundle = base / "regulatory-bundle.json"
+            regulatory_bundle_summary = base / "regulatory-bundle.md"
             output_dir = base / "dossiers"
 
             window_packet.write_text("# Packet\n", encoding="utf-8")
@@ -175,6 +181,7 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
             _write_json(homologation_artifact, {"status": "ok", "mode": "both", "artifact_file": "/tmp/h.json", "manifest_file": "/tmp/h.json.manifest.json", "runs": {}})
             _write_json(homologation_manifest, {"kind": "external_homologation_evidence", "status": "ok"})
             _write_json(regulatory_bundle, {"kind": "regulatory_readiness_bundle", "status": "ok", "scope": {}, "steps": {}})
+            regulatory_bundle_summary.write_text("# Regulatory Bundle\n", encoding="utf-8")
 
             stdout = io.StringIO()
             with patch.object(
@@ -198,6 +205,8 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                     str(homologation_manifest),
                     "--regulatory-readiness-bundle",
                     str(regulatory_bundle),
+                    "--regulatory-readiness-bundle-summary",
+                    str(regulatory_bundle_summary),
                     "--output-dir",
                     str(output_dir),
                     "--generated-at",

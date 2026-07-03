@@ -222,7 +222,9 @@ class RunStagingWindowTests(unittest.TestCase):
             self.assertTrue((checks_dir / "oidc-preflight-stg-2026-06-29-a.json").exists())
             self.assertTrue((checks_dir / "external-preflight-stg-2026-06-29-a.json").exists())
             self.assertTrue((checks_dir / "stg-2026-06-29-a-regulatory-readiness-bundle.json").exists())
+            self.assertTrue((dossier_output_dir / "stg-2026-06-29-a-regulatory-readiness-bundle.md").exists())
             self.assertTrue((checks_dir / "homologation-stg-2026-06-29-a.json").exists())
+            self.assertEqual(payload["steps"]["regulatory_readiness_bundle"]["summary_status"], "ok")
             self.assertTrue(Path(payload["steps"]["release_dossier"]["artifact_file"]).exists())
             self.assertTrue(Path(payload["steps"]["release_dossier"]["manifest_file"]).exists())
 

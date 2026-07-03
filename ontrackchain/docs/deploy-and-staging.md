@@ -223,8 +223,10 @@ make run-serious-window-local WINDOW_ID=<janela> MODE=baseline
 Comandos auxiliares continuam canônicos para janelas com provedores reais:
 
 - `make check-compliance-provider-runtime`
+- `make run-oidc-readiness-bundle-local`
 - `make run-eu-sanctions-window-local`
 - `make run-regulatory-readiness-bundle`
+- `make run-regulatory-readiness-bundle-local`
 - `python scripts/check_sanctions_sync_status.py`
 
 Se o checker rodar fora da rede do `docker compose`, substitua `INTERNAL_BASE_URL` por um endpoint interno realmente alcancavel no ambiente-alvo. O `compose` atual nao publica `8002` no host.
@@ -234,7 +236,7 @@ Opcao equivalente em CI/CD controlado:
 - abrir o workflow manual `Staging Serious Window`
 - informar `window_id`, `mode` e `environment_name`
 - garantir que o `GitHub Environment` selecionado possui o secret `STAGING_WINDOW_PRIVATE_ENV`
-- usar o artefato `serious-staging-window-<janela>` como pacote oficial de `checks`, `dossier`, `window packet` e `homologation`
+- usar o artefato `serious-staging-window-<janela>` como pacote oficial de `checks`, `dossier`, `window packet`, `homologation` e resumo regulatório quando o escopo incluir `P0-02/P0-03`
 
 Depois do preflight e durante a janela controlada, gere a trilha anexavel:
 
@@ -260,6 +262,20 @@ Resultado esperado:
 - manifesto `.manifest.json` com `sha256` e `size`
 - evidencias correlacionadas por `request_id` para compliance e RPC
 
+Para `P0-01`, preferir um pacote operacional único antes do war room completo:
+
+```bash
+make run-oidc-readiness-bundle-local \
+  WINDOW_ID=stg-YYYY-MM-DD-oidc \
+  BASE_URL=http://localhost:8080
+```
+
+Saída esperada para `P0-01`:
+
+- `artifacts/staging/checks/<janela>-oidc-readiness-bundle.json`
+- `artifacts/staging/dossiers/<janela>-oidc-readiness-bundle.md`
+- `oidc-preflight` e `smoke_auth_oidc_mode` consolidados em um único pacote revisável
+
 Consolidacao final recomendada:
 
 ```bash
@@ -270,7 +286,9 @@ python scripts/build_staging_release_dossier.py \
   --placeholder-check artifacts/staging/checks/placeholders-stg-YYYY-MM-DD-a.json \
   --handoff-check artifacts/staging/checks/handoff-stg-YYYY-MM-DD-a.json \
   --homologation-artifact artifacts/homologation/<artefato>.json \
-  --homologation-manifest artifacts/homologation/<artefato>.json.manifest.json
+  --homologation-manifest artifacts/homologation/<artefato>.json.manifest.json \
+  --regulatory-readiness-bundle artifacts/staging/checks/stg-YYYY-MM-DD-a-regulatory-readiness-bundle.json \
+  --regulatory-readiness-bundle-summary artifacts/staging/dossiers/stg-YYYY-MM-DD-a-regulatory-readiness-bundle.md
 ```
 
 Atalho operacional recomendado:
@@ -286,6 +304,7 @@ Saida esperada:
 - JSON consolidado da execucao da janela em `stdout|stderr`
 - dossier `.json` em `artifacts/staging/dossiers/`
 - manifesto `.manifest.json` do dossier com `sha256`
+- resumo `.md` do bundle regulatório em `artifacts/staging/dossiers/` quando `AML/KYT live` e/ou feed UE estiverem no escopo
 - status consolidado `ok` apenas quando checks e homologacao estiverem verdes
 
 Observacao:

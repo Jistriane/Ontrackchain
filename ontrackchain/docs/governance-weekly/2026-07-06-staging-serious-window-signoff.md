@@ -26,6 +26,7 @@
 - dossier: `pending`
 - window packet: `pending`
 - homologation: `pending`
+- regulatory-readiness-bundle summary: `pending`
 - payload JSON: `pending`
 
 ## Gates Revisados

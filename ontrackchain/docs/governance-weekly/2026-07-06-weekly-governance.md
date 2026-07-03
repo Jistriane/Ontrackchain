@@ -42,6 +42,7 @@
 - window packet: `pending`
 - dossier: `pending`
 - homologation: `pending`
+- regulatory bundle summary: `pending`
 
 ## KPI da Semana
 

@@ -248,10 +248,25 @@ python scripts/preflight_external_integrations.py
 make check-compliance-provider-runtime \
   INTERNAL_BASE_URL=http://compliance-api:8002 \
   PUBLIC_BASE_URL=http://localhost:8080
+make run-oidc-readiness-bundle-local WINDOW_ID=stg-$(date +%F)-oidc \
+  BASE_URL=http://localhost:8080
 export WINDOW_ID=stg-$(date +%F)-eu
 make run-eu-sanctions-window-local WINDOW_ID=$WINDOW_ID
+make run-regulatory-readiness-bundle-local WINDOW_ID=$WINDOW_ID \
+  INTERNAL_BASE_URL=http://compliance-api:8002 \
+  PUBLIC_BASE_URL=http://localhost:8080
 python scripts/check_sanctions_sync_status.py
 ```
+
+O alvo local do bundle regulatório gera dois artefatos padronizados para revisão humana:
+
+- `artifacts/staging/checks/<janela>-regulatory-readiness-bundle.json`
+- `artifacts/staging/dossiers/<janela>-regulatory-readiness-bundle.md`
+
+O alvo local do bundle OIDC gera dois artefatos padronizados para `P0-01`:
+
+- `artifacts/staging/checks/<janela>-oidc-readiness-bundle.json`
+- `artifacts/staging/dossiers/<janela>-oidc-readiness-bundle.md`
 
 ### 4. Executar a janela seria local
 

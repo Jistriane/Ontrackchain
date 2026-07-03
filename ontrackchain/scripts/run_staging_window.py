@@ -144,6 +144,7 @@ def run_window(
     oidc_preflight_output_file = checks_dir / f"oidc-preflight-{window_id}.json"
     external_preflight_output_file = checks_dir / f"external-preflight-{window_id}.json"
     regulatory_bundle_output_file = checks_dir / f"{window_id}-regulatory-readiness-bundle.json"
+    regulatory_bundle_summary_output_file = dossier_output_dir / f"{window_id}-regulatory-readiness-bundle.md"
     homologation_output_file = checks_dir / f"homologation-{window_id}.json"
 
     ownership_module = load_module("check_staging_env_ownership_coverage", "scripts/check_staging_env_ownership_coverage.py")
@@ -292,11 +293,36 @@ def run_window(
             "regulatory_readiness_bundle_window",
         )
     write_json_file(regulatory_bundle_output_file, regulatory_bundle_payload)
+    regulatory_bundle_summary_status = "skipped"
+    regulatory_bundle_summary_error: str | None = None
+    try:
+        regulatory_render_module = load_module(
+            "render_regulatory_readiness_bundle",
+            "scripts/render_regulatory_readiness_bundle.py",
+        )
+        regulatory_bundle_summary_model = regulatory_render_module.build_model(
+            regulatory_bundle_payload,
+            regulatory_bundle_output_file,
+        )
+        regulatory_bundle_summary_output_file.parent.mkdir(parents=True, exist_ok=True)
+        regulatory_bundle_summary_output_file.write_text(
+            regulatory_render_module.render_markdown(regulatory_bundle_summary_model),
+            encoding="utf-8",
+        )
+        regulatory_bundle_summary_status = "ok"
+    except Exception as exc:  # noqa: BLE001
+        regulatory_bundle_summary_status = "failed"
+        regulatory_bundle_summary_error = str(exc)
     payload["steps"]["regulatory_readiness_bundle"] = step_payload(
         status=regulatory_bundle_payload.get("status", "failed"),
         exit_code=regulatory_bundle_exit_code,
         output_file=str(regulatory_bundle_output_file),
+        summary_file=str(regulatory_bundle_summary_output_file),
+        summary_status=regulatory_bundle_summary_status,
     )
+    if regulatory_bundle_summary_error is not None:
+        payload["steps"]["regulatory_readiness_bundle"]["summary_error"] = regulatory_bundle_summary_error
+        payload["errors"].append("regulatory_readiness_bundle_summary: falhou")
     if regulatory_bundle_exit_code != 0:
         enabled_scope = (regulatory_bundle_payload.get("scope") or {}).get(
             "compliance_runtime_enabled"
@@ -368,6 +394,11 @@ def run_window(
         homologation_artifact=homologation_artifact,
         homologation_manifest=homologation_manifest,
         regulatory_readiness_bundle=regulatory_bundle_output_file,
+        regulatory_readiness_bundle_summary=(
+            regulatory_bundle_summary_output_file
+            if regulatory_bundle_summary_status == "ok"
+            else None
+        ),
         generated_at=generated_at,
     )
     dossier_artifact_file, dossier_manifest_file = dossier_module.write_dossier_artifacts(

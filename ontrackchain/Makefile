@@ -1,4 +1,4 @@
-.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle apply-regulatory-work-items-migration smoke-work-items-ownership-backend
+.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle run-regulatory-readiness-bundle-local render-regulatory-readiness-bundle run-oidc-readiness-bundle run-oidc-readiness-bundle-local render-oidc-readiness-bundle apply-regulatory-work-items-migration smoke-work-items-ownership-backend
 
 PYTHON ?= python
 WINDOW_ID ?= stg-2026-07-06-a
@@ -11,6 +11,10 @@ RUN_URL ?= pending
 SIGNOFF_OUTPUT_FILE ?=
 PRIVATE_ENV_FILE ?= .env.staging.private
 LOCAL_RUN_URL ?= local://staging-serious/$(WINDOW_ID)
+BUNDLE_OUTPUT_FILE ?= artifacts/staging/checks/$(WINDOW_ID)-regulatory-readiness-bundle.json
+BUNDLE_SUMMARY_FILE ?= artifacts/staging/dossiers/$(WINDOW_ID)-regulatory-readiness-bundle.md
+OIDC_BUNDLE_OUTPUT_FILE ?= artifacts/staging/checks/$(WINDOW_ID)-oidc-readiness-bundle.json
+OIDC_BUNDLE_SUMMARY_FILE ?= artifacts/staging/dossiers/$(WINDOW_ID)-oidc-readiness-bundle.md
 
 help:
 	@echo "Targets disponiveis:"
@@ -29,6 +33,11 @@ help:
 	@echo "  make run-eu-sanctions-window-local [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...]"
 	@echo "  make check-compliance-provider-runtime [INTERNAL_BASE_URL=...] [PUBLIC_BASE_URL=...]"
 	@echo "  make run-regulatory-readiness-bundle [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...] [INTERNAL_BASE_URL=...] [PUBLIC_BASE_URL=...]"
+	@echo "  make run-regulatory-readiness-bundle-local [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...] [BUNDLE_OUTPUT_FILE=...] [BUNDLE_SUMMARY_FILE=...]"
+	@echo "  make render-regulatory-readiness-bundle [BUNDLE_OUTPUT_FILE=...] [BUNDLE_SUMMARY_FILE=...]"
+	@echo "  make run-oidc-readiness-bundle [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...] [BASE_URL=...]"
+	@echo "  make run-oidc-readiness-bundle-local [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...] [OIDC_BUNDLE_OUTPUT_FILE=...] [OIDC_BUNDLE_SUMMARY_FILE=...] [BASE_URL=...]"
+	@echo "  make render-oidc-readiness-bundle [OIDC_BUNDLE_OUTPUT_FILE=...] [OIDC_BUNDLE_SUMMARY_FILE=...]"
 	@echo "  make apply-regulatory-work-items-migration"
 	@echo "  make smoke-work-items-ownership-backend"
 
@@ -45,8 +54,10 @@ help-serious-window:
 	@echo "  8. Preferencialmente, executar: make run-eu-sanctions-window-local WINDOW_ID=$(WINDOW_ID)"
 	@echo "  9. Executar: make check-compliance-provider-runtime INTERNAL_BASE_URL=<url-interna> PUBLIC_BASE_URL=<url-publica>"
 	@echo " 10. Alternativamente para P0-02/P0-03 juntos: make run-regulatory-readiness-bundle WINDOW_ID=$(WINDOW_ID)"
-	@echo " 11. Para execucao local ponta a ponta: make run-serious-window-local WINDOW_ID=$(WINDOW_ID)"
-	@echo " 12. Revisar sign-off versionado e board semanal sincronizado"
+	@echo " 11. Para artefato local da Sprint 7: make run-regulatory-readiness-bundle-local WINDOW_ID=$(WINDOW_ID)"
+	@echo " 12. Para P0-01 local: make run-oidc-readiness-bundle-local WINDOW_ID=$(WINDOW_ID) BASE_URL=http://localhost:8080"
+	@echo " 13. Para execucao local ponta a ponta: make run-serious-window-local WINDOW_ID=$(WINDOW_ID)"
+	@echo " 14. Revisar sign-off versionado e board semanal sincronizado"
 
 prepare-serious-window-dispatch:
 	@$(MAKE) preflight-serious-window-dispatch \
@@ -169,6 +180,79 @@ run-regulatory-readiness-bundle:
 		checks_dir_args=" --checks-dir \"$(CHECKS_DIR)\""; \
 	fi; \
 	eval $(PYTHON) scripts/run_regulatory_readiness_bundle.py --window-id "\"$(WINDOW_ID)\""$$private_env_args$$checks_dir_args$$internal_base_args$$public_base_args
+
+run-regulatory-readiness-bundle-local:
+	@mkdir -p "$(dir $(BUNDLE_OUTPUT_FILE))" "$(dir $(BUNDLE_SUMMARY_FILE))"
+	@set +e; \
+	internal_base_args=""; \
+	public_base_args=""; \
+	private_env_args=""; \
+	checks_dir_args=""; \
+	if [ -n "$(INTERNAL_BASE_URL)" ]; then \
+		internal_base_args=" --internal-base-url \"$(INTERNAL_BASE_URL)\""; \
+	fi; \
+	if [ -n "$(PUBLIC_BASE_URL)" ]; then \
+		public_base_args=" --public-base-url \"$(PUBLIC_BASE_URL)\""; \
+	fi; \
+	if [ -n "$(PRIVATE_ENV_FILE)" ]; then \
+		private_env_args=" --private-env-file \"$(PRIVATE_ENV_FILE)\""; \
+	fi; \
+	if [ -n "$(CHECKS_DIR)" ]; then \
+		checks_dir_args=" --checks-dir \"$(CHECKS_DIR)\""; \
+	fi; \
+	eval $(PYTHON) scripts/run_regulatory_readiness_bundle.py --window-id "\"$(WINDOW_ID)\""$$private_env_args$$checks_dir_args$$internal_base_args$$public_base_args > "$(BUNDLE_OUTPUT_FILE)" 2>&1; \
+	exit_code=$$?; \
+	$(MAKE) --no-print-directory render-regulatory-readiness-bundle \
+		BUNDLE_OUTPUT_FILE="$(BUNDLE_OUTPUT_FILE)" \
+		BUNDLE_SUMMARY_FILE="$(BUNDLE_SUMMARY_FILE)"; \
+	exit $$exit_code
+
+render-regulatory-readiness-bundle:
+	@$(PYTHON) scripts/render_regulatory_readiness_bundle.py \
+		--bundle-file "$(BUNDLE_OUTPUT_FILE)" \
+		--output-file "$(BUNDLE_SUMMARY_FILE)"
+
+run-oidc-readiness-bundle:
+	@private_env_args=""; \
+	checks_dir_args=""; \
+	base_url_args=""; \
+	if [ -n "$(PRIVATE_ENV_FILE)" ]; then \
+		private_env_args=" --private-env-file \"$(PRIVATE_ENV_FILE)\""; \
+	fi; \
+	if [ -n "$(CHECKS_DIR)" ]; then \
+		checks_dir_args=" --checks-dir \"$(CHECKS_DIR)\""; \
+	fi; \
+	if [ -n "$(BASE_URL)" ]; then \
+		base_url_args=" --base-url \"$(BASE_URL)\""; \
+	fi; \
+	eval $(PYTHON) scripts/run_oidc_readiness_bundle.py --window-id "\"$(WINDOW_ID)\""$$private_env_args$$checks_dir_args$$base_url_args
+
+run-oidc-readiness-bundle-local:
+	@mkdir -p "$(dir $(OIDC_BUNDLE_OUTPUT_FILE))" "$(dir $(OIDC_BUNDLE_SUMMARY_FILE))"
+	@set +e; \
+	private_env_args=""; \
+	checks_dir_args=""; \
+	base_url_args=""; \
+	if [ -n "$(PRIVATE_ENV_FILE)" ]; then \
+		private_env_args=" --private-env-file \"$(PRIVATE_ENV_FILE)\""; \
+	fi; \
+	if [ -n "$(CHECKS_DIR)" ]; then \
+		checks_dir_args=" --checks-dir \"$(CHECKS_DIR)\""; \
+	fi; \
+	if [ -n "$(BASE_URL)" ]; then \
+		base_url_args=" --base-url \"$(BASE_URL)\""; \
+	fi; \
+	eval $(PYTHON) scripts/run_oidc_readiness_bundle.py --window-id "\"$(WINDOW_ID)\""$$private_env_args$$checks_dir_args$$base_url_args > "$(OIDC_BUNDLE_OUTPUT_FILE)" 2>&1; \
+	exit_code=$$?; \
+	$(MAKE) --no-print-directory render-oidc-readiness-bundle \
+		OIDC_BUNDLE_OUTPUT_FILE="$(OIDC_BUNDLE_OUTPUT_FILE)" \
+		OIDC_BUNDLE_SUMMARY_FILE="$(OIDC_BUNDLE_SUMMARY_FILE)"; \
+	exit $$exit_code
+
+render-oidc-readiness-bundle:
+	@$(PYTHON) scripts/render_oidc_readiness_bundle.py \
+		--bundle-file "$(OIDC_BUNDLE_OUTPUT_FILE)" \
+		--output-file "$(OIDC_BUNDLE_SUMMARY_FILE)"
 
 apply-regulatory-work-items-migration:
 	@cat infra/postgres/migrations/0013_regulatory_work_items.sql | \

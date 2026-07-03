@@ -56,6 +56,7 @@ def build_dossier_payload(
     homologation_artifact: Path,
     homologation_manifest: Path,
     regulatory_readiness_bundle: Path | None,
+    regulatory_readiness_bundle_summary: Path | None,
     generated_at: str,
 ) -> dict[str, Any]:
     required_paths = [
@@ -68,6 +69,8 @@ def build_dossier_payload(
     ]
     if regulatory_readiness_bundle is not None:
         required_paths.append(regulatory_readiness_bundle)
+    if regulatory_readiness_bundle_summary is not None:
+        required_paths.append(regulatory_readiness_bundle_summary)
     errors = validate_required_files(required_paths)
     if errors:
         return {
@@ -167,6 +170,10 @@ def build_dossier_payload(
         result["artifacts"]["regulatory_readiness_bundle"] = file_ref(
             regulatory_readiness_bundle
         )
+        if regulatory_readiness_bundle_summary is not None:
+            result["artifacts"]["regulatory_readiness_bundle_summary"] = file_ref(
+                regulatory_readiness_bundle_summary
+            )
         result["summaries"]["regulatory_readiness_bundle"] = {
             "scope": regulatory_bundle_payload.get("scope", {}),
             "steps": {
@@ -224,6 +231,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--homologation-artifact", required=True)
     parser.add_argument("--homologation-manifest", required=True)
     parser.add_argument("--regulatory-readiness-bundle")
+    parser.add_argument("--regulatory-readiness-bundle-summary")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--generated-at", help="timestamp ISO-8601 para reproducibilidade em testes")
     return parser.parse_args()
@@ -243,6 +251,11 @@ def main() -> int:
         regulatory_readiness_bundle=(
             Path(args.regulatory_readiness_bundle)
             if args.regulatory_readiness_bundle
+            else None
+        ),
+        regulatory_readiness_bundle_summary=(
+            Path(args.regulatory_readiness_bundle_summary)
+            if args.regulatory_readiness_bundle_summary
             else None
         ),
         generated_at=generated_at,

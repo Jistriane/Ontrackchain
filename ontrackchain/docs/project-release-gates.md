@@ -42,6 +42,7 @@ Baseline canônica de referencia:
 - `DEV_AUTH_ENABLED=false`
 - `preflight_oidc_serious_env.py` verde
 - `smoke_auth_oidc_mode.py` verde
+- preferencialmente, `run-oidc-readiness-bundle-local` verde com artefatos anexáveis para a trilha `P0-01`
 - trilho `playwright` critico de OIDC verde
 - enquanto `P0-01` permanecer `blocked`, nao promover janela regulatoria forte sem excecao explicitamente registrada
 
@@ -101,7 +102,7 @@ Leitura operacional atual:
 - `run_staging_window.py` ou workflow oficial gera artefato consolidado
 - quando houver janela `AML/KYT live`, o bundle da homologacao e o resultado de `make check-compliance-provider-runtime` ficam anexados
 - quando houver janela UE, os arquivos `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json` ficam anexados
-- quando `P0-02` e `P0-03` forem exercitados em conjunto, anexar tambem `<janela>-regulatory-readiness-bundle.json`
+- quando `P0-02` e `P0-03` forem exercitados em conjunto, anexar tambem `<janela>-regulatory-readiness-bundle.json` e `<janela>-regulatory-readiness-bundle.md`
 
 ### 8. Dados, Retention e Restore
 

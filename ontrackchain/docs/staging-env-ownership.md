@@ -131,7 +131,7 @@ Sequencia tecnica correspondente:
 5. preencher os valores reais em canal seguro
 6. rerodar o gate agregado com `python scripts/prepare_staging_window.py --window-id <janela> --mode baseline --private-env-file .env.staging.private --validate --preflight`
 7. seguir para `python scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private` apenas se o gate agregado retornar `status=ok`
-8. anexar o `window packet`, os JSONs em `artifacts/staging/checks/`, a homologacao e o dossier final ao sign-off da janela
+8. anexar o `window packet`, os JSONs em `artifacts/staging/checks/`, a homologacao, o dossier final e, quando houver `P0-02/P0-03`, o resumo `artifacts/staging/dossiers/<janela>-regulatory-readiness-bundle.md` ao sign-off da janela
 
 Atalho recomendado para o gate agregado:
 
@@ -154,7 +154,7 @@ python scripts/run_staging_window.py \
 
 O gate agregado acima deve ser a ultima verificacao antes da execucao ponta a ponta.
 
-O runner acima encapsula, em ordem, os gates de `ownership coverage`, `window packet`, placeholders, handoff, `preflight_oidc_serious_env.py`, `preflight_external_integrations.py`, `homologation_external_evidence.py` e `build_staging_release_dossier.py`.
+O runner acima encapsula, em ordem, os gates de `ownership coverage`, `window packet`, placeholders, handoff, `preflight_oidc_serious_env.py`, `preflight_external_integrations.py`, `run_regulatory_readiness_bundle.py`, o resumo markdown do bundle regulatório, `homologation_external_evidence.py` e `build_staging_release_dossier.py`.
 
 ## Registro de Handoff
 
