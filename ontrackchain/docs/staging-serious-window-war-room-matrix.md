@@ -30,7 +30,7 @@ Usar este documento quando houver:
 | Trilha | Owner primario | Backup/Escalacao | Dependencia de entrada | Comando minimo | Evidencia minima | No-go imediato |
 | --- | --- | --- | --- | --- | --- | --- |
 | `Platform/Operations` | `Platform/SRE` | `Platform/DBA` | handoff iniciado e acesso ao vault/secret store | `python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md` e `python scripts/check_staging_env_placeholders.py --file .env.staging.private` | JSONs de handoff/placeholders sem `pending` ou placeholder critico do dominio | senha de DB, Grafana ou webhook ainda em placeholder |
-| `Auth/OIDC` | `Backend/Auth` | `Security` | `Platform/Operations` concluido e secrets OIDC nao-dev provisionados | `python scripts/preflight_oidc_serious_env.py` | output verde do preflight OIDC e handoff de `Auth/OIDC` atualizado | fallback para `dev`, claims incoerentes ou MFA serio ainda nao verificavel |
+| `Auth/OIDC` | `Backend/Auth` | `Security` | `Platform/Operations` concluido e secrets OIDC nao-dev provisionados | `python scripts/preflight_oidc_serious_env.py` e `make run-oidc-readiness-bundle-local WINDOW_ID=<janela> BASE_URL=http://localhost:8080` | output verde do preflight OIDC, bundle `<janela>-oidc-readiness-bundle.json` e handoff de `Auth/OIDC` atualizado | fallback para `dev`, claims incoerentes, bundle OIDC ausente ou MFA serio ainda nao verificavel |
 | `Investigation/RPC` | `Backend Core` | `Platform/SRE` | endpoints primario/fallback definidos e roteaveis | `python scripts/preflight_external_integrations.py` | output coerente com `ONTRACKCHAIN_EXPECT_RPC_MODE` e handoff de `Investigation/RPC` atualizado | RPC primario/fallback indisponivel ou placeholder ainda aberto |
 | `Compliance/AML` | `Compliance/Backend` | `Security` | credenciais reais do provider, URL tokenizada da UE quando aplicavel, handoff pronto | `python scripts/preflight_external_integrations.py` e `make check-compliance-provider-runtime INTERNAL_BASE_URL=http://compliance-api:8002 PUBLIC_BASE_URL=http://localhost:8080` | runtime AML/KYT verde e, quando houver UE, JSONs `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json` | provider real indisponivel, `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` placeholder ou bundle regulatorio falhando |
 | `Gate Agregado da Janela` | `Arquiteto/Responsavel Tecnico` | `Platform/SRE` | todas as trilhas acima em estado verde ou waived formalmente | `python scripts/prepare_staging_window.py --window-id stg-YYYY-MM-DD-a --mode baseline --private-env-file .env.staging.private --validate --preflight` | resultado `status=ok` e pacote pronto para `make run-serious-window-local` | qualquer trilha anterior em `pending`, `failed` ou sem evidencia anexavel |
@@ -68,9 +68,12 @@ A janela so entra em execucao quando:
 
 - `artifacts/staging/checks/<janela>-handoff.json`
 - `artifacts/staging/checks/<janela>-placeholders.json`
+- `artifacts/staging/checks/<janela>-oidc-readiness-bundle.json` quando `P0-01` estiver no escopo
+- `artifacts/staging/dossiers/<janela>-oidc-readiness-bundle.md` quando `P0-01` estiver no escopo
 - `artifacts/staging/checks/<janela>-compliance-provider-runtime.json` quando `AML/KYT live` estiver no escopo
 - `artifacts/staging/checks/<janela>-eu-sanctions-preflight.json` quando a UE estiver no escopo
 - `artifacts/staging/checks/<janela>-eu-sanctions-sync.json` quando a UE estiver no escopo
 - `artifacts/staging/checks/<janela>-regulatory-readiness-bundle.json` quando `P0-02` e `P0-03` forem exercitados em conjunto
+- `artifacts/staging/dossiers/<janela>-regulatory-readiness-bundle.md` quando `P0-02` e `P0-03` forem exercitados em conjunto
 - `ci-artifacts/prepare-staging-window-output.json`
 - `ci-artifacts/staging-serious-window-signoff.md`

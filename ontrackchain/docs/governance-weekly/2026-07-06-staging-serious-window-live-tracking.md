@@ -158,6 +158,8 @@
 
 - war room: [War Room da Janela `stg-2026-07-06-a`](2026-07-06-staging-serious-window-war-room.md)
 - sign-off: [Sign-Off da Janela `stg-2026-07-06-a`](2026-07-06-staging-serious-window-signoff.md)
+- artefato OIDC esperado para `P0-01`: `artifacts/staging/checks/stg-2026-07-06-a-oidc-readiness-bundle.json` e `artifacts/staging/dossiers/stg-2026-07-06-a-oidc-readiness-bundle.md`
+- artefato regulatório esperado para `P0-02/P0-03`: `artifacts/staging/checks/stg-2026-07-06-a-regulatory-readiness-bundle.json` e `artifacts/staging/dossiers/stg-2026-07-06-a-regulatory-readiness-bundle.md`
 - decisao recomendada: `pending_no_go`
 - owner do proximo passo: `owners nominais por trilha com coordenacao do facilitador/Release Manager Tecnico`
 - canal do proximo passo: `<preencher_canal_principal_war_room>`

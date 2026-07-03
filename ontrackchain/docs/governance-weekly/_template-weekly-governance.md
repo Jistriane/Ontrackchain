@@ -30,6 +30,8 @@
 - window packet:
 - dossier:
 - homologation:
+- oidc bundle summary:
+- regulatory bundle summary:
 
 ## KPI da Semana
 
