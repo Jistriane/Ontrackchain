@@ -3,6 +3,8 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "packages" / "agents" / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "packages" / "shared" / "src"))
 
 from fastapi import HTTPException
 from report_api.main import _require_strong_auth_for_legal_report

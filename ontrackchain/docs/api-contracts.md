@@ -190,6 +190,43 @@ Aliases relevantes:
 - `full`, `investigation` -> `full_investigation`
 - `risk`, `instant`, `quick_check` -> `risk_check_instant`
 
+### `GET /api/v1/reports`
+
+Uso:
+
+- listagem oficial de relatorios persistidos da organizacao com paginacao e filtros
+
+Query params:
+
+- `page` (default `1`)
+- `limit` (default `20`, max `100`)
+- `case_id` (opcional, UUID)
+- `report_type` (opcional; aceita alias e resolve para canonico)
+
+Response:
+
+```json
+{
+  "data": [
+    {
+      "report_id": "f47ac10b58cc4372",
+      "case_id": "11111111-1111-1111-1111-111111111111",
+      "report_type_requested": "technical",
+      "report_type": "technical_basic",
+      "content_type": "application/pdf",
+      "file_hash_sha256": "sha256",
+      "onchain_hash": null,
+      "created_at": "2026-07-03T12:00:00+00:00",
+      "has_download_audit": true
+    }
+  ],
+  "page": 1,
+  "limit": 20,
+  "total": 1,
+  "has_more": false
+}
+```
+
 ### `POST /api/v1/reports/ros-coaf`
 
 Uso:

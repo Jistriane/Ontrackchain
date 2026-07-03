@@ -105,6 +105,26 @@ class GenerateReportResponse(BaseModel):
     content_type: str
 
 
+class ReportListItem(BaseModel):
+    report_id: str
+    case_id: Optional[str]
+    report_type_requested: str
+    report_type: str
+    content_type: str
+    file_hash_sha256: Optional[str]
+    onchain_hash: Optional[str]
+    created_at: str
+    has_download_audit: bool
+
+
+class ReportListResponse(BaseModel):
+    data: list[ReportListItem]
+    page: int
+    limit: int
+    total: int
+    has_more: bool
+
+
 class GenerateRosCoafRequest(BaseModel):
     ros_id: str
 
@@ -225,6 +245,36 @@ def _build_pdf_bytes(*, case_id: str, report_type: str, created_at: str) -> byte
         "%%EOF\n"
     )
     return payload.encode("utf-8")
+
+
+def _normalize_reports_pagination(page: int, limit: int) -> tuple[int, int, int]:
+    safe_page = page if page > 0 else 1
+    safe_limit = limit if 1 <= limit <= 100 else 20
+    offset = (safe_page - 1) * safe_limit
+    return safe_page, safe_limit, offset
+
+
+def _serialize_report_list_row(row: dict) -> ReportListItem:
+    created_at = row.get("created_at")
+    if isinstance(created_at, datetime):
+        created_at_value = created_at.astimezone(timezone.utc).isoformat()
+    else:
+        created_at_value = str(created_at) if created_at else ""
+
+    case_id = row.get("case_id")
+    report_id = row.get("external_report_id")
+
+    return ReportListItem(
+        report_id=str(report_id),
+        case_id=str(case_id) if case_id else None,
+        report_type_requested=row.get("report_type_requested") or row.get("report_type") or "unknown",
+        report_type=row.get("report_type") or row.get("report_type_requested") or "unknown",
+        content_type=row.get("content_type") or "application/pdf",
+        file_hash_sha256=row.get("file_hash"),
+        onchain_hash=row.get("onchain_hash"),
+        created_at=created_at_value,
+        has_download_audit=bool(row.get("has_download_audit")),
+    )
 
 
 def _dsn() -> str:
@@ -967,6 +1017,98 @@ async def mark_ros_coaf_submitted(
         submitted_at=submitted_at,
         coaf_protocol_number=body.coaf_protocol_number.strip(),
         coaf_receipt_hash=receipt_hash,
+    )
+
+
+@app.get("/api/v1/reports", response_model=ReportListResponse)
+async def list_reports(
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    page: int = Query(default=1),
+    limit: int = Query(default=20),
+    case_id: Optional[str] = Query(default=None),
+    report_type: Optional[str] = Query(default=None),
+) -> ReportListResponse:
+    if not x_org_id:
+        raise HTTPException(status_code=401, detail="missing_org_context")
+
+    canonical_report_type: Optional[str] = None
+    if report_type:
+        canonical_report_type, _ = resolve_report_type(report_type)
+
+    safe_page, safe_limit, offset = _normalize_reports_pagination(page=page, limit=limit)
+
+    if case_id:
+        try:
+            case_id = str(UUID(case_id))
+        except ValueError:
+            raise HTTPException(status_code=422, detail="invalid_case_id") from None
+
+    query_filters = ["r.organization_id = %s"]
+    query_params: list = [x_org_id]
+
+    if case_id:
+        query_filters.append("r.case_id = %s")
+        query_params.append(case_id)
+    if canonical_report_type:
+        query_filters.append("r.report_type = %s")
+        query_params.append(canonical_report_type)
+
+    where_clause = " AND ".join(query_filters)
+
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT COUNT(*) AS total
+                FROM reports r
+                WHERE {where_clause}
+                """,
+                tuple(query_params),
+            )
+            count_row = cur.fetchone() or {}
+            total = int(count_row.get("total") or 0)
+
+            cur.execute(
+                f"""
+                SELECT
+                  r.external_report_id,
+                  r.case_id,
+                  r.report_type_requested,
+                  r.report_type,
+                  r.content_type,
+                  r.file_hash,
+                  r.onchain_hash,
+                  r.created_at,
+                  EXISTS (
+                    SELECT 1
+                    FROM audit_logs a
+                    WHERE a.action = 'report_downloaded'
+                      AND a.organization_id = r.organization_id
+                      AND a.metadata->>'report_id' = COALESCE(r.external_report_id, '')
+                  ) AS has_download_audit
+                FROM reports r
+                WHERE {where_clause}
+                ORDER BY r.created_at DESC, r.id DESC
+                LIMIT %s OFFSET %s
+                """,
+                tuple([*query_params, safe_limit, offset]),
+            )
+            rows = cur.fetchall() or []
+
+    items = [
+        _serialize_report_list_row(row)
+        for row in rows
+        if row.get("external_report_id")
+    ]
+
+    return ReportListResponse(
+        data=items,
+        page=safe_page,
+        limit=safe_limit,
+        total=total,
+        has_more=(offset + safe_limit) < total,
     )
 
 
