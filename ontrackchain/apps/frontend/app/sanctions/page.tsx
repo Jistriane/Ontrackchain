@@ -5,8 +5,13 @@ import { useSearchParams } from "next/navigation";
 
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
 import { useI18n } from "../../components/i18n-provider";
+import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel";
 import type { MessageKey } from "../lib/i18n";
+import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
+import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
+import { createWorkItemComment, fetchWorkItemTimeline } from "../lib/work-item-timeline-client";
+import { formatTimelineEvent, type WorkCommentResponse, type WorkItemTimelineResponse } from "../lib/work-item-timeline";
 
 type SanctionsCheckResponse = {
   address: string;
@@ -428,7 +433,7 @@ function mapWorkItemToWorkspaceRecord(item: WorkItemResponse): SanctionsWorkspac
     chain,
     lists: readMetadataStringArray(metadata, "lists"),
     caseId: item.case_id ?? readMetadataString(metadata, "local_case_id"),
-    owner: readMetadataString(metadata, "owner_label"),
+    owner: readMetadataString(metadata, "owner_label") || item.owner_user_id || "",
     priority: item.priority,
     localDeadline: toDateTimeLocalValue(item.due_at),
     status: item.queue_status,
@@ -457,6 +462,7 @@ export default function SanctionsPage() {
 
   const [loading, setLoading] = useState(false);
   const [syncingWorkspace, setSyncingWorkspace] = useState(false);
+  const [authContext, setAuthContext] = useState<AuthContext | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [result, setResult] = useState<SanctionsCheckResponse | null>(null);
@@ -464,6 +470,14 @@ export default function SanctionsPage() {
   const [workspaceRecords, setWorkspaceRecords] = useState<SanctionsWorkspaceRecord[]>([]);
   const [workspaceFilter, setWorkspaceFilter] = useState("all");
   const [workspaceSearch, setWorkspaceSearch] = useState("");
+  const [historyAddressFilter, setHistoryAddressFilter] = useState("");
+  const [timelineWorkspaceId, setTimelineWorkspaceId] = useState("");
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState<string | null>(null);
+  const [timelineData, setTimelineData] = useState<WorkItemTimelineResponse<WorkItemResponse> | null>(null);
+  const [commentType, setCommentType] = useState<WorkCommentResponse["comment_type"]>("note");
+  const [commentBody, setCommentBody] = useState("");
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
 
   const isHit = Boolean(result?.hit);
   const matchedCount = result?.matched_lists?.length ?? 0;
@@ -494,6 +508,8 @@ export default function SanctionsPage() {
     () => workspaceRecords.filter((record) => getUrgency(record) === "overdue").length,
     [workspaceRecords]
   );
+  const workspaceById = useMemo(() => new Map(workspaceRecords.map((record) => [record.workspaceId, record])), [workspaceRecords]);
+  const selectedTimelineRecord = timelineWorkspaceId ? workspaceById.get(timelineWorkspaceId) ?? null : null;
 
   async function loadOperationalWorkspace(localRecords: SanctionsWorkspaceRecord[]) {
     const res = await fetch(
@@ -519,11 +535,77 @@ export default function SanctionsPage() {
       setWorkspaceRecords(localRecords);
       setNotice(tr("sanctions.noticeWorkspaceLoadedLocal" as MessageKey));
     });
+
+    fetchAuthContext()
+      .then((data) => {
+        if (data) {
+          setAuthContext(data);
+        }
+      })
+      .catch(() => {
+        // Keep owner_user_id optional when auth context is unavailable.
+      });
   }, []);
 
   useEffect(() => {
     saveWorkspace(workspaceRecords);
   }, [workspaceRecords]);
+
+  useEffect(() => {
+    if (!workspaceRecords.length) {
+      setTimelineWorkspaceId("");
+      setTimelineData(null);
+      setTimelineError(null);
+      return;
+    }
+    if (!timelineWorkspaceId || !workspaceRecords.some((record) => record.workspaceId === timelineWorkspaceId)) {
+      const firstServerRecord = workspaceRecords.find((record) => Boolean(record.workItemId)) ?? workspaceRecords[0];
+      setTimelineWorkspaceId(firstServerRecord.workspaceId);
+    }
+  }, [timelineWorkspaceId, workspaceRecords]);
+
+  useEffect(() => {
+    if (!selectedTimelineRecord?.workItemId) {
+      setTimelineData(null);
+      setTimelineError(null);
+      return;
+    }
+    loadTimeline(selectedTimelineRecord.workItemId).catch(() => {
+      setTimelineData(null);
+      setTimelineError(tr("sanctions.workspace.timeline.errorLoad" as MessageKey));
+      setTimelineLoading(false);
+    });
+  }, [selectedTimelineRecord?.workItemId, t]);
+
+  async function loadTimeline(workItemId: string) {
+    setTimelineLoading(true);
+    setTimelineError(null);
+    const result = await fetchWorkItemTimeline<WorkItemResponse>(workItemId);
+    if (!result.ok) {
+      setTimelineData(null);
+      setTimelineError(resolveApiErrorMessage(t, result.error, tr("sanctions.workspace.timeline.errorLoad" as MessageKey)));
+      setTimelineLoading(false);
+      return;
+    }
+    setTimelineData(result.data);
+    setTimelineLoading(false);
+  }
+
+  async function submitTimelineComment() {
+    if (!selectedTimelineRecord?.workItemId || !commentBody.trim()) return;
+    setCommentSubmitting(true);
+    const result = await createWorkItemComment(selectedTimelineRecord.workItemId, {
+      comment_type: commentType,
+      body: commentBody.trim()
+    });
+    setCommentSubmitting(false);
+    if (!result.ok) {
+      setTimelineError(resolveApiErrorMessage(t, result.error, tr("sanctions.workspace.timeline.errorComment" as MessageKey)));
+      return;
+    }
+    setCommentBody("");
+    await loadTimeline(selectedTimelineRecord.workItemId);
+  }
 
   function updateForm<K extends keyof SanctionsFormState>(key: K, value: SanctionsFormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -584,11 +666,17 @@ export default function SanctionsPage() {
   }
 
   async function syncWorkspaceRecord(record: SanctionsWorkspaceRecord, nextStatus?: WorkspaceStatus) {
+    const ownerUserId = resolveOwnerUserId({
+      ownerLabel: record.owner,
+      linkedUserId: authContext?.linked_user_id,
+      isUuidLike
+    });
     const metadata = {
       workspace_id: record.workspaceId,
       address: record.address,
       chain: record.chain,
       lists: record.lists,
+      owner_user_id: ownerUserId,
       owner_label: record.owner,
       local_case_id: record.caseId,
       provider: record.provider,
@@ -607,6 +695,7 @@ export default function SanctionsPage() {
       resource_type: "sanctions_screening",
       resource_id: record.resourceId,
       ...(isUuidLike(record.caseId) ? { case_id: record.caseId.trim() } : {}),
+      ...(ownerUserId ? { owner_user_id: ownerUserId } : {}),
       priority: record.priority,
       queue_status: nextStatus ?? record.status,
       due_at: toApiDueAt(record.localDeadline),
@@ -619,6 +708,7 @@ export default function SanctionsPage() {
     const body =
       method === "PATCH"
         ? JSON.stringify({
+          ...(ownerUserId ? { owner_user_id: ownerUserId } : {}),
             priority: requestBody.priority,
             queue_status: requestBody.queue_status,
             due_at: requestBody.due_at,
@@ -897,6 +987,13 @@ export default function SanctionsPage() {
                             {tr("sanctions.workspace.remove" as MessageKey)}
                           </button>
                         ) : null}
+                        <button
+                          type="button"
+                          className={`otc-button otc-button--ghost${timelineWorkspaceId === record.workspaceId ? " otc-button--active" : ""}`}
+                          onClick={() => setTimelineWorkspaceId(record.workspaceId)}
+                        >
+                          {tr("sanctions.workspace.openTimeline" as MessageKey)}
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -908,6 +1005,28 @@ export default function SanctionsPage() {
           <Message>{tr("sanctions.workspace.empty" as MessageKey)}</Message>
         )}
       </Panel>
+
+      <WorkItemTimelinePanel
+        state={!selectedTimelineRecord ? "empty_selection" : !selectedTimelineRecord.workItemId ? "local_only" : "ready"}
+        summary={selectedTimelineRecord ? tr("sanctions.workspace.timeline.summary" as MessageKey, { address: selectedTimelineRecord.address }) : null}
+        labels={buildWorkItemTimelineLabels(tr, "sanctions.workspace.timeline")}
+        timelineError={timelineError}
+        timelineData={timelineData}
+        timelineLoading={timelineLoading}
+        commentType={commentType}
+        commentBody={commentBody}
+        commentSubmitting={commentSubmitting}
+        onCommentTypeChange={setCommentType}
+        onCommentBodyChange={setCommentBody}
+        onCommentSubmit={() => { void submitTimelineComment(); }}
+        onRefresh={
+          selectedTimelineRecord?.workItemId
+            ? () => { void loadTimeline(selectedTimelineRecord.workItemId!); }
+            : undefined
+        }
+        formatDate={formatDate}
+        formatEventLabel={formatTimelineEvent}
+      />
 
       <Panel title={tr("sanctions.result.title" as MessageKey)} description={tr("sanctions.result.description" as MessageKey)}>
         {result ? (
@@ -1011,6 +1130,69 @@ export default function SanctionsPage() {
         ) : (
           <Message>{tr("sanctions.result.empty" as MessageKey)}</Message>
         )}
+      </Panel>
+
+      <Panel title={tr("sanctions.history.title" as MessageKey)} description={tr("sanctions.history.description" as MessageKey)}>
+        <div className="otc-controls">
+          <label className="otc-field">
+            {tr("sanctions.history.filterAddress" as MessageKey)}
+            <input
+              className="otc-input"
+              value={historyAddressFilter}
+              placeholder={tr("sanctions.history.filterAddressPlaceholder" as MessageKey)}
+              onChange={(event) => setHistoryAddressFilter(event.target.value)}
+            />
+          </label>
+        </div>
+        {(() => {
+          const addressNormalized = historyAddressFilter.trim().toLowerCase();
+          const historyRows = workspaceRecords
+            .filter((record) => !addressNormalized || record.address.toLowerCase().includes(addressNormalized))
+            .sort((a, b) => b.lastActionAt.localeCompare(a.lastActionAt))
+            .slice(0, 100);
+          if (!historyRows.length) {
+            return <Message>{tr("sanctions.history.empty" as MessageKey)}</Message>;
+          }
+          return (
+            <table className="otc-table otc-table--spaced">
+              <thead>
+                <tr>
+                  <th>{tr("sanctions.history.address" as MessageKey)}</th>
+                  <th>{tr("sanctions.history.chain" as MessageKey)}</th>
+                  <th>{tr("sanctions.history.result" as MessageKey)}</th>
+                  <th>{tr("sanctions.history.status" as MessageKey)}</th>
+                  <th>{tr("sanctions.history.matchedLists" as MessageKey)}</th>
+                  <th>{tr("sanctions.history.checkedAt" as MessageKey)}</th>
+                  <th>{tr("sanctions.history.lastAction" as MessageKey)}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historyRows.map((record) => (
+                  <tr key={record.workspaceId}>
+                    <td>
+                      <span className="otc-mono">{record.address}</span>
+                      {record.entityName ? <div className="otc-muted">{record.entityName}</div> : null}
+                    </td>
+                    <td>{record.chain}</td>
+                    <td>
+                      <Pill tone={record.hit ? "danger" : "success"}>
+                        {record.hit ? tr("sanctions.history.hit" as MessageKey) : tr("sanctions.history.clear" as MessageKey)}
+                      </Pill>
+                    </td>
+                    <td>
+                      <Pill tone={record.status === "ESCALATED" ? "danger" : record.status === "UNDER_REVIEW" ? "warning" : undefined}>
+                        {record.status}
+                      </Pill>
+                    </td>
+                    <td>{record.matchedLists.length ? record.matchedLists.join(", ") : tr("sanctions.history.none" as MessageKey)}</td>
+                    <td>{formatDate(record.checkedAt) ?? record.checkedAt}</td>
+                    <td>{formatDate(record.lastActionAt) ?? record.lastActionAt}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          );
+        })()}
       </Panel>
     </AppShell>
   );

@@ -15,8 +15,7 @@ Use este documento para responder:
 Nao use este documento como runbook de execucao:
 
 - deploy tecnico e comandos completos: [Deploy e Staging](deploy-and-staging.md)
-- primeiro rito operacional e pos-processamento: [Primeiro Disparo Real da Janela Seria](first-serious-window-first-dispatch-runbook.md)
-- preenchimento por owner e placeholders: [Checklist de Provisionamento por Owner](staging-serious-window-owner-provisioning-checklist.md)
+- Refira-se a [Governanca Semanal](governance-weekly/) para tracking do ciclo atual
 
 ## Meta de Promocao
 

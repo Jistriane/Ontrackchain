@@ -6,7 +6,12 @@ import { useSearchParams } from "next/navigation";
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
 import { useI18n } from "../../components/i18n-provider";
 import type { MessageKey } from "../lib/i18n";
+import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
+import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel";
+import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
+import { createWorkItemComment, fetchWorkItemTimeline } from "../lib/work-item-timeline-client";
+import { formatTimelineEvent, type WorkCommentResponse, type WorkItemTimelineResponse } from "../lib/work-item-timeline";
 import {
   buildAuditHref,
   buildCaseHref,
@@ -65,6 +70,7 @@ type WorkItemQueueStatus = "UNDER_REVIEW" | "ESCALATED" | "READY" | "APPROVED" |
 type WorkItemResponse = {
   id: string;
   resource_id: string;
+  owner_user_id?: string | null;
   queue_status: WorkItemQueueStatus;
   priority: WorkItemPriority;
   note: string | null;
@@ -134,6 +140,14 @@ export default function AlertsPage() {
   const [platformAlertFilterOptions, setPlatformAlertFilterOptions] = useState<PlatformOperationalAlertFilterOptions | null>(null);
   const [platformAlertWorkItems, setPlatformAlertWorkItems] = useState<Record<string, WorkItemResponse>>({});
   const [trackingPlatformAlertId, setTrackingPlatformAlertId] = useState<string | null>(null);
+  const [authContext, setAuthContext] = useState<AuthContext | null>(null);
+  const [timelineAlertId, setTimelineAlertId] = useState<string | null>(null);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState<string | null>(null);
+  const [timelineData, setTimelineData] = useState<WorkItemTimelineResponse<WorkItemResponse> | null>(null);
+  const [commentType, setCommentType] = useState<WorkCommentResponse["comment_type"]>("note");
+  const [commentBody, setCommentBody] = useState("");
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const platformAlertsRequestIdRef = useRef(0);
 
@@ -576,12 +590,18 @@ export default function AlertsPage() {
   ) {
     const existing = platformAlertWorkItems[entry.id];
     const context = inferAlertOperationalContext(entry);
+    const ownerUserId = resolveOwnerUserId({
+      existingOwnerUserId: existing?.owner_user_id,
+      linkedUserId: authContext?.linked_user_id,
+      isUuidLike
+    });
     const queueStatus =
       nextStatus ??
       existing?.queue_status ??
       (entry.triage_status === "acknowledged" || entry.status === "resolved" ? "CLOSED" : "UNDER_REVIEW");
     const requestBody = existing
       ? {
+          ...(ownerUserId ? { owner_user_id: ownerUserId } : {}),
           priority: priorityFromSeverity(entry.severity),
           queue_status: queueStatus,
           title: `Alert ${entry.alertname}`,
@@ -610,6 +630,7 @@ export default function AlertsPage() {
           resource_type: "operational_alert",
           resource_id: entry.id,
           ...(isUuidLike(context.caseId) ? { case_id: context.caseId?.trim() } : {}),
+          ...(ownerUserId ? { owner_user_id: ownerUserId } : {}),
           priority: priorityFromSeverity(entry.severity),
           queue_status: queueStatus,
           title: `Alert ${entry.alertname}`,
@@ -706,6 +727,16 @@ export default function AlertsPage() {
 
   useEffect(() => {
     loadPlatformOperationalAlertFilterOptions().catch(() => undefined);
+
+    fetchAuthContext()
+      .then((data) => {
+        if (data) {
+          setAuthContext(data);
+        }
+      })
+      .catch(() => {
+        // Keep owner_user_id optional when auth context is unavailable.
+      });
   }, []);
 
   useEffect(() => {
@@ -736,6 +767,38 @@ export default function AlertsPage() {
     () => platformOperationalAlerts?.data.filter((entry) => entry.triage_status === "acknowledged").length ?? 0,
     [platformOperationalAlerts]
   );
+
+  const selectedTimelineWorkItem = timelineAlertId ? platformAlertWorkItems[timelineAlertId] ?? null : null;
+
+  async function loadTimeline(workItemId: string) {
+    setTimelineLoading(true);
+    setTimelineError(null);
+    const result = await fetchWorkItemTimeline<WorkItemResponse>(workItemId);
+    if (!result.ok) {
+      setTimelineData(null);
+      setTimelineError(resolveApiErrorMessage(t, result.error, tr("alerts.workspace.timeline.errorLoad" as MessageKey)));
+      setTimelineLoading(false);
+      return;
+    }
+    setTimelineData(result.data);
+    setTimelineLoading(false);
+  }
+
+  async function submitTimelineComment() {
+    if (!selectedTimelineWorkItem || !commentBody.trim()) return;
+    setCommentSubmitting(true);
+    const result = await createWorkItemComment(selectedTimelineWorkItem.id, {
+      comment_type: commentType,
+      body: commentBody.trim()
+    });
+    setCommentSubmitting(false);
+    if (!result.ok) {
+      setTimelineError(resolveApiErrorMessage(t, result.error, tr("alerts.workspace.timeline.errorComment" as MessageKey)));
+      return;
+    }
+    setCommentBody("");
+    await loadTimeline(selectedTimelineWorkItem.id);
+  }
 
   return (
     <AppShell title={tr("alerts.title" as MessageKey)} subtitle={tr("alerts.subtitle" as MessageKey)} activePath="/alerts" actions={<Pill>{tr("alerts.active" as MessageKey)}</Pill>}>
@@ -1038,6 +1101,18 @@ export default function AlertsPage() {
                           {acknowledgingPlatformAlertId === entry.id ? t("monitoring.platform.ackLoading") : t("monitoring.platform.ack")}
                         </button>
                       </div>
+                      {trackedWorkItem ? (
+                        <button
+                          type="button"
+                          className={`otc-button otc-button--ghost${timelineAlertId === entry.id ? " otc-button--active" : ""}`}
+                          onClick={() => {
+                            setTimelineAlertId(entry.id);
+                            void loadTimeline(trackedWorkItem.id);
+                          }}
+                        >
+                          {tr("alerts.workspace.timeline.open" as MessageKey)}
+                        </button>
+                      ) : null}
                     </div>
                   );
                 })()
@@ -1054,6 +1129,83 @@ export default function AlertsPage() {
           </div>
         )}
       </Panel>
+
+      <WorkItemTimelinePanel
+        state={!timelineAlertId ? "empty_selection" : !selectedTimelineWorkItem ? "local_only" : "ready"}
+        summary={timelineAlertId && selectedTimelineWorkItem ? tr("alerts.workspace.timeline.summary" as MessageKey, { alertId: timelineAlertId }) : null}
+        labels={buildWorkItemTimelineLabels(tr, "alerts.workspace.timeline")}
+        timelineError={timelineError}
+        timelineData={timelineData}
+        timelineLoading={timelineLoading}
+        commentType={commentType}
+        commentBody={commentBody}
+        commentSubmitting={commentSubmitting}
+        onCommentTypeChange={setCommentType}
+        onCommentBodyChange={setCommentBody}
+        onCommentSubmit={() => { void submitTimelineComment(); }}
+        onRefresh={
+          selectedTimelineWorkItem
+            ? () => { void loadTimeline(selectedTimelineWorkItem.id); }
+            : undefined
+        }
+        formatDate={(value) => {
+          if (!value) return null;
+          const parsed = new Date(value);
+          if (Number.isNaN(parsed.getTime())) return value;
+          return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(parsed);
+        }}
+        formatEventLabel={formatTimelineEvent}
+      />
+
+      {Object.keys(platformAlertWorkItems).length ? (
+        <Panel title={tr("alerts.history.title" as MessageKey)} description={tr("alerts.history.description" as MessageKey)}>
+          <table className="otc-table otc-table--spaced">
+            <thead>
+              <tr>
+                <th>{tr("alerts.history.alertname" as MessageKey)}</th>
+                <th>{tr("alerts.history.service" as MessageKey)}</th>
+                <th>{tr("alerts.history.severity" as MessageKey)}</th>
+                <th>{tr("alerts.history.status" as MessageKey)}</th>
+                <th>{tr("alerts.history.queueStatus" as MessageKey)}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.values(platformAlertWorkItems)
+                .sort((a, b) =>
+                  (b.last_activity_at || b.updated_at || "").localeCompare(a.last_activity_at || a.updated_at || "")
+                )
+                .slice(0, 100)
+                .map((item) => {
+                  const meta = (item.metadata ?? {}) as Record<string, unknown>;
+                  const alertname = typeof meta["alertname"] === "string" ? meta["alertname"] : item.resource_id;
+                  const service = typeof meta["service"] === "string" ? meta["service"] : null;
+                  const severity = typeof meta["severity"] === "string" ? meta["severity"] : null;
+                  return (
+                    <tr key={String(item.id)} className="otc-row-clickable">
+                      <td><strong>{alertname}</strong></td>
+                      <td>{service ?? tr("alerts.history.notAvailable" as MessageKey)}</td>
+                      <td>
+                        {severity ? (
+                          <Pill tone={severity === "critical" ? "danger" : severity === "warning" ? "warning" : undefined}>
+                            {severity}
+                          </Pill>
+                        ) : (
+                          tr("alerts.history.notAvailable" as MessageKey)
+                        )}
+                      </td>
+                      <td>
+                        <Pill tone={toneForQueueStatus(item.queue_status)}>
+                          {item.queue_status}
+                        </Pill>
+                      </td>
+                      <td>{item.note ?? tr("alerts.history.notAvailable" as MessageKey)}</td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </Panel>
+      ) : null}
     </AppShell>
   );
 }

@@ -148,6 +148,8 @@ Eventos relevantes em uso:
 
 ```bash
 python scripts/smoke_runtime.py
+make apply-regulatory-work-items-migration
+make smoke-work-items-ownership-backend
 cd apps/frontend
 npm ci
 npm run test:e2e:oidc-critical
@@ -184,6 +186,7 @@ python scripts/run_staging_window.py \
 
 - stack sobe com `docker compose`
 - smoke runtime passa
+- smoke backend de ownership de `work-items` (`make smoke-work-items-ownership-backend`) passa
 - Playwright critico/compliance passa
 - hashes de report continuam reproduziveis
 - `report_downloaded` continua auditado

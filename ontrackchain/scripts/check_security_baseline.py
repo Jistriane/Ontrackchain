@@ -14,6 +14,8 @@ ALLOWED_EXACT_PATHS = {
     Path("apps/auth-service/src/auth_service/main.py"),
     Path("infra/keycloak/realm-ontrackchain.json"),
     Path("scripts/smoke_runtime.py"),
+    Path("scripts/smoke_work_items_ownership.py"),
+    Path("scripts/smoke_work_items_ownership_backend.py"),
     Path("scripts/check_security_baseline.py"),
     Path("apps/frontend/tests/e2e/totp.ts"),
 }

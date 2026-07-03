@@ -17,9 +17,8 @@ Use este documento para:
 Nao use este documento como fonte primaria para:
 
 - fluxo tecnico de deploy e promocao: use [Deploy e Staging](deploy-and-staging.md)
-- condução da primeira janela seria, war room e sign-off: use [Primeiro Disparo Real da Janela Seria](first-serious-window-first-dispatch-runbook.md)
 - decisao executiva de `go/no-go`: use [Gates de Release para Staging Serio](project-release-gates.md)
-- preenchimento de owners, handoff e placeholders da janela: use [Checklist de Provisionamento por Owner para Janela Seria](staging-serious-window-owner-provisioning-checklist.md)
+- governanca semanal e war room: use [Governanca Semanal](governance-weekly/)
 
 ## Severidades
 

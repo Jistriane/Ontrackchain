@@ -20,9 +20,10 @@ O estado atual do produto e de plataforma tecnicamente funcional, mas ainda com 
 ## Estado Atual
 
 - leituras oficiais do projeto:
-  - `91%` de construcao tecnica
+  - `91%` de construcao tecnica (consolidado com paineis de historico em todos 7 cockpits)
   - `78%` de prontidao regulatoria/operacional
   - `87%` de construcao total consolidada
+- **Sprint 6 concluida**: todos os paineis de historico de workspace entregues nos 7 cockpits regulatorios (`counterparties` DD/SoF, `sanctions` por endereco, `evidence` rastreadas, `reports` casos, `blocks`, `ros-coaf`, `alerts`)
 - stack local executavel com:
   - `Traefik`
   - `FastAPI`
@@ -52,8 +53,13 @@ O estado atual do produto e de plataforma tecnicamente funcional, mas ainda com 
   - `sanctions_lists_meta` + `sanctions_hits_cache`
   - `ros_records`
 - camada operacional compartilhada ja conectada ao frontend:
-  - `sanctions` usa backend como fonte primaria da fila operacional, com fallback local
-  - `alerts` rastreia incidentes em `work-items` e sincroniza o encerramento via `ack`
+  - `sanctions` usa backend como fonte primaria da fila operacional, com fallback local + painel de historico por endereco
+  - `alerts` rastreia incidentes em `work-items` e sincroniza o encerramento via `ack` + painel de alertas rastreados
+  - `counterparties` com painel DD/SoF manual review + historico rastreado
+  - `evidence` com painel de eventos rastreados + navegacao para timeline
+  - `reports` com painel de casos rastreados com busca
+  - `blocks` com painel de avaliacoes historicas
+  - `ros-coaf` com painel de registros historicos
 - janela seria consolidada com:
   - `prepare_staging_window.py`
   - `run_staging_window.py`
@@ -226,9 +232,8 @@ docker compose --profile oidc up -d --build
 
 ```bash
 python scripts/smoke_runtime.py
-
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain \
-  < infra/postgres/migrations/0013_regulatory_work_items.sql
+make apply-regulatory-work-items-migration
+make smoke-work-items-ownership-backend
 
 cd apps/frontend
 npm ci

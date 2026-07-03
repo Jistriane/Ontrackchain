@@ -18,29 +18,38 @@ export default async function globalSetup() {
 
   const workspaceRoot = resolve(__dirname, "../../../..");
   const composeFile = resolve(workspaceRoot, "docker-compose.yml");
+  const allowNoPostgres = process.env.ONTRACKCHAIN_E2E_ALLOW_NO_POSTGRES === "true";
 
-  execFileSync(
-    "docker",
-    [
-      "compose",
-      "-f",
-      composeFile,
-      "exec",
-      "-T",
-      "postgres",
-      "psql",
-      "-U",
-      "ontrackchain",
-      "-d",
-      "ontrackchain",
-      "-v",
-      "ON_ERROR_STOP=1",
-      "-c",
-      RESET_SQL
-    ],
-    {
-      cwd: workspaceRoot,
-      stdio: "inherit"
+  try {
+    execFileSync(
+      "docker",
+      [
+        "compose",
+        "-f",
+        composeFile,
+        "exec",
+        "-T",
+        "postgres",
+        "psql",
+        "-U",
+        "ontrackchain",
+        "-d",
+        "ontrackchain",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        RESET_SQL
+      ],
+      {
+        cwd: workspaceRoot,
+        stdio: "inherit"
+      }
+    );
+  } catch (error) {
+    if (!allowNoPostgres) {
+      throw error;
     }
-  );
+
+    console.warn("[e2e global-setup] postgres indisponivel; seguindo sem reset por ONTRACKCHAIN_E2E_ALLOW_NO_POSTGRES=true");
+  }
 }

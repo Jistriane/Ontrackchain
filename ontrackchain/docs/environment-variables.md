@@ -24,7 +24,6 @@ Template serio para homologacao:
 - execute `python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md` antes da janela para validar que todos os grupos obrigatorios sairam de `pending`
 - persista os JSONs desses checkers em `artifacts/staging/checks/` para que possam ser consolidados depois por `python scripts/build_staging_release_dossier.py`
 - para executar a janela ponta a ponta e persistir checks, preflights, homologacao e dossier em uma unica chamada, prefira `python scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private`
-- para organizar o provisionamento fora do repositorio por responsavel nominal, seguir o [Checklist de Provisionamento por Owner para Janela Seria](staging-serious-window-owner-provisioning-checklist.md)
 
 ## Variaveis Globais
 

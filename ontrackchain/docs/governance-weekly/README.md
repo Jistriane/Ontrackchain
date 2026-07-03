@@ -53,15 +53,22 @@ Exemplo:
 
 ## Registros Disponíveis
 
+### Governança Semanal Ativa
+
 - [Governança Semanal 2026-06-29](2026-06-29-weekly-governance.md)
 - [Governança Semanal 2026-06-30](2026-06-30-weekly-governance.md)
-- [Atualização de KPI 2026-07-01](2026-07-01-kpi-scorecard-update.md)
 - [Governança Semanal 2026-07-01](2026-07-01-weekly-governance.md)
+- [Atualização de KPI 2026-07-01](2026-07-01-kpi-scorecard-update.md)
 - [Readiness Check da Janela Seria 2026-07-01](2026-07-01-staging-serious-window-readiness-check.md)
-- [Template de War Room da Janela Seria](_template-staging-serious-window-war-room.md)
-- [Template de Tracking ao Vivo da Janela Seria](_template-staging-serious-window-live-tracking.md)
-- [Governança Semanal 2026-07-06](2026-07-06-weekly-governance.md)
+
+### Janela Seria 2026-07-06
+
 - [War Room da Janela `stg-2026-07-06-a`](2026-07-06-staging-serious-window-war-room.md)
 - [Tracking ao Vivo da Janela `stg-2026-07-06-a`](2026-07-06-staging-serious-window-live-tracking.md)
 - [Folha de Preenchimento Manual `stg-2026-07-06-a`](2026-07-06-staging-serious-window-manual-fill-sheet.md)
 - [Sign-Off da Janela `stg-2026-07-06-a`](2026-07-06-staging-serious-window-signoff.md)
+- [Governança Semanal 2026-07-06](2026-07-06-weekly-governance.md)
+
+### Histórico Arquivado
+
+Arquivos de execução de sprints 1-4 foram movidos para [archive/](archive/) para manter este índice limpo.

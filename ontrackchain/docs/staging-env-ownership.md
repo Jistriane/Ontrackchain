@@ -10,7 +10,6 @@ Este documento complementa:
 - [Variaveis de Ambiente](environment-variables.md)
 - [Deploy e Staging](deploy-and-staging.md)
 - [Owners e SLAs Operacionais](operational-ownership-and-slas.md)
-- [Checklist de Provisionamento por Owner para Janela Seria](staging-serious-window-owner-provisioning-checklist.md)
 - [Matriz de Execucao por Owner para Janela Seria](staging-serious-window-war-room-matrix.md)
 - [Folha de Preenchimento Manual da Janela `stg-2026-07-06-a`](governance-weekly/2026-07-06-staging-serious-window-manual-fill-sheet.md)
 
@@ -25,7 +24,7 @@ Use este documento para:
 Nao use este documento como fonte primaria para:
 
 - coordenar war room, tracking ou decisao `go/no-go`: use os artefatos vivos em `docs/governance-weekly/`
-- executar o primeiro rito operacional da janela: use [Primeiro Disparo Real da Janela Seria](first-serious-window-first-dispatch-runbook.md)
+Refira-se a [Governanca Semanal](governance-weekly/) para tracking do ciclo atual.
 - preencher rapidamente contatos, canais e bridges da janela corrente: use a [Folha de Preenchimento Manual da Janela `stg-2026-07-06-a`](governance-weekly/2026-07-06-staging-serious-window-manual-fill-sheet.md)
 
 ## Regra Geral
@@ -179,7 +178,6 @@ Scaffold controlado atual:
 - as colunas `Data` e `Status` continuam bloqueadoras ate confirmacao humana da janela
 - nao promover `reviewed`, `approved` ou `waived` sem evidencias reais do owner correspondente
 - preencher primeiro facilitador, canal principal, bridge principal e checkpoint na folha manual antes de avancar nos dominios
-- usar o [Checklist de Provisionamento por Owner para Janela Seria](staging-serious-window-owner-provisioning-checklist.md) para executar o preenchimento por dominio antes do gate agregado
 - usar a [Matriz de Execucao por Owner para Janela Seria](staging-serious-window-war-room-matrix.md) durante o war room da janela para coordenar dependencias, comandos e escalacoes
 
 | Grupo | Owner | Data | Status | Observacoes |

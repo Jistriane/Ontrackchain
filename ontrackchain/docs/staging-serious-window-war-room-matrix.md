@@ -12,7 +12,6 @@ Dar ao war room da janela seria uma visao unica de:
 
 Use esta matriz junto com:
 
-- [Checklist de Provisionamento por Owner para Janela Seria](staging-serious-window-owner-provisioning-checklist.md)
 - [Ownership do `.env.staging`](staging-env-ownership.md)
 - [Owners e SLAs Operacionais](operational-ownership-and-slas.md)
 - [Gates de Release para Staging Serio](project-release-gates.md)

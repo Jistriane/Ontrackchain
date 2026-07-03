@@ -160,9 +160,9 @@ python scripts/run_staging_window.py \
   --private-env-file .env.staging.private
 ```
 
-Antes desse fluxo, quando a janela ainda estiver em `no-go`, usar o checklist por owner para preencher o `.env.staging.private` e o handoff por dominio:
+Antes desse fluxo, quando a janela ainda estiver em `no-go`, validar o handoff por dominio:
 
-- [Checklist de Provisionamento por Owner para Janela Seria](staging-serious-window-owner-provisioning-checklist.md)
+- [Ownership do `.env.staging`](staging-env-ownership.md)
 
 ## Troubleshooting
 

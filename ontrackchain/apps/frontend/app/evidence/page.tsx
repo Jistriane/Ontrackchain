@@ -4,9 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { useI18n } from "../../components/i18n-provider";
+import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
+import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
+import { createWorkItemComment, fetchWorkItemTimeline } from "../lib/work-item-timeline-client";
+import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
 import type { MessageKey } from "../lib/i18n";
+import { formatTimelineEvent, type WorkCommentResponse, type WorkItemTimelineResponse } from "../lib/work-item-timeline";
 import {
   buildAuditLogQuery,
   extractAuditApiError,
@@ -47,6 +52,7 @@ type WorkItemQueueStatus = "UNDER_REVIEW" | "ESCALATED" | "READY" | "APPROVED" |
 type WorkItemResponse = {
   id: string;
   resource_id: string;
+  owner_user_id?: string | null;
   queue_status: WorkItemQueueStatus;
   priority: WorkspacePriority;
   due_at: string | null;
@@ -327,7 +333,7 @@ function mapWorkItemToWorkspaceRecord(item: WorkItemResponse): EvidenceWorkspace
     requestId: readMetadataString(metadata, "request_id"),
     reportId: readMetadataString(metadata, "report_id"),
     fileHash: readMetadataString(metadata, "file_hash_sha256"),
-    owner: readMetadataString(metadata, "owner_label"),
+    owner: readMetadataString(metadata, "owner_label") || item.owner_user_id || "",
     priority: item.priority,
     localDeadline: toDateTimeLocalValue(item.due_at),
     workspaceStatus: normalizeLegacyStatus(metadata["local_workspace_status"]) || mapQueueStatusToWorkspaceStatus(item.queue_status),
@@ -370,6 +376,7 @@ export default function EvidenceTrailPage() {
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [syncingWorkspace, setSyncingWorkspace] = useState(false);
+  const [authContext, setAuthContext] = useState<AuthContext | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
@@ -379,6 +386,13 @@ export default function EvidenceTrailPage() {
   const [localDeadline, setLocalDeadline] = useState("");
   const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus>("queued");
   const [workspaceNote, setWorkspaceNote] = useState("");
+  const [timelineEventId, setTimelineEventId] = useState("");
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState<string | null>(null);
+  const [timelineData, setTimelineData] = useState<WorkItemTimelineResponse<WorkItemResponse> | null>(null);
+  const [commentType, setCommentType] = useState<WorkCommentResponse["comment_type"]>("note");
+  const [commentBody, setCommentBody] = useState("");
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
   const latestRequestRef = useRef(0);
 
   const selectedDomain = useMemo(
@@ -390,6 +404,8 @@ export default function EvidenceTrailPage() {
     [filters]
   );
   const selectedContext = useMemo(() => (selectedLog ? inferLogOperationalContext(selectedLog) : null), [selectedLog]);
+  const workspaceByEventId = useMemo(() => new Map(workspace.map((record) => [record.eventId, record])), [workspace]);
+  const selectedTimelineRecord = timelineEventId ? workspaceByEventId.get(timelineEventId) ?? null : null;
 
   function filtersFromSearchParams(): EvidenceFilters {
     return {
@@ -438,6 +454,21 @@ export default function EvidenceTrailPage() {
     setLoading(false);
   }
 
+  async function loadTimeline(workItemId: string) {
+    setTimelineLoading(true);
+    setTimelineError(null);
+    const result = await fetchWorkItemTimeline<WorkItemResponse>(workItemId);
+    if (!result.ok) {
+      setTimelineData(null);
+      setTimelineError(resolveApiErrorMessage(t, result.error, tr("evidenceTrail.workspace.timeline.errorLoad" as MessageKey)));
+      setTimelineLoading(false);
+      return;
+    }
+
+    setTimelineData(result.data);
+    setTimelineLoading(false);
+  }
+
   async function loadOperationalWorkspace(localRecords: EvidenceWorkspaceRecord[]) {
     const res = await fetch(
       `/api/app/operations/work-items?module=evidence&resource_type=evidence_event&limit=${WORKSPACE_PAGE_LIMIT}`,
@@ -468,11 +499,34 @@ export default function EvidenceTrailPage() {
       setError(tr("evidenceTrail.errorLoad" as MessageKey));
       setLoading(false);
     });
+
+    fetchAuthContext()
+      .then((data) => {
+        if (data) {
+          setAuthContext(data);
+        }
+      })
+      .catch(() => {
+        // Keep owner_user_id optional when auth context is unavailable.
+      });
   }, [searchParams]);
 
   useEffect(() => {
     saveWorkspace(workspace);
   }, [workspace]);
+
+  useEffect(() => {
+    if (!workspace.length) {
+      setTimelineEventId("");
+      setTimelineData(null);
+      setTimelineError(null);
+      return;
+    }
+    if (!timelineEventId || !workspace.some((entry) => entry.eventId === timelineEventId)) {
+      const firstServerRecord = workspace.find((entry) => Boolean(entry.workItemId)) ?? workspace[0];
+      setTimelineEventId(firstServerRecord.eventId);
+    }
+  }, [timelineEventId, workspace]);
 
   useEffect(() => {
     if (!selectedLog) {
@@ -488,6 +542,19 @@ export default function EvidenceTrailPage() {
     setWorkspaceStatus(currentRecord.workspaceStatus);
     setWorkspaceNote(currentRecord.note);
   }, [selectedLog, workspace]);
+
+  useEffect(() => {
+    if (!selectedTimelineRecord?.workItemId) {
+      setTimelineData(null);
+      setTimelineError(null);
+      return;
+    }
+    loadTimeline(selectedTimelineRecord.workItemId).catch(() => {
+      setTimelineData(null);
+      setTimelineError(tr("evidenceTrail.workspace.timeline.errorLoad" as MessageKey));
+      setTimelineLoading(false);
+    });
+  }, [selectedTimelineRecord?.workItemId, t]);
 
   function updateFilter<K extends keyof EvidenceFilters>(key: K, value: EvidenceFilters[K]) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -579,6 +646,7 @@ export default function EvidenceTrailPage() {
         lastActionAt: new Date().toISOString()
       };
       setWorkspace((current) => upsertWorkspaceRecord(current, draftRecord));
+      setTimelineEventId(draftRecord.eventId);
       if (!isUuidLike(selectedLog.id)) {
         setNotice(tr("evidenceTrail.workspace.noticeTrackedLocalOnly" as MessageKey, { eventId: selectedLog.id }));
         return;
@@ -599,6 +667,7 @@ export default function EvidenceTrailPage() {
     if (matchingLog) {
       setSelectedLog(matchingLog);
     }
+    setTimelineEventId(record.eventId);
     setOwner(record.owner);
     setPriority(record.priority);
     setLocalDeadline(record.localDeadline);
@@ -612,6 +681,12 @@ export default function EvidenceTrailPage() {
       throw new Error(tr("evidenceTrail.workspace.errorSyncMissingEventId" as MessageKey));
     }
 
+    const ownerUserId = resolveOwnerUserId({
+      ownerLabel: record.owner,
+      linkedUserId: authContext?.linked_user_id,
+      isUuidLike
+    });
+
     const localStatus = nextStatus ?? record.workspaceStatus;
     const queueStatus: WorkItemQueueStatus = localStatus === "sealed" ? "CLOSED" : "UNDER_REVIEW";
     const metadata = {
@@ -623,12 +698,14 @@ export default function EvidenceTrailPage() {
       request_id: record.requestId,
       report_id: record.reportId,
       file_hash_sha256: record.fileHash,
+      owner_user_id: ownerUserId,
       owner_label: record.owner,
       local_workspace_status: localStatus,
       note: record.note
     };
     const requestBody = record.workItemId
       ? {
+          ...(ownerUserId ? { owner_user_id: ownerUserId } : {}),
           priority: record.priority,
           queue_status: queueStatus,
           due_at: toApiDueAt(record.localDeadline),
@@ -641,6 +718,7 @@ export default function EvidenceTrailPage() {
           resource_type: "evidence_event",
           resource_id: record.eventId,
           ...(isUuidLike(record.caseId) ? { case_id: record.caseId.trim() } : {}),
+          ...(ownerUserId ? { owner_user_id: ownerUserId } : {}),
           priority: record.priority,
           queue_status: queueStatus,
           due_at: toApiDueAt(record.localDeadline),
@@ -667,7 +745,39 @@ export default function EvidenceTrailPage() {
 
     const nextRecord = mapWorkItemToWorkspaceRecord(data as WorkItemResponse);
     setWorkspace((current) => upsertWorkspaceRecord(current, nextRecord));
+    if (timelineEventId === nextRecord.eventId && nextRecord.workItemId) {
+      await loadTimeline(nextRecord.workItemId);
+    }
     return nextRecord;
+  }
+
+  async function submitTimelineComment() {
+    if (!selectedTimelineRecord?.workItemId) {
+      setTimelineError(tr("evidenceTrail.workspace.timeline.emptyLocal" as MessageKey));
+      return;
+    }
+    if (!commentBody.trim()) {
+      setTimelineError(tr("evidenceTrail.workspace.timeline.commentEmpty" as MessageKey));
+      return;
+    }
+
+    setCommentSubmitting(true);
+    setTimelineError(null);
+    const result = await createWorkItemComment(selectedTimelineRecord.workItemId, {
+      comment_type: commentType,
+      body: commentBody.trim()
+    });
+    if (!result.ok) {
+      setTimelineError(resolveApiErrorMessage(t, result.error, tr("evidenceTrail.workspace.timeline.errorComment" as MessageKey)));
+      setCommentSubmitting(false);
+      return;
+    }
+
+    setCommentBody("");
+    setCommentType("note");
+    await loadTimeline(selectedTimelineRecord.workItemId);
+    setNotice(tr("evidenceTrail.workspace.timeline.commentSaved" as MessageKey));
+    setCommentSubmitting(false);
   }
 
   function updateWorkspaceStatus(eventId: string, nextStatus: WorkspaceStatus) {
@@ -873,6 +983,9 @@ export default function EvidenceTrailPage() {
                       <button type="button" className="otc-button otc-button--ghost" onClick={() => hydrateWorkspaceRecord(record)}>
                         {tr("evidenceTrail.workspace.table.load" as MessageKey)}
                       </button>
+                      <button type="button" className="otc-button otc-button--ghost" onClick={() => setTimelineEventId(record.eventId)}>
+                        {tr("evidenceTrail.workspace.timeline.open" as MessageKey)}
+                      </button>
                       <button type="button" className="otc-button otc-button--ghost" onClick={() => updateWorkspaceStatus(record.eventId, "queued")}>
                         {tr("evidenceTrail.workspace.table.markQueued" as MessageKey)}
                       </button>
@@ -897,6 +1010,32 @@ export default function EvidenceTrailPage() {
           <Message>{tr("evidenceTrail.workspace.empty" as MessageKey)}</Message>
         )}
       </Panel>
+
+      <WorkItemTimelinePanel
+        state={!selectedTimelineRecord ? "empty_selection" : !selectedTimelineRecord.workItemId ? "local_only" : "ready"}
+        summary={selectedTimelineRecord ? tr("evidenceTrail.workspace.timeline.summary" as MessageKey, { eventId: selectedTimelineRecord.eventId }) : null}
+        labels={buildWorkItemTimelineLabels(tr, "evidenceTrail.workspace.timeline")}
+        timelineError={timelineError}
+        timelineData={timelineData}
+        timelineLoading={timelineLoading}
+        commentType={commentType}
+        commentBody={commentBody}
+        commentSubmitting={commentSubmitting}
+        onCommentTypeChange={setCommentType}
+        onCommentBodyChange={setCommentBody}
+        onCommentSubmit={() => {
+          void submitTimelineComment();
+        }}
+        onRefresh={
+          selectedTimelineRecord?.workItemId
+            ? () => {
+                void loadTimeline(selectedTimelineRecord.workItemId!);
+              }
+            : undefined
+        }
+        formatDate={formatDate}
+        formatEventLabel={formatTimelineEvent}
+      />
 
       <section className="otc-grid otc-evidence-layout">
         <Panel title={tr("evidenceTrail.events.title" as MessageKey)} description={tr("evidenceTrail.events.description" as MessageKey)}>
@@ -1056,6 +1195,49 @@ export default function EvidenceTrailPage() {
             ))}
           </tbody>
         </table>
+      </Panel>
+
+      <Panel title={tr("evidenceTrail.workspaceHistory.title" as MessageKey)} description={tr("evidenceTrail.workspaceHistory.description" as MessageKey)}>
+        {workspace.length ? (
+          <table className="otc-table otc-table--spaced">
+            <thead>
+              <tr>
+                <th>{tr("evidenceTrail.workspaceHistory.eventId" as MessageKey)}</th>
+                <th>{tr("evidenceTrail.workspaceHistory.action" as MessageKey)}</th>
+                <th>{tr("evidenceTrail.workspaceHistory.resourceType" as MessageKey)}</th>
+                <th>{tr("evidenceTrail.workspaceHistory.status" as MessageKey)}</th>
+                <th>{tr("evidenceTrail.workspaceHistory.owner" as MessageKey)}</th>
+                <th>{tr("evidenceTrail.workspaceHistory.lastAction" as MessageKey)}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {workspace
+                .slice()
+                .sort((a, b) => b.lastActionAt.localeCompare(a.lastActionAt))
+                .slice(0, 100)
+                .map((record) => (
+                  <tr
+                    key={record.eventId}
+                    className={timelineEventId === record.eventId ? "otc-row-selected otc-row-clickable" : "otc-row-clickable"}
+                    onClick={() => setTimelineEventId(record.eventId)}
+                  >
+                    <td><span className="otc-mono">{record.eventId}</span></td>
+                    <td>{record.action || tr("evidenceTrail.notAvailable" as MessageKey)}</td>
+                    <td>{record.resourceType || tr("evidenceTrail.notAvailable" as MessageKey)}</td>
+                    <td>
+                      <Pill tone={record.workspaceStatus === "sealed" ? "success" : record.workspaceStatus === "reviewing" ? "warning" : undefined}>
+                        {record.workspaceStatus}
+                      </Pill>
+                    </td>
+                    <td>{record.owner || tr("evidenceTrail.notAvailable" as MessageKey)}</td>
+                    <td>{formatDate(record.lastActionAt) ?? record.lastActionAt}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        ) : (
+          <Message>{tr("evidenceTrail.workspaceHistory.empty" as MessageKey)}</Message>
+        )}
       </Panel>
     </AppShell>
   );

@@ -1,4 +1,4 @@
-.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle
+.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle apply-regulatory-work-items-migration smoke-work-items-ownership-backend
 
 PYTHON ?= python
 WINDOW_ID ?= stg-2026-07-06-a
@@ -29,6 +29,8 @@ help:
 	@echo "  make run-eu-sanctions-window-local [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...]"
 	@echo "  make check-compliance-provider-runtime [INTERNAL_BASE_URL=...] [PUBLIC_BASE_URL=...]"
 	@echo "  make run-regulatory-readiness-bundle [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...] [INTERNAL_BASE_URL=...] [PUBLIC_BASE_URL=...]"
+	@echo "  make apply-regulatory-work-items-migration"
+	@echo "  make smoke-work-items-ownership-backend"
 
 help-serious-window:
 	@echo "Rito da janela seria:"
@@ -167,3 +169,10 @@ run-regulatory-readiness-bundle:
 		checks_dir_args=" --checks-dir \"$(CHECKS_DIR)\""; \
 	fi; \
 	eval $(PYTHON) scripts/run_regulatory_readiness_bundle.py --window-id "\"$(WINDOW_ID)\""$$private_env_args$$checks_dir_args$$internal_base_args$$public_base_args
+
+apply-regulatory-work-items-migration:
+	@cat infra/postgres/migrations/0013_regulatory_work_items.sql | \
+		docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U ontrackchain -d ontrackchain
+
+smoke-work-items-ownership-backend:
+	@cat scripts/smoke_work_items_ownership_backend.py | docker compose exec -T compliance-api python -

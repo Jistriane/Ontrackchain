@@ -14,7 +14,7 @@ Este documento complementa:
 - [Deploy e Staging](deploy-and-staging.md)
 - [Gates de Release para Staging Sério](project-release-gates.md)
 - [Checklist Pré-Produção](pre-production-checklist.md)
-- [Runbook do Primeiro Disparo Real](first-serious-window-first-dispatch-runbook.md)
+- [Governanca Semanal](governance-weekly/)
 
 ## Workflow Alvo
 

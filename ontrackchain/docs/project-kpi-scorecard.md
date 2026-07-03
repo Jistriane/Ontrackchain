@@ -69,7 +69,7 @@ Leitura executiva oficial:
 | Compliance Core | 18% | 90% | sancoes locais, bloqueios, contrapartes, ROS/COAF e a base inicial de `work-items` ja implementados |
 | Monitoring Operacional | 8% | 91% | backlog global, triagem, export auditado e surface operacional consistente |
 | Reports e Evidencias | 12% | 92% | `evidence_trail`, hashes, bundles e ROS auditado bem integrados |
-| Frontend Operacional | 6% | 89% | `/audit` e `/monitoring` maduros; `sanctions` e `alerts` ja usam fila compartilhada, faltando expandir para os demais cockpits |
+| Frontend Operacional | 6% | 93% | todos 7 cockpits (`sanctions`, `alerts`, `counterparties`, `evidence`, `reports`, `blocks`, `ros-coaf`) ja usam fila compartilhada com paineis de historico consolidados e i18n tri-locale |
 | Observabilidade e Alerting | 7% | 88% | boa cobertura, ainda faltam sinais de seguranca mais fortes |
 | Testes e CI/CD | 11% | 94% | smoke, E2E, preflights, runners e checks bem institucionalizados |
 | Seguranca e Governanca Tecnica | 8% | 85% | controles tecnicos fortes, faltam alguns aceites formais e recorrencia |
@@ -112,13 +112,13 @@ Leitura oficial arredondada:
 | Compliance core implementado | 18% | 90% | `sanctions`, `preventive_blocks`, `counterparties`, `ROS/COAF`, `evidence_trail` e a base de `work-items` implementados |
 | Testes, CI/CD e guardrails | 10% | 94% | smoke, E2E, preflights, gates e runners ja institucionalizados |
 | Observabilidade e operacao | 8% | 89% | monitoring, alerting, exports e runbooks maduros |
-| Frontend operacional | 6% | 89% | areas administrativas e trilhas de suporte operacionais |
+| Frontend operacional | 6% | 93% | todos 7 cockpits com paineis de historico consolidados, i18n tri-locale e fila compartilhada sincronizada |
 | `P0-01` OIDC + MFA federado serio | 10% | 78% | desenho pronto, falta homologacao formal recorrente |
 | `P0-02` AML/KYT live | 12% | 72% | guardrail pronto, falta provider real homologado |
 | `P0-03` Feed UE tokenizado real | 7% | 70% | runner/checker prontos, falta ativacao real |
 | `P1-01` Retention/recovery formal | 5% | 78% | baseline publicada, aceite institucional pendente |
 | `P1-02` Janela seria recorrente + owners/SLA | 4% | 80% | rito pronto, falta recorrencia com aceite |
-| `P1-03` DD/SoF manual review estruturado | 2% | 68% | dominio ainda depende de ritual manual |
+| `P1-03` DD/SoF manual review estruturado | 2% | 75% | painel estruturado com 4 campos, metadata persistence e historico rastreado em Sprint 6 |
 
 Resultado ponderado:
 

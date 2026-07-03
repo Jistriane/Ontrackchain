@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Consolidar uma leitura executiva e tecnica do estado atual do Ontrackchain apos a implantacao do core regulatorio de sancoes, bloqueios preventivos, contrapartes e ROS/COAF.
+Consolidar uma leitura executiva e tecnica do estado atual do Ontrackchain apos Sprint 6 com todos 7 paineis de historico de workspace consolidados nos cockpits regulatorios (counterparties DD/SoF, sanctions, evidence, reports, blocks, ros-coaf, alerts).
 
 ## Escopo Canonico
 
@@ -75,7 +75,7 @@ Resultado atual:
 | Compliance Core | 90% | sancoes locais, bloqueios, contrapartes, ROS e fila compartilhada inicial via `work-items` ja implementados |
 | Monitoring Operacional | 91% | backlog global, triagem e export auditado |
 | Reports e Evidencias | 92% | hashes deterministas, evidence trail e ROS auditado |
-| Frontend Operacional | 89% | `/audit` e `/monitoring` maduros; `sanctions` e `alerts` ja sincronizam fila compartilhada, mas a expansao para outros cockpits ainda pode evoluir |
+| Frontend Operacional | 93% | `/audit` e `/monitoring` maduros; todos 7 cockpits (`sanctions`, `alerts`, `counterparties`, `evidence`, `reports`, `blocks`, `ros-coaf`) agora sincronizam fila compartilhada via `work-items` e possuem paineis de historico consolidados com i18n tri-locale |
 | Observabilidade e Alerting | 88% | cobertura boa, ainda faltam sinais de seguranca mais fortes |
 | Testes e CI/CD | 94% | smoke, E2E e preflights bem institucionalizados |
 | Seguranca e Governanca | 85% | controles tecnicos fortes; sign-off formal e rotina seria ainda incompletos |
@@ -91,7 +91,15 @@ Resultado atual:
 - `check_compliance_provider_runtime.py` como gate leve de runtime AML/KYT
 - `run_eu_sanctions_window.py` e alvos `make run-eu-sanctions-window*` para a janela UE
 - `regulatory_work_items` + `regulatory_work_events` + `regulatory_work_comments` como fila compartilhada multiusuario por modulo/recurso
-- integracao inicial dessa fila no frontend via `sanctions` e `alerts`
+- integracao dessa fila em todos 7 cockpits regulatorios no frontend via `work-items` sync
+- paineis de historico de workspace consolidados em Sprint 6 com i18n tri-locale (pt-BR/en/es):
+  - `counterparties`: DD/SoF manual review status com historico rastreado
+  - `sanctions`: painel de triagens por endereco com filtro cliente
+  - `evidence`: painel de eventos rastreados com navegacao para timeline
+  - `reports`: painel de casos rastreados com busca cross-field
+  - `blocks`: painel de avaliacoes historicas de bloqueio
+  - `ros-coaf`: painel de registros historicos com status colorido
+  - `alerts`: painel de alertas rastreados como work-items com severity
 
 ## O Que Ainda Segura o Projeto
 
@@ -100,7 +108,7 @@ Resultado atual:
 - `AML/KYT` live ainda depende de credenciais e homologacao real
 - `due_diligence` e `source_of_funds` permanecem em `manual_review_required`
 - falta prova recorrente institucional de janelas externas, apesar dos runners e checkers ja estarem prontos
-- a fila compartilhada ainda nao cobre todos os cockpits regulatorios; `blocks`, `reports`, `counterparties`, `evidence` e `ros-coaf` seguem em migracao gradual
+- paineis de historico ja consolidados; proxima fase: integracao mais profunda de actions customizadas (escalacao, reassignment de owner)
 
 ### Regulatorio-operacional
 
@@ -127,3 +135,4 @@ Resultado atual:
 2. fechar a ativacao real da URL tokenizada da UE
 3. obter sign-off formal de retention/recovery e owners
 4. executar janelas serias recorrentes com dossier aceito
+5. adicionar actions customizadas aos paineis de historico (escalacao, reassignment, comentarios inline)

@@ -5,8 +5,13 @@ import { useSearchParams } from "next/navigation";
 
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
 import { useI18n } from "../../components/i18n-provider";
+import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel";
 import type { MessageKey } from "../lib/i18n";
+import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
+import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
+import { createWorkItemComment, fetchWorkItemTimeline } from "../lib/work-item-timeline-client";
+import { formatTimelineEvent, type WorkCommentResponse, type WorkItemTimelineResponse } from "../lib/work-item-timeline";
 
 type GenerateRosCoafResponse = {
   ros_id: string;
@@ -34,8 +39,29 @@ type SubmitRosCoafResponse = {
 };
 
 type WorkspacePriority = "critical" | "high" | "normal";
+type WorkspaceSource = "server" | "local";
+type WorkItemQueueStatus = "UNDER_REVIEW" | "ESCALATED" | "READY" | "APPROVED" | "SUBMITTED" | "CLOSED" | "REJECTED";
+
+type WorkItemResponse = {
+  id: string;
+  resource_id: string;
+  owner_user_id?: string | null;
+  queue_status: WorkItemQueueStatus;
+  priority: WorkspacePriority;
+  due_at: string | null;
+  note: string | null;
+  metadata: Record<string, unknown>;
+  last_activity_at: string;
+  updated_at: string;
+};
+
+type WorkItemListResponse = {
+  data: WorkItemResponse[];
+};
 
 type RosWorkspaceRecord = {
+  workItemId?: string;
+  source: WorkspaceSource;
   rosId: string;
   caseId: string;
   owner: string;
@@ -52,6 +78,49 @@ type RosWorkspaceRecord = {
 };
 
 const STORAGE_KEY = "otc-ros-coaf-workspace";
+const WORKSPACE_PAGE_LIMIT = 100;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuidLike(value: string | null | undefined) {
+  return Boolean(value && UUID_PATTERN.test(value.trim()));
+}
+
+function toDateTimeLocalValue(value: string | null | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  const year = parsed.getFullYear();
+  const month = `${parsed.getMonth() + 1}`.padStart(2, "0");
+  const day = `${parsed.getDate()}`.padStart(2, "0");
+  const hours = `${parsed.getHours()}`.padStart(2, "0");
+  const minutes = `${parsed.getMinutes()}`.padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function toApiDueAt(value: string) {
+  const normalized = value.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString();
+}
+
+function readMetadataString(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  return typeof value === "string" ? value : "";
+}
 
 function loadWorkspace(): RosWorkspaceRecord[] {
   if (typeof window === "undefined") {
@@ -64,7 +133,29 @@ function loadWorkspace(): RosWorkspaceRecord[] {
       return [];
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed.map((entry) => {
+          const record = (entry ?? {}) as Partial<RosWorkspaceRecord>;
+          const source: WorkspaceSource = record.source === "server" ? "server" : "local";
+          return {
+            workItemId: typeof record.workItemId === "string" ? record.workItemId : undefined,
+            source,
+            rosId: typeof record.rosId === "string" ? record.rosId : "",
+            caseId: typeof record.caseId === "string" ? record.caseId : "",
+            owner: typeof record.owner === "string" ? record.owner : "",
+            priority: record.priority === "critical" || record.priority === "high" || record.priority === "normal" ? record.priority : "normal",
+            localDeadline: typeof record.localDeadline === "string" ? record.localDeadline : "",
+            status: typeof record.status === "string" ? record.status : "PENDING_GENERATION",
+            reportId: typeof record.reportId === "string" ? record.reportId : "",
+            createdAt: typeof record.createdAt === "string" ? record.createdAt : "",
+            approvedAt: typeof record.approvedAt === "string" ? record.approvedAt : "",
+            submittedAt: typeof record.submittedAt === "string" ? record.submittedAt : "",
+            coafProtocolNumber: typeof record.coafProtocolNumber === "string" ? record.coafProtocolNumber : "",
+            coafReceiptHash: typeof record.coafReceiptHash === "string" ? record.coafReceiptHash : "",
+            lastActionAt: typeof record.lastActionAt === "string" ? record.lastActionAt : ""
+          };
+        })
+      : [];
   } catch {
     return [];
   }
@@ -84,6 +175,8 @@ function upsertWorkspaceRecord(
   const existing = current.find((item) => item.rosId === next.rosId);
   const base: RosWorkspaceRecord =
     existing ?? {
+      workItemId: next.workItemId,
+      source: next.source ?? "local",
       rosId: next.rosId,
       caseId: "",
       owner: "",
@@ -107,6 +200,72 @@ function upsertWorkspaceRecord(
 
   const withoutCurrent = current.filter((item) => item.rosId !== next.rosId);
   return [merged, ...withoutCurrent].sort((a, b) => (b.lastActionAt || "").localeCompare(a.lastActionAt || ""));
+}
+
+function mergeWorkspaceRecords(serverRecords: RosWorkspaceRecord[], localRecords: RosWorkspaceRecord[]) {
+  const merged = [...serverRecords];
+  const seenRosIds = new Set(serverRecords.map((record) => record.rosId));
+  const seenWorkItemIds = new Set(serverRecords.map((record) => record.workItemId).filter(Boolean));
+
+  for (const record of localRecords) {
+    if (seenRosIds.has(record.rosId)) {
+      continue;
+    }
+    if (record.workItemId && seenWorkItemIds.has(record.workItemId)) {
+      continue;
+    }
+    merged.push(record);
+  }
+
+  return merged.sort((a, b) => (b.lastActionAt || "").localeCompare(a.lastActionAt || ""));
+}
+
+function mapQueueStatusToRosStatus(status: WorkItemQueueStatus) {
+  switch (status) {
+    case "APPROVED":
+      return "APPROVED";
+    case "REJECTED":
+      return "REJECTED";
+    case "SUBMITTED":
+    case "CLOSED":
+      return "SUBMITTED_MANUAL";
+    default:
+      return "PENDING_APPROVAL";
+  }
+}
+
+function mapRosStatusToQueueStatus(status: string): WorkItemQueueStatus {
+  switch (status) {
+    case "APPROVED":
+      return "APPROVED";
+    case "REJECTED":
+      return "REJECTED";
+    case "SUBMITTED_MANUAL":
+      return "SUBMITTED";
+    default:
+      return "UNDER_REVIEW";
+  }
+}
+
+function mapWorkItemToWorkspaceRecord(item: WorkItemResponse): RosWorkspaceRecord {
+  const metadata = item.metadata ?? {};
+  return {
+    workItemId: item.id,
+    source: "server",
+    rosId: readMetadataString(metadata, "ros_id") || item.resource_id,
+    caseId: readMetadataString(metadata, "case_id"),
+    owner: readMetadataString(metadata, "owner_label") || item.owner_user_id || "",
+    priority: item.priority,
+    localDeadline: toDateTimeLocalValue(item.due_at),
+    status: readMetadataString(metadata, "ros_status") || mapQueueStatusToRosStatus(item.queue_status),
+    reportId: readMetadataString(metadata, "report_id"),
+    createdAt: readMetadataString(metadata, "created_at"),
+    approvedAt: readMetadataString(metadata, "approved_at"),
+    submittedAt: readMetadataString(metadata, "submitted_at"),
+    coafProtocolNumber: readMetadataString(metadata, "coaf_protocol_number"),
+    coafReceiptHash: item.note ?? readMetadataString(metadata, "coaf_receipt_hash"),
+    lastActionAt: item.last_activity_at || item.updated_at
+  };
 }
 
 function getUrgency(record: RosWorkspaceRecord): "overdue" | "due_soon" | "on_track" | "no_deadline" {
@@ -214,6 +373,8 @@ export default function RosCoafPage() {
   const [generating, setGenerating] = useState(false);
   const [approving, setApproving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [syncingWorkspace, setSyncingWorkspace] = useState(false);
+  const [authContext, setAuthContext] = useState<AuthContext | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -223,6 +384,13 @@ export default function RosCoafPage() {
   const [workspaceRecords, setWorkspaceRecords] = useState<RosWorkspaceRecord[]>([]);
   const [workspaceFilter, setWorkspaceFilter] = useState("all");
   const [workspaceSearch, setWorkspaceSearch] = useState("");
+  const [timelineRosId, setTimelineRosId] = useState("");
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState<string | null>(null);
+  const [timelineData, setTimelineData] = useState<WorkItemTimelineResponse<WorkItemResponse> | null>(null);
+  const [commentType, setCommentType] = useState<WorkCommentResponse["comment_type"]>("note");
+  const [commentBody, setCommentBody] = useState("");
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
 
   const canApprove = approved || rejectionReason.trim().length > 0;
   const draftDownloadUrl = useMemo(() => {
@@ -254,9 +422,58 @@ export default function RosCoafPage() {
     () => workspaceRecords.filter((record) => record.status === "SUBMITTED_MANUAL").length,
     [workspaceRecords]
   );
+  const workspaceById = useMemo(() => new Map(workspaceRecords.map((record) => [record.rosId, record])), [workspaceRecords]);
+  const selectedTimelineRecord = timelineRosId ? workspaceById.get(timelineRosId) ?? null : null;
+
+  async function loadTimeline(workItemId: string) {
+    setTimelineLoading(true);
+    setTimelineError(null);
+    const result = await fetchWorkItemTimeline<WorkItemResponse>(workItemId);
+    if (!result.ok) {
+      setTimelineData(null);
+      setTimelineError(resolveApiErrorMessage(t, result.error, tr("rosCoaf.workspace.timeline.errorLoad" as MessageKey)));
+      setTimelineLoading(false);
+      return;
+    }
+
+    setTimelineData(result.data);
+    setTimelineLoading(false);
+  }
+
+  async function loadOperationalWorkspace(localRecords: RosWorkspaceRecord[]) {
+    const res = await fetch(
+      `/api/app/operations/work-items?module=ros_coaf&resource_type=ros_record&limit=${WORKSPACE_PAGE_LIMIT}`,
+      { cache: "no-store" }
+    );
+    const data = (await res.json().catch(() => null)) as WorkItemListResponse | { error?: string; detail?: unknown } | null;
+    if (!res.ok) {
+      setWorkspaceRecords(localRecords);
+      setNotice(tr("rosCoaf.workspace.noticeLoadedLocal" as MessageKey));
+      return;
+    }
+
+    const items = data && "data" in data && Array.isArray(data.data) ? data.data : [];
+    const serverRecords = items.map((item) => mapWorkItemToWorkspaceRecord(item));
+    setWorkspaceRecords(mergeWorkspaceRecords(serverRecords, localRecords));
+  }
 
   useEffect(() => {
-    setWorkspaceRecords(loadWorkspace());
+    const localRecords = loadWorkspace();
+    setWorkspaceRecords(localRecords);
+    loadOperationalWorkspace(localRecords).catch(() => {
+      setWorkspaceRecords(localRecords);
+      setNotice(tr("rosCoaf.workspace.noticeLoadedLocal" as MessageKey));
+    });
+
+    fetchAuthContext()
+      .then((data) => {
+        if (data) {
+          setAuthContext(data);
+        }
+      })
+      .catch(() => {
+        // Keep owner_user_id optional when auth context is unavailable.
+      });
   }, []);
 
   useEffect(() => {
@@ -274,6 +491,7 @@ export default function RosCoafPage() {
       setRosId(nextRosId);
       setApproveRosId(nextRosId);
       setSubmitRosId(nextRosId);
+      setTimelineRosId(nextRosId);
     }
     if (nextCaseId) {
       setCaseId(nextCaseId);
@@ -289,6 +507,32 @@ export default function RosCoafPage() {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    if (!workspaceRecords.length) {
+      setTimelineRosId("");
+      setTimelineData(null);
+      setTimelineError(null);
+      return;
+    }
+    if (!timelineRosId || !workspaceRecords.some((record) => record.rosId === timelineRosId)) {
+      const firstServerRecord = workspaceRecords.find((record) => Boolean(record.workItemId)) ?? workspaceRecords[0];
+      setTimelineRosId(firstServerRecord.rosId);
+    }
+  }, [timelineRosId, workspaceRecords]);
+
+  useEffect(() => {
+    if (!selectedTimelineRecord?.workItemId) {
+      setTimelineData(null);
+      setTimelineError(null);
+      return;
+    }
+    loadTimeline(selectedTimelineRecord.workItemId).catch(() => {
+      setTimelineData(null);
+      setTimelineError(tr("rosCoaf.workspace.timeline.errorLoad" as MessageKey));
+      setTimelineLoading(false);
+    });
+  }, [selectedTimelineRecord?.workItemId, t]);
+
   function hydrateWorkspaceRecord(record: RosWorkspaceRecord) {
     setRosId(record.rosId);
     setCaseId(record.caseId);
@@ -297,12 +541,114 @@ export default function RosCoafPage() {
     setLocalDeadline(record.localDeadline);
     setApproveRosId(record.rosId);
     setSubmitRosId(record.rosId);
+    setTimelineRosId(record.rosId);
     setCoafProtocolNumber(record.coafProtocolNumber);
     setCoafReceiptHash(record.coafReceiptHash);
   }
 
   function removeWorkspaceRecord(rosIdToRemove: string) {
     setWorkspaceRecords((current) => current.filter((record) => record.rosId !== rosIdToRemove));
+  }
+
+  async function syncWorkspaceRecord(record: RosWorkspaceRecord) {
+    if (!isUuidLike(record.rosId)) {
+      throw new Error(tr("rosCoaf.workspace.errorSyncMissingRosId" as MessageKey));
+    }
+
+    const ownerUserId = resolveOwnerUserId({
+      ownerLabel: record.owner,
+      linkedUserId: authContext?.linked_user_id,
+      isUuidLike
+    });
+
+    const metadata = {
+      ros_id: record.rosId,
+      case_id: record.caseId,
+      owner_user_id: ownerUserId,
+      owner_label: record.owner,
+      ros_status: record.status,
+      report_id: record.reportId,
+      created_at: record.createdAt,
+      approved_at: record.approvedAt,
+      submitted_at: record.submittedAt,
+      coaf_protocol_number: record.coafProtocolNumber,
+      coaf_receipt_hash: record.coafReceiptHash
+    };
+    const requestBody = record.workItemId
+      ? {
+          ...(ownerUserId ? { owner_user_id: ownerUserId } : {}),
+          priority: record.priority,
+          queue_status: mapRosStatusToQueueStatus(record.status),
+          due_at: toApiDueAt(record.localDeadline),
+          title: `ROS/COAF • ${record.rosId}`,
+          note: record.coafReceiptHash || null,
+          metadata
+        }
+      : {
+          module: "ros_coaf",
+          resource_type: "ros_record",
+          resource_id: record.rosId,
+          ...(isUuidLike(record.caseId) ? { case_id: record.caseId.trim() } : {}),
+          ...(ownerUserId ? { owner_user_id: ownerUserId } : {}),
+          priority: record.priority,
+          queue_status: mapRosStatusToQueueStatus(record.status),
+          due_at: toApiDueAt(record.localDeadline),
+          title: `ROS/COAF • ${record.rosId}`,
+          note: record.coafReceiptHash || null,
+          metadata
+        };
+
+    setSyncingWorkspace(true);
+    const res = await fetch(
+      record.workItemId ? `/api/app/operations/work-items/${encodeURIComponent(record.workItemId)}` : "/api/app/operations/work-items",
+      {
+        method: record.workItemId ? "PATCH" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(requestBody),
+        cache: "no-store"
+      }
+    );
+    const data = (await res.json().catch(() => null)) as WorkItemResponse | { error?: string; detail?: unknown } | null;
+    setSyncingWorkspace(false);
+    if (!res.ok) {
+      throw new Error(resolveApiErrorMessage(t, data, tr("rosCoaf.workspace.errorSync" as MessageKey)));
+    }
+
+    const nextRecord = mapWorkItemToWorkspaceRecord(data as WorkItemResponse);
+    setWorkspaceRecords((current) => upsertWorkspaceRecord(current, nextRecord));
+    if (timelineRosId === nextRecord.rosId && nextRecord.workItemId) {
+      await loadTimeline(nextRecord.workItemId);
+    }
+    return nextRecord;
+  }
+
+  async function submitTimelineComment() {
+    if (!selectedTimelineRecord?.workItemId) {
+      setTimelineError(tr("rosCoaf.workspace.timeline.emptyLocal" as MessageKey));
+      return;
+    }
+    if (!commentBody.trim()) {
+      setTimelineError(tr("rosCoaf.workspace.timeline.commentEmpty" as MessageKey));
+      return;
+    }
+
+    setCommentSubmitting(true);
+    setTimelineError(null);
+    const result = await createWorkItemComment(selectedTimelineRecord.workItemId, {
+      comment_type: commentType,
+      body: commentBody.trim()
+    });
+    if (!result.ok) {
+      setTimelineError(resolveApiErrorMessage(t, result.error, tr("rosCoaf.workspace.timeline.errorComment" as MessageKey)));
+      setCommentSubmitting(false);
+      return;
+    }
+
+    setCommentBody("");
+    setCommentType("note");
+    await loadTimeline(selectedTimelineRecord.workItemId);
+    setNotice(tr("rosCoaf.workspace.timeline.commentSaved" as MessageKey));
+    setCommentSubmitting(false);
   }
 
   async function onGenerate(event: FormEvent<HTMLFormElement>) {
@@ -330,20 +676,31 @@ export default function RosCoafPage() {
     setDraft(data as GenerateRosCoafResponse);
     setApproveRosId((data as GenerateRosCoafResponse).ros_id);
     setSubmitRosId((data as GenerateRosCoafResponse).ros_id);
-    setWorkspaceRecords((current) =>
-      upsertWorkspaceRecord(current, {
-        rosId: (data as GenerateRosCoafResponse).ros_id,
-        caseId: caseId.trim(),
-        owner: owner.trim(),
-        priority,
-        localDeadline,
-        status: (data as GenerateRosCoafResponse).status,
-        reportId: (data as GenerateRosCoafResponse).report_id,
-        createdAt: (data as GenerateRosCoafResponse).created_at,
-        lastActionAt: (data as GenerateRosCoafResponse).created_at
-      })
-    );
-    setNotice(tr("rosCoaf.noticeGenerated" as MessageKey));
+    const draftRecord: RosWorkspaceRecord = {
+      workItemId: workspaceById.get((data as GenerateRosCoafResponse).ros_id)?.workItemId,
+      source: "local",
+      rosId: (data as GenerateRosCoafResponse).ros_id,
+      caseId: caseId.trim(),
+      owner: owner.trim(),
+      priority,
+      localDeadline,
+      status: (data as GenerateRosCoafResponse).status,
+      reportId: (data as GenerateRosCoafResponse).report_id,
+      createdAt: (data as GenerateRosCoafResponse).created_at,
+      approvedAt: "",
+      submittedAt: "",
+      coafProtocolNumber: "",
+      coafReceiptHash: "",
+      lastActionAt: (data as GenerateRosCoafResponse).created_at
+    };
+    setWorkspaceRecords((current) => upsertWorkspaceRecord(current, draftRecord));
+    try {
+      await syncWorkspaceRecord(draftRecord);
+      setNotice(tr("rosCoaf.workspace.noticeGeneratedSynced" as MessageKey));
+    } catch (syncError) {
+      setNotice(tr("rosCoaf.workspace.noticeGeneratedLocalOnly" as MessageKey));
+      setError(syncError instanceof Error ? syncError.message : tr("rosCoaf.workspace.errorSync" as MessageKey));
+    }
     setGenerating(false);
   }
 
@@ -372,15 +729,32 @@ export default function RosCoafPage() {
     }
 
     setApproval(data as ApproveRosCoafResponse);
-    setWorkspaceRecords((current) =>
-      upsertWorkspaceRecord(current, {
-        rosId: approveRosId.trim(),
-        status: (data as ApproveRosCoafResponse).status,
-        approvedAt: (data as ApproveRosCoafResponse).approved_at,
-        lastActionAt: (data as ApproveRosCoafResponse).approved_at
-      })
-    );
-    setNotice(tr("rosCoaf.noticeApproved" as MessageKey));
+    const currentRecord = workspaceById.get(approveRosId.trim());
+    const draftRecord: RosWorkspaceRecord = {
+      workItemId: currentRecord?.workItemId,
+      source: currentRecord?.source ?? "local",
+      rosId: approveRosId.trim(),
+      caseId: currentRecord?.caseId ?? caseId.trim(),
+      owner: currentRecord?.owner ?? owner.trim(),
+      priority: currentRecord?.priority ?? priority,
+      localDeadline: currentRecord?.localDeadline ?? localDeadline,
+      status: (data as ApproveRosCoafResponse).status,
+      reportId: currentRecord?.reportId ?? draft?.report_id ?? "",
+      createdAt: currentRecord?.createdAt ?? draft?.created_at ?? "",
+      approvedAt: (data as ApproveRosCoafResponse).approved_at,
+      submittedAt: currentRecord?.submittedAt ?? "",
+      coafProtocolNumber: currentRecord?.coafProtocolNumber ?? "",
+      coafReceiptHash: currentRecord?.coafReceiptHash ?? "",
+      lastActionAt: (data as ApproveRosCoafResponse).approved_at
+    };
+    setWorkspaceRecords((current) => upsertWorkspaceRecord(current, draftRecord));
+    try {
+      await syncWorkspaceRecord(draftRecord);
+      setNotice(tr("rosCoaf.workspace.noticeApprovedSynced" as MessageKey));
+    } catch (syncError) {
+      setNotice(tr("rosCoaf.workspace.noticeApprovedLocalOnly" as MessageKey));
+      setError(syncError instanceof Error ? syncError.message : tr("rosCoaf.workspace.errorSync" as MessageKey));
+    }
     setApproving(false);
   }
 
@@ -409,17 +783,32 @@ export default function RosCoafPage() {
     }
 
     setSubmission(data as SubmitRosCoafResponse);
-    setWorkspaceRecords((current) =>
-      upsertWorkspaceRecord(current, {
-        rosId: submitRosId.trim(),
-        status: (data as SubmitRosCoafResponse).status,
-        submittedAt: (data as SubmitRosCoafResponse).submitted_at,
-        coafProtocolNumber: (data as SubmitRosCoafResponse).coaf_protocol_number,
-        coafReceiptHash: (data as SubmitRosCoafResponse).coaf_receipt_hash,
-        lastActionAt: (data as SubmitRosCoafResponse).submitted_at
-      })
-    );
-    setNotice(tr("rosCoaf.noticeSubmitted" as MessageKey));
+    const currentRecord = workspaceById.get(submitRosId.trim());
+    const draftRecord: RosWorkspaceRecord = {
+      workItemId: currentRecord?.workItemId,
+      source: currentRecord?.source ?? "local",
+      rosId: submitRosId.trim(),
+      caseId: currentRecord?.caseId ?? caseId.trim(),
+      owner: currentRecord?.owner ?? owner.trim(),
+      priority: currentRecord?.priority ?? priority,
+      localDeadline: currentRecord?.localDeadline ?? localDeadline,
+      status: (data as SubmitRosCoafResponse).status,
+      reportId: currentRecord?.reportId ?? draft?.report_id ?? "",
+      createdAt: currentRecord?.createdAt ?? draft?.created_at ?? "",
+      approvedAt: currentRecord?.approvedAt ?? approval?.approved_at ?? "",
+      submittedAt: (data as SubmitRosCoafResponse).submitted_at,
+      coafProtocolNumber: (data as SubmitRosCoafResponse).coaf_protocol_number,
+      coafReceiptHash: (data as SubmitRosCoafResponse).coaf_receipt_hash,
+      lastActionAt: (data as SubmitRosCoafResponse).submitted_at
+    };
+    setWorkspaceRecords((current) => upsertWorkspaceRecord(current, draftRecord));
+    try {
+      await syncWorkspaceRecord(draftRecord);
+      setNotice(tr("rosCoaf.workspace.noticeSubmittedSynced" as MessageKey));
+    } catch (syncError) {
+      setNotice(tr("rosCoaf.workspace.noticeSubmittedLocalOnly" as MessageKey));
+      setError(syncError instanceof Error ? syncError.message : tr("rosCoaf.workspace.errorSync" as MessageKey));
+    }
     setSubmitting(false);
   }
 
@@ -470,7 +859,7 @@ export default function RosCoafPage() {
             </label>
           </div>
           <div className="otc-controls">
-            <button className="otc-button otc-button--accent" type="submit" data-testid="roscoaf-generate-btn" disabled={generating}>
+            <button className="otc-button otc-button--accent" type="submit" data-testid="roscoaf-generate-btn" disabled={generating || syncingWorkspace}>
               {generating ? tr("rosCoaf.generate.submitting" as MessageKey) : tr("rosCoaf.generate.submit" as MessageKey)}
             </button>
             {draftDownloadUrl ? (
@@ -536,6 +925,11 @@ export default function RosCoafPage() {
                     <td>
                       <strong>{record.rosId}</strong>
                       {record.caseId ? <div className="otc-muted">{record.caseId}</div> : null}
+                      <div className="otc-muted">
+                        <Pill tone={record.source === "server" ? "success" : "warning"}>
+                          {tr(`rosCoaf.workspace.source.${record.source}` as MessageKey)}
+                        </Pill>
+                      </div>
                     </td>
                     <td>{record.owner || tr("rosCoaf.workspace.unassigned" as MessageKey)}</td>
                     <td>
@@ -553,6 +947,9 @@ export default function RosCoafPage() {
                         <button className="otc-button" type="button" onClick={() => hydrateWorkspaceRecord(record)}>
                           {tr("rosCoaf.workspace.load" as MessageKey)}
                         </button>
+                        <button className="otc-button otc-button--ghost" type="button" onClick={() => setTimelineRosId(record.rosId)}>
+                          {tr("rosCoaf.workspace.timeline.open" as MessageKey)}
+                        </button>
                         {record.caseId ? (
                           <a className="otc-button otc-button--ghost" href={`/cases/${record.caseId}`}>
                             {tr("rosCoaf.workspace.openCase" as MessageKey)}
@@ -569,9 +966,11 @@ export default function RosCoafPage() {
                             {tr("rosCoaf.workspace.downloadDraft" as MessageKey)}
                           </a>
                         ) : null}
-                        <button className="otc-button otc-button--ghost" type="button" onClick={() => removeWorkspaceRecord(record.rosId)}>
-                          {tr("rosCoaf.workspace.remove" as MessageKey)}
-                        </button>
+                        {record.source === "local" ? (
+                          <button className="otc-button otc-button--ghost" type="button" onClick={() => removeWorkspaceRecord(record.rosId)}>
+                            {tr("rosCoaf.workspace.remove" as MessageKey)}
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -587,6 +986,32 @@ export default function RosCoafPage() {
           </tbody>
         </table>
       </Panel>
+
+      <WorkItemTimelinePanel
+        state={!selectedTimelineRecord ? "empty_selection" : !selectedTimelineRecord.workItemId ? "local_only" : "ready"}
+        summary={selectedTimelineRecord ? tr("rosCoaf.workspace.timeline.summary" as MessageKey, { rosId: selectedTimelineRecord.rosId }) : null}
+        labels={buildWorkItemTimelineLabels(tr, "rosCoaf.workspace.timeline")}
+        timelineError={timelineError}
+        timelineData={timelineData}
+        timelineLoading={timelineLoading}
+        commentType={commentType}
+        commentBody={commentBody}
+        commentSubmitting={commentSubmitting}
+        onCommentTypeChange={setCommentType}
+        onCommentBodyChange={setCommentBody}
+        onCommentSubmit={() => {
+          void submitTimelineComment();
+        }}
+        onRefresh={
+          selectedTimelineRecord?.workItemId
+            ? () => {
+                void loadTimeline(selectedTimelineRecord.workItemId!);
+              }
+            : undefined
+        }
+        formatDate={formatDate}
+        formatEventLabel={formatTimelineEvent}
+      />
 
       <Panel title={tr("rosCoaf.approve.title" as MessageKey)} description={tr("rosCoaf.approve.description" as MessageKey)}>
         <form className="otc-stack" onSubmit={onApprove}>
@@ -610,7 +1035,7 @@ export default function RosCoafPage() {
             ) : null}
           </div>
           <div className="otc-controls">
-            <button className="otc-button otc-button--accent" type="submit" data-testid="roscoaf-approve-btn" disabled={approving || !canApprove}>
+            <button className="otc-button otc-button--accent" type="submit" data-testid="roscoaf-approve-btn" disabled={approving || syncingWorkspace || !canApprove}>
               {approving ? tr("rosCoaf.approve.submitting" as MessageKey) : tr("rosCoaf.approve.submit" as MessageKey)}
             </button>
             {caseId.trim() ? (
@@ -645,7 +1070,7 @@ export default function RosCoafPage() {
             </label>
           </div>
           <div className="otc-controls">
-            <button className="otc-button otc-button--accent" type="submit" data-testid="roscoaf-submitted-btn" disabled={submitting}>
+            <button className="otc-button otc-button--accent" type="submit" data-testid="roscoaf-submitted-btn" disabled={submitting || syncingWorkspace}>
               {submitting ? tr("rosCoaf.submitted.submitting" as MessageKey) : tr("rosCoaf.submitted.submit" as MessageKey)}
             </button>
             {caseId.trim() ? (
@@ -673,6 +1098,47 @@ export default function RosCoafPage() {
 
       {error ? <Message tone="error">{error}</Message> : null}
       {notice ? <Message tone="success">{notice}</Message> : null}
+
+      <Panel title={tr("rosCoaf.history.title" as MessageKey)} description={tr("rosCoaf.history.description" as MessageKey)}>
+        {workspaceRecords.length ? (
+          <table className="otc-table otc-table--spaced">
+            <thead>
+              <tr>
+                <th>{tr("rosCoaf.history.rosId" as MessageKey)}</th>
+                <th>{tr("rosCoaf.history.caseId" as MessageKey)}</th>
+                <th>{tr("rosCoaf.history.status" as MessageKey)}</th>
+                <th>{tr("rosCoaf.history.coafProtocol" as MessageKey)}</th>
+                <th>{tr("rosCoaf.history.lastAction" as MessageKey)}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {workspaceRecords
+                .slice()
+                .sort((a, b) => b.lastActionAt.localeCompare(a.lastActionAt))
+                .slice(0, 100)
+                .map((record) => (
+                  <tr
+                    key={record.rosId}
+                    className={timelineRosId === record.rosId ? "otc-row-selected otc-row-clickable" : "otc-row-clickable"}
+                    onClick={() => setTimelineRosId(record.rosId)}
+                  >
+                    <td><span className="otc-mono">{record.rosId}</span></td>
+                    <td>{record.caseId || tr("rosCoaf.history.notAvailable" as MessageKey)}</td>
+                    <td>
+                      <Pill tone={record.status === "SUBMITTED_MANUAL" ? "success" : record.status === "REJECTED" ? "danger" : "warning"}>
+                        {record.status}
+                      </Pill>
+                    </td>
+                    <td>{record.coafProtocolNumber || tr("rosCoaf.history.notAvailable" as MessageKey)}</td>
+                    <td>{formatDate(record.lastActionAt) ?? record.lastActionAt}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        ) : (
+          <Message>{tr("rosCoaf.history.empty" as MessageKey)}</Message>
+        )}
+      </Panel>
     </AppShell>
   );
 }

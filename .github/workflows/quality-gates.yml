@@ -154,3 +154,18 @@ jobs:
       - name: Run Python compile gate
         working-directory: ontrackchain
         run: python scripts/check_python_app.py "${{ matrix.target.path }}"
+
+  ownership-smoke-script-compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile backend ownership smoke script
+        working-directory: ontrackchain
+        run: python -m py_compile scripts/smoke_work_items_ownership_backend.py

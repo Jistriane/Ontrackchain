@@ -4,9 +4,14 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { useI18n } from "../../components/i18n-provider";
+import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
+import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
+import { createWorkItemComment, fetchWorkItemTimeline } from "../lib/work-item-timeline-client";
+import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
 import type { MessageKey } from "../lib/i18n";
+import { formatTimelineEvent, type WorkCommentResponse, type WorkItemTimelineResponse } from "../lib/work-item-timeline";
 
 type ReportTypeItem = {
   canonical: string;
@@ -46,6 +51,7 @@ type WorkItemQueueStatus = "UNDER_REVIEW" | "ESCALATED" | "READY" | "APPROVED" |
 type WorkItemResponse = {
   id: string;
   resource_id: string;
+  owner_user_id?: string | null;
   queue_status: WorkItemQueueStatus;
   priority: WorkspacePriority;
   due_at: string | null;
@@ -302,7 +308,7 @@ function mapWorkItemToWorkspaceRecord(item: WorkItemResponse): ReportWorkspaceRe
     targetAddress: readMetadataString(metadata, "target_address"),
     targetChain: readMetadataString(metadata, "target_chain"),
     reportType: readMetadataString(metadata, "report_type"),
-    owner: readMetadataString(metadata, "owner_label"),
+    owner: readMetadataString(metadata, "owner_label") || item.owner_user_id || "",
     priority: item.priority,
     localDeadline: toDateTimeLocalValue(item.due_at),
     workspaceStatus: normalizeLegacyStatus(metadata["local_workspace_status"]) || mapQueueStatusToWorkspaceStatus(item.queue_status),
@@ -341,6 +347,7 @@ export default function ReportsPage() {
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [loadingCases, setLoadingCases] = useState(false);
   const [syncingWorkspace, setSyncingWorkspace] = useState(false);
+  const [authContext, setAuthContext] = useState<AuthContext | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -358,11 +365,18 @@ export default function ReportsPage() {
   const [casesSearch, setCasesSearch] = useState("");
   const [openCaseId, setOpenCaseId] = useState("");
   const [workspace, setWorkspace] = useState<ReportWorkspaceRecord[]>([]);
+  const [historySearch, setHistorySearch] = useState("");
   const [owner, setOwner] = useState("");
   const [priority, setPriority] = useState<WorkspacePriority>("normal");
   const [localDeadline, setLocalDeadline] = useState("");
   const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus>("draft");
   const [workspaceNote, setWorkspaceNote] = useState("");
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState<string | null>(null);
+  const [timelineData, setTimelineData] = useState<WorkItemTimelineResponse<WorkItemResponse> | null>(null);
+  const [commentType, setCommentType] = useState<WorkCommentResponse["comment_type"]>("note");
+  const [commentBody, setCommentBody] = useState("");
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
 
   const availableReportCount = useMemo(() => catalog.filter((entry) => entry.available).length, [catalog]);
   const deprecatedReportCount = useMemo(() => catalog.filter((entry) => Boolean(entry.deprecated)).length, [catalog]);
@@ -421,6 +435,22 @@ export default function ReportsPage() {
         cases.find((entry) => entry.id === openCaseId)?.target_chain ?? ""
       )
     : null;
+  const selectedTimelineRecord = workspace.find((entry) => entry.caseId === openCaseId.trim()) ?? null;
+
+  async function loadTimeline(workItemId: string) {
+    setTimelineLoading(true);
+    setTimelineError(null);
+    const result = await fetchWorkItemTimeline<WorkItemResponse>(workItemId);
+    if (!result.ok) {
+      setTimelineData(null);
+      setTimelineError(resolveApiErrorMessage(t, result.error, tr("reports.workspace.timeline.errorLoad" as MessageKey)));
+      setTimelineLoading(false);
+      return;
+    }
+
+    setTimelineData(result.data);
+    setTimelineLoading(false);
+  }
 
   async function loadOperationalWorkspace(localRecords: ReportWorkspaceRecord[]) {
     const res = await fetch(
@@ -521,6 +551,16 @@ export default function ReportsPage() {
       setWorkspace(localRecords);
       setNotice(tr("reports.workspace.noticeLoadedLocal" as MessageKey));
     });
+
+    fetchAuthContext()
+      .then((data) => {
+        if (data) {
+          setAuthContext(data);
+        }
+      })
+      .catch(() => {
+        // Keep owner_user_id optional when auth context is unavailable.
+      });
   }, []);
 
   useEffect(() => {
@@ -614,6 +654,19 @@ export default function ReportsPage() {
     }
   }, [openCaseId, workspace]);
 
+  useEffect(() => {
+    if (!selectedTimelineRecord?.workItemId) {
+      setTimelineData(null);
+      setTimelineError(null);
+      return;
+    }
+    loadTimeline(selectedTimelineRecord.workItemId).catch(() => {
+      setTimelineData(null);
+      setTimelineError(tr("reports.workspace.timeline.errorLoad" as MessageKey));
+      setTimelineLoading(false);
+    });
+  }, [selectedTimelineRecord?.workItemId, t]);
+
   function trackCase(entry: CaseRow) {
     void (async () => {
       const nextReportType = selectedReportType.trim();
@@ -665,6 +718,12 @@ export default function ReportsPage() {
       throw new Error(tr("reports.workspace.errorSyncMissingCaseId" as MessageKey));
     }
 
+    const ownerUserId = resolveOwnerUserId({
+      ownerLabel: record.owner,
+      linkedUserId: authContext?.linked_user_id,
+      isUuidLike
+    });
+
     const localStatus = nextStatus ?? record.workspaceStatus;
     const queueStatus: WorkItemQueueStatus = localStatus === "ready" ? "READY" : "UNDER_REVIEW";
     const metadata = {
@@ -672,12 +731,14 @@ export default function ReportsPage() {
       target_address: record.targetAddress,
       target_chain: record.targetChain,
       report_type: record.reportType,
+      owner_user_id: ownerUserId,
       owner_label: record.owner,
       local_workspace_status: localStatus,
       note: record.note
     };
     const requestBody = record.workItemId
       ? {
+          ...(ownerUserId ? { owner_user_id: ownerUserId } : {}),
           priority: record.priority,
           queue_status: queueStatus,
           due_at: toApiDueAt(record.localDeadline),
@@ -690,6 +751,7 @@ export default function ReportsPage() {
           resource_type: "formal_report_case",
           resource_id: record.caseId,
           case_id: record.caseId,
+          ...(ownerUserId ? { owner_user_id: ownerUserId } : {}),
           priority: record.priority,
           queue_status: queueStatus,
           due_at: toApiDueAt(record.localDeadline),
@@ -716,6 +778,9 @@ export default function ReportsPage() {
 
     const nextRecord = mapWorkItemToWorkspaceRecord(data as WorkItemResponse);
     setWorkspace((current) => upsertWorkspaceRecord(current, nextRecord));
+    if (openCaseId.trim() === nextRecord.caseId && nextRecord.workItemId) {
+      await loadTimeline(nextRecord.workItemId);
+    }
     return nextRecord;
   }
 
@@ -745,6 +810,35 @@ export default function ReportsPage() {
 
   function removeWorkspaceRecord(caseId: string) {
     setWorkspace((current) => current.filter((entry) => entry.caseId !== caseId));
+  }
+
+  async function submitTimelineComment() {
+    if (!selectedTimelineRecord?.workItemId) {
+      setTimelineError(tr("reports.workspace.timeline.emptyLocal" as MessageKey));
+      return;
+    }
+    if (!commentBody.trim()) {
+      setTimelineError(tr("reports.workspace.timeline.commentEmpty" as MessageKey));
+      return;
+    }
+
+    setCommentSubmitting(true);
+    setTimelineError(null);
+    const result = await createWorkItemComment(selectedTimelineRecord.workItemId, {
+      comment_type: commentType,
+      body: commentBody.trim()
+    });
+    if (!result.ok) {
+      setTimelineError(resolveApiErrorMessage(t, result.error, tr("reports.workspace.timeline.errorComment" as MessageKey)));
+      setCommentSubmitting(false);
+      return;
+    }
+
+    setCommentBody("");
+    setCommentType("note");
+    await loadTimeline(selectedTimelineRecord.workItemId);
+    setNotice(tr("reports.workspace.timeline.commentSaved" as MessageKey));
+    setCommentSubmitting(false);
   }
 
   return (
@@ -1003,6 +1097,9 @@ export default function ReportsPage() {
                         <button type="button" className="otc-button otc-button--ghost" onClick={() => hydrateWorkspaceRecord(record)}>
                           {tr("reports.workspace.table.load" as MessageKey)}
                         </button>
+                        <button type="button" className="otc-button otc-button--ghost" onClick={() => setOpenCaseId(record.caseId)}>
+                          {tr("reports.workspace.timeline.open" as MessageKey)}
+                        </button>
                         <a className="otc-button otc-button--ghost" href={`/cases/${record.caseId}`}>
                           {tr("reports.cases.table.openCase" as MessageKey)}
                         </a>
@@ -1041,6 +1138,32 @@ export default function ReportsPage() {
             <Message>{tr("reports.workspace.empty" as MessageKey)}</Message>
           )}
         </Panel>
+
+        <WorkItemTimelinePanel
+          state={!selectedTimelineRecord ? "empty_selection" : !selectedTimelineRecord.workItemId ? "local_only" : "ready"}
+          summary={selectedTimelineRecord ? tr("reports.workspace.timeline.summary" as MessageKey, { caseId: selectedTimelineRecord.caseId }) : null}
+          labels={buildWorkItemTimelineLabels(tr, "reports.workspace.timeline")}
+          timelineError={timelineError}
+          timelineData={timelineData}
+          timelineLoading={timelineLoading}
+          commentType={commentType}
+          commentBody={commentBody}
+          commentSubmitting={commentSubmitting}
+          onCommentTypeChange={setCommentType}
+          onCommentBodyChange={setCommentBody}
+          onCommentSubmit={() => {
+            void submitTimelineComment();
+          }}
+          onRefresh={
+            selectedTimelineRecord?.workItemId
+              ? () => {
+                  void loadTimeline(selectedTimelineRecord.workItemId!);
+                }
+              : undefined
+          }
+          formatDate={formatDate}
+          formatEventLabel={formatTimelineEvent}
+        />
 
         {filteredCases.length ? (
           <table className="otc-table otc-table--spaced">
@@ -1100,6 +1223,70 @@ export default function ReportsPage() {
             {tr("reports.cases.next" as MessageKey)}
           </button>
         </div>
+      </Panel>
+
+      <Panel title={tr("reports.history.title" as MessageKey)} description={tr("reports.history.description" as MessageKey)}>
+        <div className="otc-controls">
+          <label className="otc-field">
+            {tr("reports.history.search" as MessageKey)}
+            <input
+              className="otc-input"
+              value={historySearch}
+              placeholder={tr("reports.history.searchPlaceholder" as MessageKey)}
+              onChange={(event) => setHistorySearch(event.target.value)}
+            />
+          </label>
+        </div>
+        {(() => {
+          const query = historySearch.trim().toLowerCase();
+          const rows = workspace
+            .filter((record) =>
+              !query ||
+              record.caseId.toLowerCase().includes(query) ||
+              record.targetAddress.toLowerCase().includes(query) ||
+              record.reportType.toLowerCase().includes(query) ||
+              record.owner.toLowerCase().includes(query)
+            )
+            .sort((a, b) => b.lastActionAt.localeCompare(a.lastActionAt))
+            .slice(0, 100);
+          if (!rows.length) {
+            return <Message>{tr("reports.history.empty" as MessageKey)}</Message>;
+          }
+          return (
+            <table className="otc-table otc-table--spaced">
+              <thead>
+                <tr>
+                  <th>{tr("reports.history.caseId" as MessageKey)}</th>
+                  <th>{tr("reports.history.address" as MessageKey)}</th>
+                  <th>{tr("reports.history.chain" as MessageKey)}</th>
+                  <th>{tr("reports.history.reportType" as MessageKey)}</th>
+                  <th>{tr("reports.history.status" as MessageKey)}</th>
+                  <th>{tr("reports.history.lastAction" as MessageKey)}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((record) => (
+                  <tr
+                    key={record.caseId}
+                    className={openCaseId === record.caseId ? "otc-row-selected otc-row-clickable" : "otc-row-clickable"}
+                    onClick={() => setOpenCaseId(record.caseId)}
+                  >
+                    <td><strong>{record.caseId}</strong></td>
+                    <td><span className="otc-mono">{record.targetAddress || tr("reports.history.notAvailable" as MessageKey)}</span></td>
+                    <td>{record.targetChain || tr("reports.history.notAvailable" as MessageKey)}</td>
+                    <td><Pill>{record.reportType || tr("reports.history.notAvailable" as MessageKey)}</Pill></td>
+                    <td>
+                      <Pill tone={record.workspaceStatus === "ready" ? "success" : record.workspaceStatus === "in_review" ? "warning" : undefined}>
+                        {record.workspaceStatus}
+                      </Pill>
+                    </td>
+                    <td>{formatDate(record.lastActionAt) ?? record.lastActionAt}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          );
+        })()}
       </Panel>
     </AppShell>
   );

@@ -5,8 +5,7 @@
 Definir o rito semanal oficial para acompanhar a evolução do projeto com base em:
 
 - [Board de Prioridades do Projeto](project-priority-board.md)
-- [Matriz Operacional de Execução para 95%](project-operational-execution-board.md)
-- [Plano Operacional Trimestral para 95%](project-operational-plan-to-95.md)
+- [Matriz Operacional de Execução](project-operational-execution-board.md)
 - [Registro de Riscos do Projeto](project-risk-register.md)
 - [Scorecard Oficial do Projeto](project-kpi-scorecard.md)
 

@@ -16,7 +16,6 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
   - [Deploy e Staging](deploy-and-staging.md)
   - [Retention e Recovery](retention-and-recovery-policy.md)
   - [Owners e SLAs Operacionais](operational-ownership-and-slas.md)
-- [Checklist de Provisionamento por Owner para Janela Seria](staging-serious-window-owner-provisioning-checklist.md)
 
 ## 1. Aplicacao e Runtime
 

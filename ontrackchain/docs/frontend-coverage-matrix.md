@@ -46,13 +46,13 @@ Registrar de forma canonica o que ja esta construido no frontend, o que esta par
 | Auditoria | pronta | filtros, paginacao, detalhe expandido, export de evidencias e ações contextuais para case/evidence/reports/investigate/sanctions/blocks/counterparties/ROS | ainda depende dos metadados emitidos pelos eventos para abrir todos os atalhos contextuais |
 | Monitoramento | pronta | watchlists, worker, DLQ, alertas operacionais, export e deep-links para case/audit/evidence | ainda concentra funcoes que gradualmente migraram para modulos dedicados |
 | Billing e usuarios | parcial | saldo real, resumo operacional, atalhos para reports/monitoring/alerts e roster local filtrável com deep-link para equipe | nao entrega gestao real de usuarios, equipe, roles ou tenant |
-| Reports formais | parcial | rota dedicada com catálogo real, filtros reidratáveis por query string, seleção de tipo preferido, fila compartilhada por `case_id` via `work-items` com fallback local e ações para case/audit/evidence/investigate | ainda sem listagem backend oficial de relatórios gerados por `report_id`, timeline/comentários na UI e geração formal orquestrada fim a fim |
-| Contrapartes | parcial | rota dedicada com listagem paginada, onboarding regulado inicial, prefill via query string e workspace local persistido com ações para case/audit/evidence/sanctions | ainda sem historico backend, revisao detalhada e workflow multiusuario persistido no servidor |
-| Sancoes | parcial | rota dedicada com verificação, triagem operacional, deep-link com prefill/autostart, ações para case/audit/evidence/blocks e sincronização da fila compartilhada via `work-items` como fonte primária com fallback local | ainda sem histórico backend oficial por endereço/caso, timeline/comentários expostos na UI e assignment formal por `owner_user_id` |
-| Trilha de evidencias | parcial | rota dedicada com filtros, correlacao por chaves, export de bundle, workspace compartilhado por `event_id` via `work-items` com fallback local e ações contextuais por evento para case/audit/reports/investigate/sanctions/blocks/counterparties/ROS reaproveitando `audit/logs` e `evidence-export` | ainda sem timeline/comentários de `work-items` na UI, cadeia de custodia expandida por caso e assignment formal por `owner_user_id` |
-| Central de alertas | parcial | rota dedicada reaproveitando o painel de incidentes globais com filtros, ack, export, abertura por query string, ações por incidente para case/audit/evidence/investigate/sanctions e rastreamento em `work-items` com sincronização de encerramento via `ack` | ainda sem timeline/comentários de `work-items` na UI e sem integração full com incident response |
-| ROS/COAF | parcial | rota dedicada com geracao, aprovacao/rejeicao, submissao manual, workspace local persistido, prefill via query string e ações para case/audit/evidence/download | ainda sem listagem backend oficial por prazo, SLA e filas operacionais |
-| Preventive blocks / lift | parcial | rota dedicada com avaliacao, lift assistido via MFA externo, fila compartilhada para `preventive_block` persistido com fallback local antes do `block_id` existir e ações para case/audit/evidence/ROS | ainda sem timeline/comentários na UI, feed backend oficial consolidado e cobertura multiusuário para avaliações sem bloco persistido |
+| Reports formais | parcial | rota dedicada com catálogo real, filtros reidratáveis por query string, seleção de tipo preferido, fila compartilhada por `case_id` via `work-items`, timeline/comentários de `work-items` na UI, histórico de casos rastreados com busca client-side e ações para case/audit/evidence/investigate | ainda sem listagem backend oficial de relatórios gerados por `report_id` e geração formal orquestrada fim a fim |
+| Contrapartes | parcial | rota dedicada com listagem paginada, onboarding regulado inicial, prefill via query string, workspace compartilhado por `counterparty_id` via `work-items`, timeline/comentários de `work-items` na UI, assignment por `owner_user_id` e ações para case/audit/evidence/sanctions | ainda sem revisão detalhada de contrapartes e workflow DD/SoF estruturado |
+| Sancoes | parcial | rota dedicada com verificação, triagem operacional, deep-link com prefill/autostart, ações para case/audit/evidence/blocks, sincronização da fila compartilhada via `work-items`, timeline/comentários na UI, assignment por `owner_user_id` e painel de histórico de triagens por endereço | ainda sem histórico backend oficial por endereço/caso com paginação dedicada (histórico client-side via workspace coberto) |
+| Trilha de evidências | parcial | rota dedicada com filtros, correlacao por chaves, export de bundle, workspace compartilhado por `event_id` via `work-items`, timeline/comentários de `work-items` na UI, assignment por `owner_user_id`, painel de histórico de eventos rastreados com navegação para timeline e ações contextuais por evento para case/audit/reports/investigate/sanctions/blocks/counterparties/ROS reaproveitando `audit/logs` e `evidence-export` | ainda sem cadeia de custodia expandida por caso |
+| Central de alertas | parcial | rota dedicada reaproveitando o painel de incidentes globais com filtros, ack, export, abertura por query string, ações por incidente para case/audit/evidence/investigate/sanctions, rastreamento em `work-items`, sincronização de encerramento via `ack`, timeline/comentários para incidentes rastreados, painel de alertas rastreados como work-items e assignment por `owner_user_id` | ainda sem integração full com incident response |
+| ROS/COAF | parcial | rota dedicada com geracao, aprovacao/rejeicao, submissao manual, workspace compartilhado por `ros_id` via `work-items`, prefill via query string, timeline/comentários de `work-items` na UI, painel de histórico de registros ROS/COAF rastreados, assignment por `owner_user_id` e ações para case/audit/evidence/download | ainda sem listagem backend oficial por prazo/SLA |
+| Preventive blocks / lift | parcial | rota dedicada com avaliação, lift assistido via MFA externo, fila compartilhada para `preventive_block` persistido com fallback local antes do `block_id` existir, timeline/comentários de `work-items` na UI, painel de histórico de bloqueios rastreados e ações para case/audit/evidence/ROS | ainda sem feed backend oficial consolidado e cobertura multiusuário para avaliações sem bloco persistido |
 | Gestao de equipe | parcial | rota dedicada com roster local persistido, contexto de autenticacao via `/validate`, reidratacao por query string e retorno ao billing por membro | ainda sem CRUD real no IdP, convites/SCIM e trilha administrativa multiusuario |
 
 ## Evidencias de Incompletude
@@ -84,9 +84,9 @@ O dashboard agora consome dados reais (billing, watchlists, incidentes globais e
 | `POST /api/v1/compliance/counterparties` | coberto por `counterparties` |
 | `GET /api/v1/compliance/counterparties` | coberto por `counterparties` |
 | `GET /api/v1/compliance/sanctions-check/{address}` | coberto por `sanctions` |
-| `GET /api/v1/operations/work-items` | coberto por `sanctions`, `alerts`, `blocks`, `reports` e `evidence` |
-| `POST /api/v1/operations/work-items` | coberto por `sanctions`, `alerts`, `blocks`, `reports` e `evidence` |
-| `PATCH /api/v1/operations/work-items/{work_item_id}` | coberto por `sanctions`, `alerts`, `blocks`, `reports` e `evidence` |
+| `GET /api/v1/operations/work-items` | coberto por `sanctions`, `alerts`, `blocks`, `reports`, `evidence`, `counterparties` e `ros-coaf` |
+| `POST /api/v1/operations/work-items` | coberto por `sanctions`, `alerts`, `blocks`, `reports`, `evidence`, `counterparties` e `ros-coaf` |
+| `PATCH /api/v1/operations/work-items/{work_item_id}` | coberto por `sanctions`, `alerts`, `blocks`, `reports`, `evidence`, `counterparties` e `ros-coaf` |
 | `POST /api/v1/compliance/blocks/evaluate` | coberto por `blocks` |
 | `POST /api/v1/compliance/blocks/{block_id}/lift` | coberto por `blocks` |
 | `POST /api/v1/reports/ros-coaf` | coberto por `ros-coaf` |
@@ -127,7 +127,7 @@ O dashboard agora consome dados reais (billing, watchlists, incidentes globais e
 ### Faltando
 
 - gestao real multiusuario no IdP (convites/SCIM/admin API), alem do roster local
-- timeline/comentarios de `work-items` em telas regulatórias adicionais (`blocks`, `reports`, `evidence`, `counterparties`, `ros-coaf`)
+- hardening de ownership por SLA/capacidade (assignment por `owner_user_id` ja consolidado nos cockpits regulatórios)
 - relatorios formais (evolucao): expandir `/reports` com filtros mais ricos (por report_id, por tipo, por janela temporal) e integrar trilha de evidencias/export bundles por report
 
 ## Opcoes Arquiteturais para Fechar o Gap
@@ -157,7 +157,7 @@ Recomendo a **Opcao B: criar modulos dedicados por dominio**, porque:
 1. `ros-coaf`
 2. hardening de `blocks` com fila, SLA e ligacao por caso
 3. hardening de `counterparties` com historico, revisao e workflow administrativo
-4. expandir a fila multiusuario para `counterparties` e `ros-coaf`
+4. consolidar politicas de ownership por SLA, capacidade e escalacao
 
 ### P1
 
@@ -197,4 +197,4 @@ O frontend atual cobre bem o **core operacional de investigacao, auditoria e mon
 
 - `pronto` para demonstrar o fluxo principal
 - `parcial` para o cockpit executivo e administrativo
-- `incompleto` para gestao real de equipe/IdP, timeline compartilhada entre todos os módulos regulatórios e reports formais expandidos
+- `incompleto` para gestao real de equipe/IdP, expandir workflows regulatórios (DD/SoF, cadeia de custodia forte) e reports formais expandidos

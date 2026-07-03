@@ -13,8 +13,6 @@ Este documento cobre o processo tecnico. Ele nao substitui automacao futura de C
 
 Para execucao controlada via GitHub Actions, use tambem o workflow manual [staging-serious-window.yml](../../.github/workflows/staging-serious-window.yml), que materializa `.env.staging.private` a partir de um `GitHub Environment` aprovado e executa o gate unico `prepare -> validate -> preflight -> run`. A configuracao do environment e do secret multi-linha esta detalhada em [GitHub Environment para Staging Sério](github-environment-staging-serious.md).
 
-Para a primeira execucao seria, use tambem o [Checklist de Evidencia Minima da Primeira Janela Seria](first-serious-window-evidence-checklist.md) como filtro explicito de entrada, execucao e saida.
-
 ## Escopo Canonico
 
 Use este documento para:
@@ -25,10 +23,8 @@ Use este documento para:
 
 Use os documentos abaixo quando o foco nao for deploy tecnico:
 
-- [Checklist de Provisionamento por Owner](staging-serious-window-owner-provisioning-checklist.md): preencher owners, handoff e placeholders por dominio
-- [Primeiro Disparo Real da Janela Seria](first-serious-window-first-dispatch-runbook.md): conduzir o primeiro rito operacional e o uso do war room
+- [Governanca Semanal](governance-weekly/): tracking e sign-off por ciclo
 - [Gates de Release para Staging Serio](project-release-gates.md): decidir `go/no-go` formal
-- [Folha de Preenchimento Manual da Janela `stg-2026-07-06-a`](governance-weekly/2026-07-06-staging-serious-window-manual-fill-sheet.md): preencher rapidamente owners, canais, bridges e validacoes da janela atual
 
 ## Estrategia Atual
 
@@ -202,9 +198,8 @@ Fluxo tecnico recomendado:
 python scripts/prepare_staging_window.py --window-id <janela> --mode baseline
 ```
 
-1. preencher `.env.staging.private` fora do repositório e validar ownership/placeholders pelo checklist operacional:
+1. preencher `.env.staging.private` fora do repositório e validar ownership/placeholders:
 
-- [Checklist de Provisionamento por Owner](staging-serious-window-owner-provisioning-checklist.md)
 - [Ownership do `.env.staging`](staging-env-ownership.md)
 
 1. executar o gate tecnico unico:
@@ -219,11 +214,11 @@ python scripts/prepare_staging_window.py --window-id <janela> --mode baseline --
 make run-serious-window-local WINDOW_ID=<janela> MODE=baseline
 ```
 
-1. para a conducao operacional do primeiro rito, usar:
+1. para a conducao operacional, usar:
 
-- [Primeiro Disparo Real da Janela Seria](first-serious-window-first-dispatch-runbook.md)
-- [Gates de Release para Staging Serio](project-release-gates.md)
-- [War Room da Janela](governance-weekly/2026-07-06-staging-serious-window-war-room.md), quando houver coordenacao multi-owner
+- [Gates de Release para Staging Serio](project-release-gates.md): decidir `go/no-go` formal
+- [Governanca Semanal](./governance-weekly/): tracking e sign-off por ciclo
+- [War Room da Janela](governance-weekly/2026-07-06-staging-serious-window-war-room.md): quando houver coordenacao multi-owner
 
 Comandos auxiliares continuam canônicos para janelas com provedores reais:
 

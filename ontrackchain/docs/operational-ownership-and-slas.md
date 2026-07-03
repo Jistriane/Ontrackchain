@@ -17,7 +17,6 @@ Use este documento para:
 Nao use este documento como fonte primaria para:
 
 - preencher owners reais, datas e status da janela corrente: use [Ownership do `.env.staging`](./staging-env-ownership.md)
-- executar handoff e validacoes por dominio da janela: use [Checklist de Provisionamento por Owner para Janela Seria](./staging-serious-window-owner-provisioning-checklist.md)
 - coordenar o war room vivo e dependencias em tempo real: use [Matriz de Execucao por Owner para Janela Seria](./staging-serious-window-war-room-matrix.md)
 - decidir promocao formal da janela: use [Gates de Release para Staging Serio](./project-release-gates.md)
 

@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Consolidar a visao estrategica das iniciativas necessarias para levar o Ontrackchain de um runtime tecnicamente maduro para uma operacao seria mais homologada e regulatoriamente convincente.
+Consolidar a visao estrategica das iniciativas necessarias para levar o Ontrackchain de runtime tecnicamente maduro (`91%`) para operacao regulatoriamente convincente e repetivel (`95%+`).
 
 ## Baseline Atual
 
@@ -10,63 +10,105 @@ Consolidar a visao estrategica das iniciativas necessarias para levar o Ontrackc
 - `78%` de prontidao regulatoria
 - `87%` de construcao total consolidada
 
-Baseline canônica de referencia:
+Baseline canonica de referencia:
 
-- [Governança Semanal 2026-07-01](governance-weekly/2026-07-01-weekly-governance.md)
-- [Atualização de KPI 2026-07-01](governance-weekly/2026-07-01-kpi-scorecard-update.md)
+- [Governanca Semanal 2026-07-06](governance-weekly/2026-07-06-weekly-governance.md)
+- [Tracking Sprint 4 Dia 5](governance-weekly/2026-07-07-sprint-4-day-5-tracking.md)
 
 Leitura executiva:
 
-- o core regulatorio principal ja foi implementado
-- as prioridades agora sao homologacao externa, coerencia contratual final e institucionalizacao operacional
-- o KPI total oficial permanece em `87%` ate nova evidencia material
+- Sprint 4 encerrada como `concluida` — baseline institucionalizada
+- Sprint 5 aberta com foco em expansao de timeline/comments nos cockpits parciais
+- o maior ganho remanescente nao vem de novos modulos, mas de homologacao externa, expansao de UX operacional e governanca formal
 
-## Prioridades P0
-
-| ID | Status | Iniciativa | Motivo |
-| --- | --- | --- | --- |
-| P0-01 | blocked | Homologar `OIDC` e MFA federado em ambiente serio | fecha o maior risco de identidade, mas ainda depende de evidência externa e aceite institucional |
-| P0-02 | ready | Homologar provider `AML/KYT` live | fecha o maior gap funcional/regulatorio restante e ja possui gate canônico de runtime |
-| P0-03 | ready | Ativar feed UE tokenizado real e validar `EU_CONSOLIDATED` | fecha a janela critica de sancoes europeias e ja possui runner/checker dedicados |
-| P0-04 | done | Alinhar catalogo `sanctions_check` com endpoint direto live | contradicao contratual removida e coberta por testes |
-| P0-05 | done | Alinhar inventario de eventos da `evidence_trail` | source of truth unico + teste cruzado removeram o drift atual |
-
-## Prioridades P1
+## Prioridades P0 — Move KPI e destrava prontidao regulatoria
 
 | ID | Status | Iniciativa | Motivo |
 | --- | --- | --- | --- |
-| P1-01 | in_progress | Formalizar sign-off de retention/recovery | transforma baseline em controle aceito |
-| P1-02 | in_progress | Executar janela seria recorrente com dossier aceito | sai de validacao pontual para rotina |
-| P1-03 | todo | Estruturar artefatos de manual review para DD/SoF | reduz o gap de compliance residual |
+| P0-01 | blocked | Homologar `OIDC` e MFA federado em ambiente serio | fecha o maior risco de identidade; depende de provider externo e aceite institucional |
+| P0-02 | ready | Homologar provider `AML/KYT` live | credencial real + `make check-compliance-provider-runtime` verde + bundle JSON |
+| P0-03 | ready | Ativar feed UE tokenizado real e validar `EU_CONSOLIDATED` | URL tokenizada + `make run-eu-sanctions-window-local` + JSONs persistidos |
 
-## Prioridades P2
+## Prioridades P1 — Sprint 5: Expansao de Cockpits Operacionais
+
+| ID | Status | Iniciativa | Modulo | Motivo |
+| --- | --- | --- | --- | --- |
+| P1-S5-01 | done | Integrar timeline/comments em `blocks` | `/blocks` | cockpit multiusuario completo com work-item server-first |
+| P1-S5-02 | done | Integrar timeline/comments em `sanctions` | `/sanctions` | `WorkItemTimelinePanel` + i18n pt-BR/en/es + botao "Ver timeline" por linha |
+| P1-S5-03 | done | Integrar timeline/comments em `alerts` | `/alerts` | `WorkItemTimelinePanel` vinculado ao `trackedWorkItem` + i18n pt-BR/en/es |
+| P1-S5-04 | done | timeline/comments ja existem em `ros-coaf` | `/ros-coaf` | `WorkItemTimelinePanel` integrado e assignment por `owner_user_id` habilitado |
+| P1-S5-05 | done | timeline/comments ja existem em `counterparties` | `/counterparties` | `WorkItemTimelinePanel` integrado + DD/SoF review estruturado (campos, metadata, i18n tri-locale) |
+| P1-S5-06 | done | timeline/comments ja existem em `evidence` | `/evidence` | `WorkItemTimelinePanel` ja integrado; cadeia de custodia expandida pendente |
+| P1-S5-07 | done | timeline/comments ja existem em `reports` | `/reports` | `WorkItemTimelinePanel` ja integrado; listagem backend oficial pendente |
+
+## Prioridades P2 — Governanca Formal (Trimestre 2)
 
 | ID | Status | Iniciativa | Motivo |
 | --- | --- | --- | --- |
-| P2-01 | todo | Refinar UX regulatoria de `/audit` e evidence bundles | melhora operacao e troubleshooting |
-| P2-02 | todo | Expandir alertas e RCA cross-domain | melhora visibilidade operacional |
+| P2-01 | in_progress | Formalizar sign-off de retention/recovery | transforma baseline em controle institucionalmente aceito |
+| P2-02 | in_progress | Executar janela seria recorrente com dossier aceito | sai de validacao pontual para rotina com historico comparavel |
+| P2-03 | done | Estruturar artefatos de manual review para DD/SoF | `counterparties` agora possui painel de DD/SoF com campos `ddReviewStatus`, `sofDescription`, `sofDocumentRef`, `ddReviewNote` persistidos em work-item |
+| P2-04 | todo | Formalizar owners, SLA e runbooks com aceite | `operational-ownership-and-slas.md` com aprovacoes institucionais |
 
-## Itens Ja Consolidados
+## Prioridades P3 — Cadeia de Custodia Forte (Trimestre 3)
+
+| ID | Status | Iniciativa | Motivo |
+| --- | --- | --- | --- |
+| P3-01 | todo | Implantar vault/secrets de producao | eliminar segredos em `.env` em ambiente de producao |
+| P3-02 | todo | Reforcar cadeia de custodia com selagem/assinatura | `evidence_trail` com assinatura digital ou equivalente |
+| P3-03 | todo | Formalizar war room, escalacao e RCA cross-domain | playbook de incident response repetivel |
+| P3-04 | todo | Automatizar promocao superior com menos passos manuais | reduzir fricao no fluxo `staging -> producao` |
+
+## Itens Ja Consolidados (Sprint 1–5)
 
 - `evidence_trail` append-only com `SHA-256`
 - `preventive_blocks`
 - `counterparties` + `counterparty_history`
 - `sanctions_lists_meta` + `sanctions_hits_cache`
-- `ROS/COAF` com aprovacao/rejeicao/submissao manual
+- `ROS/COAF` com aprovacao/rejeicao/submissao manual auditada
+- `regulatory_work_items` + `regulatory_work_events` + `regulatory_work_comments`
 - `check_sanctions_sync_status.py`
 - `check_compliance_provider_runtime.py`
 - `run_eu_sanctions_window.py` + targets `make run-eu-sanctions-window*`
-- janela seria com `run_staging_window.py`
+- janela seria com `run_staging_window.py` + war room + dossier
+- alinhamento `sanctions_check` catalogo x endpoint direto live
+- inventario de eventos `evidence_trail` com source of truth unico
+- baseline `91/78/87` institucionalizada na governanca semanal
+- timeline/comments integrada em `ros-coaf`, `evidence`, `counterparties`, `reports`, `blocks`
+- timeline/comments integrada em todos os cockpits parciais: `blocks`, `sanctions`, `alerts`, `ros-coaf`, `evidence`, `counterparties`, `reports`
 
-## Ordenacao Recomendada
+## Ordenacao Recomendada para Sprint 6 (proximo ciclo)
 
-1. homologar identidade forte e `AML/KYT live` com gate de runtime verde
-2. fechar feed UE tokenizado real com runner dedicado e JSONs anexados
-3. institucionalizar sign-off e janela recorrente
-4. evoluir artefatos de manual review e UX operacional
-5. reforcar retention/recovery e aceite institucional
+Sprint 5 encerrada com `WorkItemTimelinePanel` integrado em todos os cockpits. Lacunas residuais para Sprint 6:
+
+1. ~~`DD/SoF manual review estruturado`~~: **entregue** — painel dedicado em `/counterparties`
+2. ~~`listagem de casos rastreados em reports`~~: **entregue** — painel de histórico client-side em `/reports`
+3. ~~`historico de sanctions por endereco`~~: **entregue** — painel de histórico em `/sanctions`
+4. ~~`workspace de evidencias rastreadas`~~: **entregue** — painel de histórico em `/evidence`
+5. ~~`historico de blocks, ros-coaf e alerts`~~: **entregue** — paineis de histórico em `/blocks`, `/ros-coaf` e `/alerts`
+6. `cadeia de custodia expandida em evidence`: selagem/assinatura ou equivalente auditavel (P3 — sem bloqueio funcional imediato)
+
+Sprint 6 encerrada: todos os paineis de histórico de workspace entregues nos 7 cockpits regulatórios.
+
+Estado atual do rollout de ownership:
+
+- assignment formal por `owner_user_id` consolidado nos cockpits: `blocks`, `sanctions`, `alerts`, `ros-coaf`, `counterparties`, `evidence` e `reports`
+
+Em paralelo, se credencial/URL disponivel:
+- P0-02: `make check-compliance-provider-runtime`
+- P0-03: `make run-eu-sanctions-window-local`
+
+## KPIs Alvo por Ciclo
+
+| Ciclo | Tecnico | Regulatorio | Total |
+| --- | ---: | ---: | ---: |
+| Baseline atual | 91% | 78% | 87% |
+| Sprint 5 + P0-02/03 (T1) | 91%+ | 82% | 90%+ |
+| T2 (governanca aceita) | 93% | 88% | 92%+ |
+| T3 (custodia forte) | **95%** | 90%+ | **95%** |
 
 ## Regra de Baseline
 
 - manter `91% / 78% / 87%` como referencia executiva ate existir nova evidencia material publicada na governanca semanal
-- nao promover `P0-01`, `P0-02` ou `P0-03` sem artefato real anexavel, checker verde ou aceite institucional correspondente
+- nao promover `P0-01`, `P0-02` ou `P0-03` sem artefato real, checker verde ou aceite institucional correspondente
+- nao marcar `P1-S5-*` como `done` sem o `WorkItemTimelinePanel` operacional e chaves de i18n completas no modulo

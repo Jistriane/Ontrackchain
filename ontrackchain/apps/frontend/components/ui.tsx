@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type HTMLAttributes, type ReactNode } from "react";
 import Image from "next/image";
 import type { Locale, MessageKey } from "../app/lib/i18n";
 import { useI18n } from "./i18n-provider";
@@ -453,12 +453,26 @@ export function CodeBlock({ children }: { children: ReactNode }) {
 
 export function Message({
   children,
-  tone = "default"
+  tone = "default",
+  className,
+  ...props
 }: {
   children: ReactNode;
   tone?: "default" | "error" | "success";
-}) {
-  return <div className={joinClasses("otc-message", tone === "error" ? "otc-message--error" : undefined, tone === "success" ? "otc-message--success" : undefined)}>{children}</div>;
+} & HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={joinClasses(
+        "otc-message",
+        tone === "error" ? "otc-message--error" : undefined,
+        tone === "success" ? "otc-message--success" : undefined,
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function Pill({ children, tone = "success" }: { children: ReactNode; tone?: "success" | "warning" | "danger" }) {

@@ -5,8 +5,13 @@ import { useSearchParams } from "next/navigation";
 
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
 import { useI18n } from "../../components/i18n-provider";
+import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel";
 import type { MessageKey } from "../lib/i18n";
+import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
+import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
+import { createWorkItemComment, fetchWorkItemTimeline } from "../lib/work-item-timeline-client";
+import { formatTimelineEvent, type WorkCommentResponse, type WorkItemTimelineResponse } from "../lib/work-item-timeline";
 
 type BlockEvaluateResponse = {
   address: string;
@@ -36,6 +41,7 @@ type WorkItemQueueStatus = "UNDER_REVIEW" | "ESCALATED" | "READY" | "APPROVED" |
 type WorkItemResponse = {
   id: string;
   resource_id: string;
+  owner_user_id?: string | null;
   queue_status: WorkItemQueueStatus;
   priority: BlockWorkspacePriority;
   due_at: string | null;
@@ -384,7 +390,7 @@ function mapWorkItemToWorkspaceRecord(item: WorkItemResponse): BlockWorkspaceRec
     entityName: readMetadataString(metadata, "entity_name"),
     entityDocument: readMetadataString(metadata, "entity_document"),
     caseId: readMetadataString(metadata, "local_case_id"),
-    owner: readMetadataString(metadata, "owner_label"),
+    owner: readMetadataString(metadata, "owner_label") || item.owner_user_id || "",
     priority: item.priority,
     localDeadline: toDateTimeLocalValue(item.due_at),
     action: readMetadataString(metadata, "action"),
@@ -460,12 +466,20 @@ export default function BlocksPage() {
   const [evaluating, setEvaluating] = useState(false);
   const [lifting, setLifting] = useState(false);
   const [syncingWorkspace, setSyncingWorkspace] = useState(false);
+  const [authContext, setAuthContext] = useState<AuthContext | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const [workspaceRecords, setWorkspaceRecords] = useState<BlockWorkspaceRecord[]>([]);
   const [workspaceFilter, setWorkspaceFilter] = useState("all");
   const [workspaceSearch, setWorkspaceSearch] = useState("");
+  const [timelineWorkspaceId, setTimelineWorkspaceId] = useState("");
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState<string | null>(null);
+  const [timelineData, setTimelineData] = useState<WorkItemTimelineResponse<WorkItemResponse> | null>(null);
+  const [commentType, setCommentType] = useState<WorkCommentResponse["comment_type"]>("note");
+  const [commentBody, setCommentBody] = useState("");
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
 
   const matchedLists = useMemo(() => result?.matched_lists ?? [], [result]);
   const regulatoryBasis = useMemo(() => result?.regulatory_basis ?? [], [result]);
@@ -496,6 +510,8 @@ export default function BlocksPage() {
     () => workspaceRecords.filter((record) => record.status === "LIFTED").length,
     [workspaceRecords]
   );
+  const workspaceById = useMemo(() => new Map(workspaceRecords.map((record) => [record.workspaceId, record])), [workspaceRecords]);
+  const selectedTimelineRecord = timelineWorkspaceId ? workspaceById.get(timelineWorkspaceId) ?? null : null;
 
   async function loadOperationalWorkspace(localRecords: BlockWorkspaceRecord[]) {
     const res = await fetch(
@@ -521,11 +537,77 @@ export default function BlocksPage() {
       setWorkspaceRecords(localRecords);
       setNotice(tr("blocks.noticeWorkspaceLoadedLocal" as MessageKey));
     });
+
+    fetchAuthContext()
+      .then((data) => {
+        if (data) {
+          setAuthContext(data);
+        }
+      })
+      .catch(() => {
+        // Keep owner_user_id optional when auth context is unavailable.
+      });
   }, []);
 
   useEffect(() => {
     saveWorkspace(workspaceRecords);
   }, [workspaceRecords]);
+
+  useEffect(() => {
+    if (!workspaceRecords.length) {
+      setTimelineWorkspaceId("");
+      setTimelineData(null);
+      setTimelineError(null);
+      return;
+    }
+    if (!timelineWorkspaceId || !workspaceRecords.some((record) => record.workspaceId === timelineWorkspaceId)) {
+      const firstServerRecord = workspaceRecords.find((record) => Boolean(record.workItemId)) ?? workspaceRecords[0];
+      setTimelineWorkspaceId(firstServerRecord.workspaceId);
+    }
+  }, [timelineWorkspaceId, workspaceRecords]);
+
+  useEffect(() => {
+    if (!selectedTimelineRecord?.workItemId) {
+      setTimelineData(null);
+      setTimelineError(null);
+      return;
+    }
+    loadTimeline(selectedTimelineRecord.workItemId).catch(() => {
+      setTimelineData(null);
+      setTimelineError(tr("blocks.workspace.timeline.errorLoad" as MessageKey));
+      setTimelineLoading(false);
+    });
+  }, [selectedTimelineRecord?.workItemId, t]);
+
+  async function loadTimeline(workItemId: string) {
+    setTimelineLoading(true);
+    setTimelineError(null);
+    const result = await fetchWorkItemTimeline<WorkItemResponse>(workItemId);
+    if (!result.ok) {
+      setTimelineData(null);
+      setTimelineError(resolveApiErrorMessage(t, result.error, tr("blocks.workspace.timeline.errorLoad" as MessageKey)));
+      setTimelineLoading(false);
+      return;
+    }
+    setTimelineData(result.data);
+    setTimelineLoading(false);
+  }
+
+  async function submitTimelineComment() {
+    if (!selectedTimelineRecord?.workItemId || !commentBody.trim()) return;
+    setCommentSubmitting(true);
+    const result = await createWorkItemComment(selectedTimelineRecord.workItemId, {
+      comment_type: commentType,
+      body: commentBody.trim()
+    });
+    setCommentSubmitting(false);
+    if (!result.ok) {
+      setTimelineError(resolveApiErrorMessage(t, result.error, tr("blocks.workspace.timeline.errorComment" as MessageKey)));
+      return;
+    }
+    setCommentBody("");
+    await loadTimeline(selectedTimelineRecord.workItemId);
+  }
 
   function updateForm<K extends keyof EvaluateFormState>(key: K, value: EvaluateFormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -601,6 +683,12 @@ export default function BlocksPage() {
       throw new Error(tr("blocks.errorWorkspaceSyncMissingBlockId" as MessageKey));
     }
 
+    const ownerUserId = resolveOwnerUserId({
+      ownerLabel: record.owner,
+      linkedUserId: authContext?.linked_user_id,
+      isUuidLike
+    });
+
     const localStatus = nextStatus ?? record.status;
     const queueStatus: WorkItemQueueStatus =
       localStatus === "CLEARED" || localStatus === "LIFTED" ? "CLOSED" : "UNDER_REVIEW";
@@ -612,6 +700,7 @@ export default function BlocksPage() {
       entity_name: record.entityName,
       entity_document: record.entityDocument,
       local_case_id: record.caseId,
+      owner_user_id: ownerUserId,
       owner_label: record.owner,
       action: record.action,
       requires_coaf_report: record.requiresCoafReport,
@@ -626,6 +715,7 @@ export default function BlocksPage() {
     };
     const requestBody = record.workItemId
       ? {
+          ...(ownerUserId ? { owner_user_id: ownerUserId } : {}),
           priority: record.priority,
           queue_status: queueStatus,
           due_at: toApiDueAt(record.localDeadline),
@@ -638,6 +728,7 @@ export default function BlocksPage() {
           resource_type: "preventive_block",
           resource_id: resourceId,
           ...(isUuidLike(record.caseId) ? { case_id: record.caseId.trim() } : {}),
+          ...(ownerUserId ? { owner_user_id: ownerUserId } : {}),
           priority: record.priority,
           queue_status: queueStatus,
           due_at: toApiDueAt(record.localDeadline),
@@ -964,6 +1055,13 @@ export default function BlocksPage() {
                             {tr("blocks.workspace.remove" as MessageKey)}
                           </button>
                         ) : null}
+                        <button
+                          type="button"
+                          className={`otc-button otc-button--ghost${timelineWorkspaceId === record.workspaceId ? " otc-button--active" : ""}`}
+                          onClick={() => setTimelineWorkspaceId(record.workspaceId)}
+                        >
+                          {tr("blocks.workspace.openTimeline" as MessageKey)}
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1089,6 +1187,79 @@ export default function BlocksPage() {
           </div>
         ) : (
           <Message>{tr("blocks.result.empty" as MessageKey)}</Message>
+        )}
+      </Panel>
+
+      <WorkItemTimelinePanel
+        state={!selectedTimelineRecord ? "empty_selection" : !selectedTimelineRecord.workItemId ? "local_only" : "ready"}
+        summary={selectedTimelineRecord ? tr("blocks.workspace.timeline.summary" as MessageKey, { address: selectedTimelineRecord.address }) : null}
+        labels={buildWorkItemTimelineLabels(tr, "blocks.workspace.timeline")}
+        timelineError={timelineError}
+        timelineData={timelineData}
+        timelineLoading={timelineLoading}
+        commentType={commentType}
+        commentBody={commentBody}
+        commentSubmitting={commentSubmitting}
+        onCommentTypeChange={setCommentType}
+        onCommentBodyChange={setCommentBody}
+        onCommentSubmit={() => {
+          void submitTimelineComment();
+        }}
+        onRefresh={
+          selectedTimelineRecord?.workItemId
+            ? () => {
+                void loadTimeline(selectedTimelineRecord.workItemId!);
+              }
+            : undefined
+        }
+        formatDate={formatDate}
+        formatEventLabel={formatTimelineEvent}
+      />
+
+      <Panel title={tr("blocks.history.title" as MessageKey)} description={tr("blocks.history.description" as MessageKey)}>
+        {workspaceRecords.length ? (
+          <table className="otc-table otc-table--spaced">
+            <thead>
+              <tr>
+                <th>{tr("blocks.history.address" as MessageKey)}</th>
+                <th>{tr("blocks.history.chain" as MessageKey)}</th>
+                <th>{tr("blocks.history.action" as MessageKey)}</th>
+                <th>{tr("blocks.history.status" as MessageKey)}</th>
+                <th>{tr("blocks.history.screenedAt" as MessageKey)}</th>
+                <th>{tr("blocks.history.lastAction" as MessageKey)}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {workspaceRecords
+                .slice()
+                .sort((a, b) => b.lastActionAt.localeCompare(a.lastActionAt))
+                .slice(0, 100)
+                .map((record) => (
+                  <tr
+                    key={record.workspaceId}
+                    className={timelineWorkspaceId === record.workspaceId ? "otc-row-selected otc-row-clickable" : "otc-row-clickable"}
+                    onClick={() => setTimelineWorkspaceId(record.workspaceId)}
+                  >
+                    <td><span className="otc-mono">{record.address}</span></td>
+                    <td>{record.chain}</td>
+                    <td>
+                      <Pill tone={record.action === "BLOCK" ? "danger" : record.action === "LIFT" ? "success" : undefined}>
+                        {record.action || tr("blocks.history.notAvailable" as MessageKey)}
+                      </Pill>
+                    </td>
+                    <td>
+                      <Pill tone={record.status === "BLOCKED" ? "danger" : record.status === "LIFTED" ? "success" : "warning"}>
+                        {record.status}
+                      </Pill>
+                    </td>
+                    <td>{formatDate(record.screenedAt) ?? record.screenedAt}</td>
+                    <td>{formatDate(record.lastActionAt) ?? record.lastActionAt}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        ) : (
+          <Message>{tr("blocks.history.empty" as MessageKey)}</Message>
         )}
       </Panel>
     </AppShell>

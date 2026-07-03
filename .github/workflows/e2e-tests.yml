@@ -84,6 +84,14 @@ jobs:
           ONTRACKCHAIN_API_KEY: otc_live_demo_key
         run: python scripts/smoke_runtime.py
 
+      - name: Apply regulatory work-items migration
+        working-directory: ontrackchain
+        run: make apply-regulatory-work-items-migration
+
+      - name: Run backend ownership smoke
+        working-directory: ontrackchain
+        run: make smoke-work-items-ownership-backend
+
       - name: Collect Docker diagnostics
         if: always()
         working-directory: ontrackchain
