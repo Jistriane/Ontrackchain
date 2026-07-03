@@ -43,6 +43,26 @@ type CasesResponse = {
   data: CaseRow[];
 };
 
+type ReportHistoryRow = {
+  report_id: string;
+  case_id: string | null;
+  report_type_requested: string;
+  report_type: string;
+  content_type: string;
+  file_hash_sha256: string | null;
+  onchain_hash: string | null;
+  created_at: string;
+  has_download_audit: boolean;
+};
+
+type ReportHistoryResponse = {
+  data: ReportHistoryRow[];
+  page: number;
+  limit: number;
+  total: number;
+  has_more: boolean;
+};
+
 type WorkspacePriority = "critical" | "high" | "normal";
 type WorkspaceStatus = "draft" | "in_review" | "ready";
 type WorkspaceSource = "server" | "local";
@@ -366,6 +386,14 @@ export default function ReportsPage() {
   const [openCaseId, setOpenCaseId] = useState("");
   const [workspace, setWorkspace] = useState<ReportWorkspaceRecord[]>([]);
   const [historySearch, setHistorySearch] = useState("");
+  const [historyTypeFilter, setHistoryTypeFilter] = useState("all");
+  const [historyCaseFilter, setHistoryCaseFilter] = useState("");
+  const [historyRows, setHistoryRows] = useState<ReportHistoryRow[]>([]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyLimit, setHistoryLimit] = useState(20);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [owner, setOwner] = useState("");
   const [priority, setPriority] = useState<WorkspacePriority>("normal");
   const [localDeadline, setLocalDeadline] = useState("");
@@ -542,9 +570,58 @@ export default function ReportsPage() {
     }
   }
 
+  async function loadReportHistory(
+    page = historyPage,
+    overrides?: {
+      reportType?: string;
+      caseId?: string;
+      limit?: number;
+    }
+  ) {
+    setLoadingHistory(true);
+    setError(null);
+    const effectiveLimit = overrides?.limit ?? historyLimit;
+    const effectiveReportType = overrides?.reportType ?? historyTypeFilter;
+    const effectiveCaseId = (overrides?.caseId ?? historyCaseFilter).trim();
+
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("limit", String(effectiveLimit));
+    if (effectiveReportType !== "all") {
+      params.set("report_type", effectiveReportType);
+    }
+    if (effectiveCaseId) {
+      params.set("case_id", effectiveCaseId);
+    }
+
+    try {
+      const res = await fetch(`/api/app/reports/list?${params.toString()}`, { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as ReportHistoryResponse | { error?: string; detail?: unknown } | null;
+      if (!res.ok) {
+        setError(resolveApiErrorMessage(t, data, tr("reports.history.empty" as MessageKey)));
+        setHistoryRows([]);
+        setLoadingHistory(false);
+        return;
+      }
+
+      const rows = Array.isArray((data as ReportHistoryResponse).data) ? (data as ReportHistoryResponse).data : [];
+      setHistoryRows(rows);
+      setHistoryPage(Number((data as ReportHistoryResponse).page ?? page));
+      setHistoryLimit(Number((data as ReportHistoryResponse).limit ?? effectiveLimit));
+      setHistoryTotal(Number((data as ReportHistoryResponse).total ?? 0));
+      setHistoryHasMore(Boolean((data as ReportHistoryResponse).has_more));
+      setLoadingHistory(false);
+    } catch (err) {
+      setHistoryRows([]);
+      setError(err instanceof Error ? err.message : tr("reports.history.empty" as MessageKey));
+      setLoadingHistory(false);
+    }
+  }
+
   useEffect(() => {
     void loadCatalog();
     void loadCases(1);
+    void loadReportHistory(1);
     const localRecords = loadWorkspace();
     setWorkspace(localRecords);
     loadOperationalWorkspace(localRecords).catch(() => {
@@ -1236,57 +1313,109 @@ export default function ReportsPage() {
               onChange={(event) => setHistorySearch(event.target.value)}
             />
           </label>
+          <label className="otc-field">
+            Report type
+            <select className="otc-select" value={historyTypeFilter} onChange={(event) => setHistoryTypeFilter(event.target.value)}>
+              <option value="all">all</option>
+              {catalog.map((entry) => (
+                <option key={entry.canonical} value={entry.canonical}>
+                  {entry.canonical}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="otc-field">
+            Case ID
+            <input className="otc-input" value={historyCaseFilter} onChange={(event) => setHistoryCaseFilter(event.target.value)} />
+          </label>
+          <button
+            type="button"
+            className="otc-button otc-button--ghost"
+            onClick={() => {
+              setHistoryPage(1);
+              void loadReportHistory(1, { reportType: historyTypeFilter, caseId: historyCaseFilter });
+            }}
+            data-testid="reports-history-apply"
+          >
+            Apply
+          </button>
+          <button type="button" className="otc-button otc-button--ghost" onClick={() => void loadReportHistory(historyPage)} data-testid="reports-history-refresh">
+            Refresh
+          </button>
         </div>
         {(() => {
           const query = historySearch.trim().toLowerCase();
-          const rows = workspace
+          const rows = historyRows
             .filter((record) =>
               !query ||
-              record.caseId.toLowerCase().includes(query) ||
-              record.targetAddress.toLowerCase().includes(query) ||
-              record.reportType.toLowerCase().includes(query) ||
-              record.owner.toLowerCase().includes(query)
+              (record.case_id ?? "").toLowerCase().includes(query) ||
+              record.report_type.toLowerCase().includes(query) ||
+              record.report_type_requested.toLowerCase().includes(query) ||
+              record.report_id.toLowerCase().includes(query)
             )
-            .sort((a, b) => b.lastActionAt.localeCompare(a.lastActionAt))
+            .sort((a, b) => b.created_at.localeCompare(a.created_at))
             .slice(0, 100);
           if (!rows.length) {
-            return <Message>{tr("reports.history.empty" as MessageKey)}</Message>;
+            return <Message>{loadingHistory ? t("common.loading") : tr("reports.history.empty" as MessageKey)}</Message>;
           }
           return (
-            <table className="otc-table otc-table--spaced">
+            <table className="otc-table otc-table--spaced" data-testid="reports-history-table">
               <thead>
                 <tr>
+                  <th>Report ID</th>
                   <th>{tr("reports.history.caseId" as MessageKey)}</th>
-                  <th>{tr("reports.history.address" as MessageKey)}</th>
-                  <th>{tr("reports.history.chain" as MessageKey)}</th>
                   <th>{tr("reports.history.reportType" as MessageKey)}</th>
-                  <th>{tr("reports.history.status" as MessageKey)}</th>
+                  <th>Downloaded</th>
                   <th>{tr("reports.history.lastAction" as MessageKey)}</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((record) => (
                   <tr
-                    key={record.caseId}
-                    className={openCaseId === record.caseId ? "otc-row-selected otc-row-clickable" : "otc-row-clickable"}
-                    onClick={() => setOpenCaseId(record.caseId)}
+                    key={record.report_id}
+                    className={openCaseId === (record.case_id ?? "") ? "otc-row-selected otc-row-clickable" : "otc-row-clickable"}
+                    onClick={() => setOpenCaseId(record.case_id ?? "")}
+                    data-testid="reports-history-row"
                   >
-                    <td><strong>{record.caseId}</strong></td>
-                    <td><span className="otc-mono">{record.targetAddress || tr("reports.history.notAvailable" as MessageKey)}</span></td>
-                    <td>{record.targetChain || tr("reports.history.notAvailable" as MessageKey)}</td>
-                    <td><Pill>{record.reportType || tr("reports.history.notAvailable" as MessageKey)}</Pill></td>
                     <td>
-                      <Pill tone={record.workspaceStatus === "ready" ? "success" : record.workspaceStatus === "in_review" ? "warning" : undefined}>
-                        {record.workspaceStatus}
-                      </Pill>
+                      <strong className="otc-mono">{record.report_id}</strong>
                     </td>
-                    <td>{formatDate(record.lastActionAt) ?? record.lastActionAt}</td>
+                    <td><strong>{record.case_id || tr("reports.history.notAvailable" as MessageKey)}</strong></td>
+                    <td>
+                      <Pill>{record.report_type || tr("reports.history.notAvailable" as MessageKey)}</Pill>
+                    </td>
+                    <td>
+                      <Pill tone={record.has_download_audit ? "success" : "warning"}>{record.has_download_audit ? "yes" : "no"}</Pill>
+                    </td>
+                    <td>{formatDate(record.created_at) ?? record.created_at}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           );
         })()}
+
+        <div className="otc-controls otc-controls--spaced">
+          <button
+            type="button"
+            className="otc-button otc-button--ghost"
+            onClick={() => void loadReportHistory(Math.max(1, historyPage - 1))}
+            disabled={loadingHistory || historyPage <= 1}
+            data-testid="reports-history-prev"
+          >
+            Previous
+          </button>
+          <span className="otc-muted" data-testid="reports-history-page">Page {historyPage} • Total {historyTotal}</span>
+          <button
+            type="button"
+            className="otc-button otc-button--ghost"
+            onClick={() => void loadReportHistory(historyPage + 1)}
+            disabled={loadingHistory || !historyHasMore}
+            data-testid="reports-history-next"
+          >
+            Next
+          </button>
+        </div>
       </Panel>
     </AppShell>
   );

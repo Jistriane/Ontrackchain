@@ -39,7 +39,7 @@ Leitura executiva:
 | P1-S5-04 | done | timeline/comments ja existem em `ros-coaf` | `/ros-coaf` | `WorkItemTimelinePanel` integrado e assignment por `owner_user_id` habilitado |
 | P1-S5-05 | done | timeline/comments ja existem em `counterparties` | `/counterparties` | `WorkItemTimelinePanel` integrado + DD/SoF review estruturado (campos, metadata, i18n tri-locale) |
 | P1-S5-06 | done | timeline/comments ja existem em `evidence` | `/evidence` | `WorkItemTimelinePanel` ja integrado; cadeia de custodia expandida pendente |
-| P1-S5-07 | done | timeline/comments ja existem em `reports` | `/reports` | `WorkItemTimelinePanel` ja integrado; listagem backend oficial pendente |
+| P1-S5-07 | done | timeline/comments e listagem backend oficial em `reports` | `/reports` | `WorkItemTimelinePanel` integrado + `GET /api/v1/reports` com paginação/filtros e proxy frontend `/api/app/reports/list` |
 
 ## Prioridades P2 — Governanca Formal (Trimestre 2)
 

@@ -178,6 +178,31 @@ const timelineFixtures: TimelineFixture[] = [
           body: JSON.stringify({ generated_at: "2026-07-02T12:00:00.000Z", types: [] })
         });
       });
+      await page.route("**/api/app/reports/list?**", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            data: [
+              {
+                report_id: "rep-seed-001",
+                case_id: "55555555-5555-4555-8555-555555555555",
+                report_type_requested: "coaf",
+                report_type: "coaf_ready_report",
+                content_type: "application/pdf",
+                file_hash_sha256: "a".repeat(64),
+                onchain_hash: null,
+                created_at: "2026-07-02T12:00:00.000Z",
+                has_download_audit: false
+              }
+            ],
+            page: 1,
+            limit: 20,
+            total: 1,
+            has_more: false
+          })
+        });
+      });
       await page.route("**/api/app/investigation/cases?**", async (route) => {
         await route.fulfill({
           status: 200,
