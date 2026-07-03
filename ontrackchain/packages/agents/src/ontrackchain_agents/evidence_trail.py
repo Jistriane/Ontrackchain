@@ -104,6 +104,32 @@ class EvidenceRecord:
     case_id: Optional[UUID]
 
 
+def _compute_event_hash(
+    event_type: str,
+    org_id: UUID,
+    case_id: Optional[UUID],
+    event_payload: dict,
+    actor_user_id: Optional[UUID],
+    actor_agent_id: Optional[str],
+    timestamp: str,
+) -> str:
+    """
+    Função de módulo para calcular SHA-256 de evento de forma determinística.
+    Delega ao método estático da classe para manter single-source-of-truth.
+    """
+    canonical = {
+        "event_type": event_type,
+        "org_id": str(org_id),
+        "case_id": str(case_id) if case_id else None,
+        "payload": event_payload,
+        "actor_user_id": str(actor_user_id) if actor_user_id else None,
+        "actor_agent_id": actor_agent_id,
+        "timestamp": timestamp,
+    }
+    serialized = json.dumps(canonical, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
 class EvidenceTrailService:
     """
     Serviço de trilha de evidências imutável.

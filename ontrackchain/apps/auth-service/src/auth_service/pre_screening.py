@@ -62,7 +62,8 @@ ADDRESS_PATTERNS = [
     # Bitcoin legacy: 1... ou 3...
     re.compile(r"/([13][1-9A-HJ-NP-Za-km-z]{25,34})(?:/|$|\?)", re.IGNORECASE),
     # Stellar: G + 55 base32 chars
-    re.compile(r"/(G[A-Z2-7]{55})(?:/|$|\?)", re.IGNORECASE),
+    # Stellar: G + 54-56 base32 chars (endereços Stellar têm 56 chars no total)
+    re.compile(r"/(G[A-Z2-7]{54,56})(?:/|$|\?)", re.IGNORECASE),
     # Solana: base58 43-44 chars
     re.compile(r"/([1-9A-HJ-NP-Za-km-z]{43,44})(?:/|$|\?)", re.IGNORECASE),
 ]
