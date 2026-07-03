@@ -70,6 +70,7 @@ O que essas suites cobrem:
 Scripts canonicos:
 
 - `preflight_oidc_serious_env.py`
+- `run_oidc_readiness_bundle.py`
 - `preflight_external_integrations.py`
 - `check_staging_env_placeholders.py`
 - `check_staging_env_handoff.py`
@@ -79,6 +80,7 @@ Scripts canonicos:
 O que eles validam:
 
 - auth serio sem fallback indevido para `dev`
+- consolidacao de `P0-01` em bundle OIDC anexavel
 - URLs, retries, timeouts e secrets de integracoes externas
 - ausencia de placeholders criticos
 - ownership e handoff do `.env.staging.private`
@@ -174,6 +176,13 @@ python scripts/run_staging_window.py \
   --window-id stg-YYYY-MM-DD-a \
   --private-env-file .env.staging.private
 ```
+
+Pacote esperado quando aplicável:
+
+- `artifacts/staging/checks/<janela>-oidc-readiness-bundle.json` para `P0-01`
+- `artifacts/staging/dossiers/<janela>-oidc-readiness-bundle.md` para `P0-01`
+- `artifacts/staging/checks/<janela>-regulatory-readiness-bundle.json` para `P0-02/P0-03`
+- `artifacts/staging/dossiers/<janela>-regulatory-readiness-bundle.md` para `P0-02/P0-03`
 
 ## Gaps Residuais de Validacao
 

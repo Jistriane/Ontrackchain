@@ -117,10 +117,14 @@ Chaves relevantes:
 Artefatos relevantes:
 
 - `artifacts/staging/checks/*.json`
+- `artifacts/staging/checks/*-oidc-readiness-bundle.json`
 - `artifacts/staging/checks/*-eu-sanctions-preflight.json`
 - `artifacts/staging/checks/*-eu-sanctions-sync.json`
+- `artifacts/staging/checks/*-regulatory-readiness-bundle.json`
 - `artifacts/staging/window-packet-*.md`
 - `artifacts/staging/dossiers/*.json`
+- `artifacts/staging/dossiers/*-oidc-readiness-bundle.md`
+- `artifacts/staging/dossiers/*-regulatory-readiness-bundle.md`
 - `artifacts/homologation/*.json`
 - `*.manifest.json`
 
@@ -128,6 +132,7 @@ Scripts canonicos:
 
 - `prepare_staging_window.py`
 - `run_staging_window.py`
+- `run_oidc_readiness_bundle.py`
 - `preflight_external_integrations.py`
 - `check_compliance_provider_runtime.py`
 - `run_eu_sanctions_window.py`
@@ -138,6 +143,7 @@ Scripts canonicos:
 
 - nem todo evento negativo sensivel possui espelho em `evidence_trail`; parte continua apenas em `audit_logs`
 - janelas `AML/KYT live` e UE ainda dependem de evidencia institucional recorrente, apesar dos guardrails tecnicos estarem prontos
+- `P0-01` agora possui bundle OIDC próprio, mas a homologação institucional de MFA/`external_provider` ainda depende de execução recorrente em janela séria
 - artefatos de manual review para `due_diligence` e `source_of_funds` ainda nao estao modelados como bundle regulatorio proprio
 
 ## Uso Recomendado
