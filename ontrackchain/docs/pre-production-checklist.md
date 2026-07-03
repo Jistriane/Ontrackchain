@@ -96,6 +96,9 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 - [ ] workflow manual [staging-serious-window.yml](../../.github/workflows/staging-serious-window.yml) foi executado para a janela alvo
 - [ ] o `GitHub Environment` da janela possui approvals coerentes e secret `STAGING_WINDOW_PRIVATE_ENV`
 - [ ] o artifact `serious-staging-window-<janela>` foi anexado ao sign-off da promocao
+- [ ] bundle OIDC foi gerado quando P0-01 estava no escopo: `make run-oidc-readiness-bundle-local WINDOW_ID=<janela> BASE_URL=<url>` produziu `<janela>-oidc-readiness-bundle.json` e `<janela>-oidc-readiness-bundle.md`
+- [ ] bundle regulatorio foi gerado quando P0-02/P0-03 estavam no escopo: `make run-regulatory-readiness-bundle-local WINDOW_ID=<janela>` produziu `<janela>-regulatory-readiness-bundle.json` e `<janela>-regulatory-readiness-bundle.md`
+- [ ] completude do artifact foi validada: `make validate-serious-window-artifact-local WINDOW_ID=<janela>` passou com status `ok`
 - [ ] rollback de aplicacao foi testado
 - [ ] rollback/restore de banco foi testado
 - [ ] owners de deploy, seguranca e banco estao definidos

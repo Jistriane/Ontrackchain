@@ -1,4 +1,4 @@
-.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle run-regulatory-readiness-bundle-local render-regulatory-readiness-bundle run-oidc-readiness-bundle run-oidc-readiness-bundle-local render-oidc-readiness-bundle apply-regulatory-work-items-migration smoke-work-items-ownership-backend
+.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle run-regulatory-readiness-bundle-local render-regulatory-readiness-bundle run-oidc-readiness-bundle run-oidc-readiness-bundle-local render-oidc-readiness-bundle validate-serious-window-artifact validate-serious-window-artifact-local apply-regulatory-work-items-migration smoke-work-items-ownership-backend
 
 PYTHON ?= python
 WINDOW_ID ?= stg-2026-07-06-a
@@ -15,6 +15,9 @@ BUNDLE_OUTPUT_FILE ?= artifacts/staging/checks/$(WINDOW_ID)-regulatory-readiness
 BUNDLE_SUMMARY_FILE ?= artifacts/staging/dossiers/$(WINDOW_ID)-regulatory-readiness-bundle.md
 OIDC_BUNDLE_OUTPUT_FILE ?= artifacts/staging/checks/$(WINDOW_ID)-oidc-readiness-bundle.json
 OIDC_BUNDLE_SUMMARY_FILE ?= artifacts/staging/dossiers/$(WINDOW_ID)-oidc-readiness-bundle.md
+CHECKS_DIR ?= artifacts/staging/checks
+DOSSIERS_DIR ?= artifacts/staging/dossiers
+ART_SCOPE ?= P0-01,P0-02,P0-03
 
 help:
 	@echo "Targets disponiveis:"
@@ -38,6 +41,8 @@ help:
 	@echo "  make run-oidc-readiness-bundle [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...] [BASE_URL=...]"
 	@echo "  make run-oidc-readiness-bundle-local [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...] [OIDC_BUNDLE_OUTPUT_FILE=...] [OIDC_BUNDLE_SUMMARY_FILE=...] [BASE_URL=...]"
 	@echo "  make render-oidc-readiness-bundle [OIDC_BUNDLE_OUTPUT_FILE=...] [OIDC_BUNDLE_SUMMARY_FILE=...]"
+	@echo "  make validate-serious-window-artifact [WINDOW_ID=...] [CHECKS_DIR=...] [DOSSIERS_DIR=...] [ART_SCOPE=P0-01,P0-02,P0-03]"
+	@echo "  make validate-serious-window-artifact-local [WINDOW_ID=...]"
 	@echo "  make apply-regulatory-work-items-migration"
 	@echo "  make smoke-work-items-ownership-backend"
 
@@ -57,7 +62,8 @@ help-serious-window:
 	@echo " 11. Para artefato local da Sprint 7: make run-regulatory-readiness-bundle-local WINDOW_ID=$(WINDOW_ID)"
 	@echo " 12. Para P0-01 local: make run-oidc-readiness-bundle-local WINDOW_ID=$(WINDOW_ID) BASE_URL=http://localhost:8080"
 	@echo " 13. Para execucao local ponta a ponta: make run-serious-window-local WINDOW_ID=$(WINDOW_ID)"
-	@echo " 14. Revisar sign-off versionado e board semanal sincronizado"
+	@echo " 14. Validar completude do artifact: make validate-serious-window-artifact-local WINDOW_ID=$(WINDOW_ID)"
+	@echo " 15. Revisar sign-off versionado e board semanal sincronizado"
 
 prepare-serious-window-dispatch:
 	@$(MAKE) preflight-serious-window-dispatch \
@@ -253,6 +259,20 @@ render-oidc-readiness-bundle:
 	@$(PYTHON) scripts/render_oidc_readiness_bundle.py \
 		--bundle-file "$(OIDC_BUNDLE_OUTPUT_FILE)" \
 		--output-file "$(OIDC_BUNDLE_SUMMARY_FILE)"
+
+validate-serious-window-artifact:
+	@$(PYTHON) scripts/validate_serious_window_artifact.py \
+		--window-id "$(WINDOW_ID)" \
+		--checks-dir "$(CHECKS_DIR)" \
+		--dossiers-dir "$(DOSSIERS_DIR)" \
+		--scope "$(ART_SCOPE)"
+
+validate-serious-window-artifact-local:
+	@$(MAKE) --no-print-directory validate-serious-window-artifact \
+		WINDOW_ID="$(WINDOW_ID)" \
+		CHECKS_DIR="artifacts/staging/checks" \
+		DOSSIERS_DIR="artifacts/staging/dossiers" \
+		ART_SCOPE="P0-01,P0-02,P0-03"
 
 apply-regulatory-work-items-migration:
 	@cat infra/postgres/migrations/0013_regulatory_work_items.sql | \
