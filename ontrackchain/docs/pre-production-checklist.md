@@ -110,6 +110,7 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 - [ ] `python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md` passa sem grupos ausentes, campos `pending`, datas invalidas ou status fora da politica
 - [ ] `python scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private` executou a janela ponta a ponta com persistencia dos JSONs de checks/preflights
 - [ ] `python scripts/prepare_staging_window.py --window-id <janela> --mode baseline|homologated --run` foi exercitado como gate unico canonico, localmente ou via CI controlado
+- [ ] quando `P0-01` estiver no escopo, `make run-oidc-readiness-bundle-local WINDOW_ID=<janela> BASE_URL=<url>` gera `<janela>-oidc-readiness-bundle.json` e `<janela>-oidc-readiness-bundle.md`
 - [ ] `python scripts/preflight_external_integrations.py` passa com `ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=live` antes da janela AML/KYT
 - [ ] `make check-compliance-provider-runtime` fica verde com runtime convergente para `live`
 - [ ] `python scripts/homologation_external_evidence.py --mode compliance` gera artefato `status=ok` anexavel ao gate
@@ -176,6 +177,7 @@ Nao avancar para pre-producao real se qualquer item abaixo estiver aberto:
 - consulta de `audit_logs` com eventos do run atual
 - prova de bloqueio e liberacao correta do `legal_report`
 - artifact `serious-staging-window-<janela>` ou pacote equivalente contendo `checks`, `window packet`, `homologation` e `dossier`
+- quando `P0-01` estiver no escopo, `<janela>-oidc-readiness-bundle.json` e `<janela>-oidc-readiness-bundle.md` anexados ao pacote
 - quando houver `AML/KYT live`, resultado de `make check-compliance-provider-runtime` anexado ao pacote
 - quando houver feed UE, `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json` anexados ao pacote
 - se houver mudanca no scaffold local, output de `npm run test:e2e:dev-auth` como evidencia auxiliar

@@ -66,11 +66,11 @@ Baseline canonica de referencia:
 
 | ID | Status Inicial | Iniciativa | Owner Sugerido | Dependencias | Evidencia Exigida | Impacto no KPI | Criterio de Fechamento |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `P0-01` | `blocked` | Homologar `OIDC + MFA serio` | Backend/Auth | owner IdP, ambiente serio, claims finais | `preflight_oidc_serious_env.py` verde, `smoke_auth_oidc_mode.py` verde, Playwright critico verde | muito alto | fluxos sensiveis exigem auth serio e MFA homologado sem fallback silencioso |
+| `P0-01` | `blocked` | Homologar `OIDC + MFA serio` | Backend/Auth | owner IdP, ambiente serio, claims finais | `preflight_oidc_serious_env.py` verde, `smoke_auth_oidc_mode.py` verde, bundle `<window>-oidc-readiness-bundle.json`, Playwright critico verde | muito alto | fluxos sensiveis exigem auth serio e MFA homologado sem fallback silencioso |
 | `P0-02` | `ready` | Homologar `AML/KYT live` | Backend/Compliance | credencial real do provider | `check_compliance_provider_runtime.py` verde + artefato JSON | muito alto | readiness interna e API publica convergem com provider `live` |
 | `P0-03` | `ready` | Ativar feed UE real | Backend/Compliance | URL tokenizada valida | JSONs da janela UE + `check_sanctions_sync_status.py` verde | muito alto | `EU_CONSOLIDATED` fica valido e os artefatos da janela sao persistidos |
 | `P0-04` | `todo` | Gerar bundle regulatorio oficial | Platform/SRE | `P0-02`, `P0-03` | `<window>-regulatory-readiness-bundle.json` | muito alto | bundle reflete AML/KYT + sancoes UE sem erro residual nao classificado |
-| `P0-05` | `todo` | Executar primeira janela seria material | Platform/SRE + Governanca | `P0-01` a `P0-04` | packet, dossier, war room e sign-off | muito alto | janela ponta a ponta executada com decisao formal `go/no-go` |
+| `P0-05` | `todo` | Executar primeira janela seria material | Platform/SRE + Governanca | `P0-01` a `P0-04` | packet, dossier, bundles OIDC/regulatorio quando aplicaveis, war room e sign-off | muito alto | janela ponta a ponta executada com decisao formal `go/no-go` |
 | `P0-06` | `todo` | Formalizar sign-off de retention/recovery | Platform/Security | resultado da janela, owner formal | aceite formal ou excecao registrada | alto | politica, checklist e aceite ficam sincronizados |
 | `P0-07` | `todo` | Publicar nova baseline oficial | Arquitetura/Governanca | `P0-05`, `P0-06` | scorecard e maturity assessment atualizados | muito alto | projeto cruza `90%+` com narrativa e evidencia coerentes |
 
@@ -183,7 +183,7 @@ Rito recomendado para execucao imediata:
 
 ### Gates P0
 
-- `P0-01`: `preflight_oidc_serious_env.py`, `smoke_auth_oidc_mode.py` e Playwright critico verdes
+- `P0-01`: `preflight_oidc_serious_env.py`, `smoke_auth_oidc_mode.py`, bundle `<window>-oidc-readiness-bundle.json` e Playwright critico verdes
 - `P0-02`: `check_compliance_provider_runtime.py` verde com artefato anexado
 - `P0-03`: `check_sanctions_sync_status.py` verde com JSONs da janela UE persistidos
 - `P0-04`: bundle regulatorio gerado sem erro residual nao classificado
