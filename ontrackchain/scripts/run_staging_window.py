@@ -143,6 +143,8 @@ def run_window(
     handoff_output_file = checks_dir / f"handoff-{window_id}.json"
     oidc_preflight_output_file = checks_dir / f"oidc-preflight-{window_id}.json"
     external_preflight_output_file = checks_dir / f"external-preflight-{window_id}.json"
+    oidc_bundle_output_file = checks_dir / f"{window_id}-oidc-readiness-bundle.json"
+    oidc_bundle_summary_output_file = dossier_output_dir / f"{window_id}-oidc-readiness-bundle.md"
     regulatory_bundle_output_file = checks_dir / f"{window_id}-regulatory-readiness-bundle.json"
     regulatory_bundle_summary_output_file = dossier_output_dir / f"{window_id}-regulatory-readiness-bundle.md"
     homologation_output_file = checks_dir / f"homologation-{window_id}.json"
@@ -272,9 +274,72 @@ def run_window(
         for step_name in ("oidc_preflight", "external_preflight")
     )
     if preflight_failed:
+        payload["steps"]["oidc_readiness_bundle"] = step_payload(status="skipped", reason="preflight_failed")
         payload["steps"]["regulatory_readiness_bundle"] = step_payload(status="skipped", reason="preflight_failed")
         payload["steps"]["homologation"] = step_payload(status="skipped", reason="preflight_failed")
         payload["steps"]["release_dossier"] = step_payload(status="skipped", reason="preflight_failed")
+        payload["status"] = "failed"
+        return 1, payload
+
+    with temporary_environ(env_values):
+        oidc_bundle_exit_code, oidc_bundle_payload = run_module_main(
+            "scripts/run_oidc_readiness_bundle.py",
+            [
+                "run_oidc_readiness_bundle.py",
+                "--window-id",
+                window_id,
+                "--private-env-file",
+                str(private_env_file),
+                "--checks-dir",
+                str(checks_dir),
+            ],
+            "oidc_readiness_bundle_window",
+        )
+    write_json_file(oidc_bundle_output_file, oidc_bundle_payload)
+    oidc_bundle_summary_status = "skipped"
+    oidc_bundle_summary_error: str | None = None
+    try:
+        oidc_render_module = load_module(
+            "render_oidc_readiness_bundle",
+            "scripts/render_oidc_readiness_bundle.py",
+        )
+        oidc_bundle_summary_model = oidc_render_module.build_model(
+            oidc_bundle_payload,
+            oidc_bundle_output_file,
+        )
+        oidc_bundle_summary_output_file.parent.mkdir(parents=True, exist_ok=True)
+        oidc_bundle_summary_output_file.write_text(
+            oidc_render_module.render_markdown(oidc_bundle_summary_model),
+            encoding="utf-8",
+        )
+        oidc_bundle_summary_status = "ok"
+    except Exception as exc:  # noqa: BLE001
+        oidc_bundle_summary_status = "failed"
+        oidc_bundle_summary_error = str(exc)
+    payload["steps"]["oidc_readiness_bundle"] = step_payload(
+        status=oidc_bundle_payload.get("status", "failed"),
+        exit_code=oidc_bundle_exit_code,
+        output_file=str(oidc_bundle_output_file),
+        summary_file=str(oidc_bundle_summary_output_file),
+        summary_status=oidc_bundle_summary_status,
+    )
+    if oidc_bundle_summary_error is not None:
+        payload["steps"]["oidc_readiness_bundle"]["summary_error"] = oidc_bundle_summary_error
+        payload["errors"].append("oidc_readiness_bundle_summary: falhou")
+    if oidc_bundle_exit_code != 0 and oidc_bundle_payload.get("errors"):
+        payload["errors"].append("oidc_readiness_bundle: falhou")
+
+    oidc_bundle_failed = payload["steps"]["oidc_readiness_bundle"]["status"] == "failed"
+    if oidc_bundle_failed:
+        payload["steps"]["regulatory_readiness_bundle"] = step_payload(
+            status="skipped", reason="oidc_readiness_bundle_failed"
+        )
+        payload["steps"]["homologation"] = step_payload(
+            status="skipped", reason="oidc_readiness_bundle_failed"
+        )
+        payload["steps"]["release_dossier"] = step_payload(
+            status="skipped", reason="oidc_readiness_bundle_failed"
+        )
         payload["status"] = "failed"
         return 1, payload
 
@@ -393,6 +458,10 @@ def run_window(
         handoff_check=handoff_output_file,
         homologation_artifact=homologation_artifact,
         homologation_manifest=homologation_manifest,
+        oidc_readiness_bundle=oidc_bundle_output_file,
+        oidc_readiness_bundle_summary=(
+            oidc_bundle_summary_output_file if oidc_bundle_summary_status == "ok" else None
+        ),
         regulatory_readiness_bundle=regulatory_bundle_output_file,
         regulatory_readiness_bundle_summary=(
             regulatory_bundle_summary_output_file

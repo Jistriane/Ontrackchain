@@ -55,6 +55,8 @@ def build_dossier_payload(
     handoff_check: Path,
     homologation_artifact: Path,
     homologation_manifest: Path,
+    oidc_readiness_bundle: Path | None,
+    oidc_readiness_bundle_summary: Path | None,
     regulatory_readiness_bundle: Path | None,
     regulatory_readiness_bundle_summary: Path | None,
     generated_at: str,
@@ -67,6 +69,10 @@ def build_dossier_payload(
         homologation_artifact,
         homologation_manifest,
     ]
+    if oidc_readiness_bundle is not None:
+        required_paths.append(oidc_readiness_bundle)
+    if oidc_readiness_bundle_summary is not None:
+        required_paths.append(oidc_readiness_bundle_summary)
     if regulatory_readiness_bundle is not None:
         required_paths.append(regulatory_readiness_bundle)
     if regulatory_readiness_bundle_summary is not None:
@@ -86,6 +92,11 @@ def build_dossier_payload(
     handoff_payload = load_json_file(handoff_check)
     homologation_payload = load_json_file(homologation_artifact)
     homologation_manifest_payload = load_json_file(homologation_manifest)
+    oidc_bundle_payload = (
+        load_json_file(oidc_readiness_bundle)
+        if oidc_readiness_bundle is not None
+        else None
+    )
     regulatory_bundle_payload = (
         load_json_file(regulatory_readiness_bundle)
         if regulatory_readiness_bundle is not None
@@ -98,6 +109,10 @@ def build_dossier_payload(
         "handoff_check": handoff_payload.get("status", "unknown"),
         "homologation": homologation_payload.get("status", "unknown"),
     }
+    if oidc_bundle_payload is not None:
+        checks_status["oidc_readiness_bundle"] = oidc_bundle_payload.get(
+            "status", "unknown"
+        )
     if regulatory_bundle_payload is not None:
         checks_status["regulatory_readiness_bundle"] = regulatory_bundle_payload.get(
             "status", "unknown"
@@ -192,6 +207,24 @@ def build_dossier_payload(
             },
         }
         result["sources"]["regulatory_readiness_bundle"] = regulatory_bundle_payload
+    if oidc_readiness_bundle is not None and oidc_bundle_payload is not None:
+        result["artifacts"]["oidc_readiness_bundle"] = file_ref(oidc_readiness_bundle)
+        if oidc_readiness_bundle_summary is not None:
+            result["artifacts"]["oidc_readiness_bundle_summary"] = file_ref(
+                oidc_readiness_bundle_summary
+            )
+        result["summaries"]["oidc_readiness_bundle"] = {
+            "scope": oidc_bundle_payload.get("scope", {}),
+            "steps": {
+                "oidc_preflight": (
+                    (oidc_bundle_payload.get("steps") or {}).get("oidc_preflight") or {}
+                ).get("status", "unknown"),
+                "smoke_auth_oidc_mode": (
+                    (oidc_bundle_payload.get("steps") or {}).get("smoke_auth_oidc_mode") or {}
+                ).get("status", "unknown"),
+            },
+        }
+        result["sources"]["oidc_readiness_bundle"] = oidc_bundle_payload
     return result
 
 
@@ -230,6 +263,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--handoff-check", required=True)
     parser.add_argument("--homologation-artifact", required=True)
     parser.add_argument("--homologation-manifest", required=True)
+    parser.add_argument("--oidc-readiness-bundle")
+    parser.add_argument("--oidc-readiness-bundle-summary")
     parser.add_argument("--regulatory-readiness-bundle")
     parser.add_argument("--regulatory-readiness-bundle-summary")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
@@ -248,6 +283,14 @@ def main() -> int:
         handoff_check=Path(args.handoff_check),
         homologation_artifact=Path(args.homologation_artifact),
         homologation_manifest=Path(args.homologation_manifest),
+        oidc_readiness_bundle=(
+            Path(args.oidc_readiness_bundle) if args.oidc_readiness_bundle else None
+        ),
+        oidc_readiness_bundle_summary=(
+            Path(args.oidc_readiness_bundle_summary)
+            if args.oidc_readiness_bundle_summary
+            else None
+        ),
         regulatory_readiness_bundle=(
             Path(args.regulatory_readiness_bundle)
             if args.regulatory_readiness_bundle

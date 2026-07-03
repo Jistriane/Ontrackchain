@@ -146,6 +146,20 @@ class RunStagingWindowTests(unittest.TestCase):
                     return 0, {"status": "ok", "auth_mode": "oidc", "errors": []}
                 if relative_path.endswith("preflight_external_integrations.py"):
                     return 0, {"status": "ok", "compliance": {"expect_mode": "live"}, "rpc": {"expect_mode": "fallback_only"}, "errors": []}
+                if relative_path.endswith("run_oidc_readiness_bundle.py"):
+                    return 0, {
+                        "kind": "oidc_readiness_bundle",
+                        "status": "ok",
+                        "scope": {
+                            "mfa_external_provider_homologated": "false",
+                            "expected_oidc_provider": "keycloak",
+                        },
+                        "steps": {
+                            "oidc_preflight": {"status": "ok"},
+                            "smoke_auth_oidc_mode": {"status": "ok"},
+                        },
+                        "errors": [],
+                    }
                 if relative_path.endswith("run_regulatory_readiness_bundle.py"):
                     return 0, {
                         "kind": "regulatory_readiness_bundle",
@@ -212,6 +226,7 @@ class RunStagingWindowTests(unittest.TestCase):
             self.assertEqual(payload["steps"]["window_packet"]["status"], "ok")
             self.assertEqual(payload["steps"]["oidc_preflight"]["status"], "ok")
             self.assertEqual(payload["steps"]["external_preflight"]["status"], "ok")
+            self.assertEqual(payload["steps"]["oidc_readiness_bundle"]["status"], "ok")
             self.assertEqual(payload["steps"]["regulatory_readiness_bundle"]["status"], "ok")
             self.assertEqual(payload["steps"]["homologation"]["status"], "ok")
             self.assertEqual(payload["steps"]["release_dossier"]["status"], "ok")
@@ -221,9 +236,12 @@ class RunStagingWindowTests(unittest.TestCase):
             self.assertTrue((checks_dir / "handoff-stg-2026-06-29-a.json").exists())
             self.assertTrue((checks_dir / "oidc-preflight-stg-2026-06-29-a.json").exists())
             self.assertTrue((checks_dir / "external-preflight-stg-2026-06-29-a.json").exists())
+            self.assertTrue((checks_dir / "stg-2026-06-29-a-oidc-readiness-bundle.json").exists())
+            self.assertTrue((dossier_output_dir / "stg-2026-06-29-a-oidc-readiness-bundle.md").exists())
             self.assertTrue((checks_dir / "stg-2026-06-29-a-regulatory-readiness-bundle.json").exists())
             self.assertTrue((dossier_output_dir / "stg-2026-06-29-a-regulatory-readiness-bundle.md").exists())
             self.assertTrue((checks_dir / "homologation-stg-2026-06-29-a.json").exists())
+            self.assertEqual(payload["steps"]["oidc_readiness_bundle"]["summary_status"], "ok")
             self.assertEqual(payload["steps"]["regulatory_readiness_bundle"]["summary_status"], "ok")
             self.assertTrue(Path(payload["steps"]["release_dossier"]["artifact_file"]).exists())
             self.assertTrue(Path(payload["steps"]["release_dossier"]["manifest_file"]).exists())
@@ -303,11 +321,12 @@ class RunStagingWindowTests(unittest.TestCase):
             self.assertEqual(payload["status"], "failed")
             self.assertEqual(payload["steps"]["oidc_preflight"]["status"], "ok")
             self.assertEqual(payload["steps"]["external_preflight"]["status"], "failed")
+            self.assertEqual(payload["steps"]["oidc_readiness_bundle"]["status"], "skipped")
             self.assertEqual(payload["steps"]["regulatory_readiness_bundle"]["status"], "skipped")
             self.assertEqual(payload["steps"]["homologation"]["status"], "skipped")
             self.assertEqual(payload["steps"]["release_dossier"]["status"], "skipped")
 
-    def test_run_window_skips_homologation_when_regulatory_bundle_fails(self) -> None:
+    def test_run_window_skips_homologation_when_oidc_bundle_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             base = Path(tmp_dir)
             env_file = base / ".env.staging.example"
@@ -325,15 +344,19 @@ class RunStagingWindowTests(unittest.TestCase):
                     return 0, {"status": "ok", "errors": []}
                 if relative_path.endswith("preflight_external_integrations.py"):
                     return 0, {"status": "ok", "errors": []}
-                if relative_path.endswith("run_regulatory_readiness_bundle.py"):
+                if relative_path.endswith("run_oidc_readiness_bundle.py"):
                     return 1, {
-                        "kind": "regulatory_readiness_bundle",
+                        "kind": "oidc_readiness_bundle",
                         "status": "failed",
                         "scope": {
-                            "compliance_runtime_enabled": True,
-                            "eu_window_enabled": True,
+                            "mfa_external_provider_homologated": "false",
+                            "expected_oidc_provider": "keycloak",
                         },
-                        "errors": ["compliance_provider_runtime: falhou"],
+                        "steps": {
+                            "oidc_preflight": {"status": "ok"},
+                            "smoke_auth_oidc_mode": {"status": "failed"},
+                        },
+                        "errors": ["smoke_auth_oidc_mode: falhou"],
                     }
                 raise AssertionError(f"nao deveria chegar em {relative_path}")
 
@@ -352,11 +375,12 @@ class RunStagingWindowTests(unittest.TestCase):
                     generated_at="2026-06-29T12:00:00+00:00",
                 )
 
-        self.assertEqual(exit_code, 1)
-        self.assertEqual(payload["status"], "failed")
-        self.assertEqual(payload["steps"]["regulatory_readiness_bundle"]["status"], "failed")
-        self.assertEqual(payload["steps"]["homologation"]["status"], "skipped")
-        self.assertEqual(payload["steps"]["release_dossier"]["status"], "skipped")
+            self.assertEqual(exit_code, 1)
+            self.assertEqual(payload["status"], "failed")
+            self.assertEqual(payload["steps"]["oidc_readiness_bundle"]["status"], "failed")
+            self.assertEqual(payload["steps"]["regulatory_readiness_bundle"]["status"], "skipped")
+            self.assertEqual(payload["steps"]["homologation"]["status"], "skipped")
+            self.assertEqual(payload["steps"]["release_dossier"]["status"], "skipped")
 
 
 if __name__ == "__main__":

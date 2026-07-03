@@ -153,7 +153,7 @@ Resultado esperado:
 
 - artifact `serious-staging-window-<janela>`
 - `GITHUB_STEP_SUMMARY` com status geral, status de `validation`, `preflight` e `run`
-- `checks`, `dossier`, `window packet`, `homologation` e, quando aplicável, o resumo do `regulatory-readiness-bundle` anexados
+- `checks`, `dossier`, `window packet`, `homologation` e, quando aplicável, os resumos do `oidc-readiness-bundle` e do `regulatory-readiness-bundle` anexados
 
 ## Critérios de Go/No-Go
 
@@ -214,7 +214,7 @@ Na governança semanal, registrar:
 - nome do environment usado
 - `window_id`
 - artifact `serious-staging-window-<janela>`
-- paths do `window packet`, `checks`, `homologation`, `dossier` e do `regulatory-readiness-bundle.md` quando o escopo incluir `P0-02/P0-03`
+- paths do `window packet`, `checks`, `homologation`, `dossier`, do `oidc-readiness-bundle.md` quando o escopo incluir `P0-01` e do `regulatory-readiness-bundle.md` quando o escopo incluir `P0-02/P0-03`
 - bloqueios externos encontrados
 
 ## Suposicoes

@@ -287,6 +287,8 @@ python scripts/build_staging_release_dossier.py \
   --handoff-check artifacts/staging/checks/handoff-stg-YYYY-MM-DD-a.json \
   --homologation-artifact artifacts/homologation/<artefato>.json \
   --homologation-manifest artifacts/homologation/<artefato>.json.manifest.json \
+  --oidc-readiness-bundle artifacts/staging/checks/stg-YYYY-MM-DD-a-oidc-readiness-bundle.json \
+  --oidc-readiness-bundle-summary artifacts/staging/dossiers/stg-YYYY-MM-DD-a-oidc-readiness-bundle.md \
   --regulatory-readiness-bundle artifacts/staging/checks/stg-YYYY-MM-DD-a-regulatory-readiness-bundle.json \
   --regulatory-readiness-bundle-summary artifacts/staging/dossiers/stg-YYYY-MM-DD-a-regulatory-readiness-bundle.md
 ```
@@ -304,6 +306,7 @@ Saida esperada:
 - JSON consolidado da execucao da janela em `stdout|stderr`
 - dossier `.json` em `artifacts/staging/dossiers/`
 - manifesto `.manifest.json` do dossier com `sha256`
+- resumo `.md` do bundle OIDC em `artifacts/staging/dossiers/` para a trilha `P0-01`
 - resumo `.md` do bundle regulatório em `artifacts/staging/dossiers/` quando `AML/KYT live` e/ou feed UE estiverem no escopo
 - status consolidado `ok` apenas quando checks e homologacao estiverem verdes
 

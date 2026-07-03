@@ -100,6 +100,7 @@ Leitura operacional atual:
 - `Playwright` relevante verde
 - preflights e checks da janela verdes
 - `run_staging_window.py` ou workflow oficial gera artefato consolidado
+- quando `P0-01` for exercitado, anexar tambem `<janela>-oidc-readiness-bundle.json` e `<janela>-oidc-readiness-bundle.md`
 - quando houver janela `AML/KYT live`, o bundle da homologacao e o resultado de `make check-compliance-provider-runtime` ficam anexados
 - quando houver janela UE, os arquivos `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json` ficam anexados
 - quando `P0-02` e `P0-03` forem exercitados em conjunto, anexar tambem `<janela>-regulatory-readiness-bundle.json` e `<janela>-regulatory-readiness-bundle.md`

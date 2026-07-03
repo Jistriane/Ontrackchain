@@ -45,6 +45,8 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
             handoff_check = base / "handoff.json"
             homologation_artifact = base / "homologation.json"
             homologation_manifest = base / "homologation.manifest.json"
+            oidc_bundle = base / "oidc-bundle.json"
+            oidc_bundle_summary = base / "oidc-bundle.md"
             regulatory_bundle = base / "regulatory-bundle.json"
             regulatory_bundle_summary = base / "regulatory-bundle.md"
 
@@ -99,6 +101,22 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                 },
             )
             _write_json(
+                oidc_bundle,
+                {
+                    "kind": "oidc_readiness_bundle",
+                    "status": "ok",
+                    "scope": {
+                        "mfa_external_provider_homologated": "true",
+                        "expected_oidc_provider": "keycloak",
+                    },
+                    "steps": {
+                        "oidc_preflight": {"status": "ok"},
+                        "smoke_auth_oidc_mode": {"status": "ok"},
+                    },
+                },
+            )
+            oidc_bundle_summary.write_text("# OIDC Bundle\n", encoding="utf-8")
+            _write_json(
                 regulatory_bundle,
                 {
                     "kind": "regulatory_readiness_bundle",
@@ -123,6 +141,8 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                 handoff_check=handoff_check,
                 homologation_artifact=homologation_artifact,
                 homologation_manifest=homologation_manifest,
+                oidc_readiness_bundle=oidc_bundle,
+                oidc_readiness_bundle_summary=oidc_bundle_summary,
                 regulatory_readiness_bundle=regulatory_bundle,
                 regulatory_readiness_bundle_summary=regulatory_bundle_summary,
                 generated_at="2026-06-29T12:00:00+00:00",
@@ -130,12 +150,18 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
 
         self.assertEqual(payload["status"], "ok")
         self.assertEqual(payload["checks_status"]["homologation"], "ok")
+        self.assertEqual(payload["checks_status"]["oidc_readiness_bundle"], "ok")
         self.assertEqual(payload["checks_status"]["regulatory_readiness_bundle"], "ok")
+        self.assertEqual(
+            payload["summaries"]["oidc_readiness_bundle"]["steps"]["smoke_auth_oidc_mode"],
+            "ok",
+        )
         self.assertEqual(payload["summaries"]["homologation"]["runs"]["rpc_case_id"], "case_1")
         self.assertEqual(
             payload["summaries"]["regulatory_readiness_bundle"]["steps"]["eu_sanctions_window"],
             "ok",
         )
+        self.assertIn("oidc_readiness_bundle_summary", payload["artifacts"])
         self.assertIn("regulatory_readiness_bundle_summary", payload["artifacts"])
         self.assertIn("sha256", payload["artifacts"]["window_packet"])
 
@@ -153,6 +179,8 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                 handoff_check=base / "missing-handoff.json",
                 homologation_artifact=base / "missing-homologation.json",
                 homologation_manifest=base / "missing-homologation.manifest.json",
+                oidc_readiness_bundle=base / "missing-oidc-bundle.json",
+                oidc_readiness_bundle_summary=base / "missing-oidc-bundle.md",
                 regulatory_readiness_bundle=base / "missing-regulatory-bundle.json",
                 regulatory_readiness_bundle_summary=base / "missing-regulatory-bundle.md",
                 generated_at="2026-06-29T12:00:00+00:00",
@@ -170,6 +198,8 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
             handoff_check = base / "handoff.json"
             homologation_artifact = base / "homologation.json"
             homologation_manifest = base / "homologation.manifest.json"
+            oidc_bundle = base / "oidc-bundle.json"
+            oidc_bundle_summary = base / "oidc-bundle.md"
             regulatory_bundle = base / "regulatory-bundle.json"
             regulatory_bundle_summary = base / "regulatory-bundle.md"
             output_dir = base / "dossiers"
@@ -180,6 +210,8 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
             _write_json(handoff_check, {"status": "ok", "missing_groups": [], "incomplete_groups": [], "invalid_statuses": [], "invalid_dates": []})
             _write_json(homologation_artifact, {"status": "ok", "mode": "both", "artifact_file": "/tmp/h.json", "manifest_file": "/tmp/h.json.manifest.json", "runs": {}})
             _write_json(homologation_manifest, {"kind": "external_homologation_evidence", "status": "ok"})
+            _write_json(oidc_bundle, {"kind": "oidc_readiness_bundle", "status": "ok", "scope": {}, "steps": {}})
+            oidc_bundle_summary.write_text("# OIDC Bundle\n", encoding="utf-8")
             _write_json(regulatory_bundle, {"kind": "regulatory_readiness_bundle", "status": "ok", "scope": {}, "steps": {}})
             regulatory_bundle_summary.write_text("# Regulatory Bundle\n", encoding="utf-8")
 
@@ -203,6 +235,10 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                     str(homologation_artifact),
                     "--homologation-manifest",
                     str(homologation_manifest),
+                    "--oidc-readiness-bundle",
+                    str(oidc_bundle),
+                    "--oidc-readiness-bundle-summary",
+                    str(oidc_bundle_summary),
                     "--regulatory-readiness-bundle",
                     str(regulatory_bundle),
                     "--regulatory-readiness-bundle-summary",
