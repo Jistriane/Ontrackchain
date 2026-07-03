@@ -42,6 +42,7 @@
 - window packet: `pending`
 - dossier: `pending`
 - homologation: `pending`
+- oidc bundle summary: `pending`
 - regulatory bundle summary: `pending`
 
 ## KPI da Semana
@@ -105,7 +106,7 @@
 - atualizar o [War Room da Janela `stg-2026-07-06-a`](2026-07-06-staging-serious-window-war-room.md) com owners, desbloqueios e checkpoint de `go/no-go`
 - executar o workflow `Staging Serious Window` para `stg-2026-07-06-a` apenas se o war room sair de `no-go`
 - preencher o sign-off em [Sign-Off da Janela `stg-2026-07-06-a`](2026-07-06-staging-serious-window-signoff.md)
-- atualizar este registro com links reais de artifact, dossier e homologation
+- atualizar este registro com links reais de artifact, dossier, homologation, oidc bundle summary e regulatory bundle summary
 
 ## Observações
 

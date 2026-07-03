@@ -100,6 +100,8 @@
 - `handoff.json`:
 - `placeholders.json`:
 - `preflight_oidc_serious_env.py`:
+- `oidc-readiness-bundle.json`:
+- `oidc-readiness-bundle.md`:
 - `preflight_external_integrations.py`:
 - `check-compliance-provider-runtime`:
 - `<janela>-eu-sanctions-preflight.json`:

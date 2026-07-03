@@ -131,6 +131,8 @@
 - `handoff.json`: `artifacts/staging/checks/stg-2026-07-06-precheck2-handoff.json`
 - `placeholders.json`: `artifacts/staging/checks/stg-2026-07-06-precheck2-placeholders.json`
 - `preflight_oidc_serious_env.py`: `pending`
+- `oidc-readiness-bundle.json`: `pending`
+- `oidc-readiness-bundle.md`: `pending`
 - `preflight_external_integrations.py`: `pending`
 - `check-compliance-provider-runtime`: `pending`
 - `<janela>-eu-sanctions-preflight.json`: `pending`
