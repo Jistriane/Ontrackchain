@@ -354,7 +354,7 @@ const dictionaries = {
     "reports.history.status": "Status",
     "reports.history.lastAction": "Última ação",
     "reports.history.notAvailable": "—",
-    "reports.history.empty": "Nenhum caso rastreado no workspace. Clique em \"Rastrear\" em um caso acima para iniciar."
+    "reports.history.empty": "Nenhum caso rastreado no workspace. Clique em \"Rastrear\" em um caso acima para iniciar.",
     "reports.workspace.timeline.commentEmpty": "Preencha o comentário antes de salvar.",
     "reports.workspace.timeline.errorLoad": "Falha ao carregar a timeline compartilhada do caso.",
     "reports.workspace.timeline.errorComment": "Falha ao persistir o comentário do caso.",
@@ -403,7 +403,7 @@ const dictionaries = {
     "alerts.history.severity": "Severidade",
     "alerts.history.status": "Status de triagem",
     "alerts.history.queueStatus": "Status da fila",
-    "alerts.history.notAvailable": "—"
+    "alerts.history.notAvailable": "—",
     "alerts.workspace.timeline.commentEmpty": "Preencha o comentário antes de salvar.",
     "alerts.workspace.timeline.errorLoad": "Falha ao carregar a timeline compartilhada do incidente.",
     "alerts.workspace.timeline.errorComment": "Falha ao persistir o comentário do incidente.",
@@ -599,7 +599,7 @@ const dictionaries = {
     "counterparties.workspace.ddReview.sofDescription": "Descrição da origem dos fundos (SoF)",
     "counterparties.workspace.ddReview.sofDescriptionPlaceholder": "Descreva a origem dos fundos declarada e verificada",
     "counterparties.workspace.ddReview.note": "Nota interna de DD",
-    "counterparties.workspace.ddReview.notePlaceholder": "Conclusões, riscos residuais ou pendências da revisão de diligência devida"
+    "counterparties.workspace.ddReview.notePlaceholder": "Conclusões, riscos residuais ou pendências da revisão de diligência devida",
     "counterparties.workspace.timeline.commentEmpty": "Preencha o comentário antes de salvar.",
     "counterparties.workspace.timeline.errorLoad": "Falha ao carregar a timeline compartilhada da contraparte.",
     "counterparties.workspace.timeline.errorComment": "Falha ao persistir o comentário da contraparte.",
@@ -732,7 +732,7 @@ const dictionaries = {
     "sanctions.history.hit": "HIT",
     "sanctions.history.clear": "Limpo",
     "sanctions.history.none": "—",
-    "sanctions.history.empty": "Nenhuma triagem registrada no workspace. Realize uma verificação acima para construir o histórico."
+    "sanctions.history.empty": "Nenhuma triagem registrada no workspace. Realize uma verificação acima para construir o histórico.",
     "sanctions.workspace.timeline.commentEmpty": "Preencha o comentário antes de salvar.",
     "sanctions.workspace.timeline.errorLoad": "Falha ao carregar a timeline compartilhada de sanções.",
     "sanctions.workspace.timeline.errorComment": "Falha ao persistir o comentário de sanções.",
@@ -873,7 +873,7 @@ const dictionaries = {
     "blocks.history.screenedAt": "Avaliado em",
     "blocks.history.lastAction": "Última ação",
     "blocks.history.notAvailable": "—",
-    "blocks.history.empty": "Nenhum bloqueio rastreado no workspace."
+    "blocks.history.empty": "Nenhum bloqueio rastreado no workspace.",
     "blocks.workspace.timeline.commentEmpty": "Preencha o comentário antes de salvar.",
     "blocks.workspace.timeline.errorLoad": "Falha ao carregar a timeline compartilhada do bloqueio.",
     "blocks.workspace.timeline.errorComment": "Falha ao persistir o comentário do bloqueio.",
@@ -1013,7 +1013,7 @@ const dictionaries = {
     "rosCoaf.history.coafProtocol": "Protocolo COAF",
     "rosCoaf.history.lastAction": "Última ação",
     "rosCoaf.history.notAvailable": "—",
-    "rosCoaf.history.empty": "Nenhum registro ROS/COAF rastreado no workspace."
+    "rosCoaf.history.empty": "Nenhum registro ROS/COAF rastreado no workspace.",
     "rosCoaf.workspace.timeline.commentEmpty": "Preencha o comentario antes de salvar.",
     "rosCoaf.workspace.timeline.errorLoad": "Falha ao carregar a timeline compartilhada do ROS/COAF.",
     "rosCoaf.workspace.timeline.errorComment": "Falha ao persistir o comentario do ROS/COAF.",
@@ -1163,7 +1163,7 @@ const dictionaries = {
     "evidenceTrail.workspaceHistory.status": "Status",
     "evidenceTrail.workspaceHistory.owner": "Owner",
     "evidenceTrail.workspaceHistory.lastAction": "Última ação",
-    "evidenceTrail.workspaceHistory.empty": "Nenhum evento rastreado no workspace. Selecione um evento de auditoria e clique em Rastrear."
+    "evidenceTrail.workspaceHistory.empty": "Nenhum evento rastreado no workspace. Selecione um evento de auditoria e clique em Rastrear.",
     "evidenceTrail.workspace.timeline.commentEmpty": "Preencha o comentario antes de salvar.",
     "evidenceTrail.workspace.timeline.errorLoad": "Falha ao carregar a timeline compartilhada da evidencia.",
     "evidenceTrail.workspace.timeline.errorComment": "Falha ao persistir o comentario da evidencia.",
@@ -1921,7 +1921,7 @@ const dictionaries = {
     "reports.history.status": "Status",
     "reports.history.lastAction": "Last action",
     "reports.history.notAvailable": "—",
-    "reports.history.empty": "No cases tracked in the workspace. Click \"Track\" on a case above to get started."
+    "reports.history.empty": "No cases tracked in the workspace. Click \"Track\" on a case above to get started.",
     "reports.workspace.timeline.commentEmpty": "Enter a comment before saving.",
     "reports.workspace.timeline.errorLoad": "Failed to load the shared case timeline.",
     "reports.workspace.timeline.errorComment": "Failed to persist the case comment.",
@@ -1970,7 +1970,7 @@ const dictionaries = {
     "alerts.history.severity": "Severity",
     "alerts.history.status": "Triage status",
     "alerts.history.queueStatus": "Queue status",
-    "alerts.history.notAvailable": "—"
+    "alerts.history.notAvailable": "—",
     "alerts.workspace.timeline.commentEmpty": "Fill in the comment before saving.",
     "alerts.workspace.timeline.errorLoad": "Failed to load the shared incident timeline.",
     "alerts.workspace.timeline.errorComment": "Failed to persist the incident comment.",
@@ -2166,7 +2166,7 @@ const dictionaries = {
     "counterparties.workspace.ddReview.sofDescription": "Source-of-funds description (SoF)",
     "counterparties.workspace.ddReview.sofDescriptionPlaceholder": "Describe the declared and verified source of funds",
     "counterparties.workspace.ddReview.note": "Internal DD note",
-    "counterparties.workspace.ddReview.notePlaceholder": "Conclusions, residual risks or open items from the due diligence review"
+    "counterparties.workspace.ddReview.notePlaceholder": "Conclusions, residual risks or open items from the due diligence review",
     "counterparties.workspace.timeline.commentEmpty": "Enter a comment before saving.",
     "counterparties.workspace.timeline.errorLoad": "Failed to load the shared counterparty timeline.",
     "counterparties.workspace.timeline.errorComment": "Failed to persist the counterparty comment.",
@@ -2299,7 +2299,7 @@ const dictionaries = {
     "sanctions.history.hit": "HIT",
     "sanctions.history.clear": "Clear",
     "sanctions.history.none": "—",
-    "sanctions.history.empty": "No screenings recorded in the workspace. Run a check above to build the history."
+    "sanctions.history.empty": "No screenings recorded in the workspace. Run a check above to build the history.",
     "sanctions.workspace.timeline.commentEmpty": "Fill in the comment before saving.",
     "sanctions.workspace.timeline.errorLoad": "Failed to load the shared sanctions timeline.",
     "sanctions.workspace.timeline.errorComment": "Failed to persist the sanctions comment.",
@@ -2440,7 +2440,7 @@ const dictionaries = {
     "blocks.history.screenedAt": "Screened at",
     "blocks.history.lastAction": "Last action",
     "blocks.history.notAvailable": "—",
-    "blocks.history.empty": "No blocks tracked in the workspace."
+    "blocks.history.empty": "No blocks tracked in the workspace.",
     "blocks.workspace.timeline.commentEmpty": "Fill in the comment before saving.",
     "blocks.workspace.timeline.errorLoad": "Failed to load the shared block timeline.",
     "blocks.workspace.timeline.errorComment": "Failed to persist the block comment.",
@@ -2580,7 +2580,7 @@ const dictionaries = {
     "rosCoaf.history.coafProtocol": "COAF Protocol",
     "rosCoaf.history.lastAction": "Last action",
     "rosCoaf.history.notAvailable": "—",
-    "rosCoaf.history.empty": "No ROS/COAF records tracked in the workspace."
+    "rosCoaf.history.empty": "No ROS/COAF records tracked in the workspace.",
     "rosCoaf.workspace.timeline.commentEmpty": "Enter a comment before saving.",
     "rosCoaf.workspace.timeline.errorLoad": "Failed to load the shared ROS/COAF timeline.",
     "rosCoaf.workspace.timeline.errorComment": "Failed to persist the ROS/COAF comment.",
@@ -2730,7 +2730,7 @@ const dictionaries = {
     "evidenceTrail.workspaceHistory.status": "Status",
     "evidenceTrail.workspaceHistory.owner": "Owner",
     "evidenceTrail.workspaceHistory.lastAction": "Last action",
-    "evidenceTrail.workspaceHistory.empty": "No events tracked in the workspace. Select an audit event and click Track."
+    "evidenceTrail.workspaceHistory.empty": "No events tracked in the workspace. Select an audit event and click Track.",
     "evidenceTrail.workspace.timeline.commentEmpty": "Enter a comment before saving.",
     "evidenceTrail.workspace.timeline.errorLoad": "Failed to load the shared evidence timeline.",
     "evidenceTrail.workspace.timeline.errorComment": "Failed to persist the evidence comment.",
@@ -3488,7 +3488,7 @@ const dictionaries = {
     "reports.history.status": "Estado",
     "reports.history.lastAction": "Última acción",
     "reports.history.notAvailable": "—",
-    "reports.history.empty": "Ningún caso rastreado en el workspace. Haga clic en \"Rastrear\" en un caso arriba para comenzar."
+    "reports.history.empty": "Ningún caso rastreado en el workspace. Haga clic en \"Rastrear\" en un caso arriba para comenzar.",
     "reports.workspace.timeline.commentEmpty": "Completa el comentario antes de guardar.",
     "reports.workspace.timeline.errorLoad": "Error al cargar la timeline compartida del caso.",
     "reports.workspace.timeline.errorComment": "Error al persistir el comentario del caso.",
@@ -3537,7 +3537,7 @@ const dictionaries = {
     "alerts.history.severity": "Severidad",
     "alerts.history.status": "Estado de triaje",
     "alerts.history.queueStatus": "Estado de la cola",
-    "alerts.history.notAvailable": "—"
+    "alerts.history.notAvailable": "—",
     "alerts.workspace.timeline.commentEmpty": "Completa el comentario antes de guardar.",
     "alerts.workspace.timeline.errorLoad": "Error al cargar la timeline compartida del incidente.",
     "alerts.workspace.timeline.errorComment": "Error al persistir el comentario del incidente.",
@@ -3733,7 +3733,7 @@ const dictionaries = {
     "counterparties.workspace.ddReview.sofDescription": "Descripción del origen de fondos (SoF)",
     "counterparties.workspace.ddReview.sofDescriptionPlaceholder": "Describa el origen de fondos declarado y verificado",
     "counterparties.workspace.ddReview.note": "Nota interna de DD",
-    "counterparties.workspace.ddReview.notePlaceholder": "Conclusiones, riesgos residuales o pendencias de la revisión de debida diligencia"
+    "counterparties.workspace.ddReview.notePlaceholder": "Conclusiones, riesgos residuales o pendencias de la revisión de debida diligencia",
     "counterparties.workspace.timeline.commentEmpty": "Completa el comentario antes de guardar.",
     "counterparties.workspace.timeline.errorLoad": "Error al cargar la timeline compartida de la contraparte.",
     "counterparties.workspace.timeline.errorComment": "Error al persistir el comentario de la contraparte.",
@@ -3866,7 +3866,7 @@ const dictionaries = {
     "sanctions.history.hit": "HIT",
     "sanctions.history.clear": "Limpio",
     "sanctions.history.none": "—",
-    "sanctions.history.empty": "No hay triajes registrados en el workspace. Realice una verificación arriba para construir el historial."
+    "sanctions.history.empty": "No hay triajes registrados en el workspace. Realice una verificación arriba para construir el historial.",
     "sanctions.workspace.timeline.commentEmpty": "Completa el comentario antes de guardar.",
     "sanctions.workspace.timeline.errorLoad": "Error al cargar la timeline compartida de sanciones.",
     "sanctions.workspace.timeline.errorComment": "Error al persistir el comentario de sanciones.",
@@ -4007,7 +4007,7 @@ const dictionaries = {
     "blocks.history.screenedAt": "Evaluado el",
     "blocks.history.lastAction": "Última acción",
     "blocks.history.notAvailable": "—",
-    "blocks.history.empty": "Ningún bloqueo rastreado en el workspace."
+    "blocks.history.empty": "Ningún bloqueo rastreado en el workspace.",
     "blocks.workspace.timeline.commentEmpty": "Completa el comentario antes de guardar.",
     "blocks.workspace.timeline.errorLoad": "Error al cargar la timeline compartida del bloqueo.",
     "blocks.workspace.timeline.errorComment": "Error al persistir el comentario del bloqueo.",
@@ -4147,7 +4147,7 @@ const dictionaries = {
     "rosCoaf.history.coafProtocol": "Protocolo COAF",
     "rosCoaf.history.lastAction": "Última acción",
     "rosCoaf.history.notAvailable": "—",
-    "rosCoaf.history.empty": "Ningún registro ROS/COAF rastreado en el workspace."
+    "rosCoaf.history.empty": "Ningún registro ROS/COAF rastreado en el workspace.",
     "rosCoaf.workspace.timeline.commentEmpty": "Completa el comentario antes de guardar.",
     "rosCoaf.workspace.timeline.errorLoad": "Error al cargar la timeline compartida del ROS/COAF.",
     "rosCoaf.workspace.timeline.errorComment": "Error al persistir el comentario del ROS/COAF.",
@@ -4297,7 +4297,7 @@ const dictionaries = {
     "evidenceTrail.workspaceHistory.status": "Estado",
     "evidenceTrail.workspaceHistory.owner": "Owner",
     "evidenceTrail.workspaceHistory.lastAction": "Última acción",
-    "evidenceTrail.workspaceHistory.empty": "Ningún evento rastreado en el workspace. Seleccione un evento de auditoría y haga clic en Rastrear."
+    "evidenceTrail.workspaceHistory.empty": "Ningún evento rastreado en el workspace. Seleccione un evento de auditoría y haga clic en Rastrear.",
     "evidenceTrail.workspace.timeline.commentEmpty": "Completa el comentario antes de guardar.",
     "evidenceTrail.workspace.timeline.errorLoad": "Error al cargar la timeline compartida de la evidencia.",
     "evidenceTrail.workspace.timeline.errorComment": "Error al persistir el comentario de la evidencia.",

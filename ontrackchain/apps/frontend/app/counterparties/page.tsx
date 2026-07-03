@@ -383,6 +383,13 @@ function loadWorkspace(): CounterpartyWorkspaceRecord[] {
             localDeadline: typeof record.localDeadline === "string" ? record.localDeadline : "",
             workspaceStatus: normalizeWorkspaceStatus(record.workspaceStatus),
             note: typeof record.note === "string" ? record.note : "",
+            ddReviewStatus:
+              record.ddReviewStatus === "in_progress" || record.ddReviewStatus === "completed" || record.ddReviewStatus === "escalated"
+                ? record.ddReviewStatus
+                : "pending",
+            ddReviewNote: typeof record.ddReviewNote === "string" ? record.ddReviewNote : "",
+            sofDescription: typeof record.sofDescription === "string" ? record.sofDescription : "",
+            sofDocumentRef: typeof record.sofDocumentRef === "string" ? record.sofDocumentRef : "",
             lastActionAt: typeof record.lastActionAt === "string" ? record.lastActionAt : ""
           };
         })
@@ -430,6 +437,10 @@ function upsertWorkspaceRecord(
       localDeadline: "",
       workspaceStatus: "UNDER_REVIEW",
       note: "",
+      ddReviewStatus: "pending",
+      ddReviewNote: "",
+      sofDescription: "",
+      sofDocumentRef: "",
       lastActionAt: ""
     };
 
@@ -909,6 +920,10 @@ export default function CounterpartiesPage() {
         localDeadline: workspaceById.get(item.id)?.localDeadline ?? "",
         workspaceStatus: item.kyc_status === "APPROVED" && item.sanctions_cleared ? "CLOSED" : "UNDER_REVIEW",
         note: workspaceById.get(item.id)?.note ?? "",
+        ddReviewStatus: workspaceById.get(item.id)?.ddReviewStatus ?? "pending",
+        ddReviewNote: workspaceById.get(item.id)?.ddReviewNote ?? "",
+        sofDescription: workspaceById.get(item.id)?.sofDescription ?? "",
+        sofDocumentRef: workspaceById.get(item.id)?.sofDocumentRef ?? "",
         lastActionAt: new Date().toISOString()
       };
       setWorkspaceRecords((current) => upsertWorkspaceRecord(current, draftRecord));

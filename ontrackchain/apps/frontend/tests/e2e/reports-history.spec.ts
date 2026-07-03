@@ -2,6 +2,18 @@ import { expect, test } from "@playwright/test";
 
 test.describe("reports history backend", () => {
   test("carrega historico backend e aplica filtro por report_type", async ({ page }) => {
+    await page.context().addCookies([
+      {
+        name: "otc_token",
+        value: "pw-e2e-token",
+        domain: "localhost",
+        path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax"
+      }
+    ]);
+
     await page.route("**/api/app/report-types?**", async (route) => {
       await route.fulfill({
         status: 200,

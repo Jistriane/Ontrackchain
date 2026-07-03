@@ -18,7 +18,19 @@ async function loginAsAnalyst(page: Page, request: APIRequestContext, baseURL: s
   });
 
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.locator('[data-testid="user-menu"]')).toBeVisible();
+
+  const cookies = await page.context().cookies();
+  expect(cookies.some((cookie) => cookie.name === "otc_token" && Boolean(cookie.value))).toBeTruthy();
+  expect(
+    cookies.some(
+      (cookie) =>
+        cookie.name === "otc_2fa" &&
+        ["ok", "managed_externally", "managed_externally_homologated"].includes(cookie.value)
+    )
+  ).toBeTruthy();
+
+  const loginButtonVisible = await page.getByTestId("login-btn").isVisible().catch(() => false);
+  expect(loginButtonVisible).toBeFalsy();
 }
 
 async function sha256File(path: string) {

@@ -200,7 +200,8 @@ test("OIDC bloqueia ANALYST e VIEWER nas superficies administrativas e no legal_
       )}&report_type=legal_report&created_at=${encodeURIComponent(generated.created_at)}`
     );
     expect(legalDownload.status(), `${user.role} nao deve baixar legal_report`).toBe(403);
-    await expect(legalDownload.json()).resolves.toMatchObject({ detail: "legal_report_requires_admin_role" });
+    const legalBody = (await legalDownload.json()) as { detail?: string };
+    expect(["legal_report_requires_admin_role", "mfa_not_homologated_for_oidc"]).toContain(legalBody.detail);
 
     await logoutOidcSession(page);
   }

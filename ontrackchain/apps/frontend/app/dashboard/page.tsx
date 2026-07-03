@@ -139,8 +139,10 @@ export default async function DashboardPage() {
   const twofa = cookieStore.get("otc_2fa")?.value;
   const locale = normalizeLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
   const t = (key: MessageKey) => translate(locale, key);
+  const hasAcceptedSecondFactor =
+    twofa === "ok" || twofa === "managed_externally" || twofa === "managed_externally_homologated";
 
-  if (!token || twofa !== "ok") {
+  if (!token || !hasAcceptedSecondFactor) {
     redirect("/login");
   }
 

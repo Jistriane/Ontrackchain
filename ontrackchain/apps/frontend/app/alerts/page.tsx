@@ -75,6 +75,8 @@ type WorkItemResponse = {
   priority: WorkItemPriority;
   note: string | null;
   metadata: Record<string, unknown>;
+  last_activity_at?: string | null;
+  updated_at?: string | null;
 };
 
 type WorkItemListResponse = {
