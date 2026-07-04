@@ -1,0 +1,13 @@
+{
+  "total_decisions": 0,
+  "allowed": 0,
+  "blocked": 0,
+  "allow_rate": 0,
+  "block_rate": 0,
+  "overridden_count": 0,
+  "override_rate": 0,
+  "by_environment": {},
+  "latest_decision": null,
+  "oldest_decision": null,
+  "generated_at": "2026-07-03T23:27:02.338104"
+}
