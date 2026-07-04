@@ -14,8 +14,8 @@ Leituras oficiais:
 
 Referencias canonicas da baseline atual:
 
-- [Atualizacao de KPI 2026-07-01](./governance-weekly/2026-07-01-kpi-scorecard-update.md)
-- [Governanca Semanal 2026-07-01](./governance-weekly/2026-07-01-weekly-governance.md)
+- [Atualizacao de KPI 2026-07-01](./governance-weekly/archive/2026-07-01-kpi-scorecard-update.md)
+- [Governanca Semanal 2026-07-01](./governance-weekly/archive/2026-07-01-weekly-governance.md)
 
 Interpretacao:
 

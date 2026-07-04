@@ -230,8 +230,8 @@ Quando houver recalibracao relevante do scorecard, anexar ou embutir um bloco ba
 
 Registro inicial publicado:
 
-- [Governança Semanal 2026-06-29](governance-weekly/2026-06-29-weekly-governance.md)
-- rascunho da janela do dia: [Governança Semanal 2026-06-30](governance-weekly/2026-06-30-weekly-governance.md)
+- [Governança Semanal 2026-06-29](governance-weekly/archive/2026-06-29-weekly-governance.md)
+- rascunho da janela do dia: [Governança Semanal 2026-06-30](governance-weekly/archive/2026-06-30-weekly-governance.md)
 - rascunho do próximo ciclo: [Governança Semanal 2026-07-06](governance-weekly/2026-07-06-weekly-governance.md)
 
 ## Checklist de Fechamento

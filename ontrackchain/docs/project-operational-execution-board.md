@@ -17,6 +17,7 @@ Este documento e a referencia diaria do ciclo atual. Ele deve ser lido em conjun
 - [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
 - [Registro de Riscos do Projeto](./project-risk-register.md)
 - [Governanca Semanal](./governance-weekly/)
+- [Checklist Operacional para 95%](./EXECUTION_CHECKLIST_TO_95_PERCENT.md)
 
 ## Baseline Atual
 
@@ -26,10 +27,11 @@ Este documento e a referencia diaria do ciclo atual. Ele deve ser lido em conjun
 
 Baseline canonica de referencia:
 
+- [Avaliacao Consolidada de Status do Projeto](./PROJECT_STATUS_ASSESSMENT_2026_07_03.md)
 - [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
 - [Avaliacao de Maturidade do Projeto](./project-maturity-assessment.md)
-- [Governanca Semanal 2026-07-01](./governance-weekly/2026-07-01-weekly-governance.md)
-- [Atualizacao de KPI 2026-07-01](./governance-weekly/2026-07-01-kpi-scorecard-update.md)
+- [Governanca Semanal 2026-07-01](./governance-weekly/archive/2026-07-01-weekly-governance.md)
+- [Atualizacao de KPI 2026-07-01](./governance-weekly/archive/2026-07-01-kpi-scorecard-update.md)
 
 ## Regras Operacionais
 
@@ -59,6 +61,7 @@ Baseline canonica de referencia:
 - sem owner, o item nao entra em `in_progress`
 - sem atualizacao canônica, o item nao move baseline
 - usar `blocked` sempre que a pendencia depender de credencial, owner externo ou aceite institucional
+- usar [Checklist Operacional para 95%](./EXECUTION_CHECKLIST_TO_95_PERCENT.md) como trilha de cobrança por owner para os itens `P0` e para a governanca de subida ate `95%`
 
 ## Fila Prioritaria
 
@@ -144,6 +147,7 @@ Rito recomendado para execucao imediata:
 
 - Refira-se ao [Board de Prioridades do Projeto](./project-priority-board.md) para itens atuais
 - Rastreie progresso em [Governanca Semanal](./governance-weekly/)
+- Use [Checklist Operacional para 95%](./EXECUTION_CHECKLIST_TO_95_PERCENT.md) para cobrar artefatos, aceite e evidência por owner
 
 ### Next
 
@@ -216,4 +220,5 @@ Rito recomendado para execucao imediata:
 - usar este board como fonte unica de priorizacao do ciclo ate `90%+`
 - nao abrir frentes grandes que nao estejam conectadas a um item `P0/P1/P2`
 - manter `91% / 78% / 87%` como baseline executiva ate nova evidencia material publicada na governanca semanal
+- usar [Avaliacao Consolidada de Status do Projeto](./PROJECT_STATUS_ASSESSMENT_2026_07_03.md) como leitura executiva de suporte para status, subida para `95%` e parecer formal de `go/no-go`
 - atualizar o status somente com base em checker, artefato, teste, evidencia operacional ou sign-off

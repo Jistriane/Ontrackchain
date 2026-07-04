@@ -52,7 +52,7 @@
 - KPI total consolidado: `87%`
 - houve recalibração material?: `nao`
 - template detalhado de KPI:
-  - [Atualização de KPI 2026-07-01](./2026-07-01-kpi-scorecard-update.md)
+  - [Atualização de KPI 2026-07-01](./archive/2026-07-01-kpi-scorecard-update.md)
 
 ## Itens Atualizados
 

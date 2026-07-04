@@ -4,7 +4,7 @@
 
 Centralizar os documentos canonicos do Ontrackchain pós-Sprint 6, refletindo a consolidacao dos 7 cockpits regulatorios com history panels, i18n tri-locale e governanca operacional de forma coerente com o runtime atual, reduzindo drift entre codigo, operacao e narrativa executiva.
 
-**Estado Atual:** Sprint 6 concluída (maturidade técnica 91%, regulatória 78%, consolidada 87%). Documentação consolidada em 28 arquivos canônicos + 16 governance + 22 archived.
+**Estado Atual:** Sprint 6 concluída (maturidade técnica 91%, regulatória 78%, consolidada 87%). Documentação canônica consolidada e mantida prioritariamente em `docs/` e `docs/governance-weekly/`.
 
 ## Como Navegar
 
@@ -39,6 +39,10 @@ Centralizar os documentos canonicos do Ontrackchain pós-Sprint 6, refletindo a 
 ### Planejamento e Governanca
 
 - [Avaliacao de Maturidade do Projeto](./project-maturity-assessment.md): leitura executiva da baseline `91% / 78% / 87%` e dos gaps residuais.
+- [Avaliacao Consolidada de Status do Projeto](./PROJECT_STATUS_ASSESSMENT_2026_07_03.md): memorando executivo, matriz de subida para `95%` e parecer formal de `go/no-go`.
+- [Checklist Operacional para 95%](./EXECUTION_CHECKLIST_TO_95_PERCENT.md): checklist por owner para executar e cobrar a trilha de `87%` ate `95%`.
+- [Tracker Semanal de Owners para 95%](./WEEKLY_OWNERS_TRACKER_TO_95_PERCENT.md): planilha em Markdown para cobrar evidência, próxima ação e prazo por owner.
+- [Roteiro Operacional do Dia da Janela `stg-2026-07-06-a`](./DAY_OF_WINDOW_RUNBOOK_STG_2026_07_06_A.md): sequência condensada do dia da janela, do war room ao `go/no-go`.
 - [Scorecard Oficial do Projeto](./project-kpi-scorecard.md): KPI canonico com pesos, formula e percentual total consolidado.
 - [Board de Prioridades do Projeto](./project-priority-board.md): prioridades estrategicas atuais, Sprint 6 consolidada com paineis de historico.
 - [Board Operacional Unico](./project-operational-execution-board.md): fila diaria `P0/P1/P2` com dependencias, evidencias e gates de fechamento.
@@ -79,12 +83,14 @@ Centralizar os documentos canonicos do Ontrackchain pós-Sprint 6, refletindo a 
 A documentacao principal agora reflete explicitamente:
 
 **Arquitetura Operacional:**
+
 - 7 cockpits regulatorios consolidados: `counterparties`, `sanctions`, `evidence`, `reports`, `blocks`, `ros-coaf`, `alerts`
 - History panels persistidos em cada cockpit com i18n tri-locale (pt-BR/en/es)
 - Workspace records como base de reusabilidade: timeline, comments, status history
 - Metadata JSON em work-items para DD/SoF, notas operacionais e document refs
 
 **Fluxos Implementados:**
+
 - `evidence_trail` append-only com encadeamento `SHA-256`
 - `preventive_blocks`, `counterparties`, `sanctions_hits_cache` e `ros_records` com persistência
 - `compliance-worker` com override operacional de `source_url`
@@ -94,12 +100,14 @@ A documentacao principal agora reflete explicitamente:
 - Fluxo `ROS/COAF` com aprovacao/rejeicao/submissao manual
 
 **Gates e Validacoes:**
+
 - `check_compliance_provider_runtime.py` como gate de runtime para AML/KYT live
 - `run_eu_sanctions_window.py` para janela UE
 - `run_regulatory_readiness_bundle.py` para anexar AML/KYT + janela UE em bundle unico
 - `run_staging_window.py` e `make run-serious-window-local*` como rito consolidado
 
 **Operacoes:**
+
 - Pacote operacional da janela seria com war room, tracking ao vivo, manual fill sheet e sign-off
 - Diferenca explícita entre endpoints live, capacidades degradadas e gaps ainda abertos
 - Governance semanal consolidada em `/governance-weekly/` com active tracking + archive histórico
@@ -113,12 +121,14 @@ A documentacao principal agora reflete explicitamente:
 ## Limpeza e Organizacao (Julho 2026)
 
 **Consolidacao:** Documentacao reduzida de 98+ arquivos para 28 canonicos + 16 governance + 22 archived.
+
 - Todos os runbooks de Sprints 1-4 (45 files) movidos para `governance-weekly/archive/`
 - Arquivos de planejamento antigos (project-execution-plan-to-90, project-operational-plan-to-95) deletados
 - Referências atualizadas em 13 documentos principais para refletir Sprint 6 consolidada
 - Zero referências quebradas no estado final
 
 **Estrutura Atual:**
+
 - `/docs/*.md`: 28 documentos canônicos (operação, compliance, planning, governance)
 - `/docs/governance-weekly/`: 16 arquivos (templates + tracking atual)
 - `/docs/governance-weekly/archive/`: 22 arquivos históricos (Sprints 1-4 preservados)

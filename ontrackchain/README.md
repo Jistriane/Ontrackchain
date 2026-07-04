@@ -69,6 +69,17 @@ O estado atual do produto e de plataforma tecnicamente funcional, mas ainda com 
   - sign-off
   - dossier anexavel
 
+## Atualizacao Recente 2026-07-03
+
+- estabilizacao do fluxo OIDC + Playwright publicada em `main` no commit `1736e06`
+- validacao completa mais recente do frontend/e2e:
+  - `53 passed`
+  - `2 skipped`
+  - comando: `npx playwright test --reporter=line --workers=1`
+- observacao operacional no ambiente local com `docker compose`:
+  - mudancas server-side no frontend (por exemplo em `app/dashboard/page.tsx`) podem nao refletir com restart simples
+  - prefira `docker compose up -d --build frontend` antes de rerodar e2e
+
 ## Scorecard e Bloqueadores
 
 | Lente | Estado Atual | Fonte Canonica |
@@ -234,6 +245,8 @@ docker compose --profile oidc up -d --build
 python scripts/smoke_runtime.py
 make apply-regulatory-work-items-migration
 make smoke-work-items-ownership-backend
+
+docker compose up -d --build frontend
 
 cd apps/frontend
 npm ci

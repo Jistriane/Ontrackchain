@@ -13,12 +13,21 @@ Este repositorio tem dois papeis:
 
 Hoje o projeto ja opera como plataforma funcional, mas ainda nao concluiu toda a prontidao regulatoria/operacional para uma janela seria com prova real de ponta a ponta.
 
+## Politica de Documentacao (Atualizada)
+
+- documentacao canonica do produto fica em [`ontrackchain/docs`](./ontrackchain/docs/README.md)
+- este README da raiz concentra visao executiva, quick start e navegacao
+- documentos paralelos/temporarios fora da trilha canonica foram removidos para reduzir drift e duplicidade
+- para mudancas tecnicas ou operacionais, atualizar primeiro docs canonicos e depois artefatos de suporte
+
 ## Navegacao Rapida
 
 - [Ontrackchain](#ontrackchain)
   - [Visao Geral](#visao-geral)
+  - [Politica de Documentacao (Atualizada)](#politica-de-documentacao-atualizada)
   - [Navegacao Rapida](#navegacao-rapida)
   - [Estado Atual](#estado-atual)
+  - [Atualizacao Recente 2026-07-03](#atualizacao-recente-2026-07-03)
   - [Scorecard Oficial](#scorecard-oficial)
   - [Bloqueadores Atuais](#bloqueadores-atuais)
   - [Arquitetura em 60 Segundos](#arquitetura-em-60-segundos)
@@ -97,6 +106,20 @@ Hoje o projeto ja opera como plataforma funcional, mas ainda nao concluiu toda a
   - live tracking
   - sign-off
   - dossier anexavel
+
+## Atualizacao Recente 2026-07-03
+
+- estabilizacao do trilho OIDC/e2e no frontend publicada em `main`:
+  - commit `1736e06` (`Stabilize OIDC e2e flows and monitoring assertions`)
+  - ajuste de gate de sessao no dashboard para aceitar `otc_2fa=managed_externally` e `managed_externally_homologated`
+  - hardening dos testes `Playwright` para reduzir flakiness de login e cenarios assíncronos
+- validacao completa mais recente da suite frontend:
+  - `53 passed`
+  - `2 skipped`
+  - comando: `cd ontrackchain/apps/frontend && npx playwright test --reporter=line --workers=1`
+- nota operacional importante em ambiente `docker compose` local:
+  - mudancas server-side do frontend podem nao refletir com restart simples
+  - quando alterar `app/*` server-side, prefira `docker compose up -d --build frontend`
 
 ## Scorecard Oficial
 
@@ -507,6 +530,11 @@ O baseline atual de validacao combina:
 - quality gates por app em [`.github/workflows/quality-gates.yml`](./.github/workflows/quality-gates.yml)
 - workflow dedicado da janela seria em [`.github/workflows/staging-serious-window.yml`](./.github/workflows/staging-serious-window.yml)
 
+Execucao de referencia desta rodada (frontend/e2e):
+
+- `cd ontrackchain/apps/frontend && npx playwright test --reporter=line --workers=1`
+- resultado: `53 passed`, `2 skipped`
+
 Comandos recomendados:
 
 ```bash
@@ -581,6 +609,8 @@ docker compose --profile oidc up -d --build
 ```bash
 cd ontrackchain
 python scripts/smoke_runtime.py
+
+docker compose up -d --build frontend
 
 cd apps/frontend
 npm ci

@@ -9,6 +9,7 @@
 - facilitador: `Arquiteto/Responsavel Tecnico`
 - objetivo da janela: validar a primeira janela seria com evidencias anexaveis de staging e readiness regulatorio quando aplicavel
 - baseline canônica: `91% / 78% / 87%`
+- plano de acao automatico: [Plano de Acao do War Room `stg-2026-07-06-a`](stg-2026-07-06-a-war-room-action-plan.md)
 
 ## Leitura de Go/No-Go
 
@@ -153,6 +154,7 @@
 - owner: `owners nominais por trilha com coordenacao do facilitador/Release Manager Tecnico`
 - canal: `<preencher_canal_principal_war_room>`
 - criterio para seguir: rerun de `prepare_staging_window.py --validate --preflight` com `status=ok`
+- referencia operacional: usar [Plano de Acao do War Room `stg-2026-07-06-a`](stg-2026-07-06-a-war-room-action-plan.md) como checklist por dominio antes do rerun
 
 ## Resultado Final do War Room
 

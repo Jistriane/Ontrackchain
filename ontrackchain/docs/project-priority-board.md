@@ -12,6 +12,8 @@ Consolidar a visao estrategica das iniciativas necessarias para levar o Ontrackc
 
 Baseline canonica de referencia:
 
+- [Avaliacao Consolidada de Status do Projeto](./PROJECT_STATUS_ASSESSMENT_2026_07_03.md)
+- [Brief Executivo para Stakeholders](./STAKEHOLDER_BRIEF_2026_07_03.md)
 - [Governanca Semanal 2026-07-06](governance-weekly/2026-07-06-weekly-governance.md)
 - [Tracking Sprint 4 Dia 5](governance-weekly/2026-07-07-sprint-4-day-5-tracking.md)
 
@@ -95,6 +97,7 @@ Estado atual do rollout de ownership:
 - assignment formal por `owner_user_id` consolidado nos cockpits: `blocks`, `sanctions`, `alerts`, `ros-coaf`, `counterparties`, `evidence` e `reports`
 
 Em paralelo, se credencial/URL disponivel:
+
 - P0-02: `make check-compliance-provider-runtime`
 - P0-03: `make run-eu-sanctions-window-local`
 
@@ -110,5 +113,7 @@ Em paralelo, se credencial/URL disponivel:
 ## Regra de Baseline
 
 - manter `91% / 78% / 87%` como referencia executiva ate existir nova evidencia material publicada na governanca semanal
+- usar [Avaliacao Consolidada de Status do Projeto](./PROJECT_STATUS_ASSESSMENT_2026_07_03.md) como parecer executivo padrao para comunicacao com stakeholders e decisoes de `go/no-go`
+- usar [Brief Executivo para Stakeholders](./STAKEHOLDER_BRIEF_2026_07_03.md) quando a necessidade for comunicação curta com diretoria, sponsors ou owners externos
 - nao promover `P0-01`, `P0-02` ou `P0-03` sem artefato real, checker verde ou aceite institucional correspondente
 - nao marcar `P1-S5-*` como `done` sem o `WorkItemTimelinePanel` operacional e chaves de i18n completas no modulo

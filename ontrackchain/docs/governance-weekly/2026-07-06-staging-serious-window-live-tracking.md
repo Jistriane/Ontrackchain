@@ -8,9 +8,10 @@
 - environment_name: `staging-serious`
 - facilitador: `Arquiteto/Responsavel Tecnico`
 - status global: `blocked`
-- checkpoint atual: aguardando provisionamento por dominio antes do rerun de `prepare_staging_window.py --validate --preflight`
-- ultima atualizacao: `2026-07-01T19:45:00Z`
+- checkpoint atual: `refresh-staging-war-room-governance-local` executado; status mantido `blocked` por `placeholder_check` e `handoff_check`
+- ultima atualizacao: `ultimo rerun local via comando unico`
 - cadencia de atualizacao recomendada: `15 min`
+- plano de acao de referencia: [Plano de Acao do War Room `stg-2026-07-06-a`](stg-2026-07-06-a-war-room-action-plan.md)
 
 ## Status Permitidos
 
@@ -35,8 +36,8 @@
   - responsavel online: `<preencher_nome_owner_online_platform>`
   - canal de contato: `<preencher_slack_ou_teams_platform>`
   - ack do owner: `no`
-  - ultima atualizacao: `2026-07-01T19:45:00Z`
-  - ultimo checkpoint: `placeholders.json` ainda com segredos de base
+  - ultima atualizacao: `ultimo rerun local via comando unico`
+  - ultimo checkpoint: `placeholders.json` manteve `POSTGRES_PASSWORD`, `ALERTMANAGER_WEBHOOK_BEARER_TOKEN`, `GRAFANA_ADMIN_PASSWORD`
   - proximo checkpoint: provisionar segredos base e atualizar handoff
   - hora do proximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `30 min`
@@ -48,8 +49,8 @@
   - responsavel online: `<preencher_nome_owner_online_auth>`
   - canal de contato: `<preencher_slack_ou_teams_auth>`
   - ack do owner: `no`
-  - ultima atualizacao: `2026-07-01T19:45:00Z`
-  - ultimo checkpoint: handoff ainda sem `Data/Status` reais
+  - ultima atualizacao: `ultimo rerun local via comando unico`
+  - ultimo checkpoint: handoff de `Auth/OIDC` ainda sem `date/status`; placeholders OIDC mantidos
   - proximo checkpoint: provisionar secrets OIDC serio e rodar preflight OIDC
   - hora do proximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `30 min`
@@ -61,8 +62,8 @@
   - responsavel online: `<preencher_nome_owner_online_rpc>`
   - canal de contato: `<preencher_slack_ou_teams_rpc>`
   - ack do owner: `no`
-  - ultima atualizacao: `2026-07-01T19:45:00Z`
-  - ultimo checkpoint: endpoints RPC ainda em placeholder
+  - ultima atualizacao: `ultimo rerun local via comando unico`
+  - ultimo checkpoint: endpoints RPC primario/fallback ainda em placeholder
   - proximo checkpoint: preencher RPC primario/fallback e rerodar preflight externo
   - hora do proximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `30 min`
@@ -74,8 +75,8 @@
   - responsavel online: `<preencher_nome_owner_online_compliance>`
   - canal de contato: `<preencher_slack_ou_teams_compliance>`
   - ack do owner: `no`
-  - ultima atualizacao: `2026-07-01T19:45:00Z`
-  - ultimo checkpoint: provider e feed UE ainda sem prova real
+  - ultima atualizacao: `ultimo rerun local via comando unico`
+  - ultimo checkpoint: provider AML/KYT e feed UE tokenizado continuam sem insumo real
   - proximo checkpoint: provisionar credenciais AML/KYT e URL UE tokenizada
   - hora do proximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `60 min`
@@ -87,8 +88,8 @@
   - responsavel online: `<preencher_nome_facilitador_online>`
   - canal de contato: `<preencher_canal_principal_war_room>`
   - ack do owner: `yes`
-  - ultima atualizacao: `2026-07-01T19:45:00Z`
-  - ultimo checkpoint: gate ainda nao rerodado com insumos reais
+  - ultima atualizacao: `ultimo rerun local via comando unico`
+  - ultimo checkpoint: `prepare_staging_window` e `run_staging_window` com `status=failed`; delta com semaforo `amarelo`
   - proximo checkpoint: executar `prepare_staging_window.py --validate --preflight`
   - hora do proximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `15 min`
@@ -116,6 +117,18 @@
   - impacto: impede qualquer leitura honesta de `go_with_exception`
   - owner: `<preencher_nome_owner_online_compliance>`
   - canal: `<preencher_slack_ou_teams_compliance>`
+- `T+15`:
+  - trilha: `Gate Agregado da Janela`
+  - evento: rerun do gate agregado e run ponta a ponta executados sem mudanca de status
+  - impacto: `no-go` mantido por `placeholder_check` e `handoff_check`
+  - owner: `<preencher_nome_facilitador_online>`
+  - canal: `<preencher_canal_principal_war_room>`
+- `T+20`:
+  - trilha: `Gate Agregado da Janela`
+  - evento: comando unico `refresh-staging-war-room-governance-local` executado com snapshot e delta atualizados
+  - impacto: sem progresso material (`delta +0`), semaforo executivo `amarelo`, `no-go` mantido
+  - owner: `<preencher_nome_facilitador_online>`
+  - canal: `<preencher_canal_principal_war_room>`
 
 ## Bloqueadores em Curso
 
@@ -160,6 +173,12 @@
 - sign-off: [Sign-Off da Janela `stg-2026-07-06-a`](2026-07-06-staging-serious-window-signoff.md)
 - artefato OIDC esperado para `P0-01`: `artifacts/staging/checks/stg-2026-07-06-a-oidc-readiness-bundle.json` e `artifacts/staging/dossiers/stg-2026-07-06-a-oidc-readiness-bundle.md`
 - artefato regulatório esperado para `P0-02/P0-03`: `artifacts/staging/checks/stg-2026-07-06-a-regulatory-readiness-bundle.json` e `artifacts/staging/dossiers/stg-2026-07-06-a-regulatory-readiness-bundle.md`
+- snapshot consolidado esperado: `artifacts/staging/checks/stg-2026-07-06-a-status-snapshot.json`
+- dashboard executivo esperado: `docs/governance-weekly/stg-2026-07-06-a-governance-dashboard.md`
+- checklist de desbloqueio esperado: `docs/governance-weekly/stg-2026-07-06-a-unblock-checklist.md`
+- resumo de comunicacao esperado: `docs/governance-weekly/stg-2026-07-06-a-war-room-action-plan.md`
+- comando unico recomendado: `make refresh-staging-war-room-governance-local WINDOW_ID=stg-2026-07-06-a`
+- delta esperado: `docs/governance-weekly/stg-2026-07-06-a-status-snapshot-delta.md`
 - decisao recomendada: `pending_no_go`
 - owner do proximo passo: `owners nominais por trilha com coordenacao do facilitador/Release Manager Tecnico`
 - canal do proximo passo: `<preencher_canal_principal_war_room>`

@@ -31,8 +31,8 @@ Baseline canônica de referencia:
 - `91%` de construcao tecnica
 - `78%` de prontidao regulatoria
 - `87%` de construcao total consolidada
-- [Governança Semanal 2026-07-01](governance-weekly/2026-07-01-weekly-governance.md)
-- [Atualização de KPI 2026-07-01](governance-weekly/2026-07-01-kpi-scorecard-update.md)
+- [Governança Semanal 2026-07-01](governance-weekly/archive/2026-07-01-weekly-governance.md)
+- [Atualização de KPI 2026-07-01](governance-weekly/archive/2026-07-01-kpi-scorecard-update.md)
 
 ## Gates Obrigatorios
 
