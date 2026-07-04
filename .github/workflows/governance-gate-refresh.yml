@@ -1,0 +1,157 @@
+name: Refresh Governance Artefacts
+
+on:
+  schedule:
+    # Run governance refresh daily at 08:00 UTC
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+    inputs:
+      window_id:
+        description: 'Window ID (leave empty for latest)'
+        required: false
+        type: string
+      notify_slack:
+        description: 'Send Slack notification'
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  refresh-governance:
+    name: Refresh Governance Artefacts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Validate workflow hygiene
+        working-directory: ./ontrackchain
+        run: |
+          make check-workflow-hygiene
+
+      - name: Identify latest window
+        id: window
+        working-directory: ./ontrackchain
+        run: |
+          if [ -n "${{ github.event.inputs.window_id }}" ]; then
+            WINDOW_ID="${{ github.event.inputs.window_id }}"
+          else
+            WINDOW_ID=$(ls -t docs/governance-weekly/*-consolidated.json 2>/dev/null | head -1 | sed 's|.*/||; s|-consolidated.json||')
+            if [ -z "$WINDOW_ID" ]; then
+              WINDOW_ID="stg-2026-07-06-a"
+            fi
+          fi
+          echo "window_id=$WINDOW_ID" >> $GITHUB_OUTPUT
+          echo "Refreshing governance for: $WINDOW_ID"
+
+      - name: Refresh governance artefacts
+        working-directory: ./ontrackchain
+        run: |
+          make refresh-staging-war-room-governance-local \
+            WINDOW_ID="${{ steps.window.outputs.window_id }}" \
+            CHECKS_DIR="artifacts/staging/checks" \
+            DOSSIERS_DIR="artifacts/staging/dossiers"
+
+      - name: Evaluate governance gate
+        id: gate
+        working-directory: ./ontrackchain
+        run: |
+          python3 scripts/evaluate_governance_gate.py \
+            --consolidated-json "docs/governance-weekly/${{ steps.window.outputs.window_id }}-consolidated.json" \
+            --gate-policy moderate \
+            --operation merge \
+            --format json > gate_result.json
+          
+          cat gate_result.json
+          echo "gate_result=$(cat gate_result.json | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+      - name: Send Slack notification
+        if: github.event.inputs.notify_slack == 'true'
+        working-directory: ./ontrackchain
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "Slack webhook not configured; skipping notification"
+            exit 0
+          fi
+
+          python3 scripts/notify_slack_governance.py \
+            --consolidated-json "docs/governance-weekly/${{ steps.window.outputs.window_id }}-consolidated.json" \
+            --webhook-url "$SLACK_WEBHOOK_URL" \
+            --channel governance \
+            --mention-on-red
+
+      - name: Comment on PR or Commit
+        uses: actions/github-script@v7
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          script: |
+            const body = [
+              '## 📊 Governance Artefacts Refreshed',
+              '',
+              `Window: \`${{ steps.window.outputs.window_id }}\``,
+              `Date: ${new Date().toISOString().split('T')[0]}`,
+              '',
+              '### Gate Status',
+              '- **Policy:** moderate',
+              '- **Operation:** merge',
+              '- **Status:** Check details above',
+              '',
+              '### Generated Files',
+              `- \`docs/governance-weekly/${{ steps.window.outputs.window_id }}-war-room-action-plan.md\``,
+              `- \`docs/governance-weekly/${{ steps.window.outputs.window_id }}-status-snapshot.md\``,
+              `- \`docs/governance-weekly/${{ steps.window.outputs.window_id }}-status-snapshot-delta.md\``,
+              `- \`docs/governance-weekly/${{ steps.window.outputs.window_id }}-governance-dashboard.md\``,
+              `- \`docs/governance-weekly/${{ steps.window.outputs.window_id }}-unblock-checklist.md\``,
+              `- \`docs/governance-weekly/${{ steps.window.outputs.window_id }}-comms-summary.md\``,
+              `- \`docs/governance-weekly/${{ steps.window.outputs.window_id }}-executive-bullet.md\``,
+              `- \`docs/governance-weekly/${{ steps.window.outputs.window_id }}-consolidated.json\``,
+              '',
+              `Run details: [View on GitHub](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`
+            ].join('\n');
+            
+            // If we have open PRs, comment on them
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: 'main'
+            });
+            
+            if (prs.data.length > 0) {
+              for (const pr of prs.data.slice(0, 1)) {  // Comment on first PR
+                github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: body
+                });
+              }
+            }
+
+      - name: Upload artefacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: governance-artefacts-${{ steps.window.outputs.window_id }}
+          path: ontrackchain/docs/governance-weekly/${{ steps.window.outputs.window_id }}-*.md
+          retention-days: 30
+
+      - name: Log completion
+        run: |
+          echo "✅ Governance refresh completed"
+          echo "Window: ${{ steps.window.outputs.window_id }}"
+          echo "Gate Status: ${{ steps.gate.outputs.gate_result }}"

@@ -1,4 +1,4 @@
-.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle run-regulatory-readiness-bundle-local render-regulatory-readiness-bundle run-oidc-readiness-bundle run-oidc-readiness-bundle-local render-oidc-readiness-bundle validate-serious-window-artifact validate-serious-window-artifact-local apply-regulatory-work-items-migration smoke-work-items-ownership-backend
+.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle run-regulatory-readiness-bundle-local render-regulatory-readiness-bundle run-oidc-readiness-bundle run-oidc-readiness-bundle-local render-oidc-readiness-bundle validate-serious-window-artifact validate-serious-window-artifact-local render-staging-war-room-action-plan run-staging-window-status-snapshot-local render-staging-window-status-snapshot render-staging-window-status-snapshot-delta render-staging-governance-dashboard render-staging-unblock-checklist render-staging-comms-summary render-staging-executive-bullet render-staging-governance-consolidated-json notify-slack-governance evaluate-governance-gate track-governance-history render-governance-gate-history-dashboard update-governance-metrics refresh-staging-war-room-governance-local apply-regulatory-work-items-migration smoke-work-items-ownership-backend alert-pagerduty-governance-blocks generate-environment-promotion-policy generate-compliance-report generate-compliance-reports-all evaluate-auto-promotion-readiness check-workflow-hygiene
 
 PYTHON ?= python
 WINDOW_ID ?= stg-2026-07-06-a
@@ -18,6 +18,19 @@ OIDC_BUNDLE_SUMMARY_FILE ?= artifacts/staging/dossiers/$(WINDOW_ID)-oidc-readine
 CHECKS_DIR ?= artifacts/staging/checks
 DOSSIERS_DIR ?= artifacts/staging/dossiers
 ART_SCOPE ?= P0-01,P0-02,P0-03
+WAR_ROOM_ACTION_PLAN_OUTPUT_FILE ?= docs/governance-weekly/$(WINDOW_ID)-war-room-action-plan.md
+STATUS_SNAPSHOT_OUTPUT_FILE ?= artifacts/staging/checks/$(WINDOW_ID)-status-snapshot.json
+STATUS_SNAPSHOT_MARKDOWN_OUTPUT_FILE ?= docs/governance-weekly/$(WINDOW_ID)-status-snapshot.md
+STATUS_SNAPSHOT_HISTORY_DIR ?= artifacts/staging/checks/history
+STATUS_SNAPSHOT_DELTA_OUTPUT_FILE ?= docs/governance-weekly/$(WINDOW_ID)-status-snapshot-delta.md
+GOVERNANCE_DASHBOARD_OUTPUT_FILE ?= docs/governance-weekly/$(WINDOW_ID)-governance-dashboard.md
+UNBLOCK_CHECKLIST_OUTPUT_FILE ?= docs/governance-weekly/$(WINDOW_ID)-unblock-checklist.md
+COMMS_SUMMARY_OUTPUT_FILE ?= docs/governance-weekly/$(WINDOW_ID)-comms-summary.md
+EXECUTIVE_BULLET_OUTPUT_FILE ?= docs/governance-weekly/$(WINDOW_ID)-executive-bullet.md
+CONSOLIDATED_JSON_OUTPUT_FILE ?= docs/governance-weekly/$(WINDOW_ID)-consolidated.json
+SLACK_WEBHOOK_URL ?=
+GATE_POLICY ?= strict
+GATE_OPERATION ?= merge
 
 help:
 	@echo "Targets disponiveis:"
@@ -43,8 +56,18 @@ help:
 	@echo "  make render-oidc-readiness-bundle [OIDC_BUNDLE_OUTPUT_FILE=...] [OIDC_BUNDLE_SUMMARY_FILE=...]"
 	@echo "  make validate-serious-window-artifact [WINDOW_ID=...] [CHECKS_DIR=...] [DOSSIERS_DIR=...] [ART_SCOPE=P0-01,P0-02,P0-03]"
 	@echo "  make validate-serious-window-artifact-local [WINDOW_ID=...]"
+	@echo "  make render-staging-war-room-action-plan [WINDOW_ID=...] [CHECKS_DIR=...] [WAR_ROOM_ACTION_PLAN_OUTPUT_FILE=...]"
+	@echo "  make run-staging-window-status-snapshot-local [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...] [DOSSIERS_DIR=...] [ART_SCOPE=...] [STATUS_SNAPSHOT_OUTPUT_FILE=...]"
+	@echo "  make render-staging-window-status-snapshot [STATUS_SNAPSHOT_OUTPUT_FILE=...] [STATUS_SNAPSHOT_MARKDOWN_OUTPUT_FILE=...]"
+	@echo "  make render-staging-window-status-snapshot-delta [WINDOW_ID=...] [STATUS_SNAPSHOT_HISTORY_DIR=...] [STATUS_SNAPSHOT_DELTA_OUTPUT_FILE=...]"
+	@echo "  make render-staging-governance-dashboard [WINDOW_ID=...] [STATUS_SNAPSHOT_HISTORY_DIR=...] [GOVERNANCE_DASHBOARD_OUTPUT_FILE=...]"
+	@echo "  make render-staging-unblock-checklist [WINDOW_ID=...] [STATUS_SNAPSHOT_OUTPUT_FILE=...] [UNBLOCK_CHECKLIST_OUTPUT_FILE=...]"
+	@echo "  make render-staging-comms-summary [WINDOW_ID=...] [STATUS_SNAPSHOT_OUTPUT_FILE=...] [STATUS_SNAPSHOT_DELTA_OUTPUT_FILE=...] [GOVERNANCE_DASHBOARD_OUTPUT_FILE=...] [UNBLOCK_CHECKLIST_OUTPUT_FILE=...] [COMMS_SUMMARY_OUTPUT_FILE=...]"
+	@echo "  make render-staging-executive-bullet [WINDOW_ID=...] [STATUS_SNAPSHOT_OUTPUT_FILE=...] [STATUS_SNAPSHOT_DELTA_OUTPUT_FILE=...] [EXECUTIVE_BULLET_OUTPUT_FILE=...]"
+	@echo "  make refresh-staging-war-room-governance-local [WINDOW_ID=...] [CHECKS_DIR=...] [PRIVATE_ENV_FILE=...] [DOSSIERS_DIR=...]"
 	@echo "  make apply-regulatory-work-items-migration"
 	@echo "  make smoke-work-items-ownership-backend"
+	@echo "  make check-workflow-hygiene"
 
 help-serious-window:
 	@echo "Rito da janela seria:"
@@ -63,7 +86,8 @@ help-serious-window:
 	@echo " 12. Para P0-01 local: make run-oidc-readiness-bundle-local WINDOW_ID=$(WINDOW_ID) BASE_URL=http://localhost:8080"
 	@echo " 13. Para execucao local ponta a ponta: make run-serious-window-local WINDOW_ID=$(WINDOW_ID)"
 	@echo " 14. Validar completude do artifact: make validate-serious-window-artifact-local WINDOW_ID=$(WINDOW_ID)"
-	@echo " 15. Revisar sign-off versionado e board semanal sincronizado"
+	@echo " 15. Atualizar pacote local de governanca: make refresh-staging-war-room-governance-local WINDOW_ID=$(WINDOW_ID)"
+	@echo " 16. Revisar sign-off versionado e board semanal sincronizado"
 
 prepare-serious-window-dispatch:
 	@$(MAKE) preflight-serious-window-dispatch \
@@ -274,9 +298,221 @@ validate-serious-window-artifact-local:
 		DOSSIERS_DIR="artifacts/staging/dossiers" \
 		ART_SCOPE="P0-01,P0-02,P0-03"
 
+render-staging-war-room-action-plan:
+	@$(PYTHON) scripts/render_staging_war_room_action_plan.py \
+		--window-id "$(WINDOW_ID)" \
+		--checks-dir "$(CHECKS_DIR)" \
+		--output-file "$(WAR_ROOM_ACTION_PLAN_OUTPUT_FILE)"
+
+run-staging-window-status-snapshot-local:
+	@$(PYTHON) scripts/run_staging_window_status_snapshot.py \
+		--window-id "$(WINDOW_ID)" \
+		--private-env-file "$(PRIVATE_ENV_FILE)" \
+		--checks-dir "$(CHECKS_DIR)" \
+		--dossiers-dir "$(DOSSIERS_DIR)" \
+		--scope "$(ART_SCOPE)" \
+		--output-file "$(STATUS_SNAPSHOT_OUTPUT_FILE)" \
+		--history-dir "$(STATUS_SNAPSHOT_HISTORY_DIR)"
+	@$(MAKE) --no-print-directory render-staging-window-status-snapshot \
+		STATUS_SNAPSHOT_OUTPUT_FILE="$(STATUS_SNAPSHOT_OUTPUT_FILE)" \
+		STATUS_SNAPSHOT_MARKDOWN_OUTPUT_FILE="$(STATUS_SNAPSHOT_MARKDOWN_OUTPUT_FILE)"
+	@$(MAKE) --no-print-directory render-staging-window-status-snapshot-delta \
+		WINDOW_ID="$(WINDOW_ID)" \
+		STATUS_SNAPSHOT_HISTORY_DIR="$(STATUS_SNAPSHOT_HISTORY_DIR)" \
+		STATUS_SNAPSHOT_DELTA_OUTPUT_FILE="$(STATUS_SNAPSHOT_DELTA_OUTPUT_FILE)"
+
+render-staging-window-status-snapshot:
+	@$(PYTHON) scripts/render_staging_window_status_snapshot.py \
+		--snapshot-file "$(STATUS_SNAPSHOT_OUTPUT_FILE)" \
+		--output-file "$(STATUS_SNAPSHOT_MARKDOWN_OUTPUT_FILE)"
+
+render-staging-window-status-snapshot-delta:
+	@$(PYTHON) scripts/render_staging_window_status_snapshot_delta.py \
+		--window-id "$(WINDOW_ID)" \
+		--history-dir "$(STATUS_SNAPSHOT_HISTORY_DIR)" \
+		--output-file "$(STATUS_SNAPSHOT_DELTA_OUTPUT_FILE)"
+
+render-staging-governance-dashboard:
+	@$(PYTHON) scripts/render_staging_governance_dashboard.py \
+		--window-id "$(WINDOW_ID)" \
+		--history-dir "$(STATUS_SNAPSHOT_HISTORY_DIR)" \
+		--action-plan-file "$(WAR_ROOM_ACTION_PLAN_OUTPUT_FILE)" \
+		--status-snapshot-file "$(STATUS_SNAPSHOT_MARKDOWN_OUTPUT_FILE)" \
+		--status-delta-file "$(STATUS_SNAPSHOT_DELTA_OUTPUT_FILE)" \
+		--output-file "$(GOVERNANCE_DASHBOARD_OUTPUT_FILE)"
+
+render-staging-unblock-checklist:
+	@$(PYTHON) scripts/render_staging_unblock_checklist.py \
+		--window-id "$(WINDOW_ID)" \
+		--snapshot-file "$(STATUS_SNAPSHOT_OUTPUT_FILE)" \
+		--output-file "$(UNBLOCK_CHECKLIST_OUTPUT_FILE)"
+
+render-staging-comms-summary:
+	@$(PYTHON) scripts/render_staging_comms_summary.py \
+		--window-id "$(WINDOW_ID)" \
+		--snapshot-file "$(STATUS_SNAPSHOT_OUTPUT_FILE)" \
+		--delta-file "$(STATUS_SNAPSHOT_DELTA_OUTPUT_FILE)" \
+		--dashboard-file "$(GOVERNANCE_DASHBOARD_OUTPUT_FILE)" \
+		--unblock-file "$(UNBLOCK_CHECKLIST_OUTPUT_FILE)" \
+		--output-file "$(COMMS_SUMMARY_OUTPUT_FILE)"
+
+render-staging-executive-bullet:
+	@$(PYTHON) scripts/render_staging_executive_bullet.py \
+		--window-id "$(WINDOW_ID)" \
+		--snapshot-file "$(STATUS_SNAPSHOT_OUTPUT_FILE)" \
+		--delta-file "$(STATUS_SNAPSHOT_DELTA_OUTPUT_FILE)" \
+		--output-file "$(EXECUTIVE_BULLET_OUTPUT_FILE)"
+
+render-staging-governance-consolidated-json:
+	@$(PYTHON) scripts/render_staging_governance_consolidated_json.py \
+		--window-id "$(WINDOW_ID)" \
+		--checks-dir "$(CHECKS_DIR)" \
+		--dossiers-dir "$(DOSSIERS_DIR)" \
+		--docs-dir "$(GOVERNANCE_WEEKLY_DIR)" \
+		--output-file "$(CONSOLIDATED_JSON_OUTPUT_FILE)"
+
+refresh-staging-war-room-governance-local:
+	@$(MAKE) --no-print-directory render-staging-war-room-action-plan \
+		WINDOW_ID="$(WINDOW_ID)" \
+		CHECKS_DIR="$(CHECKS_DIR)" \
+		WAR_ROOM_ACTION_PLAN_OUTPUT_FILE="$(WAR_ROOM_ACTION_PLAN_OUTPUT_FILE)"
+	@$(MAKE) --no-print-directory run-staging-window-status-snapshot-local \
+		WINDOW_ID="$(WINDOW_ID)" \
+		PRIVATE_ENV_FILE="$(PRIVATE_ENV_FILE)" \
+		CHECKS_DIR="$(CHECKS_DIR)" \
+		DOSSIERS_DIR="$(DOSSIERS_DIR)" \
+		ART_SCOPE="$(ART_SCOPE)" \
+		STATUS_SNAPSHOT_OUTPUT_FILE="$(STATUS_SNAPSHOT_OUTPUT_FILE)" \
+		STATUS_SNAPSHOT_MARKDOWN_OUTPUT_FILE="$(STATUS_SNAPSHOT_MARKDOWN_OUTPUT_FILE)" \
+		STATUS_SNAPSHOT_HISTORY_DIR="$(STATUS_SNAPSHOT_HISTORY_DIR)" \
+		STATUS_SNAPSHOT_DELTA_OUTPUT_FILE="$(STATUS_SNAPSHOT_DELTA_OUTPUT_FILE)"
+	@$(MAKE) --no-print-directory render-staging-governance-dashboard \
+		WINDOW_ID="$(WINDOW_ID)" \
+		STATUS_SNAPSHOT_HISTORY_DIR="$(STATUS_SNAPSHOT_HISTORY_DIR)" \
+		WAR_ROOM_ACTION_PLAN_OUTPUT_FILE="$(WAR_ROOM_ACTION_PLAN_OUTPUT_FILE)" \
+		STATUS_SNAPSHOT_MARKDOWN_OUTPUT_FILE="$(STATUS_SNAPSHOT_MARKDOWN_OUTPUT_FILE)" \
+		STATUS_SNAPSHOT_DELTA_OUTPUT_FILE="$(STATUS_SNAPSHOT_DELTA_OUTPUT_FILE)" \
+		GOVERNANCE_DASHBOARD_OUTPUT_FILE="$(GOVERNANCE_DASHBOARD_OUTPUT_FILE)"
+	@$(MAKE) --no-print-directory render-staging-unblock-checklist \
+		WINDOW_ID="$(WINDOW_ID)" \
+		STATUS_SNAPSHOT_OUTPUT_FILE="$(STATUS_SNAPSHOT_OUTPUT_FILE)" \
+		UNBLOCK_CHECKLIST_OUTPUT_FILE="$(UNBLOCK_CHECKLIST_OUTPUT_FILE)"
+	@$(MAKE) --no-print-directory render-staging-comms-summary \
+		WINDOW_ID="$(WINDOW_ID)" \
+		STATUS_SNAPSHOT_OUTPUT_FILE="$(STATUS_SNAPSHOT_OUTPUT_FILE)" \
+		STATUS_SNAPSHOT_DELTA_OUTPUT_FILE="$(STATUS_SNAPSHOT_DELTA_OUTPUT_FILE)" \
+		GOVERNANCE_DASHBOARD_OUTPUT_FILE="$(GOVERNANCE_DASHBOARD_OUTPUT_FILE)" \
+		UNBLOCK_CHECKLIST_OUTPUT_FILE="$(UNBLOCK_CHECKLIST_OUTPUT_FILE)" \
+		COMMS_SUMMARY_OUTPUT_FILE="$(COMMS_SUMMARY_OUTPUT_FILE)"
+	@$(MAKE) --no-print-directory render-staging-executive-bullet \
+		WINDOW_ID="$(WINDOW_ID)" \
+		STATUS_SNAPSHOT_OUTPUT_FILE="$(STATUS_SNAPSHOT_OUTPUT_FILE)" \
+		STATUS_SNAPSHOT_DELTA_OUTPUT_FILE="$(STATUS_SNAPSHOT_DELTA_OUTPUT_FILE)" \
+		EXECUTIVE_BULLET_OUTPUT_FILE="$(EXECUTIVE_BULLET_OUTPUT_FILE)"
+	@$(MAKE) --no-print-directory render-staging-governance-consolidated-json \
+		WINDOW_ID="$(WINDOW_ID)" \
+		CHECKS_DIR="$(CHECKS_DIR)" \
+		DOSSIERS_DIR="$(DOSSIERS_DIR)" \
+		GOVERNANCE_WEEKLY_DIR="$(GOVERNANCE_WEEKLY_DIR)" \
+		CONSOLIDATED_JSON_OUTPUT_FILE="$(CONSOLIDATED_JSON_OUTPUT_FILE)"
+	@$(MAKE) --no-print-directory evaluate-governance-gate \
+		CONSOLIDATED_JSON_OUTPUT_FILE="$(CONSOLIDATED_JSON_OUTPUT_FILE)" \
+		GATE_POLICY="$(GATE_POLICY)" \
+		GATE_OPERATION="$(GATE_OPERATION)"
+	@if [ -n "$(SLACK_WEBHOOK_URL)" ] || [ -n "$$SLACK_WEBHOOK_URL" ]; then \
+		$(MAKE) --no-print-directory notify-slack-governance \
+			CONSOLIDATED_JSON_OUTPUT_FILE="$(CONSOLIDATED_JSON_OUTPUT_FILE)" \
+			SLACK_WEBHOOK_URL="$(SLACK_WEBHOOK_URL)"; \
+	fi
+
+notify-slack-governance:
+	@slack_webhook="$(SLACK_WEBHOOK_URL)"; \
+	if [ -z "$$slack_webhook" ]; then \
+		slack_webhook="$$SLACK_WEBHOOK_URL"; \
+	fi; \
+	if [ -z "$$slack_webhook" ]; then \
+		echo "Error: SLACK_WEBHOOK_URL not set"; \
+		exit 1; \
+	fi; \
+	$(PYTHON) scripts/notify_slack_governance.py \
+		--consolidated-json "$(CONSOLIDATED_JSON_OUTPUT_FILE)" \
+		--webhook-url "$$slack_webhook" \
+		--channel governance \
+		--mention-on-red
+
+evaluate-governance-gate:
+	@$(PYTHON) scripts/evaluate_governance_gate.py \
+		--consolidated-json "$(CONSOLIDATED_JSON_OUTPUT_FILE)" \
+		--gate-policy "$(GATE_POLICY)" \
+		--operation "$(GATE_OPERATION)" \
+		--format json
+
+# Phase 7: Production Deployment & Monitoring
+
+track-governance-history:
+	@mkdir -p artifacts/deployment-history
+	@$(PYTHON) scripts/track_governance_history.py \
+		--history-dir artifacts/deployment-history \
+		--output-file "$(GOVERNANCE_WEEKLY_DIR)/gate-history-metrics.json" \
+		--generate-report
+
+render-governance-gate-history-dashboard:
+	@$(PYTHON) scripts/render_governance_gate_history_dashboard.py \
+		--metrics-file "$(GOVERNANCE_WEEKLY_DIR)/gate-history-metrics.json" \
+		--output-file "$(GOVERNANCE_WEEKLY_DIR)/gate-history-dashboard.md" \
+		--include-trending
+
+update-governance-metrics:
+	@$(MAKE) --no-print-directory track-governance-history
+	@$(MAKE) --no-print-directory render-governance-gate-history-dashboard
+
 apply-regulatory-work-items-migration:
 	@cat infra/postgres/migrations/0013_regulatory_work_items.sql | \
 		docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U ontrackchain -d ontrackchain
 
 smoke-work-items-ownership-backend:
 	@cat scripts/smoke_work_items_ownership_backend.py | docker compose exec -T compliance-api python -
+
+# ================================
+# PHASE 8: Enterprise Governance
+# ================================
+
+alert-pagerduty-governance-blocks:
+	@$(PYTHON) scripts/alert_pagerduty_governance_blocks.py \
+		--consolidated-json "$(GOVERNANCE_WEEKLY_DIR)/$(WINDOW_ID)-consolidated.json" \
+		--severity error \
+		--component production \
+		--on-block
+
+generate-environment-promotion-policy:
+	@$(PYTHON) scripts/generate_environment_promotion_policy.py \
+		--output-file docs/environment-promotion-policy.json \
+		--include-rbac
+
+generate-compliance-report:
+	@$(PYTHON) scripts/generate_compliance_report.py \
+		--metrics-file "$(GOVERNANCE_WEEKLY_DIR)/gate-history-metrics.json" \
+		--output-file "docs/compliance-reports/compliance-report-$(shell date +%Y-%m-%d).md" \
+		--period monthly \
+		--format markdown
+
+generate-compliance-reports-all:
+	@$(MAKE) --no-print-directory generate-environment-promotion-policy
+	@$(MAKE) --no-print-directory generate-compliance-report
+
+# ================================
+# PHASE 9: Auto Promotion
+# ================================
+
+evaluate-auto-promotion-readiness:
+	@$(PYTHON) scripts/evaluate_auto_promotion_readiness.py \
+		--metrics-file "$(GOVERNANCE_WEEKLY_DIR)/gate-history-metrics.json" \
+		--environment staging \
+		--min-allow-rate 85 \
+		--max-override-rate 10 \
+		--max-block-rate 15 \
+		--min-total 10
+
+check-workflow-hygiene:
+	@$(PYTHON) -m unittest tests.test_check_workflow_hygiene
+	@$(PYTHON) scripts/check_workflow_hygiene.py

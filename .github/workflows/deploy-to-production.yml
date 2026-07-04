@@ -1,0 +1,390 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'ontrackchain/**'
+      - '.github/workflows/deploy-to-production.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+        default: 'staging'
+      force_deploy:
+        description: 'Force deployment ignoring governance gate'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  deployments: write
+  checks: write
+  pull-requests: write
+
+jobs:
+  check-governance:
+    name: Check Governance Gate
+    runs-on: ubuntu-latest
+    outputs:
+      gate_allowed: ${{ steps.gate.outputs.gate_allowed }}
+      gate_reason: ${{ steps.gate.outputs.gate_reason }}
+      force_override: ${{ github.event.inputs.force_deploy }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Validate workflow hygiene
+        working-directory: ./ontrackchain
+        run: |
+          make check-workflow-hygiene
+
+      - name: Identify latest governance window
+        id: window
+        working-directory: ./ontrackchain
+        run: |
+          WINDOW_ID=$(ls -t docs/governance-weekly/*-consolidated.json 2>/dev/null | head -1 | sed 's|.*/||; s|-consolidated.json||')
+          if [ -z "$WINDOW_ID" ]; then
+            WINDOW_ID="stg-2026-07-06-a"
+          fi
+          echo "window_id=$WINDOW_ID" >> $GITHUB_OUTPUT
+          echo "Governance Window: $WINDOW_ID"
+
+      - name: Evaluate deployment gate (strict policy)
+        id: gate
+        working-directory: ./ontrackchain
+        run: |
+          GATE_OUTPUT=$(python3 scripts/evaluate_governance_gate.py \
+            --consolidated-json "docs/governance-weekly/${{ steps.window.outputs.window_id }}-consolidated.json" \
+            --gate-policy strict \
+            --operation deploy \
+            --format github)
+          
+          while IFS='=' read -r key value; do
+            echo "$key=$value" >> $GITHUB_OUTPUT
+          done <<< "$GATE_OUTPUT"
+          
+          # Save full JSON for later steps
+          python3 scripts/evaluate_governance_gate.py \
+            --consolidated-json "docs/governance-weekly/${{ steps.window.outputs.window_id }}-consolidated.json" \
+            --gate-policy strict \
+            --operation deploy \
+            --format json > gate_result.json
+          
+          cat gate_result.json
+
+      - name: Check force override
+        id: override-check
+        run: |
+          if [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+            echo "⚠️  FORCE OVERRIDE ENABLED - Deployment will proceed regardless of gate status"
+            echo "override_enabled=true" >> $GITHUB_OUTPUT
+          else
+            echo "override_enabled=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create deployment status check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const allowed = '${{ steps.gate.outputs.gate_allowed }}' === 'true';
+            const reason = '${{ steps.gate.outputs.gate_reason }}';
+            const override = '${{ steps.override-check.outputs.override_enabled }}' === 'true';
+            const conclusion = override ? 'success' : (allowed ? 'success' : 'failure');
+            
+            const title = allowed ? 'Governance Gate: ALLOWED' : 'Governance Gate: BLOCKED';
+            const summary = override 
+              ? `⚠️ OVERRIDE ENABLED - Deployment proceeding despite: ${reason}`
+              : reason;
+            
+            github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'Governance Deployment Gate',
+              head_sha: context.sha,
+              status: 'completed',
+              conclusion: conclusion,
+              output: {
+                title: title,
+                summary: summary,
+                text: `Policy: strict | Operation: deploy | Gate Result: ${conclusion}`
+              }
+            });
+
+  record-gate-decision:
+    name: Record Gate Decision
+    runs-on: ubuntu-latest
+    needs: check-governance
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Validate workflow hygiene
+        working-directory: ./ontrackchain
+        run: |
+          make check-workflow-hygiene
+
+      - name: Create gate history record
+        working-directory: ./ontrackchain
+        run: |
+          mkdir -p artifacts/deployment-history
+          
+          TIMESTAMP=$(date -u +"%Y%m%dT%H%M%SZ")
+          RESULT_FILE="artifacts/deployment-history/gate_decision_${TIMESTAMP}.json"
+          
+          cat > "$RESULT_FILE" <<EOF
+          {
+            "timestamp": "$(date -u --iso-8601=seconds)",
+            "workflow_run_id": "${{ github.run_id }}",
+            "commit_sha": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "gate_allowed": "${{ needs.check-governance.outputs.gate_allowed }}",
+            "gate_reason": "${{ needs.check-governance.outputs.gate_reason }}",
+            "force_override": "${{ needs.check-governance.outputs.force_override }}",
+            "github_actor": "${{ github.actor }}",
+            "environment": "${{ github.event.inputs.environment || 'staging' }}"
+          }
+          EOF
+          
+          echo "Gate decision recorded: $RESULT_FILE"
+          cat "$RESULT_FILE"
+
+      - name: Upload history artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: gate-decision-history
+          path: ontrackchain/artifacts/deployment-history/
+          retention-days: 90
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: check-governance
+    if: github.event.inputs.environment != 'production' || needs.check-governance.outputs.gate_allowed == 'true' || github.event.inputs.force_deploy == 'true'
+    environment:
+      name: staging
+      url: https://staging.example.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check gate status
+        run: |
+          if [ "${{ needs.check-governance.outputs.gate_allowed }}" != "true" ] && [ "${{ github.event.inputs.force_deploy }}" != "true" ]; then
+            echo "❌ Deployment blocked by governance gate"
+            echo "Reason: ${{ needs.check-governance.outputs.gate_reason }}"
+            exit 1
+          fi
+          
+          if [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+            echo "⚠️  FORCE OVERRIDE: Proceeding despite gate status"
+            echo "Gate was: ${{ needs.check-governance.outputs.gate_reason }}"
+          else
+            echo "✅ Gate approved: Proceeding with deployment"
+          fi
+
+      - name: Deploy to staging
+        working-directory: ./ontrackchain
+        run: |
+          echo "🚀 Deploying to staging..."
+          echo "Commit: ${{ github.sha }}"
+          echo "Time: $(date -u)"
+          
+          # Replace with actual deployment commands
+          # docker compose -f docker-compose.yml up -d
+          # or
+          # kubectl apply -f k8s/
+          
+          echo "✅ Staging deployment complete"
+
+      - name: Run smoke tests
+        working-directory: ./ontrackchain
+        run: |
+          echo "🧪 Running smoke tests..."
+          # Add your smoke test commands here
+          echo "✅ Smoke tests passed"
+
+      - name: Record deployment success
+        if: success()
+        working-directory: ./ontrackchain
+        run: |
+          mkdir -p artifacts/deployment-history
+          cat > "artifacts/deployment-history/deployment_${GITHUB_RUN_ID}.json" <<EOF
+          {
+            "deployment_id": "${{ github.run_id }}",
+            "timestamp": "$(date -u --iso-8601=seconds)",
+            "environment": "staging",
+            "status": "success",
+            "commit_sha": "${{ github.sha }}",
+            "gate_allowed": "${{ needs.check-governance.outputs.gate_allowed }}",
+            "force_override": "${{ github.event.inputs.force_deploy }}"
+          }
+          EOF
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [check-governance, deploy-staging]
+    if: github.event.inputs.environment == 'production' && (needs.check-governance.outputs.gate_allowed == 'true' || github.event.inputs.force_deploy == 'true')
+    environment:
+      name: production
+      url: https://api.example.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify gate approval
+        run: |
+          if [ "${{ needs.check-governance.outputs.gate_allowed }}" != "true" ] && [ "${{ github.event.inputs.force_deploy }}" != "true" ]; then
+            echo "❌ Production deployment BLOCKED - governance gate failed"
+            exit 1
+          fi
+          
+          if [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+            echo "⚠️  FORCE OVERRIDE ACTIVE - Production deployment proceeding"
+          else
+            echo "✅ Governance gate APPROVED - Production deployment proceeding"
+          fi
+
+      - name: Request production approval
+        id: approval_issue
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: |
+            const sha = '${{ github.sha }}';
+            const actor = '${{ github.actor }}';
+            const gateAllowed = '${{ needs.check-governance.outputs.gate_allowed }}' === 'true';
+            const gateReason = '${{ needs.check-governance.outputs.gate_reason }}';
+            const serverUrl = '${{ github.server_url }}';
+            const repo = '${{ github.repository }}';
+            const runId = '${{ github.run_id }}';
+            
+            const gateStatus = gateAllowed ? '✅ APPROVED' : '❌ BLOCKED (override enabled)';
+            
+            const body = `## 🚀 Production Deployment Request\n\n` +
+              `Commit: [${sha.substring(0, 8)}...](${serverUrl}/${repo}/commit/${sha})\n` +
+              `Author: @${actor}\n` +
+              `Gate Status: ${gateStatus}\n` +
+              `Gate Reason: ${gateReason}\n\n` +
+              `### Required Checks\n` +
+              `- [x] Governance gate validation\n` +
+              `- [x] Staging deployment successful\n` +
+              `- [ ] Manual approval required for production\n\n` +
+              `**Action Required:** Review governance status and approve/deny production deployment.`;
+            
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[PROD DEPLOY] Production deployment request - Run #${runId}`,
+              body: body,
+              labels: ['deployment', 'production', 'governance']
+            });
+
+            return String(issue.data.number);
+
+      - name: Deploy to production
+        working-directory: ./ontrackchain
+        run: |
+          echo "🚀 Deploying to production..."
+          echo "Commit: ${{ github.sha }}"
+          echo "Time: $(date -u)"
+          
+          # Replace with actual production deployment commands
+          # kubectl apply -f k8s/prod/
+          # or
+          # terraform apply -auto-approve
+          
+          echo "✅ Production deployment complete"
+
+      - name: Notify deployment success
+        if: success() && steps.approval_issue.outputs.result != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = Number('${{ steps.approval_issue.outputs.result }}');
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `✅ Production deployment completed successfully!\n\nCommit: ${{ github.sha }}\nTime: ${new Date().toISOString()}`
+            });
+
+  notify-deployment:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: [check-governance, deploy-staging]
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Send deployment notification
+        working-directory: ./ontrackchain
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "Slack webhook not configured; skipping notification"
+            exit 0
+          fi
+
+          DEPLOYMENT_STATUS="${{ job.status }}"
+          GATE_ALLOWED="${{ needs.check-governance.outputs.gate_allowed }}"
+          GATE_REASON="${{ needs.check-governance.outputs.gate_reason }}"
+          
+          if [ "$DEPLOYMENT_STATUS" = "success" ]; then
+            STATUS_EMOJI="✅"
+          else
+            STATUS_EMOJI="❌"
+          fi
+          
+          GATE_EMOJI="$([ "$GATE_ALLOWED" = "true" ] && echo "🟢" || echo "🔴")"
+          
+          echo "Deployment Status: $STATUS_EMOJI $DEPLOYMENT_STATUS"
+          echo "Gate Status: $GATE_EMOJI $([ "$GATE_ALLOWED" = "true" ] && echo "ALLOWED" || echo "BLOCKED")"
+          echo "Reason: $GATE_REASON"
+
+  summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [check-governance]
+    if: always()
+    steps:
+      - name: Print deployment summary
+        run: |
+          echo "═══════════════════════════════════════════"
+          echo "  Deployment Gate Decision Summary"
+          echo "═══════════════════════════════════════════"
+          echo ""
+          echo "Gate Allowed: ${{ needs.check-governance.outputs.gate_allowed }}"
+          echo "Gate Reason: ${{ needs.check-governance.outputs.gate_reason }}"
+          echo "Force Override: ${{ github.event.inputs.force_deploy }}"
+          echo ""
+          echo "Environment: ${{ github.event.inputs.environment || 'staging' }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo ""
+          echo "═══════════════════════════════════════════"

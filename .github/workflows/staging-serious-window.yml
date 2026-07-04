@@ -49,6 +49,10 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Validate workflow hygiene
+        run: |
+          make check-workflow-hygiene
+
       - name: Prepare CI artifacts directory
         run: mkdir -p ci-artifacts
 

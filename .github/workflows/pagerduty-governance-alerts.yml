@@ -1,0 +1,122 @@
+name: PagerDuty Governance Alerts
+
+on:
+  schedule:
+    # Run every hour to check for critical blocks
+    - cron: '0 * * * *'
+  workflow_dispatch:
+    inputs:
+      severity:
+        description: 'Alert severity'
+        required: false
+        type: choice
+        options:
+          - critical
+          - error
+          - warning
+          - info
+        default: 'error'
+      component:
+        description: 'Component/environment'
+        required: false
+        type: choice
+        options:
+          - staging
+          - production
+          - all
+        default: 'production'
+
+jobs:
+  check-governance-for-pagerduty:
+    name: Check Governance Status
+    runs-on: ubuntu-latest
+    outputs:
+      needs_alert: ${{ steps.check.outputs.needs_alert }}
+      component: ${{ steps.check.outputs.component }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Validate workflow hygiene
+        working-directory: ./ontrackchain
+        run: |
+          make check-workflow-hygiene
+
+      - name: Check governance status
+        id: check
+        working-directory: ./ontrackchain
+        run: |
+          # Find latest consolidated JSON
+          LATEST_JSON=$(ls -t docs/governance-weekly/*-consolidated.json 2>/dev/null | head -1)
+          
+          if [ -z "$LATEST_JSON" ]; then
+            echo "No consolidated JSON found"
+            exit 1
+          fi
+          
+          # Check if gate would be blocked
+          GATE_RESULT=$(python3 scripts/evaluate_governance_gate.py \
+            --consolidated-json "$LATEST_JSON" \
+            --gate-policy strict \
+            --operation deploy \
+            --format json)
+          
+          ALLOWED=$(echo "$GATE_RESULT" | python3 -c "import sys, json; print('true' if json.load(sys.stdin).get('allowed') else 'false')")
+          
+          if [ "$ALLOWED" = "false" ]; then
+            echo "needs_alert=true" >> $GITHUB_OUTPUT
+            echo "component=${{ github.event.inputs.component || 'production' }}" >> $GITHUB_OUTPUT
+          else
+            echo "needs_alert=false" >> $GITHUB_OUTPUT
+          fi
+
+  send-pagerduty-alert:
+    name: Send PagerDuty Alert
+    runs-on: ubuntu-latest
+    needs: check-governance-for-pagerduty
+    if: needs.check-governance-for-pagerduty.outputs.needs_alert == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Validate workflow hygiene
+        working-directory: ./ontrackchain
+        run: |
+          make check-workflow-hygiene
+
+      - name: Send PagerDuty alert
+        working-directory: ./ontrackchain
+        env:
+          PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
+        run: |
+          if [ -z "$PAGERDUTY_INTEGRATION_KEY" ]; then
+            echo "PagerDuty integration key not configured; skipping alert"
+            exit 0
+          fi
+
+          LATEST_JSON=$(ls -t docs/governance-weekly/*-consolidated.json 2>/dev/null | head -1)
+          
+          if [ -n "$LATEST_JSON" ]; then
+            python3 scripts/alert_pagerduty_governance_blocks.py \
+              --consolidated-json "$LATEST_JSON" \
+              --pagerduty-integration-key "$PAGERDUTY_INTEGRATION_KEY" \
+              --severity "${{ github.event.inputs.severity || 'error' }}" \
+              --component "${{ needs.check-governance-for-pagerduty.outputs.component }}" \
+              --on-block
+          fi
+
+      - name: Log alert status
+        run: |
+          echo "✅ PagerDuty alert workflow completed"
+          echo "Component: ${{ needs.check-governance-for-pagerduty.outputs.component }}"
+          echo "Severity: ${{ github.event.inputs.severity || 'error' }}"

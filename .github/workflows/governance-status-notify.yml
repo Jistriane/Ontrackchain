@@ -1,0 +1,71 @@
+name: Governance Status Notification
+
+on:
+  schedule:
+    # Send daily Slack notification at 09:00 UTC
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+    inputs:
+      window_id:
+        description: 'Window ID to notify'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  notify-governance-status:
+    name: Send Governance Status to Slack
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Validate workflow hygiene
+        working-directory: ./ontrackchain
+        run: |
+          make check-workflow-hygiene
+
+      - name: Identify window
+        id: window
+        working-directory: ./ontrackchain
+        run: |
+          if [ -n "${{ github.event.inputs.window_id }}" ]; then
+            WINDOW_ID="${{ github.event.inputs.window_id }}"
+          else
+            WINDOW_ID=$(ls -t docs/governance-weekly/*-consolidated.json 2>/dev/null | head -1 | sed 's|.*/||; s|-consolidated.json||')
+            if [ -z "$WINDOW_ID" ]; then
+              echo "No consolidated JSON found"
+              exit 1
+            fi
+          fi
+          echo "window_id=$WINDOW_ID" >> $GITHUB_OUTPUT
+
+      - name: Send Slack notification
+        working-directory: ./ontrackchain
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "Slack webhook not configured; skipping notification"
+            exit 0
+          fi
+
+          python3 scripts/notify_slack_governance.py \
+            --consolidated-json "docs/governance-weekly/${{ steps.window.outputs.window_id }}-consolidated.json" \
+            --webhook-url "$SLACK_WEBHOOK_URL" \
+            --channel governance \
+            --mention-on-red
+
+      - name: Log notification sent
+        run: |
+          echo "✅ Governance status notification sent for window: ${{ steps.window.outputs.window_id }}"
+          echo "Sent to Slack #governance channel"
+          echo "Time: $(date -u)"

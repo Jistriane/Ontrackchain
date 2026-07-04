@@ -7,6 +7,21 @@ on:
     branches: ["main"]
 
 jobs:
+  workflow-hygiene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate workflow hygiene
+        working-directory: ontrackchain
+        run: make check-workflow-hygiene
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 20

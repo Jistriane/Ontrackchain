@@ -1,0 +1,109 @@
+name: Track Governance Gate History
+
+on:
+  schedule:
+    # Run every 6 hours to track gate decisions
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      generate_dashboard:
+        description: 'Generate historical dashboard'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  track-history:
+    name: Track Gate Decisions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Validate workflow hygiene
+        working-directory: ./ontrackchain
+        run: |
+          make check-workflow-hygiene
+
+      - name: Track deployment history
+        working-directory: ./ontrackchain
+        run: |
+          mkdir -p artifacts/deployment-history
+          
+          python3 scripts/track_governance_history.py \
+            --history-dir artifacts/deployment-history \
+            --output-file docs/governance-weekly/gate-history-metrics.json \
+            --generate-report
+
+      - name: Generate history dashboard
+        if: github.event.inputs.generate_dashboard != 'false'
+        working-directory: ./ontrackchain
+        run: |
+          python3 scripts/render_governance_gate_history_dashboard.py \
+            --metrics-file docs/governance-weekly/gate-history-metrics.json \
+            --output-file docs/governance-weekly/gate-history-dashboard.md \
+            --include-trending
+
+      - name: Upload tracking artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: governance-gate-history
+          path: |
+            ontrackchain/docs/governance-weekly/gate-history-metrics.json
+            ontrackchain/docs/governance-weekly/gate-history-dashboard.md
+          retention-days: 90
+
+      - name: Commit history files
+        working-directory: ./ontrackchain
+        run: |
+          git config user.name "Governance Bot"
+          git config user.email "governance@bot.local"
+          
+          git add -A docs/governance-weekly/gate-history-*.{json,md} 2>/dev/null || true
+          
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "🤖 Update governance gate history and dashboard"
+            git push || true
+          fi
+
+  notify-history:
+    name: Notify History Update
+    runs-on: ubuntu-latest
+    needs: track-history
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Validate workflow hygiene
+        working-directory: ./ontrackchain
+        run: |
+          make check-workflow-hygiene
+
+      - name: Send history update notification
+        working-directory: ./ontrackchain
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "Slack webhook not configured; skipping notification"
+            exit 0
+          fi
+
+          if [ -f "docs/governance-weekly/gate-history-metrics.json" ]; then
+            METRICS=$(python3 -c "import json; m=json.load(open('docs/governance-weekly/gate-history-metrics.json')); print(f\"Total: {m.get('total_decisions', 0)} | Allow: {m.get('allow_rate', 0)}% | Block: {m.get('block_rate', 0)}%\")")
+            echo "📊 Governance Gate History Updated"
+            echo "Metrics: $METRICS"
+          fi

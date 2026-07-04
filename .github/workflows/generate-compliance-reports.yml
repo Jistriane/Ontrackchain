@@ -1,0 +1,100 @@
+name: Generate Compliance Reports
+
+on:
+  schedule:
+    # Run monthly (first day of month at 00:00 UTC)
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
+    inputs:
+      period:
+        description: 'Report period'
+        required: false
+        type: choice
+        options:
+          - weekly
+          - monthly
+          - quarterly
+          - annual
+        default: 'monthly'
+      format:
+        description: 'Report format'
+        required: false
+        type: choice
+        options:
+          - markdown
+          - json
+        default: 'markdown'
+
+jobs:
+  generate-compliance-report:
+    name: Generate Compliance Report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Validate workflow hygiene
+        working-directory: ./ontrackchain
+        run: |
+          make check-workflow-hygiene
+
+      - name: Generate promotion policy
+        working-directory: ./ontrackchain
+        run: |
+          python3 scripts/generate_environment_promotion_policy.py \
+            --output-file docs/environment-promotion-policy.json \
+            --include-rbac
+
+      - name: Generate compliance report
+        working-directory: ./ontrackchain
+        run: |
+          PERIOD="${{ github.event.inputs.period || 'monthly' }}"
+          FORMAT="${{ github.event.inputs.format || 'markdown' }}"
+          
+          REPORT_DATE=$(date +%Y-%m-%d)
+          REPORT_FILE="docs/compliance-reports/compliance-report-${REPORT_DATE}.${FORMAT}"
+          
+          python3 scripts/generate_compliance_report.py \
+            --metrics-file docs/governance-weekly/gate-history-metrics.json \
+            --output-file "$REPORT_FILE" \
+            --period "$PERIOD" \
+            --format "$FORMAT"
+
+      - name: Upload compliance artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: compliance-reports
+          path: |
+            ontrackchain/docs/compliance-reports/
+            ontrackchain/docs/environment-promotion-policy.json
+            ontrackchain/docs/environment-promotion-policy-rbac.json
+          retention-days: 365
+
+      - name: Commit compliance reports
+        working-directory: ./ontrackchain
+        run: |
+          git config user.name "Compliance Bot"
+          git config user.email "compliance@bot.local"
+          
+          git add -A docs/compliance-reports/ docs/environment-promotion-policy*.json 2>/dev/null || true
+          
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            PERIOD="${{ github.event.inputs.period || 'monthly' }}"
+            git commit -m "🤖 Generate $PERIOD compliance report"
+            git push || echo "Push failed (no upstream)"
+          fi
+
+      - name: Notify compliance
+        if: always()
+        run: |
+          echo "📋 Compliance Report Generation"
+          echo "Period: ${{ github.event.inputs.period || 'monthly' }}"
+          echo "Format: ${{ github.event.inputs.format || 'markdown' }}"
+          echo "Status: Completed"

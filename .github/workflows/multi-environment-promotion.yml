@@ -1,0 +1,243 @@
+name: Multi-Environment Promotion
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_env:
+        description: Source environment
+        required: true
+        type: choice
+        options:
+          - development
+          - staging
+      target_env:
+        description: Target environment
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      skip_governance_gate:
+        description: Skip governance gate check (requires approval)
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+  deployments: write
+
+concurrency:
+  group: promotion-${{ github.event.inputs.source_env }}-${{ github.event.inputs.target_env }}
+  cancel-in-progress: false
+
+jobs:
+  validate-promotion:
+    name: Validate Promotion Request
+    runs-on: ubuntu-latest
+    outputs:
+      approved: ${{ steps.rbac.outputs.approved }}
+      gate_allowed: ${{ steps.gate.outputs.gate_allowed }}
+      gate_policy: ${{ steps.gate.outputs.gate_policy }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check RBAC permissions
+        id: rbac
+        run: |
+          SOURCE="${{ github.event.inputs.source_env }}"
+          TARGET="${{ github.event.inputs.target_env }}"
+
+          case "$SOURCE:$TARGET" in
+            development:staging)
+              echo "approved=true" >> "$GITHUB_OUTPUT"
+              ;;
+            staging:production)
+              echo "approved=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "approved=false" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Validate workflow hygiene
+        working-directory: ./ontrackchain
+        run: |
+          make check-workflow-hygiene
+
+      - name: Evaluate governance gate
+        id: gate
+        if: steps.rbac.outputs.approved == 'true'
+        working-directory: ./ontrackchain
+        run: |
+          TARGET="${{ github.event.inputs.target_env }}"
+          case "$TARGET" in
+            staging)
+              POLICY="moderate"
+              ;;
+            production)
+              POLICY="strict"
+              ;;
+            *)
+              POLICY="relaxed"
+              ;;
+          esac
+
+          echo "gate_policy=$POLICY" >> "$GITHUB_OUTPUT"
+
+          LATEST_JSON=$(ls -t docs/governance-weekly/*-consolidated.json 2>/dev/null | head -1)
+          if [ -z "$LATEST_JSON" ]; then
+            echo "gate_allowed=false" >> "$GITHUB_OUTPUT"
+            echo "No consolidated governance JSON found"
+            exit 0
+          fi
+
+          GATE_RESULT=$(python3 scripts/evaluate_governance_gate.py \
+            --consolidated-json "$LATEST_JSON" \
+            --gate-policy "$POLICY" \
+            --operation deploy \
+            --format json)
+
+          ALLOWED=$(echo "$GATE_RESULT" | python3 -c "import sys, json; print('true' if json.load(sys.stdin).get('allowed') else 'false')")
+          echo "gate_allowed=$ALLOWED" >> "$GITHUB_OUTPUT"
+
+  request-approval:
+    name: Open Promotion Issue
+    runs-on: ubuntu-latest
+    needs: validate-promotion
+    if: needs.validate-promotion.outputs.approved == 'true'
+    outputs:
+      issue_number: ${{ steps.issue.outputs.result }}
+    steps:
+      - name: Create promotion issue
+        id: issue
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: |
+            const source = '${{ github.event.inputs.source_env }}';
+            const target = '${{ github.event.inputs.target_env }}';
+            const gateAllowed = '${{ needs.validate-promotion.outputs.gate_allowed }}' === 'true';
+            const skipGate = '${{ github.event.inputs.skip_governance_gate }}' === 'true';
+            const policy = '${{ needs.validate-promotion.outputs.gate_policy }}';
+
+            const gateStatus = gateAllowed ? 'APPROVED' : (skipGate ? 'SKIPPED' : 'BLOCKED');
+            const gateChecklist = (gateAllowed || skipGate) ? 'x' : ' ';
+
+            const lines = [
+              '## Environment Promotion Request',
+              '',
+              '- Source: ' + source.toUpperCase(),
+              '- Target: ' + target.toUpperCase(),
+              '- Requested By: @' + context.actor,
+              '- Policy: ' + policy,
+              '- Gate Status: ' + gateStatus,
+              '',
+              '### Approval Checklist',
+              '- [x] RBAC validation passed',
+              '- [' + gateChecklist + '] Governance gate validated',
+              '- [ ] Manual promotion review completed',
+              '',
+              '### Metadata',
+              '- Commit: ' + context.sha,
+              '- Run ID: ' + (context.runId || 'N/A'),
+              '- Created At: ' + new Date().toISOString()
+            ];
+
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '[PROMOTION] ' + source.toUpperCase() + ' -> ' + target.toUpperCase(),
+              body: lines.join('\n'),
+              labels: ['promotion', target, 'governance']
+            });
+
+            return String(issue.data.number);
+
+  promote-environment:
+    name: Execute Promotion
+    runs-on: ubuntu-latest
+    needs: [validate-promotion, request-approval]
+    if: needs.validate-promotion.outputs.approved == 'true'
+    environment:
+      name: ${{ github.event.inputs.target_env }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify promotion criteria
+        run: |
+          TARGET="${{ github.event.inputs.target_env }}"
+          GATE_ALLOWED="${{ needs.validate-promotion.outputs.gate_allowed }}"
+          SKIP_GATE="${{ github.event.inputs.skip_governance_gate }}"
+
+          if [[ "$TARGET" == "production" && "$GATE_ALLOWED" != "true" && "$SKIP_GATE" != "true" ]]; then
+            echo "Promotion blocked by governance gate"
+            exit 1
+          fi
+
+          echo "Promotion criteria validated"
+
+      - name: Execute promotion
+        working-directory: ./ontrackchain
+        run: |
+          TARGET="${{ github.event.inputs.target_env }}"
+          SOURCE="${{ github.event.inputs.source_env }}"
+
+          echo "Promoting $SOURCE -> $TARGET"
+
+          case "$TARGET" in
+            staging)
+              echo "Placeholder: staging deployment command"
+              ;;
+            production)
+              echo "Placeholder: production deployment command"
+              ;;
+          esac
+
+      - name: Record promotion
+        working-directory: ./ontrackchain
+        run: |
+          mkdir -p artifacts/promotions
+          TS=$(date -u +"%Y%m%dT%H%M%SZ")
+          FILE="artifacts/promotions/promotion_${TS}.json"
+
+          cat > "$FILE" <<EOF
+          {
+            "timestamp": "$(date -u --iso-8601=seconds)",
+            "source": "${{ github.event.inputs.source_env }}",
+            "target": "${{ github.event.inputs.target_env }}",
+            "actor": "${{ github.actor }}",
+            "commit": "${{ github.sha }}",
+            "gate_allowed": "${{ needs.validate-promotion.outputs.gate_allowed }}",
+            "skip_gate": "${{ github.event.inputs.skip_governance_gate }}",
+            "issue_number": "${{ needs.request-approval.outputs.issue_number }}"
+          }
+          EOF
+
+      - name: Comment promotion result
+        if: needs.request-approval.outputs.issue_number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = Number('${{ needs.request-approval.outputs.issue_number }}');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: [
+                'Promotion completed successfully.',
+                '',
+                '- Source: ${{ github.event.inputs.source_env }}',
+                '- Target: ${{ github.event.inputs.target_env }}',
+                '- Commit: ${{ github.sha }}',
+                '- Timestamp: ' + new Date().toISOString()
+              ].join('\n')
+            });

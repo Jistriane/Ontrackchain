@@ -1,0 +1,244 @@
+name: Governance Gate Check
+
+on:
+  push:
+    branches: [ main, staging, develop ]
+    paths:
+      - 'ontrackchain/scripts/**'
+      - 'ontrackchain/docs/**'
+      - 'ontrackchain/Makefile'
+      - '.github/workflows/governance-gate-check.yml'
+  pull_request:
+    branches: [ main, staging ]
+    paths:
+      - 'ontrackchain/scripts/**'
+      - 'ontrackchain/docs/**'
+  workflow_dispatch:
+    inputs:
+      window_id:
+        description: 'Window ID to evaluate (default: latest)'
+        required: false
+        type: string
+      gate_policy:
+        description: 'Gate policy'
+        required: true
+        type: choice
+        options:
+          - strict
+          - moderate
+          - relaxed
+        default: 'moderate'
+      gate_operation:
+        description: 'Operation type'
+        required: true
+        type: choice
+        options:
+          - merge
+          - deploy
+          - release
+        default: 'merge'
+
+jobs:
+  governance-gate-evaluation:
+    name: Evaluate Governance Gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+
+    outputs:
+      gate_allowed: ${{ steps.gate.outputs.gate_allowed }}
+      gate_reason: ${{ steps.gate.outputs.gate_reason }}
+      gate_result_json: ${{ steps.gate.outputs.gate_result_json }}
+      window_id: ${{ steps.identify.outputs.window_id }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Validate workflow hygiene
+        working-directory: ./ontrackchain
+        run: |
+          make check-workflow-hygiene
+
+      - name: Identify Window ID
+        id: identify
+        working-directory: ./ontrackchain
+        run: |
+          if [ -n "${{ github.event.inputs.window_id }}" ]; then
+            WINDOW_ID="${{ github.event.inputs.window_id }}"
+          else
+            # Find most recent window
+            WINDOW_ID=$(ls -t docs/governance-weekly/*-consolidated.json 2>/dev/null | head -1 | sed 's|.*/||; s|-consolidated.json||')
+            if [ -z "$WINDOW_ID" ]; then
+              WINDOW_ID="stg-2026-07-06-a"  # fallback
+            fi
+          fi
+          echo "window_id=$WINDOW_ID" >> $GITHUB_OUTPUT
+          echo "Using window: $WINDOW_ID"
+
+      - name: Check Consolidated JSON exists
+        working-directory: ./ontrackchain
+        run: |
+          JSON_FILE="docs/governance-weekly/${{ steps.identify.outputs.window_id }}-consolidated.json"
+          if [ ! -f "$JSON_FILE" ]; then
+            echo "::warning::Consolidated JSON not found: $JSON_FILE"
+            echo "Attempting to generate governance artefacts..."
+            make refresh-staging-war-room-governance-local \
+              WINDOW_ID="${{ steps.identify.outputs.window_id }}" \
+              CHECKS_DIR="artifacts/staging/checks" \
+              DOSSIERS_DIR="artifacts/staging/dossiers" || true
+          fi
+
+      - name: Evaluate governance gate
+        id: gate
+        working-directory: ./ontrackchain
+        run: |
+          GATE_POLICY="${{ github.event.inputs.gate_policy || 'moderate' }}"
+          GATE_OPERATION="${{ github.event.inputs.gate_operation || 'merge' }}"
+          JSON_FILE="docs/governance-weekly/${{ steps.identify.outputs.window_id }}-consolidated.json"
+          
+          echo "Policy: $GATE_POLICY"
+          echo "Operation: $GATE_OPERATION"
+          echo "JSON: $JSON_FILE"
+          
+          # Run gate evaluation
+          GATE_OUTPUT=$(python3 scripts/evaluate_governance_gate.py \
+            --consolidated-json "$JSON_FILE" \
+            --gate-policy "$GATE_POLICY" \
+            --operation "$GATE_OPERATION" \
+            --format github)
+          
+          # Parse output
+          while IFS='=' read -r key value; do
+            echo "$key=$value" >> $GITHUB_OUTPUT
+          done <<< "$GATE_OUTPUT"
+          
+          # Also save full JSON for reference
+          GATE_JSON=$(python3 scripts/evaluate_governance_gate.py \
+            --consolidated-json "$JSON_FILE" \
+            --gate-policy "$GATE_POLICY" \
+            --operation "$GATE_OPERATION" \
+            --format json)
+          
+          echo "gate_result_json<<EOF" >> $GITHUB_OUTPUT
+          echo "$GATE_JSON" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Add PR comment with gate result
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const allowed = '${{ steps.gate.outputs.gate_allowed }}' === 'true';
+            const reason = '${{ steps.gate.outputs.gate_reason }}';
+            const windowId = '${{ steps.identify.outputs.window_id }}';
+            const policy = '${{ github.event.inputs.gate_policy || 'moderate' }}';
+            const operation = '${{ github.event.inputs.gate_operation || 'merge' }}';
+            
+            const emoji = allowed ? '✅' : '❌';
+            const status = allowed ? 'ALLOWED' : 'BLOCKED';
+            const body = [
+              `## ${emoji} Governance Gate ${status}`,
+              '',
+              `- **Window:** \`${windowId}\``,
+              `- **Policy:** \`${policy}\``,
+              `- **Operation:** \`${operation}\``,
+              `- **Reason:** ${reason}`,
+              '',
+              allowed
+                ? '✅ This PR is allowed to proceed with governance approval.'
+                : '❌ This PR is blocked by governance gate. Please review the governance status and address any blockers.'
+            ].join('\n');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: Create check run
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const allowed = '${{ steps.gate.outputs.gate_allowed }}' === 'true';
+            const reason = '${{ steps.gate.outputs.gate_reason }}';
+            const conclusion = allowed ? 'success' : 'failure';
+            const title = allowed ? 'Governance Gate Passed' : 'Governance Gate Failed';
+            const summary = `Policy: ${{ github.event.inputs.gate_policy || 'moderate' }} | Operation: ${{ github.event.inputs.gate_operation || 'merge' }} | Window: ${{ steps.identify.outputs.window_id }}`;
+            
+            github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'Governance Gate',
+              head_sha: context.sha,
+              status: 'completed',
+              conclusion: conclusion,
+              output: {
+                title: title,
+                summary: summary,
+                text: reason
+              }
+            });
+
+      - name: Fail if gate blocked
+        if: steps.gate.outputs.gate_allowed == 'false' && github.event_name == 'pull_request'
+        run: |
+          echo "❌ Governance gate blocked this PR"
+          echo "Reason: ${{ steps.gate.outputs.gate_reason }}"
+          exit 0  # Don't fail PR check yet - allow team to review
+
+      - name: Set conclusion status
+        if: always()
+        run: |
+          if [ "${{ steps.gate.outputs.gate_allowed }}" = "true" ]; then
+            echo "✅ Governance gate: ALLOWED"
+          else
+            echo "⚠️ Governance gate: BLOCKED (advisory)"
+          fi
+
+  notify-slack-on-gate-block:
+    name: Notify Slack on Gate Block
+    runs-on: ubuntu-latest
+    needs: governance-gate-evaluation
+    if: needs.governance-gate-evaluation.outputs.gate_allowed == 'false' && github.event_name != 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Send Slack notification
+        working-directory: ./ontrackchain
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "Slack webhook not configured; skipping notification"
+            exit 0
+          fi
+
+          python3 scripts/notify_slack_governance.py \
+            --consolidated-json "docs/governance-weekly/${{ needs.governance-gate-evaluation.outputs.window_id }}-consolidated.json" \
+            --webhook-url "$SLACK_WEBHOOK_URL" \
+            --channel governance \
+            --mention-on-red
+
+      - name: Log notification result
+        run: |
+          echo "Slack notification sent for blocked gate"
+          echo "Gate blocked reason: ${{ needs.governance-gate-evaluation.outputs.gate_reason }}"

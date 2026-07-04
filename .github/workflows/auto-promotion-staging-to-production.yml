@@ -1,0 +1,97 @@
+name: Auto Promotion Staging to Production
+
+on:
+  schedule:
+    - cron: "0 */4 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Do not execute promotion, only evaluate readiness
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  evaluate-readiness:
+    name: Evaluate Auto Promotion Readiness
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.eval.outputs.ready }}
+      reason: ${{ steps.eval.outputs.reason }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Validate workflow hygiene
+        working-directory: ./ontrackchain
+        run: |
+          make check-workflow-hygiene
+
+      - name: Evaluate readiness thresholds
+        id: eval
+        working-directory: ./ontrackchain
+        run: |
+          METRICS="docs/governance-weekly/gate-history-metrics.json"
+          if [ ! -f "$METRICS" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "reason=metrics_missing" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          OUT=$(python3 scripts/evaluate_auto_promotion_readiness.py \
+            --metrics-file "$METRICS" \
+            --environment staging \
+            --min-allow-rate 85 \
+            --max-override-rate 10 \
+            --max-block-rate 15 \
+            --min-total 10 \
+            --github-output)
+
+          READY=$(echo "$OUT" | awk -F= '/^ready=/{print $2}' | tail -1)
+          REASON=$(echo "$OUT" | awk -F= '/^reason=/{print $2}' | tail -1)
+
+          echo "ready=${READY:-false}" >> "$GITHUB_OUTPUT"
+          echo "reason=${REASON:-unknown}" >> "$GITHUB_OUTPUT"
+
+  trigger-promotion:
+    name: Trigger Promotion Workflow
+    runs-on: ubuntu-latest
+    needs: evaluate-readiness
+    if: needs.evaluate-readiness.outputs.ready == 'true' && (github.event_name == 'schedule' || github.event.inputs.dry_run != 'true')
+    steps:
+      - name: Trigger multi-environment promotion
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'multi-environment-promotion.yml',
+              ref: context.ref.replace('refs/heads/', ''),
+              inputs: {
+                source_env: 'staging',
+                target_env: 'production',
+                skip_governance_gate: 'false'
+              }
+            });
+
+  summary:
+    name: Auto Promotion Summary
+    runs-on: ubuntu-latest
+    needs: [evaluate-readiness, trigger-promotion]
+    if: always()
+    steps:
+      - name: Print summary
+        run: |
+          echo "Auto-promotion readiness: ${{ needs.evaluate-readiness.outputs.ready }}"
+          echo "Reason: ${{ needs.evaluate-readiness.outputs.reason }}"
+          echo "Trigger executed only when ready=true and dry_run=false/manual or schedule run"
