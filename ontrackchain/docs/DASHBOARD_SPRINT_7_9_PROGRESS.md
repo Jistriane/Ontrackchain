@@ -1,190 +1,190 @@
-# 📊 Dashboard: Sprint 7-9 Progress Tracking
+# Painel: Progresso Sprint 7-9
 
-**Last Updated:** 2026-07-02 23:30 UTC  
-**Next Review:** 2026-07-03 09:00 (After Kick-off)
+**Última atualização:** 2026-07-02 23:30 UTC
+**Próxima revisão:** 2026-07-03 09:00 (após kickoff)
 
 ---
 
-## 🎯 KPI Progress Tracker
+## Acompanhamento de KPI
 
-### Baseline: 87% Consolidated
+### Linha de base: 87% consolidado
 
 ```
-Technical Maturity       ████████████████████░  91%  (stable)
-Regulatory Readiness     ███████████████░░░░░░  78%  (target: 95%)
+Maturidade Técnica       ████████████████████░  91%  (estável)
+Prontidão Regulatória    ███████████████░░░░░░  78%  (meta: 95%)
 ─────────────────────────────────────────────────────
-Consolidated KPI         ████████████████░░░░░  87%  (target: 95%)
+KPI Consolidado          ████████████████░░░░░  87%  (meta: 95%)
 ```
 
-### Sprint 7-9 Projected Path
+### Caminho projetado Sprint 7-9
 
 ```
-TODAY (02-Jul)   SPRINT 7     SPRINT 8     SPRINT 9     FINAL (22-Jul)
+HOJE (02-Jul)    SPRINT 7     SPRINT 8     SPRINT 9     FINAL (22-Jul)
    ↓              ↓            ↓             ↓             ↓
-  87%      ────→ 88%    ────→ 91%   ────→ 95%    ────→ 95%+ ✅
-           Validation   1st Window  OIDC+2nd     Sign-offs
-           P0 Ready     P0 Proof    Recurring    Complete
+  87%      ────→ 88%    ────→ 91%   ────→ 95%    ────→ 95%+
+        Validação    1a Janela   OIDC+2a      Aprovações
+        P0 Pronto    Prova P0    Recorrência  Completo
 
-Week:       1-2          3-4         5-6
-Effort:     14 person-d  12 person-d 8 person-d
-Status:     🟡 Planning  🔴 Blocked  ⚪ Future
+Semana:      1-2          3-4         5-6
+Esforço:     14 pessoa-d  12 pessoa-d 8 pessoa-d
+Status: Planejamento   Bloqueado   Futuro
 ```
 
 ---
 
-## 📋 Sprint 7: Validation P0 (02-08 July)
+## Sprint 7: Validação P0 (02-08 Jul)
 
-**🟡 Status: PENDING KICK-OFF**
+**Status: PENDENTE DE KICKOFF**
 
-### Task Breakdown
-
-```
-T7.1: AML/KYT Credentials
-├─ Owner: Compliance Lead
-├─ Effort: 2 days
-├─ Status: 🔴 PENDING (external)
-├─ Blocker: Provider response
-└─ Success: ✅ API test → ✅ JSON output → ✅ Runbook
-
-T7.2: EU Feed URL
-├─ Owner: Regulatory
-├─ Effort: 2 days
-├─ Status: 🔴 PENDING (external)
-├─ Blocker: Provider response
-└─ Success: ✅ URL test → ✅ JSON output → ✅ Runbook
-
-T7.3: OIDC Setup Local
-├─ Owner: Security Lead
-├─ Effort: 3 days
-├─ Status: 🔴 PENDING (external)
-├─ Blocker: Provider credentials
-└─ Success: ✅ Provider setup → ✅ E2E pass → ✅ MFA test
-
-T7.4: Integration Tests
-├─ Owner: QA
-├─ Effort: 2 days
-├─ Status: ⚪ BLOCKED (depends: T7.1, T7.2, T7.3)
-├─ Blocker: T7.1-T7.3 completion
-└─ Success: ✅ Bundle run → ✅ All JSONs valid → ✅ Coverage ≥95%
-
-T7.5: War Room Prep
-├─ Owner: Ops Manager
-├─ Effort: 3 days
-├─ Status: 🟡 IN PROGRESS (scheduling)
-├─ Blocker: War room availability
-└─ Success: ✅ Owners confirmed → ✅ Agenda set → ✅ Manual sheet ready
-
-T7.6: Documentation & Aceites
-├─ Owner: Compliance Lead
-├─ Effort: 1 day
-├─ Status: ⚪ BLOCKED (depends: T7.1-T7.5)
-├─ Blocker: T7.1-T7.5 completion
-└─ Success: ✅ Runbooks written → ✅ E-mails signed → ✅ Docs committed
-```
-
-### Parallel Workstreams
+### Quebra de Tarefas
 
 ```
-CRITICAL PATH (External Dependencies)
+T7.1: Credenciais AML/KYT
+├─ Responsável: Liderança de Compliance
+├─ Esforço: 2 dias
+├─ Status: PENDENTE (externo)
+├─ Bloqueador: resposta do provedor
+└─ Sucesso: teste de API → saída JSON → roteiro
+
+T7.2: URL do feed UE
+├─ Responsável: Regulatório
+├─ Esforço: 2 dias
+├─ Status: PENDENTE (externo)
+├─ Bloqueador: resposta do provedor
+└─ Sucesso: teste de URL → saída JSON → roteiro
+
+T7.3: Setup OIDC local
+├─ Responsável: Liderança de Segurança
+├─ Esforço: 3 dias
+├─ Status: PENDENTE (externo)
+├─ Bloqueador: credenciais do provedor
+└─ Sucesso: setup do provedor → E2E aprovado → teste de MFA
+
+T7.4: Testes de Integração
+├─ Responsável: QA
+├─ Esforço: 2 dias
+├─ Status: BLOQUEADO (depende: T7.1, T7.2, T7.3)
+├─ Bloqueador: conclusão de T7.1-T7.3
+└─ Sucesso: execução do bundle → todos JSONs válidos → cobertura ≥95%
+
+T7.5: Preparação do War Room
+├─ Responsável: Gestão de Operações
+├─ Esforço: 3 dias
+├─ Status: EM PROGRESSO (agendamento)
+├─ Bloqueador: disponibilidade do war room
+└─ Sucesso: responsáveis confirmados → agenda definida → folha manual pronta
+
+T7.6: Documentação e Aceites
+├─ Responsável: Liderança de Compliance
+├─ Esforço: 1 dia
+├─ Status: BLOQUEADO (depende: T7.1-T7.5)
+├─ Bloqueador: conclusão de T7.1-T7.5
+└─ Sucesso: roteiros escritos → e-mails assinados → documentos commitados
+```
+
+### Trilhas paralelas
+
+```
+CAMINHO CRÍTICO (Dependências Externas)
 ────────────────────────────────────
-T7.1 ─────────────────────────────────────→ Wait for credentials (2d)
-  └─ Provider response CRITICAL BLOCKER
+T7.1 ─────────────────────────────────────→ Aguardar credenciais (2d)
+  └─ Resposta do provedor BLOQUEADOR CRÍTICO
 
-T7.2 ─────────────────────────────────────→ Wait for credentials (2d)
-  └─ Provider response CRITICAL BLOCKER
+T7.2 ─────────────────────────────────────→ Aguardar credenciais (2d)
+  └─ Resposta do provedor BLOQUEADOR CRÍTICO
 
-T7.3 ─────────────────────────────────────→ Wait for credentials (3d)
-  └─ Provider response CRITICAL BLOCKER
+T7.3 ─────────────────────────────────────→ Aguardar credenciais (3d)
+  └─ Resposta do provedor BLOQUEADOR CRÍTICO
 
-SUPPORTING PATH (Can start now)
+CAMINHO DE SUPORTE (Pode começar agora)
 ───────────────────────────────
-T7.5 ──────────────────────→ War room prep (3d)
-  └─ Scheduling + manual sheet
+T7.5 ──────────────────────→ Preparação do war room (3d)
+  └─ Agendamento + folha manual
 
-DEPENDENT PATH (Starts when T7.1-T7.5 done)
+CAMINHO DEPENDENTE (começa quando T7.1-T7.5 terminar)
 ─────────────────────────────────────────
-T7.4 ─────────────────────→ Integration tests (2d)
-  └─ Depends: T7.1, T7.2, T7.3
+T7.4 ─────────────────────→ Testes de integração (2d)
+  └─ Depende: T7.1, T7.2, T7.3
 
 T7.6 ─────────────────────→ Docs + aceites (1d)
-  └─ Depends: T7.4, T7.5
+  └─ Depende: T7.4, T7.5
 ```
 
-### Sprint 7 Deliverables Checklist
+### Checklist de entregáveis da Sprint 7
 
-**Due Friday EOD (12 July):**
+**Prazo de sexta EOD (12 Jul):**
 
 ```
 □ artifacts/sprint-7/
-  □ compliance-provider-check.json          ← T7.1 output
-  □ eu-sanctions-preflight.json             ← T7.2 output
-  □ oidc-e2e-results.json                   ← T7.3 output
-  □ sprint-7-validation-bundle.md           ← T7.4 output
-  □ setup-aml-provider-prod.md              ← T7.6 runbook
-  □ setup-eu-sanctions-feed-prod.md         ← T7.6 runbook
+  □ compliance-provider-check.json          ← saída T7.1
+  □ eu-sanctions-preflight.json             ← saída T7.2
+  □ oidc-e2e-results.json                   ← saída T7.3
+  □ sprint-7-validation-bundle.md           ← saída T7.4
+  □ setup-aml-provider-prod.md              ← roteiro T7.6
+  □ setup-eu-sanctions-feed-prod.md         ← roteiro T7.6
   □ compliance-sign-off.txt                 ← T7.6 aceite
 
 □ docs/
-  □ governance-weekly/2026-07-09-staging-serious-window-war-room.md ← T7.5 output
+  □ governance-weekly/2026-07-09-staging-serious-window-war-room.md ← saída T7.5
 
-□ Target KPI: 88% consolidated (minimal improvement, validation proof)
+□ KPI alvo: 88% consolidado (ganho mínimo com prova de validação)
 ```
 
 ---
 
-## 📋 Sprint 8: First Serious Window (09-15 July)
+## Sprint 8: Primeira Janela Séria (09-15 Jul)
 
-**⚪ Status: PENDING SPRINT 7 COMPLETION**
+**Status: PENDENTE DE CONCLUSÃO DA SPRINT 7**
 
-### Task Breakdown
+### Quebra de Tarefas
 
 ```
-T8.1: War Room Execution
-├─ Owner: Ops Manager
-├─ Effort: 2 days
-├─ Status: ⚪ BLOCKED (depends: Sprint 7)
-├─ Prerequisites: P0 validated, owners ready
-└─ Success: ✅ Preflight passed → ✅ Run complete → ✅ Packet created
+T8.1: Execução do War Room
+├─ Responsável: Gestão de Operações
+├─ Esforço: 2 dias
+├─ Status: BLOQUEADO (depende: Sprint 7)
+├─ Pré-requisitos: P0 validado, responsáveis prontos
+└─ Sucesso: preflight aprovado → execução completa → packet criado
 
-T8.2: Evidence Collection
-├─ Owner: QA/Tech Lead
-├─ Effort: 2 days
-├─ Status: ⚪ BLOCKED (depends: T8.1)
-├─ Prerequisites: War room outputs
-└─ Success: ✅ Screenshots captured → ✅ JSONs persisted → ✅ Logs saved
+T8.2: Coleta de Evidências
+├─ Responsável: QA/Tech Lead
+├─ Esforço: 2 dias
+├─ Status: BLOQUEADO (depende: T8.1)
+├─ Pré-requisitos: saídas do war room
+└─ Sucesso: screenshots capturados → JSONs persistidos → logs salvos
 
-T8.3: Ownership Formalization
-├─ Owner: COO
-├─ Effort: 2 days
-├─ Status: ⚪ BLOCKED (depends: T8.1)
-├─ Prerequisites: War room validation
-└─ Success: ✅ Owners confirmed → ✅ SLAs signed → ✅ Drill passed
+T8.3: Formalização de Ownership
+├─ Responsável: COO
+├─ Esforço: 2 dias
+├─ Status: BLOQUEADO (depende: T8.1)
+├─ Pré-requisitos: validação do war room
+└─ Sucesso: responsáveis confirmados → SLAs assinados → drill aprovado
 
-T8.4: Retention/Recovery Test
-├─ Owner: CTO
-├─ Effort: 2 days
-├─ Status: ⚪ BLOCKED (depends: T8.1)
-├─ Prerequisites: War room validation
-└─ Success: ✅ Restore successful → ✅ RTO < 30min → ✅ Signed off
+T8.4: Teste de Retenção/Recuperação
+├─ Responsável: CTO
+├─ Esforço: 2 dias
+├─ Status: BLOQUEADO (depende: T8.1)
+├─ Pré-requisitos: validação do war room
+└─ Sucesso: restore bem-sucedido → RTO < 30min → sign-off realizado
 
-T8.5: Compliance Sign-off
-├─ Owner: Compliance Lead
-├─ Effort: 1 day
-├─ Status: ⚪ BLOCKED (depends: T8.2-T8.4)
-├─ Prerequisites: Dossier complete
-└─ Success: ✅ Dossier reviewed → ✅ E-mail signed
+T8.5: Sign-off de Compliance
+├─ Responsável: Liderança de Compliance
+├─ Esforço: 1 dia
+├─ Status: BLOQUEADO (depende: T8.2-T8.4)
+├─ Pré-requisitos: dossier completo
+└─ Sucesso: dossier revisado → e-mail assinado
 
-T8.6: Retrospective & Next Window
-├─ Owner: Ops Manager
-├─ Effort: 1 day
-├─ Status: ⚪ BLOCKED (depends: T8.5)
-├─ Prerequisites: All tasks complete
-└─ Success: ✅ Learnings documented → ✅ Next window scheduled
+T8.6: Retrospectiva e Próxima Janela
+├─ Responsável: Gestão de Operações
+├─ Esforço: 1 dia
+├─ Status: BLOQUEADO (depende: T8.5)
+├─ Pré-requisitos: todas as tarefas concluídas
+└─ Sucesso: aprendizados documentados → próxima janela agendada
 ```
 
-### Sprint 8 Deliverables Checklist
+### Checklist de entregáveis da Sprint 8
 
-**Due Friday EOD (19 July):**
+**Prazo de sexta EOD (19 Jul):**
 
 ```
 □ artifacts/sprint-8/
@@ -205,52 +205,52 @@ T8.6: Retrospective & Next Window
   □ 2026-07-09-ownership-formalized.md
   □ 2026-07-09-retention-recovery-test.md
   □ 2026-07-09-retrospective.md
-  □ Next window scheduled
+  □ Próxima janela agendada
 
-□ Target KPI: 91% consolidated (significant leap with P0 + P2 proof)
+□ KPI alvo: 91% consolidado (salto relevante com prova de P0 + P2)
 ```
 
 ---
 
-## 📋 Sprint 9: OIDC + Recurring (16-22 July)
+## Sprint 9: OIDC + Recorrência (16-22 Jul)
 
-**⚪ Status: PENDING SPRINT 8 COMPLETION**
+**Status: PENDENTE DE CONCLUSÃO DA SPRINT 8**
 
-### Task Breakdown
+### Quebra de Tarefas
 
 ```
-T9.1: OIDC Homologation
-├─ Owner: Security Lead
-├─ Effort: 2 days
-├─ Status: ⚪ BLOCKED (depends: Sprint 8)
-├─ Prerequisites: P0-01 setup validated
-└─ Success: ✅ Provider integrated → ✅ MFA verified → ✅ E2E passed
+T9.1: Homologação OIDC
+├─ Responsável: Liderança de Segurança
+├─ Esforço: 2 dias
+├─ Status: BLOQUEADO (depende: Sprint 8)
+├─ Pré-requisitos: setup de P0-01 validado
+└─ Sucesso: provedor integrado → MFA verificado → E2E aprovado
 
-T9.2: Second Serious Window (Recurrence)
-├─ Owner: Ops Manager
-├─ Effort: 3 days
-├─ Status: ⚪ BLOCKED (depends: T9.1, Sprint 8)
-├─ Prerequisites: T9.1 ready, learnings applied
-└─ Success: ✅ Window executed → ✅ Dossier signed → ✅ Recurrence proven
+T9.2: Segunda Janela Séria (Recorrência)
+├─ Responsável: Gestão de Operações
+├─ Esforço: 3 dias
+├─ Status: BLOQUEADO (depende: T9.1, Sprint 8)
+├─ Pré-requisitos: T9.1 pronto, aprendizados aplicados
+└─ Sucesso: janela executada → dossier assinado → recorrência comprovada
 
-T9.3: Formal Sign-offs
-├─ Owner: COO
-├─ Effort: 2 days
-├─ Status: ⚪ BLOCKED (depends: T9.2)
-├─ Prerequisites: All windows complete
-└─ Success: ✅ Consolidated document → ✅ All signatures → ✅ Published
+T9.3: Aprovações Formais
+├─ Responsável: COO
+├─ Esforço: 2 dias
+├─ Status: BLOQUEADO (depende: T9.2)
+├─ Pré-requisitos: todas as janelas concluídas
+└─ Sucesso: documento consolidado → todas assinaturas → publicado
 
-T9.4: P3 Planning (Future Work)
-├─ Owner: Tech Lead
-├─ Effort: 1 day
-├─ Status: ⚪ BLOCKED (depends: T9.3)
-├─ Prerequisites: P0-P2 complete
-└─ Success: ✅ Vault decision → ✅ PKI roadmap → ✅ Q3 planning
+T9.4: Planejamento P3 (Trabalho Futuro)
+├─ Responsável: Tech Lead
+├─ Esforço: 1 dia
+├─ Status: BLOQUEADO (depende: T9.3)
+├─ Pré-requisitos: P0-P2 concluído
+└─ Sucesso: decisão de Vault → roadmap PKI → planejamento Q3
 ```
 
-### Sprint 9 Deliverables Checklist
+### Checklist de entregáveis da Sprint 9
 
-**Due Friday EOD (26 July):**
+**Prazo de sexta EOD (26 Jul):**
 
 ```
 □ artifacts/sprint-9/
@@ -264,194 +264,194 @@ T9.4: P3 Planning (Future Work)
   □ setup-oidc-production.md
   □ p3-roadmap-q3-2026.md
 
-□ Target KPI: 95% consolidated ✅ GOAL REACHED
+□ KPI alvo: 95% consolidado  META ALCANÇADA
 ```
 
 ---
 
-## 🚨 Critical Path & Blockers
+## Caminho Crítico e Bloqueadores
 
-### Week 1 (02-08 July) — External Dependency Window
-
-```
-CRITICAL BLOCKERS (Must resolve in 48 hours):
-
-1. AML/KYT Provider Credentials
-   └─ Action: Compliance Lead contacts provider TODAY
-   └─ Deadline: 04 July 17:00 UTC
-   └─ If missed: 1-2 day delay, extend Sprint 7
-
-2. EU Feed URL
-   └─ Action: Regulatory contacts provider TODAY
-   └─ Deadline: 04 July 17:00 UTC
-   └─ If missed: 1-2 day delay, extend Sprint 7
-
-3. OIDC Provider Credentials
-   └─ Action: Security Lead contacts provider TODAY
-   └─ Deadline: 05 July 17:00 UTC
-   └─ If missed: Keep Keycloak local, extend Sprint 7
-
-MITIGATION:
-├─ Have fallback mock providers ready in dev
-├─ Daily follow-up calls if no response
-├─ CTO escalation to provider C-level if needed
-└─ Contingency: Extend Sprint 7 to 2 weeks if >2 blockers
-```
-
-### Dependency Graph
+### Semana 1 (02-08 Jul) — Janela de Dependências Externas
 
 ```
-External Credentials (04-05 July)
+BLOQUEADORES CRÍTICOS (resolver em até 48 horas):
+
+1. Credenciais do provedor AML/KYT
+  └─ Ação: liderança de Compliance contata provedor HOJE
+  └─ Prazo: 04 Jul 17:00 UTC
+  └─ Se falhar: atraso de 1-2 dias, extensão da Sprint 7
+
+2. URL do feed UE
+  └─ Ação: regulatório contata provedor HOJE
+  └─ Prazo: 04 Jul 17:00 UTC
+  └─ Se falhar: atraso de 1-2 dias, extensão da Sprint 7
+
+3. Credenciais do provedor OIDC
+  └─ Ação: liderança de Segurança contata provedor HOJE
+  └─ Prazo: 05 Jul 17:00 UTC
+  └─ Se falhar: manter Keycloak local e estender Sprint 7
+
+MITIGAÇÃO:
+├─ Ter mocks de fallback prontos em dev
+├─ Acompanhamento diário se não houver resposta
+├─ Escalar via CTO para nível C do provedor quando necessário
+└─ Contingência: estender Sprint 7 para 2 semanas se houver >2 bloqueadores
+```
+
+### Grafo de Dependências
+
+```
+Credenciais Externas (04-05 Jul)
     ↓
-Local Setup & Validation (05-08 July)
-    ├─ T7.1-T7.3 (AML/KYT, EU Feed, OIDC setup)
-    └─ T7.5 (War room prep)
+Setup Local e Validação (05-08 Jul)
+  ├─ T7.1-T7.3 (AML/KYT, feed UE, setup OIDC)
+  └─ T7.5 (prep de war room)
         ↓
-Integration Tests (07-08 July)
+Testes de Integração (07-08 Jul)
     └─ T7.4
         ↓
-Sprint 7 Closure (08 July EOD)
-    └─ T7.6 (Docs + aceites)
+Fechamento da Sprint 7 (08 Jul EOD)
+  └─ T7.6 (docs + aceites)
         ↓
-SPRINT 8 KICKOFF (09 July 09:00 AM)
-    └─ War room execution
+INÍCIO DA SPRINT 8 (09 Jul 09:00)
+  └─ Execução de war room
         ↓
-Ownership + Retention (09-12 July)
+Ownership + Retenção (09-12 Jul)
     └─ T8.3, T8.4
         ↓
-Compliance Sign-off (13 July)
+Sign-off de Compliance (13 Jul)
     └─ T8.5
         ↓
-SPRINT 8 CLOSURE (15 July EOD)
-    └─ T8.6 (Retrospective + next window)
+FECHAMENTO DA SPRINT 8 (15 Jul EOD)
+  └─ T8.6 (retrospectiva + próxima janela)
         ↓
-SPRINT 9 KICKOFF (16 July 09:00 AM)
-    └─ OIDC homologation
+INÍCIO DA SPRINT 9 (16 Jul 09:00)
+  └─ Homologação OIDC
         ↓
-2nd Serious Window (16-19 July)
+2a Janela Séria (16-19 Jul)
     └─ T9.2
         ↓
-Final Sign-offs (20-21 July)
+Aprovações finais (20-21 Jul)
     └─ T9.3
         ↓
-🎉 95% GOAL REACHED (22 July)
+ 95% META ALCANÇADA (22 Jul)
 ```
 
 ---
 
-## 📊 Daily Standup Template
+## Template de Standup Diário
 
-**When:** 09:00 AM UTC (09:00-09:15)  
-**Attendees:** All task owners + Tech Lead + Ops Manager  
-**Format:** 30-sec per person
+**Quando:** 09:00 UTC (09:00-09:15)
+**Participantes:** todos os responsáveis de tarefas + Tech Lead + Ops Manager
+**Formato:** 30s por pessoa
 
 ```
-[TEMPLATE FOR EACH PERSON]
+[TEMPLATE POR PESSOA]
 
-Name: ___________
-Task(s): T7.X, T7.Y, ...
-Status: 🟢 On track / 🟡 At risk / 🔴 Blocked
-Yesterday: <what was done>
-Today: <what will be done>
-Blocker: <if any>
-ETA fix: <by when>
+Nome: ___________
+Tarefa(s): T7.X, T7.Y, ...
+Status: No prazo / Em risco / Bloqueado
+Ontem: <o que foi feito>
+Hoje: <o que será feito>
+Bloqueador: <se houver>
+ETA correção: <até quando>
 ```
 
-**Track in:** `artifacts/sprint-7/daily-standups.md`
+**Registrar em:** `artifacts/sprint-7/daily-standups.md`
 
 ---
 
-## 📞 Escalation Matrix
+## Matriz de Escalacao
 
-| Scenario | Trigger | Action | Owner |
+| Cenario | Gatilho | Acao | Responsável |
 | --- | --- | --- | --- |
-| Provider no response | >12 hours | Daily follow-up | Compliance/Regulatory/Security |
-| Provider delayed | >24 hours | Escalate to CFO/CTO | COO |
-| War room conflict | >48 hours | Move date or split team | Ops Manager |
-| Integration test fail | Any | Debug + 2-hour fix attempt | Tech Lead + QA |
-| Test exceeds 2h fix | After 2 hours | CTO hands-on debug | CTO |
-| Serious window delayed | >2 hours in | HOLD, post-mortem, retry next day | Ops Manager + Tech Lead |
-| Stakeholder sign-off delay | >3 days | COO reminder + deadline extension | COO |
+| Provedor sem resposta | >12 horas | Acompanhamento diário | Compliance/Regulatório/Segurança |
+| Provedor atrasado | >24 horas | Escalar para CFO/CTO | COO |
+| Conflito de war room | >48 horas | Mover data ou dividir time | Ops Manager |
+| Falha em teste de integração | Qualquer | Debug + tentativa de correção em 2 horas | Tech Lead + QA |
+| Teste excede correção de 2h | Após 2 horas | Debug hands-on com CTO | CTO |
+| Janela séria atrasada | >2 horas de execução | HOLD, pós-mortem, nova tentativa no dia seguinte | Ops Manager + Tech Lead |
+| Atraso de sign-off de stakeholders | >3 dias | Lembrete do COO + extensão de prazo | COO |
 
 ---
 
-## 📈 Weekly Review Schedule
+## Agenda de Revisão Semanal
 
-### Friday EOD (Every Friday)
-- [ ] Verify deliverables completed
-- [ ] Update KPI metrics
-- [ ] Document learnings
-- [ ] Plan next week
+### Sexta EOD (toda semana)
+- [ ] Verificar entregáveis concluídos
+- [ ] Atualizar métricas de KPI
+- [ ] Documentar aprendizados
+- [ ] Planejar próxima semana
 
-**Review meetings:**
-- Sprint 7: Friday 12 July 17:00 UTC
-- Sprint 8: Friday 19 July 17:00 UTC
-- Sprint 9: Friday 26 July 17:00 UTC
-
----
-
-## ✅ Final Checklist (Before 95% Celebration)
-
-### Documentation
-- [ ] All runbooks written (AML/KYT, EU Feed, OIDC)
-- [ ] 2 serious windows completed with dossiers
-- [ ] Retention/Recovery test documented with RTO/RPO
-- [ ] Retrospectives captured
-- [ ] P3 roadmap outlined
-
-### Sign-offs
-- [ ] Compliance Lead: P0-02, P0-03, windows, recurrence
-- [ ] Security Lead: OIDC, MFA, ownership
-- [ ] CTO: Retention/Recovery, RTO/RPO ✅
-- [ ] COO: SLAs, owners, cadence ✅
-
-### Metrics
-- [ ] Technical: 91% (unchanged)
-- [ ] Regulatory: 95% (from 78%)
-- [ ] Consolidated: 95% ✅ GOAL
+**Reuniões de revisão:**
+- Sprint 7: sexta 12 Jul 17:00 UTC
+- Sprint 8: sexta 19 Jul 17:00 UTC
+- Sprint 9: sexta 26 Jul 17:00 UTC
 
 ---
 
-## 📁 Document Reference
+## Checklist Final (antes da celebração de 95%)
 
-| Document | Purpose | Status |
+### Documentação
+- [ ] Todos os roteiros operacionais escritos (AML/KYT, feed UE, OIDC)
+- [ ] 2 janelas sérias concluídas com dossiers
+- [ ] Teste de retenção/recuperação documentado com RTO/RPO
+- [ ] Retrospectivas registradas
+- [ ] Roadmap de P3 definido
+
+### Aprovações
+- [ ] Liderança de Compliance: P0-02, P0-03, janelas, recorrência
+- [ ] Liderança de Segurança: OIDC, MFA, ownership
+- [ ] CTO: Retenção/Recuperação, RTO/RPO
+- [ ] COO: SLAs, responsáveis, cadência
+
+### Métricas
+- [ ] Técnica: 91% (sem mudança)
+- [ ] Regulatória: 95% (partindo de 78%)
+- [ ] Consolidada: 95%  META
+
+---
+
+## Referência de Documentos
+
+| Documento | Finalidade | Status |
 | --- | --- | --- |
-| **PROJECT_ANALYSIS_AND_ROADMAP_2026_07_02.md** | Strategic analysis of all 6 sprints + gap analysis | ✅ Complete |
-| **TACTICAL_ROADMAP_SPRINT_7_TO_95_PERCENT.md** | Detailed Sprint 7-9 execution plan | ✅ Complete |
-| **EXECUTIVE_SUMMARY_95_PERCENT.md** | C-level summary (1 page) | ✅ Complete |
-| **PRÓXIMAS_AÇÕES_IMEDIATAS.md** | This week's action items | ✅ Complete |
-| **DASHBOARD (this file)** | Progress tracking & visual status | ✅ Complete |
+| **PROJECT_ANALYSIS_AND_ROADMAP_2026_07_02.md** | Análise estratégica dos 6 sprints + gap analysis | Completo |
+| **TACTICAL_ROADMAP_SPRINT_7_TO_95_PERCENT.md** | Plano detalhado de execução Sprint 7-9 | Completo |
+| **EXECUTIVE_SUMMARY_95_PERCENT.md** | Resumo executivo (1 página) | Completo |
+| **PRÓXIMAS_AÇÕES_IMEDIATAS.md** | Ações desta semana | Completo |
+| **PAINEL (este arquivo)** | Progresso e status visual | Completo |
 
 ---
 
-**Last Updated:** 2026-07-02 23:45 UTC  
-**Next Update:** 2026-07-03 17:00 (After Kick-off) or immediately if blockers arise  
-**Owner:** Tech Lead / Ops Manager
+**Última atualização:** 2026-07-02 23:45 UTC
+**Próxima atualização:** 2026-07-03 17:00 (após kickoff) ou imediatamente se houver bloqueadores
+**Responsável:** Tech Lead / Ops Manager
 
 ---
 
-## 🎯 ONE-PAGE SUMMARY FOR STAKEHOLDERS
+## RESUMO DE UMA PAGINA PARA PARTES INTERESSADAS
 
 ```
 ╔════════════════════════════════════════════════════════════════════╗
-║          ONTRACKCHAIN 95% MATURITY SPRINT 7-9 ROLLOUT             ║
+║          ONTRACKCHAIN PLANO DE MATURIDADE 95% SPRINT 7-9          ║
 ╠════════════════════════════════════════════════════════════════════╣
 ║                                                                    ║
-║  Current State:      87% Consolidated KPI (June 2026)            ║
-║  Target State:       95% Consolidated KPI (July 22, 2026)        ║
+║  Estado Atual:       KPI consolidado de 87% (Jun 2026)           ║
+║  Estado Alvo:        KPI consolidado de 95% (22 Jul 2026)        ║
 ║                                                                    ║
-║  Timeline:           9 weeks (3 sprints)                          ║
-║  Effort:             34 person-days (~€15-20K)                    ║
-║  Critical Blockers:  3 external provider credentials (Week 1)     ║
+║  Linha do tempo:     9 semanas (3 sprints)                        ║
+║  Esforço:            34 pessoa-dias (~€15-20K)                    ║
+║  Bloq. Críticos:     3 credenciais externas de provedores         ║
 ║                                                                    ║
-║  KPI Path:           87% ─→ 88% ─→ 91% ─→ 95% ✅                 ║
+║  Trajetória KPI:     87% ─→ 88% ─→ 91% ─→ 95%                  ║
 ║                      S7    S8    S9                               ║
 ║                                                                    ║
-║  NEXT ACTION:        Kick-off Sprint 7 Tomorrow (09:00 AM)        ║
-║                      Contact 3 providers TODAY                    ║
-║                      Confirm task owners                          ║
+║  PRÓXIMA AÇÃO:       Início da Sprint 7 amanhã (09:00)            ║
+║                      Contatar 3 provedores HOJE                   ║
+║                      Confirmar responsáveis das tarefas            ║
 ║                                                                    ║
 ╚════════════════════════════════════════════════════════════════════╝
 ```
 
-✅ **Dashboard Ready. Awaiting Kick-off & Provider Responses.**
+**Painel pronto. Aguardando kickoff e respostas dos provedores.**

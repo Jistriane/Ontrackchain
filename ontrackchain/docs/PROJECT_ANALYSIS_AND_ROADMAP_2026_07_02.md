@@ -1,7 +1,7 @@
 # Análise Completa do Projeto Ontrackchain e Roadmap de Continuação
 
-**Data:** 2026-07-02  
-**Maturidade Atual:** 91% técnica / 78% regulatória / 87% consolidada  
+**Data:** 2026-07-02
+**Maturidade Atual:** 91% técnica / 78% regulatória / 87% consolidada
 **Sprint Vigente:** 6 concluída, próximo: 7 (Q3 2026)
 
 ---
@@ -10,13 +10,13 @@
 
 ### 1.1 O Que Foi Construído (Sprint 1-6)
 
-#### Núcleo Arquitetural ✅
+#### Núcleo Arquitetural
 - Stack multi-tenant: FastAPI + Next.js 14 + PostgreSQL + Redis
 - Docker Compose com Traefik gateway, Prometheus, Grafana, Alertmanager
 - RLS (Row-Level Security) por organização
 - Migrations controladas com histórico auditável
 
-#### Camada de Compliance Core ✅
+#### Camada de Compliance Core
 1. **Sanctions Screening**
    - `sanctions_lists_meta`: metadata de feeds (UN, EU, OFAC, etc)
    - `sanctions_hits_cache`: triagem local de PEPs e entidades
@@ -42,13 +42,13 @@
    - Rastreamento de eventos com source of truth único
    - Integração em todos os cockpits
 
-#### Fila Operacional Compartilhada ✅
+#### Fila Operacional Compartilhada
 - `regulatory_work_items`: fila multiusuário persistida por módulo/recurso
 - `regulatory_work_events`: eventos estruturados com timestamp
 - `regulatory_work_comments`: discussão inline com owner_user_id
-- Sincronia entre backend → frontend via `/api/app/operations/work-items`
+- Sincronia entre backend -> frontend via `/api/app/operations/work-items`
 
-#### Frontend Operacional - 7 Cockpits ✅
+#### Frontend Operacional - 7 Cockpits
 1. **Counterparties** (`/counterparties`)
    - DD/SoF manual review + histórico workspace
    - Status colorido, filtro por risco
@@ -84,20 +84,20 @@
    - Sincronização de fechamento via `ack`
    - i18n tri-locale
 
-#### Componentes Reutilizáveis ✅
+#### Componentes Reutilizáveis
 - `WorkItemTimelinePanel`: painel universal de histórico com filtro/busca
 - `WorkItemTimeline`: componente de timeline com comentários
 - `work-item-timeline-client.ts`: sincronização com backend
 - `work-item-timeline-labels.ts`: labels por tipo de evento
 - `ownership.ts`: rastreamento de owner_user_id
 
-#### Testes e Validação ✅
+#### Testes e Validação
 - Smoke tests: `smoke_runtime.py`, `smoke_work_items_ownership_backend.py`
 - E2E: `timeline-workspace.spec.ts`
 - Preflights: `preflight_oidc_serious_env.py`, `preflight_external_integrations.py`
 - CI/CD: GitHub Actions com quality gates
 
-#### Governança e Documentação ✅
+#### Governança e Documentação
 - 28 documentos canônicos ativos
 - 16 templates e tracking semanal em `governance-weekly/`
 - 22 arquivos históricos em archive/
@@ -110,7 +110,7 @@
 
 ### 2.1 P0 — Bloqueadores de Prontidão Regulatória
 
-#### P0-01: OIDC + MFA Federado Sério ⏳ `blocked` (78% → 88% se concluído)
+#### P0-01: OIDC + MFA Federado Sério `blocked` (78% -> 88% se concluído)
 **Status:** Trilho pronto, falta homologação formal recorrente
 
 **O que já existe:**
@@ -138,7 +138,7 @@
 
 ---
 
-#### P0-02: AML/KYT Live (Provider Real) ⏳ `ready` (72% → 90% se concluído)
+#### P0-02: AML/KYT Live (Provider Real) `ready` (72% -> 90% se concluído)
 **Status:** Gate de runtime pronto, falta credencial real
 
 **O que já existe:**
@@ -168,7 +168,7 @@
 
 ---
 
-#### P0-03: Feed UE Tokenizado Real ⏳ `ready` (70% → 85% se concluído)
+#### P0-03: Feed UE Tokenizado Real `ready` (70% -> 85% se concluído)
 **Status:** Runner pronto, falta URL tokenizada real
 
 **O que já existe:**
@@ -200,7 +200,7 @@
 
 ### 2.2 P1 — Consolidação Operacional (Sprint 6-7)
 
-#### P1-01: DD/SoF Manual Review Estruturado ✅ `done`
+#### P1-01: DD/SoF Manual Review Estruturado `done`
 **Status:** Painel entregue em Sprint 6
 
 **Entregáveis:**
@@ -211,7 +211,7 @@
 
 ---
 
-#### P1-02: Histórico de Cockpits Compartilhado ✅ `done`
+#### P1-02: Histórico de Cockpits Compartilhado `done`
 **Status:** Todos os 7 cockpits entregues em Sprint 6
 
 **Entregáveis:**
@@ -225,7 +225,7 @@
 
 ---
 
-#### P1-03: Ownership e Assignment Formalizado ⏳ `in_progress` (75% → 90% se concluído)
+#### P1-03: Ownership e Assignment Formalizado `in_progress` (75% -> 90% se concluído)
 **Status:** Estrutura pronta, falta aprovação institucional
 
 **O que já existe:**
@@ -489,27 +489,27 @@ Consolidada: 93% → 95% (ponderação 70/30)
 
 ## 6. RECOMENDAÇÕES FINAIS
 
-### ✅ Força Atual
+### Força Atual
 1. **Plataforma técnica madura:** 91% com todos os cockpits operacionais
 2. **Trilha regulatória estruturada:** Componentes prontos, falta homologação
 3. **Documentação consolidada:** Zero referências quebradas, 28 docs canônicos
 4. **Testes robustos:** Smoke, E2E, preflights bem institucionalizados
 5. **Timeline/Comments universal:** Reusabilidade máxima em todos os 7 cockpits
 
-### ⚠️ Gaps Críticos
+### ️ Gaps Críticos
 1. **Providers reais:** AML/KYT e Feed UE ainda não homologados
 2. **OIDC federado:** Trilho pronto, falta provider de produção
 3. **Prova recorrente:** Falta institucionalizar execução periódica de janelas
 4. **Sign-offs formais:** Retention/recovery, ownership, SLAs ainda pendentes
 5. **Escalation formalizado:** Playbook de RCA e incident response não estruturado
 
-### 🎯 Próximos Passos (Imediatos)
+### Próximos Passos (Imediatos)
 1. **Reunir credenciais:** Contatar providers de AML/KYT e feed UE
 2. **Preparar janela seria:** Com providers reais assim que credenciais disponíveis
 3. **Formalizar ownership:** Reunir COO e domínios para aceite de SLAs
 4. **Agendar sign-offs:** Compliance lead para retention/recovery
 
-### 📈 Potencial de Maturidade
+### Potencial de Maturidade
 - **90% consolidada** em 3 semanas (com credenciais disponíveis)
 - **95% consolidada** em 6-8 semanas (com janelas recorrentes + P2 completo)
 

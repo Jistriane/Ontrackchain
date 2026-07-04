@@ -4,7 +4,7 @@
 
 Centralizar os registros gerados a partir do [Runbook de Governança Semanal](../project-weekly-governance-runbook.md).
 
-## Escopo Canonico
+## Escopo Canônico
 
 Use esta pasta para:
 
@@ -12,9 +12,9 @@ Use esta pasta para:
 - preservar historico operacional e executivo sem sobrescrever o estado de semanas anteriores
 - anexar a trilha documental de uma janela seria especifica depois que ela existir de fato
 
-Nao use esta pasta como fonte primaria para:
+Não use esta pasta como fonte primária para:
 
-- descrever o fluxo tecnico canônico de deploy: use [Deploy e Staging](../deploy-and-staging.md)
+- descrever o fluxo técnico canônico de deploy: use [Deploy e Staging](../deploy-and-staging.md)
 - definir gates formais ou criterio executivo de promocao: use [Gates de Release para Staging Serio](../project-release-gates.md)
 - manter checklists operacionais genericos sem contexto de ciclo: use os documentos canônicos em `docs/`
 
@@ -46,6 +46,7 @@ Exemplo:
 4. manter alinhamento entre este registro, a [Matriz Operacional de Execução para 95%](../project-operational-execution-board.md) e o [Board de Prioridades do Projeto](../project-priority-board.md)
 5. quando houver janela séria via GitHub Actions, registrar `window_id`, `environment_name`, link do run e artifact `serious-staging-window-<janela>`
 6. usar [Avaliacao Consolidada de Status do Projeto](../PROJECT_STATUS_ASSESSMENT_2026_07_03.md) como parecer executivo de apoio quando houver discussão de baseline, subida para `95%` ou decisão de `go/no-go`
+7. para qualquer decisão de `go`, anexar resultado do `validate_serious_window_artifact.py` com `status=ok` e `invalid_artifacts=[]` no war room, sign-off e registro semanal
 
 ## Comando Unico (War Room Local)
 

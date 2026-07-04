@@ -1,15 +1,15 @@
 # Auditoria e Consolidação de Documentação - 2 de julho de 2026
 
-**Data**: 2026-07-02  
-**Sprint**: Sprint 6 - Consolidado  
-**Objetivo**: Atualizar documentação pós-Sprint 6 com paineis de histórico consolidados e remover documentação obsoleta
+**Data:** 2026-07-02
+**Sprint:** Sprint 6 - Consolidado
+**Objetivo:** Atualizar documentação pós-Sprint 6 com paineis de histórico consolidados e remover documentação obsoleta
 
 ## Resumo Executivo
 
-- ✅ **Deletados**: 59 arquivos de histórico de execução (Sprints 1-4, primeiras janelas)
-- ✅ **Arquivados**: 21 arquivos de tracking de sprints (agora em `governance-weekly/archive/`)
-- ✅ **Atualizados**: 4 documentos canônicos (README raiz, project-maturity-assessment.md, project-kpi-scorecard.md, docs/README.md)
-- ✅ **Padronizado**: Documentação agora reflete estado pós-Sprint 6 com todos 7 cockpits com paineis de histórico
+- **Deletados**: 59 arquivos de histórico de execução (Sprints 1-4, primeiras janelas)
+- **Arquivados**: 21 arquivos de tracking de sprints (agora em `governance-weekly/archive/`)
+- **Atualizados**: 4 documentos canônicos (README raiz, project-maturity-assessment.md, project-kpi-scorecard.md, docs/README.md)
+- **Padronizado**: Documentação agora reflete estado pós-Sprint 6 com todos 7 cockpits com paineis de histórico
 
 ## Arquivos Deletados
 
@@ -122,14 +122,12 @@ governance-weekly/
 
 1. **Objetivo**: Atualizado para mencionar "Sprint 6 com todos 7 paineis consolidados"
 
-2. **Matriz de Maturidade**: 
-   - "Frontend Operacional" atualizado de **89%** para **93%**
+2. **Matriz de Maturidade**:   - "Frontend Operacional" atualizado de **89%** para **93%**
    - Justificativa: "todos 7 cockpits agora sincronizam fila compartilhada com paineis de histórico consolidados e i18n tri-locale"
 
 3. **"O Que Aumentou a Maturidade"**: Adicionado parágrafo detalhando os 7 paineis (contraparties DD/SoF, sanctions, evidence, reports, blocks, ros-coaf, alerts) com i18n tri-locale
 
-4. **"O Que Ainda Segura"**: 
-   - Removida menção a "migração gradual dos cockpits" (já consolidada)
+4. **"O Que Ainda Segura"**:   - Removida menção a "migração gradual dos cockpits" (já consolidada)
    - Adicionado novo item: "paineis de histórico já consolidados; próxima fase: integracao mais profunda de actions customizadas"
 
 5. **"Próximos Degraus"**: Adicionado item #5 sobre actions customizadas aos painels
@@ -156,35 +154,35 @@ governance-weekly/
 ## Arquivos Que Permanecem (Canônicos)
 
 **Operação e Compliance**:
-- ✅ `operations.md` - procedimentos operacionais local
-- ✅ `deploy-and-staging.md` - fluxo de deploy
-- ✅ `validation-and-audit.md` - smoke, E2E, testes
-- ✅ `ci-cd-and-release.md` - gates e workflows
-- ✅ `runbooks.md` - troubleshooting por sintoma
+- `operations.md` - procedimentos operacionais local
+- `deploy-and-staging.md` - fluxo de deploy
+- `validation-and-audit.md` - smoke, E2E, testes
+- `ci-cd-and-release.md` - gates e workflows
+- `runbooks.md` - troubleshooting por sintoma
 
 **Segurança e Compliance**:
-- ✅ `compliance-and-security-controls.md` - controles ativos
-- ✅ `rbac-and-permissions.md` - matriz funcional
-- ✅ `regulatory-readiness.md` - leitura regulatória honesta
-- ✅ `evidence-and-audit-matrix.md` - trilha de evidências
+- `compliance-and-security-controls.md` - controles ativos
+- `rbac-and-permissions.md` - matriz funcional
+- `regulatory-readiness.md` - leitura regulatória honesta
+- `evidence-and-audit-matrix.md` - trilha de evidências
 
 **Planejamento Executivo**:
-- ✅ `project-priority-board.md` - prioridades atuais (atualizado em Sprint 6)
-- ✅ `project-operational-execution-board.md` - fila diária live
-- ✅ `project-maturity-assessment.md` - (atualizado neste ciclo)
-- ✅ `project-kpi-scorecard.md` - (atualizado neste ciclo)
-- ✅ `project-risk-register.md` - registro de riscos residuais
+- `project-priority-board.md` - prioridades atuais (atualizado em Sprint 6)
+- `project-operational-execution-board.md` - fila diária live
+- `project-maturity-assessment.md` - (atualizado neste ciclo)
+- `project-kpi-scorecard.md` - (atualizado neste ciclo)
+- `project-risk-register.md` - registro de riscos residuais
 
 **Governança Semanal**:
-- ✅ `governance-weekly/` - registros consolidados por semana + archive/ para histórico
+- `governance-weekly/` - registros consolidados por semana + archive/ para histórico
 
 **Técnico**:
-- ✅ `architecture.md` - desenho macro
-- ✅ `api-contracts.md` - contratos HTTP
-- ✅ `environment-variables.md` - baseline por serviço
-- ✅ `frontend-coverage-matrix.md` - matriz de telas (atualizado em Sprint 6)
-- ✅ `keycloak-oidc-template.md` - template OIDC
-- ✅ `rbac-and-permissions.md` - matrix de acesso
+- `architecture.md` - desenho macro
+- `api-contracts.md` - contratos HTTP
+- `environment-variables.md` - baseline por serviço
+- `frontend-coverage-matrix.md` - matriz de telas (atualizado em Sprint 6)
+- `keycloak-oidc-template.md` - template OIDC
+- `rbac-and-permissions.md` - matrix de acesso
 
 ---
 
@@ -195,19 +193,19 @@ governance-weekly/
 | Arquivos em `docs/` | 98 | 39 | -60% |
 | Arquivo em `governance-weekly/` | 38 | 17 (+21 em archive) | Organizado |
 | Total de docs | 136 | 56 | -59% (mantendo histórico) |
-| Confusão sobre qual doc usar | Alta | Baixa | ✅ |
+| Confusão sobre qual doc usar | Alta | Baixa |  |
 
 ---
 
 ## Checklist de Validação
 
-- ✅ README raiz atualizado com Sprint 6
-- ✅ Índice de docs (`docs/README.md`) limpo
-- ✅ Maturidade tecnica e regulatória documentada
-- ✅ KPI scorecard atualizado
-- ✅ Histórico de sprints arquivado (não deletado)
-- ✅ Documentação canônica preservada
-- ✅ Nenhuma referência quebrada em documentação ativa
+- README raiz atualizado com Sprint 6
+- Índice de docs (`docs/README.md`) limpo
+- Maturidade tecnica e regulatória documentada
+- KPI scorecard atualizado
+- Histórico de sprints arquivado (não deletado)
+- Documentação canônica preservada
+- Nenhuma referência quebrada em documentação ativa
 
 ---
 
@@ -219,6 +217,6 @@ governance-weekly/
 
 ---
 
-**Validado por**: Automation  
-**Data**: 2026-07-02  
-**Status**: ✅ CONCLUÍDO
+**Validado por:** Automation
+**Data:** 2026-07-02
+**Status:** CONCLUÍDO
