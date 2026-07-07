@@ -2,7 +2,7 @@
 
 ![Ontrackchain](./ontrackchain/docs/assets/logo.jpeg)
 
-Plataforma de investigacao e compliance on-chain com foco em trilha auditavel, fila operacional multiusuario, screening local de sancoes e governanca de release para ambientes serios.
+Plataforma modular de investigacao e compliance on-chain, com foco em trilha auditavel, fila operacional multiusuario, screening local de sancoes e governanca de release para operacao regulada.
 
 ## Sumario
 
@@ -151,7 +151,7 @@ Este repositorio e dividido em dois niveis:
 
 ## Prontidao Rumo a 95%
 
-### O Que Ja Esta Forte
+### Capacidades Consolidadas
 
 - arquitetura modular com boundaries claros, gateway unico, `RLS` e servicos por dominio
 - frontend operacional real com cockpits tri-locale, contratos compartilhados e hardening recente
@@ -159,7 +159,7 @@ Este repositorio e dividido em dois niveis:
 - operacao multiusuario sustentada por `regulatory_work_items`, timeline e comentarios estruturados
 - observabilidade, runbooks, bundles de readiness e harnesses de validacao ja institucionalizados
 
-### O Que Ainda Bloqueia `95%`
+### Bloqueadores para `95%`
 
 - `P0-01`: homologar `OIDC + MFA` federado em trilho serio e recorrente
 - `P0-02`: fechar `AML/KYT live` com credencial real, check verde e evidencia anexavel
@@ -196,7 +196,7 @@ Este repositorio e dividido em dois niveis:
 - **Homologacao externa ainda e o gargalo principal:** `OIDC + MFA`, `AML/KYT live` e feed UE real dependem de credenciais, aceite institucional e repetibilidade operacional
 - **Cadeia formal de custodia ainda precisa de reforco organizacional:** os artefatos existem, mas classificacao de sensibilidade e sign-off recorrente ainda nao estao institucionalizados
 - **Fila compartilhada ainda nao cobre todos os cockpits:** `blocks`, `reports`, `counterparties`, `evidence` e `ros-coaf` ainda exigem expansao funcional para convergir no mesmo modelo operacional
-- **`manual_review_required` e uma escolha honesta, mas limita prontidao plena:** `due_diligence` e `source_of_funds` seguem fora de automacao completa por decisao consciente de produto e risco
+- **`manual_review_required` e um trade-off assumido, mas limita prontidao plena:** `due_diligence` e `source_of_funds` seguem fora de automacao completa por decisao consciente de produto e risco
 - **Mais rastreabilidade implica mais custo operacional:** separar `audit_logs` e `evidence_trail`, exigir bundles e sign-offs melhora governanca, mas eleva disciplina documental e carga de operacao
 
 ## Politica de Documentacao
@@ -424,7 +424,7 @@ make run-serious-window-local WINDOW_ID=stg-2026-07-06-a MODE=baseline
 make postprocess-serious-window RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
 ```
 
-Situacao executiva atual:
+Leitura executiva atual:
 
 - `P0-01`: homologacao OIDC + MFA federado ainda depende de evidencia real recorrente
 - `P0-02`: provider `AML/KYT live` pronto para validacao com credencial real
@@ -467,7 +467,7 @@ Ontrackchain/
 
 ## Proximo Passo Recomendado
 
-As quatro frentes que mais movem a prontidao real do projeto sao:
+As quatro frentes que mais movem a maturidade comprovada do projeto sao:
 
 1. homologar `OIDC` + MFA federado serio
 2. fechar `AML/KYT live` com evidencia anexavel
