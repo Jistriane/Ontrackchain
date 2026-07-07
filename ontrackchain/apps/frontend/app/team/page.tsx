@@ -7,6 +7,7 @@ import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } fro
 import { useI18n } from "../../components/i18n-provider";
 import type { MessageKey } from "../lib/i18n";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
+import { TEAM_ROLE_VALUES, isTeamRoleValue } from "../lib/team-catalog";
 
 type AuthContext = {
   org_id: string | null;
@@ -19,7 +20,7 @@ type AuthContext = {
   mfa_provider_homologated: string | null;
 };
 
-type TeamRole = "ADMIN" | "ANALYST" | "COMPLIANCE_OFFICER" | "LEGAL_REVIEWER";
+type TeamRole = (typeof TEAM_ROLE_VALUES)[number];
 type TeamMemberStatus = "active" | "invited" | "disabled";
 type TeamMemberRecord = {
   member_id: string;
@@ -52,10 +53,7 @@ const DEFAULT_MEMBER_FORM: MemberFormState = {
 };
 
 function parseTeamRole(value: string | null): TeamRole | null {
-  if (value === "ADMIN" || value === "ANALYST" || value === "COMPLIANCE_OFFICER" || value === "LEGAL_REVIEWER") {
-    return value;
-  }
-  return null;
+  return value && isTeamRoleValue(value) ? value : null;
 }
 
 function parseTeamStatus(value: string | null): TeamMemberStatus | null {
@@ -150,6 +148,15 @@ export default function TeamPage() {
   const [search, setSearch] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
 
+  function resolveTeamRoleLabel(value: TeamRole | string) {
+    return isTeamRoleValue(value) ? tr(`team.roster.roles.${value}` as MessageKey) : value;
+  }
+
+  function formatTeamRoleValue(value: TeamRole | string) {
+    const label = resolveTeamRoleLabel(value);
+    return label === value ? value : `${label} (${value})`;
+  }
+
   const activeCount = useMemo(() => roster.filter((r) => r.status === "active").length, [roster]);
   const invitedCount = useMemo(() => roster.filter((r) => r.status === "invited").length, [roster]);
   const disabledCount = useMemo(() => roster.filter((r) => r.status === "disabled").length, [roster]);
@@ -162,7 +169,8 @@ export default function TeamPage() {
         !query ||
         record.email.toLowerCase().includes(query) ||
         record.name.toLowerCase().includes(query) ||
-        record.role.toLowerCase().includes(query);
+        record.role.toLowerCase().includes(query) ||
+        resolveTeamRoleLabel(record.role).toLowerCase().includes(query);
       return matchesStatus && matchesSearch;
     });
   }, [filterStatus, roster, search]);
@@ -380,11 +388,17 @@ export default function TeamPage() {
             </label>
             <label className="otc-field">
               {tr("team.roster.form.role" as MessageKey)}
-              <select className="otc-select" value={memberForm.role} onChange={(event) => updateMemberForm("role", event.target.value as TeamRole)}>
-                <option value="ADMIN">ADMIN</option>
-                <option value="ANALYST">ANALYST</option>
-                <option value="COMPLIANCE_OFFICER">COMPLIANCE_OFFICER</option>
-                <option value="LEGAL_REVIEWER">LEGAL_REVIEWER</option>
+              <select
+                className="otc-select"
+                data-testid="team-role-select"
+                value={memberForm.role}
+                onChange={(event) => updateMemberForm("role", event.target.value as TeamRole)}
+              >
+                {TEAM_ROLE_VALUES.map((role) => (
+                  <option key={role} value={role}>
+                    {formatTeamRoleValue(role)}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="otc-field">
@@ -425,7 +439,7 @@ export default function TeamPage() {
           </label>
           <label className="otc-field">
             {tr("team.roster.filters.search" as MessageKey)}
-            <input className="otc-input" value={search} onChange={(event) => setSearch(event.target.value)} />
+            <input className="otc-input" data-testid="team-search-input" value={search} onChange={(event) => setSearch(event.target.value)} />
           </label>
         </div>
 
@@ -443,10 +457,16 @@ export default function TeamPage() {
             </thead>
             <tbody>
               {filteredRoster.map((record) => (
-                <tr key={record.member_id}>
+                <tr key={record.member_id} data-testid="team-row">
                   <td><strong>{record.name || record.email}</strong></td>
                   <td>{record.email}</td>
-                  <td><Pill tone={record.role === "ADMIN" ? "danger" : record.role === "COMPLIANCE_OFFICER" ? "warning" : undefined}>{record.role}</Pill></td>
+                  <td>
+                    <Pill
+                      tone={record.role === "ADMIN" ? "danger" : record.role === "COMPLIANCE_OFFICER" ? "warning" : undefined}
+                    >
+                      {formatTeamRoleValue(record.role)}
+                    </Pill>
+                  </td>
                   <td><Pill tone={record.status === "disabled" ? "danger" : record.status === "invited" ? "warning" : undefined}>{tr(`team.roster.status.${record.status}` as MessageKey)}</Pill></td>
                   <td>{record.updated_at}</td>
                   <td>

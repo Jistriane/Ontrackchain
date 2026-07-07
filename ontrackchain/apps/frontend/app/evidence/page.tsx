@@ -6,6 +6,18 @@ import { useSearchParams } from "next/navigation";
 import { useI18n } from "../../components/i18n-provider";
 import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
+import { formatDateTime as formatDate } from "../lib/date-format";
+import {
+  EVIDENCE_ACTION_VALUES,
+  EVIDENCE_RESOURCE_TYPE_VALUES,
+  isEvidenceActionValue,
+  isEvidenceResourceTypeValue
+} from "../lib/evidence-catalog";
+import {
+  buildEvidenceManualPackagePayload,
+  buildManualReviewPackageFilename,
+  deriveEvidenceManualPackageSummary
+} from "../lib/evidence-manual-package";
 import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
 import { createWorkItemComment, fetchWorkItemTimeline } from "../lib/work-item-timeline-client";
 import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
@@ -20,14 +32,8 @@ import {
   type AuditLogsResponse
 } from "../lib/audit-log";
 import {
-  buildAuditHref,
-  buildBlocksHref,
-  buildCaseHref,
-  buildCounterpartyHref,
-  buildInvestigateHref,
-  buildReportsHref,
-  buildRosHref,
-  buildSanctionsHref,
+  buildOperationalContextLinks,
+  type OperationalContextLink,
   inferLogOperationalContext
 } from "../lib/operational-context";
 type EvidenceFilters = AuditLogQueryFilters & {
@@ -42,6 +48,68 @@ const DEFAULT_FILTERS: EvidenceFilters = {
   reportId: "",
   resourceId: "",
   limit: "50"
+};
+
+const MANUAL_REVIEW_VALUE_LABEL_KEYS: Record<string, MessageKey> = {
+  manual_review: "evidenceTrail.manualReview.values.manual_review",
+  manual_review_pending: "evidenceTrail.manualReview.values.manual_review_pending",
+  degraded: "evidenceTrail.manualReview.values.degraded",
+  manual_review_required: "evidenceTrail.manualReview.values.manual_review_required"
+};
+const MANUAL_PACKAGE_VALUE_LABEL_KEYS: Record<string, MessageKey> = {
+  due_diligence_manual_review_package: "evidenceTrail.manualPackage.values.due_diligence_manual_review_package",
+  source_of_funds_manual_review_package: "evidenceTrail.manualPackage.values.source_of_funds_manual_review_package",
+  restricted_regulatory: "evidenceTrail.manualPackage.values.restricted_regulatory",
+  regulated_ops_human_review_required: "evidenceTrail.manualPackage.values.regulated_ops_human_review_required",
+  regulated_ops_authenticated_context: "evidenceTrail.manualPackage.values.regulated_ops_authenticated_context",
+  compliance_dd_signoff: "evidenceTrail.manualPackage.values.compliance_dd_signoff",
+  compliance_sof_signoff: "evidenceTrail.manualPackage.values.compliance_sof_signoff",
+  human_signoff_required: "evidenceTrail.manualPackage.values.human_signoff_required",
+  assisted_review: "evidenceTrail.manualPackage.values.assisted_review",
+  chain_correlated: "evidenceTrail.manualPackage.values.chain_correlated",
+  event_only: "evidenceTrail.manualPackage.values.event_only",
+  hash_materialized_offchain: "evidenceTrail.manualPackage.values.hash_materialized_offchain",
+  hash_pending: "evidenceTrail.manualPackage.values.hash_pending",
+  manual_review_pending: "evidenceTrail.manualPackage.values.manual_review_pending"
+};
+const MANUAL_PACKAGE_FIELD_LABEL_KEYS: Record<string, MessageKey> = {
+  provider_status: "evidenceTrail.manualPackage.fields.provider_status",
+  degraded_reason: "evidenceTrail.manualPackage.fields.degraded_reason",
+  counterparty_context: "evidenceTrail.manualPackage.fields.counterparty_context",
+  address: "evidenceTrail.manualPackage.fields.address",
+  chain: "evidenceTrail.manualPackage.fields.chain",
+  purpose: "evidenceTrail.manualPackage.fields.purpose",
+  amount: "evidenceTrail.manualPackage.fields.amount"
+};
+const MANUAL_PACKAGE_CHECKLIST_LABEL_KEYS: Record<string, MessageKey> = {
+  validate_counterparty: "evidenceTrail.manualPackage.checklistItems.validate_counterparty",
+  attach_human_rationale: "evidenceTrail.manualPackage.checklistItems.attach_human_rationale",
+  confirm_relationship_origin: "evidenceTrail.manualPackage.checklistItems.confirm_relationship_origin",
+  validate_declared_origin: "evidenceTrail.manualPackage.checklistItems.validate_declared_origin",
+  attach_documentary_evidence: "evidenceTrail.manualPackage.checklistItems.attach_documentary_evidence",
+  confirm_financial_rationale: "evidenceTrail.manualPackage.checklistItems.confirm_financial_rationale"
+};
+const EVIDENCE_ACTION_LABEL_KEYS: Record<string, MessageKey> = {
+  compliance_sanctions_checked: "evidenceTrail.values.actions.compliance_sanctions_checked",
+  preventive_block_lifted: "evidenceTrail.values.actions.preventive_block_lifted",
+  counterparty_created: "evidenceTrail.values.actions.counterparty_created",
+  coaf_report_generated: "evidenceTrail.values.actions.coaf_report_generated",
+  coaf_report_approved: "evidenceTrail.values.actions.coaf_report_approved",
+  coaf_report_rejected: "evidenceTrail.values.actions.coaf_report_rejected",
+  coaf_report_submitted_manual: "evidenceTrail.values.actions.coaf_report_submitted_manual",
+  report_generated: "evidenceTrail.values.actions.report_generated",
+  report_downloaded: "evidenceTrail.values.actions.report_downloaded",
+  compliance_due_diligence_checked: "evidenceTrail.values.actions.compliance_due_diligence_checked",
+  compliance_source_of_funds_checked: "evidenceTrail.values.actions.compliance_source_of_funds_checked",
+  evidence_bundle_exported: "evidenceTrail.values.actions.evidence_bundle_exported"
+};
+const EVIDENCE_RESOURCE_TYPE_LABEL_KEYS: Record<string, MessageKey> = {
+  address: "evidenceTrail.values.resourceTypes.address",
+  case: "evidenceTrail.values.resourceTypes.case",
+  report: "evidenceTrail.values.resourceTypes.report",
+  ros_record: "evidenceTrail.values.resourceTypes.ros_record",
+  preventive_block: "evidenceTrail.values.resourceTypes.preventive_block",
+  counterparty: "evidenceTrail.values.resourceTypes.counterparty"
 };
 
 type WorkspacePriority = "critical" | "high" | "normal";
@@ -144,24 +212,24 @@ const DOMAIN_PRESETS: Array<{
     action: "report_downloaded",
     resourceType: "report",
     evidenceTypes: ["REPORT_GENERATED", "REPORT_DOWNLOADED", "EVIDENCE_EXPORTED"]
+  },
+  {
+    id: "due_diligence",
+    label: "evidenceTrail.domain.dueDiligence",
+    description: "evidenceTrail.domain.dueDiligenceDescription",
+    action: "compliance_due_diligence_checked",
+    resourceType: "address",
+    evidenceTypes: ["MANUAL_REVIEW_REQUIRED", "DUE_DILIGENCE_CHECKED"]
+  },
+  {
+    id: "source_of_funds",
+    label: "evidenceTrail.domain.sourceOfFunds",
+    description: "evidenceTrail.domain.sourceOfFundsDescription",
+    action: "compliance_source_of_funds_checked",
+    resourceType: "address",
+    evidenceTypes: ["MANUAL_REVIEW_REQUIRED", "SOURCE_OF_FUNDS_CHECKED"]
   }
 ];
-
-function formatDate(value: string | null | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short"
-  }).format(parsed);
-}
 
 function isUuidLike(value: string | null | undefined) {
   return Boolean(value && UUID_PATTERN.test(value.trim()));
@@ -202,6 +270,20 @@ function toApiDueAt(value: string) {
 function readMetadataString(metadata: Record<string, unknown>, key: string) {
   const value = metadata[key];
   return typeof value === "string" ? value : "";
+}
+
+function readMetadataNumber(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  return typeof value === "number" ? value : null;
+}
+
+function readMetadataBoolean(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  return typeof value === "boolean" ? value : null;
+}
+
+function isManualReviewAction(action: string) {
+  return action === "compliance_due_diligence_checked" || action === "compliance_source_of_funds_checked";
 }
 
 function normalizeLegacyStatus(value: unknown): WorkspaceStatus {
@@ -363,10 +445,135 @@ function getWorkspaceUrgency(record: EvidenceWorkspaceRecord) {
   return "on_track";
 }
 
+function resolveDownloadFilename(contentDisposition: string | null, fallbackName: string) {
+  if (!contentDisposition) {
+    return fallbackName;
+  }
+  const match = /filename="([^"]+)"/i.exec(contentDisposition);
+  return match?.[1] ?? fallbackName;
+}
+
+function resolveManualWorkspaceRecord(
+  workspace: EvidenceWorkspaceRecord[],
+  selectedLog: AuditLogEntry | null,
+  selectedContext: ReturnType<typeof inferLogOperationalContext> | null
+) {
+  if (!selectedLog || !selectedContext || !isManualReviewAction(selectedLog.action)) {
+    return null;
+  }
+  return (
+    workspace.find((entry: EvidenceWorkspaceRecord) => {
+      if (selectedContext.requestId && entry.requestId === selectedContext.requestId) {
+        return true;
+      }
+      if (selectedContext.reportId && entry.reportId === selectedContext.reportId) {
+        return true;
+      }
+      return false;
+    }) ??
+    null
+  );
+}
+
+function resolveSelectedWorkspaceRecord(
+  workspace: EvidenceWorkspaceRecord[],
+  selectedLog: AuditLogEntry | null,
+  selectedContext: ReturnType<typeof inferLogOperationalContext> | null
+) {
+  if (!selectedLog) {
+    return null;
+  }
+  return (
+    workspace.find((entry: EvidenceWorkspaceRecord) => entry.eventId === selectedLog.id) ??
+    resolveManualWorkspaceRecord(workspace, selectedLog, selectedContext)
+  );
+}
+
+function buildWorkspaceSummary(record: EvidenceWorkspaceRecord) {
+  return {
+    work_item_id: record.workItemId ?? null,
+    event_id: record.eventId,
+    action: record.action || null,
+    resource_type: record.resourceType || null,
+    resource_id: record.resourceId || null,
+    case_id: record.caseId || null,
+    request_id: record.requestId || null,
+    report_id: record.reportId || null,
+    file_hash_sha256: record.fileHash || null,
+    owner: record.owner || null,
+    priority: record.priority,
+    deadline: record.localDeadline || null,
+    status: record.workspaceStatus,
+    source: record.source,
+    note: record.note || null,
+    last_action_at: record.lastActionAt
+  };
+}
+
+function resolveLogForWorkspaceRecord(logs: AuditLogEntry[], record: EvidenceWorkspaceRecord) {
+  return (
+    logs.find((entry: AuditLogEntry) => entry.id === record.eventId) ??
+    logs.find((entry: AuditLogEntry) => {
+      if (record.requestId && entry.request_id === record.requestId) {
+        return true;
+      }
+      if (record.reportId && entry.report_id === record.reportId) {
+        return true;
+      }
+      if (record.resourceType && entry.resource_type !== record.resourceType) {
+        return false;
+      }
+      if (record.resourceId && entry.resource_id !== record.resourceId) {
+        return false;
+      }
+      return Boolean(record.resourceType || record.resourceId);
+    }) ??
+    null
+  );
+}
+
 export default function EvidenceTrailPage() {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const searchParams = useSearchParams();
   const tr = (key: MessageKey, values?: Record<string, string | number>) => t(key, values);
+  const formatTranslatedCodeValue = (value: string | null | undefined, labelKeys: Record<string, MessageKey>) => {
+    const normalized = value?.trim() ?? "";
+    if (!normalized) {
+      return tr("evidenceTrail.notAvailable" as MessageKey);
+    }
+    const labelKey = labelKeys[normalized];
+    if (!labelKey) {
+      return normalized;
+    }
+    const translated = tr(labelKey);
+    return translated === normalized ? normalized : `${translated} (${normalized})`;
+  };
+  const formatTranslatedCodeList = (values: string[], labelKeys: Record<string, MessageKey>, separator: string) => {
+    if (!values.length) {
+      return tr("evidenceTrail.notAvailable" as MessageKey);
+    }
+    return values.map((value) => formatTranslatedCodeValue(value, labelKeys)).join(separator);
+  };
+  const formatEvidenceActionValue = (value: string | null | undefined) => {
+    const normalized = value?.trim() ?? "";
+    if (!normalized) {
+      return tr("evidenceTrail.notAvailable" as MessageKey);
+    }
+    if (!isEvidenceActionValue(normalized)) {
+      return normalized;
+    }
+    return formatTranslatedCodeValue(normalized, EVIDENCE_ACTION_LABEL_KEYS);
+  };
+  const formatEvidenceResourceTypeValue = (value: string | null | undefined) => {
+    const normalized = value?.trim() ?? "";
+    if (!normalized) {
+      return tr("evidenceTrail.notAvailable" as MessageKey);
+    }
+    if (!isEvidenceResourceTypeValue(normalized)) {
+      return normalized;
+    }
+    return formatTranslatedCodeValue(normalized, EVIDENCE_RESOURCE_TYPE_LABEL_KEYS);
+  };
   const [filters, setFilters] = useState<EvidenceFilters>(DEFAULT_FILTERS);
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [count, setCount] = useState(0);
@@ -375,6 +582,8 @@ export default function EvidenceTrailPage() {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportingSelectedChain, setExportingSelectedChain] = useState(false);
+  const [exportingManualPackage, setExportingManualPackage] = useState(false);
   const [syncingWorkspace, setSyncingWorkspace] = useState(false);
   const [authContext, setAuthContext] = useState<AuthContext | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -404,7 +613,116 @@ export default function EvidenceTrailPage() {
     [filters]
   );
   const selectedContext = useMemo(() => (selectedLog ? inferLogOperationalContext(selectedLog) : null), [selectedLog]);
-  const workspaceByEventId = useMemo(() => new Map(workspace.map((record) => [record.eventId, record])), [workspace]);
+  const selectedManualReview = useMemo(() => {
+    if (!selectedLog || !isManualReviewAction(selectedLog.action)) {
+      return null;
+    }
+    const metadata = selectedLog.metadata ?? {};
+    return {
+      provider: readMetadataString(metadata, "provider") || "manual_review",
+      providerStatus: readMetadataString(metadata, "provider_status") || "degraded",
+      degradedReason: readMetadataString(metadata, "degraded_reason") || "manual_review_required",
+      capabilityStatus: readMetadataString(metadata, "capability_status") || "degraded",
+      deliveryMode:
+        readMetadataString(metadata, "delivery_mode") ||
+        readMetadataString(metadata, "origin_analysis_status") ||
+        "manual_review_pending",
+      requiresHumanReview:
+        readMetadataBoolean(metadata, "requires_human_review") ??
+        readMetadataBoolean(metadata, "counterparty_context_present") ??
+        true,
+      counterpartyContext: readMetadataString(metadata, "counterparty_context"),
+      purpose: readMetadataString(metadata, "purpose"),
+      amount: readMetadataNumber(metadata, "amount")
+    };
+  }, [selectedLog]);
+  const selectedManualPackageSummary = useMemo(() => {
+    if (!selectedManualReview || !selectedLog || !selectedContext) {
+      return null;
+    }
+    return deriveEvidenceManualPackageSummary({
+      action: selectedLog.action,
+      review: selectedManualReview,
+      scopeId: selectedContext.requestId || selectedContext.address || selectedLog.id,
+      hasRequestId: Boolean(selectedContext.requestId),
+      hasReportId: Boolean(selectedContext.reportId),
+      hasFileHash: Boolean(selectedContext.fileHash || selectedLog.file_hash_sha256)
+    });
+  }, [selectedContext, selectedLog, selectedManualReview]);
+  const selectedManualWorkspaceRecord = useMemo(() => {
+    if (!selectedLog || !isManualReviewAction(selectedLog.action)) {
+      return null;
+    }
+    return resolveSelectedWorkspaceRecord(workspace, selectedLog, selectedContext);
+  }, [selectedContext, selectedLog, workspace]);
+  const selectedWorkspaceRecord = useMemo(
+    () => resolveSelectedWorkspaceRecord(workspace, selectedLog, selectedContext),
+    [selectedContext, selectedLog, workspace]
+  );
+  const selectedChainLogs = useMemo(() => {
+    if (!selectedContext) {
+      return [] as AuditLogEntry[];
+    }
+    return logs.filter((entry: AuditLogEntry) => {
+      const context = inferLogOperationalContext(entry);
+      if (selectedContext.reportId && context.reportId === selectedContext.reportId) {
+        return true;
+      }
+      if (selectedContext.requestId && context.requestId === selectedContext.requestId) {
+        return true;
+      }
+      if (selectedContext.caseId && context.caseId === selectedContext.caseId) {
+        return true;
+      }
+      return false;
+    });
+  }, [logs, selectedContext]);
+  const selectedChainSummary = useMemo(() => {
+    if (!selectedChainLogs.length) {
+      return null;
+    }
+    const sorted = selectedChainLogs
+      .slice()
+      .sort((a: AuditLogEntry, b: AuditLogEntry) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")));
+    return {
+      total: selectedChainLogs.length,
+      uniqueActions: new Set(selectedChainLogs.map((entry: AuditLogEntry) => entry.action).filter(Boolean)).size,
+      firstAt: sorted[0]?.created_at ?? null,
+      lastAt: sorted[sorted.length - 1]?.created_at ?? null,
+      withHash: selectedChainLogs.filter((entry: AuditLogEntry) => entry.file_hash_sha256).length,
+      withReportId: selectedChainLogs.filter((entry: AuditLogEntry) => entry.report_id).length,
+      withRequestId: selectedChainLogs.filter((entry: AuditLogEntry) => entry.request_id).length
+    };
+  }, [selectedChainLogs]);
+  const selectedContextLinks = useMemo(() => {
+    if (!selectedContext) {
+      return [] as Array<OperationalContextLink & { labelKey: MessageKey }>;
+    }
+    const labelKeyByKind: Record<OperationalContextLink["kind"], MessageKey> = {
+      case: "evidenceTrail.details.openCase",
+      audit: "evidenceTrail.details.openAudit",
+      evidence: "evidenceTrail.details.openAudit",
+      reports: "evidenceTrail.details.openReports",
+      investigate: "evidenceTrail.details.openInvestigate",
+      sanctions: "evidenceTrail.details.openSanctions",
+      blocks: "evidenceTrail.details.openBlocks",
+      counterparty: "evidenceTrail.details.openCounterparty",
+      ros: "evidenceTrail.details.openRos"
+    };
+
+    return buildOperationalContextLinks(selectedContext, {
+      auditFallbackResourceType: "audit_log"
+    })
+      .filter((link: OperationalContextLink) => link.kind !== "evidence")
+      .map((link: OperationalContextLink) => ({
+        ...link,
+        labelKey: labelKeyByKind[link.kind]
+      }));
+  }, [selectedContext]);
+  const workspaceByEventId = useMemo(
+    () => new Map(workspace.map((record: EvidenceWorkspaceRecord) => [record.eventId, record])),
+    [workspace]
+  );
   const selectedTimelineRecord = timelineEventId ? workspaceByEventId.get(timelineEventId) ?? null : null;
 
   function filtersFromSearchParams(): EvidenceFilters {
@@ -450,7 +768,7 @@ export default function EvidenceTrailPage() {
     setTotal(Number(payload?.total ?? rows.length));
     setCurrentPage(Number(payload?.page ?? page));
     setHasMore(Boolean(payload?.has_more));
-    setSelectedLog((current) => rows.find((entry) => entry.id === current?.id) ?? rows[0] ?? null);
+    setSelectedLog((current: AuditLogEntry | null) => rows.find((entry: AuditLogEntry) => entry.id === current?.id) ?? rows[0] ?? null);
     setLoading(false);
   }
 
@@ -522,8 +840,8 @@ export default function EvidenceTrailPage() {
       setTimelineError(null);
       return;
     }
-    if (!timelineEventId || !workspace.some((entry) => entry.eventId === timelineEventId)) {
-      const firstServerRecord = workspace.find((entry) => Boolean(entry.workItemId)) ?? workspace[0];
+    if (!timelineEventId || !workspace.some((entry: EvidenceWorkspaceRecord) => entry.eventId === timelineEventId)) {
+      const firstServerRecord = workspace.find((entry: EvidenceWorkspaceRecord) => Boolean(entry.workItemId)) ?? workspace[0];
       setTimelineEventId(firstServerRecord.eventId);
     }
   }, [timelineEventId, workspace]);
@@ -532,7 +850,7 @@ export default function EvidenceTrailPage() {
     if (!selectedLog) {
       return;
     }
-    const currentRecord = workspace.find((entry) => entry.eventId === selectedLog.id);
+    const currentRecord = selectedWorkspaceRecord;
     if (!currentRecord) {
       return;
     }
@@ -541,7 +859,7 @@ export default function EvidenceTrailPage() {
     setLocalDeadline(currentRecord.localDeadline);
     setWorkspaceStatus(currentRecord.workspaceStatus);
     setWorkspaceNote(currentRecord.note);
-  }, [selectedLog, workspace]);
+  }, [selectedLog, selectedWorkspaceRecord]);
 
   useEffect(() => {
     if (!selectedTimelineRecord?.workItemId) {
@@ -557,7 +875,7 @@ export default function EvidenceTrailPage() {
   }, [selectedTimelineRecord?.workItemId, t]);
 
   function updateFilter<K extends keyof EvidenceFilters>(key: K, value: EvidenceFilters[K]) {
-    setFilters((current) => ({ ...current, [key]: value }));
+    setFilters((current: EvidenceFilters) => ({ ...current, [key]: value }));
   }
 
   function applyDomainPreset(domainId: string) {
@@ -606,10 +924,8 @@ export default function EvidenceTrailPage() {
       const blob = await res.blob();
       const href = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const disposition = res.headers.get("content-disposition");
-      const filenameMatch = disposition?.match(/filename="([^"]+)"/);
       link.href = href;
-      link.download = filenameMatch?.[1] ?? "ontrackchain-evidence-bundle.json";
+      link.download = resolveDownloadFilename(res.headers.get("content-disposition"), "ontrackchain-evidence-bundle.json");
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -622,13 +938,151 @@ export default function EvidenceTrailPage() {
     }
   }
 
+  function focusSelectedChain() {
+    if (!selectedContext) {
+      return;
+    }
+    const nextFilters: EvidenceFilters = {
+      ...filters,
+      domain: selectedContext.reportId ? "reports" : filters.domain,
+      requestId: selectedContext.requestId || "",
+      action: "",
+      resourceType: "",
+      reportId: selectedContext.reportId || "",
+      resourceId: ""
+    };
+    setFilters(nextFilters);
+    void fetchLogs(nextFilters, 1);
+  }
+
+  async function fetchSelectedChainBundle() {
+    const res = await fetch("/api/app/audit/evidence-export", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        format: "json",
+        request_id: selectedContext?.requestId || null,
+        action: null,
+        resource_type: selectedContext?.caseId ? "case" : selectedLog?.resource_type || null,
+        report_id: selectedContext?.reportId || null,
+        resource_id: selectedContext?.caseId || selectedLog?.resource_id || null,
+        limit: Number(filters.limit),
+        include_audit_logs: true,
+        include_credit_ledger: true,
+        include_reports: true
+      })
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(data?.error ? resolveApiErrorMessage(t, data.error, tr("evidenceTrail.errorExport" as MessageKey)) : tr("evidenceTrail.errorExport" as MessageKey));
+    }
+    return res;
+  }
+
+  async function onExportSelectedChain() {
+    if (!selectedContext) {
+      return;
+    }
+
+    setExportingSelectedChain(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await fetchSelectedChainBundle();
+      const blob = await res.blob();
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = href;
+      link.download = resolveDownloadFilename(
+        res.headers.get("content-disposition"),
+        `ontrackchain-evidence-chain-${selectedContext.reportId || selectedContext.requestId || selectedLog?.id || "selection"}.json`
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(href);
+      setNotice(
+        tr("evidenceTrail.chain.exportSuccess" as MessageKey, {
+          scopeId: selectedContext.reportId || selectedContext.requestId || selectedLog?.id || "selection"
+        })
+      );
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : tr("evidenceTrail.errorExport" as MessageKey));
+    } finally {
+      setExportingSelectedChain(false);
+    }
+  }
+
+  async function onExportManualReviewPackage() {
+    if (!selectedManualReview || !selectedManualPackageSummary || !selectedLog || !selectedContext) {
+      return;
+    }
+
+    setExportingManualPackage(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const workspaceRecord = selectedManualWorkspaceRecord;
+      const payload = buildEvidenceManualPackagePayload({
+        action: selectedLog.action,
+        summary: selectedManualPackageSummary,
+        evidenceRequest: {
+          request_id: selectedContext.requestId || null,
+          report_id: selectedContext.reportId || null,
+          resource_type: selectedContext.caseId ? "case" : selectedLog.resource_type || null,
+          resource_id: selectedContext.caseId || selectedLog.resource_id || null,
+          limit: Number(filters.limit),
+          include_audit_logs: true,
+          include_credit_ledger: true,
+          include_reports: true
+        },
+        scope: {
+          request_id: selectedContext.requestId || null,
+          report_id: selectedContext.reportId || null,
+          address: selectedContext.address || null,
+          chain: selectedContext.chain || null,
+          resource_id: selectedLog.resource_id || null
+        },
+        manualReview: selectedManualReview,
+        workspaceSummary: workspaceRecord ? buildWorkspaceSummary(workspaceRecord) : null
+      });
+      const res = await fetch("/api/app/evidence/manual-package", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error ? resolveApiErrorMessage(t, data.error, tr("evidenceTrail.errorExport" as MessageKey)) : tr("evidenceTrail.errorExport" as MessageKey));
+      }
+
+      const blob = await res.blob();
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = href;
+      link.download = resolveDownloadFilename(
+        res.headers.get("content-disposition"),
+        buildManualReviewPackageFilename(selectedLog.action, selectedManualPackageSummary.scopeId)
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(href);
+      setNotice(tr("evidenceTrail.manualPackage.exportSuccess" as MessageKey, { scopeId: selectedManualPackageSummary.scopeId }));
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : tr("evidenceTrail.errorExport" as MessageKey));
+    } finally {
+      setExportingManualPackage(false);
+    }
+  }
+
   function trackSelectedEvent() {
     if (!selectedLog || !selectedContext) {
       return;
     }
     void (async () => {
       const draftRecord: EvidenceWorkspaceRecord = {
-        workItemId: workspace.find((entry) => entry.eventId === selectedLog.id)?.workItemId,
+        workItemId: selectedWorkspaceRecord?.workItemId,
         source: "local",
         eventId: selectedLog.id,
         action: selectedLog.action,
@@ -645,7 +1099,7 @@ export default function EvidenceTrailPage() {
         note: workspaceNote,
         lastActionAt: new Date().toISOString()
       };
-      setWorkspace((current) => upsertWorkspaceRecord(current, draftRecord));
+      setWorkspace((current: EvidenceWorkspaceRecord[]) => upsertWorkspaceRecord(current, draftRecord));
       setTimelineEventId(draftRecord.eventId);
       if (!isUuidLike(selectedLog.id)) {
         setNotice(tr("evidenceTrail.workspace.noticeTrackedLocalOnly" as MessageKey, { eventId: selectedLog.id }));
@@ -663,7 +1117,7 @@ export default function EvidenceTrailPage() {
   }
 
   function hydrateWorkspaceRecord(record: EvidenceWorkspaceRecord) {
-    const matchingLog = logs.find((entry) => entry.id === record.eventId);
+    const matchingLog = resolveLogForWorkspaceRecord(logs, record);
     if (matchingLog) {
       setSelectedLog(matchingLog);
     }
@@ -674,6 +1128,11 @@ export default function EvidenceTrailPage() {
     setWorkspaceStatus(record.workspaceStatus);
     setWorkspaceNote(record.note);
     setNotice(tr("evidenceTrail.workspace.noticeLoaded" as MessageKey, { eventId: record.eventId }));
+  }
+
+  function openWorkspaceTimeline(record: EvidenceWorkspaceRecord) {
+    hydrateWorkspaceRecord(record);
+    setTimelineEventId(record.eventId);
   }
 
   async function syncWorkspaceRecord(record: EvidenceWorkspaceRecord, nextStatus?: WorkspaceStatus) {
@@ -744,7 +1203,7 @@ export default function EvidenceTrailPage() {
     }
 
     const nextRecord = mapWorkItemToWorkspaceRecord(data as WorkItemResponse);
-    setWorkspace((current) => upsertWorkspaceRecord(current, nextRecord));
+    setWorkspace((current: EvidenceWorkspaceRecord[]) => upsertWorkspaceRecord(current, nextRecord));
     if (timelineEventId === nextRecord.eventId && nextRecord.workItemId) {
       await loadTimeline(nextRecord.workItemId);
     }
@@ -782,13 +1241,13 @@ export default function EvidenceTrailPage() {
 
   function updateWorkspaceStatus(eventId: string, nextStatus: WorkspaceStatus) {
     void (async () => {
-      const currentRecord = workspace.find((entry) => entry.eventId === eventId);
+      const currentRecord = workspace.find((entry: EvidenceWorkspaceRecord) => entry.eventId === eventId);
       if (!currentRecord) {
         return;
       }
 
       const draftRecord = { ...currentRecord, workspaceStatus: nextStatus, lastActionAt: new Date().toISOString() };
-      setWorkspace((current) =>
+      setWorkspace((current: EvidenceWorkspaceRecord[]) =>
         upsertWorkspaceRecord(current, {
           eventId,
           workspaceStatus: nextStatus,
@@ -805,7 +1264,9 @@ export default function EvidenceTrailPage() {
   }
 
   function removeWorkspaceRecord(eventId: string) {
-    setWorkspace((current) => current.filter((entry) => entry.eventId !== eventId));
+    setWorkspace((current: EvidenceWorkspaceRecord[]) =>
+      current.filter((entry: EvidenceWorkspaceRecord) => entry.eventId !== eventId)
+    );
   }
 
   return (
@@ -844,27 +1305,34 @@ export default function EvidenceTrailPage() {
         <div className="otc-grid otc-grid--counterparty-form">
           <label className="otc-field">
             {tr("evidenceTrail.filters.action" as MessageKey)}
-            <select className="otc-select" value={filters.action} onChange={(event) => updateFilter("action", event.target.value)}>
+            <select
+              className="otc-select"
+              data-testid="evidence-filter-action"
+              value={filters.action}
+              onChange={(event) => updateFilter("action", event.target.value)}
+            >
               <option value="">{tr("evidenceTrail.filters.all" as MessageKey)}</option>
-              <option value="compliance_sanctions_checked">compliance_sanctions_checked</option>
-              <option value="preventive_block_lifted">preventive_block_lifted</option>
-              <option value="counterparty_created">counterparty_created</option>
-              <option value="coaf_report_generated">coaf_report_generated</option>
-              <option value="coaf_report_approved">coaf_report_approved</option>
-              <option value="coaf_report_rejected">coaf_report_rejected</option>
-              <option value="coaf_report_submitted_manual">coaf_report_submitted_manual</option>
-              <option value="report_generated">report_generated</option>
-              <option value="report_downloaded">report_downloaded</option>
+              {EVIDENCE_ACTION_VALUES.filter((value) => value !== "evidence_bundle_exported").map((value) => (
+                <option key={value} value={value}>
+                  {formatEvidenceActionValue(value)}
+                </option>
+              ))}
             </select>
           </label>
           <label className="otc-field">
             {tr("evidenceTrail.filters.resourceType" as MessageKey)}
-            <select className="otc-select" value={filters.resourceType} onChange={(event) => updateFilter("resourceType", event.target.value)}>
+            <select
+              className="otc-select"
+              data-testid="evidence-filter-resource-type"
+              value={filters.resourceType}
+              onChange={(event) => updateFilter("resourceType", event.target.value)}
+            >
               <option value="">{tr("evidenceTrail.filters.all" as MessageKey)}</option>
-              <option value="report">report</option>
-              <option value="ros_record">ros_record</option>
-              <option value="preventive_block">preventive_block</option>
-              <option value="counterparty">counterparty</option>
+              {EVIDENCE_RESOURCE_TYPE_VALUES.map((value) => (
+                <option key={value} value={value}>
+                  {formatEvidenceResourceTypeValue(value)}
+                </option>
+              ))}
             </select>
           </label>
           <label className="otc-field">
@@ -917,9 +1385,9 @@ export default function EvidenceTrailPage() {
           <label className="otc-field">
             {tr("evidenceTrail.workspace.filters.priority" as MessageKey)}
             <select className="otc-select" value={priority} onChange={(event) => setPriority(event.target.value as WorkspacePriority)}>
-              <option value="critical">{tr("common.priority.critical" as MessageKey)}</option>
-              <option value="high">{tr("common.priority.high" as MessageKey)}</option>
-              <option value="normal">{tr("common.priority.normal" as MessageKey)}</option>
+              <option value="critical">{t("common.priority.critical")}</option>
+              <option value="high">{t("common.priority.high")}</option>
+              <option value="normal">{t("common.priority.normal")}</option>
             </select>
           </label>
           <label className="otc-field">
@@ -962,7 +1430,7 @@ export default function EvidenceTrailPage() {
                 <tr key={record.eventId}>
                   <td>
                     <strong>{record.eventId}</strong>
-                    <div className="otc-muted">{record.action}</div>
+                    <div className="otc-muted">{formatEvidenceActionValue(record.action)}</div>
                     <div className="otc-muted">
                       <Pill tone={record.source === "server" ? "success" : "warning"}>
                         {tr(`evidenceTrail.workspace.source.${record.source}` as MessageKey)}
@@ -970,11 +1438,11 @@ export default function EvidenceTrailPage() {
                     </div>
                     {record.note ? <div className="otc-muted">{record.note}</div> : null}
                   </td>
-                  <td>{record.resourceType}{record.resourceId ? ` • ${record.resourceId}` : ""}</td>
+                  <td>{formatEvidenceResourceTypeValue(record.resourceType)}{record.resourceId ? ` • ${record.resourceId}` : ""}</td>
                   <td>{record.owner || tr("evidenceTrail.notAvailable" as MessageKey)}</td>
-                  <td>{tr(`common.priority.${record.priority}` as MessageKey)}</td>
+                  <td>{t(`common.priority.${record.priority}` as MessageKey)}</td>
                   <td>
-                    {record.localDeadline ? formatDate(record.localDeadline) ?? record.localDeadline : tr("evidenceTrail.notAvailable" as MessageKey)}
+                    {record.localDeadline ? formatDate(record.localDeadline, locale) ?? record.localDeadline : tr("evidenceTrail.notAvailable" as MessageKey)}
                     <div className="otc-muted">{tr(`evidenceTrail.workspace.urgency.${getWorkspaceUrgency(record)}` as MessageKey)}</div>
                   </td>
                   <td>{tr(`evidenceTrail.workspace.status.${record.workspaceStatus}` as MessageKey)}</td>
@@ -983,7 +1451,7 @@ export default function EvidenceTrailPage() {
                       <button type="button" className="otc-button otc-button--ghost" onClick={() => hydrateWorkspaceRecord(record)}>
                         {tr("evidenceTrail.workspace.table.load" as MessageKey)}
                       </button>
-                      <button type="button" className="otc-button otc-button--ghost" onClick={() => setTimelineEventId(record.eventId)}>
+                      <button type="button" className="otc-button otc-button--ghost" onClick={() => openWorkspaceTimeline(record)}>
                         {tr("evidenceTrail.workspace.timeline.open" as MessageKey)}
                       </button>
                       <button type="button" className="otc-button otc-button--ghost" onClick={() => updateWorkspaceStatus(record.eventId, "queued")}>
@@ -1033,7 +1501,7 @@ export default function EvidenceTrailPage() {
               }
             : undefined
         }
-        formatDate={formatDate}
+          formatDate={(value) => formatDate(value, locale)}
         formatEventLabel={formatTimelineEvent}
       />
 
@@ -1060,18 +1528,18 @@ export default function EvidenceTrailPage() {
                     onClick={() => setSelectedLog(entry)}
                   >
                     <span>
-                      <strong>{entry.action}</strong>
+                      <strong>{formatEvidenceActionValue(entry.action)}</strong>
                       <span className="otc-muted otc-evidence-log__meta">
-                        {entry.resource_type}{entry.resource_id ? ` • ${entry.resource_id}` : ""}
+                        {formatEvidenceResourceTypeValue(entry.resource_type)}{entry.resource_id ? ` • ${entry.resource_id}` : ""}
                       </span>
                       <span className="otc-muted otc-evidence-log__meta otc-evidence-log__meta--tight">
                         request_id: {entry.request_id ?? tr("evidenceTrail.notAvailable" as MessageKey)}
                       </span>
                       <span className="otc-muted otc-evidence-log__meta otc-evidence-log__meta--tight">
-                        {formatDate(entry.created_at) ?? tr("evidenceTrail.notAvailable" as MessageKey)}
+                        {formatDate(entry.created_at, locale) ?? tr("evidenceTrail.notAvailable" as MessageKey)}
                       </span>
                     </span>
-                    <span className="otc-controls">
+                    <span className="otc-controls" data-testid="evidence-log-row">
                       <span className="otc-link-button">{tr("evidenceTrail.events.select" as MessageKey)}</span>
                     </span>
                   </button>
@@ -1085,15 +1553,18 @@ export default function EvidenceTrailPage() {
 
         <Panel title={tr("evidenceTrail.details.title" as MessageKey)} description={tr("evidenceTrail.details.description" as MessageKey)}>
           {selectedLog ? (
-            <div className="otc-stack">
+            <div className="otc-stack" data-testid="evidence-details-panel">
               <div className="otc-kv">
                 <div className="otc-kv__row">
                   <span className="otc-kv__key">{tr("evidenceTrail.details.action" as MessageKey)}</span>
-                  <span className="otc-kv__value">{selectedLog.action}</span>
+                  <span className="otc-kv__value">{formatEvidenceActionValue(selectedLog.action)}</span>
                 </div>
                 <div className="otc-kv__row">
                   <span className="otc-kv__key">{tr("evidenceTrail.details.resource" as MessageKey)}</span>
-                  <span className="otc-kv__value">{selectedLog.resource_type}{selectedLog.resource_id ? ` • ${selectedLog.resource_id}` : ""}</span>
+                  <span className="otc-kv__value">
+                    {formatEvidenceResourceTypeValue(selectedLog.resource_type)}
+                    {selectedLog.resource_id ? ` • ${selectedLog.resource_id}` : ""}
+                  </span>
                 </div>
                 <div className="otc-kv__row">
                   <span className="otc-kv__key">{tr("evidenceTrail.details.requestId" as MessageKey)}</span>
@@ -1126,44 +1597,310 @@ export default function EvidenceTrailPage() {
                   <span className="otc-kv__value">{selectedContext?.rosId || tr("evidenceTrail.notAvailable" as MessageKey)}</span>
                 </div>
               </div>
+              {selectedManualReview ? (
+                <div className="otc-kv" data-testid="evidence-manual-review-panel">
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.manualReview.title" as MessageKey)}</span>
+                    <span className="otc-kv__value">
+                      <Pill>{formatTranslatedCodeValue(selectedManualReview.deliveryMode, MANUAL_REVIEW_VALUE_LABEL_KEYS)}</Pill>
+                    </span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.manualReview.provider" as MessageKey)}</span>
+                    <span className="otc-kv__value">
+                      {formatTranslatedCodeValue(selectedManualReview.provider, MANUAL_REVIEW_VALUE_LABEL_KEYS)} •{" "}
+                      {formatTranslatedCodeValue(selectedManualReview.providerStatus, MANUAL_REVIEW_VALUE_LABEL_KEYS)}
+                    </span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.manualReview.capability" as MessageKey)}</span>
+                    <span className="otc-kv__value">
+                      {formatTranslatedCodeValue(selectedManualReview.capabilityStatus, MANUAL_REVIEW_VALUE_LABEL_KEYS)} •{" "}
+                      {formatTranslatedCodeValue(selectedManualReview.degradedReason, MANUAL_REVIEW_VALUE_LABEL_KEYS)}
+                    </span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.manualReview.humanReview" as MessageKey)}</span>
+                    <span className="otc-kv__value">
+                      {selectedManualReview.requiresHumanReview ? tr("common.yes" as MessageKey) : tr("common.no" as MessageKey)}
+                    </span>
+                  </div>
+                  {selectedManualReview.counterpartyContext ? (
+                    <div className="otc-kv__row">
+                      <span className="otc-kv__key">{tr("evidenceTrail.manualReview.counterpartyContext" as MessageKey)}</span>
+                      <span className="otc-kv__value">{selectedManualReview.counterpartyContext}</span>
+                    </div>
+                  ) : null}
+                  {selectedManualReview.purpose ? (
+                    <div className="otc-kv__row">
+                      <span className="otc-kv__key">{tr("evidenceTrail.manualReview.purpose" as MessageKey)}</span>
+                      <span className="otc-kv__value">{selectedManualReview.purpose}</span>
+                    </div>
+                  ) : null}
+                  {selectedManualReview.amount !== null ? (
+                    <div className="otc-kv__row">
+                      <span className="otc-kv__key">{tr("evidenceTrail.manualReview.amount" as MessageKey)}</span>
+                      <span className="otc-kv__value">{selectedManualReview.amount}</span>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              {selectedManualPackageSummary ? (
+                <div className="otc-kv" data-testid="evidence-manual-package-panel">
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.manualPackage.title" as MessageKey)}</span>
+                    <span className="otc-kv__value">
+                      <Pill tone="warning">
+                        {formatTranslatedCodeValue(selectedManualPackageSummary.packageType, MANUAL_PACKAGE_VALUE_LABEL_KEYS)}
+                      </Pill>
+                    </span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.manualPackage.sensitivity" as MessageKey)}</span>
+                    <span className="otc-kv__value">
+                      {formatTranslatedCodeValue(selectedManualPackageSummary.sensitivity, MANUAL_PACKAGE_VALUE_LABEL_KEYS)}
+                    </span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.manualPackage.workflow" as MessageKey)}</span>
+                    <span className="otc-kv__value">
+                      {formatTranslatedCodeValue(selectedManualPackageSummary.workflow, MANUAL_PACKAGE_VALUE_LABEL_KEYS)}
+                    </span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.manualPackage.accessPolicy" as MessageKey)}</span>
+                    <span className="otc-kv__value">
+                      {formatTranslatedCodeValue(selectedManualPackageSummary.accessPolicy, MANUAL_PACKAGE_VALUE_LABEL_KEYS)}
+                    </span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.manualPackage.signoff" as MessageKey)}</span>
+                    <span className="otc-kv__value">
+                      {formatTranslatedCodeValue(selectedManualPackageSummary.signoffMode, MANUAL_PACKAGE_VALUE_LABEL_KEYS)}
+                    </span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.manualPackage.reviewMode" as MessageKey)}</span>
+                    <span className="otc-kv__value">
+                      {formatTranslatedCodeValue(selectedManualPackageSummary.reviewMode, MANUAL_PACKAGE_VALUE_LABEL_KEYS)}
+                    </span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.manualPackage.custody" as MessageKey)}</span>
+                    <span className="otc-kv__value">
+                      {formatTranslatedCodeValue(selectedManualPackageSummary.custodyState, MANUAL_PACKAGE_VALUE_LABEL_KEYS)}
+                    </span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.manualPackage.anchor" as MessageKey)}</span>
+                    <span className="otc-kv__value">
+                      {formatTranslatedCodeValue(selectedManualPackageSummary.anchoringStatus, MANUAL_PACKAGE_VALUE_LABEL_KEYS)}
+                    </span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.manualPackage.scope" as MessageKey)}</span>
+                    <span className="otc-kv__value">{selectedManualPackageSummary.scopeId}</span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.manualPackage.dossierFields" as MessageKey)}</span>
+                    <span className="otc-kv__value">
+                      {formatTranslatedCodeList(selectedManualPackageSummary.dossierFields, MANUAL_PACKAGE_FIELD_LABEL_KEYS, ", ")}
+                    </span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.manualPackage.checklist" as MessageKey)}</span>
+                    <span className="otc-kv__value">
+                      {formatTranslatedCodeList(selectedManualPackageSummary.checklist, MANUAL_PACKAGE_CHECKLIST_LABEL_KEYS, " • ")}
+                    </span>
+                  </div>
+                  {selectedContext ? (
+                    <div className="otc-controls otc-controls--spaced">
+                      <button
+                        type="button"
+                        className="otc-button otc-button--ghost"
+                        onClick={focusSelectedChain}
+                        data-testid="evidence-manual-package-focus-chain"
+                      >
+                        {tr("evidenceTrail.chain.focus" as MessageKey)}
+                      </button>
+                      <button
+                        type="button"
+                        className="otc-button otc-button--ghost"
+                        onClick={() => void onExportSelectedChain()}
+                        disabled={exportingSelectedChain}
+                        data-testid="evidence-manual-package-export-chain"
+                      >
+                        {exportingSelectedChain
+                          ? tr("evidenceTrail.chain.exportLoading" as MessageKey)
+                          : tr("evidenceTrail.chain.export" as MessageKey)}
+                      </button>
+                      <button
+                        type="button"
+                        className="otc-button otc-button--ghost"
+                        onClick={() => void onExportManualReviewPackage()}
+                        disabled={exportingManualPackage}
+                        data-testid="evidence-manual-package-export-package"
+                      >
+                        {exportingManualPackage
+                          ? tr("evidenceTrail.manualPackage.exportLoading" as MessageKey)
+                          : tr("evidenceTrail.manualPackage.export" as MessageKey)}
+                      </button>
+                      {selectedContextLinks.map((link: OperationalContextLink & { labelKey: MessageKey }) => (
+                        <a
+                          key={`manual-package-${link.testIdSuffix}`}
+                          className="otc-button otc-button--ghost"
+                          href={link.href}
+                          data-testid={`evidence-manual-package-${link.testIdSuffix}`}
+                        >
+                          {tr(link.labelKey as MessageKey)}
+                        </a>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              {selectedManualWorkspaceRecord ? (
+                <div className="otc-kv" data-testid="evidence-manual-workspace-panel">
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.workspace.table.eventId" as MessageKey)}</span>
+                    <span className="otc-kv__value">{selectedManualWorkspaceRecord.eventId}</span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.details.resource" as MessageKey)}</span>
+                    <span className="otc-kv__value">
+                      {formatEvidenceResourceTypeValue(selectedManualWorkspaceRecord.resourceType)}
+                      {selectedManualWorkspaceRecord.resourceId ? ` • ${selectedManualWorkspaceRecord.resourceId}` : ""}
+                    </span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.details.caseId" as MessageKey)}</span>
+                    <span className="otc-kv__value">{selectedManualWorkspaceRecord.caseId || tr("evidenceTrail.notAvailable" as MessageKey)}</span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.details.requestId" as MessageKey)}</span>
+                    <span className="otc-kv__value">{selectedManualWorkspaceRecord.requestId || tr("evidenceTrail.notAvailable" as MessageKey)}</span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.details.reportId" as MessageKey)}</span>
+                    <span className="otc-kv__value">{selectedManualWorkspaceRecord.reportId || tr("evidenceTrail.notAvailable" as MessageKey)}</span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.details.fileHash" as MessageKey)}</span>
+                    <span className="otc-kv__value">{selectedManualWorkspaceRecord.fileHash || tr("evidenceTrail.notAvailable" as MessageKey)}</span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.workspace.table.owner" as MessageKey)}</span>
+                    <span className="otc-kv__value">{selectedManualWorkspaceRecord.owner || tr("evidenceTrail.notAvailable" as MessageKey)}</span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.workspace.table.priority" as MessageKey)}</span>
+                    <span className="otc-kv__value">{t(`common.priority.${selectedManualWorkspaceRecord.priority}` as MessageKey)}</span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.workspace.table.deadline" as MessageKey)}</span>
+                    <span className="otc-kv__value">
+                      {(formatDate(selectedManualWorkspaceRecord.localDeadline, locale) ?? selectedManualWorkspaceRecord.localDeadline) ||
+                        tr("evidenceTrail.notAvailable" as MessageKey)}
+                    </span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.workspace.table.status" as MessageKey)}</span>
+                    <span className="otc-kv__value">{tr(`evidenceTrail.workspace.status.${selectedManualWorkspaceRecord.workspaceStatus}` as MessageKey)}</span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.workspace.sourceLabel" as MessageKey)}</span>
+                    <span className="otc-kv__value">{tr(`evidenceTrail.workspace.source.${selectedManualWorkspaceRecord.source}` as MessageKey)}</span>
+                  </div>
+                  <div className="otc-kv__row">
+                    <span className="otc-kv__key">{tr("evidenceTrail.workspace.filters.note" as MessageKey)}</span>
+                    <span className="otc-kv__value">{selectedManualWorkspaceRecord.note || tr("evidenceTrail.notAvailable" as MessageKey)}</span>
+                  </div>
+                  <div className="otc-controls otc-controls--spaced">
+                    <button
+                      type="button"
+                      className="otc-button otc-button--ghost"
+                      onClick={() => hydrateWorkspaceRecord(selectedManualWorkspaceRecord)}
+                      data-testid="evidence-manual-workspace-load"
+                    >
+                      {tr("evidenceTrail.workspace.table.load" as MessageKey)}
+                    </button>
+                    <button
+                      type="button"
+                      className="otc-button otc-button--ghost"
+                      onClick={() => openWorkspaceTimeline(selectedManualWorkspaceRecord)}
+                      data-testid="evidence-manual-workspace-open-timeline"
+                    >
+                      {tr("evidenceTrail.workspace.timeline.open" as MessageKey)}
+                    </button>
+                    <button
+                      type="button"
+                      className="otc-button otc-button--ghost"
+                      onClick={() => updateWorkspaceStatus(selectedManualWorkspaceRecord.eventId, "queued")}
+                      data-testid="evidence-manual-workspace-mark-queued"
+                    >
+                      {tr("evidenceTrail.workspace.table.markQueued" as MessageKey)}
+                    </button>
+                    <button
+                      type="button"
+                      className="otc-button otc-button--ghost"
+                      onClick={() => updateWorkspaceStatus(selectedManualWorkspaceRecord.eventId, "reviewing")}
+                      data-testid="evidence-manual-workspace-mark-reviewing"
+                    >
+                      {tr("evidenceTrail.workspace.table.markReviewing" as MessageKey)}
+                    </button>
+                    <button
+                      type="button"
+                      className="otc-button otc-button--ghost"
+                      onClick={() => updateWorkspaceStatus(selectedManualWorkspaceRecord.eventId, "sealed")}
+                      data-testid="evidence-manual-workspace-mark-sealed"
+                    >
+                      {tr("evidenceTrail.workspace.table.markSealed" as MessageKey)}
+                    </button>
+                    {selectedManualWorkspaceRecord.source === "local" ? (
+                      <button
+                        type="button"
+                        className="otc-button otc-button--ghost"
+                        onClick={() => removeWorkspaceRecord(selectedManualWorkspaceRecord.eventId)}
+                        data-testid="evidence-manual-workspace-remove"
+                      >
+                        {tr("evidenceTrail.workspace.table.remove" as MessageKey)}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
               {selectedContext ? (
                 <div className="otc-controls otc-controls--spaced">
-                  {buildCaseHref(selectedContext.caseId) ? (
-                    <a className="otc-button otc-button--ghost" href={buildCaseHref(selectedContext.caseId) ?? undefined}>
-                      {tr("evidenceTrail.details.openCase" as MessageKey)}
-                    </a>
+                  <button type="button" className="otc-button" onClick={focusSelectedChain} data-testid="evidence-focus-chain">
+                    {tr("evidenceTrail.chain.focus" as MessageKey)}
+                  </button>
+                  <button
+                    type="button"
+                    className="otc-button otc-button--ghost"
+                    onClick={() => void onExportSelectedChain()}
+                    disabled={exportingSelectedChain}
+                    data-testid="evidence-export-selected-chain"
+                  >
+                    {exportingSelectedChain ? tr("evidenceTrail.chain.exportLoading" as MessageKey) : tr("evidenceTrail.chain.export" as MessageKey)}
+                  </button>
+                  {selectedManualPackageSummary ? (
+                    <button
+                      type="button"
+                      className="otc-button otc-button--ghost"
+                      onClick={() => void onExportManualReviewPackage()}
+                      disabled={exportingManualPackage}
+                      data-testid="evidence-export-manual-package"
+                    >
+                      {exportingManualPackage
+                        ? tr("evidenceTrail.manualPackage.exportLoading" as MessageKey)
+                        : tr("evidenceTrail.manualPackage.export" as MessageKey)}
+                    </button>
                   ) : null}
-                  <a className="otc-button otc-button--ghost" href={buildAuditHref(selectedContext, { fallbackResourceType: "audit_log" })}>
-                    {tr("evidenceTrail.details.openAudit" as MessageKey)}
-                  </a>
-                  <a className="otc-button otc-button--ghost" href={buildReportsHref(selectedContext)}>
-                    {tr("evidenceTrail.details.openReports" as MessageKey)}
-                  </a>
-                  {buildInvestigateHref(selectedContext) ? (
-                    <a className="otc-button otc-button--ghost" href={buildInvestigateHref(selectedContext) ?? undefined}>
-                      {tr("evidenceTrail.details.openInvestigate" as MessageKey)}
+                  {selectedContextLinks.map((link: OperationalContextLink & { labelKey: MessageKey }) => (
+                    <a key={`global-${link.testIdSuffix}`} className="otc-button otc-button--ghost" href={link.href}>
+                      {tr(link.labelKey as MessageKey)}
                     </a>
-                  ) : null}
-                  {buildSanctionsHref(selectedContext) ? (
-                    <a className="otc-button otc-button--ghost" href={buildSanctionsHref(selectedContext) ?? undefined}>
-                      {tr("evidenceTrail.details.openSanctions" as MessageKey)}
-                    </a>
-                  ) : null}
-                  {buildBlocksHref(selectedContext) ? (
-                    <a className="otc-button otc-button--ghost" href={buildBlocksHref(selectedContext) ?? undefined}>
-                      {tr("evidenceTrail.details.openBlocks" as MessageKey)}
-                    </a>
-                  ) : null}
-                  {buildCounterpartyHref(selectedContext) ? (
-                    <a className="otc-button otc-button--ghost" href={buildCounterpartyHref(selectedContext) ?? undefined}>
-                      {tr("evidenceTrail.details.openCounterparty" as MessageKey)}
-                    </a>
-                  ) : null}
-                  {buildRosHref(selectedContext) ? (
-                    <a className="otc-button otc-button--ghost" href={buildRosHref(selectedContext) ?? undefined}>
-                      {tr("evidenceTrail.details.openRos" as MessageKey)}
-                    </a>
-                  ) : null}
+                  ))}
                 </div>
               ) : null}
               <CodeBlock>{JSON.stringify(selectedLog.metadata, null, 2)}</CodeBlock>
@@ -1173,6 +1910,62 @@ export default function EvidenceTrailPage() {
           )}
         </Panel>
       </section>
+
+      <Panel
+        title={tr("evidenceTrail.chain.title" as MessageKey)}
+        description={tr("evidenceTrail.chain.description" as MessageKey)}
+      >
+        {!selectedContext || !selectedChainSummary ? (
+          <div data-testid="evidence-chain-empty">
+            <Message>{tr("evidenceTrail.chain.empty" as MessageKey)}</Message>
+          </div>
+        ) : (
+          <div className="otc-stack" data-testid="evidence-chain-panel">
+            <MetricGrid>
+              <MetricCard
+                label={tr("evidenceTrail.chain.metrics.total" as MessageKey)}
+                value={selectedChainSummary.total}
+                meta={tr("evidenceTrail.chain.metrics.totalMeta" as MessageKey)}
+              />
+              <MetricCard
+                label={tr("evidenceTrail.chain.metrics.uniqueActions" as MessageKey)}
+                value={selectedChainSummary.uniqueActions}
+                meta={tr("evidenceTrail.chain.metrics.uniqueActionsMeta" as MessageKey)}
+              />
+              <MetricCard
+                label={tr("evidenceTrail.chain.metrics.withHash" as MessageKey)}
+                value={selectedChainSummary.withHash}
+                meta={tr("evidenceTrail.chain.metrics.withHashMeta" as MessageKey)}
+              />
+              <MetricCard
+                label={tr("evidenceTrail.chain.metrics.withTrace" as MessageKey)}
+                value={`${selectedChainSummary.withRequestId}/${selectedChainSummary.withReportId}`}
+                meta={tr("evidenceTrail.chain.metrics.withTraceMeta" as MessageKey)}
+              />
+            </MetricGrid>
+            <div className="otc-kv" data-testid="evidence-chain-summary">
+              <div className="otc-kv__row">
+                <span className="otc-kv__key">{tr("evidenceTrail.chain.scope" as MessageKey)}</span>
+                <span className="otc-kv__value">
+                  {selectedContext.reportId || selectedContext.requestId || selectedContext.caseId || tr("evidenceTrail.notAvailable" as MessageKey)}
+                </span>
+              </div>
+              <div className="otc-kv__row">
+                <span className="otc-kv__key">{tr("evidenceTrail.chain.firstEvent" as MessageKey)}</span>
+                <span className="otc-kv__value">{formatDate(selectedChainSummary.firstAt, locale) ?? tr("evidenceTrail.notAvailable" as MessageKey)}</span>
+              </div>
+              <div className="otc-kv__row">
+                <span className="otc-kv__key">{tr("evidenceTrail.chain.lastEvent" as MessageKey)}</span>
+                <span className="otc-kv__value">{formatDate(selectedChainSummary.lastAt, locale) ?? tr("evidenceTrail.notAvailable" as MessageKey)}</span>
+              </div>
+              <div className="otc-kv__row">
+                <span className="otc-kv__key">{tr("evidenceTrail.chain.materialHash" as MessageKey)}</span>
+                <span className="otc-kv__value">{selectedContext.fileHash || selectedLog?.file_hash_sha256 || tr("evidenceTrail.notAvailable" as MessageKey)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </Panel>
 
       <Panel title={tr("evidenceTrail.matrix.title" as MessageKey)} description={tr("evidenceTrail.matrix.description" as MessageKey)}>
         <table className="otc-table otc-table--spaced">
@@ -1230,7 +2023,7 @@ export default function EvidenceTrailPage() {
                       </Pill>
                     </td>
                     <td>{record.owner || tr("evidenceTrail.notAvailable" as MessageKey)}</td>
-                    <td>{formatDate(record.lastActionAt) ?? record.lastActionAt}</td>
+                    <td>{formatDate(record.lastActionAt, locale) ?? record.lastActionAt}</td>
                   </tr>
                 ))}
             </tbody>

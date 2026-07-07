@@ -1,5 +1,3 @@
-"use client";
-
 export type OperationalContext = {
   caseId: string;
   requestId: string;
@@ -35,6 +33,7 @@ type LogOperationalEntry = {
 type ResourceHrefOptions = {
   fallbackResourceType: string;
   preferCaseResource?: boolean;
+  resourceIdOverride?: string;
 };
 
 type EvidenceHrefOptions = ResourceHrefOptions & {
@@ -43,6 +42,36 @@ type EvidenceHrefOptions = ResourceHrefOptions & {
 
 type InvestigateHrefOptions = {
   includeCaseId?: boolean;
+  reportType?: string;
+};
+
+type ContextNavigationLinkKind =
+  | "case"
+  | "audit"
+  | "evidence"
+  | "reports"
+  | "investigate"
+  | "sanctions"
+  | "blocks"
+  | "counterparty"
+  | "ros";
+
+type ContextNavigationLinksOptions = {
+  includeEvidence?: boolean;
+  evidenceDomain?: string;
+  auditFallbackResourceType?: string;
+  auditPreferCaseResource?: boolean;
+  auditResourceIdOverride?: string;
+  evidencePreferCaseResource?: boolean;
+  evidenceResourceIdOverride?: string;
+  investigateIncludeCaseId?: boolean;
+  investigateReportType?: string;
+};
+
+export type OperationalContextLink = {
+  href: string;
+  kind: ContextNavigationLinkKind;
+  testIdSuffix: string;
 };
 
 function emptyOperationalContext(): OperationalContext {
@@ -81,9 +110,10 @@ export function normalizeChain(value: string) {
 function resolveResourceTarget(context: OperationalContext, options: ResourceHrefOptions) {
   const preferCaseResource = options.preferCaseResource ?? false;
   const resourceType = preferCaseResource && context.caseId ? "case" : context.resourceType || options.fallbackResourceType;
+  const resourceIdOverride = options.resourceIdOverride?.trim() ?? "";
   const resourceId = preferCaseResource && context.caseId
     ? context.caseId
-    : context.resourceId || context.reportId || context.requestId || context.caseId;
+    : resourceIdOverride || context.resourceId || context.reportId || context.requestId || context.caseId;
 
   return { resourceType, resourceId };
 }
@@ -153,6 +183,43 @@ export function buildCaseHref(caseId: string) {
   return normalized ? `/cases/${encodeURIComponent(normalized)}` : null;
 }
 
+export function buildCaseAuditHref(caseId: string, reportId?: string | null) {
+  const normalizedCaseId = caseId.trim();
+
+  return buildAuditHref(
+    {
+      ...emptyOperationalContext(),
+      caseId: normalizedCaseId,
+      resourceType: "case",
+      resourceId: normalizedCaseId,
+      reportId: reportId?.trim() ?? ""
+    },
+    {
+      fallbackResourceType: "case",
+      preferCaseResource: true
+    }
+  );
+}
+
+export function buildCaseEvidenceHref(caseId: string, reportId?: string | null) {
+  const normalizedCaseId = caseId.trim();
+
+  return buildEvidenceHref(
+    {
+      ...emptyOperationalContext(),
+      caseId: normalizedCaseId,
+      resourceType: "case",
+      resourceId: normalizedCaseId,
+      reportId: reportId?.trim() ?? ""
+    },
+    {
+      domain: reportId?.trim() ? "reports" : "all",
+      fallbackResourceType: "case",
+      preferCaseResource: true
+    }
+  );
+}
+
 export function buildAuditHref(context: OperationalContext, options: ResourceHrefOptions) {
   const target = resolveResourceTarget(context, options);
   const params = new URLSearchParams({
@@ -202,7 +269,7 @@ export function buildInvestigateHref(context: OperationalContext, options: Inves
   const params = new URLSearchParams({
     address: context.address,
     chain: context.chain,
-    report_type: "technical_basic"
+    report_type: options.reportType ?? "technical_basic"
   });
   if (options.includeCaseId && context.caseId) {
     params.set("case_id", context.caseId);
@@ -269,4 +336,64 @@ export function buildRosHref(context: OperationalContext) {
     params.set("case_id", context.caseId);
   }
   return `/ros-coaf?${params.toString()}`;
+}
+
+export function buildOperationalContextLinks(
+  context: OperationalContext,
+  options: ContextNavigationLinksOptions = {}
+): OperationalContextLink[] {
+  const links: OperationalContextLink[] = [];
+  const caseHref = buildCaseHref(context.caseId);
+  const auditHref = buildAuditHref(context, {
+    fallbackResourceType: options.auditFallbackResourceType ?? "audit_log",
+    preferCaseResource: options.auditPreferCaseResource,
+    resourceIdOverride: options.auditResourceIdOverride
+  });
+  const evidenceHref = options.includeEvidence
+    ? buildEvidenceHref(context, {
+        domain: options.evidenceDomain ?? "all",
+        fallbackResourceType: options.auditFallbackResourceType ?? "audit_log",
+        preferCaseResource: options.evidencePreferCaseResource,
+        resourceIdOverride: options.evidenceResourceIdOverride
+      })
+    : null;
+  const reportsHref = buildReportsHref(context);
+  const investigateHref = buildInvestigateHref(context, {
+    includeCaseId: options.investigateIncludeCaseId,
+    reportType: options.investigateReportType
+  });
+  const sanctionsHref = buildSanctionsHref(context);
+  const blocksHref = buildBlocksHref(context);
+  const counterpartyHref = buildCounterpartyHref(context);
+  const rosHref = buildRosHref(context);
+
+  if (caseHref) {
+    links.push({ href: caseHref, kind: "case", testIdSuffix: "open-case" });
+  }
+
+  links.push({ href: auditHref, kind: "audit", testIdSuffix: "open-audit" });
+
+  if (evidenceHref) {
+    links.push({ href: evidenceHref, kind: "evidence", testIdSuffix: "open-evidence" });
+  }
+
+  links.push({ href: reportsHref, kind: "reports", testIdSuffix: "open-reports" });
+
+  if (investigateHref) {
+    links.push({ href: investigateHref, kind: "investigate", testIdSuffix: "open-investigate" });
+  }
+  if (sanctionsHref) {
+    links.push({ href: sanctionsHref, kind: "sanctions", testIdSuffix: "open-sanctions" });
+  }
+  if (blocksHref) {
+    links.push({ href: blocksHref, kind: "blocks", testIdSuffix: "open-blocks" });
+  }
+  if (counterpartyHref) {
+    links.push({ href: counterpartyHref, kind: "counterparty", testIdSuffix: "open-counterparty" });
+  }
+  if (rosHref) {
+    links.push({ href: rosHref, kind: "ros", testIdSuffix: "open-ros" });
+  }
+
+  return links;
 }

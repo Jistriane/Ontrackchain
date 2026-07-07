@@ -18,7 +18,7 @@ Nao use este documento como fonte primaria para:
 
 - fluxo tecnico de deploy e promocao: use [Deploy e Staging](deploy-and-staging.md)
 - decisao executiva de `go/no-go`: use [Gates de Release para Staging Serio](project-release-gates.md)
-- governanca semanal e war room: use [Governanca Semanal](governance-weekly/)
+- governanca semanal e war room: use [Governanca Semanal](./governance-weekly/README.md)
 
 ## Severidades
 
@@ -260,7 +260,14 @@ docker compose logs --tail=200 investigation-api compliance-api monitoring-api r
 
 ```bash
 cd apps/frontend
-npx playwright test tests/e2e/critical-path.spec.ts tests/e2e/compliance-flows.spec.ts
+npm run test:e2e:oidc-critical
+```
+
+Para regressao apenas do scaffold local em `AUTH_MODE=dev`, use:
+
+```bash
+cd apps/frontend
+npm run test:e2e:dev-auth
 ```
 
 ### Runbook 8 — Falha no Playwright — Causas Provaveis

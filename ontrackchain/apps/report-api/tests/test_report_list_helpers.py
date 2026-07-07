@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "packages" / "agent
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "packages" / "shared" / "src"))
 
 from report_api.main import _normalize_reports_pagination, _serialize_report_list_row
+from report_api.main import _normalize_report_filter_datetime
 
 
 class ReportListHelpersTests(unittest.TestCase):
@@ -22,6 +23,25 @@ class ReportListHelpersTests(unittest.TestCase):
         self.assertEqual(page, 1)
         self.assertEqual(limit, 20)
         self.assertEqual(offset, 0)
+
+    def test_normalize_report_filter_datetime_assumes_utc_for_naive_value(self) -> None:
+        value = datetime(2026, 7, 3, 12, 0)
+
+        normalized = _normalize_report_filter_datetime(value)
+
+        self.assertIsNotNone(normalized)
+        assert normalized is not None
+        self.assertEqual(normalized.tzinfo, timezone.utc)
+        self.assertEqual(normalized.isoformat(), "2026-07-03T12:00:00+00:00")
+
+    def test_normalize_report_filter_datetime_converts_aware_value_to_utc(self) -> None:
+        value = datetime.fromisoformat("2026-07-03T09:00:00-03:00")
+
+        normalized = _normalize_report_filter_datetime(value)
+
+        self.assertIsNotNone(normalized)
+        assert normalized is not None
+        self.assertEqual(normalized.isoformat(), "2026-07-03T12:00:00+00:00")
 
     def test_serialize_report_list_row_with_datetime(self) -> None:
         row = {

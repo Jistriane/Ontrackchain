@@ -164,6 +164,20 @@ test("audit log registra ações principais", async ({ request, page }) => {
   expect(actions).toContain("report_generated");
 });
 
+test("reports list via proxy preserva contexto organizacional autenticado", async ({ page }) => {
+  await loginAsRole(page, "ANALYST");
+
+  const response = await page.request.get("/api/app/reports/list?limit=1");
+  expect(response.status()).toBe(200);
+
+  const body = (await response.json()) as any;
+  expect(Array.isArray(body.data)).toBeTruthy();
+  expect(body.page).toBe(1);
+  expect(body.limit).toBe(1);
+  expect(typeof body.total).toBe("number");
+  expect(typeof body.has_more).toBe("boolean");
+});
+
 test("AUDITOR tem leitura privilegiada e nao pode mutar recursos administrativos", async ({ page, request }) => {
   const service = `auditor-rbac-service-${Date.now()}`;
   const alertname = `AuditorRbacAlert-${Date.now()}`;

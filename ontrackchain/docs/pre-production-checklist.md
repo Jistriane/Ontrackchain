@@ -21,7 +21,7 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 
 - [ ] `docker compose up -d --build` sobe todos os servicos sem erro
 - [ ] `scripts/smoke_runtime.py` passa no ambiente alvo
-- [ ] `npm run test:e2e:oidc-critical` passa no ambiente alvo com `AUTH_MODE=oidc`
+- [ ] `npm run test:e2e:oidc-critical` passa no ambiente alvo com `AUTH_MODE=oidc` e preflight explicito de `baseURL` + `/auth/config`
 - [ ] `npm run test:e2e` passa no ambiente alvo com `AUTH_MODE=oidc`
 - [ ] health checks de todos os servicos respondem
 - [ ] rotas Traefik refletem todos os endpoints novos
@@ -47,7 +47,7 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 - [ ] matriz RBAC foi definida por dominio
 - [ ] `audit_logs` continua restrito a `ADMIN`
 - [ ] `legal_report` continua exigindo `JWT + ADMIN + 2FA`
-- [ ] `playwright-dev-auth` e tratado apenas como regressao local do scaffold, nunca como criterio de promocao
+- [ ] `playwright-dev-auth` e tratado apenas como regressao local do scaffold, exige `AUTH_MODE=dev` e nunca e usado como criterio de promocao
 
 ## 4. Billing e Financeiro
 
@@ -174,7 +174,7 @@ Nao avancar para pre-producao real se qualquer item abaixo estiver aberto:
 ## Evidencias Minimas para Aprovar
 
 - output do smoke runtime
-- output de `npm run test:e2e:oidc-critical`
+- output de `npm run test:e2e:oidc-critical` com preflight bem-sucedido do ambiente serio
 - output de `npm run test:e2e`
 - confirmacao de backup e restore
 - consulta de `audit_logs` com eventos do run atual
@@ -183,4 +183,4 @@ Nao avancar para pre-producao real se qualquer item abaixo estiver aberto:
 - quando `P0-01` estiver no escopo, `<janela>-oidc-readiness-bundle.json` e `<janela>-oidc-readiness-bundle.md` anexados ao pacote
 - quando houver `AML/KYT live`, resultado de `make check-compliance-provider-runtime` anexado ao pacote
 - quando houver feed UE, `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json` anexados ao pacote
-- se houver mudanca no scaffold local, output de `npm run test:e2e:dev-auth` como evidencia auxiliar
+- se houver mudanca no scaffold local, output de `npm run test:e2e:dev-auth` como evidencia auxiliar em `AUTH_MODE=dev`

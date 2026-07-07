@@ -30,13 +30,13 @@ Cada arquivo desta pasta deve representar um ciclo semanal fechado, contendo:
 
 ## Convenção de Nome
 
-Formato recomendado:
+Formato recomendado dentro de `cycles/<data>/`:
 
 - `YYYY-MM-DD-weekly-governance.md`
 
 Exemplo:
 
-- `2026-07-06-weekly-governance.md`
+- `cycles/2026-07-06/2026-07-06-weekly-governance.md`
 
 ## Regras de Uso
 
@@ -45,7 +45,7 @@ Exemplo:
 3. registrar apenas evidências reais revisadas no ciclo
 4. manter alinhamento entre este registro, a [Matriz Operacional de Execução para 95%](../project-operational-execution-board.md) e o [Board de Prioridades do Projeto](../project-priority-board.md)
 5. quando houver janela séria via GitHub Actions, registrar `window_id`, `environment_name`, link do run e artifact `serious-staging-window-<janela>`
-6. usar [Avaliacao Consolidada de Status do Projeto](../PROJECT_STATUS_ASSESSMENT_2026_07_03.md) como parecer executivo de apoio quando houver discussão de baseline, subida para `95%` ou decisão de `go/no-go`
+6. usar [Avaliacao Consolidada de Status do Projeto](../assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md) como parecer executivo de apoio quando houver discussão de baseline, subida para `95%` ou decisão de `go/no-go`
 7. para qualquer decisão de `go`, anexar resultado do `validate_serious_window_artifact.py` com `status=ok` e `invalid_artifacts=[]` no war room, sign-off e registro semanal
 
 ## Comando Unico (War Room Local)
@@ -83,6 +83,7 @@ make refresh-staging-war-room-governance-local \
 ```
 
 Opções:
+
 - `--mention-on-red`: adiciona @channel quando sinal é vermelho
 - `--channel`: canal Slack (default: governance)
 - `--dry-run`: simula sem enviar (debug)
@@ -100,16 +101,19 @@ make evaluate-governance-gate \
 ```
 
 Políticas de gate:
+
 - `strict`: apenas VERDE + GO permite operação
 - `moderate`: AMARELO + GO permite, VERMELHO bloqueia
 - `relaxed`: qualquer estado permite (logging only)
 
 Operações:
+
 - `merge`: merge de código para main
 - `deploy`: deployment para staging/production
 - `release`: tagged release
 
 Formatos:
+
 - `--format json`: JSON com detalhes (default)
 - `--format github`: variáveis para GitHub Actions
 - `--format gitlab`: variáveis para GitLab CI
@@ -126,34 +130,40 @@ make evaluate-governance-gate \
   --format github --exit-code
 ```
 
-## Template
+## Mapa da Pasta
 
-- [Template de Registro Semanal](_template-weekly-governance.md)
-- [Template de Atualizacao de KPI](_template-kpi-scorecard-update.md)
+- [Índice de Guias Permanentes](guides/README.md)
+- [Índice de Templates](templates/README.md)
+- [Índice de Ciclos](cycles/README.md)
+- [Índice de Artefatos Gerados](generated/README.md)
+- [Índice do Arquivo Histórico](archive/README.md)
 
 ## Registros Disponíveis
 
-### Governança Ativa (Ciclo Atual)
+### Ciclos Humanos
 
-- [Atualização de KPI 2026-07-03](2026-07-03-kpi-scorecard-update.md)
-- [Preflight Local da Janela Séria 2026-07-03](2026-07-03-staging-serious-window-local-preflight.md)
-- [Preparação da Governança 2026-07-06](2026-07-06-governance-meeting-prep.md)
-- [Ata ao Vivo da Governança 2026-07-06](2026-07-06-governance-live-minutes.md)
-- [Governança Semanal 2026-07-06](2026-07-06-weekly-governance.md)
+- [Ciclo 2026-07-03](cycles/2026-07-03/README.md)
+- [Ciclo 2026-07-06](cycles/2026-07-06/README.md)
+- [Ciclo 2026-07-13](cycles/2026-07-13/README.md)
+
+### Governança Ativa (Leitura Direta)
+
+- [Governança Semanal 2026-07-06](cycles/2026-07-06/2026-07-06-weekly-governance.md)
+- [Preparação da Governança 2026-07-06](cycles/2026-07-06/2026-07-06-governance-meeting-prep.md)
+- [Rascunho da Governança Semanal 2026-07-13](cycles/2026-07-13/2026-07-13-weekly-governance-draft.md)
+- [Governança Semanal Operacional 2026-07-13](cycles/2026-07-13/2026-07-13-weekly-governance-operational.md)
+- [Rascunho de Execucao por Evidencia 2026-07-13](cycles/2026-07-13/2026-07-13-maturity-evidence-execution-draft.md)
 
 ### Janela Séria Ativa `stg-2026-07-06-a`
 
-- [War Room](2026-07-06-staging-serious-window-war-room.md)
-- [Tracking ao Vivo](2026-07-06-staging-serious-window-live-tracking.md)
-- [Folha de Preenchimento Manual](2026-07-06-staging-serious-window-manual-fill-sheet.md)
-- [Sign-Off](2026-07-06-staging-serious-window-signoff.md)
-- [Plano de Ação do War Room](stg-2026-07-06-a-war-room-action-plan.md)
-- [Status Snapshot](stg-2026-07-06-a-status-snapshot.md)
-- [Status Snapshot Delta](stg-2026-07-06-a-status-snapshot-delta.md)
-- [Governance Dashboard](stg-2026-07-06-a-governance-dashboard.md)
-- [Checklist de Desbloqueio](stg-2026-07-06-a-unblock-checklist.md)
-- [JSON Consolidado (Machine-Readable)](stg-2026-07-06-a-consolidated.json)
+- [War Room](cycles/2026-07-06/2026-07-06-staging-serious-window-war-room.md)
+- [Tracking ao Vivo](cycles/2026-07-06/2026-07-06-staging-serious-window-live-tracking.md)
+- [Folha de Preenchimento Manual](cycles/2026-07-06/2026-07-06-staging-serious-window-manual-fill-sheet.md)
+- [Sign-Off](cycles/2026-07-06/2026-07-06-staging-serious-window-signoff.md)
+- [Índice de Artefatos Gerados](generated/README.md)
+- [Namespace da Janela `stg-2026-07-06-a`](generated/windows/stg-2026-07-06-a/README.md)
 
 ### Histórico Arquivado
 
-Registros semanais anteriores (2026-06-29 a 2026-07-03) e execuções de sprints 1-4 estão em [archive/](archive/).
+- [Histórico Semanal](archive/weekly/README.md)
+- [Tracking Histórico de Sprints](archive/sprint-tracking/README.md)

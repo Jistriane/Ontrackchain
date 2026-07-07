@@ -12,16 +12,16 @@ Consolidar a visao estrategica das iniciativas necessarias para levar o Ontrackc
 
 Baseline canonica de referencia:
 
-- [Avaliacao Consolidada de Status do Projeto](./PROJECT_STATUS_ASSESSMENT_2026_07_03.md)
-- [Brief Executivo para Stakeholders](./STAKEHOLDER_BRIEF_2026_07_03.md)
-- [Governanca Semanal 2026-07-06](governance-weekly/2026-07-06-weekly-governance.md)
-- [Tracking Sprint 4 Dia 5](governance-weekly/2026-07-07-sprint-4-day-5-tracking.md)
+- [Avaliacao Consolidada de Status do Projeto](./assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md)
+- [Continuation Execution Plan](./history/CONTINUATION_EXECUTION_PLAN_2026_07.md)
+- [Governanca Semanal 2026-07-06](governance-weekly/cycles/2026-07-06/2026-07-06-weekly-governance.md)
+- [Tracking Sprint 4 Dia 5](governance-weekly/archive/sprint-tracking/2026-07-07-sprint-4-day-5-tracking.md)
 
 Leitura executiva:
 
-- Sprint 4 encerrada como `concluida` — baseline institucionalizada
-- Sprint 5 aberta com foco em expansao de timeline/comments nos cockpits parciais
-- o maior ganho remanescente nao vem de novos modulos, mas de homologacao externa, expansao de UX operacional e governanca formal
+- a baseline institucionalizada permanece `91/78/87`
+- o maior ganho remanescente nao vem de scaffold novo, mas de homologacao externa, readiness operacional e aceite institucional
+- as frentes de frontend e operacao passaram a focar hardening, decomposicao de cockpits densos e reducao de drift documental
 
 ## Prioridades P0 — Move KPI e destrava prontidao regulatoria
 
@@ -31,7 +31,7 @@ Leitura executiva:
 | P0-02 | ready | Homologar provider `AML/KYT` live | credencial real + `make check-compliance-provider-runtime` verde + bundle JSON |
 | P0-03 | ready | Ativar feed UE tokenizado real e validar `EU_CONSOLIDATED` | URL tokenizada + `make run-eu-sanctions-window-local` + JSONs persistidos |
 
-## Prioridades P1 — Sprint 5: Expansao de Cockpits Operacionais
+## Prioridades P1 — Hardening de Cockpits Operacionais
 
 | ID | Status | Iniciativa | Modulo | Motivo |
 | --- | --- | --- | --- | --- |
@@ -61,7 +61,7 @@ Leitura executiva:
 | P3-03 | todo | Formalizar war room, escalacao e RCA cross-domain | playbook de incident response repetivel |
 | P3-04 | todo | Automatizar promocao superior com menos passos manuais | reduzir fricao no fluxo `staging -> producao` |
 
-## Itens Ja Consolidados (Sprint 1–5)
+## Itens Ja Consolidados
 
 - `evidence_trail` append-only com `SHA-256`
 - `preventive_blocks`
@@ -79,9 +79,9 @@ Leitura executiva:
 - timeline/comments integrada em `ros-coaf`, `evidence`, `counterparties`, `reports`, `blocks`
 - timeline/comments integrada em todos os cockpits parciais: `blocks`, `sanctions`, `alerts`, `ros-coaf`, `evidence`, `counterparties`, `reports`
 
-## Ordenacao Recomendada para Sprint 6 (proximo ciclo)
+## Sequenciamento Recomendado do Proximo Ciclo
 
-Sprint 5 encerrada com `WorkItemTimelinePanel` integrado em todos os cockpits. Lacunas residuais para Sprint 6:
+As entregas de timeline/workspace ja estao institucionalizadas. O sequenciamento residual recomendado e:
 
 1. ~~`DD/SoF manual review estruturado`~~: **entregue** — painel dedicado em `/counterparties`
 2. ~~`listagem de casos rastreados em reports`~~: **entregue** — painel de histórico client-side em `/reports`
@@ -89,8 +89,6 @@ Sprint 5 encerrada com `WorkItemTimelinePanel` integrado em todos os cockpits. L
 4. ~~`workspace de evidencias rastreadas`~~: **entregue** — painel de histórico em `/evidence`
 5. ~~`historico de blocks, ros-coaf e alerts`~~: **entregue** — paineis de histórico em `/blocks`, `/ros-coaf` e `/alerts`
 6. `cadeia de custodia expandida em evidence`: selagem/assinatura ou equivalente auditavel (P3 — sem bloqueio funcional imediato)
-
-Sprint 6 encerrada: todos os paineis de histórico de workspace entregues nos 7 cockpits regulatórios.
 
 Estado atual do rollout de ownership:
 
@@ -113,7 +111,7 @@ Em paralelo, se credencial/URL disponivel:
 ## Regra de Baseline
 
 - manter `91% / 78% / 87%` como referencia executiva ate existir nova evidencia material publicada na governanca semanal
-- usar [Avaliacao Consolidada de Status do Projeto](./PROJECT_STATUS_ASSESSMENT_2026_07_03.md) como parecer executivo padrao para comunicacao com stakeholders e decisoes de `go/no-go`
-- usar [Brief Executivo para Stakeholders](./STAKEHOLDER_BRIEF_2026_07_03.md) quando a necessidade for comunicação curta com diretoria, sponsors ou owners externos
+- usar [Avaliacao Consolidada de Status do Projeto](./assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md) como parecer executivo padrao para comunicacao com stakeholders e decisoes de `go/no-go`
+- usar [Continuation Execution Plan](./history/CONTINUATION_EXECUTION_PLAN_2026_07.md) quando a necessidade for comunicar sequenciamento executivo ou proxima frente de entrega
 - nao promover `P0-01`, `P0-02` ou `P0-03` sem artefato real, checker verde ou aceite institucional correspondente
 - nao marcar `P1-S5-*` como `done` sem o `WorkItemTimelinePanel` operacional e chaves de i18n completas no modulo

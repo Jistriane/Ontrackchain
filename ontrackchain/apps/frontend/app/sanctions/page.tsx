@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
+import { formatDateTime as formatDate } from "../lib/date-format";
 import { useI18n } from "../../components/i18n-provider";
 import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel";
 import type { MessageKey } from "../lib/i18n";
@@ -12,6 +13,11 @@ import { resolveApiErrorMessage } from "../lib/api-error-catalog";
 import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
 import { createWorkItemComment, fetchWorkItemTimeline } from "../lib/work-item-timeline-client";
 import { formatTimelineEvent, type WorkCommentResponse, type WorkItemTimelineResponse } from "../lib/work-item-timeline";
+import {
+  buildOperationalContextLinks,
+  type OperationalContext,
+  type OperationalContextLink
+} from "../lib/operational-context";
 
 type SanctionsCheckResponse = {
   address: string;
@@ -361,46 +367,48 @@ function toneForUrgency(urgency: ReturnType<typeof getUrgency>): "warning" | "da
   return undefined;
 }
 
-function formatDate(value: string | null | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short"
-  }).format(parsed);
+function buildSanctionsOperationalContext(input: {
+  caseId?: string | null;
+  address: string;
+  chain: string;
+}): OperationalContext {
+  const caseId = input.caseId?.trim() ?? "";
+  return {
+    caseId,
+    requestId: caseId,
+    reportId: "",
+    fileHash: "",
+    resourceType: "case",
+    resourceId: caseId || input.address.trim(),
+    address: input.address.trim(),
+    chain: input.chain.trim() || "ethereum",
+    counterpartyId: "",
+    legalName: "",
+    documentNumber: "",
+    rosId: "",
+    reportType: "technical_basic",
+    blockId: ""
+  };
 }
 
-function buildAuditHref(caseId: string, resourceId: string, reportId = "") {
-  const params = new URLSearchParams({
-    resource_type: "case",
-    resource_id: resourceId
-  });
-  if (caseId.trim()) {
-    params.set("request_id", caseId.trim());
-  }
-  if (reportId.trim()) {
-    params.set("report_id", reportId.trim());
-  }
-  return `/audit?${params.toString()}`;
-}
-
-function buildEvidenceHref(resourceId: string, caseId: string) {
-  const params = new URLSearchParams({
-    domain: "sanctions",
-    resource_id: resourceId,
-    resource_type: "case"
-  });
-  if (caseId.trim()) {
-    params.set("request_id", caseId.trim());
-  }
-  return `/evidence?${params.toString()}`;
+function buildSanctionsContextLinks(
+  context: OperationalContext,
+  kinds: OperationalContextLink["kind"][],
+  labelKeyByKind: Partial<Record<OperationalContextLink["kind"], MessageKey>>
+) {
+  return buildOperationalContextLinks(context, {
+    includeEvidence: true,
+    evidenceDomain: "sanctions",
+    auditFallbackResourceType: "case",
+    auditResourceIdOverride: context.caseId || context.address,
+    evidenceResourceIdOverride: context.caseId || context.address,
+    investigateReportType: "technical_basic"
+  })
+    .filter((link: OperationalContextLink) => kinds.includes(link.kind))
+    .map((link: OperationalContextLink) => ({
+      ...link,
+      labelKey: labelKeyByKind[link.kind] ?? "sanctions.workspace.openAudit"
+    }));
 }
 
 function buildBlocksHref(record: { address: string; chain: string; caseId: string; owner: string; priority: WorkspacePriority; localDeadline: string }) {
@@ -452,7 +460,7 @@ function mapWorkItemToWorkspaceRecord(item: WorkItemResponse): SanctionsWorkspac
 }
 
 export default function SanctionsPage() {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const searchParams = useSearchParams();
   const tr = (key: MessageKey, values?: Record<string, string | number>) => t(key, values);
   const hydratedPrefillKeyRef = useRef<string | null>(null);
@@ -483,7 +491,7 @@ export default function SanctionsPage() {
   const matchedCount = result?.matched_lists?.length ?? 0;
   const currentWorkspaceId = result ? buildWorkspaceId(result) : null;
   const filteredWorkspaceRecords = useMemo(() => {
-    return workspaceRecords.filter((record) => {
+    return workspaceRecords.filter((record: SanctionsWorkspaceRecord) => {
       const matchesStatus = workspaceFilter === "all" ? true : record.status === workspaceFilter;
       const search = workspaceSearch.trim().toLowerCase();
       const matchesSearch =
@@ -495,20 +503,23 @@ export default function SanctionsPage() {
       return matchesStatus && matchesSearch;
     });
   }, [workspaceFilter, workspaceRecords, workspaceSearch]);
-  const hitCount = useMemo(() => workspaceRecords.filter((record) => record.hit).length, [workspaceRecords]);
+  const hitCount = useMemo(() => workspaceRecords.filter((record: SanctionsWorkspaceRecord) => record.hit).length, [workspaceRecords]);
   const pendingReviewCount = useMemo(
-    () => workspaceRecords.filter((record) => record.hit && ACTIVE_WORKSPACE_STATUSES.has(record.status)).length,
+    () => workspaceRecords.filter((record: SanctionsWorkspaceRecord) => record.hit && ACTIVE_WORKSPACE_STATUSES.has(record.status)).length,
     [workspaceRecords]
   );
   const escalatedCount = useMemo(
-    () => workspaceRecords.filter((record) => record.status === "ESCALATED").length,
+    () => workspaceRecords.filter((record: SanctionsWorkspaceRecord) => record.status === "ESCALATED").length,
     [workspaceRecords]
   );
   const overdueCount = useMemo(
-    () => workspaceRecords.filter((record) => getUrgency(record) === "overdue").length,
+    () => workspaceRecords.filter((record: SanctionsWorkspaceRecord) => getUrgency(record) === "overdue").length,
     [workspaceRecords]
   );
-  const workspaceById = useMemo(() => new Map(workspaceRecords.map((record) => [record.workspaceId, record])), [workspaceRecords]);
+  const workspaceById = useMemo(
+    () => new Map(workspaceRecords.map((record: SanctionsWorkspaceRecord) => [record.workspaceId, record])),
+    [workspaceRecords]
+  );
   const selectedTimelineRecord = timelineWorkspaceId ? workspaceById.get(timelineWorkspaceId) ?? null : null;
 
   async function loadOperationalWorkspace(localRecords: SanctionsWorkspaceRecord[]) {
@@ -558,8 +569,8 @@ export default function SanctionsPage() {
       setTimelineError(null);
       return;
     }
-    if (!timelineWorkspaceId || !workspaceRecords.some((record) => record.workspaceId === timelineWorkspaceId)) {
-      const firstServerRecord = workspaceRecords.find((record) => Boolean(record.workItemId)) ?? workspaceRecords[0];
+    if (!timelineWorkspaceId || !workspaceRecords.some((record: SanctionsWorkspaceRecord) => record.workspaceId === timelineWorkspaceId)) {
+      const firstServerRecord = workspaceRecords.find((record: SanctionsWorkspaceRecord) => Boolean(record.workItemId)) ?? workspaceRecords[0];
       setTimelineWorkspaceId(firstServerRecord.workspaceId);
     }
   }, [timelineWorkspaceId, workspaceRecords]);
@@ -608,7 +619,7 @@ export default function SanctionsPage() {
   }
 
   function updateForm<K extends keyof SanctionsFormState>(key: K, value: SanctionsFormState[K]) {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current: SanctionsFormState) => ({ ...current, [key]: value }));
   }
 
   function hydrateWorkspaceRecord(record: SanctionsWorkspaceRecord) {
@@ -626,7 +637,7 @@ export default function SanctionsPage() {
   }
 
   function removeWorkspaceRecord(workspaceId: string) {
-    setWorkspaceRecords((current) => current.filter((record) => record.workspaceId !== workspaceId));
+    setWorkspaceRecords((current: SanctionsWorkspaceRecord[]) => current.filter((record: SanctionsWorkspaceRecord) => record.workspaceId !== workspaceId));
   }
 
   function buildWorkspaceRecordFromCurrentState(
@@ -732,7 +743,7 @@ export default function SanctionsPage() {
     }
 
     const nextRecord = mapWorkItemToWorkspaceRecord(data as WorkItemResponse);
-    setWorkspaceRecords((current) => upsertWorkspaceRecord(current, nextRecord));
+    setWorkspaceRecords((current: SanctionsWorkspaceRecord[]) => upsertWorkspaceRecord(current, nextRecord));
     return nextRecord;
   }
 
@@ -743,12 +754,12 @@ export default function SanctionsPage() {
 
     setError(null);
     setNotice(null);
-    const baseRecord = workspaceRecords.find((record) => record.workspaceId === currentWorkspaceId) ?? undefined;
+    const baseRecord = workspaceRecords.find((record: SanctionsWorkspaceRecord) => record.workspaceId === currentWorkspaceId) ?? undefined;
     const draftRecord = buildWorkspaceRecordFromCurrentState(result, form, triageNote, baseRecord);
     draftRecord.status = status;
     draftRecord.lastActionAt = new Date().toISOString();
 
-    setWorkspaceRecords((current) => upsertWorkspaceRecord(current, draftRecord));
+    setWorkspaceRecords((current: SanctionsWorkspaceRecord[]) => upsertWorkspaceRecord(current, draftRecord));
 
     try {
       await syncWorkspaceRecord(draftRecord, status);
@@ -782,7 +793,7 @@ export default function SanctionsPage() {
     const checked = data as SanctionsCheckResponse;
     setResult(checked);
     const draftRecord = buildWorkspaceRecordFromCurrentState(checked, nextForm, triageNote);
-    setWorkspaceRecords((current) => upsertWorkspaceRecord(current, draftRecord));
+    setWorkspaceRecords((current: SanctionsWorkspaceRecord[]) => upsertWorkspaceRecord(current, draftRecord));
     try {
       await syncWorkspaceRecord(draftRecord);
       setNotice(tr("sanctions.noticeCheckedSynced" as MessageKey));
@@ -859,7 +870,12 @@ export default function SanctionsPage() {
             </label>
             <label className="otc-field">
               {tr("sanctions.form.caseId" as MessageKey)}
-              <input className="otc-input" value={form.caseId} onChange={(event) => updateForm("caseId", event.target.value)} />
+              <input
+                className="otc-input"
+                data-testid="sanctions-case-id"
+                value={form.caseId}
+                onChange={(event) => updateForm("caseId", event.target.value)}
+              />
             </label>
             <label className="otc-field">
               {tr("sanctions.form.owner" as MessageKey)}
@@ -951,7 +967,7 @@ export default function SanctionsPage() {
                         {tr(`sanctions.priority.${record.priority}` as MessageKey)}
                       </Pill>
                     </td>
-                    <td>{formatDate(record.localDeadline) ?? tr("sanctions.workspace.noDeadline" as MessageKey)}</td>
+                    <td>{formatDate(record.localDeadline, locale) ?? tr("sanctions.workspace.noDeadline" as MessageKey)}</td>
                     <td>
                       <Pill tone={toneForUrgency(urgency)}>{tr(`sanctions.urgency.${urgency}` as MessageKey)}</Pill>
                     </td>
@@ -966,17 +982,23 @@ export default function SanctionsPage() {
                         <button type="button" className="otc-button otc-button--ghost" onClick={() => hydrateWorkspaceRecord(record)}>
                           {tr("sanctions.workspace.load" as MessageKey)}
                         </button>
-                        {record.caseId ? (
-                          <a className="otc-button otc-button--ghost" href={`/cases/${record.caseId}`}>
-                            {tr("sanctions.workspace.openCase" as MessageKey)}
+                        {buildSanctionsContextLinks(
+                          buildSanctionsOperationalContext({
+                            caseId: record.caseId,
+                            address: record.address,
+                            chain: record.chain
+                          }),
+                          ["case", "audit", "evidence"],
+                          {
+                            case: "sanctions.workspace.openCase",
+                            audit: "sanctions.workspace.openAudit",
+                            evidence: "sanctions.workspace.openEvidence"
+                          }
+                        ).map((link: OperationalContextLink & { labelKey: MessageKey }) => (
+                          <a key={`workspace-${record.workspaceId}-${link.testIdSuffix}`} className="otc-button otc-button--ghost" href={link.href}>
+                            {tr(link.labelKey)}
                           </a>
-                        ) : null}
-                        <a className="otc-button otc-button--ghost" href={buildAuditHref(record.caseId, record.caseId || record.address)}>
-                          {tr("sanctions.workspace.openAudit" as MessageKey)}
-                        </a>
-                        <a className="otc-button otc-button--ghost" href={buildEvidenceHref(record.caseId || record.address, record.caseId)}>
-                          {tr("sanctions.workspace.openEvidence" as MessageKey)}
-                        </a>
+                        ))}
                         {record.hit ? (
                           <a className="otc-button otc-button--ghost" href={buildBlocksHref(record)}>
                             {tr("sanctions.workspace.openBlocks" as MessageKey)}
@@ -1024,7 +1046,7 @@ export default function SanctionsPage() {
             ? () => { void loadTimeline(selectedTimelineRecord.workItemId!); }
             : undefined
         }
-        formatDate={formatDate}
+          formatDate={(value) => formatDate(value, locale)}
         formatEventLabel={formatTimelineEvent}
       />
 
@@ -1038,7 +1060,7 @@ export default function SanctionsPage() {
             <div className="otc-grid otc-grid--counterparty-form">
               <div className="otc-panel">
                 <div className="otc-muted">{tr("sanctions.result.checkedAt" as MessageKey)}</div>
-                <strong>{formatDate(result.checked_at) ?? result.checked_at}</strong>
+                <strong>{formatDate(result.checked_at, locale) ?? result.checked_at}</strong>
               </div>
               <div className="otc-panel">
                 <div className="otc-muted">{tr("sanctions.result.provider" as MessageKey)}</div>
@@ -1064,7 +1086,7 @@ export default function SanctionsPage() {
               <div className="otc-panel">
                 <div className="otc-muted">{tr("sanctions.result.entityName" as MessageKey)}</div>
                 <strong>{result.entity_name ?? tr("sanctions.result.notAvailable" as MessageKey)}</strong>
-                <div className="otc-muted">{tr("sanctions.result.designationDate" as MessageKey)} {formatDate(result.designation_date) ?? tr("sanctions.result.notAvailable" as MessageKey)}</div>
+                <div className="otc-muted">{tr("sanctions.result.designationDate" as MessageKey)} {formatDate(result.designation_date, locale) ?? tr("sanctions.result.notAvailable" as MessageKey)}</div>
               </div>
               <div className="otc-panel">
                 <div className="otc-muted">{tr("sanctions.result.matchedLists" as MessageKey)}</div>
@@ -1088,20 +1110,24 @@ export default function SanctionsPage() {
               <textarea className="otc-textarea" rows={3} value={triageNote} onChange={(event) => setTriageNote(event.target.value)} />
             </label>
             <div className="otc-controls">
-              {form.caseId.trim() ? (
-                <a className="otc-button otc-button--ghost" href={`/cases/${form.caseId.trim()}`}>
-                  {tr("sanctions.result.openCase" as MessageKey)}
+              {buildSanctionsContextLinks(
+                buildSanctionsOperationalContext({
+                  caseId: form.caseId,
+                  address: result.address,
+                  chain: result.chain
+                }),
+                ["case", "audit", "evidence", "investigate"],
+                {
+                  case: "sanctions.result.openCase",
+                  audit: "sanctions.result.openAudit",
+                  evidence: "sanctions.result.openEvidence",
+                  investigate: "sanctions.result.openInvestigate"
+                }
+              ).map((link: OperationalContextLink & { labelKey: MessageKey }) => (
+                <a key={`result-${result.address}-${link.testIdSuffix}`} className="otc-button otc-button--ghost" href={link.href}>
+                  {tr(link.labelKey)}
                 </a>
-              ) : null}
-              <a className="otc-button otc-button--ghost" href={buildAuditHref(form.caseId, form.caseId.trim() || result.address)}>
-                {tr("sanctions.result.openAudit" as MessageKey)}
-              </a>
-              <a className="otc-button otc-button--ghost" href={buildEvidenceHref(form.caseId.trim() || result.address, form.caseId)}>
-                {tr("sanctions.result.openEvidence" as MessageKey)}
-              </a>
-              <a className="otc-button otc-button--ghost" href={`/investigate?address=${encodeURIComponent(result.address)}&chain=${encodeURIComponent(result.chain)}&report_type=technical_basic`}>
-                {tr("sanctions.result.openInvestigate" as MessageKey)}
-              </a>
+              ))}
               {isHit ? (
                 <a className="otc-button otc-button--ghost" href={buildBlocksHref({ address: result.address, chain: result.chain, caseId: form.caseId, owner: form.owner, priority: form.priority, localDeadline: form.localDeadline })}>
                   {tr("sanctions.result.openBlocks" as MessageKey)}
@@ -1185,8 +1211,8 @@ export default function SanctionsPage() {
                       </Pill>
                     </td>
                     <td>{record.matchedLists.length ? record.matchedLists.join(", ") : tr("sanctions.history.none" as MessageKey)}</td>
-                    <td>{formatDate(record.checkedAt) ?? record.checkedAt}</td>
-                    <td>{formatDate(record.lastActionAt) ?? record.lastActionAt}</td>
+                    <td>{formatDate(record.checkedAt, locale) ?? record.checkedAt}</td>
+                    <td>{formatDate(record.lastActionAt, locale) ?? record.lastActionAt}</td>
                   </tr>
                 ))}
               </tbody>

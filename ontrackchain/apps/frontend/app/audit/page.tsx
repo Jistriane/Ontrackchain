@@ -4,6 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "../../components/i18n-provider";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
+import {
+  AUDIT_ACTION_VALUES,
+  AUDIT_RESOURCE_TYPE_VALUES,
+  isAuditActionValue,
+  isAuditResourceTypeValue
+} from "../lib/audit-catalog";
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
 import {
   buildAuditLogQuery,
@@ -13,16 +19,11 @@ import {
   type AuditLogsResponse
 } from "../lib/audit-log";
 import {
-  buildBlocksHref,
-  buildCaseHref,
-  buildCounterpartyHref,
-  buildEvidenceHref,
-  buildInvestigateHref,
-  buildReportsHref,
-  buildRosHref,
-  buildSanctionsHref,
+  buildOperationalContextLinks,
+  type OperationalContextLink,
   inferLogOperationalContext
 } from "../lib/operational-context";
+import type { MessageKey } from "../lib/i18n";
 type AuditFilters = AuditLogQueryFilters;
 
 const DEFAULT_FILTERS: AuditFilters = {
@@ -50,6 +51,35 @@ export default function AuditPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
   const latestRequestRef = useRef(0);
+
+  function resolveAuditActionLabel(value: string) {
+    if (!value.trim()) {
+      return t("audit.notAvailable");
+    }
+    return isAuditActionValue(value) ? t(`audit.values.actions.${value}` as MessageKey) : value;
+  }
+
+  function resolveAuditResourceTypeLabel(value: string) {
+    if (!value.trim()) {
+      return t("audit.notAvailable");
+    }
+    return isAuditResourceTypeValue(value) ? t(`audit.values.resourceTypes.${value}` as MessageKey) : value;
+  }
+
+  function formatAuditValue(value: string, label: string) {
+    if (!value.trim()) {
+      return t("audit.notAvailable");
+    }
+    return label === value ? value : `${label} (${value})`;
+  }
+
+  function formatAuditActionValue(value: string) {
+    return formatAuditValue(value, resolveAuditActionLabel(value));
+  }
+
+  function formatAuditResourceTypeValue(value: string) {
+    return formatAuditValue(value, resolveAuditResourceTypeLabel(value));
+  }
 
   function filtersFromSearchParams(): AuditFilters {
     return {
@@ -120,6 +150,35 @@ export default function AuditPage() {
     return [filters.requestId, filters.action, filters.resourceType, filters.reportId, filters.resourceId].filter((value) => value.trim()).length;
   }, [filters]);
   const selectedContext = useMemo(() => (selectedLog ? inferLogOperationalContext(selectedLog) : null), [selectedLog]);
+  const selectedContextLinks = useMemo(() => {
+    if (!selectedContext) {
+      return [] as Array<OperationalContextLink & { label: string }>;
+    }
+
+    const labelByKind: Record<OperationalContextLink["kind"], string> = {
+      case: t("audit.details.openCase"),
+      audit: t("audit.details.openCase"),
+      evidence: t("audit.details.openEvidence"),
+      reports: t("audit.details.openReports"),
+      investigate: t("audit.details.openInvestigate"),
+      sanctions: t("audit.details.openSanctions"),
+      blocks: t("audit.details.openBlocks"),
+      counterparty: t("audit.details.openCounterparty"),
+      ros: t("audit.details.openRos")
+    };
+
+    return buildOperationalContextLinks(selectedContext, {
+      includeEvidence: true,
+      evidenceDomain: "all",
+      auditFallbackResourceType: "audit_log",
+      investigateIncludeCaseId: true
+    })
+      .filter((link: OperationalContextLink) => link.kind !== "audit")
+      .map((link: OperationalContextLink) => ({
+        ...link,
+        label: labelByKind[link.kind]
+      }));
+  }, [selectedContext, t]);
 
   function updateFilter<K extends keyof AuditFilters>(key: K, value: AuditFilters[K]) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -206,7 +265,7 @@ export default function AuditPage() {
         <MetricCard label={t("audit.stats.events")} value={loading ? "..." : count} meta={t("audit.stats.eventsMeta")} />
         <MetricCard label={t("audit.stats.total")} value={loading ? "..." : total} meta={t("audit.stats.totalMeta")} />
         <MetricCard label={t("audit.stats.filters")} value={activeFilterCount} meta={t("audit.stats.filtersMeta")} />
-        <MetricCard label={t("audit.stats.selected")} value={selectedLog?.action ?? "--"} meta={t("audit.stats.selectedMeta")} />
+        <MetricCard label={t("audit.stats.selected")} value={selectedLog ? formatAuditActionValue(selectedLog.action) : "--"} meta={t("audit.stats.selectedMeta")} />
         <MetricCard label={t("audit.stats.integrity")} value={selectedLog?.file_hash_sha256 ? "SHA-256" : t("audit.notAvailable")} meta={t("audit.stats.integrityMeta")} accent />
       </MetricGrid>
 
@@ -220,19 +279,22 @@ export default function AuditPage() {
             {t("audit.filters.action")}
             <select className="otc-select" data-testid="audit-filter-action" value={filters.action} onChange={(e) => updateFilter("action", e.target.value)}>
               <option value="">{t("audit.filters.all")}</option>
-              <option value="case_started">case_started</option>
-              <option value="case_completed">case_completed</option>
-              <option value="case_failed">case_failed</option>
-              <option value="report_generated">report_generated</option>
-              <option value="report_downloaded">report_downloaded</option>
+              {AUDIT_ACTION_VALUES.map((value) => (
+                <option key={value} value={value}>
+                  {formatAuditActionValue(value)}
+                </option>
+              ))}
             </select>
           </label>
           <label className="otc-field">
             {t("audit.filters.resourceType")}
             <select className="otc-select" data-testid="audit-filter-resource-type" value={filters.resourceType} onChange={(e) => updateFilter("resourceType", e.target.value)}>
               <option value="">{t("audit.filters.allMasculine")}</option>
-              <option value="case">case</option>
-              <option value="report">report</option>
+              {AUDIT_RESOURCE_TYPE_VALUES.map((value) => (
+                <option key={value} value={value}>
+                  {formatAuditResourceTypeValue(value)}
+                </option>
+              ))}
             </select>
           </label>
           <label className="otc-field">
@@ -311,10 +373,10 @@ export default function AuditPage() {
                     className={`otc-button otc-button--ghost otc-button--stack-start otc-audit-row${isSelected ? " otc-audit-row--selected" : ""}`}
                   >
                     <div className="otc-audit-row__header">
-                      <strong>{entry.action}</strong>
+                      <strong>{formatAuditActionValue(entry.action)}</strong>
                       <span className="otc-muted">{entry.created_at ?? t("audit.noTimestamp")}</span>
                     </div>
-                    <div className="otc-audit-row__resource">{entry.resource_type}{entry.resource_id ? ` • ${entry.resource_id}` : ""}</div>
+                    <div className="otc-audit-row__resource">{formatAuditResourceTypeValue(entry.resource_type)}{entry.resource_id ? ` • ${entry.resource_id}` : ""}</div>
                     <div className="otc-muted otc-audit-row__meta">request_id: {entry.request_id ?? t("audit.notAvailable")}</div>
                     <div className="otc-muted otc-audit-row__meta otc-audit-row__meta--tight">report_id: {entry.report_id ?? t("audit.notAvailable")}</div>
                   </button>
@@ -329,8 +391,8 @@ export default function AuditPage() {
         <Panel title={t("audit.details.title")} description={t("audit.details.description")}>
           {selectedLog ? (
             <div data-testid="audit-details-panel" className="otc-stack">
-              <div><strong>{t("audit.details.action")}:</strong> {selectedLog.action}</div>
-              <div><strong>{t("audit.details.resourceType")}:</strong> {selectedLog.resource_type}</div>
+              <div><strong>{t("audit.details.action")}:</strong> {formatAuditActionValue(selectedLog.action)}</div>
+              <div><strong>{t("audit.details.resourceType")}:</strong> {formatAuditResourceTypeValue(selectedLog.resource_type)}</div>
               <div><strong>{t("audit.details.resourceId")}:</strong> {selectedLog.resource_id ?? t("audit.notAvailable")}</div>
               <div><strong>{t("audit.details.requestId")}:</strong> {selectedLog.request_id ?? t("audit.notAvailable")}</div>
               <div><strong>{t("audit.details.reportId")}:</strong> {selectedLog.report_id ?? t("audit.notAvailable")}</div>
@@ -343,46 +405,15 @@ export default function AuditPage() {
               <div><strong>{t("audit.details.counterpartyId")}:</strong> {selectedContext?.counterpartyId || t("audit.notAvailable")}</div>
               <div><strong>{t("audit.details.rosId")}:</strong> {selectedContext?.rosId || t("audit.notAvailable")}</div>
               <div className="otc-audit-pill">
-                <Pill>{selectedLog.resource_type}</Pill>
+                <Pill>{formatAuditResourceTypeValue(selectedLog.resource_type)}</Pill>
               </div>
               {selectedContext ? (
                 <div className="otc-controls otc-controls--spaced">
-                  {buildCaseHref(selectedContext.caseId) ? (
-                    <a className="otc-button otc-button--ghost" href={buildCaseHref(selectedContext.caseId) ?? undefined}>
-                      {t("audit.details.openCase")}
+                  {selectedContextLinks.map((link: OperationalContextLink & { label: string }) => (
+                    <a key={`audit-${link.testIdSuffix}`} className="otc-button otc-button--ghost" href={link.href}>
+                      {link.label}
                     </a>
-                  ) : null}
-                  <a className="otc-button otc-button--ghost" href={buildEvidenceHref(selectedContext, { domain: "all", fallbackResourceType: "audit_log" })}>
-                    {t("audit.details.openEvidence")}
-                  </a>
-                  <a className="otc-button otc-button--ghost" href={buildReportsHref(selectedContext)}>
-                    {t("audit.details.openReports")}
-                  </a>
-                  {buildInvestigateHref(selectedContext) ? (
-                    <a className="otc-button otc-button--ghost" href={buildInvestigateHref(selectedContext, { includeCaseId: true }) ?? undefined}>
-                      {t("audit.details.openInvestigate")}
-                    </a>
-                  ) : null}
-                  {buildSanctionsHref(selectedContext) ? (
-                    <a className="otc-button otc-button--ghost" href={buildSanctionsHref(selectedContext) ?? undefined}>
-                      {t("audit.details.openSanctions")}
-                    </a>
-                  ) : null}
-                  {buildBlocksHref(selectedContext) ? (
-                    <a className="otc-button otc-button--ghost" href={buildBlocksHref(selectedContext) ?? undefined}>
-                      {t("audit.details.openBlocks")}
-                    </a>
-                  ) : null}
-                  {buildCounterpartyHref(selectedContext) ? (
-                    <a className="otc-button otc-button--ghost" href={buildCounterpartyHref(selectedContext) ?? undefined}>
-                      {t("audit.details.openCounterparty")}
-                    </a>
-                  ) : null}
-                  {buildRosHref(selectedContext) ? (
-                    <a className="otc-button otc-button--ghost" href={buildRosHref(selectedContext) ?? undefined}>
-                      {t("audit.details.openRos")}
-                    </a>
-                  ) : null}
+                  ))}
                 </div>
               ) : null}
               <CodeBlock>

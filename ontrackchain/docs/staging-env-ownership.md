@@ -11,7 +11,7 @@ Este documento complementa:
 - [Deploy e Staging](deploy-and-staging.md)
 - [Owners e SLAs Operacionais](operational-ownership-and-slas.md)
 - [Matriz de Execucao por Owner para Janela Seria](staging-serious-window-war-room-matrix.md)
-- [Folha de Preenchimento Manual da Janela `stg-2026-07-06-a`](governance-weekly/2026-07-06-staging-serious-window-manual-fill-sheet.md)
+- [Folha de Preenchimento Manual da Janela `stg-2026-07-06-a`](governance-weekly/cycles/2026-07-06/2026-07-06-staging-serious-window-manual-fill-sheet.md)
 
 ## Escopo Canonico
 
@@ -24,8 +24,8 @@ Use este documento para:
 Nao use este documento como fonte primaria para:
 
 - coordenar war room, tracking ou decisao `go/no-go`: use os artefatos vivos em `docs/governance-weekly/`
-Refira-se a [Governanca Semanal](governance-weekly/) para tracking do ciclo atual.
-- preencher rapidamente contatos, canais e bridges da janela corrente: use a [Folha de Preenchimento Manual da Janela `stg-2026-07-06-a`](governance-weekly/2026-07-06-staging-serious-window-manual-fill-sheet.md)
+- Refira-se a [Governanca Semanal](./governance-weekly/README.md) para tracking do ciclo atual.
+- preencher rapidamente contatos, canais e bridges da janela corrente: use a [Folha de Preenchimento Manual da Janela `stg-2026-07-06-a`](governance-weekly/cycles/2026-07-06/2026-07-06-staging-serious-window-manual-fill-sheet.md)
 
 ## Regra Geral
 

@@ -1,11 +1,8 @@
 import { cookies } from "next/headers";
 
-export async function GET(request: Request) {
-  const token = cookies().get("otc_token")?.value;
-  if (!token) {
-    return new Response("not_authenticated", { status: 401 });
-  }
+import { authenticateReportRequest, proxyReportBinaryRequest } from "../_shared";
 
+export async function GET(request: Request) {
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const url = new URL(request.url);
   const reportId = url.searchParams.get("report_id");
@@ -30,23 +27,17 @@ export async function GET(request: Request) {
     }
   }
 
+  const auth = await authenticateReportRequest(requestId);
+  if (auth instanceof Response) {
+    return auth;
+  }
+
   const query = url.searchParams;
   query.delete("report_id");
   const queryString = query.toString();
-
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
-  const target = `${baseUrl}/api/v1/reports/${reportId}/download?${queryString}`;
-  const res = await fetch(target, {
+  return proxyReportBinaryRequest(auth, {
     method: "GET",
-    headers: { Authorization: `Bearer ${token}`, "X-2FA": twofa ?? "", "X-Request-Id": requestId },
-    cache: "no-store"
+    path: `/api/v1/reports/${encodeURIComponent(reportId)}/download?${queryString}`,
+    requestId
   });
-
-  const buf = await res.arrayBuffer();
-  const headers = new Headers();
-  const contentType = res.headers.get("content-type");
-  const contentDisposition = res.headers.get("content-disposition");
-  if (contentType) headers.set("content-type", contentType);
-  if (contentDisposition) headers.set("content-disposition", contentDisposition);
-  return new Response(buf, { status: res.status, headers });
 }

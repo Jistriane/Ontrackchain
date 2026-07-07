@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
+import { formatDateTime as formatDate } from "../lib/date-format";
 import { useI18n } from "../../components/i18n-provider";
 import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel";
 import type { MessageKey } from "../lib/i18n";
@@ -12,6 +13,11 @@ import { resolveApiErrorMessage } from "../lib/api-error-catalog";
 import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
 import { createWorkItemComment, fetchWorkItemTimeline } from "../lib/work-item-timeline-client";
 import { formatTimelineEvent, type WorkCommentResponse, type WorkItemTimelineResponse } from "../lib/work-item-timeline";
+import {
+  buildOperationalContextLinks,
+  type OperationalContext,
+  type OperationalContextLink
+} from "../lib/operational-context";
 
 type BlockEvaluateResponse = {
   address: string;
@@ -333,22 +339,6 @@ function getUrgency(record: BlockWorkspaceRecord): "overdue" | "due_soon" | "on_
   return "on_track";
 }
 
-function formatDate(value: string | null | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short"
-  }).format(parsed);
-}
-
 function toEvaluateResponse(record: BlockWorkspaceRecord): BlockEvaluateResponse {
   return {
     address: record.address,
@@ -408,33 +398,49 @@ function mapWorkItemToWorkspaceRecord(item: WorkItemResponse): BlockWorkspaceRec
   };
 }
 
-function buildAuditHref(caseId: string, resourceId: string, blockId = "") {
-  const params = new URLSearchParams({
-    resource_type: "case",
-    resource_id: resourceId
-  });
-  if (caseId.trim()) {
-    params.set("request_id", caseId.trim());
-  }
-  if (blockId.trim()) {
-    params.set("report_id", blockId.trim());
-  }
-  return `/audit?${params.toString()}`;
+function buildBlockOperationalContext(input: {
+  caseId?: string | null;
+  address: string;
+  chain: string;
+  blockId?: string | null;
+}): OperationalContext {
+  const caseId = input.caseId?.trim() ?? "";
+  return {
+    caseId,
+    requestId: caseId,
+    reportId: input.blockId?.trim() ?? "",
+    fileHash: "",
+    resourceType: "case",
+    resourceId: caseId || input.address.trim(),
+    address: input.address.trim(),
+    chain: input.chain.trim() || "ethereum",
+    counterpartyId: "",
+    legalName: "",
+    documentNumber: "",
+    rosId: "",
+    reportType: "technical_basic",
+    blockId: input.blockId?.trim() ?? ""
+  };
 }
 
-function buildEvidenceHref(resourceId: string, caseId: string, blockId = "") {
-  const params = new URLSearchParams({
-    domain: "all",
-    resource_type: "case",
-    resource_id: resourceId
-  });
-  if (caseId.trim()) {
-    params.set("request_id", caseId.trim());
-  }
-  if (blockId.trim()) {
-    params.set("report_id", blockId.trim());
-  }
-  return `/evidence?${params.toString()}`;
+function buildBlockContextLinks(
+  context: OperationalContext,
+  kinds: OperationalContextLink["kind"][],
+  labelKeyByKind: Partial<Record<OperationalContextLink["kind"], MessageKey>>
+) {
+  return buildOperationalContextLinks(context, {
+    includeEvidence: true,
+    evidenceDomain: "all",
+    auditFallbackResourceType: "case",
+    auditResourceIdOverride: context.caseId || context.address,
+    evidenceResourceIdOverride: context.caseId || context.address,
+    investigateReportType: "technical_basic"
+  })
+    .filter((link: OperationalContextLink) => kinds.includes(link.kind))
+    .map((link: OperationalContextLink) => ({
+      ...link,
+      labelKey: labelKeyByKind[link.kind] ?? "blocks.workspace.openAudit"
+    }));
 }
 
 function buildRosCoafHref(record: {
@@ -453,7 +459,7 @@ function buildRosCoafHref(record: {
 }
 
 export default function BlocksPage() {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const searchParams = useSearchParams();
   const tr = (key: MessageKey, values?: Record<string, string | number>) => t(key, values);
   const hydratedPrefillKeyRef = useRef<string | null>(null);
@@ -486,7 +492,7 @@ export default function BlocksPage() {
   const actionTone = result?.action ? toneForAction(result.action) : "default";
   const currentWorkspaceId = result ? buildWorkspaceId(result) : null;
   const filteredWorkspaceRecords = useMemo(() => {
-    return workspaceRecords.filter((record) => {
+    return workspaceRecords.filter((record: BlockWorkspaceRecord) => {
       const matchesStatus = workspaceFilter === "all" ? true : record.status === workspaceFilter;
       const search = workspaceSearch.trim().toLowerCase();
       const matchesSearch =
@@ -499,18 +505,21 @@ export default function BlocksPage() {
     });
   }, [workspaceFilter, workspaceRecords, workspaceSearch]);
   const pendingQueueCount = useMemo(
-    () => workspaceRecords.filter((record) => record.status === "BLOCKED" || record.status === "REVIEW").length,
+    () => workspaceRecords.filter((record: BlockWorkspaceRecord) => record.status === "BLOCKED" || record.status === "REVIEW").length,
     [workspaceRecords]
   );
   const overdueCount = useMemo(
-    () => workspaceRecords.filter((record) => getUrgency(record) === "overdue").length,
+    () => workspaceRecords.filter((record: BlockWorkspaceRecord) => getUrgency(record) === "overdue").length,
     [workspaceRecords]
   );
   const liftedCount = useMemo(
-    () => workspaceRecords.filter((record) => record.status === "LIFTED").length,
+    () => workspaceRecords.filter((record: BlockWorkspaceRecord) => record.status === "LIFTED").length,
     [workspaceRecords]
   );
-  const workspaceById = useMemo(() => new Map(workspaceRecords.map((record) => [record.workspaceId, record])), [workspaceRecords]);
+  const workspaceById = useMemo(
+    () => new Map(workspaceRecords.map((record: BlockWorkspaceRecord) => [record.workspaceId, record])),
+    [workspaceRecords]
+  );
   const selectedTimelineRecord = timelineWorkspaceId ? workspaceById.get(timelineWorkspaceId) ?? null : null;
 
   async function loadOperationalWorkspace(localRecords: BlockWorkspaceRecord[]) {
@@ -560,8 +569,8 @@ export default function BlocksPage() {
       setTimelineError(null);
       return;
     }
-    if (!timelineWorkspaceId || !workspaceRecords.some((record) => record.workspaceId === timelineWorkspaceId)) {
-      const firstServerRecord = workspaceRecords.find((record) => Boolean(record.workItemId)) ?? workspaceRecords[0];
+    if (!timelineWorkspaceId || !workspaceRecords.some((record: BlockWorkspaceRecord) => record.workspaceId === timelineWorkspaceId)) {
+      const firstServerRecord = workspaceRecords.find((record: BlockWorkspaceRecord) => Boolean(record.workItemId)) ?? workspaceRecords[0];
       setTimelineWorkspaceId(firstServerRecord.workspaceId);
     }
   }, [timelineWorkspaceId, workspaceRecords]);
@@ -610,7 +619,7 @@ export default function BlocksPage() {
   }
 
   function updateForm<K extends keyof EvaluateFormState>(key: K, value: EvaluateFormState[K]) {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current: EvaluateFormState) => ({ ...current, [key]: value }));
   }
 
   function hydrateWorkspaceRecord(record: BlockWorkspaceRecord) {
@@ -639,7 +648,7 @@ export default function BlocksPage() {
   }
 
   function removeWorkspaceRecord(workspaceId: string) {
-    setWorkspaceRecords((current) => current.filter((record) => record.workspaceId !== workspaceId));
+    setWorkspaceRecords((current: BlockWorkspaceRecord[]) => current.filter((record: BlockWorkspaceRecord) => record.workspaceId !== workspaceId));
   }
 
   function buildWorkspaceRecordFromEvaluation(
@@ -754,7 +763,7 @@ export default function BlocksPage() {
     }
 
     const nextRecord = mapWorkItemToWorkspaceRecord(data as WorkItemResponse);
-    setWorkspaceRecords((current) => upsertWorkspaceRecord(current, nextRecord));
+    setWorkspaceRecords((current: BlockWorkspaceRecord[]) => upsertWorkspaceRecord(current, nextRecord));
     return nextRecord;
   }
 
@@ -787,7 +796,7 @@ export default function BlocksPage() {
     const evaluation = data as BlockEvaluateResponse;
     setResult(evaluation);
     const draftRecord = buildWorkspaceRecordFromEvaluation(evaluation, nextForm);
-    setWorkspaceRecords((current) => upsertWorkspaceRecord(current, draftRecord));
+    setWorkspaceRecords((current: BlockWorkspaceRecord[]) => upsertWorkspaceRecord(current, draftRecord));
     if (draftRecord.resourceId) {
       try {
         await syncWorkspaceRecord(draftRecord);
@@ -851,7 +860,7 @@ export default function BlocksPage() {
     const lifted = data as BlockLiftResponse;
     setLiftResult(lifted);
     if (currentWorkspaceId) {
-      const baseRecord = workspaceRecords.find((record) => record.workspaceId === currentWorkspaceId);
+      const baseRecord = workspaceRecords.find((record: BlockWorkspaceRecord) => record.workspaceId === currentWorkspaceId);
       const nextRecord = upsertWorkspaceRecord(workspaceRecords, {
         workspaceId: currentWorkspaceId,
         resourceId: lifted.block_id,
@@ -861,7 +870,7 @@ export default function BlocksPage() {
         blockId: lifted.block_id,
         lastActionAt: lifted.lifted_at
       })[0];
-      setWorkspaceRecords((current) =>
+      setWorkspaceRecords((current: BlockWorkspaceRecord[]) =>
         upsertWorkspaceRecord(current, {
           workspaceId: currentWorkspaceId,
           resourceId: lifted.block_id,
@@ -922,7 +931,12 @@ export default function BlocksPage() {
             </label>
             <label className="otc-field">
               {tr("blocks.form.caseId" as MessageKey)}
-              <input className="otc-input" value={form.caseId} onChange={(event) => updateForm("caseId", event.target.value)} />
+              <input
+                className="otc-input"
+                data-testid="blocks-case-id"
+                value={form.caseId}
+                onChange={(event) => updateForm("caseId", event.target.value)}
+              />
             </label>
             <label className="otc-field">
               {tr("blocks.form.owner" as MessageKey)}
@@ -1006,7 +1020,7 @@ export default function BlocksPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredWorkspaceRecords.map((record) => {
+              {filteredWorkspaceRecords.map((record: BlockWorkspaceRecord) => {
                 const urgency = getUrgency(record);
                 return (
                   <tr key={record.workspaceId}>
@@ -1021,7 +1035,7 @@ export default function BlocksPage() {
                         {tr(`blocks.priority.${record.priority}` as MessageKey)}
                       </Pill>
                     </td>
-                    <td>{formatDate(record.localDeadline) ?? tr("blocks.workspace.noDeadline" as MessageKey)}</td>
+                    <td>{formatDate(record.localDeadline, locale) ?? tr("blocks.workspace.noDeadline" as MessageKey)}</td>
                     <td>
                       <Pill tone={toneForUrgency(urgency)}>{tr(`blocks.urgency.${urgency}` as MessageKey)}</Pill>
                     </td>
@@ -1034,17 +1048,24 @@ export default function BlocksPage() {
                         <button type="button" className="otc-button otc-button--ghost" onClick={() => hydrateWorkspaceRecord(record)}>
                           {tr("blocks.workspace.load" as MessageKey)}
                         </button>
-                        {record.caseId ? (
-                          <a className="otc-button otc-button--ghost" href={`/cases/${record.caseId}`}>
-                            {tr("blocks.workspace.openCase" as MessageKey)}
+                        {buildBlockContextLinks(
+                          buildBlockOperationalContext({
+                            caseId: record.caseId,
+                            address: record.address,
+                            chain: record.chain,
+                            blockId: record.blockId
+                          }),
+                          ["case", "audit", "evidence"],
+                          {
+                            case: "blocks.workspace.openCase",
+                            audit: "blocks.workspace.openAudit",
+                            evidence: "blocks.workspace.openEvidence"
+                          }
+                        ).map((link: OperationalContextLink & { labelKey: MessageKey }) => (
+                          <a key={`workspace-${record.workspaceId}-${link.testIdSuffix}`} className="otc-button otc-button--ghost" href={link.href}>
+                            {tr(link.labelKey)}
                           </a>
-                        ) : null}
-                        <a className="otc-button otc-button--ghost" href={buildAuditHref(record.caseId, record.caseId || record.address, record.blockId)}>
-                          {tr("blocks.workspace.openAudit" as MessageKey)}
-                        </a>
-                        <a className="otc-button otc-button--ghost" href={buildEvidenceHref(record.caseId || record.address, record.caseId, record.blockId)}>
-                          {tr("blocks.workspace.openEvidence" as MessageKey)}
-                        </a>
+                        ))}
                         {record.requiresCoafReport ? (
                           <a className="otc-button otc-button--ghost" href={buildRosCoafHref(record)}>
                             {tr("blocks.workspace.openRos" as MessageKey)}
@@ -1081,7 +1102,7 @@ export default function BlocksPage() {
             <div className="otc-grid otc-grid--counterparty-form">
               <div className="otc-panel">
                 <div className="otc-muted">{tr("blocks.result.screenedAt" as MessageKey)}</div>
-                <strong>{formatDate(result.screened_at) ?? result.screened_at}</strong>
+                <strong>{formatDate(result.screened_at, locale) ?? result.screened_at}</strong>
               </div>
               <div className="otc-panel">
                 <div className="otc-muted">{tr("blocks.result.blockId" as MessageKey)}</div>
@@ -1127,23 +1148,25 @@ export default function BlocksPage() {
             </div>
 
             <div className="otc-controls">
-              {form.caseId.trim() ? (
-                <a className="otc-button otc-button--ghost" href={`/cases/${form.caseId.trim()}`}>
-                  {tr("blocks.result.openCase" as MessageKey)}
+              {buildBlockContextLinks(
+                buildBlockOperationalContext({
+                  caseId: form.caseId,
+                  address: result.address,
+                  chain: result.chain,
+                  blockId: result.block_id ?? ""
+                }),
+                ["case", "audit", "evidence", "investigate"],
+                {
+                  case: "blocks.result.openCase",
+                  audit: "blocks.result.openAudit",
+                  evidence: "blocks.result.openEvidence",
+                  investigate: "blocks.result.openInvestigate"
+                }
+              ).map((link: OperationalContextLink & { labelKey: MessageKey }) => (
+                <a key={`result-${result.block_id ?? result.address}-${link.testIdSuffix}`} className="otc-button otc-button--ghost" href={link.href}>
+                  {tr(link.labelKey)}
                 </a>
-              ) : null}
-              <a className="otc-button otc-button--ghost" href={buildAuditHref(form.caseId, form.caseId.trim() || result.address, result.block_id ?? "")}>
-                {tr("blocks.result.openAudit" as MessageKey)}
-              </a>
-              <a className="otc-button otc-button--ghost" href={buildEvidenceHref(form.caseId.trim() || result.address, form.caseId, result.block_id ?? "")}>
-                {tr("blocks.result.openEvidence" as MessageKey)}
-              </a>
-              <a
-                className="otc-button otc-button--ghost"
-                href={`/investigate?address=${encodeURIComponent(result.address)}&chain=${encodeURIComponent(result.chain)}&report_type=technical_basic`}
-              >
-                {tr("blocks.result.openInvestigate" as MessageKey)}
-              </a>
+              ))}
               {result.requires_coaf_report ? (
                 <a className="otc-button otc-button--ghost" href={buildRosCoafHref({ caseId: form.caseId, owner: form.owner, priority: form.priority, localDeadline: form.localDeadline })}>
                   {tr("blocks.result.openRos" as MessageKey)}
@@ -1162,12 +1185,23 @@ export default function BlocksPage() {
                     <button className="otc-button otc-button--danger" type="button" data-testid="blocks-lift-btn" onClick={onLift} disabled={lifting || syncingWorkspace || !liftReason.trim()}>
                       {lifting ? tr("blocks.lift.submitting" as MessageKey) : tr("blocks.lift.submit" as MessageKey)}
                     </button>
-                    <a className="otc-button otc-button--ghost" href={buildAuditHref(form.caseId, form.caseId.trim() || result.address, result.block_id ?? "")}>
-                      {tr("blocks.lift.openAudit" as MessageKey)}
-                    </a>
-                    <a className="otc-button otc-button--ghost" href={buildEvidenceHref(form.caseId.trim() || result.address, form.caseId, result.block_id ?? "")}>
-                      {tr("blocks.lift.openEvidence" as MessageKey)}
-                    </a>
+                    {buildBlockContextLinks(
+                      buildBlockOperationalContext({
+                        caseId: form.caseId,
+                        address: result.address,
+                        chain: result.chain,
+                        blockId: result.block_id ?? ""
+                      }),
+                      ["audit", "evidence"],
+                      {
+                        audit: "blocks.lift.openAudit",
+                        evidence: "blocks.lift.openEvidence"
+                      }
+                    ).map((link: OperationalContextLink & { labelKey: MessageKey }) => (
+                      <a key={`lift-${result.block_id ?? result.address}-${link.testIdSuffix}`} className="otc-button otc-button--ghost" href={link.href}>
+                        {tr(link.labelKey)}
+                      </a>
+                    ))}
                   </div>
                   {liftResult ? (
                     <Message tone="success">
@@ -1212,7 +1246,7 @@ export default function BlocksPage() {
               }
             : undefined
         }
-        formatDate={formatDate}
+          formatDate={(value) => formatDate(value, locale)}
         formatEventLabel={formatTimelineEvent}
       />
 
@@ -1252,8 +1286,8 @@ export default function BlocksPage() {
                         {record.status}
                       </Pill>
                     </td>
-                    <td>{formatDate(record.screenedAt) ?? record.screenedAt}</td>
-                    <td>{formatDate(record.lastActionAt) ?? record.lastActionAt}</td>
+                    <td>{formatDate(record.screenedAt, locale) ?? record.screenedAt}</td>
+                    <td>{formatDate(record.lastActionAt, locale) ?? record.lastActionAt}</td>
                   </tr>
                 ))}
             </tbody>

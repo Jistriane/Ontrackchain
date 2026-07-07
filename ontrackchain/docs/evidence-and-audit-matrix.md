@@ -30,6 +30,8 @@ Toda evidencia relevante deve permitir correlacao entre:
 | Compliance risk check | `compliance_risk_checked` | nao obrigatoria | `request_id`, `address`, `chain` | payload do provider | smoke/tests |
 | Sanctions check sem hit | `compliance_sanctions_checked` | `SANCTIONS_CHECKED` | `request_id`, `address`, `chain` | cache local | endpoint/testes |
 | Sanctions check com hit | `compliance_sanctions_checked` | `SANCTIONS_HIT` | `request_id`, `address`, `chain`, `matched_lists` | hit cacheado | endpoint/testes |
+| Due diligence manual | `compliance_due_diligence_checked` | nao obrigatoria | `request_id`, `address`, `chain`, `delivery_mode`, `counterparty_context` | contrato `manual_review_pending` + pacote regulatório DD no cockpit `/evidence` | endpoint/testes/UI |
+| Source of funds manual | `compliance_source_of_funds_checked` | nao obrigatoria | `request_id`, `address`, `chain`, `delivery_mode`, `amount`, `purpose` | contrato `manual_review_pending` + pacote regulatório SoF no cockpit `/evidence` | endpoint/testes/UI |
 | Preventive block | `preventive_block_evaluated` | `BLOCK_*` conforme decisao | `request_id`, `block_id`, `evidence_hash` | `preventive_blocks` | testes/domain |
 | Block lift | `preventive_block_lifted` | `BLOCK_LIFTED` | `block_id`, `lifted_at` | update controlado | endpoint |
 | Counterparty onboarding | `counterparty_created` ou equivalente | `COUNTERPARTY_ONBOARDED` | `counterparty_id`, `document_number`, `evidence_hash` | `counterparties` | endpoint |
@@ -39,7 +41,7 @@ Toda evidencia relevante deve permitir correlacao entre:
 | ROS submetido manualmente | `coaf_report_submitted_manual` | `COAF_ROS_SUBMITTED_MANUAL` | `ros_id`, `coaf_protocol_number`, `coaf_receipt_hash` | `ros_records` | endpoint/runtime |
 | Download de relatorio | `report_downloaded` | `REPORT_DOWNLOADED` quando integrado | `request_id`, `report_id`, `file_hash_sha256` | PDF | smoke/E2E |
 | Export administrativo global | `operational_alerts_exported` | nao obrigatoria | `request_id`, `scope`, `format` | CSV/JSON | Playwright |
-| Bundle de evidencia | `evidence_bundle_exported` | `EVIDENCE_EXPORTED` quando aplicavel | `request_id`, filtros | bundle JSON | UI/API |
+| Bundle de evidencia | `evidence_bundle_exported` | `EVIDENCE_EXPORTED` quando aplicavel | `request_id`, `report_id`, filtros | bundle JSON | UI/API |
 | Negacao administrativa | `authorization_denied` | nao obrigatoria | `request_id`, `effective_role`, endpoint | tentativa negada | Playwright |
 
 ## Evidencias por Dominio
@@ -112,6 +114,24 @@ Chaves relevantes:
 - `coaf_receipt_hash`
 - `submission_deadline`
 
+### Reports formais
+
+Fontes:
+
+- `reports`
+- `audit_logs`
+- `evidence_trail`
+- bundles exportados via `evidence-export`
+- cockpit `/evidence` com foco contextual e export da cadeia selecionada
+
+Chaves relevantes:
+
+- `report_id`
+- `case_id`
+- `report_type`
+- `file_hash_sha256`
+- `request_id`
+
 ## Evidencias Operacionais de Staging
 
 Artefatos relevantes:
@@ -144,7 +164,7 @@ Scripts canonicos:
 - nem todo evento negativo sensivel possui espelho em `evidence_trail`; parte continua apenas em `audit_logs`
 - janelas `AML/KYT live` e UE ainda dependem de evidencia institucional recorrente, apesar dos guardrails tecnicos estarem prontos
 - `P0-01` agora possui bundle OIDC próprio, mas a homologação institucional de MFA/`external_provider` ainda depende de execução recorrente em janela séria
-- artefatos de manual review para `due_diligence` e `source_of_funds` ainda nao estao modelados como bundle regulatorio proprio
+- artefatos de manual review para `due_diligence` e `source_of_funds` agora possuem pacote regulatório operacional no cockpit `/evidence`, mas ainda sem assinatura/classificação institucional recorrente
 
 ## Uso Recomendado
 
@@ -154,4 +174,3 @@ Consultar esta matriz quando:
 - houver incidente regulatorio ou operacional
 - for necessario anexar prova tecnica a uma janela seria
 - um novo endpoint passar a gerar hash, evidencia ou export controlado
-

@@ -6,7 +6,7 @@ Definir uma regua canonica, auditavel e reutilizavel para medir a evolucao do On
 
 - construcao tecnica da plataforma
 - prontidao regulatoria/operacional
-- percentual total consolidado do projeto
+- maturidade consolidada do projeto
 
 Este documento existe para evitar que o percentual global do projeto vire percepcao subjetiva ou mude de uma conversa para outra sem criterio explicito.
 
@@ -14,7 +14,7 @@ Este documento existe para evitar que o percentual global do projeto vire percep
 
 - `91%` de construcao tecnica
 - `78%` de prontidao regulatoria/operacional
-- `87%` de construcao total consolidada
+- `87%` de maturidade consolidada
 
 ## Como Ler o Scorecard
 
@@ -39,7 +39,7 @@ Mede o quanto o projeto ja esta pronto para operar em contexto serio e regulado:
 - retention e recovery com aceite formal
 - ownership e sign-off institucionais
 
-### 3. Construção Total Consolidada
+### 3. Maturidade Consolidada
 
 Mede a situacao executiva geral do projeto, ponderando mais fortemente o que ja foi construido, mas sem ignorar o readiness regulatorio.
 
@@ -132,7 +132,7 @@ O scorecard deve ser revisado junto com:
 - `project-operational-execution-board.md`
 - `project-risk-register.md`
 - `project-weekly-governance-runbook.md`
-- `docs/governance-weekly/_template-kpi-scorecard-update.md`
+- `docs/governance-weekly/templates/_template-kpi-scorecard-update.md`
 
 ### Regras Minimas
 
@@ -141,6 +141,18 @@ O scorecard deve ser revisado junto com:
 3. itens `blocked` nao podem receber ganho artificial de maturidade
 4. sempre registrar o motivo quando uma nota subir ou cair
 5. rever pesos apenas quando a estrategia do projeto mudar materialmente
+6. aplicar a regra de promocao por evidencia formalizada em [ADR-010](./adrs/ADR-010-promocao-de-maturidade-baseada-em-evidencia.md)
+
+### Regra de Promocao
+
+Em caso de duvida sobre subida de score, vale a regra:
+
+- execucao real primeiro
+- evidencia preservada depois
+- revisao humana em seguida
+- aprovacao explicita por ultimo
+
+Sem esses quatro elementos, a baseline oficial nao deve subir.
 
 ### Heuristica Recomendada por Status
 

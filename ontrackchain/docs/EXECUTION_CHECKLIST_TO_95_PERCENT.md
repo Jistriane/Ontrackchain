@@ -8,8 +8,8 @@ Transformar a trilha de subida de `87%` para `95%` em um checklist operacional s
 
 Este documento deve ser usado em conjunto com:
 
-- [Avaliacao Consolidada de Status do Projeto](./PROJECT_STATUS_ASSESSMENT_2026_07_03.md)
-- [Plano Tático Sprint 7-9: Escalação Controlada para 95%](./TACTICAL_ROADMAP_SPRINT_7_TO_95_PERCENT.md)
+- [Avaliacao Consolidada de Status do Projeto](./assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md)
+- [Plano Tático Sprint 7-9: Escalação Controlada para 95%](./history/TACTICAL_ROADMAP_SPRINT_7_TO_95_PERCENT.md)
 - [Board Operacional Unico ate 90%+](./project-operational-execution-board.md)
 - [Owners e SLAs Operacionais](./operational-ownership-and-slas.md)
 
@@ -92,7 +92,7 @@ Fechamento minimo:
 - [ ] configurar o ambiente local/serio
 - [ ] executar `python scripts/preflight_oidc_serious_env.py`
 - [ ] executar `python scripts/smoke_auth_oidc_mode.py`
-- [ ] executar `npm run test:e2e:oidc-critical`
+- [ ] executar `npm run test:e2e:oidc-critical` com preflight explicito do ambiente OIDC serio
 - [ ] validar MFA federado sem fallback silencioso
 - [ ] anexar bundle ou evidência equivalente
 

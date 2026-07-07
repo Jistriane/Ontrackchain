@@ -200,8 +200,16 @@ Query params:
 
 - `page` (default `1`)
 - `limit` (default `20`, max `100`)
+- `report_id` (opcional; match exato do `external_report_id`)
 - `case_id` (opcional, UUID)
 - `report_type` (opcional; aceita alias e resolve para canonico)
+- `created_from` (opcional; ISO datetime, inclusivo)
+- `created_to` (opcional; ISO datetime, inclusivo)
+
+Erros relevantes:
+
+- `422 invalid_case_id`
+- `422 invalid_created_range`
 
 Response:
 

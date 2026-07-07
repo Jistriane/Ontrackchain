@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
+import { formatDateTime as formatDate } from "../lib/date-format";
 import { useI18n } from "../../components/i18n-provider";
 import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel";
 import type { MessageKey } from "../lib/i18n";
@@ -12,6 +13,11 @@ import { resolveApiErrorMessage } from "../lib/api-error-catalog";
 import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
 import { createWorkItemComment, fetchWorkItemTimeline } from "../lib/work-item-timeline-client";
 import { formatTimelineEvent, type WorkCommentResponse, type WorkItemTimelineResponse } from "../lib/work-item-timeline";
+import {
+  buildOperationalContextLinks,
+  type OperationalContext,
+  type OperationalContextLink
+} from "../lib/operational-context";
 
 type GenerateRosCoafResponse = {
   ros_id: string;
@@ -291,22 +297,6 @@ function getUrgency(record: RosWorkspaceRecord): "overdue" | "due_soon" | "on_tr
   return "on_track";
 }
 
-function formatDate(value: string | null | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short"
-  }).format(parsed);
-}
-
 function buildReportDownloadUrl(reportId: string, createdAt: string, caseId: string) {
   if (!reportId.trim() || !createdAt.trim()) {
     return null;
@@ -322,37 +312,52 @@ function buildReportDownloadUrl(reportId: string, createdAt: string, caseId: str
   return `/api/app/reports/download?${query.toString()}`;
 }
 
-function buildAuditHref(caseId: string, reportId: string, rosId: string) {
-  const params = new URLSearchParams({
-    resource_type: "case",
-    resource_id: caseId.trim() || rosId.trim() || reportId.trim()
-  });
-  if (caseId.trim()) {
-    params.set("request_id", caseId.trim());
-  }
-  if (reportId.trim()) {
-    params.set("report_id", reportId.trim());
-  }
-  return `/audit?${params.toString()}`;
+function buildRosOperationalContext(input: {
+  caseId?: string | null;
+  reportId?: string | null;
+  rosId?: string | null;
+}): OperationalContext {
+  const caseId = input.caseId?.trim() ?? "";
+  const reportId = input.reportId?.trim() ?? "";
+  const rosId = input.rosId?.trim() ?? "";
+  return {
+    caseId,
+    requestId: caseId,
+    reportId,
+    fileHash: "",
+    resourceType: "case",
+    resourceId: caseId || rosId || reportId,
+    address: "",
+    chain: "ethereum",
+    counterpartyId: "",
+    legalName: "",
+    documentNumber: "",
+    rosId,
+    reportType: "coaf_ready_report",
+    blockId: ""
+  };
 }
 
-function buildEvidenceHref(caseId: string, reportId: string, rosId: string) {
-  const params = new URLSearchParams({
-    domain: "reports",
-    resource_type: "case",
-    resource_id: caseId.trim() || rosId.trim() || reportId.trim()
-  });
-  if (caseId.trim()) {
-    params.set("request_id", caseId.trim());
-  }
-  if (reportId.trim()) {
-    params.set("report_id", reportId.trim());
-  }
-  return `/evidence?${params.toString()}`;
+function buildRosContextLinks(
+  context: OperationalContext,
+  labelKeyByKind: Partial<Record<OperationalContextLink["kind"], MessageKey>>
+) {
+  return buildOperationalContextLinks(context, {
+    includeEvidence: true,
+    evidenceDomain: "reports",
+    auditFallbackResourceType: "case",
+    auditResourceIdOverride: context.caseId || context.rosId || context.reportId,
+    evidenceResourceIdOverride: context.caseId || context.rosId || context.reportId
+  })
+    .filter((link: OperationalContextLink) => link.kind === "case" || link.kind === "audit" || link.kind === "evidence")
+    .map((link: OperationalContextLink) => ({
+      ...link,
+      labelKey: labelKeyByKind[link.kind] ?? "rosCoaf.workspace.openAudit"
+    }));
 }
 
 export default function RosCoafPage() {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const searchParams = useSearchParams();
   const tr = (key: MessageKey, values?: Record<string, string | number>) => t(key, values);
 
@@ -398,7 +403,7 @@ export default function RosCoafPage() {
     return buildReportDownloadUrl(draft.report_id, draft.created_at, caseId);
   }, [draft, caseId]);
   const filteredWorkspaceRecords = useMemo(() => {
-    return workspaceRecords.filter((record) => {
+    return workspaceRecords.filter((record: RosWorkspaceRecord) => {
       const matchesStatus = workspaceFilter === "all" ? true : record.status === workspaceFilter;
       const search = workspaceSearch.trim().toLowerCase();
       const matchesSearch =
@@ -411,18 +416,21 @@ export default function RosCoafPage() {
     });
   }, [workspaceFilter, workspaceRecords, workspaceSearch]);
   const pendingApprovalCount = useMemo(
-    () => workspaceRecords.filter((record) => record.status === "PENDING_APPROVAL").length,
+    () => workspaceRecords.filter((record: RosWorkspaceRecord) => record.status === "PENDING_APPROVAL").length,
     [workspaceRecords]
   );
   const overdueCount = useMemo(
-    () => workspaceRecords.filter((record) => getUrgency(record) === "overdue").length,
+    () => workspaceRecords.filter((record: RosWorkspaceRecord) => getUrgency(record) === "overdue").length,
     [workspaceRecords]
   );
   const submittedCount = useMemo(
-    () => workspaceRecords.filter((record) => record.status === "SUBMITTED_MANUAL").length,
+    () => workspaceRecords.filter((record: RosWorkspaceRecord) => record.status === "SUBMITTED_MANUAL").length,
     [workspaceRecords]
   );
-  const workspaceById = useMemo(() => new Map(workspaceRecords.map((record) => [record.rosId, record])), [workspaceRecords]);
+  const workspaceById = useMemo(
+    () => new Map(workspaceRecords.map((record: RosWorkspaceRecord) => [record.rosId, record])),
+    [workspaceRecords]
+  );
   const selectedTimelineRecord = timelineRosId ? workspaceById.get(timelineRosId) ?? null : null;
 
   async function loadTimeline(workItemId: string) {
@@ -514,8 +522,8 @@ export default function RosCoafPage() {
       setTimelineError(null);
       return;
     }
-    if (!timelineRosId || !workspaceRecords.some((record) => record.rosId === timelineRosId)) {
-      const firstServerRecord = workspaceRecords.find((record) => Boolean(record.workItemId)) ?? workspaceRecords[0];
+    if (!timelineRosId || !workspaceRecords.some((record: RosWorkspaceRecord) => record.rosId === timelineRosId)) {
+      const firstServerRecord = workspaceRecords.find((record: RosWorkspaceRecord) => Boolean(record.workItemId)) ?? workspaceRecords[0];
       setTimelineRosId(firstServerRecord.rosId);
     }
   }, [timelineRosId, workspaceRecords]);
@@ -547,7 +555,9 @@ export default function RosCoafPage() {
   }
 
   function removeWorkspaceRecord(rosIdToRemove: string) {
-    setWorkspaceRecords((current) => current.filter((record) => record.rosId !== rosIdToRemove));
+    setWorkspaceRecords((current: RosWorkspaceRecord[]) =>
+      current.filter((record: RosWorkspaceRecord) => record.rosId !== rosIdToRemove)
+    );
   }
 
   async function syncWorkspaceRecord(record: RosWorkspaceRecord) {
@@ -615,7 +625,7 @@ export default function RosCoafPage() {
     }
 
     const nextRecord = mapWorkItemToWorkspaceRecord(data as WorkItemResponse);
-    setWorkspaceRecords((current) => upsertWorkspaceRecord(current, nextRecord));
+    setWorkspaceRecords((current: RosWorkspaceRecord[]) => upsertWorkspaceRecord(current, nextRecord));
     if (timelineRosId === nextRecord.rosId && nextRecord.workItemId) {
       await loadTimeline(nextRecord.workItemId);
     }
@@ -693,7 +703,7 @@ export default function RosCoafPage() {
       coafReceiptHash: "",
       lastActionAt: (data as GenerateRosCoafResponse).created_at
     };
-    setWorkspaceRecords((current) => upsertWorkspaceRecord(current, draftRecord));
+    setWorkspaceRecords((current: RosWorkspaceRecord[]) => upsertWorkspaceRecord(current, draftRecord));
     try {
       await syncWorkspaceRecord(draftRecord);
       setNotice(tr("rosCoaf.workspace.noticeGeneratedSynced" as MessageKey));
@@ -747,7 +757,7 @@ export default function RosCoafPage() {
       coafReceiptHash: currentRecord?.coafReceiptHash ?? "",
       lastActionAt: (data as ApproveRosCoafResponse).approved_at
     };
-    setWorkspaceRecords((current) => upsertWorkspaceRecord(current, draftRecord));
+    setWorkspaceRecords((current: RosWorkspaceRecord[]) => upsertWorkspaceRecord(current, draftRecord));
     try {
       await syncWorkspaceRecord(draftRecord);
       setNotice(tr("rosCoaf.workspace.noticeApprovedSynced" as MessageKey));
@@ -801,7 +811,7 @@ export default function RosCoafPage() {
       coafReceiptHash: (data as SubmitRosCoafResponse).coaf_receipt_hash,
       lastActionAt: (data as SubmitRosCoafResponse).submitted_at
     };
-    setWorkspaceRecords((current) => upsertWorkspaceRecord(current, draftRecord));
+    setWorkspaceRecords((current: RosWorkspaceRecord[]) => upsertWorkspaceRecord(current, draftRecord));
     try {
       await syncWorkspaceRecord(draftRecord);
       setNotice(tr("rosCoaf.workspace.noticeSubmittedSynced" as MessageKey));
@@ -867,21 +877,24 @@ export default function RosCoafPage() {
                 {tr("rosCoaf.generate.downloadDraft" as MessageKey)}
               </a>
             ) : null}
-            {caseId.trim() ? (
-              <a className="otc-link-button" href={`/cases/${caseId.trim()}`}>
-                {tr("rosCoaf.generate.openCase" as MessageKey)}
-              </a>
-            ) : null}
-            {draft ? (
-              <>
-                <a className="otc-link-button" href={buildAuditHref(caseId, draft.report_id, draft.ros_id)}>
-                  {tr("rosCoaf.generate.openAudit" as MessageKey)}
-                </a>
-                <a className="otc-link-button" href={buildEvidenceHref(caseId, draft.report_id, draft.ros_id)}>
-                  {tr("rosCoaf.generate.openEvidence" as MessageKey)}
-                </a>
-              </>
-            ) : null}
+            {draft
+              ? buildRosContextLinks(
+                  buildRosOperationalContext({
+                    caseId,
+                    reportId: draft.report_id,
+                    rosId: draft.ros_id
+                  }),
+                  {
+                    case: "rosCoaf.generate.openCase",
+                    audit: "rosCoaf.generate.openAudit",
+                    evidence: "rosCoaf.generate.openEvidence"
+                  }
+                ).map((link: OperationalContextLink & { labelKey: MessageKey }) => (
+                  <a key={`generate-${link.testIdSuffix}`} className="otc-link-button" href={link.href}>
+                    {tr(link.labelKey)}
+                  </a>
+                ))
+              : null}
           </div>
         </form>
       </Panel>
@@ -937,7 +950,7 @@ export default function RosCoafPage() {
                         {tr(`rosCoaf.priority.${record.priority}` as MessageKey)}
                       </Pill>
                     </td>
-                    <td>{formatDate(record.localDeadline) ?? tr("rosCoaf.workspace.noDeadline" as MessageKey)}</td>
+                    <td>{formatDate(record.localDeadline, locale) ?? tr("rosCoaf.workspace.noDeadline" as MessageKey)}</td>
                     <td>
                       <Pill tone={urgencyTone}>{tr(`rosCoaf.urgency.${urgency}` as MessageKey)}</Pill>
                     </td>
@@ -950,17 +963,22 @@ export default function RosCoafPage() {
                         <button className="otc-button otc-button--ghost" type="button" onClick={() => setTimelineRosId(record.rosId)}>
                           {tr("rosCoaf.workspace.timeline.open" as MessageKey)}
                         </button>
-                        {record.caseId ? (
-                          <a className="otc-button otc-button--ghost" href={`/cases/${record.caseId}`}>
-                            {tr("rosCoaf.workspace.openCase" as MessageKey)}
+                        {buildRosContextLinks(
+                          buildRosOperationalContext({
+                            caseId: record.caseId,
+                            reportId: record.reportId,
+                            rosId: record.rosId
+                          }),
+                          {
+                            case: "rosCoaf.workspace.openCase",
+                            audit: "rosCoaf.workspace.openAudit",
+                            evidence: "rosCoaf.workspace.openEvidence"
+                          }
+                        ).map((link: OperationalContextLink & { labelKey: MessageKey }) => (
+                          <a key={`workspace-${record.rosId}-${link.testIdSuffix}`} className="otc-button otc-button--ghost" href={link.href}>
+                            {tr(link.labelKey)}
                           </a>
-                        ) : null}
-                        <a className="otc-button otc-button--ghost" href={buildAuditHref(record.caseId, record.reportId, record.rosId)}>
-                          {tr("rosCoaf.workspace.openAudit" as MessageKey)}
-                        </a>
-                        <a className="otc-button otc-button--ghost" href={buildEvidenceHref(record.caseId, record.reportId, record.rosId)}>
-                          {tr("rosCoaf.workspace.openEvidence" as MessageKey)}
-                        </a>
+                        ))}
                         {buildReportDownloadUrl(record.reportId, record.createdAt, record.caseId) ? (
                           <a className="otc-button otc-button--ghost" href={buildReportDownloadUrl(record.reportId, record.createdAt, record.caseId) ?? undefined}>
                             {tr("rosCoaf.workspace.downloadDraft" as MessageKey)}
@@ -1009,7 +1027,7 @@ export default function RosCoafPage() {
               }
             : undefined
         }
-        formatDate={formatDate}
+          formatDate={(value) => formatDate(value, locale)}
         formatEventLabel={formatTimelineEvent}
       />
 
@@ -1038,17 +1056,22 @@ export default function RosCoafPage() {
             <button className="otc-button otc-button--accent" type="submit" data-testid="roscoaf-approve-btn" disabled={approving || syncingWorkspace || !canApprove}>
               {approving ? tr("rosCoaf.approve.submitting" as MessageKey) : tr("rosCoaf.approve.submit" as MessageKey)}
             </button>
-            {caseId.trim() ? (
-              <a className="otc-link-button" href={`/cases/${caseId.trim()}`}>
-                {tr("rosCoaf.approve.openCase" as MessageKey)}
+            {buildRosContextLinks(
+              buildRosOperationalContext({
+                caseId,
+                reportId: draft?.report_id ?? "",
+                rosId: approveRosId
+              }),
+              {
+                case: "rosCoaf.approve.openCase",
+                audit: "rosCoaf.approve.openAudit",
+                evidence: "rosCoaf.approve.openEvidence"
+              }
+            ).map((link: OperationalContextLink & { labelKey: MessageKey }) => (
+              <a key={`approve-${link.testIdSuffix}`} className="otc-link-button" href={link.href}>
+                {tr(link.labelKey)}
               </a>
-            ) : null}
-            <a className="otc-link-button" href={buildAuditHref(caseId, draft?.report_id ?? "", approveRosId)}>
-              {tr("rosCoaf.approve.openAudit" as MessageKey)}
-            </a>
-            <a className="otc-link-button" href={buildEvidenceHref(caseId, draft?.report_id ?? "", approveRosId)}>
-              {tr("rosCoaf.approve.openEvidence" as MessageKey)}
-            </a>
+            ))}
           </div>
         </form>
       </Panel>
@@ -1073,17 +1096,22 @@ export default function RosCoafPage() {
             <button className="otc-button otc-button--accent" type="submit" data-testid="roscoaf-submitted-btn" disabled={submitting || syncingWorkspace}>
               {submitting ? tr("rosCoaf.submitted.submitting" as MessageKey) : tr("rosCoaf.submitted.submit" as MessageKey)}
             </button>
-            {caseId.trim() ? (
-              <a className="otc-link-button" href={`/cases/${caseId.trim()}`}>
-                {tr("rosCoaf.submitted.openCase" as MessageKey)}
+            {buildRosContextLinks(
+              buildRosOperationalContext({
+                caseId,
+                reportId: draft?.report_id ?? "",
+                rosId: submitRosId
+              }),
+              {
+                case: "rosCoaf.submitted.openCase",
+                audit: "rosCoaf.submitted.openAudit",
+                evidence: "rosCoaf.submitted.openEvidence"
+              }
+            ).map((link: OperationalContextLink & { labelKey: MessageKey }) => (
+              <a key={`submitted-${link.testIdSuffix}`} className="otc-link-button" href={link.href}>
+                {tr(link.labelKey)}
               </a>
-            ) : null}
-            <a className="otc-link-button" href={buildAuditHref(caseId, draft?.report_id ?? "", submitRosId)}>
-              {tr("rosCoaf.submitted.openAudit" as MessageKey)}
-            </a>
-            <a className="otc-link-button" href={buildEvidenceHref(caseId, draft?.report_id ?? "", submitRosId)}>
-              {tr("rosCoaf.submitted.openEvidence" as MessageKey)}
-            </a>
+            ))}
           </div>
         </form>
       </Panel>
@@ -1130,7 +1158,7 @@ export default function RosCoafPage() {
                       </Pill>
                     </td>
                     <td>{record.coafProtocolNumber || tr("rosCoaf.history.notAvailable" as MessageKey)}</td>
-                    <td>{formatDate(record.lastActionAt) ?? record.lastActionAt}</td>
+                    <td>{formatDate(record.lastActionAt, locale) ?? record.lastActionAt}</td>
                   </tr>
                 ))}
             </tbody>

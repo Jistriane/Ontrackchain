@@ -9,8 +9,17 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:e2e:reset-state": "docker compose -f ../../docker-compose.yml exec -T postgres psql -U ontrackchain -d ontrackchain -c \"UPDATE organizations SET credits_available = 1000.0000, credits_reserved = 0, credits_used_total = 0, updated_at = NOW() WHERE id = '00000000-0000-0000-0000-000000000001';\"",
     "test:e2e": "playwright test",
-    "test:e2e:oidc-critical": "playwright test tests/e2e/oidc-auth.spec.ts tests/e2e/compliance-flows.spec.ts",
-    "test:e2e:dev-auth": "playwright test tests/e2e/critical-path.spec.ts && playwright test tests/e2e/compliance-flows.spec.ts --grep \"2FA\""
+    "test:e2e:api-consumer:real": "bash tests/e2e/run-stack-real.sh api-consumer",
+    "test:e2e:critical-path:real": "bash tests/e2e/run-stack-real.sh critical-path",
+    "test:e2e:compliance-flows:real": "bash tests/e2e/run-stack-real.sh compliance-flows",
+    "test:e2e:oidc-auth:real": "bash tests/e2e/run-stack-real.sh oidc-auth",
+    "test:e2e:stack-real-light": "bash tests/e2e/run-stack-real-light.sh",
+    "test:e2e:browser-mocked": "bash tests/e2e/run-browser-mocked.sh",
+    "test:e2e:oidc-critical": "bash tests/e2e/run-stack-real.sh oidc-critical",
+    "test:e2e:dev-auth": "bash tests/e2e/run-dev-auth.sh",
+    "test:e2e:alerts-dashboard-context": "playwright test tests/e2e/alerts-dashboard-context-links.spec.ts",
+    "test:e2e:ssr-mocked": "bash tests/e2e/run-alerts-dashboard-context.sh",
+    "test:e2e:alerts-dashboard-context:mocked": "npm run test:e2e:ssr-mocked"
   },
   "dependencies": {
     "next": "^14.2.35",

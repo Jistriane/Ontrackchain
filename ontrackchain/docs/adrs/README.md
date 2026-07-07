@@ -13,6 +13,7 @@ Este diretorio concentra as Architectural Decision Records do scaffold atual.
 - [ADR-007 — Validacao por Modo de Autenticacao](./ADR-007-validacao-por-modo-de-autenticacao.md)
 - [ADR-008 — Retention e Recovery Baseline](./ADR-008-retention-e-recovery-baseline.md)
 - [ADR-009 — Continuidade: Hardening First e Modularização Guiada](./ADR-009-continuation-strategy-hardening-first.md)
+- [ADR-010 — Promocao de Maturidade Baseada em Evidencia](./ADR-010-promocao-de-maturidade-baseada-em-evidencia.md)
 
 ## Como usar
 

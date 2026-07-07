@@ -21,6 +21,10 @@ type ReportTypeItem = {
   cost_credits: number;
 };
 
+const FALLBACK_REPORT_TYPE_LABELS = {
+  technical_basic: "Technical Basic"
+} as const;
+
 export default function CasePage({ params }: { params: { id: string } }) {
   const { t } = useI18n();
   const tr = (key: MessageKey, values?: Record<string, string | number>) => t(key, values);
@@ -33,6 +37,27 @@ export default function CasePage({ params }: { params: { id: string } }) {
   const [exportingEvidence, setExportingEvidence] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  function resolveReportTypeLabel(value: string) {
+    const normalized = value.trim();
+    if (!normalized) {
+      return t("common.notAvailable");
+    }
+    const catalogEntry = reportTypes.find((entry) => entry.canonical === normalized);
+    if (catalogEntry?.label.trim()) {
+      return catalogEntry.label.trim();
+    }
+    return FALLBACK_REPORT_TYPE_LABELS[normalized as keyof typeof FALLBACK_REPORT_TYPE_LABELS] ?? normalized;
+  }
+
+  function formatReportTypeValue(value: string) {
+    const normalized = value.trim();
+    if (!normalized) {
+      return t("common.notAvailable");
+    }
+    const label = resolveReportTypeLabel(normalized);
+    return label === normalized ? normalized : `${label} (${normalized})`;
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -161,7 +186,7 @@ export default function CasePage({ params }: { params: { id: string } }) {
       <MetricGrid>
         <MetricCard label={t("cases.stats.caseId")} value={caseId.slice(0, 10) + "..."} meta={t("cases.stats.caseIdMeta")} />
         <MetricCard label={t("cases.stats.status")} value={<span data-testid="case-status">{status}</span>} meta={t("cases.stats.statusMeta")} />
-        <MetricCard label={t("cases.stats.reportType")} value={reportType} meta={t("cases.stats.reportTypeMeta")} />
+        <MetricCard label={t("cases.stats.reportType")} value={formatReportTypeValue(reportType)} meta={t("cases.stats.reportTypeMeta")} />
         <MetricCard label={t("cases.stats.hash")} value={report ? t("cases.hash.available") : "--"} meta={t("cases.stats.hashMeta")} accent />
       </MetricGrid>
 
@@ -185,15 +210,15 @@ export default function CasePage({ params }: { params: { id: string } }) {
         <div className="otc-grid otc-grid--case-report">
           <label className="otc-field">
             {t("cases.report.type")}
-            <select className="otc-select" value={reportType} onChange={(e) => setReportType(e.target.value)}>
+            <select className="otc-select" data-testid="case-report-type-select" value={reportType} onChange={(e) => setReportType(e.target.value)}>
               {reportTypes.length ? (
                 reportTypes.map((entry) => (
                   <option key={entry.canonical} value={entry.canonical} disabled={!entry.available}>
-                    {entry.label} ({entry.canonical}) — {entry.cost_credits}
+                    {formatReportTypeValue(entry.canonical)} — {entry.cost_credits}
                   </option>
                 ))
               ) : (
-                <option value="technical_basic">technical_basic</option>
+                <option value="technical_basic">{formatReportTypeValue("technical_basic")}</option>
               )}
             </select>
           </label>

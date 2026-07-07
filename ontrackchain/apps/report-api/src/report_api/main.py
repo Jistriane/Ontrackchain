@@ -254,6 +254,14 @@ def _normalize_reports_pagination(page: int, limit: int) -> tuple[int, int, int]
     return safe_page, safe_limit, offset
 
 
+def _normalize_report_filter_datetime(value: Optional[datetime]) -> Optional[datetime]:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 def _serialize_report_list_row(row: dict) -> ReportListItem:
     created_at = row.get("created_at")
     if isinstance(created_at, datetime):
@@ -1026,8 +1034,11 @@ async def list_reports(
     x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
     page: int = Query(default=1),
     limit: int = Query(default=20),
+    report_id: Optional[str] = Query(default=None),
     case_id: Optional[str] = Query(default=None),
     report_type: Optional[str] = Query(default=None),
+    created_from: Optional[datetime] = Query(default=None),
+    created_to: Optional[datetime] = Query(default=None),
 ) -> ReportListResponse:
     if not x_org_id:
         raise HTTPException(status_code=401, detail="missing_org_context")
@@ -1035,8 +1046,14 @@ async def list_reports(
     canonical_report_type: Optional[str] = None
     if report_type:
         canonical_report_type, _ = resolve_report_type(report_type)
+    normalized_report_id = report_id.strip() if report_id else None
 
     safe_page, safe_limit, offset = _normalize_reports_pagination(page=page, limit=limit)
+    normalized_created_from = _normalize_report_filter_datetime(created_from)
+    normalized_created_to = _normalize_report_filter_datetime(created_to)
+
+    if normalized_created_from and normalized_created_to and normalized_created_from > normalized_created_to:
+        raise HTTPException(status_code=422, detail="invalid_created_range")
 
     if case_id:
         try:
@@ -1047,12 +1064,21 @@ async def list_reports(
     query_filters = ["r.organization_id = %s"]
     query_params: list = [x_org_id]
 
+    if normalized_report_id:
+        query_filters.append("r.external_report_id = %s")
+        query_params.append(normalized_report_id)
     if case_id:
         query_filters.append("r.case_id = %s")
         query_params.append(case_id)
     if canonical_report_type:
         query_filters.append("r.report_type = %s")
         query_params.append(canonical_report_type)
+    if normalized_created_from:
+        query_filters.append("r.created_at >= %s")
+        query_params.append(normalized_created_from)
+    if normalized_created_to:
+        query_filters.append("r.created_at <= %s")
+        query_params.append(normalized_created_to)
 
     where_clause = " AND ".join(query_filters)
 

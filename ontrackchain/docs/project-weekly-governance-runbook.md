@@ -19,8 +19,9 @@ Este runbook existe para evitar:
 Registros gerados por este rito devem ser armazenados em:
 
 - [Registros Semanais de Governança](governance-weekly/README.md)
-  - usar o template: [Template de Registro Semanal](governance-weekly/_template-weekly-governance.md)
-  - quando houver recalibracao material de nota, usar tambem: [Template de Atualizacao de KPI](governance-weekly/_template-kpi-scorecard-update.md)
+  - usar o template: [Template de Registro Semanal](governance-weekly/templates/_template-weekly-governance.md)
+  - quando houver recalibracao material de nota, usar tambem: [Template de Atualizacao de KPI](governance-weekly/templates/_template-kpi-scorecard-update.md)
+  - quando houver ciclo orientado por `D1-D7`, usar tambem: [Template de Execucao por Evidencia](governance-weekly/templates/_template-maturity-evidence-execution-cycle.md)
 
 ## Quando Executar
 
@@ -55,11 +56,12 @@ Antes da reunião, o facilitador deve reunir:
    - `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json` quando houver `P0-03`
    - artifact `serious-staging-window-<janela>` quando houver janela séria via CI controlado
    - sign-offs formais recebidos
+   - registro `D1-D7` quando houver execucao guiada pelo kit de evidencia
 6. lista de itens `blocked`, itens com prazo alvo vencido e itens sem artefato atualizado
 7. quando houver janela seria ativa ou planejada:
    - [Matriz de Execucao por Owner para Janela Seria](staging-serious-window-war-room-matrix.md)
-   - [Template de War Room da Janela Seria](governance-weekly/_template-staging-serious-window-war-room.md)
-   - [Template de Tracking ao Vivo da Janela Seria](governance-weekly/_template-staging-serious-window-live-tracking.md)
+   - [Template de War Room da Janela Seria](governance-weekly/templates/_template-staging-serious-window-war-room.md)
+   - [Template de Tracking ao Vivo da Janela Seria](governance-weekly/templates/_template-staging-serious-window-live-tracking.md)
 
 ## Preparação Prévia
 
@@ -189,7 +191,7 @@ Ao final de cada reunião, devem existir:
 
 Quando houver recalibracao relevante do scorecard, anexar ou embutir um bloco baseado em:
 
-- [Template de Atualizacao de KPI](governance-weekly/_template-kpi-scorecard-update.md)
+- [Template de Atualizacao de KPI](governance-weekly/templates/_template-kpi-scorecard-update.md)
 
 ## Template de Registro Semanal
 
@@ -230,9 +232,9 @@ Quando houver recalibracao relevante do scorecard, anexar ou embutir um bloco ba
 
 Registro inicial publicado:
 
-- [Governança Semanal 2026-06-29](governance-weekly/archive/2026-06-29-weekly-governance.md)
-- rascunho da janela do dia: [Governança Semanal 2026-06-30](governance-weekly/archive/2026-06-30-weekly-governance.md)
-- rascunho do próximo ciclo: [Governança Semanal 2026-07-06](governance-weekly/2026-07-06-weekly-governance.md)
+- [Governança Semanal 2026-06-29](governance-weekly/archive/weekly/2026-06-29-weekly-governance.md)
+- rascunho da janela do dia: [Governança Semanal 2026-06-30](governance-weekly/archive/weekly/2026-06-30-weekly-governance.md)
+- rascunho do próximo ciclo: [Governança Semanal 2026-07-06](governance-weekly/cycles/2026-07-06/2026-07-06-weekly-governance.md)
 
 ## Checklist de Fechamento
 

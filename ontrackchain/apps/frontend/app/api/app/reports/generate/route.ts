@@ -1,24 +1,17 @@
-import { cookies } from "next/headers";
+import { authenticateReportRequest, proxyReportJsonRequest } from "../_shared";
 
 export async function POST(request: Request) {
-  const token = cookies().get("otc_token")?.value;
-  if (!token) {
-    return new Response(JSON.stringify({ error: "not_authenticated" }), {
-      status: 401,
-      headers: { "content-type": "application/json" }
-    });
+  const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+  const auth = await authenticateReportRequest(requestId);
+  if (auth instanceof Response) {
+    return auth;
   }
 
-  const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
-  const payload = await request.text();
-  const res = await fetch(`${baseUrl}/api/v1/reports/generate`, {
+  return proxyReportJsonRequest(auth, {
     method: "POST",
-    headers: { "content-type": "application/json", Authorization: `Bearer ${token}`, "X-Request-Id": requestId },
-    body: payload,
-    cache: "no-store"
+    path: "/api/v1/reports/generate",
+    requestId,
+    body: await request.text(),
+    contentType: "application/json"
   });
-
-  const body = await res.text();
-  return new Response(body, { status: res.status, headers: { "content-type": "application/json" } });
 }

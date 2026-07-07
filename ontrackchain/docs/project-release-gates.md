@@ -15,7 +15,7 @@ Use este documento para responder:
 Nao use este documento como runbook de execucao:
 
 - deploy tecnico e comandos completos: [Deploy e Staging](deploy-and-staging.md)
-- Refira-se a [Governanca Semanal](governance-weekly/) para tracking do ciclo atual
+- Refira-se a [Governanca Semanal](./governance-weekly/README.md) para tracking do ciclo atual
 
 ## Meta de Promocao
 
@@ -31,8 +31,8 @@ Baseline canônica de referencia:
 - `91%` de construcao tecnica
 - `78%` de prontidao regulatoria
 - `87%` de construcao total consolidada
-- [Governança Semanal 2026-07-01](governance-weekly/archive/2026-07-01-weekly-governance.md)
-- [Atualização de KPI 2026-07-01](governance-weekly/archive/2026-07-01-kpi-scorecard-update.md)
+- [Governança Semanal 2026-07-01](governance-weekly/archive/weekly/2026-07-01-weekly-governance.md)
+- [Atualização de KPI 2026-07-01](governance-weekly/archive/weekly/2026-07-01-kpi-scorecard-update.md)
 
 ## Gates Obrigatorios
 

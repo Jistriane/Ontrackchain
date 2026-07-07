@@ -180,12 +180,19 @@ Variaveis atuais:
 
 - `TEST_BASE_URL=http://localhost:8080`
 - `ONTRACKCHAIN_API_KEY=otc_live_demo_key`
+- `AUTH_MODE=dev`
 
 Comando:
 
 ```bash
 npm run test:e2e:dev-auth
 ```
+
+Observacao operacional:
+
+- o comando agora executa preflight explicito de `baseURL` e `/auth/config`
+- falha cedo se o ambiente nao estiver em `AUTH_MODE=dev`
+- valida apenas a regressao local de `2FA` no scaffold `dev`
 
 ### 21. Publica Artefatos
 

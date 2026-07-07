@@ -33,8 +33,8 @@ Mapeamento aprovado:
   - cobre `compliance-flows.spec.ts`
   - protege `OIDC`, `RBAC`, identidade federada e `legal_report`
 - `npm run test:e2e:dev-auth`
-  - cobre `critical-path.spec.ts`
   - cobre o teste local de `2FA` em `compliance-flows.spec.ts`
+  - falha cedo se o ambiente nao estiver em `AUTH_MODE=dev`
   - valida apenas o modo `AUTH_MODE=dev`
 
 No pipeline:

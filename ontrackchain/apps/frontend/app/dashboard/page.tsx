@@ -1,7 +1,13 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell, MetricCard, MetricGrid, ModuleCard, ModuleGrid, Panel, Pill } from "../../components/ui";
+import { formatDateTime } from "../lib/date-format";
 import { LOCALE_COOKIE_NAME, normalizeLocale, translate, type MessageKey } from "../lib/i18n";
+import {
+  buildOperationalContextLinks,
+  type OperationalContext,
+  type OperationalContextLink
+} from "../lib/operational-context";
 
 type BillingBalanceResponse = {
   credits_available: number;
@@ -63,62 +69,52 @@ type PlatformOperationalAlertsSnapshot = {
   total_count: number;
 };
 
-function formatDate(value: string | null | undefined, locale: string) {
-  if (!value) {
-    return null;
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  return new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }).format(parsed);
+function buildDashboardOperationalContext(entry: OperationsSnapshot["recent_cases"][number]): OperationalContext {
+  return {
+    caseId: entry.case_id,
+    requestId: entry.case_id,
+    reportId: "",
+    fileHash: "",
+    resourceType: "case",
+    resourceId: entry.case_id,
+    address: entry.target_address,
+    chain: entry.target_chain || "ethereum",
+    counterpartyId: "",
+    legalName: "",
+    documentNumber: "",
+    rosId: "",
+    reportType: entry.report_type_canonical ?? "",
+    blockId: ""
+  };
 }
 
-function buildAuditHref(caseId: string) {
-  const params = new URLSearchParams({
-    resource_type: "case",
-    resource_id: caseId,
-    request_id: caseId
-  });
-  return `/audit?${params.toString()}`;
-}
+function buildDashboardContextLinks(entry: OperationsSnapshot["recent_cases"][number]) {
+  const labelKeyByKind: Partial<Record<OperationalContextLink["kind"], MessageKey>> = {
+    case: "dashboard.cases.open",
+    audit: "dashboard.cases.openAudit",
+    evidence: "dashboard.cases.openEvidence",
+    reports: "dashboard.cases.openReports",
+    sanctions: "dashboard.cases.openSanctions",
+    blocks: "dashboard.cases.openBlocks"
+  };
 
-function buildEvidenceHref(caseId: string) {
-  const params = new URLSearchParams({
-    domain: "all",
-    resource_type: "case",
-    resource_id: caseId,
-    request_id: caseId
-  });
-  return `/evidence?${params.toString()}`;
-}
-
-function buildReportsHref(caseId: string, reportType: string | null) {
-  const params = new URLSearchParams({ case_id: caseId });
-  if (reportType) {
-    params.set("report_type", reportType);
-  }
-  return `/reports?${params.toString()}`;
-}
-
-function buildSanctionsHref(caseId: string, address: string, chain: string) {
-  const params = new URLSearchParams({
-    case_id: caseId,
-    address,
-    chain,
-    autostart: "1"
-  });
-  return `/sanctions?${params.toString()}`;
-}
-
-function buildBlocksHref(caseId: string, address: string, chain: string) {
-  const params = new URLSearchParams({
-    case_id: caseId,
-    address,
-    chain,
-    autostart: "1"
-  });
-  return `/blocks?${params.toString()}`;
+  return buildOperationalContextLinks(buildDashboardOperationalContext(entry), {
+    includeEvidence: true,
+    evidenceDomain: "all"
+  })
+    .filter(
+      (link: OperationalContextLink) =>
+        link.kind === "case" ||
+        link.kind === "audit" ||
+        link.kind === "evidence" ||
+        link.kind === "reports" ||
+        link.kind === "sanctions" ||
+        link.kind === "blocks"
+    )
+    .map((link: OperationalContextLink) => ({
+      ...link,
+      labelKey: labelKeyByKind[link.kind] ?? "dashboard.cases.open"
+    }));
 }
 
 async function fetchJson<T>(input: RequestInfo, init: RequestInit): Promise<{ ok: true; data: T } | { ok: false; status: number }> {
@@ -274,33 +270,16 @@ export default async function DashboardPage() {
                   <td>{entry.report_type_canonical ?? t("common.notAvailable")}</td>
                   <td>{entry.status}</td>
                   <td>{entry.target_chain}</td>
-                  <td>{formatDate(entry.created_at, locale) ?? t("common.notAvailable")}</td>
-                  <td>{formatDate(entry.completed_at, locale) ?? t("common.notAvailable")}</td>
+                  <td>{formatDateTime(entry.created_at, locale) ?? t("common.notAvailable")}</td>
+                  <td>{formatDateTime(entry.completed_at, locale) ?? t("common.notAvailable")}</td>
                   <td>{typeof entry.charged_cost === "number" ? entry.charged_cost : t("common.notAvailable")}</td>
                   <td>
                     <div className="otc-controls">
-                      <a className="otc-link-button" href={`/cases/${entry.case_id}`}>
-                        {t("dashboard.cases.open")}
-                      </a>
-                      <a className="otc-link-button" href={buildAuditHref(entry.case_id)}>
-                        {t("dashboard.cases.openAudit")}
-                      </a>
-                      <a className="otc-link-button" href={buildEvidenceHref(entry.case_id)}>
-                        {t("dashboard.cases.openEvidence")}
-                      </a>
-                      <a className="otc-link-button" href={buildReportsHref(entry.case_id, entry.report_type_canonical)}>
-                        {t("dashboard.cases.openReports")}
-                      </a>
-                      {entry.target_address ? (
-                        <a className="otc-link-button" href={buildSanctionsHref(entry.case_id, entry.target_address, entry.target_chain)}>
-                          {t("dashboard.cases.openSanctions")}
+                      {buildDashboardContextLinks(entry).map((link: OperationalContextLink & { labelKey: MessageKey }) => (
+                        <a key={`${entry.case_id}-${link.testIdSuffix}`} className="otc-link-button" href={link.href}>
+                          {t(link.labelKey)}
                         </a>
-                      ) : null}
-                      {entry.target_address ? (
-                        <a className="otc-link-button" href={buildBlocksHref(entry.case_id, entry.target_address, entry.target_chain)}>
-                          {t("dashboard.cases.openBlocks")}
-                        </a>
-                      ) : null}
+                      ))}
                     </div>
                   </td>
                 </tr>

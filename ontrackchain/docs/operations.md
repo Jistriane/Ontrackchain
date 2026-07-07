@@ -57,7 +57,7 @@ curl -u admin:admin http://localhost:3002/api/health
 python scripts/smoke_runtime.py
 cd apps/frontend
 npm ci
-npx playwright test tests/e2e/critical-path.spec.ts tests/e2e/compliance-flows.spec.ts
+npm run test:e2e:oidc-critical
 ```
 
 ## Migrations

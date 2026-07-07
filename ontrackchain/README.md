@@ -2,231 +2,84 @@
 
 ![Ontrackchain](./docs/assets/logo.jpeg)
 
-Plataforma multi-tenant de investigacao e compliance on-chain com foco em trilha auditavel, isolamento por organizacao, screening local de sancoes e enforcement regulatorio em fluxos sensiveis.
+Aplicacao principal do projeto Ontrackchain: servicos FastAPI por dominio, frontend `Next.js 14`, infraestrutura local com `docker compose`, scripts de readiness e documentacao canonica do produto.
 
-## Visao Geral
+## Escopo Deste Diretorio
 
-Este diretorio contem a aplicacao principal do projeto:
+Aqui vivem:
 
-- servicos FastAPI por dominio
-- frontend `Next.js 14`
-- `docker-compose` local
-- migrations e infra observavel
-- scripts de preflight, staging e homologacao
-- testes, docs canonicas e ADRs
-
-O estado atual do produto e de plataforma tecnicamente funcional, mas ainda com gaps relevantes de prontidao regulatoria forte e execucao recorrente de janela seria com evidencias reais.
+- servicos de negocio e APIs
+- frontend operacional
+- infraestrutura local e observabilidade
+- migrations do banco
+- scripts de validacao, bundles e janela seria
+- testes automatizados
+- ADRs e documentacao canonica
 
 ## Estado Atual
 
-- leituras oficiais do projeto:
-  - `91%` de construcao tecnica (consolidado com paineis de historico em todos 7 cockpits)
+- baseline oficial:
+  - `91%` de construcao tecnica
   - `78%` de prontidao regulatoria/operacional
-  - `87%` de construcao total consolidada
-- **Sprint 6 concluida**: todos os paineis de historico de workspace entregues nos 7 cockpits regulatorios (`counterparties` DD/SoF, `sanctions` por endereco, `evidence` rastreadas, `reports` casos, `blocks`, `ros-coaf`, `alerts`)
-- stack local executavel com:
+  - `87%` de maturidade consolidada
+- stack local suportada:
   - `Traefik`
   - `FastAPI`
-  - `Next.js`
+  - `Next.js 14`
   - `PostgreSQL`
   - `Redis`
   - `Prometheus`
   - `Alertmanager`
   - `Grafana`
   - `Keycloak` no profile `oidc`
-- servicos ativos no monolito modular:
-  - `auth-service`
-  - `public-api`
-  - `investigation-api`
-  - `investigation-worker`
-  - `compliance-api`
-  - `compliance-worker`
-  - `monitoring-api`
-  - `report-api`
-  - `frontend`
-- trilha operacional e regulatoria implementada:
-  - `audit_logs`
-  - `evidence_trail` append-only com `SHA-256`
-  - `regulatory_work_items` + `regulatory_work_events` + `regulatory_work_comments`
+- capacidades ja conectadas ponta a ponta:
+  - investigacao com `quote -> start -> worker -> result`
+  - screening local de sancoes
   - `preventive_blocks`
-  - `counterparties` + `counterparty_history`
-  - `sanctions_lists_meta` + `sanctions_hits_cache`
-  - `ros_records`
-- camada operacional compartilhada ja conectada ao frontend:
-  - `sanctions` usa backend como fonte primaria da fila operacional, com fallback local + painel de historico por endereco
-  - `alerts` rastreia incidentes em `work-items` e sincroniza o encerramento via `ack` + painel de alertas rastreados
-  - `counterparties` com painel DD/SoF manual review + historico rastreado
-  - `evidence` com painel de eventos rastreados + navegacao para timeline
-  - `reports` com painel de casos rastreados com busca
-  - `blocks` com painel de avaliacoes historicas
-  - `ros-coaf` com painel de registros historicos
-- janela seria consolidada com:
-  - `prepare_staging_window.py`
-  - `run_staging_window.py`
-  - `run_regulatory_readiness_bundle.py`
-  - war room
-  - live tracking
-  - sign-off
-  - dossier anexavel
+  - `counterparties`
+  - `ROS/COAF`
+  - `audit_logs`
+  - `evidence_trail`
+  - `regulatory_work_items`
+  - cockpit `/monitoring` modularizado
+  - frontend tri-locale com labels institucionais e helpers compartilhados
 
-## Atualizacao Recente 2026-07-03
+## Servicos e Dominios
 
-- estabilizacao do fluxo OIDC + Playwright publicada em `main` no commit `1736e06`
-- validacao completa mais recente do frontend/e2e:
-  - `53 passed`
-  - `2 skipped`
-  - comando: `npx playwright test --reporter=line --workers=1`
-- observacao operacional no ambiente local com `docker compose`:
-  - mudancas server-side no frontend (por exemplo em `app/dashboard/page.tsx`) podem nao refletir com restart simples
-  - prefira `docker compose up -d --build frontend` antes de rerodar e2e
+| Componente | Papel principal |
+| --- | --- |
+| `auth-service` | autenticacao `dev` e `oidc`, `2FA`, RBAC e contexto de sessao |
+| `public-api` | superficie publica e catalogos expostos pelo gateway |
+| `investigation-api` | `estimate`, `start`, `status`, billing e metadados RPC |
+| `investigation-worker` | fila, retry/backoff e processamento assincrono |
+| `compliance-api` | sanctions, counterparties, blocks, work-items e controles regulatorios |
+| `compliance-worker` | sync de listas, readiness regulatorio e checks de provider |
+| `monitoring-api` | webhooks do `Alertmanager`, triagem e export operacional |
+| `report-api` | relatorios deterministas, download sensivel e fluxo `ROS/COAF` |
+| `frontend` | cockpits operacionais, audit, monitoring, evidence, reports e callbacks OIDC |
 
-## Scorecard e Bloqueadores
+## Frontend Operacional
 
-| Lente | Estado Atual | Fonte Canonica |
-| --- | ---: | --- |
-| Construcao tecnica | `91%` | [`docs/project-kpi-scorecard.md`](./docs/project-kpi-scorecard.md) |
-| Prontidao regulatoria/operacional | `78%` | [`docs/project-kpi-scorecard.md`](./docs/project-kpi-scorecard.md) |
-| Total consolidado | `87%` | [`docs/project-kpi-scorecard.md`](./docs/project-kpi-scorecard.md) |
+O frontend em `apps/frontend` hoje segue quatro linhas estruturais importantes:
 
-Bloqueadores e dependencias executivas:
+- tri-locale obrigatorio (`pt-BR`, `en`, `es`)
+- labels institucionais `Label Amigavel (codigo_tecnico)` nos cockpits operacionais
+- contratos compartilhados em `app/lib/`
+- decomposicao progressiva dos cockpits densos, com `monitoring` ja fatiado em hooks, loaders e paineis dedicados
 
-| Iniciativa | Estado | Falta para fechar |
+Classes de suite Playwright atualmente institucionalizadas:
+
+| Classe | Uso | Comando canonico |
 | --- | --- | --- |
-| `P0-01` OIDC + MFA federado serio | `blocked` | homologacao formal recorrente e prova real em trilho serio |
-| `P0-02` `AML/KYT live` | `ready` | credencial real, gate de runtime verde e evidencia da janela |
-| `P0-03` feed UE `EU_CONSOLIDATED` | `ready` | URL tokenizada real e JSONs persistidos da janela |
-| Janela `stg-2026-07-06-a` | `no-go` | owners, handoff, channels, bridges e secrets reais |
-
-## Objetivo do MVP
-
-Entregar uma base operacional para:
-
-- investigacao on-chain multi-chain com foco inicial EVM
-- compliance e relatorios auditaveis
-- screening local de sancoes sem dependencia de API externa por request
-- onboarding regulado de contrapartes
-- bloqueio preventivo e fluxo `ROS/COAF`
-- observabilidade e governanca de staging serio
-
-## Principios Arquiteturais
-
-- `multi-tenant by design`: isolamento por `organization_id` em banco, headers e servicos
-- `audit + evidence`: fluxos operacionais relevantes deixam trilha em `audit_logs`; fluxos regulatorios deixam tambem trilha em `evidence_trail`
-- `on-chain minimo`: o MVP trabalha majoritariamente off-chain, preservando ancora futura para evidencias finais
-- `quote -> start`: operacoes cobraveis exigem cotacao previa e respeitam `plan lock`
-- `seguranca > funcionalidade`: `legal_report`, `ROS/COAF` e `block lift` exigem auth forte e MFA homologado
-- `degradacao honesta`: contratos publicos expõem `degraded` quando provider real nao esta operacional
-
-## Arquitetura em 60 Segundos
-
-- edge: `Traefik + ForwardAuth` concentram roteamento e enforcement inicial
-- identidade: `auth-service` suporta `dev` e `oidc`; `Keycloak` entra como provider no profile `oidc`
-- investigacao: `investigation-api` + `investigation-worker` fazem fila real, retry/backoff e metadados do provider RPC
-- compliance: `compliance-api` expõe `kyc-wallet`, `sanctions-check`, `preventive blocks` e `counterparties`
-- operacoes: `compliance-api` tambem expõe `work-items` multiusuario por modulo para fila compartilhada, timeline e comentarios
-- sync regulatorio: `compliance-worker` sincroniza OFAC, UN, UE e deadlines de ROS
-- reports: `report-api` gera relatorios deterministas e implementa o fluxo `ROS/COAF`
-- monitoring: `monitoring-api` recebe webhooks do `Alertmanager` e alimenta o backlog global
-- dados: `PostgreSQL` usa `RLS`; `Redis` suporta fila/cache; migrations regulam o core evolutivo e a fila compartilhada
-
-```mermaid
-flowchart LR
-  user[Usuario Admin] --> frontend[Frontend Next.js]
-  frontend --> traefik[Traefik ForwardAuth]
-
-  traefik --> auth[auth-service]
-  traefik --> public[public-api]
-  traefik --> inv[investigation-api]
-  traefik --> comp[compliance-api]
-  traefik --> mon[monitoring-api]
-  traefik --> rep[report-api]
-
-  keycloak[Keycloak OIDC profile] --> auth
-  auth --> keycloak
-
-  invw[investigation-worker] --> inv
-  compw[compliance-worker] --> comp
-
-  pg[(PostgreSQL RLS)]
-  redis[(Redis)]
-
-  auth --> pg
-  public --> pg
-  inv --> pg
-  inv --> redis
-  invw --> pg
-  invw --> redis
-  comp --> pg
-  compw --> pg
-  mon --> pg
-  mon --> redis
-  rep --> pg
-  work[(regulatory_work_items)]
-  comp --> work
-  frontend --> work
-
-  rpc[RPC primary fallback] --> inv
-  trm[AML KYT provider] --> comp
-  feeds[OFAC UN EU OpenSanctions] --> compw
-```
-
-## Modulos Regulatorios
-
-| Modulo | Estado Atual | Fonte Canonica |
-| --- | --- | --- |
-| Screening de sancoes | `GET /api/v1/compliance/sanctions-check/{address}` usa cache local com `provider_status=live` | [`docs/api-contracts.md`](./docs/api-contracts.md) |
-| Catalogo de compliance | `kyc_wallet` reflete readiness do provider; `due_diligence` e `source_of_funds` seguem `manual_review_required` | [`docs/api-contracts.md`](./docs/api-contracts.md) |
-| Bloqueio preventivo | `POST /api/v1/compliance/blocks/evaluate` persiste decisao, hash e evidencia | [`docs/architecture.md`](./docs/architecture.md) |
-| Lift de bloqueio | exige `X-MFA-Mode=external_provider` e `X-MFA-Provider-Homologated=true` | [`docs/compliance-and-security-controls.md`](./docs/compliance-and-security-controls.md) |
-| Contrapartes | onboarding/listagem com KYC/KYB, PEP e historico regulado | [`docs/architecture.md`](./docs/architecture.md) |
-| ROS/COAF | geracao, aprovacao/rejeicao e submissao manual com trilha auditada | [`docs/api-contracts.md`](./docs/api-contracts.md) |
-| Fila operacional compartilhada | `POST/GET/PATCH /api/v1/operations/work-items*` para handoff, prioridade, prazo, comentarios e timeline | [`docs/api-contracts.md`](./docs/api-contracts.md) |
-| Sync de listas | `compliance-worker` sincroniza OFAC, UN, UE e suporta override de `source_url` | [`docs/operations.md`](./docs/operations.md) |
-
-## Fluxos Canonicos
-
-### Investigacao + Billing
-
-```text
-estimate -> start -> PRE_HOLD -> queue -> RPC -> CONFIRMED ou REFUND
-```
-
-### Screening + Bloqueio + ROS
-
-```text
-compliance-worker -> sanctions_hits_cache
-  -> GET sanctions-check
-  -> preventive_blocks quando aplicavel
-  -> ros_records quando o caso exige ROS
-  -> evidence_trail + audit_logs
-```
-
-### Operacao Global
-
-```text
-Prometheus -> Alertmanager -> monitoring-api -> UI /monitoring -> export auditado
-```
-
-### Janela Seria
-
-```text
-ownership + placeholders -> preflight -> bundle regulatorio -> run workflow -> dossier -> sign-off
-```
-
-## Navegacao Rapida
-
-- [`docs/README.md`](./docs/README.md): indice canonico da documentacao
-- [`docs/architecture.md`](./docs/architecture.md): arquitetura real dos servicos, tabelas e regras criticas
-- [`docs/api-contracts.md`](./docs/api-contracts.md): contratos HTTP e catalogos operacionais
-- [`docs/operations.md`](./docs/operations.md): operacao local, migrations e troubleshooting
-- [`docs/deploy-and-staging.md`](./docs/deploy-and-staging.md): fluxo tecnico `prepare -> validate -> preflight -> run`
-- [`docs/project-release-gates.md`](./docs/project-release-gates.md): decisao executiva de `go/no-go`
-- [`docs/validation-and-audit.md`](./docs/validation-and-audit.md): smoke, E2E, preflights e evidencias
-- [`docs/project-kpi-scorecard.md`](./docs/project-kpi-scorecard.md): baseline oficial `91% / 78% / 87%`
+| `stack real leve` | smoke SSR local | `npm run test:e2e:stack-real-light` |
+| `browser-mocked` | mocks por `page.route(...)` com frontend local | `npm run test:e2e:browser-mocked` |
+| `ssr-mocked` | backend SSR mockado + frontend local | `npm run test:e2e:ssr-mocked` |
+| `dev-auth` | regressao local com `AUTH_MODE=dev` | `npm run test:e2e:dev-auth` |
+| `stack real / oidc-critical` | validacao seria OIDC e fluxo real | `npm run test:e2e:oidc-critical` |
 
 ## Quick Start
 
-### 1. Subir a stack local
+### 1. Subir o ambiente local
 
 ```bash
 cp .env.example .env
@@ -239,56 +92,78 @@ Para exercitar OIDC localmente:
 docker compose --profile oidc up -d --build
 ```
 
-### 2. Validar runtime local
+### 2. Validar runtime, banco e frontend
 
 ```bash
 python scripts/smoke_runtime.py
 make apply-regulatory-work-items-migration
 make smoke-work-items-ownership-backend
 
-docker compose up -d --build frontend
-
 cd apps/frontend
 npm ci
 npm run typecheck
-npm run test:e2e:dev-auth
+npm run test:e2e:stack-real-light
+npm run test:e2e:browser-mocked
 ```
 
-### 3. Validar trilhos serios e integracoes externas
+Observacoes:
+
+- use `npm run test:e2e:dev-auth` apenas quando o scaffold local estiver em `AUTH_MODE=dev`
+- use `npm run test:e2e:oidc-critical` apenas quando o runtime real estiver em `AUTH_MODE=oidc`
+- para mudancas server-side no frontend, prefira `docker compose up -d --build frontend`
+
+### 3. Validar readiness serio
 
 ```bash
 python scripts/preflight_external_integrations.py
 make check-compliance-provider-runtime \
   INTERNAL_BASE_URL=http://compliance-api:8002 \
   PUBLIC_BASE_URL=http://localhost:8080
-make run-oidc-readiness-bundle-local WINDOW_ID=stg-$(date +%F)-oidc \
-  BASE_URL=http://localhost:8080
-export WINDOW_ID=stg-$(date +%F)-eu
-make run-eu-sanctions-window-local WINDOW_ID=$WINDOW_ID
-make run-regulatory-readiness-bundle-local WINDOW_ID=$WINDOW_ID \
+make run-oidc-readiness-bundle-local WINDOW_ID=stg-$(date +%F)-oidc BASE_URL=http://localhost:8080
+make run-regulatory-readiness-bundle-local \
+  WINDOW_ID=stg-$(date +%F)-reg \
   INTERNAL_BASE_URL=http://compliance-api:8002 \
   PUBLIC_BASE_URL=http://localhost:8080
-python scripts/check_sanctions_sync_status.py
 ```
 
-O alvo local do bundle regulatório gera dois artefatos padronizados para revisão humana:
-
-- `artifacts/staging/checks/<janela>-regulatory-readiness-bundle.json`
-- `artifacts/staging/dossiers/<janela>-regulatory-readiness-bundle.md`
-
-O alvo local do bundle OIDC gera dois artefatos padronizados para `P0-01`:
+Artefatos esperados:
 
 - `artifacts/staging/checks/<janela>-oidc-readiness-bundle.json`
 - `artifacts/staging/dossiers/<janela>-oidc-readiness-bundle.md`
+- `artifacts/staging/checks/<janela>-regulatory-readiness-bundle.json`
+- `artifacts/staging/dossiers/<janela>-regulatory-readiness-bundle.md`
 
-### 4. Executar a janela seria local
+## Operacao de Janela Seria
+
+Comandos principais:
 
 ```bash
 make help-serious-window
+make prepare-serious-window-dispatch WINDOW_ID=stg-2026-07-06-a
+make render-serious-window-dispatch-packet WINDOW_ID=stg-2026-07-06-a
 make run-serious-window-local WINDOW_ID=stg-2026-07-06-a MODE=baseline
+make postprocess-serious-window RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
 ```
 
-## Estrutura do Repositorio
+Situacao executiva atual:
+
+- `P0-01`: OIDC + MFA federado serio ainda bloqueado por homologacao externa
+- `P0-02`: provider `AML/KYT live` pronto para fechar com credencial real
+- `P0-03`: feed UE pronto para fechar com URL tokenizada real
+- janela `stg-2026-07-06-a`: segue `no-go` ate preencher ownership, handoff e secrets reais
+
+## Documentacao Canonica
+
+- [Indice Canonico](./docs/README.md): indice principal da documentacao
+- [Arquitetura](./docs/architecture.md): arquitetura real dos servicos e dados
+- [Contratos de API](./docs/api-contracts.md): contratos HTTP e fluxos expostos
+- [Cobertura do Frontend](./docs/frontend-coverage-matrix.md): cobertura das rotas reais do frontend
+- [Operacao Local](./docs/operations.md): operacao local, troubleshooting e migrations
+- [Deploy e Staging](./docs/deploy-and-staging.md): fluxo tecnico de staging e bundles
+- [Validacao e Auditoria](./docs/validation-and-audit.md): smoke, Playwright, preflights e evidencias
+- [Scorecard Oficial](./docs/project-kpi-scorecard.md): baseline oficial do projeto
+
+## Estrutura
 
 ```text
 ontrackchain/
@@ -316,20 +191,16 @@ ontrackchain/
 └── .env.example
 ```
 
-## Riscos Residuais Conhecidos
+## Riscos Residuais
 
-- `AML/KYT` live ainda depende de credenciais reais e homologacao recorrente
-- `due_diligence` e `source_of_funds` seguem intencionalmente em `manual_review_required`
-- o feed `EU_CONSOLIDATED` ainda depende de URL tokenizada real para fechar prova operacional forte
-- `legal_report`, `ROS/COAF` e `block lift` exigem MFA serio homologado para janela forte
-- retention/recovery, owners e sign-off ainda precisam de aceite institucional recorrente
-- a janela `stg-2026-07-06-a` continua `no-go` ate o preenchimento humano dos placeholders e handoffs
+- integracoes externas serias ainda dependem de credenciais e URLs reais
+- `due_diligence` e `source_of_funds` permanecem em rito manual por decisao de produto
+- `legal_report`, `ROS/COAF` e `block lift` exigem MFA forte homologado
+- retention/recovery e sign-off institucional ainda precisam de recorrencia formal
 
 ## Proximo Passo Recomendado
 
-Focar nas quatro frentes que mais movem o scorecard e destravam a janela seria:
-
-- fechar `P0-02` com provider `AML/KYT live` real
-- fechar `P0-03` com feed UE tokenizado e bundle anexado
-- avancar `P0-01` com MFA/OIDC federado serio homologado
-- executar a primeira janela seria completa com owners online, artefatos reais e sign-off formal
+1. fechar `P0-02` com provider `AML/KYT live`
+2. fechar `P0-03` com feed UE tokenizado
+3. homologar `P0-01` com evidencias reais
+4. executar uma janela seria completa com `go/no-go` formal

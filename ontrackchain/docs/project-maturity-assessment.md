@@ -2,21 +2,34 @@
 
 ## Objetivo
 
-Consolidar uma leitura executiva e tecnica do estado atual do Ontrackchain apos Sprint 6 com todos 7 paineis de historico de workspace consolidados nos cockpits regulatorios (counterparties DD/SoF, sanctions, evidence, reports, blocks, ros-coaf, alerts).
+Consolidar a leitura viva de maturidade tecnica e regulatoria do Ontrackchain, explicando a baseline oficial e os fatores estruturais que sustentam o estado atual do projeto.
+
+Este documento funciona como a narrativa canonica e evolutiva da baseline. Ele deve ser atualizado quando a interpretacao de maturidade mudar de forma material, mesmo que nao exista ainda um novo parecer formal datado de `go/no-go`.
 
 ## Escopo Canonico
 
 Use este documento para:
 
-- comunicar a leitura executiva da maturidade tecnica e regulatoria do projeto
 - explicar o por que da baseline oficial `91% / 78% / 87%`
+- sustentar a leitura viva de maturidade tecnica e regulatoria do projeto
 - orientar discussoes de prioridade, risco residual e proximos degraus de maturidade
+- detalhar o racional por dominio por tras da maturidade atual
 
 Nao use este documento como fonte primaria para:
 
+- comunicar status executivo rapidamente para sponsors: use [Resumo Executivo de Readiness](./project-executive-readiness-brief.md)
 - calcular o KPI oficial da semana: use [Scorecard Oficial do Projeto](project-kpi-scorecard.md)
+- emitir parecer formal datado de `go/no-go`: use [Avaliacao Consolidada de Status do Projeto](./assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md)
 - decidir `go/no-go` de uma janela especifica: use [Gates de Release para Staging Serio](project-release-gates.md)
-- executar a janela, preencher owners ou conduzir war room: use os runbooks e checklists operacionais da trilha de staging serio
+- executar a janela, registrar owners ou conduzir war room: use os runbooks e checklists operacionais da trilha de staging serio
+
+## Papel na Trilha Documental
+
+Leitura recomendada por nivel:
+
+- leitura curta para diretoria e sponsors: [Resumo Executivo de Readiness](./project-executive-readiness-brief.md)
+- baseline viva com racional tecnico e regulatorio: este documento
+- parecer formal datado de calibracao e `go/no-go`: [Avaliacao Consolidada de Status do Projeto](./assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md)
 
 ## Resumo Executivo
 
@@ -27,7 +40,7 @@ Leituras oficiais recalibradas:
 
 Formula canonica complementar:
 
-- `87%` de construcao total consolidada conforme [Scorecard Oficial do Projeto](project-kpi-scorecard.md)
+- `87%` de maturidade consolidada conforme [Scorecard Oficial do Projeto](project-kpi-scorecard.md)
 
 Interpretacao:
 

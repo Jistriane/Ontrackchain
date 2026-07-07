@@ -23,7 +23,7 @@ Use este documento para:
 
 Use os documentos abaixo quando o foco nao for deploy tecnico:
 
-- [Governanca Semanal](governance-weekly/): tracking e sign-off por ciclo
+- [Governanca Semanal](./governance-weekly/README.md): tracking e sign-off por ciclo
 - [Gates de Release para Staging Serio](project-release-gates.md): decidir `go/no-go` formal
 
 ## Estrategia Atual
@@ -178,6 +178,10 @@ npm run test:e2e:oidc-critical
 npm run test:e2e
 ```
 
+O gate `npm run test:e2e:oidc-critical` agora executa preflight explicito de `baseURL`, `/auth/config` e runtime OIDC antes das suites federadas. Se ele falhar cedo, trate como indisponibilidade/configuracao do ambiente serio antes de analisar regressao de UI.
+
+Use `npm run test:e2e:dev-auth` apenas fora deste rito, quando a intencao for regressao local do scaffold em `AUTH_MODE=dev`.
+
 ### 8. Publicar evidencia de validacao
 
 Preserve como evidencia:
@@ -217,8 +221,8 @@ make run-serious-window-local WINDOW_ID=<janela> MODE=baseline
 1. para a conducao operacional, usar:
 
 - [Gates de Release para Staging Serio](project-release-gates.md): decidir `go/no-go` formal
-- [Governanca Semanal](./governance-weekly/): tracking e sign-off por ciclo
-- [War Room da Janela](governance-weekly/2026-07-06-staging-serious-window-war-room.md): quando houver coordenacao multi-owner
+- [Governanca Semanal](./governance-weekly/README.md): tracking e sign-off por ciclo
+- [War Room da Janela](governance-weekly/cycles/2026-07-06/2026-07-06-staging-serious-window-war-room.md): quando houver coordenacao multi-owner
 
 Comandos auxiliares continuam canônicos para janelas com provedores reais:
 
@@ -331,6 +335,8 @@ cd apps/frontend
 npm ci
 npm run test:e2e:dev-auth
 ```
+
+O comando aplica preflight de `http://localhost:8080/` e `/auth/config` antes do Playwright. Se o ambiente nao estiver realmente em `AUTH_MODE=dev`, a falha deve ser tratada como configuracao incorreta do scaffold local.
 
 ## Sequencia de Promocao Recomendada
 

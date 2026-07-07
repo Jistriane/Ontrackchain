@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
 import { useI18n } from "../../components/i18n-provider";
+import { formatDateTime as formatDate } from "../lib/date-format";
 import type { MessageKey } from "../lib/i18n";
 import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
@@ -13,11 +14,8 @@ import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
 import { createWorkItemComment, fetchWorkItemTimeline } from "../lib/work-item-timeline-client";
 import { formatTimelineEvent, type WorkCommentResponse, type WorkItemTimelineResponse } from "../lib/work-item-timeline";
 import {
-  buildAuditHref,
-  buildCaseHref,
-  buildEvidenceHref,
-  buildInvestigateHref,
-  buildSanctionsHref,
+  buildOperationalContextLinks,
+  type OperationalContextLink,
   inferAlertOperationalContext
 } from "../lib/operational-context";
 
@@ -119,7 +117,7 @@ function toneForQueueStatus(status: WorkItemQueueStatus): "success" | "warning" 
 }
 
 export default function AlertsPage() {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const searchParams = useSearchParams();
   const tr = (key: MessageKey, values?: Record<string, string | number>) => t(key, values);
 
@@ -988,11 +986,21 @@ export default function AlertsPage() {
                 (() => {
                   const context = inferAlertOperationalContext(entry);
                   const trackedWorkItem = platformAlertWorkItems[entry.id];
-                  const caseHref = buildCaseHref(context.caseId);
-                  const investigateHref = buildInvestigateHref(context, { includeCaseId: true });
-                  const sanctionsHref = buildSanctionsHref(context);
-                  const auditHref = buildAuditHref(context, { fallbackResourceType: "operational_alert", preferCaseResource: true });
-                  const evidenceHref = buildEvidenceHref(context, { domain: "all", fallbackResourceType: "operational_alert", preferCaseResource: true });
+                  const contextLinks = buildOperationalContextLinks(context, {
+                    includeEvidence: true,
+                    evidenceDomain: "all",
+                    auditFallbackResourceType: "operational_alert",
+                    auditPreferCaseResource: true,
+                    evidencePreferCaseResource: true,
+                    investigateIncludeCaseId: true
+                  }).filter(
+                    (link: OperationalContextLink) =>
+                      link.kind === "case" ||
+                      link.kind === "audit" ||
+                      link.kind === "evidence" ||
+                      link.kind === "investigate" ||
+                      link.kind === "sanctions"
+                  );
 
                   return (
                     <div
@@ -1059,27 +1067,21 @@ export default function AlertsPage() {
                         </div>
                       </details>
                       <div className="otc-monitoring-actions">
-                        {caseHref ? (
-                          <a className="otc-button otc-button--ghost" href={caseHref}>
-                            {tr("reports.cases.openCase" as MessageKey)}
+                        {contextLinks.map((link: OperationalContextLink) => (
+                          <a key={`${entry.id}-${link.testIdSuffix}`} className="otc-button otc-button--ghost" href={link.href}>
+                            {tr(
+                              (link.kind === "case"
+                                ? "reports.cases.openCase"
+                                : link.kind === "audit"
+                                  ? "reports.cases.openAudit"
+                                  : link.kind === "evidence"
+                                    ? "monitoring.alerts.openEvidence"
+                                    : link.kind === "investigate"
+                                      ? "monitoring.alerts.openInvestigate"
+                                      : "monitoring.alerts.openSanctions") as MessageKey
+                            )}
                           </a>
-                        ) : null}
-                        <a className="otc-button otc-button--ghost" href={auditHref}>
-                          {tr("reports.cases.openAudit" as MessageKey)}
-                        </a>
-                        <a className="otc-button otc-button--ghost" href={evidenceHref}>
-                          {tr("monitoring.alerts.openEvidence" as MessageKey)}
-                        </a>
-                        {investigateHref ? (
-                          <a className="otc-button otc-button--ghost" href={investigateHref}>
-                            {tr("monitoring.alerts.openInvestigate" as MessageKey)}
-                          </a>
-                        ) : null}
-                        {sanctionsHref ? (
-                          <a className="otc-button otc-button--ghost" href={sanctionsHref}>
-                            {tr("monitoring.alerts.openSanctions" as MessageKey)}
-                          </a>
-                        ) : null}
+                        ))}
                         <button
                           type="button"
                           data-testid={`platform-alert-track-btn-${entry.id}`}
@@ -1150,12 +1152,7 @@ export default function AlertsPage() {
             ? () => { void loadTimeline(selectedTimelineWorkItem.id); }
             : undefined
         }
-        formatDate={(value) => {
-          if (!value) return null;
-          const parsed = new Date(value);
-          if (Number.isNaN(parsed.getTime())) return value;
-          return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(parsed);
-        }}
+        formatDate={(value) => formatDate(value, locale)}
         formatEventLabel={formatTimelineEvent}
       />
 

@@ -60,6 +60,13 @@ O `Ontrackchain` e uma plataforma modular para investigacao e compliance on-chai
 - `monitoring-api` recebe webhooks do `Alertmanager`.
 - `operational_alert_events` guarda incidentes globais fora do dominio multi-tenant de negocio.
 - UI `/monitoring` suporta filtros, paginacao cursor-based, ack em lote e export auditado.
+- no frontend, `/monitoring` deixou de concentrar toda a logica operacional em um unico arquivo e passou a atuar como hub de composicao.
+- `use-monitoring-watchlist-alerts.ts` isola o bootstrap de watchlists, o refresh de alertas de teste e o disparo controlado do fluxo de validacao operacional.
+- `app/lib/monitoring-api.ts` centraliza loaders puros para watchlists, alertas, worker, alertas operacionais, metricas, DLQ e filtros de plataforma.
+- `use-monitoring-platform-alerts.ts` isola persistencia em `sessionStorage`, filtros, selecao, paginacao por cursor, ack individual/lote e export de alertas de plataforma.
+- `use-monitoring-operations.ts` isola bootstrap e mutacoes de `worker operations`, `operational alerts` e remediacao de `DLQ`, incluindo `requeue` e resolucao auditavel.
+- `watchlist-alerts-panel.tsx`, `platform-alert-triage-panel.tsx`, `investigation-operations-panel.tsx` e `dlq-remediation-panel.tsx` concentram a renderizacao dos bounded contexts operacionais sem alterar RBAC, endpoints ou `data-testid` existentes.
+- deep-links para `audit` e `evidence` passaram a reutilizar helpers compartilhados de `operational-context`, reduzindo drift entre cockpits operacionais.
 
 ## Camadas de Dados
 

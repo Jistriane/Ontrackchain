@@ -4,12 +4,18 @@ import { useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { AppShell, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
+import { formatDateTime as formatDate } from "../lib/date-format";
 import { useI18n } from "../../components/i18n-provider";
 import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel";
 import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
 import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
 import { createWorkItemComment, fetchWorkItemTimeline } from "../lib/work-item-timeline-client";
+import {
+  buildOperationalContextLinks,
+  type OperationalContext,
+  type OperationalContextLink
+} from "../lib/operational-context";
 import type { MessageKey } from "../lib/i18n";
 import { formatTimelineEvent, type WorkCommentResponse, type WorkItemTimelineResponse } from "../lib/work-item-timeline";
 
@@ -164,22 +170,6 @@ const COUNTERPARTY_TYPES = [
 
 const DOCUMENT_TYPES = ["CPF", "CNPJ", "PASSPORT", "FOREIGN_ID"] as const;
 
-function formatDate(value: string | null | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short"
-  }).format(parsed);
-}
-
 function isUuidLike(value: string | null | undefined) {
   return Boolean(value && UUID_PATTERN.test(value.trim()));
 }
@@ -277,38 +267,48 @@ function buildWalletAddresses(form: CounterpartyFormState) {
   ];
 }
 
-function buildCaseHref(caseId: string) {
-  const normalizedCaseId = caseId.trim();
-  return normalizedCaseId ? `/cases/${encodeURIComponent(normalizedCaseId)}` : null;
+function buildCounterpartyOperationalContext(record: {
+  caseId?: string | null;
+  counterpartyId: string;
+  walletAddress?: string | null;
+  walletChain?: string | null;
+}): OperationalContext {
+  const caseId = record.caseId?.trim() ?? "";
+  const counterpartyId = record.counterpartyId.trim();
+  return {
+    caseId,
+    requestId: caseId,
+    reportId: counterpartyId,
+    fileHash: "",
+    resourceType: "case",
+    resourceId: caseId || counterpartyId,
+    address: record.walletAddress?.trim() ?? "",
+    chain: record.walletChain?.trim() || "ethereum",
+    counterpartyId,
+    legalName: "",
+    documentNumber: "",
+    rosId: "",
+    reportType: "",
+    blockId: ""
+  };
 }
 
-function buildAuditHref(caseId: string, resourceId: string, counterpartyId = "") {
-  const params = new URLSearchParams({
-    resource_type: "case",
-    resource_id: resourceId.trim() || counterpartyId.trim()
-  });
-  if (caseId.trim()) {
-    params.set("request_id", caseId.trim());
-  }
-  if (counterpartyId.trim()) {
-    params.set("report_id", counterpartyId.trim());
-  }
-  return `/audit?${params.toString()}`;
-}
-
-function buildEvidenceHref(resourceId: string, caseId: string, counterpartyId = "") {
-  const params = new URLSearchParams({
-    domain: "compliance",
-    resource_type: "case",
-    resource_id: resourceId.trim() || counterpartyId.trim()
-  });
-  if (caseId.trim()) {
-    params.set("request_id", caseId.trim());
-  }
-  if (counterpartyId.trim()) {
-    params.set("report_id", counterpartyId.trim());
-  }
-  return `/evidence?${params.toString()}`;
+function buildCounterpartyContextLinks(
+  context: OperationalContext,
+  labelKeyByKind: Partial<Record<OperationalContextLink["kind"], MessageKey>>
+) {
+  return buildOperationalContextLinks(context, {
+    includeEvidence: true,
+    evidenceDomain: "compliance",
+    auditFallbackResourceType: "case",
+    auditResourceIdOverride: context.caseId || context.counterpartyId,
+    evidenceResourceIdOverride: context.caseId || context.counterpartyId
+  })
+    .filter((link: OperationalContextLink) => link.kind === "case" || link.kind === "audit" || link.kind === "evidence")
+    .map((link: OperationalContextLink) => ({
+      ...link,
+      labelKey: labelKeyByKind[link.kind] ?? "counterparties.actions.openAudit"
+    }));
 }
 
 function buildSanctionsHref(record: {
@@ -555,7 +555,7 @@ function toneForWorkspaceStatus(status: WorkspaceStatus): "warning" | "danger" |
 
 export default function CounterpartiesPage() {
   const searchParams = useSearchParams();
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const tr = (key: MessageKey, values?: Record<string, string | number>) => t(key, values);
   const [items, setItems] = useState<CounterpartyListItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -580,18 +580,18 @@ export default function CounterpartiesPage() {
   const [commentBody, setCommentBody] = useState("");
   const [commentSubmitting, setCommentSubmitting] = useState(false);
 
-  const highRiskCount = useMemo(() => items.filter((item) => item.risk_level >= 3).length, [items]);
-  const pendingKycCount = useMemo(() => items.filter((item) => item.kyc_status !== "APPROVED").length, [items]);
+  const highRiskCount = useMemo(() => items.filter((item: CounterpartyListItem) => item.risk_level >= 3).length, [items]);
+  const pendingKycCount = useMemo(() => items.filter((item: CounterpartyListItem) => item.kyc_status !== "APPROVED").length, [items]);
   const totalPages = Math.max(1, Math.ceil(total / DEFAULT_LIMIT));
   const currentPage = Math.floor(offset / DEFAULT_LIMIT) + 1;
   const trackedCount = useMemo(() => workspaceRecords.length, [workspaceRecords]);
   const pendingReviewCount = useMemo(
-    () => workspaceRecords.filter((record) => record.workspaceStatus === "UNDER_REVIEW" || record.workspaceStatus === "ESCALATED").length,
+    () => workspaceRecords.filter((record: CounterpartyWorkspaceRecord) => record.workspaceStatus === "UNDER_REVIEW" || record.workspaceStatus === "ESCALATED").length,
     [workspaceRecords]
   );
-  const overdueCount = useMemo(() => workspaceRecords.filter((record) => getUrgency(record) === "overdue").length, [workspaceRecords]);
+  const overdueCount = useMemo(() => workspaceRecords.filter((record: CounterpartyWorkspaceRecord) => getUrgency(record) === "overdue").length, [workspaceRecords]);
   const workspaceById = useMemo(
-    () => new Map(workspaceRecords.map((record) => [record.counterpartyId, record])),
+    () => new Map(workspaceRecords.map((record: CounterpartyWorkspaceRecord) => [record.counterpartyId, record])),
     [workspaceRecords]
   );
   const selectedTimelineRecord = timelineCounterpartyId ? workspaceById.get(timelineCounterpartyId) ?? null : null;
@@ -713,7 +713,7 @@ export default function CounterpartiesPage() {
       return;
     }
 
-    setForm((current) => ({
+    setForm((current: CounterpartyFormState) => ({
       ...current,
       counterpartyType: counterpartyType ?? current.counterpartyType,
       legalName: legalName ?? current.legalName,
@@ -736,9 +736,9 @@ export default function CounterpartiesPage() {
     }));
 
     if (counterpartyId) {
-      setWorkspaceRecords((current) =>
+      setWorkspaceRecords((current: CounterpartyWorkspaceRecord[]) =>
         upsertWorkspaceRecord(current, {
-          workItemId: current.find((record) => record.counterpartyId === counterpartyId)?.workItemId,
+          workItemId: current.find((record: CounterpartyWorkspaceRecord) => record.counterpartyId === counterpartyId)?.workItemId,
           source: "local",
           counterpartyId,
           legalName: legalName ?? "",
@@ -770,11 +770,11 @@ export default function CounterpartiesPage() {
       setTimelineError(null);
       return;
     }
-    if (!workspaceNoteId || !workspaceRecords.some((record) => record.counterpartyId === workspaceNoteId)) {
+    if (!workspaceNoteId || !workspaceRecords.some((record: CounterpartyWorkspaceRecord) => record.counterpartyId === workspaceNoteId)) {
       setWorkspaceNoteId(workspaceRecords[0].counterpartyId);
     }
-    if (!timelineCounterpartyId || !workspaceRecords.some((record) => record.counterpartyId === timelineCounterpartyId)) {
-      const firstServerRecord = workspaceRecords.find((record) => Boolean(record.workItemId)) ?? workspaceRecords[0];
+    if (!timelineCounterpartyId || !workspaceRecords.some((record: CounterpartyWorkspaceRecord) => record.counterpartyId === timelineCounterpartyId)) {
+      const firstServerRecord = workspaceRecords.find((record: CounterpartyWorkspaceRecord) => Boolean(record.workItemId)) ?? workspaceRecords[0];
       setTimelineCounterpartyId(firstServerRecord.counterpartyId);
     }
   }, [timelineCounterpartyId, workspaceNoteId, workspaceRecords]);
@@ -878,7 +878,7 @@ export default function CounterpartiesPage() {
     }
 
     const nextRecord = mapWorkItemToWorkspaceRecord(data as WorkItemResponse);
-    setWorkspaceRecords((current) => upsertWorkspaceRecord(current, nextRecord));
+    setWorkspaceRecords((current: CounterpartyWorkspaceRecord[]) => upsertWorkspaceRecord(current, nextRecord));
     if (timelineCounterpartyId === nextRecord.counterpartyId && nextRecord.workItemId) {
       await loadTimeline(nextRecord.workItemId);
     }
@@ -926,7 +926,7 @@ export default function CounterpartiesPage() {
         sofDocumentRef: workspaceById.get(item.id)?.sofDocumentRef ?? "",
         lastActionAt: new Date().toISOString()
       };
-      setWorkspaceRecords((current) => upsertWorkspaceRecord(current, draftRecord));
+      setWorkspaceRecords((current: CounterpartyWorkspaceRecord[]) => upsertWorkspaceRecord(current, draftRecord));
       if (!isUuidLike(item.id)) {
         setNotice(tr("counterparties.workspace.noticeTrackedLocalOnly" as MessageKey, { name: item.legal_name }));
         return;
@@ -944,7 +944,7 @@ export default function CounterpartiesPage() {
 
   function hydrateWorkspaceRecord(record: CounterpartyWorkspaceRecord) {
     setTimelineCounterpartyId(record.counterpartyId);
-    setForm((current) => ({
+    setForm((current: CounterpartyFormState) => ({
       ...current,
       counterpartyType: record.counterpartyType || current.counterpartyType,
       legalName: record.legalName || current.legalName,
@@ -965,7 +965,7 @@ export default function CounterpartiesPage() {
       }
 
       const draftRecord = { ...currentRecord, workspaceStatus: status, lastActionAt: new Date().toISOString() };
-      setWorkspaceRecords((current) =>
+      setWorkspaceRecords((current: CounterpartyWorkspaceRecord[]) =>
         upsertWorkspaceRecord(current, {
           counterpartyId,
           workspaceStatus: status,
@@ -983,11 +983,11 @@ export default function CounterpartiesPage() {
   }
 
   function removeWorkspaceRecord(counterpartyId: string) {
-    setWorkspaceRecords((current) => current.filter((record) => record.counterpartyId !== counterpartyId));
+    setWorkspaceRecords((current: CounterpartyWorkspaceRecord[]) => current.filter((record: CounterpartyWorkspaceRecord) => record.counterpartyId !== counterpartyId));
   }
 
   function updateWorkspaceField<K extends keyof CounterpartyWorkspaceRecord>(counterpartyId: string, key: K, value: CounterpartyWorkspaceRecord[K]) {
-    setWorkspaceRecords((current) =>
+    setWorkspaceRecords((current: CounterpartyWorkspaceRecord[]) =>
       upsertWorkspaceRecord(current, {
         counterpartyId,
         [key]: value,
@@ -1293,9 +1293,19 @@ export default function CounterpartiesPage() {
                 })
                 .map((record) => {
                   const urgency = getUrgency(record);
-                  const caseHref = buildCaseHref(record.caseId);
-                  const auditHref = buildAuditHref(record.caseId, record.caseId || record.counterpartyId, record.counterpartyId);
-                  const evidenceHref = buildEvidenceHref(record.caseId || record.counterpartyId, record.caseId, record.counterpartyId);
+                  const contextLinks = buildCounterpartyContextLinks(
+                    buildCounterpartyOperationalContext({
+                      caseId: record.caseId,
+                      counterpartyId: record.counterpartyId,
+                      walletAddress: record.walletAddress,
+                      walletChain: record.walletChain
+                    }),
+                    {
+                      case: "counterparties.actions.openCase",
+                      audit: "counterparties.actions.openAudit",
+                      evidence: "counterparties.actions.openEvidence"
+                    }
+                  );
                   const sanctionsHref = buildSanctionsHref(record);
                   const isTimelineSelected = timelineCounterpartyId === record.counterpartyId;
                   return (
@@ -1375,17 +1385,11 @@ export default function CounterpartiesPage() {
                       </td>
                       <td>
                         <div className="otc-controls">
-                          {caseHref ? (
-                            <a className="otc-button otc-button--ghost" href={caseHref}>
-                              {tr("counterparties.actions.openCase" as MessageKey)}
+                          {contextLinks.map((link: OperationalContextLink & { labelKey: MessageKey }) => (
+                            <a key={`workspace-${record.counterpartyId}-${link.testIdSuffix}`} className="otc-button otc-button--ghost" href={link.href}>
+                              {tr(link.labelKey)}
                             </a>
-                          ) : null}
-                          <a className="otc-button otc-button--ghost" href={auditHref}>
-                            {tr("counterparties.actions.openAudit" as MessageKey)}
-                          </a>
-                          <a className="otc-button otc-button--ghost" href={evidenceHref}>
-                            {tr("counterparties.actions.openEvidence" as MessageKey)}
-                          </a>
+                          ))}
                           <a className="otc-button otc-button--ghost" href={sanctionsHref}>
                             {tr("counterparties.actions.openSanctions" as MessageKey)}
                           </a>
@@ -1556,7 +1560,7 @@ export default function CounterpartiesPage() {
                 }
               : undefined
           }
-          formatDate={formatDate}
+          formatDate={(value) => formatDate(value, locale)}
           formatEventLabel={formatTimelineEvent}
         />
       </Panel>
@@ -1595,13 +1599,21 @@ export default function CounterpartiesPage() {
             {items.length ? (
               items.map((item) => {
                 const trackedRecord = workspaceById.get(item.id);
-                const caseHref = trackedRecord ? buildCaseHref(trackedRecord.caseId) : null;
-                const auditHref = trackedRecord
-                  ? buildAuditHref(trackedRecord.caseId, trackedRecord.caseId || trackedRecord.counterpartyId, trackedRecord.counterpartyId)
-                  : null;
-                const evidenceHref = trackedRecord
-                  ? buildEvidenceHref(trackedRecord.caseId || trackedRecord.counterpartyId, trackedRecord.caseId, trackedRecord.counterpartyId)
-                  : null;
+                const contextLinks = trackedRecord
+                  ? buildCounterpartyContextLinks(
+                      buildCounterpartyOperationalContext({
+                        caseId: trackedRecord.caseId,
+                        counterpartyId: trackedRecord.counterpartyId,
+                        walletAddress: trackedRecord.walletAddress,
+                        walletChain: trackedRecord.walletChain
+                      }),
+                      {
+                        case: "counterparties.actions.openCase",
+                        audit: "counterparties.actions.openAudit",
+                        evidence: "counterparties.actions.openEvidence"
+                      }
+                    )
+                  : [];
                 const sanctionsHref = trackedRecord ? buildSanctionsHref(trackedRecord) : null;
 
                 return (
@@ -1619,27 +1631,17 @@ export default function CounterpartiesPage() {
                     <td>{item.is_pep ? tr("counterparties.list.yes" as MessageKey) : tr("counterparties.list.no" as MessageKey)}</td>
                     <td>{item.next_review_date ?? t("common.notAvailable")}</td>
                     <td>{item.status}</td>
-                    <td>{formatDate(item.created_at) ?? t("common.notAvailable")}</td>
+                    <td>{formatDate(item.created_at, locale) ?? t("common.notAvailable")}</td>
                     <td>
                       <div className="otc-controls">
                         <button type="button" className="otc-button otc-button--ghost" onClick={() => trackFromList(item)} disabled={syncingWorkspace}>
                           {tr("counterparties.list.track" as MessageKey)}
                         </button>
-                        {caseHref ? (
-                          <a className="otc-button otc-button--ghost" href={caseHref}>
-                            {tr("counterparties.actions.openCase" as MessageKey)}
+                        {contextLinks.map((link: OperationalContextLink & { labelKey: MessageKey }) => (
+                          <a key={`list-${item.id}-${link.testIdSuffix}`} className="otc-button otc-button--ghost" href={link.href}>
+                            {tr(link.labelKey)}
                           </a>
-                        ) : null}
-                        {auditHref ? (
-                          <a className="otc-button otc-button--ghost" href={auditHref}>
-                            {tr("counterparties.actions.openAudit" as MessageKey)}
-                          </a>
-                        ) : null}
-                        {evidenceHref ? (
-                          <a className="otc-button otc-button--ghost" href={evidenceHref}>
-                            {tr("counterparties.actions.openEvidence" as MessageKey)}
-                          </a>
-                        ) : null}
+                        ))}
                         {sanctionsHref ? (
                           <a className="otc-button otc-button--ghost" href={sanctionsHref}>
                             {tr("counterparties.actions.openSanctions" as MessageKey)}
