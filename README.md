@@ -10,6 +10,10 @@ Plataforma de investigacao e compliance on-chain com foco em trilha auditavel, f
 - [Estado Atual](#estado-atual)
 - [Arquitetura em 60 Segundos](#arquitetura-em-60-segundos)
 - [Mapa Rapido de Modulos](#mapa-rapido-de-modulos)
+- [Como os Modulos se Conectam](#como-os-modulos-se-conectam)
+- [Leitura Recomendada por Perfil](#leitura-recomendada-por-perfil)
+- [Matriz de Fluxos Criticos](#matriz-de-fluxos-criticos)
+- [Prontidao Rumo a 95%](#prontidao-rumo-a-95)
 - [Politica de Documentacao](#politica-de-documentacao)
 - [Quick Start](#quick-start)
 - [Mapa Canonico](#mapa-canonico)
@@ -131,6 +135,45 @@ Este repositorio e dividido em dois niveis:
 2. [`ontrackchain/docs/project-kpi-scorecard.md`](./ontrackchain/docs/project-kpi-scorecard.md)
 3. [`ontrackchain/docs/project-priority-board.md`](./ontrackchain/docs/project-priority-board.md)
 4. [`ontrackchain/docs/governance-weekly/README.md`](./ontrackchain/docs/governance-weekly/README.md)
+
+## Matriz de Fluxos Criticos
+
+| Fluxo | API / Entrada Principal | Tabelas / Estado Principal | Evidencia / Prova |
+| --- | --- | --- | --- |
+| Investigacao on-chain | `investigation-api` (`estimate`, `start`, `status`, `result`) | `credit_ledger`, trilha do caso, auditoria operacional | `audit_logs`, smoke runtime, suites E2E e resultado do caso |
+| Screening de sancoes | `GET /api/v1/compliance/sanctions-check` | `sanctions_lists_meta`, `sanctions_hits_cache` | `audit_logs`, `evidence_trail`, checks pos-sync e janela UE |
+| Bloqueio preventivo | `PreventiveBlockAgent` via `compliance-api` | `preventive_blocks` | `audit_logs`, `evidence_trail`, vinculo regulatorio e eventual `ros_records` |
+| Onboarding de contraparte | `POST /api/v1/compliance/counterparties` | `counterparties`, `counterparty_history` | `evidence_trail`, hash deterministico e historico regulado |
+| ROS/COAF | `report-api` e rotas `ros-coaf` | `reports`, `ros_records` | `evidence_trail`, aprovacao/rejeicao auditada e comprovante manual |
+| Fila operacional compartilhada | `/api/app/operations/work-items*` -> `compliance-api` | `regulatory_work_items`, `regulatory_work_events`, `regulatory_work_comments` | timeline, comentarios estruturados e ownership por organizacao |
+| Monitoring operacional | `monitoring-api` + webhooks do `Alertmanager` | `operational_alert_events` | alertas, ack auditado, export e contexto operacional |
+| Janela seria de staging | `prepare -> validate -> preflight -> run` | artefatos de bundle, snapshots e sign-offs | dossier, dashboard, bundles, war room e decisao `go/no-go` |
+
+## Prontidao Rumo a 95%
+
+### O Que Ja Esta Forte
+
+- arquitetura modular com boundaries claros, gateway unico, `RLS` e servicos por dominio
+- frontend operacional real com cockpits tri-locale, contratos compartilhados e hardening recente
+- camada regulatoria funcional com `evidence_trail`, `preventive_blocks`, `counterparties`, `ROS/COAF` e screening local de sancoes
+- operacao multiusuario sustentada por `regulatory_work_items`, timeline e comentarios estruturados
+- observabilidade, runbooks, bundles de readiness e harnesses de validacao ja institucionalizados
+
+### O Que Ainda Bloqueia `95%`
+
+- `P0-01`: homologar `OIDC + MFA` federado em trilho serio e recorrente
+- `P0-02`: fechar `AML/KYT live` com credencial real, check verde e evidencia anexavel
+- `P0-03`: ativar feed UE real com URL tokenizada e persistencia auditavel
+- executar uma janela seria completa com `go/no-go` formal e evidencias de ponta a ponta
+- institucionalizar sign-off recorrente de retention/recovery, owners e SLAs operacionais
+
+### Ordem Recomendada de Fechamento
+
+1. fechar `P0-02`
+2. fechar `P0-03`
+3. homologar `P0-01`
+4. executar a janela seria completa
+5. publicar a nova baseline oficial
 
 ## Politica de Documentacao
 
