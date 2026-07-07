@@ -35,8 +35,8 @@ Complementa o [Guia de Execucao Assistida de `P0-01` OIDC + MFA serio](./P0-01_O
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
-python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
-python scripts/check_staging_env_placeholders.py --file .env.staging.private
+python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
+python3 scripts/check_staging_env_placeholders.py --file .env.staging.private
 ```
 
 Resultado esperado:
@@ -48,7 +48,7 @@ Resultado esperado:
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
-python scripts/preflight_oidc_serious_env.py
+python3 scripts/preflight_oidc_serious_env.py
 ```
 
 Registrar:
@@ -60,7 +60,7 @@ Registrar:
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
-python scripts/smoke_auth_oidc_mode.py
+python3 scripts/smoke_auth_oidc_mode.py
 ```
 
 Registrar:
@@ -99,7 +99,7 @@ Registrar:
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
-python scripts/homologation_external_evidence.py --mode both --include-oidc-legal-report
+python3 scripts/homologation_external_evidence.py --mode both --include-oidc-legal-report
 ```
 
 Registrar somente se aplicavel:

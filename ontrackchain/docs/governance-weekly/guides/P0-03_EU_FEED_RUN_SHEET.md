@@ -32,8 +32,8 @@ Complementa o [Guia de Execucao Assistida de `P0-03` Feed UE real](./P0-03_EU_FE
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
-python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
-python scripts/check_staging_env_placeholders.py --file .env.staging.private
+python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
+python3 scripts/check_staging_env_placeholders.py --file .env.staging.private
 ```
 
 Resultado esperado:
@@ -45,7 +45,7 @@ Resultado esperado:
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
-python scripts/preflight_external_integrations.py
+python3 scripts/preflight_external_integrations.py
 ```
 
 Registrar:

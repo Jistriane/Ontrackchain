@@ -65,7 +65,7 @@ Executar antes de qualquer chamada real de homologacao:
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
-python scripts/preflight_external_integrations.py
+python3 scripts/preflight_external_integrations.py
 ```
 
 Esperado:
@@ -98,7 +98,7 @@ Executar uma verificacao funcional curta:
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
-python scripts/smoke_runtime.py
+python3 scripts/smoke_runtime.py
 ```
 
 Esperado:
@@ -112,7 +112,7 @@ Executar a coleta formal da trilha de homologacao:
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
-python scripts/homologation_external_evidence.py --mode compliance
+python3 scripts/homologation_external_evidence.py --mode compliance
 ```
 
 Esperado:

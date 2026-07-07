@@ -54,7 +54,7 @@ Executar na ordem abaixo, sem pular validacoes.
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
 export WINDOW_ID=stg-2026-07-07-serious-a
-python scripts/prepare_staging_window.py \
+python3 scripts/prepare_staging_window.py \
   --window-id "$WINDOW_ID" \
   --mode baseline \
   --private-env-file .env.staging.private \
@@ -66,16 +66,16 @@ python scripts/prepare_staging_window.py \
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
-python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
-python scripts/check_staging_env_placeholders.py --file .env.staging.private
+python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
+python3 scripts/check_staging_env_placeholders.py --file .env.staging.private
 ```
 
 ### 3. Execucao `P0-01`
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
-python scripts/preflight_oidc_serious_env.py
-python scripts/smoke_auth_oidc_mode.py
+python3 scripts/preflight_oidc_serious_env.py
+python3 scripts/smoke_auth_oidc_mode.py
 
 cd /home/jistriane/Ontrackchain/ontrackchain/apps/frontend
 npm ci
@@ -91,12 +91,12 @@ make run-oidc-readiness-bundle-local \
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
-python scripts/preflight_external_integrations.py
+python3 scripts/preflight_external_integrations.py
 make check-compliance-provider-runtime \
   INTERNAL_BASE_URL=http://compliance-api:8002 \
   PUBLIC_BASE_URL=http://localhost:8080
-python scripts/smoke_runtime.py
-python scripts/homologation_external_evidence.py --mode compliance
+python3 scripts/smoke_runtime.py
+python3 scripts/homologation_external_evidence.py --mode compliance
 ```
 
 ### 5. Execucao `P0-03`

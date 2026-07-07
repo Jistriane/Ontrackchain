@@ -71,7 +71,7 @@ Executar o preflight canonico de `OIDC`:
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
-python scripts/preflight_oidc_serious_env.py
+python3 scripts/preflight_oidc_serious_env.py
 ```
 
 Esperado:
@@ -87,7 +87,7 @@ Executar a verificacao curta de runtime:
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
-python scripts/smoke_auth_oidc_mode.py
+python3 scripts/smoke_auth_oidc_mode.py
 ```
 
 Esperado:
@@ -134,7 +134,7 @@ Executar somente quando houver homologacao externa real:
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
-python scripts/homologation_external_evidence.py --mode both --include-oidc-legal-report
+python3 scripts/homologation_external_evidence.py --mode both --include-oidc-legal-report
 ```
 
 Esperado:

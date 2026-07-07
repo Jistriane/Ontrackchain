@@ -59,7 +59,7 @@ Executar antes do sync:
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
-python scripts/preflight_external_integrations.py
+python3 scripts/preflight_external_integrations.py
 ```
 
 Esperado:

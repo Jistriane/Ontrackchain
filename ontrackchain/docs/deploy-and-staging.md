@@ -69,7 +69,7 @@ O projeto esta organizado para deploy baseado em containers, com `docker compose
 ```bash
 docker compose up -d --build
 docker build --target runtime -t ontrackchain-frontend-runtime ./apps/frontend
-python scripts/smoke_runtime.py
+python3 scripts/smoke_runtime.py
 cd apps/frontend
 npm ci
 npm run test:e2e:oidc-critical
@@ -88,16 +88,16 @@ Use a matriz de ownership em [Ownership do `.env.staging`](staging-env-ownership
 Valide o arquivo privado antes dos preflights:
 
 ```bash
-python scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md > artifacts/staging/checks/ownership-coverage-stg-YYYY-MM-DD-a.json
-python scripts/render_staging_window_packet.py --window-id stg-YYYY-MM-DD-a --output-file artifacts/staging/window-packet-stg-YYYY-MM-DD-a.md
-python scripts/check_staging_env_placeholders.py --file .env.staging.private > artifacts/staging/checks/placeholders-stg-YYYY-MM-DD-a.json
-python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md > artifacts/staging/checks/handoff-stg-YYYY-MM-DD-a.json
+python3 scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md > artifacts/staging/checks/ownership-coverage-stg-YYYY-MM-DD-a.json
+python3 scripts/render_staging_window_packet.py --window-id stg-YYYY-MM-DD-a --output-file artifacts/staging/window-packet-stg-YYYY-MM-DD-a.md
+python3 scripts/check_staging_env_placeholders.py --file .env.staging.private > artifacts/staging/checks/placeholders-stg-YYYY-MM-DD-a.json
+python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md > artifacts/staging/checks/handoff-stg-YYYY-MM-DD-a.json
 ```
 
 Ou, preferencialmente, execute a janela inteira de forma orquestrada:
 
 ```bash
-python scripts/run_staging_window.py \
+python3 scripts/run_staging_window.py \
   --window-id stg-YYYY-MM-DD-a \
   --private-env-file .env.staging.private
 ```
@@ -154,7 +154,7 @@ JWT_HS256_SECRET=*** \
 MFA_TOTP_SECRET=*** \
 KEYCLOAK_ADMIN_PASSWORD=*** \
 KEYCLOAK_B2B_CLIENT_SECRET=*** \
-python scripts/preflight_oidc_serious_env.py
+python3 scripts/preflight_oidc_serious_env.py
 ```
 
 ### 6. Rodar validacoes pos-deploy
@@ -166,7 +166,7 @@ ONTRACKCHAIN_EXPECTED_AUTH_MODE=oidc \
 ONTRACKCHAIN_EXPECTED_EFFECTIVE_AUTH_MODE=oidc \
 ONTRACKCHAIN_EXPECTED_APP_ENV=staging \
 ONTRACKCHAIN_EXPECTED_DEV_AUTH_ENABLED=false \
-python scripts/smoke_auth_oidc_mode.py
+python3 scripts/smoke_auth_oidc_mode.py
 ```
 
 ### 7. Rodar E2E pos-deploy
@@ -199,7 +199,7 @@ Fluxo tecnico recomendado:
 1. gerar a base da janela:
 
 ```bash
-python scripts/prepare_staging_window.py --window-id <janela> --mode baseline
+python3 scripts/prepare_staging_window.py --window-id <janela> --mode baseline
 ```
 
 1. preencher `.env.staging.private` fora do repositório e validar ownership/placeholders:
@@ -209,7 +209,7 @@ python scripts/prepare_staging_window.py --window-id <janela> --mode baseline
 1. executar o gate tecnico unico:
 
 ```bash
-python scripts/prepare_staging_window.py --window-id <janela> --mode baseline --run
+python3 scripts/prepare_staging_window.py --window-id <janela> --mode baseline --run
 ```
 
 1. para a execucao ponta a ponta local, preferir:
@@ -231,7 +231,7 @@ Comandos auxiliares continuam canônicos para janelas com provedores reais:
 - `make run-eu-sanctions-window-local`
 - `make run-regulatory-readiness-bundle`
 - `make run-regulatory-readiness-bundle-local`
-- `python scripts/check_sanctions_sync_status.py`
+- `python3 scripts/check_sanctions_sync_status.py`
 
 Se o checker rodar fora da rede do `docker compose`, substitua `INTERNAL_BASE_URL` por um endpoint interno realmente alcancavel no ambiente-alvo. O `compose` atual nao publica `8002` no host.
 
@@ -248,7 +248,7 @@ Depois do preflight e durante a janela controlada, gere a trilha anexavel:
 APP_ENV=staging \
 ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=live \
 ONTRACKCHAIN_EXPECT_RPC_MODE=fallback_only \
-python scripts/homologation_external_evidence.py --mode both --rpc-expected-mode fallback_only
+python3 scripts/homologation_external_evidence.py --mode both --rpc-expected-mode fallback_only
 ```
 
 Atalho recomendado:
@@ -257,7 +257,7 @@ Atalho recomendado:
 set -a
 . ./.env.staging.private
 set +a
-python scripts/homologation_external_evidence.py --mode both --rpc-expected-mode fallback_only
+python3 scripts/homologation_external_evidence.py --mode both --rpc-expected-mode fallback_only
 ```
 
 Resultado esperado:
@@ -283,7 +283,7 @@ Saída esperada para `P0-01`:
 Consolidacao final recomendada:
 
 ```bash
-python scripts/build_staging_release_dossier.py \
+python3 scripts/build_staging_release_dossier.py \
   --window-id stg-YYYY-MM-DD-a \
   --window-packet artifacts/staging/window-packet-stg-YYYY-MM-DD-a.md \
   --ownership-coverage-check artifacts/staging/checks/ownership-coverage-stg-YYYY-MM-DD-a.json \
@@ -300,7 +300,7 @@ python scripts/build_staging_release_dossier.py \
 Atalho operacional recomendado:
 
 ```bash
-python scripts/run_staging_window.py \
+python3 scripts/run_staging_window.py \
   --window-id stg-YYYY-MM-DD-a \
   --private-env-file .env.staging.private
 ```
@@ -359,7 +359,7 @@ ONTRACKCHAIN_EXPECTED_AUTH_MODE=oidc \
 ONTRACKCHAIN_EXPECTED_EFFECTIVE_AUTH_MODE=oidc \
 ONTRACKCHAIN_EXPECTED_APP_ENV=staging \
 ONTRACKCHAIN_EXPECTED_DEV_AUTH_ENABLED=false \
-python scripts/smoke_auth_oidc_mode.py
+python3 scripts/smoke_auth_oidc_mode.py
 ```
 
 ### Staging regulatorio

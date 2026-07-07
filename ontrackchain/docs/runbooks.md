@@ -229,12 +229,12 @@ Uma excecao temporaria so pode ser considerada quando:
 
 ### Runbook 7 — Falha no smoke runtime — Sinais
 
-- `python scripts/smoke_runtime.py` retorna erro
+- `python3 scripts/smoke_runtime.py` retorna erro
 
 ### Runbook 7 — Falha no smoke runtime — Verificacao
 
 ```bash
-python scripts/smoke_runtime.py
+python3 scripts/smoke_runtime.py
 docker compose ps
 docker compose logs --tail=200 investigation-api compliance-api monitoring-api report-api frontend auth-service
 ```
@@ -382,7 +382,7 @@ docker compose exec investigation-api python -c "import urllib.request; print(ur
 
 - revalidar `infra/observability/prometheus.yml` e `infra/observability/investigation.rules.yml`
 - rebuildar `investigation-api` e `prometheus`
-- rerodar `python scripts/smoke_runtime.py` para confirmar target e regras
+- rerodar `python3 scripts/smoke_runtime.py` para confirmar target e regras
 
 ## Runbook 14 — Dashboard Grafana ausente ou vazio
 
@@ -412,7 +412,7 @@ curl -u admin:admin http://localhost:3001/api/dashboards/uid/ontrack-investigati
 - revalidar `infra/observability/grafana/provisioning`
 - revalidar `infra/observability/grafana/dashboards/investigation-operations.json`
 - rebuildar/subir `grafana`
-- rerodar `python scripts/smoke_runtime.py` para confirmar health e dashboard
+- rerodar `python3 scripts/smoke_runtime.py` para confirmar health e dashboard
 
 ## Runbook 15 — Observabilidade de monitoring indisponivel
 
@@ -443,7 +443,7 @@ curl -u admin:admin http://localhost:3001/api/dashboards/uid/ontrack-monitoring-
 - revalidar `infra/observability/prometheus.yml` e `infra/observability/monitoring.rules.yml`
 - revalidar `infra/observability/grafana/dashboards/monitoring-operations.json`
 - rebuildar `monitoring-api`, `prometheus` e `grafana`
-- rerodar `python scripts/smoke_runtime.py` para confirmar target, regras e dashboard
+- rerodar `python3 scripts/smoke_runtime.py` para confirmar target, regras e dashboard
 
 ## Runbook 16 — Observabilidade de compliance indisponivel
 
@@ -474,7 +474,7 @@ curl -u admin:admin http://localhost:3001/api/dashboards/uid/ontrack-compliance-
 - revalidar `infra/observability/prometheus.yml` e `infra/observability/compliance.rules.yml`
 - revalidar `infra/observability/grafana/dashboards/compliance-operations.json`
 - rebuildar `compliance-api`, `prometheus` e `grafana`
-- rerodar `python scripts/smoke_runtime.py` para confirmar target, regras e dashboard
+- rerodar `python3 scripts/smoke_runtime.py` para confirmar target, regras e dashboard
 
 ## Runbook 16A — Homologacao AML/KYT live controlada
 
@@ -484,7 +484,7 @@ curl -u admin:admin http://localhost:3001/api/dashboards/uid/ontrack-compliance-
 - preencher `COMPLIANCE_TRM_SCREENING_URL`, `COMPLIANCE_TRM_API_KEY`, `COMPLIANCE_TRM_API_KEY_HEADER` e `COMPLIANCE_TRM_API_KEY_PREFIX`
 - confirmar com o fornecedor o payload/endpoint esperado para screening
 - confirmar timeout e retries homologados em `COMPLIANCE_TRM_TIMEOUT_MS` e `COMPLIANCE_TRM_MAX_RETRIES`
-- executar `python scripts/preflight_external_integrations.py` com `ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=live` e `ONTRACKCHAIN_EXPECT_RPC_MODE=disabled` para validar URL, credencial e parametros antes da janela
+- executar `python3 scripts/preflight_external_integrations.py` com `ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=live` e `ONTRACKCHAIN_EXPECT_RPC_MODE=disabled` para validar URL, credencial e parametros antes da janela
 - definir `ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=live` no shell da janela para que o artefato automatizado capture o mesmo preflight da homologacao
 - validar que o endpoint `GET /api/v1/compliance/operations` expoe capability operacional para `kyc_wallet`
 - executar `make check-compliance-provider-runtime INTERNAL_BASE_URL=<url-interna> PUBLIC_BASE_URL=<url-publica>` como gate leve antes da homologacao pesada
@@ -507,23 +507,23 @@ curl -u admin:admin http://localhost:3001/api/dashboards/uid/ontrack-compliance-
    - usar `X-Request-Id` dedicado para facilitar correlacao
    - esperado: `provider_status=live`
    - esperado: `score_source=provider_live` na trilha auditada
-4. Executar `python scripts/smoke_runtime.py`
+4. Executar `python3 scripts/smoke_runtime.py`
    - esperado: `compliance_catalog` e `compliance_risk_check` verdes
 5. Exportar evidencias:
    - observacao: no baseline `local` do repositório, `COMPLIANCE_TRM_ENABLED=false`; portanto um artefato `status=ok` exige overrides serios de ambiente e provider real
-   - executar `python scripts/homologation_external_evidence.py --mode compliance`
+   - executar `python3 scripts/homologation_external_evidence.py --mode compliance`
    - esperado: artefato JSON em `artifacts/homologation/` com `preflight`, `provider-readiness`, catalogo, `risk-check` e bundle `/audit` correlacionado pelo mesmo `request_id`
    - anexar o `.json` e o `.manifest.json` gerados ao gate de release
 
 ### Runbook 16A — Homologacao AML/KYT live controlada — Evidencias Minimas
 
 - resposta de `provider-readiness` com `details.operating_mode=live`
-- resultado `status=ok` de `python scripts/preflight_external_integrations.py` para `COMPLIANCE_MODE=live`
+- resultado `status=ok` de `python3 scripts/preflight_external_integrations.py` para `COMPLIANCE_MODE=live`
 - resposta do catalogo de compliance com capability `live` para `kyc_wallet`
 - resposta de `risk-check` com `provider_status=live` ou degradacao controlada explicitamente documentada
 - `audit_logs` com `action=compliance_risk_checked`, `request_id`, `provider`, `provider_status`, `score_source`, `latency_ms` e `retries_used`
-- resultado recente de `python scripts/smoke_runtime.py`
-- artefato de `python scripts/homologation_external_evidence.py --mode compliance` com `status=ok`
+- resultado recente de `python3 scripts/smoke_runtime.py`
+- artefato de `python3 scripts/homologation_external_evidence.py --mode compliance` com `status=ok`
 - bundle de evidencias exportado de `/audit` anexado ao gate de release
 
 ### Runbook 16A — Homologacao AML/KYT live controlada — Falhas Aceitaveis
@@ -550,7 +550,7 @@ curl -u admin:admin http://localhost:3001/api/dashboards/uid/ontrack-compliance-
 - preencher `INVESTIGATION_RPC_PRIMARY_URL`
 - preencher `INVESTIGATION_RPC_FALLBACK_URL` quando houver segundo provider
 - confirmar timeout e retries homologados em `INVESTIGATION_RPC_TIMEOUT_MS` e `INVESTIGATION_RPC_MAX_RETRIES`
-- executar `python scripts/preflight_external_integrations.py` com `ONTRACKCHAIN_EXPECT_RPC_MODE=live|fallback_only` e `ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=disabled` para validar URLs e parametros antes da janela
+- executar `python3 scripts/preflight_external_integrations.py` com `ONTRACKCHAIN_EXPECT_RPC_MODE=live|fallback_only` e `ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=disabled` para validar URLs e parametros antes da janela
 - definir `ONTRACKCHAIN_EXPECT_RPC_MODE=live|fallback_only` no shell da janela para que o artefato automatizado capture o preflight coerente com a aprovacao esperada
 - confirmar qual resultado e aceitavel para a janela: `live` ou `fallback_only`
 - reservar janela curta de homologacao com owner de Backend Core e observabilidade ativa
@@ -570,24 +570,24 @@ curl -u admin:admin http://localhost:3001/api/dashboards/uid/ontrack-compliance-
    - esperado: `analysis_version=rpc_provider_v1`
    - esperado: `kyw_summary.rpc.provider_status=live|degraded`
    - esperado: `kyw_summary.rpc.rpc_source=provider_primary|provider_fallback`
-4. Executar `python scripts/smoke_runtime.py`
+4. Executar `python3 scripts/smoke_runtime.py`
    - esperado: `investigation_result` verde preservando `provider_status` e `rpc_source`
 5. Exportar evidencias:
    - observacao: no baseline `local` do repositório, `INVESTIGATION_RPC_ENABLED=false`; portanto um artefato `status=ok` exige URLs reais e overrides serios de ambiente
-   - executar `python scripts/homologation_external_evidence.py --mode rpc --rpc-expected-mode live|fallback_only`
+   - executar `python3 scripts/homologation_external_evidence.py --mode rpc --rpc-expected-mode live|fallback_only`
    - esperado: artefato JSON em `artifacts/homologation/` com `preflight`, `rpc-readiness`, `estimate`, `start`, `result` e bundle `/audit` correlacionado pelo mesmo `request_id`
    - anexar o `.json` e o `.manifest.json` gerados ao gate de release
 
 ### Runbook 16B — Homologacao RPC live controlada — Evidencias Minimas
 
 - resposta de `rpc-readiness` com `ready=true`
-- resultado `status=ok` de `python scripts/preflight_external_integrations.py` para o modo RPC esperado
+- resultado `status=ok` de `python3 scripts/preflight_external_integrations.py` para o modo RPC esperado
 - `details.operating_mode=live` ou `fallback_only`, conforme a janela aprovada
 - resultado final da investigation com `analysis_version=rpc_provider_v1`
 - `kyw_summary.rpc.provider_status` preenchido
 - `kyw_summary.rpc.rpc_source` igual a `provider_primary` ou `provider_fallback`
-- resultado recente de `python scripts/smoke_runtime.py`
-- artefato de `python scripts/homologation_external_evidence.py --mode rpc` com `status=ok`
+- resultado recente de `python3 scripts/smoke_runtime.py`
+- artefato de `python3 scripts/homologation_external_evidence.py --mode rpc` com `status=ok`
 - bundle de evidencias exportado de `/audit` anexado ao gate de release
 
 ### Runbook 16B — Homologacao RPC live controlada — Falhas Aceitaveis
@@ -613,7 +613,7 @@ curl -u admin:admin http://localhost:3001/api/dashboards/uid/ontrack-compliance-
 - obter a URL XML tokenizada oficial do feed da UE
 - preencher `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` no `.env.staging.private`
 - confirmar que `DATABASE_URL` aponta para o banco do ambiente-alvo
-- executar `python scripts/preflight_external_integrations.py` para validar `https` e bloquear URLs locais
+- executar `python3 scripts/preflight_external_integrations.py` para validar `https` e bloquear URLs locais
 - rebuildar ou reexecutar o `compliance-worker` com a env atualizada
 - reservar janela curta com owner de Compliance/Backend e observabilidade do worker ativa
 
@@ -656,7 +656,7 @@ make run-eu-sanctions-window \
 
 ### Runbook 16C — Homologacao do feed UE tokenizado — Evidencias Minimas
 
-- `python scripts/preflight_external_integrations.py` com `status=ok`
+- `python3 scripts/preflight_external_integrations.py` com `status=ok`
 - `make check-eu-sanctions-window` com `status=ok`
 - `EU_CONSOLIDATED` em `ACTIVE/SUCCESS`
 - `source_url` persistido igual ao valor de `COMPLIANCE_EU_SANCTIONS_SOURCE_URL`
@@ -708,7 +708,7 @@ curl -u admin:admin http://localhost:3001/api/dashboards/uid/ontrack-report-oper
 - revalidar `infra/observability/prometheus.yml` e `infra/observability/report.rules.yml`
 - revalidar `infra/observability/grafana/dashboards/report-operations.json`
 - rebuildar `report-api`, `prometheus` e `grafana`
-- rerodar `python scripts/smoke_runtime.py` para confirmar target, regras e dashboard
+- rerodar `python3 scripts/smoke_runtime.py` para confirmar target, regras e dashboard
 
 ## Runbook 18 — Alertmanager ou receiver interno indisponivel
 
@@ -740,7 +740,7 @@ curl -H 'X-API-Key: otc_live_demo_key' -H 'X-Role: ADMIN' http://localhost:8080/
 - aplicar `infra/postgres/migrations/0005_add_operational_alert_events.sql` se houver volume antigo
 - revalidar `infra/observability/alertmanager.yml` e `infra/observability/platform.rules.yml`
 - rebuildar `monitoring-api`, `prometheus` e `alertmanager`
-- rerodar `python scripts/smoke_runtime.py` para confirmar watchdog, roteamento e persistencia
+- rerodar `python3 scripts/smoke_runtime.py` para confirmar watchdog, roteamento e persistencia
 
 ## Runbook 19 — Triagem manual de incidente global nao persiste
 

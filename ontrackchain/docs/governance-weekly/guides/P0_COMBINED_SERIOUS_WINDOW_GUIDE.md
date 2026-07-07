@@ -29,7 +29,7 @@ Concentrar a ordem recomendada para executar uma janela seria combinada cobrindo
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
-python scripts/prepare_staging_window.py \
+python3 scripts/prepare_staging_window.py \
   --window-id <window_id> \
   --mode baseline \
   --private-env-file .env.staging.private \
@@ -46,8 +46,8 @@ Esperado:
 
 Executar em ordem:
 
-- `python scripts/preflight_oidc_serious_env.py`
-- `python scripts/smoke_auth_oidc_mode.py`
+- `python3 scripts/preflight_oidc_serious_env.py`
+- `python3 scripts/smoke_auth_oidc_mode.py`
 - `cd apps/frontend && npm ci && npm run test:e2e:oidc-critical`
 - `make run-oidc-readiness-bundle-local WINDOW_ID=<window_id> BASE_URL=http://localhost:8080`
 
@@ -60,10 +60,10 @@ Saidas esperadas:
 
 Executar em ordem:
 
-- `python scripts/preflight_external_integrations.py`
+- `python3 scripts/preflight_external_integrations.py`
 - `make check-compliance-provider-runtime INTERNAL_BASE_URL=http://compliance-api:8002 PUBLIC_BASE_URL=http://localhost:8080`
-- `python scripts/smoke_runtime.py`
-- `python scripts/homologation_external_evidence.py --mode compliance`
+- `python3 scripts/smoke_runtime.py`
+- `python3 scripts/homologation_external_evidence.py --mode compliance`
 
 Saidas esperadas:
 

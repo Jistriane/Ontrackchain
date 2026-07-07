@@ -17,13 +17,13 @@ Template serio para homologacao:
 - use [`.env.staging.example`](../.env.staging.example) como baseline de `staging` para OIDC, AML/KYT e RPC
 - o arquivo assume `APP_ENV=staging`, `AUTH_MODE=oidc`, `DEV_AUTH_ENABLED=false`, `COMPLIANCE_TRM_ENABLED=true` e `INVESTIGATION_RPC_ENABLED=true`
 - todos os campos `__FILL_*__` devem ser substituidos por secrets/URLs reais antes de rodar `preflight_oidc_serious_env.py`, `preflight_external_integrations.py` e `homologation_external_evidence.py`
-- execute `python scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md` para garantir que nenhum placeholder novo entrou no baseline sem owner, apoio e evidencia
-- execute `python scripts/render_staging_window_packet.py --window-id <janela> --output-file artifacts/staging/window-packet-<janela>.md` para registrar um pacote redigido da janela antes do preenchimento do `.env.staging.private`
-- execute `python scripts/check_staging_env_placeholders.py --file .env.staging.private` antes dos preflights para bloquear placeholders, ausencias e valores vazios em chaves criticas
+- execute `python3 scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md` para garantir que nenhum placeholder novo entrou no baseline sem owner, apoio e evidencia
+- execute `python3 scripts/render_staging_window_packet.py --window-id <janela> --output-file artifacts/staging/window-packet-<janela>.md` para registrar um pacote redigido da janela antes do preenchimento do `.env.staging.private`
+- execute `python3 scripts/check_staging_env_placeholders.py --file .env.staging.private` antes dos preflights para bloquear placeholders, ausencias e valores vazios em chaves criticas
 - distribua cada placeholder `__FILL_*__` conforme a matriz em [Ownership do `.env.staging`](staging-env-ownership.md) antes do preenchimento
-- execute `python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md` antes da janela para validar que todos os grupos obrigatorios sairam de `pending`
-- persista os JSONs desses checkers em `artifacts/staging/checks/` para que possam ser consolidados depois por `python scripts/build_staging_release_dossier.py`
-- para executar a janela ponta a ponta e persistir checks, preflights, homologacao e dossier em uma unica chamada, prefira `python scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private`
+- execute `python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md` antes da janela para validar que todos os grupos obrigatorios sairam de `pending`
+- persista os JSONs desses checkers em `artifacts/staging/checks/` para que possam ser consolidados depois por `python3 scripts/build_staging_release_dossier.py`
+- para executar a janela ponta a ponta e persistir checks, preflights, homologacao e dossier em uma unica chamada, prefira `python3 scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private`
 
 ## Variaveis Globais
 
@@ -187,10 +187,10 @@ Template de preenchimento:
 - ver [keycloak-oidc-template.md](keycloak-oidc-template.md) para um bloco `env`, exemplo de realm/client e checklist de rollout
 - ver [README.md](../infra/keycloak/README.md) para subir o `Keycloak` local, credenciais iniciais e limites conhecidos do scaffold
 - copiar [`.env.staging.example`](../.env.staging.example) para o arquivo privado do ambiente-alvo e substituir todos os placeholders `__FILL_*__`
-- executar `python scripts/check_staging_env_placeholders.py --file .env.staging.private` antes dos preflights para garantir que nao restaram placeholders ou secrets vazios
-- executar `python scripts/preflight_oidc_serious_env.py` antes do `smoke_auth_oidc_mode.py` em `staging|production`
-- executar `python scripts/preflight_external_integrations.py` antes das janelas de homologacao AML/KYT e RPC em `staging|production`
-- preferir `python scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private` quando o objetivo for gerar toda a trilha operacional da janela com saidas persistidas
+- executar `python3 scripts/check_staging_env_placeholders.py --file .env.staging.private` antes dos preflights para garantir que nao restaram placeholders ou secrets vazios
+- executar `python3 scripts/preflight_oidc_serious_env.py` antes do `smoke_auth_oidc_mode.py` em `staging|production`
+- executar `python3 scripts/preflight_external_integrations.py` antes das janelas de homologacao AML/KYT e RPC em `staging|production`
+- preferir `python3 scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private` quando o objetivo for gerar toda a trilha operacional da janela com saidas persistidas
 
 Servico principal:
 

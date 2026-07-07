@@ -126,17 +126,17 @@ Sequencia tecnica correspondente:
 
 1. copiar [`.env.staging.example`](../.env.staging.example) para `.env.staging.private`
 2. distribuir os placeholders por owner desta matriz
-3. executar `python scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md`
-4. gerar um pacote redigido da janela com `python scripts/render_staging_window_packet.py --window-id <janela> --output-file artifacts/staging/window-packet-<janela>.md`
+3. executar `python3 scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md`
+4. gerar um pacote redigido da janela com `python3 scripts/render_staging_window_packet.py --window-id <janela> --output-file artifacts/staging/window-packet-<janela>.md`
 5. preencher os valores reais em canal seguro
-6. rerodar o gate agregado com `python scripts/prepare_staging_window.py --window-id <janela> --mode baseline --private-env-file .env.staging.private --validate --preflight`
-7. seguir para `python scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private` apenas se o gate agregado retornar `status=ok`
+6. rerodar o gate agregado com `python3 scripts/prepare_staging_window.py --window-id <janela> --mode baseline --private-env-file .env.staging.private --validate --preflight`
+7. seguir para `python3 scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private` apenas se o gate agregado retornar `status=ok`
 8. anexar o `window packet`, os JSONs em `artifacts/staging/checks/`, a homologacao, o dossier final e, quando houver `P0-01`, o resumo `artifacts/staging/dossiers/<janela>-oidc-readiness-bundle.md`, alem do resumo `artifacts/staging/dossiers/<janela>-regulatory-readiness-bundle.md` quando houver `P0-02/P0-03`, ao sign-off da janela
 
 Atalho recomendado para o gate agregado:
 
 ```bash
-python scripts/prepare_staging_window.py \
+python3 scripts/prepare_staging_window.py \
   --window-id stg-YYYY-MM-DD-a \
   --mode baseline \
   --private-env-file .env.staging.private \
@@ -147,7 +147,7 @@ python scripts/prepare_staging_window.py \
 Atalho recomendado para execucao ponta a ponta, somente depois do gate agregado verde:
 
 ```bash
-python scripts/run_staging_window.py \
+python3 scripts/run_staging_window.py \
   --window-id stg-YYYY-MM-DD-a \
   --private-env-file .env.staging.private
 ```
@@ -161,7 +161,7 @@ O runner acima encapsula, em ordem, os gates de `ownership coverage`, `window pa
 Use o checker abaixo antes dos preflights:
 
 ```bash
-python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
+python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
 ```
 
 Status aceitos:

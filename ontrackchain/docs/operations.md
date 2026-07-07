@@ -54,7 +54,7 @@ curl -u admin:admin http://localhost:3002/api/health
 ### Runtime do projeto
 
 ```bash
-python scripts/smoke_runtime.py
+python3 scripts/smoke_runtime.py
 cd apps/frontend
 npm ci
 npm run test:e2e:oidc-critical
@@ -87,13 +87,13 @@ docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/pos
 ### Preflight de integracoes externas
 
 ```bash
-python scripts/preflight_external_integrations.py
+python3 scripts/preflight_external_integrations.py
 ```
 
 ### Pos-sync das listas
 
 ```bash
-python scripts/check_sanctions_sync_status.py
+python3 scripts/check_sanctions_sync_status.py
 ```
 
 ### Runtime do provider AML/KYT
@@ -136,7 +136,7 @@ Leitura operacional atual:
 Preencha `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` com a URL XML tokenizada oficial e reexecute:
 
 ```bash
-python scripts/preflight_external_integrations.py
+python3 scripts/preflight_external_integrations.py
 export WINDOW_ID=stg-$(date +%F)-eu
 make run-eu-sanctions-window-local WINDOW_ID=$WINDOW_ID
 ```
@@ -153,9 +153,9 @@ Fluxo recomendado:
 
 ```bash
 cp .env.staging.example .env.staging.private
-python scripts/check_staging_env_placeholders.py --file .env.staging.private
-python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
-python scripts/run_staging_window.py \
+python3 scripts/check_staging_env_placeholders.py --file .env.staging.private
+python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
+python3 scripts/run_staging_window.py \
   --window-id stg-YYYY-MM-DD-a \
   --private-env-file .env.staging.private
 ```
