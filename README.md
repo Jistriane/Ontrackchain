@@ -121,6 +121,144 @@ make run-regulatory-readiness-bundle-local \
 - [Gates de release](./ontrackchain/docs/project-release-gates.md)
 - [ADRs](./ontrackchain/docs/adrs/README.md)
 
+## Fluxos Canonicos do Projeto
+
+Os fluxos abaixo resumem o comportamento atual institucionalizado do `Ontrackchain`. Eles existem para onboarding executivo e navegacao rapida; o detalhamento normativo continua em `ontrackchain/docs/`.
+
+### 1. Fluxo de investigacao on-chain
+
+1. o usuario inicia a jornada pelo `frontend`
+2. o `auth-service` valida o contexto do ator e propaga headers internos
+3. o `investigation-api` calcula estimativa, inicia o caso e coordena a execucao
+4. `Redis` sustenta fila, retry, backoff, DLQ e limites de concorrencia
+5. o resultado consolidado volta para o cockpit com trilha de billing e auditoria
+
+### 2. Fluxo de screening e decisao regulatoria
+
+1. o `compliance-worker` sincroniza listas de sancoes localmente
+2. o `compliance-api` consulta `sanctions_hits_cache` sem depender de chamada externa por request
+3. o resultado pode gerar `audit_logs`, `evidence_trail`, `preventive_blocks` e `ros_records`
+4. a fila operacional compartilhada organiza handoff, ownership, SLA e comentarios entre operadores
+
+### 3. Fluxo de onboarding e contrapartes
+
+1. a contraparte entra por `POST /api/v1/compliance/counterparties`
+2. o `CounterpartyAgent` classifica risco, PEP, KYC/KYB e periodicidade de revisao
+3. a decisao persiste em `counterparties` e `counterparty_history`
+4. a evidência regulatoria e encadeada em `evidence_trail`
+
+### 4. Fluxo de reports e ROS/COAF
+
+1. o `report-api` gera relatorios deterministas e artefatos formais
+2. o workflow `ROS/COAF` passa por `PENDING_GENERATION`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED` e `SUBMITTED_MANUAL`
+3. cada transicao relevante emite trilha em `evidence_trail`
+4. submissao final ao regulador permanece manual e auditada
+
+### 5. Fluxo de governanca e janela seria
+
+1. o ciclo semanal revisa prioridades, matriz operacional, riscos e evidencias
+2. a promocao de maturidade depende de execucao real, evidência preservada, revisao humana e aprovacao formal
+3. a janela seria de staging executa preflight, readiness bundles, validacao operacional e dossier de fechamento
+4. a decisao final segue rito `go/no-go` com owners, sign-off e bloqueios explicitados
+
+## Diagramas do Projeto
+
+### Arquitetura Geral
+
+```mermaid
+flowchart LR
+    User[Usuario Operacional] --> Frontend[Frontend Next.js 14]
+    Frontend --> Traefik[Traefik Gateway]
+    Traefik --> Auth[auth-service]
+    Traefik --> Investigation[investigation-api]
+    Traefik --> Compliance[compliance-api]
+    Traefik --> Monitoring[monitoring-api]
+    Traefik --> Report[report-api]
+    Investigation --> Redis[(Redis)]
+    Investigation --> Postgres[(PostgreSQL com RLS)]
+    Compliance --> Postgres
+    Compliance --> Evidence[evidence_trail]
+    Compliance --> Audit[audit_logs]
+    Compliance --> Sanctions[sanctions_hits_cache]
+    Compliance --> Blocks[preventive_blocks]
+    Compliance --> Counterparties[counterparties]
+    Compliance --> Ros[ros_records]
+    Monitoring --> Alertmanager[Alertmanager]
+    Monitoring --> Postgres
+    Report --> Postgres
+    Worker[compliance-worker] --> Sanctions
+    Worker --> FeedEU[Feed UE]
+    Worker --> FeedOFAC[OFAC / UN / OpenSanctions]
+```
+
+### Fluxo de Investigacao On-Chain
+
+```mermaid
+sequenceDiagram
+    participant U as Usuario
+    participant F as Frontend
+    participant A as auth-service
+    participant I as investigation-api
+    participant R as Redis
+    participant P as PostgreSQL
+
+    U->>F: inicia investigacao
+    F->>A: solicita contexto autenticado
+    A-->>F: headers internos validados
+    F->>I: estimate / start
+    I->>R: enfileira execucao e retry
+    I->>P: persiste caso, billing e status
+    R-->>I: worker/status/result
+    I-->>F: resultado consolidado
+    F-->>U: cockpit com trilha auditavel
+```
+
+### Fluxo de Compliance Regulatorio
+
+```mermaid
+flowchart TD
+    Sync[compliance-worker sincroniza listas] --> Cache[sanctions_lists_meta + sanctions_hits_cache]
+    Cache --> Check[GET sanctions-check]
+    Check --> Match{houve match?}
+    Match -- nao --> Audit[audit_logs]
+    Match -- sim --> Block[PreventiveBlockAgent]
+    Block --> PB[preventive_blocks]
+    Block --> Evidence[evidence_trail]
+    Block --> Ros[ros_records quando aplicavel]
+    PB --> WorkItems[regulatory_work_items]
+    Evidence --> WorkItems
+    Audit --> WorkItems
+```
+
+### Fluxo da Fila Operacional Compartilhada
+
+```mermaid
+flowchart LR
+    Cockpits[Sanctions / Alerts / Cockpits] --> AppRouter[App Router /api/app/operations/work-items]
+    AppRouter --> ComplianceOps[compliance-api operations]
+    ComplianceOps --> Items[regulatory_work_items]
+    ComplianceOps --> Events[regulatory_work_events]
+    ComplianceOps --> Comments[regulatory_work_comments]
+    Items --> Owners[Owners e SLAs]
+    Events --> Timeline[Timeline auditavel]
+    Comments --> Handoff[Handoff e decisao]
+```
+
+### Fluxo de Governanca Semanal e Janela Seria
+
+```mermaid
+flowchart TD
+    Inputs[Board + Matriz + Riscos + Scorecard + Evidencias] --> Weekly[Governanca semanal]
+    Weekly --> Decision{ha evidencia nova?}
+    Decision -- nao --> Blocked[manter bloqueado ou sem promocao]
+    Decision -- sim --> Plan[definir owners, proximo passo e janela]
+    Plan --> Preflight[preflight de staging e integracoes]
+    Preflight --> Bundles[bundles OIDC / AML-KYT / UE]
+    Bundles --> Window[execucao da janela seria]
+    Window --> Dossier[dossier, dashboard, sign-off]
+    Dossier --> GoNoGo[decisao go/no-go]
+```
+
 ## Janela Seria
 
 Atalhos principais pela raiz:
