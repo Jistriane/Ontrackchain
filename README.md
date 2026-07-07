@@ -175,6 +175,30 @@ Este repositorio e dividido em dois niveis:
 4. executar a janela seria completa
 5. publicar a nova baseline oficial
 
+## Principais Decisoes Arquiteturais
+
+- **Screening local de sancoes:** o projeto privilegia cache local e sincronizacao recorrente em vez de chamada externa por request, reduzindo latencia e dependencia em tempo real
+- **Dupla trilha de prova:** `audit_logs` cobre operacao, suporte e correlacao por `request_id`, enquanto `evidence_trail` preserva cadeia regulatoria append-only
+- **`ROS/COAF` manual assistido:** a geracao e auditada e estruturada no sistema, mas a submissao final permanece humana para evitar acoplamento prematuro com trilhos externos
+- **Fila compartilhada antes de novos microservicos:** a camada `operations` foi incorporada ao `compliance-api` para reaproveitar `auth`, `tenant`, `RLS` e auditoria
+- **Promocao por evidencia:** maturidade nao sobe por configuracao pronta; sobe apenas por execucao real, evidencia preservada, revisao humana e aprovacao formal
+
+### ADRs Mais Relevantes
+
+- [`ADR-001`](./ontrackchain/docs/adrs/ADR-001-rls-multi-tenant.md): isolamento multi-tenant com `RLS`
+- [`ADR-003`](./ontrackchain/docs/adrs/ADR-003-audit-request-id.md): auditoria correlacionada por `request_id`
+- [`ADR-006`](./ontrackchain/docs/adrs/ADR-006-identidade-federada-e-users-locais.md): identidade federada e usuarios locais
+- [`ADR-009`](./ontrackchain/docs/adrs/ADR-009-continuation-strategy-hardening-first.md): estrategia `hardening first` e modularizacao guiada
+- [`ADR-010`](./ontrackchain/docs/adrs/ADR-010-promocao-de-maturidade-baseada-em-evidencia.md): regra formal de promocao de maturidade baseada em evidencia
+
+## Riscos Estruturais e Trade-offs
+
+- **Homologacao externa ainda e o gargalo principal:** `OIDC + MFA`, `AML/KYT live` e feed UE real dependem de credenciais, aceite institucional e repetibilidade operacional
+- **Cadeia formal de custodia ainda precisa de reforco organizacional:** os artefatos existem, mas classificacao de sensibilidade e sign-off recorrente ainda nao estao institucionalizados
+- **Fila compartilhada ainda nao cobre todos os cockpits:** `blocks`, `reports`, `counterparties`, `evidence` e `ros-coaf` ainda exigem expansao funcional para convergir no mesmo modelo operacional
+- **`manual_review_required` e uma escolha honesta, mas limita prontidao plena:** `due_diligence` e `source_of_funds` seguem fora de automacao completa por decisao consciente de produto e risco
+- **Mais rastreabilidade implica mais custo operacional:** separar `audit_logs` e `evidence_trail`, exigir bundles e sign-offs melhora governanca, mas eleva disciplina documental e carga de operacao
+
 ## Politica de Documentacao
 
 - este README da raiz existe para onboarding, visao executiva e navegacao
