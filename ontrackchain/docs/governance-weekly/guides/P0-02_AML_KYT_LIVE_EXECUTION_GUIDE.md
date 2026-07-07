@@ -18,6 +18,10 @@ Concentrar em um unico artefato o rito minimo para mover `P0-02` de `ready` para
 - [Staging Env Ownership](../../staging-env-ownership.md)
 - [Execution Checklist to 95 Percent](../../EXECUTION_CHECKLIST_TO_95_PERCENT.md)
 
+## Artefato Complementar
+
+- [Run Sheet Operacional de `P0-02` AML/KYT live](./P0-02_AML_KYT_LIVE_RUN_SHEET.md)
+
 ## Estado Inicial Esperado
 
 - `P0-02` ainda esta em `ready`
