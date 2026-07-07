@@ -90,6 +90,48 @@ Este repositorio e dividido em dois niveis:
 | `governance-weekly` | ritos semanais, war room, sign-offs e historico operacional | [`ontrackchain/docs/governance-weekly/README.md`](./ontrackchain/docs/governance-weekly/README.md) |
 | `release gates` | readiness, preflight, evidencias e decisao `go/no-go` | [`ontrackchain/docs/project-release-gates.md`](./ontrackchain/docs/project-release-gates.md) |
 
+## Como os Modulos se Conectam
+
+- `frontend` concentra a experiencia operacional e fala com a borda por rotas do `App Router` e chamadas internas
+- `Traefik` recebe o trafego e encaminha para os servicos corretos por dominio funcional
+- `auth-service` autentica o ator, resolve contexto federado e propaga headers de tenant, papel, MFA e correlacao
+- `investigation-api` usa esse contexto para abrir casos, persistir billing/status e orquestrar execucao com apoio do `Redis`
+- `compliance-api` reutiliza o mesmo contexto autenticado para screening, counterparties, bloqueios e `work-items`
+- `monitoring-api` recebe eventos globais do `Alertmanager` e alimenta os cockpits de operacao de plataforma
+- `report-api` consome o mesmo dominio persistido para gerar relatorios e governar o workflow `ROS/COAF`
+- `PostgreSQL` com `RLS` unifica persistencia multi-tenant, enquanto `audit_logs` e `evidence_trail` separam trilha operacional de trilha regulatoria
+- `compliance-worker` atualiza listas locais de sancoes e evita dependencia de provider externo em cada request
+
+## Leitura Recomendada por Perfil
+
+### Arquiteto / Lider Tecnico
+
+1. [`ontrackchain/docs/architecture.md`](./ontrackchain/docs/architecture.md)
+2. [`ontrackchain/docs/api-contracts.md`](./ontrackchain/docs/api-contracts.md)
+3. [`ontrackchain/docs/project-release-gates.md`](./ontrackchain/docs/project-release-gates.md)
+4. [`ontrackchain/docs/adrs/README.md`](./ontrackchain/docs/adrs/README.md)
+
+### Operacao / SRE / DevOps
+
+1. [`ontrackchain/docs/operations.md`](./ontrackchain/docs/operations.md)
+2. [`ontrackchain/docs/deploy-and-staging.md`](./ontrackchain/docs/deploy-and-staging.md)
+3. [`ontrackchain/docs/validation-and-audit.md`](./ontrackchain/docs/validation-and-audit.md)
+4. [`ontrackchain/docs/staging-serious-window-war-room-matrix.md`](./ontrackchain/docs/staging-serious-window-war-room-matrix.md)
+
+### Compliance / Regulacao
+
+1. [`ontrackchain/docs/regulatory-readiness.md`](./ontrackchain/docs/regulatory-readiness.md)
+2. [`ontrackchain/docs/evidence-and-audit-matrix.md`](./ontrackchain/docs/evidence-and-audit-matrix.md)
+3. [`ontrackchain/docs/compliance-and-security-controls.md`](./ontrackchain/docs/compliance-and-security-controls.md)
+4. [`ontrackchain/docs/project-maturity-evidence-execution-kit.md`](./ontrackchain/docs/project-maturity-evidence-execution-kit.md)
+
+### Produto / Stakeholders Executivos
+
+1. [`ontrackchain/docs/project-executive-readiness-brief.md`](./ontrackchain/docs/project-executive-readiness-brief.md)
+2. [`ontrackchain/docs/project-kpi-scorecard.md`](./ontrackchain/docs/project-kpi-scorecard.md)
+3. [`ontrackchain/docs/project-priority-board.md`](./ontrackchain/docs/project-priority-board.md)
+4. [`ontrackchain/docs/governance-weekly/README.md`](./ontrackchain/docs/governance-weekly/README.md)
+
 ## Politica de Documentacao
 
 - este README da raiz existe para onboarding, visao executiva e navegacao
