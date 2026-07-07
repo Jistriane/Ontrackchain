@@ -7,7 +7,7 @@ Can be used in GitHub Actions, GitLab CI, or any CI/CD platform.
 
 Usage:
   python3 evaluate_governance_gate.py \
-    --consolidated-json docs/governance-weekly/stg-2026-07-06-a-consolidated.json \
+    --consolidated-json docs/governance-weekly/generated/windows/stg-2026-07-06-a/stg-2026-07-06-a-consolidated.json \
     --gate-policy strict \
     [--operation merge|deploy|release]
 """

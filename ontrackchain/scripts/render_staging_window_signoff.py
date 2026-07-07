@@ -27,7 +27,13 @@ def extract_window_date(window_id: str) -> str:
 
 
 def default_governance_output_file(window_id: str, governance_weekly_dir: Path) -> Path:
-    return governance_weekly_dir / f"{extract_window_date(window_id)}-staging-serious-window-signoff.md"
+    window_date = extract_window_date(window_id)
+    return (
+        governance_weekly_dir
+        / "cycles"
+        / window_date
+        / f"{window_date}-staging-serious-window-signoff.md"
+    )
 
 
 def safe_get_step_status(steps: dict[str, Any], step_name: str, *, default: str = "pending") -> str:

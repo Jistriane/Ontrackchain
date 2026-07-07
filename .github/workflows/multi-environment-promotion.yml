@@ -92,7 +92,7 @@ jobs:
 
           echo "gate_policy=$POLICY" >> "$GITHUB_OUTPUT"
 
-          LATEST_JSON=$(ls -t docs/governance-weekly/*-consolidated.json 2>/dev/null | head -1)
+          LATEST_JSON=$(ls -t docs/governance-weekly/generated/windows/*/*-consolidated.json 2>/dev/null | head -1)
           if [ -z "$LATEST_JSON" ]; then
             echo "gate_allowed=false" >> "$GITHUB_OUTPUT"
             echo "No consolidated governance JSON found"

@@ -52,7 +52,7 @@ jobs:
         working-directory: ./ontrackchain
         run: |
           # Find latest consolidated JSON
-          LATEST_JSON=$(ls -t docs/governance-weekly/*-consolidated.json 2>/dev/null | head -1)
+          LATEST_JSON=$(ls -t docs/governance-weekly/generated/windows/*/*-consolidated.json 2>/dev/null | head -1)
           
           if [ -z "$LATEST_JSON" ]; then
             echo "No consolidated JSON found"
@@ -104,7 +104,7 @@ jobs:
             exit 0
           fi
 
-          LATEST_JSON=$(ls -t docs/governance-weekly/*-consolidated.json 2>/dev/null | head -1)
+          LATEST_JSON=$(ls -t docs/governance-weekly/generated/windows/*/*-consolidated.json 2>/dev/null | head -1)
           
           if [ -n "$LATEST_JSON" ]; then
             python3 scripts/alert_pagerduty_governance_blocks.py \

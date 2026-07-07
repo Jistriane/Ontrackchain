@@ -11,7 +11,8 @@ Usage:
     --window-id stg-2026-07-06-a \
     --checks-dir artifacts/staging/checks \
     --dossiers-dir artifacts/staging/dossiers \
-    --output-file docs/governance-weekly/stg-2026-07-06-a-consolidated.json
+    --docs-dir docs/governance-weekly/generated/windows/stg-2026-07-06-a \
+    --output-file docs/governance-weekly/generated/windows/stg-2026-07-06-a/stg-2026-07-06-a-consolidated.json
 """
 
 import argparse
@@ -244,7 +245,11 @@ def main():
     parser.add_argument('--window-id', required=True, help='Staging window ID (e.g., stg-2026-07-06-a)')
     parser.add_argument('--checks-dir', default='artifacts/staging/checks', help='Path to checks directory')
     parser.add_argument('--dossiers-dir', default='artifacts/staging/dossiers', help='Path to dossiers directory')
-    parser.add_argument('--docs-dir', default='docs/governance-weekly', help='Path to governance-weekly docs dir')
+    parser.add_argument(
+        '--docs-dir',
+        default='docs/governance-weekly',
+        help='Path to the governance artefacts directory for the target window (usually generated/windows/<window_id>)',
+    )
     parser.add_argument('--output-file', required=True, help='Output JSON file path')
     
     args = parser.parse_args()

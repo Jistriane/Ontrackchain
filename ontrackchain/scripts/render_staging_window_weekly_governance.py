@@ -21,7 +21,8 @@ def extract_window_date(window_id: str) -> str:
 
 
 def default_weekly_file(window_id: str, governance_weekly_dir: Path) -> Path:
-    return governance_weekly_dir / f"{extract_window_date(window_id)}-weekly-governance.md"
+    window_date = extract_window_date(window_id)
+    return governance_weekly_dir / "cycles" / window_date / f"{window_date}-weekly-governance.md"
 
 
 def safe_get_step(step_payload: dict[str, Any], step_name: str) -> dict[str, Any]:

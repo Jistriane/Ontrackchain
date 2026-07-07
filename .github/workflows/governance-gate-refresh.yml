@@ -48,7 +48,7 @@ jobs:
           if [ -n "${{ github.event.inputs.window_id }}" ]; then
             WINDOW_ID="${{ github.event.inputs.window_id }}"
           else
-            WINDOW_ID=$(ls -t docs/governance-weekly/*-consolidated.json 2>/dev/null | head -1 | sed 's|.*/||; s|-consolidated.json||')
+            WINDOW_ID=$(ls -t docs/governance-weekly/generated/windows/*/*-consolidated.json 2>/dev/null | head -1 | sed 's|.*/||; s|-consolidated.json||')
             if [ -z "$WINDOW_ID" ]; then
               WINDOW_ID="stg-2026-07-06-a"
             fi
@@ -69,7 +69,7 @@ jobs:
         working-directory: ./ontrackchain
         run: |
           python3 scripts/evaluate_governance_gate.py \
-            --consolidated-json "docs/governance-weekly/${{ steps.window.outputs.window_id }}-consolidated.json" \
+            --consolidated-json "docs/governance-weekly/generated/windows/${{ steps.window.outputs.window_id }}/${{ steps.window.outputs.window_id }}-consolidated.json" \
             --gate-policy moderate \
             --operation merge \
             --format json > gate_result.json
@@ -89,7 +89,7 @@ jobs:
           fi
 
           python3 scripts/notify_slack_governance.py \
-            --consolidated-json "docs/governance-weekly/${{ steps.window.outputs.window_id }}-consolidated.json" \
+            --consolidated-json "docs/governance-weekly/generated/windows/${{ steps.window.outputs.window_id }}/${{ steps.window.outputs.window_id }}-consolidated.json" \
             --webhook-url "$SLACK_WEBHOOK_URL" \
             --channel governance \
             --mention-on-red
@@ -111,14 +111,14 @@ jobs:
               '- **Status:** Check details above',
               '',
               '### Generated Files',
-              `- \`docs/governance-weekly/${{ steps.window.outputs.window_id }}-war-room-action-plan.md\``,
-              `- \`docs/governance-weekly/${{ steps.window.outputs.window_id }}-status-snapshot.md\``,
-              `- \`docs/governance-weekly/${{ steps.window.outputs.window_id }}-status-snapshot-delta.md\``,
-              `- \`docs/governance-weekly/${{ steps.window.outputs.window_id }}-governance-dashboard.md\``,
-              `- \`docs/governance-weekly/${{ steps.window.outputs.window_id }}-unblock-checklist.md\``,
-              `- \`docs/governance-weekly/${{ steps.window.outputs.window_id }}-comms-summary.md\``,
-              `- \`docs/governance-weekly/${{ steps.window.outputs.window_id }}-executive-bullet.md\``,
-              `- \`docs/governance-weekly/${{ steps.window.outputs.window_id }}-consolidated.json\``,
+              `- \`docs/governance-weekly/generated/windows/${{ steps.window.outputs.window_id }}/${{ steps.window.outputs.window_id }}-war-room-action-plan.md\``,
+              `- \`docs/governance-weekly/generated/windows/${{ steps.window.outputs.window_id }}/${{ steps.window.outputs.window_id }}-status-snapshot.md\``,
+              `- \`docs/governance-weekly/generated/windows/${{ steps.window.outputs.window_id }}/${{ steps.window.outputs.window_id }}-status-snapshot-delta.md\``,
+              `- \`docs/governance-weekly/generated/windows/${{ steps.window.outputs.window_id }}/${{ steps.window.outputs.window_id }}-governance-dashboard.md\``,
+              `- \`docs/governance-weekly/generated/windows/${{ steps.window.outputs.window_id }}/${{ steps.window.outputs.window_id }}-unblock-checklist.md\``,
+              `- \`docs/governance-weekly/generated/windows/${{ steps.window.outputs.window_id }}/${{ steps.window.outputs.window_id }}-comms-summary.md\``,
+              `- \`docs/governance-weekly/generated/windows/${{ steps.window.outputs.window_id }}/${{ steps.window.outputs.window_id }}-executive-bullet.md\``,
+              `- \`docs/governance-weekly/generated/windows/${{ steps.window.outputs.window_id }}/${{ steps.window.outputs.window_id }}-consolidated.json\``,
               '',
               `Run details: [View on GitHub](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`
             ].join('\n');
@@ -147,7 +147,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: governance-artefacts-${{ steps.window.outputs.window_id }}
-          path: ontrackchain/docs/governance-weekly/${{ steps.window.outputs.window_id }}-*.md
+          path: ontrackchain/docs/governance-weekly/generated/windows/${{ steps.window.outputs.window_id }}/*
           retention-days: 30
 
       - name: Log completion

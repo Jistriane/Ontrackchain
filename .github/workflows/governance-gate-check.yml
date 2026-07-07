@@ -78,7 +78,7 @@ jobs:
             WINDOW_ID="${{ github.event.inputs.window_id }}"
           else
             # Find most recent window
-            WINDOW_ID=$(ls -t docs/governance-weekly/*-consolidated.json 2>/dev/null | head -1 | sed 's|.*/||; s|-consolidated.json||')
+            WINDOW_ID=$(ls -t docs/governance-weekly/generated/windows/*/*-consolidated.json 2>/dev/null | head -1 | sed 's|.*/||; s|-consolidated.json||')
             if [ -z "$WINDOW_ID" ]; then
               WINDOW_ID="stg-2026-07-06-a"  # fallback
             fi
@@ -89,7 +89,7 @@ jobs:
       - name: Check Consolidated JSON exists
         working-directory: ./ontrackchain
         run: |
-          JSON_FILE="docs/governance-weekly/${{ steps.identify.outputs.window_id }}-consolidated.json"
+          JSON_FILE="docs/governance-weekly/generated/windows/${{ steps.identify.outputs.window_id }}/${{ steps.identify.outputs.window_id }}-consolidated.json"
           if [ ! -f "$JSON_FILE" ]; then
             echo "::warning::Consolidated JSON not found: $JSON_FILE"
             echo "Attempting to generate governance artefacts..."
@@ -105,7 +105,7 @@ jobs:
         run: |
           GATE_POLICY="${{ github.event.inputs.gate_policy || 'moderate' }}"
           GATE_OPERATION="${{ github.event.inputs.gate_operation || 'merge' }}"
-          JSON_FILE="docs/governance-weekly/${{ steps.identify.outputs.window_id }}-consolidated.json"
+          JSON_FILE="docs/governance-weekly/generated/windows/${{ steps.identify.outputs.window_id }}/${{ steps.identify.outputs.window_id }}-consolidated.json"
           
           echo "Policy: $GATE_POLICY"
           echo "Operation: $GATE_OPERATION"
@@ -233,7 +233,7 @@ jobs:
           fi
 
           python3 scripts/notify_slack_governance.py \
-            --consolidated-json "docs/governance-weekly/${{ needs.governance-gate-evaluation.outputs.window_id }}-consolidated.json" \
+            --consolidated-json "docs/governance-weekly/generated/windows/${{ needs.governance-gate-evaluation.outputs.window_id }}/${{ needs.governance-gate-evaluation.outputs.window_id }}-consolidated.json" \
             --webhook-url "$SLACK_WEBHOOK_URL" \
             --channel governance \
             --mention-on-red

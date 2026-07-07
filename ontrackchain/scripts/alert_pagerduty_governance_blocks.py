@@ -7,7 +7,7 @@ Integrates with deployment workflows for operational awareness.
 
 Usage:
   python3 alert_pagerduty_governance_blocks.py \
-    --consolidated-json docs/governance-weekly/{window_id}-consolidated.json \
+    --consolidated-json docs/governance-weekly/generated/windows/{window_id}/{window_id}-consolidated.json \
     --pagerduty-integration-key YOUR_KEY \
     --severity error|warning \
     --component production \

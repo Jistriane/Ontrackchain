@@ -40,7 +40,7 @@ jobs:
           if [ -n "${{ github.event.inputs.window_id }}" ]; then
             WINDOW_ID="${{ github.event.inputs.window_id }}"
           else
-            WINDOW_ID=$(ls -t docs/governance-weekly/*-consolidated.json 2>/dev/null | head -1 | sed 's|.*/||; s|-consolidated.json||')
+            WINDOW_ID=$(ls -t docs/governance-weekly/generated/windows/*/*-consolidated.json 2>/dev/null | head -1 | sed 's|.*/||; s|-consolidated.json||')
             if [ -z "$WINDOW_ID" ]; then
               echo "No consolidated JSON found"
               exit 1
@@ -59,7 +59,7 @@ jobs:
           fi
 
           python3 scripts/notify_slack_governance.py \
-            --consolidated-json "docs/governance-weekly/${{ steps.window.outputs.window_id }}-consolidated.json" \
+            --consolidated-json "docs/governance-weekly/generated/windows/${{ steps.window.outputs.window_id }}/${{ steps.window.outputs.window_id }}-consolidated.json" \
             --webhook-url "$SLACK_WEBHOOK_URL" \
             --channel governance \
             --mention-on-red

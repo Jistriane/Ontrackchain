@@ -54,7 +54,7 @@ jobs:
         id: window
         working-directory: ./ontrackchain
         run: |
-          WINDOW_ID=$(ls -t docs/governance-weekly/*-consolidated.json 2>/dev/null | head -1 | sed 's|.*/||; s|-consolidated.json||')
+          WINDOW_ID=$(ls -t docs/governance-weekly/generated/windows/*/*-consolidated.json 2>/dev/null | head -1 | sed 's|.*/||; s|-consolidated.json||')
           if [ -z "$WINDOW_ID" ]; then
             WINDOW_ID="stg-2026-07-06-a"
           fi
@@ -66,7 +66,7 @@ jobs:
         working-directory: ./ontrackchain
         run: |
           GATE_OUTPUT=$(python3 scripts/evaluate_governance_gate.py \
-            --consolidated-json "docs/governance-weekly/${{ steps.window.outputs.window_id }}-consolidated.json" \
+            --consolidated-json "docs/governance-weekly/generated/windows/${{ steps.window.outputs.window_id }}/${{ steps.window.outputs.window_id }}-consolidated.json" \
             --gate-policy strict \
             --operation deploy \
             --format github)
@@ -77,7 +77,7 @@ jobs:
           
           # Save full JSON for later steps
           python3 scripts/evaluate_governance_gate.py \
-            --consolidated-json "docs/governance-weekly/${{ steps.window.outputs.window_id }}-consolidated.json" \
+            --consolidated-json "docs/governance-weekly/generated/windows/${{ steps.window.outputs.window_id }}/${{ steps.window.outputs.window_id }}-consolidated.json" \
             --gate-policy strict \
             --operation deploy \
             --format json > gate_result.json

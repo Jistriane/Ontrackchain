@@ -7,6 +7,8 @@ ENVIRONMENT_NAME ?= staging-serious
 DISPATCH_PACKET_OUTPUT_FILE ?= ci-artifacts/serious-window-dispatch-packet-$(WINDOW_ID).md
 PAYLOAD_FILE ?= ci-artifacts/prepare-staging-window-output.json
 GOVERNANCE_WEEKLY_DIR ?= docs/governance-weekly
+WINDOW_ARTIFACTS_DIR ?= $(GOVERNANCE_WEEKLY_DIR)/generated/windows/$(WINDOW_ID)
+GATE_ARTIFACTS_DIR ?= $(GOVERNANCE_WEEKLY_DIR)/generated/gates
 RUN_URL ?= pending
 SIGNOFF_OUTPUT_FILE ?=
 PRIVATE_ENV_FILE ?= .env.staging.private
@@ -18,16 +20,16 @@ OIDC_BUNDLE_SUMMARY_FILE ?= artifacts/staging/dossiers/$(WINDOW_ID)-oidc-readine
 CHECKS_DIR ?= artifacts/staging/checks
 DOSSIERS_DIR ?= artifacts/staging/dossiers
 ART_SCOPE ?= P0-01,P0-02,P0-03
-WAR_ROOM_ACTION_PLAN_OUTPUT_FILE ?= docs/governance-weekly/$(WINDOW_ID)-war-room-action-plan.md
+WAR_ROOM_ACTION_PLAN_OUTPUT_FILE ?= $(WINDOW_ARTIFACTS_DIR)/$(WINDOW_ID)-war-room-action-plan.md
 STATUS_SNAPSHOT_OUTPUT_FILE ?= artifacts/staging/checks/$(WINDOW_ID)-status-snapshot.json
-STATUS_SNAPSHOT_MARKDOWN_OUTPUT_FILE ?= docs/governance-weekly/$(WINDOW_ID)-status-snapshot.md
+STATUS_SNAPSHOT_MARKDOWN_OUTPUT_FILE ?= $(WINDOW_ARTIFACTS_DIR)/$(WINDOW_ID)-status-snapshot.md
 STATUS_SNAPSHOT_HISTORY_DIR ?= artifacts/staging/checks/history
-STATUS_SNAPSHOT_DELTA_OUTPUT_FILE ?= docs/governance-weekly/$(WINDOW_ID)-status-snapshot-delta.md
-GOVERNANCE_DASHBOARD_OUTPUT_FILE ?= docs/governance-weekly/$(WINDOW_ID)-governance-dashboard.md
-UNBLOCK_CHECKLIST_OUTPUT_FILE ?= docs/governance-weekly/$(WINDOW_ID)-unblock-checklist.md
-COMMS_SUMMARY_OUTPUT_FILE ?= docs/governance-weekly/$(WINDOW_ID)-comms-summary.md
-EXECUTIVE_BULLET_OUTPUT_FILE ?= docs/governance-weekly/$(WINDOW_ID)-executive-bullet.md
-CONSOLIDATED_JSON_OUTPUT_FILE ?= docs/governance-weekly/$(WINDOW_ID)-consolidated.json
+STATUS_SNAPSHOT_DELTA_OUTPUT_FILE ?= $(WINDOW_ARTIFACTS_DIR)/$(WINDOW_ID)-status-snapshot-delta.md
+GOVERNANCE_DASHBOARD_OUTPUT_FILE ?= $(WINDOW_ARTIFACTS_DIR)/$(WINDOW_ID)-governance-dashboard.md
+UNBLOCK_CHECKLIST_OUTPUT_FILE ?= $(WINDOW_ARTIFACTS_DIR)/$(WINDOW_ID)-unblock-checklist.md
+COMMS_SUMMARY_OUTPUT_FILE ?= $(WINDOW_ARTIFACTS_DIR)/$(WINDOW_ID)-comms-summary.md
+EXECUTIVE_BULLET_OUTPUT_FILE ?= $(WINDOW_ARTIFACTS_DIR)/$(WINDOW_ID)-executive-bullet.md
+CONSOLIDATED_JSON_OUTPUT_FILE ?= $(WINDOW_ARTIFACTS_DIR)/$(WINDOW_ID)-consolidated.json
 SLACK_WEBHOOK_URL ?=
 GATE_POLICY ?= strict
 GATE_OPERATION ?= merge
@@ -299,6 +301,7 @@ validate-serious-window-artifact-local:
 		ART_SCOPE="P0-01,P0-02,P0-03"
 
 render-staging-war-room-action-plan:
+	@mkdir -p "$(dir $(WAR_ROOM_ACTION_PLAN_OUTPUT_FILE))"
 	@$(PYTHON) scripts/render_staging_war_room_action_plan.py \
 		--window-id "$(WINDOW_ID)" \
 		--checks-dir "$(CHECKS_DIR)" \
@@ -322,17 +325,20 @@ run-staging-window-status-snapshot-local:
 		STATUS_SNAPSHOT_DELTA_OUTPUT_FILE="$(STATUS_SNAPSHOT_DELTA_OUTPUT_FILE)"
 
 render-staging-window-status-snapshot:
+	@mkdir -p "$(dir $(STATUS_SNAPSHOT_MARKDOWN_OUTPUT_FILE))"
 	@$(PYTHON) scripts/render_staging_window_status_snapshot.py \
 		--snapshot-file "$(STATUS_SNAPSHOT_OUTPUT_FILE)" \
 		--output-file "$(STATUS_SNAPSHOT_MARKDOWN_OUTPUT_FILE)"
 
 render-staging-window-status-snapshot-delta:
+	@mkdir -p "$(dir $(STATUS_SNAPSHOT_DELTA_OUTPUT_FILE))"
 	@$(PYTHON) scripts/render_staging_window_status_snapshot_delta.py \
 		--window-id "$(WINDOW_ID)" \
 		--history-dir "$(STATUS_SNAPSHOT_HISTORY_DIR)" \
 		--output-file "$(STATUS_SNAPSHOT_DELTA_OUTPUT_FILE)"
 
 render-staging-governance-dashboard:
+	@mkdir -p "$(dir $(GOVERNANCE_DASHBOARD_OUTPUT_FILE))"
 	@$(PYTHON) scripts/render_staging_governance_dashboard.py \
 		--window-id "$(WINDOW_ID)" \
 		--history-dir "$(STATUS_SNAPSHOT_HISTORY_DIR)" \
@@ -342,12 +348,14 @@ render-staging-governance-dashboard:
 		--output-file "$(GOVERNANCE_DASHBOARD_OUTPUT_FILE)"
 
 render-staging-unblock-checklist:
+	@mkdir -p "$(dir $(UNBLOCK_CHECKLIST_OUTPUT_FILE))"
 	@$(PYTHON) scripts/render_staging_unblock_checklist.py \
 		--window-id "$(WINDOW_ID)" \
 		--snapshot-file "$(STATUS_SNAPSHOT_OUTPUT_FILE)" \
 		--output-file "$(UNBLOCK_CHECKLIST_OUTPUT_FILE)"
 
 render-staging-comms-summary:
+	@mkdir -p "$(dir $(COMMS_SUMMARY_OUTPUT_FILE))"
 	@$(PYTHON) scripts/render_staging_comms_summary.py \
 		--window-id "$(WINDOW_ID)" \
 		--snapshot-file "$(STATUS_SNAPSHOT_OUTPUT_FILE)" \
@@ -357,6 +365,7 @@ render-staging-comms-summary:
 		--output-file "$(COMMS_SUMMARY_OUTPUT_FILE)"
 
 render-staging-executive-bullet:
+	@mkdir -p "$(dir $(EXECUTIVE_BULLET_OUTPUT_FILE))"
 	@$(PYTHON) scripts/render_staging_executive_bullet.py \
 		--window-id "$(WINDOW_ID)" \
 		--snapshot-file "$(STATUS_SNAPSHOT_OUTPUT_FILE)" \
@@ -364,14 +373,16 @@ render-staging-executive-bullet:
 		--output-file "$(EXECUTIVE_BULLET_OUTPUT_FILE)"
 
 render-staging-governance-consolidated-json:
+	@mkdir -p "$(dir $(CONSOLIDATED_JSON_OUTPUT_FILE))"
 	@$(PYTHON) scripts/render_staging_governance_consolidated_json.py \
 		--window-id "$(WINDOW_ID)" \
 		--checks-dir "$(CHECKS_DIR)" \
 		--dossiers-dir "$(DOSSIERS_DIR)" \
-		--docs-dir "$(GOVERNANCE_WEEKLY_DIR)" \
+		--docs-dir "$(WINDOW_ARTIFACTS_DIR)" \
 		--output-file "$(CONSOLIDATED_JSON_OUTPUT_FILE)"
 
 refresh-staging-war-room-governance-local:
+	@mkdir -p "$(WINDOW_ARTIFACTS_DIR)" "$(GATE_ARTIFACTS_DIR)"
 	@$(MAKE) --no-print-directory render-staging-war-room-action-plan \
 		WINDOW_ID="$(WINDOW_ID)" \
 		CHECKS_DIR="$(CHECKS_DIR)" \
@@ -450,16 +461,17 @@ evaluate-governance-gate:
 # Phase 7: Production Deployment & Monitoring
 
 track-governance-history:
-	@mkdir -p artifacts/deployment-history
+	@mkdir -p artifacts/deployment-history "$(GATE_ARTIFACTS_DIR)"
 	@$(PYTHON) scripts/track_governance_history.py \
 		--history-dir artifacts/deployment-history \
-		--output-file "$(GOVERNANCE_WEEKLY_DIR)/gate-history-metrics.json" \
+		--output-file "$(GATE_ARTIFACTS_DIR)/gate-history-metrics.json" \
 		--generate-report
 
 render-governance-gate-history-dashboard:
+	@mkdir -p "$(GATE_ARTIFACTS_DIR)"
 	@$(PYTHON) scripts/render_governance_gate_history_dashboard.py \
-		--metrics-file "$(GOVERNANCE_WEEKLY_DIR)/gate-history-metrics.json" \
-		--output-file "$(GOVERNANCE_WEEKLY_DIR)/gate-history-dashboard.md" \
+		--metrics-file "$(GATE_ARTIFACTS_DIR)/gate-history-metrics.json" \
+		--output-file "$(GATE_ARTIFACTS_DIR)/gate-history-dashboard.md" \
 		--include-trending
 
 update-governance-metrics:

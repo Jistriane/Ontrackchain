@@ -6,7 +6,7 @@ Sends consolidated governance state to Slack with rich formatting.
 
 Usage:
   python3 notify_slack_governance.py \
-    --consolidated-json docs/governance-weekly/stg-2026-07-06-a-consolidated.json \
+    --consolidated-json docs/governance-weekly/generated/windows/stg-2026-07-06-a/stg-2026-07-06-a-consolidated.json \
     --webhook-url https://hooks.slack.com/services/... \
     [--channel governance] \
     [--mention-on-red true]
@@ -79,7 +79,6 @@ def build_slack_message(consolidated, channel="governance", mention_on_red=False
                 "fallback": f"Ontrackchain | {window_id} | {status} | {signal}",
                 "color": color,
                 "title": f"{emoji} Ontrackchain Governance Update",
-                "title_link": f"file:///docs/governance-weekly/{window_id}-consolidated.json",
                 "fields": [
                     {
                         "title": "Window ID",
