@@ -4,6 +4,22 @@
 
 Plataforma de investigacao e compliance on-chain com foco em trilha auditavel, fila operacional multiusuario, screening local de sancoes e governanca de release para ambientes serios.
 
+## Sumario
+
+- [O Que Este Repositorio Contem](#o-que-este-repositorio-contem)
+- [Estado Atual](#estado-atual)
+- [Arquitetura em 60 Segundos](#arquitetura-em-60-segundos)
+- [Mapa Rapido de Modulos](#mapa-rapido-de-modulos)
+- [Politica de Documentacao](#politica-de-documentacao)
+- [Quick Start](#quick-start)
+- [Mapa Canonico](#mapa-canonico)
+- [Fluxos Canonicos do Projeto](#fluxos-canonicos-do-projeto)
+- [Diagramas do Projeto](#diagramas-do-projeto)
+- [Janela Seria](#janela-seria)
+- [Estrutura do Repositorio](#estrutura-do-repositorio)
+- [Riscos Residuais](#riscos-residuais)
+- [Proximo Passo Recomendado](#proximo-passo-recomendado)
+
 ## O Que Este Repositorio Contem
 
 Este repositorio e dividido em dois niveis:
@@ -45,6 +61,34 @@ Este repositorio e dividido em dois niveis:
   - `ros_records`
   - cockpits operacionais tri-locale no frontend
   - `monitoring` decomposto em hooks, loaders e paineis dedicados
+
+## Arquitetura em 60 Segundos
+
+- `Traefik` centraliza a borda e roteia requisicoes para os servicos internos
+- `auth-service` valida identidade, contexto `OIDC`, MFA e headers internos de tenant/ator
+- `frontend` em `Next.js 14` atua como cockpit operacional tri-locale e camada de orquestracao de UX
+- `investigation-api` concentra estimativa, abertura, status e resultado de investigacoes on-chain
+- `compliance-api` concentra screening, counterparties, bloqueios preventivos e fila operacional compartilhada
+- `monitoring-api` recebe webhooks do `Alertmanager` e sustenta a operacao global de incidentes
+- `report-api` gera relatorios deterministas e governa o workflow `ROS/COAF`
+- `PostgreSQL` com `RLS` persiste o dominio multi-tenant; `Redis` sustenta fila, retry, DLQ e concorrencia
+- `audit_logs` cobre trilha operacional; `evidence_trail` cobre cadeia regulatoria append-only
+- `compliance-worker` sincroniza listas locais de sancoes e reduz dependencia externa por request
+
+## Mapa Rapido de Modulos
+
+| Modulo | Responsabilidade Principal | Documento Canonico |
+| --- | --- | --- |
+| `auth-service` | autenticacao, contexto federado, validacao de headers internos e MFA | [`ontrackchain/docs/keycloak-oidc-template.md`](./ontrackchain/docs/keycloak-oidc-template.md) |
+| `frontend` | cockpits operacionais, App Router, tri-locale e UX regulatoria | [`ontrackchain/docs/frontend-coverage-matrix.md`](./ontrackchain/docs/frontend-coverage-matrix.md) |
+| `investigation-api` | estimativa, abertura, execucao e resultado de investigacoes | [`ontrackchain/docs/architecture.md`](./ontrackchain/docs/architecture.md) |
+| `compliance-api` | sanctions-check, counterparties, preventive blocks e work-items | [`ontrackchain/docs/architecture.md`](./ontrackchain/docs/architecture.md) |
+| `monitoring-api` | ingestao de alertas, operacao global e remediacao | [`ontrackchain/docs/architecture.md`](./ontrackchain/docs/architecture.md) |
+| `report-api` | reports deterministas, downloads sensiveis e `ROS/COAF` | [`ontrackchain/docs/api-contracts.md`](./ontrackchain/docs/api-contracts.md) |
+| `PostgreSQL` | persistencia multi-tenant, trilhas operacionais e regulatorias | [`ontrackchain/docs/architecture.md`](./ontrackchain/docs/architecture.md) |
+| `Redis` | fila, retry, backoff, DLQ e concorrencia operacional | [`ontrackchain/docs/architecture.md`](./ontrackchain/docs/architecture.md) |
+| `governance-weekly` | ritos semanais, war room, sign-offs e historico operacional | [`ontrackchain/docs/governance-weekly/README.md`](./ontrackchain/docs/governance-weekly/README.md) |
+| `release gates` | readiness, preflight, evidencias e decisao `go/no-go` | [`ontrackchain/docs/project-release-gates.md`](./ontrackchain/docs/project-release-gates.md) |
 
 ## Politica de Documentacao
 
