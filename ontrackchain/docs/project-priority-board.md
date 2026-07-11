@@ -2,26 +2,29 @@
 
 ## Objetivo
 
-Consolidar a visao estrategica das iniciativas necessarias para levar o Ontrackchain de runtime tecnicamente maduro (`91%`) para operacao regulatoriamente convincente e repetivel (`95%+`).
+Consolidar a visao estrategica das iniciativas necessarias para levar o Ontrackchain de runtime tecnicamente maduro (`92%`) para operacao regulatoriamente convincente e repetivel (`95%+`).
 
 ## Baseline Atual
 
-- `91%` de construcao tecnica
-- `78%` de prontidao regulatoria
-- `87%` de construcao total consolidada
+- `92%` de construcao tecnica
+- `79%` de prontidao regulatoria
+- `88%` de construcao total consolidada
 
 Baseline canonica de referencia:
 
 - [Avaliacao Consolidada de Status do Projeto](./assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md)
-- [Continuation Execution Plan](./history/CONTINUATION_EXECUTION_PLAN_2026_07.md)
-- [Governanca Semanal 2026-07-06](governance-weekly/cycles/2026-07-06/2026-07-06-weekly-governance.md)
+- [Plano Consolidado ate 95%](./project-construction-plan-to-95-percent.md)
+- [Governanca Semanal](./governance-weekly/README.md)
+- [Ciclo Ativo 2026-07-13](./governance-weekly/cycles/2026-07-13/README.md)
+- [Governanca Semanal 2026-07-06](governance-weekly/cycles/2026-07-06/2026-07-06-weekly-governance.md): ultimo registro fechado de referencia
 - [Tracking Sprint 4 Dia 5](governance-weekly/archive/sprint-tracking/2026-07-07-sprint-4-day-5-tracking.md)
 
 Leitura executiva:
 
-- a baseline institucionalizada permanece `91/78/87`
+- a baseline institucionalizada passa a ser `92/79/88`
 - o maior ganho remanescente nao vem de scaffold novo, mas de homologacao externa, readiness operacional e aceite institucional
 - as frentes de frontend e operacao passaram a focar hardening, decomposicao de cockpits densos e reducao de drift documental
+- o ciclo vivo de decisao humana passa por `docs/governance-weekly/cycles/2026-07-13/`, enquanto `2026-07-06` permanece como ultimo corte fechado
 
 ## Prioridades P0 — Move KPI e destrava prontidao regulatoria
 
@@ -57,7 +60,7 @@ Leitura executiva:
 | ID | Status | Iniciativa | Motivo |
 | --- | --- | --- | --- |
 | P3-01 | todo | Implantar vault/secrets de producao | eliminar segredos em `.env` em ambiente de producao |
-| P3-02 | todo | Reforcar cadeia de custodia com selagem/assinatura | `evidence_trail` com assinatura digital ou equivalente |
+| P3-02 | in_progress | Endurecer cadeia de custodia com selagem institucional homologada | baseline forte DD/SoF ja entregue; falta provider institucional definitivo, trust bundle versionado e eventual TSA/ancora externa |
 | P3-03 | todo | Formalizar war room, escalacao e RCA cross-domain | playbook de incident response repetivel |
 | P3-04 | todo | Automatizar promocao superior com menos passos manuais | reduzir fricao no fluxo `staging -> producao` |
 
@@ -75,7 +78,7 @@ Leitura executiva:
 - janela seria com `run_staging_window.py` + war room + dossier
 - alinhamento `sanctions_check` catalogo x endpoint direto live
 - inventario de eventos `evidence_trail` com source of truth unico
-- baseline `91/78/87` institucionalizada na governanca semanal
+- baseline `92/79/88` institucionalizada na documentacao viva e pronta para publicacao no proximo ciclo semanal
 - timeline/comments integrada em `ros-coaf`, `evidence`, `counterparties`, `reports`, `blocks`
 - timeline/comments integrada em todos os cockpits parciais: `blocks`, `sanctions`, `alerts`, `ros-coaf`, `evidence`, `counterparties`, `reports`
 
@@ -88,7 +91,7 @@ As entregas de timeline/workspace ja estao institucionalizadas. O sequenciamento
 3. ~~`historico de sanctions por endereco`~~: **entregue** — painel de histórico em `/sanctions`
 4. ~~`workspace de evidencias rastreadas`~~: **entregue** — painel de histórico em `/evidence`
 5. ~~`historico de blocks, ros-coaf e alerts`~~: **entregue** — paineis de histórico em `/blocks`, `/ros-coaf` e `/alerts`
-6. `cadeia de custodia expandida em evidence`: selagem/assinatura ou equivalente auditavel (P3 — sem bloqueio funcional imediato)
+6. `cadeia de custodia expandida em evidence`: baseline funcional entregue; manter P3 aberto apenas para endurecimento institucional (provider homologado, trust bundle e prova temporal complementar)
 
 Estado atual do rollout de ownership:
 
@@ -103,15 +106,15 @@ Em paralelo, se credencial/URL disponivel:
 
 | Ciclo | Tecnico | Regulatorio | Total |
 | --- | ---: | ---: | ---: |
-| Baseline atual | 91% | 78% | 87% |
-| Sprint 5 + P0-02/03 (T1) | 91%+ | 82% | 90%+ |
+| Baseline atual | 92% | 79% | 88% |
+| Sprint 5 + P0-02/03 (T1) | 92%+ | 82% | 90%+ |
 | T2 (governanca aceita) | 93% | 88% | 92%+ |
 | T3 (custodia forte) | **95%** | 90%+ | **95%** |
 
 ## Regra de Baseline
 
-- manter `91% / 78% / 87%` como referencia executiva ate existir nova evidencia material publicada na governanca semanal
+- manter `92% / 79% / 88%` como referencia executiva ate existir nova evidencia material publicada na governanca semanal
 - usar [Avaliacao Consolidada de Status do Projeto](./assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md) como parecer executivo padrao para comunicacao com stakeholders e decisoes de `go/no-go`
-- usar [Continuation Execution Plan](./history/CONTINUATION_EXECUTION_PLAN_2026_07.md) quando a necessidade for comunicar sequenciamento executivo ou proxima frente de entrega
+- usar [Plano Consolidado ate 95%](./project-construction-plan-to-95-percent.md) quando a necessidade for comunicar sequenciamento executivo ou proxima frente de entrega
 - nao promover `P0-01`, `P0-02` ou `P0-03` sem artefato real, checker verde ou aceite institucional correspondente
 - nao marcar `P1-S5-*` como `done` sem o `WorkItemTimelinePanel` operacional e chaves de i18n completas no modulo

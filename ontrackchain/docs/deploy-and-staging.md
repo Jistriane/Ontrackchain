@@ -222,7 +222,21 @@ make run-serious-window-local WINDOW_ID=<janela> MODE=baseline
 
 - [Gates de Release para Staging Serio](project-release-gates.md): decidir `go/no-go` formal
 - [Governanca Semanal](./governance-weekly/README.md): tracking e sign-off por ciclo
-- [War Room da Janela](governance-weekly/cycles/2026-07-06/2026-07-06-staging-serious-window-war-room.md): quando houver coordenacao multi-owner
+- [Pacote Final de Execucao da Janela Seria Integrada](governance-weekly/guides/SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md): sequencia canonica, reconciliacao e criterio de sign-off
+
+Quando a execucao gerar `prepare-staging-window-output.json`, sincronizar a camada executiva com:
+
+```bash
+make postprocess-serious-window \
+  RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
+```
+
+Saida executiva esperada do pós-processamento:
+
+- `ci-artifacts/staging-serious-window-signoff.md`
+- sign-off versionado em `docs/governance-weekly/cycles/<data>/`
+- `go/no-go decision packet` versionado em `docs/governance-weekly/cycles/<data>/`
+- sincronizacao do registro semanal e do board operacional global
 
 Comandos auxiliares continuam canônicos para janelas com provedores reais:
 

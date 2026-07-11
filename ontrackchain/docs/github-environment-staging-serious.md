@@ -138,7 +138,7 @@ Antes de abrir `Actions`, validar o handoff e gerar o packet operacional com:
 
 ```bash
 make prepare-serious-window-dispatch \
-  WINDOW_ID="stg-2026-07-06-a"
+  WINDOW_ID="stg-YYYY-MM-DD-a"
 ```
 
 1. abrir `Actions`
@@ -154,6 +154,19 @@ Resultado esperado:
 - artifact `serious-staging-window-<janela>`
 - `GITHUB_STEP_SUMMARY` com status geral, status de `validation`, `preflight` e `run`
 - `checks`, `dossier`, `window packet`, `homologation` e, quando aplicável, os resumos do `oidc-readiness-bundle` e do `regulatory-readiness-bundle` anexados
+
+Depois de baixar o artifact do workflow, sincronizar a camada executiva com:
+
+```bash
+make postprocess-serious-window \
+  RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
+```
+
+Saida adicional esperada do pós-processamento:
+
+- sign-off versionado em `docs/governance-weekly/cycles/<data>/`
+- `go/no-go decision packet` versionado em `docs/governance-weekly/cycles/<data>/`
+- sincronizacao do registro semanal e do board operacional global
 
 ## Critérios de Go/No-Go
 

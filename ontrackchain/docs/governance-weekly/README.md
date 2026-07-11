@@ -28,6 +28,12 @@ Cada arquivo desta pasta deve representar um ciclo semanal fechado, contendo:
 - decisões
 - ações da próxima semana
 
+## Regra de Leitura
+
+- considere como `ativo` apenas o ciclo corrente ainda em preparação ou execução
+- trate ciclos datados anteriores como registro operacional fechado, mesmo quando permaneçam em `cycles/` por valor de consulta
+- use `archive/` para histórico frio consolidado e `cycles/` para histórico operacional navegável por data
+
 ## Convenção de Nome
 
 Formato recomendado dentro de `cycles/<data>/`:
@@ -52,7 +58,7 @@ Exemplo:
 
 Para atualizar o pacote operacional local da janela seria em uma linha, usar:
 
-- `make refresh-staging-war-room-governance-local WINDOW_ID=stg-2026-07-06-a`
+- `make refresh-staging-war-room-governance-local WINDOW_ID=stg-YYYY-MM-DD-a`
 
 Esse comando atualiza:
 
@@ -65,20 +71,46 @@ Esse comando atualiza:
 - resumo executivo de uma linha
 - **JSON consolidado machine-readable** com toda a governança (para CI/CD gates, bots, dashboards)
 
+Observacao importante:
+
+- este comando atualiza apenas o pacote gerado em `docs/governance-weekly/generated/windows/<window_id>/`
+- ele nao gera sozinho o `sign-off` versionado do ciclo nem o `go/no-go decision packet`
+- para artefatos executivos derivados do payload consolidado, use o pós-processamento da janela séria
+
+## Pos-Processamento Executivo da Janela
+
+Quando existir `ci-artifacts/prepare-staging-window-output.json`, o fluxo canonico para sincronizar os artefatos humanos do ciclo e a leitura executiva e:
+
+- `make postprocess-serious-window RUN_URL=https://github.com/<org>/<repo>/actions/runs/<run_id>`
+
+Esse comando:
+
+- atualiza `ci-artifacts/staging-serious-window-signoff.md`
+- gera o sign-off versionado em `docs/governance-weekly/cycles/<data>/`
+- gera o `go/no-go decision packet` versionado em `docs/governance-weekly/cycles/<data>/`
+- sincroniza o registro semanal correspondente
+- sincroniza o board operacional global a partir do mesmo payload consolidado
+
+Para execucao local ponta a ponta, o atalho:
+
+- `make run-serious-window-local WINDOW_ID=stg-YYYY-MM-DD-a MODE=baseline`
+
+ja executa o pós-processamento automaticamente ao final do runner da janela.
+
 ### Notificação Slack (Opcional)
 
 Para enviar o resumo de governança para Slack webhook:
 
 ```bash
 export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-make notify-slack-governance WINDOW_ID=stg-2026-07-06-a
+make notify-slack-governance WINDOW_ID=stg-YYYY-MM-DD-a
 ```
 
 Ou durante o refresh completo (automaticamente skipado se webhook não estiver configurado):
 
 ```bash
 make refresh-staging-war-room-governance-local \
-  WINDOW_ID=stg-2026-07-06-a \
+  WINDOW_ID=stg-YYYY-MM-DD-a \
   SLACK_WEBHOOK_URL="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
 ```
 
@@ -95,7 +127,7 @@ Para avaliar se a governança permite uma operação CI/CD:
 ```bash
 # Apenas merge allowed em VERDE + GO (strict)
 make evaluate-governance-gate \
-  WINDOW_ID=stg-2026-07-06-a \
+  WINDOW_ID=stg-YYYY-MM-DD-a \
   GATE_POLICY=strict \
   GATE_OPERATION=merge
 ```
@@ -124,7 +156,7 @@ Exemplo de uso em CI/CD:
 ```bash
 # GitHub Actions
 make evaluate-governance-gate \
-  WINDOW_ID=stg-2026-07-06-a \
+  WINDOW_ID=stg-YYYY-MM-DD-a \
   GATE_POLICY=strict \
   GATE_OPERATION=deploy \
   --format github --exit-code
@@ -146,15 +178,24 @@ make evaluate-governance-gate \
 - [Ciclo 2026-07-06](cycles/2026-07-06/README.md)
 - [Ciclo 2026-07-13](cycles/2026-07-13/README.md)
 
-### Governança Ativa (Leitura Direta)
+### Ciclo Ativo em Preparação
 
-- [Governança Semanal 2026-07-06](cycles/2026-07-06/2026-07-06-weekly-governance.md)
-- [Preparação da Governança 2026-07-06](cycles/2026-07-06/2026-07-06-governance-meeting-prep.md)
 - [Rascunho da Governança Semanal 2026-07-13](cycles/2026-07-13/2026-07-13-weekly-governance-draft.md)
 - [Governança Semanal Operacional 2026-07-13](cycles/2026-07-13/2026-07-13-weekly-governance-operational.md)
 - [Rascunho de Execucao por Evidencia 2026-07-13](cycles/2026-07-13/2026-07-13-maturity-evidence-execution-draft.md)
+- [Run Sheet Datada `stg-2026-07-13-a`](cycles/2026-07-13/2026-07-13-first-combined-serious-window-run-sheet.md)
+- [Bridge Quick-Fill `stg-2026-07-13-a`](cycles/2026-07-13/2026-07-13-staging-serious-window-bridge-quick-fill.md)
+- [Go/No-Go Decision Packet `stg-2026-07-13-a`](cycles/2026-07-13/2026-07-13-staging-serious-window-go-no-go-decision-packet.md)
+- [War Room `stg-2026-07-13-a`](cycles/2026-07-13/2026-07-13-staging-serious-window-war-room.md)
+- [Tracking ao Vivo `stg-2026-07-13-a`](cycles/2026-07-13/2026-07-13-staging-serious-window-live-tracking.md)
+- [Sign-Off `stg-2026-07-13-a`](cycles/2026-07-13/2026-07-13-staging-serious-window-signoff.md)
 
-### Janela Séria Ativa `stg-2026-07-06-a`
+### Ciclo Fechado Mais Recente
+
+- [Governança Semanal 2026-07-06](cycles/2026-07-06/2026-07-06-weekly-governance.md)
+- [Preparação da Governança 2026-07-06](cycles/2026-07-06/2026-07-06-governance-meeting-prep.md)
+
+### Janela Séria Datada `stg-2026-07-06-a`
 
 - [War Room](cycles/2026-07-06/2026-07-06-staging-serious-window-war-room.md)
 - [Tracking ao Vivo](cycles/2026-07-06/2026-07-06-staging-serious-window-live-tracking.md)

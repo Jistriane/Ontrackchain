@@ -1,5 +1,7 @@
 # Template de Sign-Off da Janela Séria
 
+> Template de apoio/legado. O sign-off vivo da janela seria deve ser derivado do payload consolidado via `postprocess_staging_window_artifact.py` e publicado em `docs/governance-weekly/cycles/<data>/`.
+
 ## Identificação
 
 - `window_id`:

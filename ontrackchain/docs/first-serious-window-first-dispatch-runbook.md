@@ -1,5 +1,7 @@
 # Runbook do Primeiro Disparo Real
 
+> Documento de apoio historico. Para execucao viva e canônica da janela seria integrada, use `docs/governance-weekly/guides/SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md`. Para artefatos executivos da tentativa corrente, use o ciclo ativo em `docs/governance-weekly/cycles/`.
+
 ## Objetivo
 
 Executar a primeira janela séria de staging com disciplina operacional suficiente para produzir evidências anexáveis e um `go/no-go` defensável.

@@ -11,7 +11,7 @@ Este documento complementa:
 - [Deploy e Staging](deploy-and-staging.md)
 - [Owners e SLAs Operacionais](operational-ownership-and-slas.md)
 - [Matriz de Execucao por Owner para Janela Seria](staging-serious-window-war-room-matrix.md)
-- [Folha de Preenchimento Manual da Janela `stg-2026-07-06-a`](governance-weekly/cycles/2026-07-06/2026-07-06-staging-serious-window-manual-fill-sheet.md)
+- [Governanca Semanal](./governance-weekly/README.md)
 
 ## Escopo Canonico
 
@@ -20,12 +20,13 @@ Use este documento para:
 - atribuir ownership nominal aos placeholders e grupos de handoff do `.env.staging.private`
 - registrar `Data` e `Status` humanos que bloqueiam ou liberam o preflight da janela
 - cruzar owners do ambiente com os dominios operacionais executados no war room
+- servir como base de handoff para a `run sheet`, `bridge quick-fill` e `decision packet` do ciclo ativo
 
 Nao use este documento como fonte primaria para:
 
 - coordenar war room, tracking ou decisao `go/no-go`: use os artefatos vivos em `docs/governance-weekly/`
-- Refira-se a [Governanca Semanal](./governance-weekly/README.md) para tracking do ciclo atual.
-- preencher rapidamente contatos, canais e bridges da janela corrente: use a [Folha de Preenchimento Manual da Janela `stg-2026-07-06-a`](governance-weekly/cycles/2026-07-06/2026-07-06-staging-serious-window-manual-fill-sheet.md)
+- use o indice do ciclo ativo em [Governanca Semanal](./governance-weekly/README.md) para tracking e decisao corrente
+- preencher rapidamente contatos, canais e bridges da janela corrente: use a `run sheet` datada e a `bridge quick-fill` do ciclo ativo
 
 ## Regra Geral
 

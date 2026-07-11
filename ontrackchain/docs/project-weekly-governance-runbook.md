@@ -55,6 +55,7 @@ Antes da reunião, o facilitador deve reunir:
    - resultado de `make check-compliance-provider-runtime` quando houver `AML/KYT live`
    - `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json` quando houver `P0-03`
    - artifact `serious-staging-window-<janela>` quando houver janela séria via CI controlado
+   - `go/no-go decision packet` da janela, quando houver payload consolidado pós-processado
    - sign-offs formais recebidos
    - registro `D1-D7` quando houver execucao guiada pelo kit de evidencia
 6. lista de itens `blocked`, itens com prazo alvo vencido e itens sem artefato atualizado
@@ -188,6 +189,7 @@ Ao final de cada reunião, devem existir:
 - matriz de war room revisada quando houver janela seria no ciclo
 - war room versionado quando houver decisao `go/no-go` formal da janela
 - tracking ao vivo versionado quando houver acompanhamento minuto a minuto da janela
+- `decision packet` versionado quando a janela tiver payload consolidado e reconciliacao executiva
 
 Quando houver recalibracao relevante do scorecard, anexar ou embutir um bloco baseado em:
 
@@ -235,6 +237,7 @@ Registro inicial publicado:
 - [Governança Semanal 2026-06-29](governance-weekly/archive/weekly/2026-06-29-weekly-governance.md)
 - rascunho da janela do dia: [Governança Semanal 2026-06-30](governance-weekly/archive/weekly/2026-06-30-weekly-governance.md)
 - rascunho do próximo ciclo: [Governança Semanal 2026-07-06](governance-weekly/cycles/2026-07-06/2026-07-06-weekly-governance.md)
+- ciclo ativo mais recente: [Ciclo 2026-07-13](governance-weekly/cycles/2026-07-13/README.md)
 
 ## Checklist de Fechamento
 

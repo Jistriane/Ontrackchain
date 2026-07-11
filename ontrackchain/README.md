@@ -19,9 +19,11 @@ Aqui vivem:
 ## Estado Atual
 
 - baseline oficial:
-  - `91%` de construcao tecnica
-  - `78%` de prontidao regulatoria/operacional
-  - `87%` de maturidade consolidada
+  - `92%` de construcao tecnica
+  - `79%` de prontidao regulatoria/operacional
+  - `88%` de maturidade consolidada
+- para baseline corrente, priorizar `docs/README.md`, `docs/project-kpi-scorecard.md` e `docs/project-maturity-assessment.md`
+- o assessment `docs/assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md` permanece como corte formal de calibracao e `go/no-go`, nao como baseline viva
 - stack local suportada:
   - `Traefik`
   - `FastAPI`
@@ -95,7 +97,7 @@ docker compose --profile oidc up -d --build
 ### 2. Validar runtime, banco e frontend
 
 ```bash
-python scripts/smoke_runtime.py
+python3 scripts/smoke_runtime.py
 make apply-regulatory-work-items-migration
 make smoke-work-items-ownership-backend
 
@@ -115,7 +117,7 @@ Observacoes:
 ### 3. Validar readiness serio
 
 ```bash
-python scripts/preflight_external_integrations.py
+python3 scripts/preflight_external_integrations.py
 make check-compliance-provider-runtime \
   INTERNAL_BASE_URL=http://compliance-api:8002 \
   PUBLIC_BASE_URL=http://localhost:8080
@@ -132,6 +134,7 @@ Artefatos esperados:
 - `artifacts/staging/dossiers/<janela>-oidc-readiness-bundle.md`
 - `artifacts/staging/checks/<janela>-regulatory-readiness-bundle.json`
 - `artifacts/staging/dossiers/<janela>-regulatory-readiness-bundle.md`
+- o bundle OIDC agora tambem resume `readiness.readiness_status` (`blocked`, `ready`, `ready_for_validation`) para leitura executiva da trilha `P0-01`
 
 ## Operacao de Janela Seria
 

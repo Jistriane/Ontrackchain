@@ -2,26 +2,27 @@
 
 ## Objetivo
 
-Servir como rascunho da proxima revisao semanal de governanca, derivado do estado consolidado em `2026-07-06`, do plano de continuidade e dos gatilhos legitimos de avanço definidos para `P0-01`, `P0-02`, `P0-03` e `RUN-STG-01`.
+Servir como rascunho da proxima revisao semanal de governanca, derivado do estado consolidado em `2026-07-06`, do plano consolidado vigente e dos gatilhos legitimos de avanço definidos para `P0-01`, `P0-02`, `P0-03` e `RUN-STG-01`.
 
 Este documento deve ser convertido em registro semanal final apenas quando houver evidencia nova revisavel ou confirmacao formal de que os bloqueios permanecem.
 
 ## Leitura do Ciclo
 
-- baseline tecnica esperada de referencia: `91%`
-- baseline regulatoria esperada de referencia: `78%`
-- baseline consolidada esperada de referencia: `87%`
+- baseline tecnica esperada de referencia: `92%`
+- baseline regulatoria esperada de referencia: `79%`
+- baseline consolidada esperada de referencia: `88%`
 - foco da semana: decidir se houve prova material suficiente para mover algum `P0`, fechar `RUN-STG-01` ou manter a baseline oficialmente sem recalibracao
 
 ## Contexto da Revisao
 
 - origem do snapshot anterior:
-  - [Plano Consolidado de Continuidade e Execucao](../../../history/CONTINUATION_EXECUTION_PLAN_2026_07.md)
+  - [Plano Consolidado ate 95%](../../../project-construction-plan-to-95-percent.md)
   - [Governança Semanal 2026-07-06](../2026-07-06/2026-07-06-weekly-governance.md)
 - janela seria em observacao:
-  - `window_id`: `stg-2026-07-06-a`
+  - `window_id`: `stg-2026-07-13-a`
+  - artefatos vivos do ciclo: `war room`, `tracking`, `run sheet`, `bridge quick-fill`, `sign-off` e `decision packet`
 - criterio macro:
-  - manter `91% / 78% / 87%` se nao houver artefato novo revisavel
+  - manter `92% / 79% / 88%` se nao houver artefato novo revisavel
   - recalibrar apenas se houver checker/bundle/dossie/sign-off com valor operacional real
 
 ## Perguntas-Chave do Encontro
@@ -34,38 +35,55 @@ Este documento deve ser convertido em registro semanal final apenas quando houve
 
 ## Evidencias Revisadas - Preencher no Encontro
 
-- artifact principal da janela: `serious-staging-window-stg-2026-07-06-a: pending`
-- overall status: `failed` no snapshot consolidado mais recente
-- validation status: `ok` em `validate_serious_window_artifact`
-- preflight status: `failed` no rerun factual mais recente
-- run status: `failed` por `placeholder_check` e `handoff_check`
+- artifact principal da janela: `serious-staging-window-stg-2026-07-13-a: pending`
+- overall status: `pending` na tentativa datada ainda em preparacao
+- validation status: `pending`, aguardando payload consolidado real
+- preflight status: `pending`, aguardando gate agregado da janela datada
+- run status: `pending`, aguardando insumos reais e owners online
 - window packet: `pending`
 - dossier: `pending`
 - homologation: `pendente de evidencia externa real`
-- oidc bundle summary: `stg-2026-07-06-a-oidc-readiness-bundle.json`, sem homologacao real
-- regulatory bundle summary: `stg-2026-07-06-a-regulatory-readiness-bundle.json`, sem credencial real homologada
+- oidc bundle summary: `P0-01` segue `blocked` por provider serio nao homologado
+- regulatory bundle summary: `P0-02/P0-03` preparados documentalmente, mas ainda sem prova material real na mesma janela
+- decision packet: `pending_no_go`, aguardando owners online, credencial AML/KYT real e URL UE tokenizada
+
+## Matriz Minima de Evidencia para Mover o KPI
+
+| Frente | Owner primario | Evidencia minima obrigatoria | Estado que pode mover | Efeito executivo esperado |
+| --- | --- | --- | --- | --- |
+| `P0-02` `AML/KYT live` | `Compliance/AML` | `check-compliance-provider-runtime` verde com credencial real + JSON persistido + revisao em governanca | `ready_for_validation` | habilita discutir saida de `88%` para `89%` se a prova for revisavel |
+| `P0-03` feed UE real | `Compliance/Backend` | URL tokenizada valida + `eu-sanctions-preflight.json` + `eu-sanctions-sync.json` + `check_sanctions_sync_status.py` coerente | `ready_for_validation` | habilita discutir saida de `88%` para `89%` se a prova for revisavel |
+| `P0-01` `OIDC + MFA` serio | `Security/Auth` | `preflight_oidc_serious_env.py` verde + `smoke_auth_oidc_mode.py` verde + bundle OIDC + Playwright critico verde com provider real | `ready_for_validation` | reduz risco critico, mas sozinho nao justifica nova baseline sem o fechamento regulatorio correspondente |
+| `P0-04` bundle regulatorio oficial | `Platform/SRE` | `<window>-regulatory-readiness-bundle.json/.md` consolidando `P0-02` e `P0-03` sem erro residual nao classificado | `done` | habilita discutir travessia legitima para `90%+` |
+| `RUN-STG-01` primeira janela seria | `Platform/SRE + Governanca` | artifact oficial + packet + dossier + war room + sign-off formal | `done` | habilita recalibracao executiva mais forte e reduz dependencia de narrativa |
+
+Regras sinteticas:
+
+- uma unica prova isolada de `P0-02` ou `P0-03` pode sustentar debate de `89%`, mas nao de `90%+`
+- `90%+` exige prova combinada e revisavel de readiness regulatoria, preferencialmente fechando `P0-04`
+- `P0-01` reduz risco institucional, mas deve ser lido como multiplicador de confianca, nao como gatilho unico de score
 
 ## KPI da Semana - Decisao Esperada
 
 ### Cenario A - Sem evidencia material nova
 
-- construcao tecnica: `91%`
-- prontidao regulatoria: `78%`
-- KPI total consolidado: `87%`
+- construcao tecnica: `92%`
+- prontidao regulatoria: `79%`
+- KPI total consolidado: `88%`
 - houve recalibracao material?: `nao`
 
 ### Cenario B - Avanco real em `P0-02` e/ou `P0-03`
 
-- construcao tecnica: `91-93%`
+- construcao tecnica: `92-93%`
 - prontidao regulatoria: `82-84%`
-- KPI total consolidado: `88-89%`
+- KPI total consolidado: `89-90%`
 - houve recalibracao material?: `sim`, se houver bundle/artefato revisavel
 
 ### Cenario C - Fechamento de `RUN-STG-01` com dossie aceito
 
 - construcao tecnica: `93-95%`
 - prontidao regulatoria: `85-88%`
-- KPI total consolidado: `91%`
+- KPI total consolidado: `92%`
 - houve recalibracao material?: `sim`
 
 ## Itens para Revisao
@@ -79,6 +97,9 @@ Este documento deve ser convertido em registro semanal final apenas quando houve
   - se houver checker + JSON: `ready_for_validation`
   - se houver checker + bundle consolidado revisado: `done`
   - se nao houver credencial real: manter `ready`
+- impacto minimo no KPI:
+  - isoladamente, pode sustentar debate de `89%` quando a prova for revisavel
+  - combinado com `P0-03` e `P0-04`, pode sustentar discussao de `90%+`
 
 ### `P0-03` feed UE real
 
@@ -89,6 +110,9 @@ Este documento deve ser convertido em registro semanal final apenas quando houve
   - se houver JSONs validos: `ready_for_validation`
   - se houver bundle regulatorio final revisado: `done`
   - se nao houver URL valida: manter `ready`
+- impacto minimo no KPI:
+  - isoladamente, pode sustentar debate de `89%` quando a prova for revisavel
+  - combinado com `P0-02` e `P0-04`, pode sustentar discussao de `90%+`
 
 ### `P0-01` `OIDC + MFA` serio
 
@@ -99,6 +123,9 @@ Este documento deve ser convertido em registro semanal final apenas quando houve
   - se houver execucao parcial seria: `in_progress`
   - se houver bundle valido aguardando revisao final: `ready_for_validation`
   - se nao houver provider real: manter `blocked`
+- impacto minimo no KPI:
+  - reduz risco critico e fortalece `go/no-go`
+  - nao deve mover baseline sozinho sem fechamento regulatorio correspondente
 
 ### `RUN-STG-01` primeira janela seria
 
@@ -144,8 +171,8 @@ Este documento deve ser convertido em registro semanal final apenas quando houve
   - owner da escalacao: `Compliance/Backend`
 
 - ID: `RUN-STG-01`
-  - motivo: janela continua em `no-go`, com `12` placeholders e `8` handoffs pendentes
-  - dependencia externa: provisao de secrets/URLs reais e fechamento de `date/status` por dominio
+  - motivo: janela `stg-2026-07-13-a` segue em `pending_no_go`, aguardando owners online, credencial AML/KYT real e URL UE tokenizada
+  - dependencia externa: provisao de secrets/URLs reais e checkpoint agregado verde para a tentativa datada
   - owner da escalacao: `Release Manager Tecnico`
 
 ## Decisoes Esperadas do Encontro
@@ -158,8 +185,8 @@ Este documento deve ser convertido em registro semanal final apenas quando houve
 ### Posicao Base Esperada na Ausencia de Novas Evidencias
 
 - decisao executiva: `manter baseline`
-- KPI oficial: `91% / 78% / 87%`
-- leitura da janela: `pre-serious-window` com `no-go` operacional mantido
+- KPI oficial: `92% / 79% / 88%`
+- leitura da janela: `dress_rehearsal_controlado` com `pending_no_go` operacional mantido
 - proximo melhor candidato a avanço: `P0-02` ou `P0-03`, dependendo da primeira credencial externa valida disponivel
 - principal escalacao da semana: `P0-01`, por depender de provider OIDC serio e aceite institucional
 

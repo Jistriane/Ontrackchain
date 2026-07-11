@@ -6,23 +6,68 @@ Plataforma modular de investigacao e compliance on-chain, com foco em trilha aud
 
 ## Sumario
 
-- [O Que Este Repositorio Contem](#o-que-este-repositorio-contem)
-- [Estado Atual](#estado-atual)
-- [Arquitetura em 60 Segundos](#arquitetura-em-60-segundos)
-- [Mapa Rapido de Modulos](#mapa-rapido-de-modulos)
-- [Como os Modulos se Conectam](#como-os-modulos-se-conectam)
-- [Leitura Recomendada por Perfil](#leitura-recomendada-por-perfil)
-- [Matriz de Fluxos Criticos](#matriz-de-fluxos-criticos)
-- [Prontidao Rumo a 95%](#prontidao-rumo-a-95)
-- [Politica de Documentacao](#politica-de-documentacao)
-- [Quick Start](#quick-start)
-- [Mapa Canonico](#mapa-canonico)
-- [Fluxos Canonicos do Projeto](#fluxos-canonicos-do-projeto)
-- [Diagramas do Projeto](#diagramas-do-projeto)
-- [Janela Seria](#janela-seria)
-- [Estrutura do Repositorio](#estrutura-do-repositorio)
-- [Riscos Residuais](#riscos-residuais)
-- [Proximo Passo Recomendado](#proximo-passo-recomendado)
+- [Ontrackchain](#ontrackchain)
+  - [Sumario](#sumario)
+  - [Leitura em 2 Minutos](#leitura-em-2-minutos)
+  - [O Que Este Repositorio Contem](#o-que-este-repositorio-contem)
+  - [Estado Atual](#estado-atual)
+  - [Arquitetura em 60 Segundos](#arquitetura-em-60-segundos)
+  - [Mapa Rapido de Modulos](#mapa-rapido-de-modulos)
+  - [Como os Modulos se Conectam](#como-os-modulos-se-conectam)
+  - [Leitura Recomendada por Perfil](#leitura-recomendada-por-perfil)
+    - [Arquiteto / Lider Tecnico](#arquiteto--lider-tecnico)
+    - [Operacao / SRE / DevOps](#operacao--sre--devops)
+    - [Compliance / Regulacao](#compliance--regulacao)
+    - [Produto / Stakeholders Executivos](#produto--stakeholders-executivos)
+  - [Matriz de Fluxos Criticos](#matriz-de-fluxos-criticos)
+  - [Prontidao Rumo a 95%](#prontidao-rumo-a-95)
+    - [Capacidades Consolidadas](#capacidades-consolidadas)
+    - [Bloqueadores para `95%`](#bloqueadores-para-95)
+    - [Ordem Recomendada de Fechamento](#ordem-recomendada-de-fechamento)
+  - [Principais Decisoes Arquiteturais](#principais-decisoes-arquiteturais)
+    - [ADRs Mais Relevantes](#adrs-mais-relevantes)
+  - [Riscos Estruturais e Trade-offs](#riscos-estruturais-e-trade-offs)
+  - [Politica de Documentacao](#politica-de-documentacao)
+  - [Quick Start](#quick-start)
+    - [1. Subir a stack local](#1-subir-a-stack-local)
+    - [2. Validar o baseline local](#2-validar-o-baseline-local)
+    - [3. Validar integracoes externas e readiness serio](#3-validar-integracoes-externas-e-readiness-serio)
+    - [4. Sincronizar a camada executiva da janela seria](#4-sincronizar-a-camada-executiva-da-janela-seria)
+  - [Mapa Canonico](#mapa-canonico)
+  - [Fluxos Canonicos do Projeto](#fluxos-canonicos-do-projeto)
+    - [1. Fluxo de investigacao on-chain](#1-fluxo-de-investigacao-on-chain)
+    - [2. Fluxo de screening e decisao regulatoria](#2-fluxo-de-screening-e-decisao-regulatoria)
+    - [3. Fluxo de onboarding e contrapartes](#3-fluxo-de-onboarding-e-contrapartes)
+    - [4. Fluxo de reports e ROS/COAF](#4-fluxo-de-reports-e-roscoaf)
+    - [5. Fluxo de governanca e janela seria](#5-fluxo-de-governanca-e-janela-seria)
+  - [Diagramas do Projeto](#diagramas-do-projeto)
+    - [Arquitetura Geral](#arquitetura-geral)
+    - [Fluxo de Investigacao On-Chain](#fluxo-de-investigacao-on-chain)
+    - [Fluxo de Compliance Regulatorio](#fluxo-de-compliance-regulatorio)
+    - [Fluxo da Fila Operacional Compartilhada](#fluxo-da-fila-operacional-compartilhada)
+    - [Fluxo de Governanca Semanal e Janela Seria](#fluxo-de-governanca-semanal-e-janela-seria)
+  - [Janela Seria](#janela-seria)
+  - [Estrutura do Repositorio](#estrutura-do-repositorio)
+  - [Riscos Residuais](#riscos-residuais)
+  - [Proximo Passo Recomendado](#proximo-passo-recomendado)
+
+## Leitura em 2 Minutos
+
+Se este e seu primeiro contato pela `main` do GitHub, leia nesta ordem:
+
+1. [Estado Atual](#estado-atual)
+2. [Mapa Canonico](#mapa-canonico)
+3. [Janela Seria](#janela-seria)
+4. [README tecnico da aplicacao](./ontrackchain/README.md)
+5. [Indice canonico da documentacao](./ontrackchain/docs/README.md)
+
+Leitura executiva curta:
+
+- o projeto esta em `92% tecnico / 79% regulatorio-operacional / 88% consolidado`
+- a arquitetura principal ja esta conectada ponta a ponta entre `frontend`, APIs FastAPI, `PostgreSQL`, `Redis` e observabilidade
+- o maior gap remanescente nao e scaffold, e sim homologacao externa real de `P0-01`, `P0-02` e `P0-03`
+- o ciclo humano ativo hoje e `2026-07-13`, com a tentativa `stg-2026-07-13-a` ainda em `pending_no_go`
+- o README da raiz e uma visao GitHub/onboarding; a verdade canônica continua em `ontrackchain/docs/`
 
 ## O Que Este Repositorio Contem
 
@@ -35,9 +80,11 @@ Este repositorio e dividido em dois niveis:
 ## Estado Atual
 
 - baseline oficial atual:
-  - `91%` de construcao tecnica
-  - `78%` de prontidao regulatoria/operacional
-  - `87%` de maturidade consolidada
+  - `92%` de construcao tecnica
+  - `79%` de prontidao regulatoria/operacional
+  - `88%` de maturidade consolidada
+- para baseline corrente, priorizar `ontrackchain/docs/README.md`, `project-kpi-scorecard.md` e `project-maturity-assessment.md`
+- o assessment datado `PROJECT_STATUS_ASSESSMENT_2026_07_03.md` continua valido como parecer formal de corte, mas nao substitui a baseline viva atual
 - stack local executavel com `docker compose`:
   - `Traefik`
   - `FastAPI`
@@ -65,6 +112,7 @@ Este repositorio e dividido em dois niveis:
   - `ros_records`
   - cockpits operacionais tri-locale no frontend
   - `monitoring` decomposto em hooks, loaders e paineis dedicados
+  - `go/no-go decision packet` derivado do payload consolidado da janela seria
 
 ## Arquitetura em 60 Segundos
 
@@ -205,6 +253,8 @@ Este repositorio e dividido em dois niveis:
 - [`ontrackchain/README.md`](./ontrackchain/README.md) e a porta de entrada tecnica da aplicacao
 - [`ontrackchain/docs/README.md`](./ontrackchain/docs/README.md) e o indice canonico da documentacao
 - [Governanca Semanal](./ontrackchain/docs/governance-weekly/README.md) guarda artefatos datados, sign-offs, war room e historico operacional
+- artefatos gerados da janela vivem em `ontrackchain/docs/governance-weekly/generated/windows/<window_id>/`
+- artefatos humanos do ciclo vivo, incluindo `sign-off` e `decision packet`, vivem em `ontrackchain/docs/governance-weekly/cycles/<data>/`
 - documentos paralelos fora dessa trilha devem ser consolidados ou removidos para evitar drift
 
 ## Quick Start
@@ -228,7 +278,7 @@ docker compose --profile oidc up -d --build
 
 ```bash
 cd ontrackchain
-python scripts/smoke_runtime.py
+python3 scripts/smoke_runtime.py
 make apply-regulatory-work-items-migration
 make smoke-work-items-ownership-backend
 
@@ -249,7 +299,7 @@ Comandos adicionais de frontend:
 
 ```bash
 cd ontrackchain
-python scripts/preflight_external_integrations.py
+python3 scripts/preflight_external_integrations.py
 make check-compliance-provider-runtime \
   INTERNAL_BASE_URL=http://compliance-api:8002 \
   PUBLIC_BASE_URL=http://localhost:8080
@@ -259,6 +309,23 @@ make run-regulatory-readiness-bundle-local \
   INTERNAL_BASE_URL=http://compliance-api:8002 \
   PUBLIC_BASE_URL=http://localhost:8080
 ```
+
+### 4. Sincronizar a camada executiva da janela seria
+
+Quando existir `ci-artifacts/prepare-staging-window-output.json`, sincronize os artefatos executivos com:
+
+```bash
+cd ontrackchain
+make postprocess-serious-window \
+  RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
+```
+
+Saidas esperadas:
+
+- `ci-artifacts/staging-serious-window-signoff.md`
+- sign-off versionado em `docs/governance-weekly/cycles/<data>/`
+- `go/no-go decision packet` versionado em `docs/governance-weekly/cycles/<data>/`
+- sincronizacao do registro semanal e do board operacional global
 
 ## Mapa Canonico
 
@@ -312,7 +379,8 @@ Os fluxos abaixo resumem o comportamento atual institucionalizado do `Ontrackcha
 1. o ciclo semanal revisa prioridades, matriz operacional, riscos e evidencias
 2. a promocao de maturidade depende de execucao real, evidência preservada, revisao humana e aprovacao formal
 3. a janela seria de staging executa preflight, readiness bundles, validacao operacional e dossier de fechamento
-4. a decisao final segue rito `go/no-go` com owners, sign-off e bloqueios explicitados
+4. o pos-processamento executivo deriva `sign-off` e `go/no-go decision packet` do mesmo payload consolidado
+5. a decisao final segue rito `go/no-go` com owners, bloqueios explicitados e artefatos coerentes entre ciclo e camada gerada
 
 ## Diagramas do Projeto
 
@@ -418,9 +486,9 @@ Atalhos principais pela raiz:
 
 ```bash
 make help-serious-window
-make prepare-serious-window-dispatch WINDOW_ID=stg-2026-07-06-a
-make render-serious-window-dispatch-packet WINDOW_ID=stg-2026-07-06-a
-make run-serious-window-local WINDOW_ID=stg-2026-07-06-a MODE=baseline
+make prepare-serious-window-dispatch WINDOW_ID=stg-YYYY-MM-DD-a
+make render-serious-window-dispatch-packet WINDOW_ID=stg-YYYY-MM-DD-a
+make run-serious-window-local WINDOW_ID=stg-YYYY-MM-DD-a MODE=baseline
 make postprocess-serious-window RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
 ```
 
@@ -429,7 +497,9 @@ Leitura executiva atual:
 - `P0-01`: homologacao OIDC + MFA federado ainda depende de evidencia real recorrente
 - `P0-02`: provider `AML/KYT live` pronto para validacao com credencial real
 - `P0-03`: feed `EU_CONSOLIDATED` pronto para fechar com URL tokenizada real
-- janela `stg-2026-07-06-a`: segue `no-go` ate preencher handoff, ownership e secrets reais
+- ciclo ativo: `2026-07-13`
+- janela humana corrente: `stg-2026-07-13-a`
+- estado corrente da tentativa: `pending_no_go` ate confirmar owners online, credencial AML/KYT real e URL UE tokenizada
 
 ## Estrutura do Repositorio
 

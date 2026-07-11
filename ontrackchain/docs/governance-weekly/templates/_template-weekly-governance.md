@@ -13,12 +13,13 @@
 - `environment_name`:
 - run do GitHub Actions:
 - status esperado: `ready -> in_progress` ou `in_progress -> done`
-- checklist canônico:
-  - [Checklist de Evidência Mínima da Primeira Janela Séria](../../first-serious-window-evidence-checklist.md)
-- runbook do primeiro disparo:
-  - [Runbook do Primeiro Disparo Real](../../first-serious-window-first-dispatch-runbook.md)
-- template de sign-off:
-  - [Template de Sign-Off da Janela Seria](../../staging-serious-window-signoff-template.md)
+- pacote canônico da janela:
+  - [Pacote Final de Execucao da Janela Seria Integrada](../guides/SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md)
+- workflow de sincronizacao:
+  - [Workflow de Atualizacao Semanal da Governanca](../guides/WEEKLY_GOVERNANCE_UPDATE_WORKFLOW.md)
+- artefatos executivos esperados:
+  - sign-off versionado da janela
+  - `go/no-go decision packet` versionado da janela
 
 ## Evidências Revisadas
 

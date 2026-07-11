@@ -12,9 +12,16 @@ Entregar um roteiro unico, objetivo e operacional para conduzir uma janela seria
 
 ## Artefatos de Apoio
 
-- [Guia Combinado da Janela Seria `P0-01 + P0-02 + P0-03`](./P0_COMBINED_SERIOUS_WINDOW_GUIDE.md)
 - [Checklist de Fechamento Semanal da Governanca](./WEEKLY_GOVERNANCE_CLOSEOUT_CHECKLIST.md)
 - [Checklist de Evidência Mínima da Primeira Janela Séria](../../first-serious-window-evidence-checklist.md)
+- [Checklist Executivo da Primeira Janela Combinada `P0-02 + P0-03`](./FIRST_COMBINED_SERIOUS_WINDOW_EXECUTIVE_CHECKLIST.md)
+- [Run Sheet Preenchivel da Primeira Janela Combinada](./FIRST_COMBINED_SERIOUS_WINDOW_RUN_SHEET.md)
+- [Workflow de Atualizacao Semanal da Governanca](./WEEKLY_GOVERNANCE_UPDATE_WORKFLOW.md)
+- [Guia `P0-01` OIDC + MFA serio](./P0-01_OIDC_MFA_EXECUTION_GUIDE.md)
+- [Guia `P0-02` AML/KYT live](./P0-02_AML_KYT_LIVE_EXECUTION_GUIDE.md)
+- [Guia `P0-03` Feed UE real](./P0-03_EU_FEED_EXECUTION_GUIDE.md)
+
+Este documento e a fonte canônica unica para a execucao integrada da janela seria. Evite duplicar a sequencia de comandos em outros guias da mesma pasta.
 
 ## `window_id` Sugerido
 
@@ -45,6 +52,21 @@ Antes de rodar qualquer comando, confirmar:
 - [ ] `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` usa `https` e contem `token=`
 - [ ] war room da janela esta `go` ou `go_with_exception`
 
+## Matriz Integrada por Frente
+
+| Frente | Owner primario | Gate tecnico minimo | Evidencia minima | Nao promover se |
+| --- | --- | --- | --- | --- |
+| `P0-01` | `Backend/Auth` | `preflight_oidc_serious_env.py`, `smoke_auth_oidc_mode.py`, `npm run test:e2e:oidc-critical` | bundle OIDC JSON/MD + gate E2E | houver fallback silencioso para `dev auth` |
+| `P0-02` | `Compliance/Backend` | `preflight_external_integrations.py`, `make check-compliance-provider-runtime`, `python3 scripts/homologation_external_evidence.py --mode compliance` | checker verde + JSON de homologacao | a credencial real nao estiver exercitada ou faltar artefato revisavel |
+| `P0-03` | `Compliance/Backend` | `make rerun-compliance-worker`, `make run-eu-sanctions-window-local`, `make check-eu-sanctions-window` | JSON preflight + JSON sync + checker verde | `EU_CONSOLIDATED` nao ficar em `ACTIVE/SUCCESS` |
+
+## Regra de Proveniencia de Secrets
+
+- usar apenas `.env.staging.private`, `GitHub Environment` aprovado ou secret manager/canal controlado
+- nunca copiar segredo real para documento versionado, output colado em issue ou artefato publico
+- se algum valor ainda estiver em placeholder, a frente correspondente permanece `blocked` ou `ready`, nunca `in_progress`
+- registrar somente a existencia da prova e o path do artefato; nunca o segredo em si
+
 ## Sequencia Exata de Comandos
 
 Executar na ordem abaixo, sem pular validacoes.
@@ -53,7 +75,7 @@ Executar na ordem abaixo, sem pular validacoes.
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
-export WINDOW_ID=stg-2026-07-07-serious-a
+export WINDOW_ID=stg-YYYY-MM-DD-serious-a
 python3 scripts/prepare_staging_window.py \
   --window-id "$WINDOW_ID" \
   --mode baseline \
@@ -108,6 +130,12 @@ make run-eu-sanctions-window-local WINDOW_ID="$WINDOW_ID"
 make check-eu-sanctions-window
 ```
 
+Esperado ao fim da etapa:
+
+- `EU_CONSOLIDATED.status=ACTIVE`
+- `EU_CONSOLIDATED.last_sync_status=SUCCESS`
+- `source_url` persistido coerente com o override serio exercitado
+
 ### 6. Consolidacao `P0-02 + P0-03`
 
 ```bash
@@ -115,11 +143,46 @@ cd /home/jistriane/Ontrackchain/ontrackchain
 make run-regulatory-readiness-bundle-local WINDOW_ID="$WINDOW_ID"
 ```
 
+Esperado ao fim da etapa:
+
+- `readiness.compliance_runtime=ready_for_validation`
+- `readiness.eu_window=ready_for_validation`
+- `readiness.regulatory_bundle=ready_for_validation`
+- `steps.compliance_provider_runtime.request_id` presente
+- `steps.eu_sanctions_window.request_id` presente
+- `steps.eu_sanctions_window.correlation.source_url_matches_expected=true`
+
+### 6.1 Validacao objetiva do pacote combinado
+
+```bash
+cd /home/jistriane/Ontrackchain/ontrackchain
+python3 scripts/validate_serious_window_artifact.py \
+  --window-id "$WINDOW_ID" \
+  --checks-dir artifacts/staging/checks \
+  --dossiers-dir artifacts/staging/dossiers \
+  --scope P0-01,P0-02,P0-03
+```
+
+Esperado:
+
+- `status=ok`
+- sem erro de `request_id ausente`
+- sem erro de `source_url_matches_expected != true`
+- sem erro de `readiness.regulatory_bundle.readiness_status`
+
 ### 7. Reconciliacao final da governanca
 
 ```bash
 cd /home/jistriane/Ontrackchain/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID="$WINDOW_ID"
+```
+
+Se a janela tiver payload consolidado (`ci-artifacts/prepare-staging-window-output.json`), sincronizar a camada executiva com:
+
+```bash
+cd /home/jistriane/Ontrackchain/ontrackchain
+make postprocess-serious-window \
+  RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
 ```
 
 ## Artefatos Que Precisam Existir ao Final
@@ -158,6 +221,44 @@ make refresh-staging-war-room-governance-local WINDOW_ID="$WINDOW_ID"
 - `docs/governance-weekly/generated/windows/<window_id>/<window_id>-status-snapshot.md`
 - `docs/governance-weekly/generated/windows/<window_id>/<window_id>-status-snapshot-delta.md`
 - `docs/governance-weekly/generated/windows/<window_id>/<window_id>-consolidated.json`
+- `docs/governance-weekly/cycles/<data>/<data>-staging-serious-window-signoff.md`
+- `docs/governance-weekly/cycles/<data>/<data>-staging-serious-window-go-no-go-decision-packet.md`
+
+## Reconciliacao Final Obrigatoria
+
+Antes do `go/no-go`, revisar explicitamente:
+
+- `oidc-readiness-bundle.json`: `readiness.readiness_status`, `blockers`, `next_action`
+- `regulatory-readiness-bundle.json`: `readiness.regulatory_bundle.readiness_status`
+- `regulatory-readiness-bundle.json`: `steps.compliance_provider_runtime.request_id`
+- `regulatory-readiness-bundle.json`: `steps.eu_sanctions_window.request_id`
+- `regulatory-readiness-bundle.json`: `steps.eu_sanctions_window.correlation.source_url_matches_expected`
+- `staging_release_dossier_*.json`: `summaries.regulatory_readiness_bundle.correlation`
+- `staging-serious-window-signoff.md`: status executivo coerente com os bundles
+- `go-no-go-decision-packet.md`: decisao atual, bloqueadores e criterio de promocao coerentes com os bundles
+- `status-snapshot.md` e `consolidated.json`: mesma leitura final da janela
+
+Nao aceitar reconciliacao apenas visual. Os campos acima devem ser comparaveis por valor.
+
+## Rollback Operacional
+
+Se a janela combinada falhar depois de iniciar `P0-02` ou `P0-03`, executar:
+
+1. marcar a janela como `no-go` ou `pending` com bloqueador explicito
+2. preservar os artefatos ja gerados, sem sobrescrever o `window_id`
+3. nao rerodar a mesma janela com novos secrets sem registrar nova tentativa ou novo `window_id`
+4. manter `P0-04` em `ready` ou `blocked`, nunca promover manualmente
+5. registrar no snapshot:
+   - ultimo step valido
+   - correlator invalido ou ausente
+   - owner da correcao
+   - criterio objetivo para nova tentativa
+
+Rollback especifico:
+
+- se `P0-02` falhar: preservar `request_id` do compliance runtime e homologacao, sem descartar o artifact
+- se `P0-03` falhar: preservar `request_id` da janela UE e os JSONs `preflight/sync`
+- se `P0-04` falhar por correlacao: corrigir correlators e rerodar o bundle, nao reclassificar manualmente o status
 
 ## Criterio Objetivo de Sign-Off
 
@@ -170,9 +271,21 @@ Declarar a janela apta a `sign-off` somente quando todos forem verdadeiros:
 - [ ] `P0-03` tem os dois JSONs da janela UE
 - [ ] `EU_CONSOLIDATED` esta em `ACTIVE/SUCCESS`
 - [ ] bundle regulatorio existe e esta revisavel
+- [ ] bundle regulatorio oficial esta em `readiness.regulatory_bundle=ready_for_validation`
+- [ ] `request_id` de `P0-02` e `P0-03` estao preservados nos artefatos executivos
+- [ ] `source_url_matches_expected=true` para a janela UE
 - [ ] a governanca foi reprocessada para o mesmo `window_id`
 - [ ] nao existe bloqueador `WR-*` aberto sem waiver formal
 - [ ] owner e accountable revisaram os artefatos
+
+## Evidencia Minima a Registrar na Governanca
+
+- `window_id`
+- owners nominais das tres trilhas
+- paths reais de cada JSON/MD gerado
+- resultado objetivo dos gates (`ok`, `failed`, `blocked`)
+- decisao final `go`, `go_with_exception` ou `no-go`
+- bloqueadores residuais com owner e data alvo
 
 ## No-Go Imediato
 

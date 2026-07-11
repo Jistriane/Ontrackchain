@@ -4,7 +4,7 @@
 
 Padronizar o fluxo semanal de atualizacao da governanca para evitar drift entre:
 
-- plano consolidado de continuidade
+- plano consolidado vigente
 - versao operacional curta da reuniao
 - rascunho completo da semana
 - registro semanal fechado
@@ -25,7 +25,7 @@ Checklist de apoio para o fechamento:
 
 Usar como fontes oficiais, nesta ordem:
 
-1. [Plano Consolidado de Continuidade e Execucao](../../history/CONTINUATION_EXECUTION_PLAN_2026_07.md)
+1. [Plano Consolidado ate 95%](../../project-construction-plan-to-95-percent.md)
 2. [Governança Semanal mais recente](../cycles/2026-07-06/2026-07-06-weekly-governance.md) ou outro registro semanal fechado vigente
 3. [Versao Operacional da Semana](../cycles/2026-07-13/2026-07-13-weekly-governance-operational.md) ou equivalente
 4. [Rascunho Completo da Semana](../cycles/2026-07-13/2026-07-13-weekly-governance-draft.md) ou equivalente
@@ -47,7 +47,7 @@ Promover apenas quando houver evidência nova revisavel no proprio ciclo.
 
 ### Passo 1 - Atualizar a base factual da janela seria
 
-Quando houver janela seria ativa, atualizar primeiro o pacote operacional:
+Quando houver janela seria ativa, atualizar primeiro o pacote operacional gerado:
 
 ```bash
 make refresh-staging-war-room-governance-local WINDOW_ID=<window_id>
@@ -59,7 +59,18 @@ Revisar pelo menos:
 - `stg-<...>-status-snapshot.md`
 - `stg-<...>-status-snapshot-delta.md`
 - `stg-<...>-consolidated.json`
+
+Se existir payload consolidado da janela (`prepare-staging-window-output.json`), executar em seguida o pós-processamento executivo:
+
+```bash
+make postprocess-serious-window RUN_URL=https://github.com/<org>/<repo>/actions/runs/<run_id>
+```
+
+Revisar pelo menos:
+
 - `2026-..-staging-serious-window-signoff.md`
+- `2026-..-staging-serious-window-go-no-go-decision-packet.md`
+- sincronizacao do registro semanal correspondente
 
 ### Passo 2 - Atualizar a versao operacional curta
 
@@ -144,12 +155,13 @@ Ao fechar a semana, sincronizar pelo menos estes pontos:
 1. versao operacional curta
 2. rascunho completo
 3. registro semanal fechado
-4. [Plano Consolidado de Continuidade e Execucao](../../history/CONTINUATION_EXECUTION_PLAN_2026_07.md), quando houver mudanca material de baseline, status ou gatilho
+4. [Plano Consolidado ate 95%](../../project-construction-plan-to-95-percent.md), quando houver mudanca material de baseline, status ou gatilho
 5. [Matriz Operacional de Execucao para 95%](../../project-operational-execution-board.md), quando houver mudanca de prioridade ou owner
 
 ## Perguntas de Controle Antes do Fechamento
 
 - houve checker, bundle, artifact, dossie ou sign-off novo revisavel?
+- o `go/no-go decision packet` ficou coerente com war room, sign-off e snapshot consolidado?
 - a baseline mudou de forma defensavel?
 - algum `P0` mudou de status por evidencia real?
 - a janela seria saiu de `no-go`, permaneceu em `no-go` ou voltou para `pending` com justificativa clara?

@@ -6,7 +6,7 @@ Centralizar a documentacao viva do Ontrackchain em um unico indice, reduzindo dr
 
 Estado de referencia atual:
 
-- baseline oficial: `91%` tecnico, `78%` regulatorio/operacional, `87%` consolidado
+- baseline oficial: `92%` tecnico, `79%` regulatorio/operacional, `88%` consolidado
 - frontend operacional com tri-locale, contratos compartilhados e cockpits endurecidos
 - `monitoring` decomposto em loaders, hooks e paineis dedicados
 - Playwright institucionalizado por classes (`stack real leve`, `browser-mocked`, `ssr-mocked`, `dev-auth`, `oidc-critical`)
@@ -21,14 +21,33 @@ Use esta ordem quando houver conflito:
 
 Arquivos paralelos fora dessa trilha devem ser consolidados, arquivados ou removidos.
 
+## Taxonomia Documental
+
+Use esta classificacao para decidir onde cada artefato deve viver:
+
+- `documentacao viva`: arquivos `docs/*.md` indexados aqui e usados como fonte primaria de arquitetura, contrato, operacao, readiness e governanca executiva
+- `documentacao historica`: artefatos datados preservados em `docs/history/` apenas como registro frio, nunca como baseline corrente
+- `documentacao gerada`: artefatos produzidos automaticamente em `docs/governance-weekly/generated/`, especialmente no namespace `generated/windows/<window_id>/`
+- `documentacao de ciclo`: materiais humanos datados ainda ativos em `docs/governance-weekly/cycles/`
+- `documentacao arquivada`: historico preservado em `docs/governance-weekly/archive/`
+
+Regras objetivas:
+
+- se o arquivo governa decisao atual, ele deve estar indexado neste `README`
+- se o arquivo e evidência de uma semana/janela especifica, ele deve viver em `governance-weekly/`
+- se o arquivo foi superado mas ainda tem valor de trilha, ele deve viver em `history/` ou `archive/`
+- se o arquivo repete contrato, comando ou checklist ja coberto por fonte canônica, ele deve ser consolidado ou removido
+
 ## Mapa Canonico
 
 ### Arquitetura e Produto
 
 - [Arquitetura](./architecture.md): boundaries do sistema, dados, tabelas-chave e regras criticas
 - [Contratos de API](./api-contracts.md): endpoints, payloads e fluxos expostos
+- [Arquitetura da Selagem DD/SoF](./evidence-manual-package-strong-sealing-architecture.md): visao arquitetural da trilha de selagem institucional forte ja implementada no baseline atual
 - [Cobertura do Frontend](./frontend-coverage-matrix.md): rotas reais, cobertura por modulo e lacunas remanescentes
 - [RBAC e Permissoes](./rbac-and-permissions.md): matriz funcional de acesso
+- [Roadmap de Secrets e RBAC para Producao](./production-secrets-and-rbac-roadmap.md): caminho canonico pos-90% para `P2-04` e `P2-05`
 
 ### Operacao e Release
 
@@ -53,8 +72,9 @@ Arquivos paralelos fora dessa trilha devem ser consolidados, arquivados ou remov
 - [Kit de Execucao por Evidencia](./project-maturity-evidence-execution-kit.md): templates, semaforo e plano `D1-D7`
 - [Scorecard Oficial](./project-kpi-scorecard.md): formula e baseline executiva
 - [Avaliacao de Maturidade](./project-maturity-assessment.md): baseline viva com racional tecnico e regulatorio
+- [Plano Consolidado ate 95%](./project-construction-plan-to-95-percent.md): caminho executivo unificado para sair de `88%` e atingir `95%`
 - [Assessments formais](./assessments/README.md): pareceres datados de calibracao e `go/no-go`
-- [Avaliacao de Status](./assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md): parecer formal datado de calibracao e `go/no-go`
+- [Avaliacao de Status](./assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md): parecer formal datado de calibracao e `go/no-go`, preservado como corte historico e nao como baseline viva corrente
 - [Board de Prioridades](./project-priority-board.md): prioridades por frente
 - [Board Operacional](./project-operational-execution-board.md): fila diaria de execucao
 - [Registro de Riscos](./project-risk-register.md): riscos tecnicos, operacionais e regulatorios
@@ -114,16 +134,29 @@ Arquivos paralelos fora dessa trilha devem ser consolidados, arquivados ou remov
 - documentos redundantes, snapshots soltos ou analises supersedidas devem ser removidos
 - documentos datados mantidos fora de `governance-weekly/` devem carregar aviso explicito de que nao sao fonte primaria
 
+## Consolidacoes Recentes
+
+Esta base ja foi racionalizada para reduzir drift. Como referencia:
+
+- `api-contracts.md` passou a ser a fonte canônica dos contratos HTTP da trilha de selagem DD/SoF
+- `docs/evidence-manual-package-strong-sealing-backlog.md` foi consolidado e removido
+- a execucao integrada de janela seria foi consolidada em `governance-weekly/guides/SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md`
+- `docs/history/DAY_OF_WINDOW_RUNBOOK_STG_2026_07_06_A.md` foi absorvido pelo ciclo `governance-weekly/cycles/2026-07-06/`
+- os caminhos canônicos de artefatos gerados agora usam `docs/governance-weekly/generated/windows/<window_id>/`
+- o pos-processamento da janela seria agora gera `sign-off`, sincronizacao semanal, board operacional e `go/no-go decision packet` a partir do mesmo payload consolidado
+
 ## O Que Esta Documentado Agora
 
 A trilha canonica atual reflete explicitamente:
 
 - frontend com i18n tri-locale e labels institucionais
+- trilha DD/SoF com pacote manual canônico, selagem institucional forte, governanca pós-selagem e contratos HTTP consolidados em `api-contracts.md`
 - `monitoring` modularizado em `monitoring-api.ts`, hooks dedicados e paineis apresentacionais
 - contratos compartilhados em `app/lib/` para `audit`, `evidence`, `team`, `reports` e `monitoring`
 - classificacao operacional das suites Playwright com preflight explicito
 - work-items compartilhados como base da operacao multiusuario
 - bundles de readiness para `OIDC`, `AML/KYT live` e feed UE
+- `decision packet` executivo de `go/no-go` como artefato derivado do payload consolidado da janela seria
 - promocao de maturidade regida por evidencia real, revisao humana e aprovacao explicita
 
 ## Estrutura Esperada

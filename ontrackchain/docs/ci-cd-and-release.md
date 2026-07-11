@@ -338,7 +338,9 @@ O comando acima:
 
 - atualiza `ci-artifacts/staging-serious-window-signoff.md`
 - gera o sign-off versionado em `docs/governance-weekly/`
+- gera o `go/no-go decision packet` versionado em `docs/governance-weekly/cycles/<data>/`
 - sincroniza o registro semanal da mesma janela
+- sincroniza o board operacional global
 
 Se precisar executar os passos separadamente:
 
@@ -349,6 +351,11 @@ python scripts/render_staging_window_signoff.py \
   --governance-weekly-dir docs/governance-weekly
 
 python scripts/render_staging_window_weekly_governance.py \
+  --payload-file ci-artifacts/prepare-staging-window-output.json \
+  --governance-weekly-dir docs/governance-weekly \
+  --run-url "https://github.com/<org>/<repo>/actions/runs/<run_id>"
+
+python scripts/render_staging_window_decision_packet.py \
   --payload-file ci-artifacts/prepare-staging-window-output.json \
   --governance-weekly-dir docs/governance-weekly \
   --run-url "https://github.com/<org>/<repo>/actions/runs/<run_id>"
