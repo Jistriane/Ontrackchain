@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell, MetricCard, MetricGrid, ModuleCard, ModuleGrid, Panel, Pill } from "../../components/ui";
+import { DashboardQuickActions } from "./dashboard-quick-actions";
 import { formatDateTime } from "../lib/date-format";
 import { LOCALE_COOKIE_NAME, normalizeLocale, translate, type MessageKey } from "../lib/i18n";
 import {
@@ -223,26 +224,7 @@ export default async function DashboardPage() {
       </MetricGrid>
 
       <Panel title={t("dashboard.quickActions.title")} description={t("dashboard.quickActions.description")}>
-        <div className="otc-controls">
-          <a className="otc-link-button" href="/alerts?status=firing&triage_status=pending">
-            {t("dashboard.quickActions.openPendingAlerts")}
-          </a>
-          <a className="otc-link-button" href="/monitoring">
-            {t("dashboard.quickActions.openMonitoring")}
-          </a>
-          <a className="otc-link-button" href="/reports">
-            {t("dashboard.quickActions.openReports")}
-          </a>
-          <a className="otc-link-button" href="/evidence">
-            {t("dashboard.quickActions.openEvidence")}
-          </a>
-          <a className="otc-link-button" href="/billing">
-            {t("dashboard.quickActions.openBilling")}
-          </a>
-          <a className="otc-link-button" href="/team">
-            {t("dashboard.quickActions.openTeam")}
-          </a>
-        </div>
+        <DashboardQuickActions />
       </Panel>
 
       <Panel title={t("dashboard.cases.title")} description={t("dashboard.cases.description")}>

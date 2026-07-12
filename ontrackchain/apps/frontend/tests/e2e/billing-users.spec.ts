@@ -132,6 +132,7 @@ test.describe("billing users table", () => {
 
     await page.goto(`/billing?team_status=invited&team_q=${encodeURIComponent("compliance.billing")}`);
 
+    await expect(page.locator('aside a[href="/billing"]')).toHaveCount(1);
     await expect(page.getByTestId(`billing-user-row-${memberId}`)).toContainText(memberEmail);
     await expect(page.getByTestId(`billing-user-status-${memberId}`)).toContainText("convidado");
     await expect(page.getByTestId(`billing-user-updated-${memberId}`)).not.toContainText("2026-07-06T12:10:00.000Z");
@@ -196,6 +197,7 @@ test.describe("billing users table", () => {
 
     await page.goto("/billing");
 
+    await expect(page.locator('aside a[href="/billing"]')).toHaveCount(0);
     await expect(page.getByText("A leitura de billing exige papel financeiro: ADMIN ou BILLING_ADMIN.")).toBeVisible();
   });
 });

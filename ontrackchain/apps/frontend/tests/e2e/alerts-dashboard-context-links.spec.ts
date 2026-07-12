@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
-async function seedFrontendAuth(page: Page) {
+async function seedFrontendAuth(page: Page, options?: { role?: string }) {
+  const role = options?.role ?? "ANALYST";
   await page.context().addCookies([
     {
       name: "otc_token",
@@ -30,7 +31,7 @@ async function seedFrontendAuth(page: Page) {
         org_id: "org-e2e",
         user_id: "user-e2e",
         linked_user_id: "linked-e2e",
-        role: "ANALYST",
+          role,
         plan: "professional",
         auth_method: "jwt",
         mfa_mode: "totp",
@@ -595,5 +596,18 @@ test.describe("alerts and dashboard context links", () => {
         `a[href="/blocks?address=${encodeURIComponent(address)}&chain=ethereum&autostart=1&case_id=${caseId}"]`
       )
     ).toBeVisible();
+  });
+
+  test("dashboard esconde CTA de billing para role sem permissao e exibe para billing admin", async ({ page }: { page: Page }) => {
+    await seedFrontendAuth(page, { role: "ANALYST" });
+    await page.goto("/dashboard");
+    await expect(page.getByTestId("dashboard-quick-action-billing")).toHaveCount(0);
+    await expect(page.locator('aside a[href="/billing"]')).toHaveCount(0);
+
+    await page.unroute("**/api/app/auth/context");
+    await seedFrontendAuth(page, { role: "BILLING_ADMIN" });
+    await page.goto("/dashboard");
+    await expect(page.getByTestId("dashboard-quick-action-billing")).toBeVisible();
+    await expect(page.locator('aside a[href="/billing"]')).toHaveCount(1);
   });
 });

@@ -292,6 +292,7 @@ Observacao importante:
 - `compliance-api` agora persiste `authorization_denied` na primeira fatia de mutacoes sensiveis do dominio
 - `report-api` agora persiste `authorization_denied` na leitura sensivel de `reports` e `ROS/COAF`, inclusive dossie regulatorio e download nao-juridico
 - `investigation-api` agora aplica `BILLING_ADMIN` tambem em `billing/reconciliation`, protegendo o snapshot reconciliavel de saldo, quotes e `credit_ledger`
+- o frontend agora degrada a UX de `billing` na navegacao lateral e nos quick actions do `/dashboard`, escondendo CTAs financeiros para roles sem permissao
 - no fluxo `OIDC`, a trilha de negacao agora preserva o `sub` externo em `metadata.external_user_id` quando nao ha usuario local correspondente
 - no fluxo `OIDC`, novos `cases` core preservam `metadata.external_user_id`; `quotes` passam a gravar `user_id = null` quando o principal nao existe em `users`
 - a suite Playwright ja cobre negacao de `AUDITOR` tentando:

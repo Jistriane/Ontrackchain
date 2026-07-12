@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, type HTMLAttributes, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type HTMLAttributes, type ReactNode } from "react";
 import Image from "next/image";
+import { canReadBilling } from "../app/lib/authz";
 import type { Locale, MessageKey } from "../app/lib/i18n";
+import { fetchAuthContext } from "../app/lib/ownership";
 import { useI18n } from "./i18n-provider";
 
 type NavItem = {
@@ -261,6 +263,7 @@ export function AppShell({ title, subtitle, activePath, eyebrow, actions, childr
   const { locale, setLocale, t, locales } = useI18n();
   const resolvedEyebrow = eyebrow ?? t("app.eyebrow");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [authRole, setAuthRole] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     const stored = window.localStorage.getItem("otc-sidebar-collapsed");
@@ -272,6 +275,40 @@ export function AppShell({ title, subtitle, activePath, eyebrow, actions, childr
   useEffect(() => {
     window.localStorage.setItem("otc-sidebar-collapsed", sidebarCollapsed ? "true" : "false");
   }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchAuthContext()
+      .then((context) => {
+        if (!cancelled) {
+          setAuthRole(context?.role ?? null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAuthRole(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const visibleNavItems = useMemo(
+    () =>
+      NAV_ITEMS.filter((item) => {
+        if (item.href !== "/billing") {
+          return true;
+        }
+        if (authRole === undefined) {
+          return false;
+        }
+        return canReadBilling(authRole);
+      }),
+    [authRole]
+  );
 
   return (
     <div className="otc-shell">
@@ -317,7 +354,7 @@ export function AppShell({ title, subtitle, activePath, eyebrow, actions, childr
               </button>
             </div>
             <nav className="otc-nav otc-nav--sidebar" aria-label={t("nav.aria")}>
-              {NAV_ITEMS.map((item) => (
+              {visibleNavItems.map((item) => (
                 <a
                   key={item.href}
                   href={item.href}
