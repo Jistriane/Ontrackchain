@@ -27,7 +27,28 @@ Resumo executivo:
 
 O diagrama abaixo mostra como navegar pelo repositório sem confundir fonte viva, evidência datada e histórico.
 
-[[diagram: fluxo de onboarding documental do repositorio. Ponto de entrada: README raiz. Em seguida, o leitor consulta Snapshot Atual e Mapa Canonico. Depois bifurca para README tecnico da aplicacao e para docs/README.md. A partir de docs/README.md, a navegacao segue para quatro trilhas: documentacao viva de arquitetura/contratos/operacao; governance-weekly/cycles para evidencias datadas ainda ativas; docs/history para apoio historico; governance-weekly/archive para historico frio consolidado. Regra visual importante: docs/README e fonte primaria, cycles e prova datada, history e archive sao apenas contexto historico.]]
+```mermaid
+flowchart TD
+    A[README raiz] --> B[Snapshot Atual]
+    A --> C[Mapa Canonico]
+    B --> D[README tecnico da aplicacao]
+    C --> D
+    C --> E[docs/README.md]
+    E --> F[Arquitetura, contratos e operacao]
+    E --> G[governance-weekly/cycles]
+    E --> H[docs/history]
+    E --> I[governance-weekly/archive]
+
+    classDef primary fill:#0f172a,stroke:#0f172a,color:#fff;
+    classDef live fill:#dbeafe,stroke:#2563eb,color:#111827;
+    classDef evidence fill:#dcfce7,stroke:#16a34a,color:#111827;
+    classDef history fill:#f3f4f6,stroke:#6b7280,color:#111827;
+
+    class A,E primary;
+    class D,F live;
+    class G evidence;
+    class H,I history;
+```
 
 ## Snapshot Atual
 
@@ -72,7 +93,33 @@ O diagrama abaixo mostra como navegar pelo repositório sem confundir fonte viva
 
 O diagrama abaixo resume a topologia funcional para leitura executiva, sem substituir a arquitetura detalhada em `ontrackchain/docs/architecture.md`.
 
-[[diagram: fluxo macro do Ontrackchain. Atores externos: operador/compliance/sponsor e sistemas externos de identidade e providers regulatorios. O operador acessa o frontend Next.js atraves do Traefik. Traefik usa auth-service para identidade, RBAC, contexto federado e MFA. O frontend consome investigation-api, compliance-api, monitoring-api e report-api. Essas APIs persistem em PostgreSQL com RLS e usam Redis para fila, retry, concorrencia e DLQ. Compliance-worker sincroniza listas e readiness de providers. Monitoring-api recebe Alertmanager e alimenta RCA/governanca. Report-api governa ROS/COAF. Eventos e evidencias relevantes convergem para trilha auditavel, export administrativo e governanca semanal.]]
+```mermaid
+flowchart LR
+    U[Operador e Compliance] --> T[Traefik]
+    S[Sistemas externos de identidade e providers] --> T
+    T --> A[auth-service]
+    T --> F[frontend Next.js]
+    F --> I[investigation-api]
+    F --> C[compliance-api]
+    F --> M[monitoring-api]
+    F --> R[report-api]
+    C --> CW[compliance-worker]
+    M --> AL[Alertmanager]
+
+    I --> P[(PostgreSQL RLS)]
+    C --> P
+    M --> P
+    R --> P
+
+    I --> X[(Redis)]
+    C --> X
+    M --> X
+    R --> X
+
+    C --> G[Trilha auditavel e governanca]
+    M --> G
+    R --> G
+```
 
 ## Mapa Canonico
 
@@ -179,7 +226,18 @@ make run-regulatory-readiness-bundle-local \
 
 O diagrama abaixo mostra a sequência mínima esperada entre preparo, execução, artefatos e decisão formal de `go/no-go`.
 
-[[diagram: fluxo operacional da janela seria. Entrada: owner prepara ambiente e segredos reais. Etapa 1: preflight_external_integrations e checks de provider. Etapa 2: bundles de readiness OIDC e regulatorio quando aplicavel. Etapa 3: preparo e dispatch da serious window com window_id. Etapa 4: execucao local ou GitHub Actions gera packet, checks, homologation, dossier e manifestos. Etapa 5: pos-processamento sincroniza war room, sign-off, snapshot, dashboard e decision packet em governance-weekly/cycles. Saida: decisao go/no-go formal baseada em evidencias reais e artifact validado.]]
+```mermaid
+flowchart TD
+    A[Preparar ambiente e segredos reais] --> B[preflight_external_integrations]
+    B --> C[Checks de provider]
+    C --> D[Bundles de readiness OIDC e regulatorio]
+    D --> E[Preparar serious window com window_id]
+    E --> F[Executar localmente ou via GitHub Actions]
+    F --> G[Gerar packet, checks, dossier e manifestos]
+    G --> H[Pos-processar snapshot, war room e sign-off]
+    H --> I[Atualizar governance-weekly/cycles]
+    I --> J[Decisao formal go/no-go]
+```
 
 ## Politica de Documentacao
 
