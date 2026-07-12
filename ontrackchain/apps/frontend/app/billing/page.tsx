@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../../components/i18n-provider";
 import { AppShell, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
+import { canReadBilling } from "../lib/authz";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
 import { formatDateTime } from "../lib/date-format";
 import type { MessageKey } from "../lib/i18n";
@@ -118,7 +119,7 @@ export default function BillingPage() {
   const searchParams = useSearchParams();
   const [balance, setBalance] = useState<BillingBalanceResponse | null>(null);
   const [reconciliation, setReconciliation] = useState<BillingReconciliationResponse | null>(null);
-  const [authContext, setAuthContext] = useState<AuthContext | null>(null);
+  const [authContext, setAuthContext] = useState<AuthContext | null | undefined>(undefined);
   const [operations, setOperations] = useState<OperationsSnapshot | null>(null);
   const [teamRoster, setTeamRoster] = useState<TeamMemberRecord[]>([]);
   const [teamFilterStatus, setTeamFilterStatus] = useState("all");
@@ -233,6 +234,11 @@ export default function BillingPage() {
     }
   }, [searchParams]);
 
+  const billingAccessResolved = authContext !== undefined;
+  const canReadBillingSurface = authContext ? canReadBilling(authContext.role) : true;
+  const shouldRenderBillingData = !billingAccessResolved || canReadBillingSurface;
+  const deniedBillingMessage = billingAccessResolved && !canReadBillingSurface ? error ?? t("billing.errorLoad") : null;
+
   return (
     <AppShell
       title={t("billing.title")}
@@ -240,15 +246,19 @@ export default function BillingPage() {
       activePath="/billing"
       actions={
         <div className="otc-controls">
-          <button className="otc-button otc-button--ghost" type="button" onClick={() => refresh()} disabled={loading}>
-            {loading ? t("billing.refreshLoading") : t("billing.refresh")}
-          </button>
+          {shouldRenderBillingData ? (
+            <button className="otc-button otc-button--ghost" type="button" onClick={() => refresh()} disabled={loading}>
+              {loading ? t("billing.refreshLoading") : t("billing.refresh")}
+            </button>
+          ) : null}
           <a className="otc-button otc-button--ghost" href="/team">
             {t("billing.openTeam")}
           </a>
         </div>
       }
     >
+      {shouldRenderBillingData ? (
+        <>
       <MetricGrid>
         <MetricCard
           label={t("billing.stats.availableCredit")}
@@ -487,6 +497,22 @@ export default function BillingPage() {
           </a>
         </div>
       </Panel>
+        </>
+      ) : (
+        <Panel title={t("billing.summary.title")} description={t("billing.summary.description")}>
+          <Message tone="error" data-testid="billing-access-denied">
+            {deniedBillingMessage}
+          </Message>
+          <div className="otc-controls otc-controls--spaced">
+            <a className="otc-button otc-button--ghost" href="/dashboard">
+              {t("home.openDashboard")}
+            </a>
+            <a className="otc-button otc-button--ghost" href="/team">
+              {t("billing.openTeam")}
+            </a>
+          </div>
+        </Panel>
+      )}
     </AppShell>
   );
 }

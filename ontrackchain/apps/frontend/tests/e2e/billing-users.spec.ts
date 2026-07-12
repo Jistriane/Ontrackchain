@@ -198,6 +198,11 @@ test.describe("billing users table", () => {
     await page.goto("/billing");
 
     await expect(page.locator('aside a[href="/billing"]')).toHaveCount(0);
-    await expect(page.getByText("A leitura de billing exige papel financeiro: ADMIN ou BILLING_ADMIN.")).toBeVisible();
+    await expect(page.getByTestId("billing-access-denied")).toContainText(
+      "A leitura de billing exige papel financeiro: ADMIN ou BILLING_ADMIN."
+    );
+    await expect(page.getByTestId("credits-balance")).toHaveCount(0);
+    await expect(page.getByTestId("billing-reconciliation-open-total")).toHaveCount(0);
+    await expect(page.getByTestId("billing-user-row-billing-member-e2e-01")).toHaveCount(0);
   });
 });
