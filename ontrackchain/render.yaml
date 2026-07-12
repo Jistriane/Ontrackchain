@@ -100,7 +100,6 @@ services:
       export INTERNAL_AUTH_BASE_URL="http://${AUTH_SERVICE_HOSTPORT}" &&
       export INTERNAL_KEYCLOAK_BASE_URL="http://${KEYCLOAK_INTERNAL_HOSTPORT}" &&
       exec npm run start'
-    healthCheckPath: /login
     envVars:
       - key: INTERNAL_GATEWAY_HOSTPORT
         fromService:
@@ -139,7 +138,6 @@ services:
     dockerContext: .
     dockerfilePath: ./infra/render/auth-service/Dockerfile
     preDeployCommand: python /app/infra/render/scripts/apply_postgres_bootstrap.py
-    healthCheckPath: /health
     envVars:
       - key: APP_ENV
         value: staging
@@ -212,7 +210,6 @@ services:
     plan: starter
     dockerContext: ./apps/public-api
     dockerfilePath: ./apps/public-api/Dockerfile
-    healthCheckPath: /health
     envVars:
       - key: REDIS_HOST
         fromService:
@@ -231,7 +228,6 @@ services:
     plan: starter
     dockerContext: .
     dockerfilePath: ./apps/investigation-api/Dockerfile
-    healthCheckPath: /health
     envVars:
       - key: POSTGRES_HOST
         fromDatabase:
@@ -348,7 +344,6 @@ services:
     plan: starter
     dockerContext: .
     dockerfilePath: ./apps/compliance-api/Dockerfile
-    healthCheckPath: /health
     envVars:
       - key: POSTGRES_HOST
         fromDatabase:
@@ -448,7 +443,6 @@ services:
     plan: starter
     dockerContext: .
     dockerfilePath: ./apps/monitoring-api/Dockerfile
-    healthCheckPath: /health
     envVars:
       - key: POSTGRES_HOST
         fromDatabase:
@@ -499,7 +493,6 @@ services:
     plan: starter
     dockerContext: .
     dockerfilePath: ./apps/report-api/Dockerfile
-    healthCheckPath: /health
     envVars:
       - key: POSTGRES_HOST
         fromDatabase:
@@ -553,7 +546,6 @@ services:
     plan: starter
     dockerContext: .
     dockerfilePath: ./infra/render/prometheus/Dockerfile
-    healthCheckPath: /
     envVars:
       - key: ALERTMANAGER_HOSTPORT
         fromService:
@@ -587,7 +579,6 @@ services:
     plan: starter
     dockerContext: .
     dockerfilePath: ./infra/render/grafana/Dockerfile
-    healthCheckPath: /api/health
     envVars:
       - key: PROMETHEUS_HOSTPORT
         fromService:
