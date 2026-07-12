@@ -1,0 +1,2 @@
+// Compatibility stub for external tooling that probes /@vite/client against this Next.js app.
+export {};

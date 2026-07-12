@@ -220,6 +220,7 @@ function BrandLogo({ className, priority = false }: { className?: string; priori
         alt="OnTrackChain"
         fill
         priority={priority}
+        suppressHydrationWarning
         sizes="(max-width: 768px) 132px, 160px"
         className="otc-brand__logo"
       />
@@ -235,6 +236,7 @@ function BrandBadge({ className, priority = false }: { className?: string; prior
         alt="OnTrackChain badge"
         fill
         priority={priority}
+        suppressHydrationWarning
         sizes="(max-width: 768px) 38px, 44px"
         className="otc-brand__badge"
       />

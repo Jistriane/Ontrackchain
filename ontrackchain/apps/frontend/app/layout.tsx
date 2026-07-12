@@ -44,8 +44,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   const locale = normalizeLocale(cookies().get(LOCALE_COOKIE_NAME)?.value);
 
   return (
-    <html lang={locale}>
-      <body>
+    <html lang={locale} suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <I18nProvider initialLocale={locale}>{children}</I18nProvider>
       </body>
     </html>

@@ -65,6 +65,7 @@ export function useMonitoringPlatformAlerts({ t, setError }: UseMonitoringPlatfo
   const [platformAlertSelectionHydrated, setPlatformAlertSelectionHydrated] = useState(false);
   const [platformAlertFilterOptions, setPlatformAlertFilterOptions] = useState<PlatformOperationalAlertFilterOptions | null>(null);
   const platformAlertsRequestIdRef = useRef(0);
+  const platformAlertSelectionScopeRef = useRef<string | null>(null);
 
   function currentPlatformAlertFilters(
     status = platformAlertStatusFilter,
@@ -126,12 +127,12 @@ export function useMonitoringPlatformAlerts({ t, setError }: UseMonitoringPlatfo
     const nextScope = buildPlatformAlertSelectionScope(
       currentPlatformAlertFilters(status, triageStatus, service, receiver, severity)
     );
-    setPlatformAlertSelectionScope((currentScope) => {
-      if (currentScope && currentScope !== nextScope) {
-        setSelectedPlatformAlertIds([]);
-      }
-      return nextScope;
-    });
+    const currentScope = platformAlertSelectionScopeRef.current;
+    if (currentScope && currentScope !== nextScope) {
+      setSelectedPlatformAlertIds([]);
+    }
+    platformAlertSelectionScopeRef.current = nextScope;
+    setPlatformAlertSelectionScope(nextScope);
   }
 
   async function refreshMetricsPreview() {
@@ -156,6 +157,7 @@ export function useMonitoringPlatformAlerts({ t, setError }: UseMonitoringPlatfo
     setPlatformAlertCursor(initialSelection.cursor);
     setPlatformAlertCursorHistory(initialSelection.cursorHistory);
     setSelectedPlatformAlertIds(initialSelection.selectedIds);
+    platformAlertSelectionScopeRef.current = initialSelection.selectionScope;
     setPlatformAlertSelectionScope(initialSelection.selectionScope);
 
     loadPlatformOperationalAlertFilterOptions().catch(() => setError(t("monitoring.errors.loadPlatformFilterOptions")));
@@ -461,6 +463,7 @@ export function useMonitoringPlatformAlerts({ t, setError }: UseMonitoringPlatfo
     setPlatformAlertCursor(null);
     setPlatformAlertCursorHistory([]);
     setSelectedPlatformAlertIds([]);
+    platformAlertSelectionScopeRef.current = null;
     setPlatformAlertSelectionScope(null);
   }
 

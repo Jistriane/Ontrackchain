@@ -47,6 +47,69 @@ export type OperationsSnapshot = {
   generated_at: string;
 };
 
+export const EMPTY_OPERATIONS_SNAPSHOT: OperationsSnapshot = {
+  queue: {
+    ready: 0,
+    waiting: 0,
+    retry_pending: 0,
+    retry_due: 0,
+    wake_signals: 0
+  },
+  concurrency: {
+    org_active: 0,
+    org_limit: 0,
+    global_active: 0,
+    global_limit: 0,
+    plan: "unknown"
+  },
+  throughput: {
+    completed_last_hour: 0,
+    failed_last_hour: 0,
+    billing_recalc_last_hour: 0,
+    avg_duration_ms_last_20: 0
+  },
+  states: {
+    queued: 0,
+    processing: 0,
+    dlq_failed: 0,
+    dlq_resolved: 0
+  },
+  recent_cases: [],
+  security: {
+    manual_package_mfa_violations_last_hour: 0,
+    manual_package_mfa_2fa_required_last_hour: 0,
+    manual_package_mfa_provider_not_homologated_last_hour: 0
+  },
+  generated_at: ""
+};
+
+export function normalizeOperationsSnapshot(snapshot: Partial<OperationsSnapshot> | null | undefined): OperationsSnapshot {
+  return {
+    queue: {
+      ...EMPTY_OPERATIONS_SNAPSHOT.queue,
+      ...(snapshot?.queue ?? {})
+    },
+    concurrency: {
+      ...EMPTY_OPERATIONS_SNAPSHOT.concurrency,
+      ...(snapshot?.concurrency ?? {})
+    },
+    throughput: {
+      ...EMPTY_OPERATIONS_SNAPSHOT.throughput,
+      ...(snapshot?.throughput ?? {})
+    },
+    states: {
+      ...EMPTY_OPERATIONS_SNAPSHOT.states,
+      ...(snapshot?.states ?? {})
+    },
+    recent_cases: Array.isArray(snapshot?.recent_cases) ? snapshot.recent_cases : EMPTY_OPERATIONS_SNAPSHOT.recent_cases,
+    security: {
+      ...EMPTY_OPERATIONS_SNAPSHOT.security,
+      ...(snapshot?.security ?? {})
+    },
+    generated_at: typeof snapshot?.generated_at === "string" ? snapshot.generated_at : EMPTY_OPERATIONS_SNAPSHOT.generated_at
+  };
+}
+
 export type OperationalAlertsSnapshot = {
   generated_at: string;
   open_total: number;

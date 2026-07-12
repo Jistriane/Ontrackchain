@@ -4,7 +4,7 @@ export async function GET(request: Request) {
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const auth = await authenticateRequest(requestId);
   if (auth instanceof Response) {
-    return auth;
+    return jsonResponse("null", 200);
   }
 
   const url = new URL(request.url);
@@ -18,9 +18,13 @@ export async function GET(request: Request) {
     package_sha256: packageSha256,
     policy_version: policyVersion
   });
-  return proxyOperationsRequest(auth, {
+  const response = await proxyOperationsRequest(auth, {
     method: "GET",
     path: `/api/v1/evidence/manual-package/seals/by-digest?${query.toString()}`,
     requestId
   });
+  if (response.status === 401 || response.status === 403) {
+    return jsonResponse("null", 200);
+  }
+  return response;
 }

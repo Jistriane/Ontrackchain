@@ -9,7 +9,11 @@ import {
 } from "../lib/monitoring-api";
 import type { DlqSnapshot } from "../lib/monitoring-dlq";
 import type { MessageKey } from "../lib/i18n";
-import type { OperationsSnapshot, OperationalAlertsSnapshot } from "../lib/monitoring-investigation-operations";
+import {
+  normalizeOperationsSnapshot,
+  type OperationsSnapshot,
+  type OperationalAlertsSnapshot
+} from "../lib/monitoring-investigation-operations";
 
 type Translator = (key: MessageKey, values?: Record<string, string | number>) => string;
 
@@ -32,7 +36,7 @@ export function useMonitoringOperations({ t, setError, refreshMetricsPreview }: 
   async function loadOperations() {
     try {
       const data = await fetchMonitoringOperations();
-      setOperations(data);
+      setOperations(normalizeOperationsSnapshot(data));
     } catch {
       setError(t("monitoring.errors.loadWorkerOperations"));
     }

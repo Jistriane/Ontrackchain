@@ -4,10 +4,15 @@ function jsonResponse(body: string, status: number) {
   return new Response(body, { status, headers: { "content-type": "application/json" } });
 }
 
+const EMPTY_COUNTERPARTY_LIST_RESPONSE = {
+  items: [],
+  total: 0
+} as const;
+
 export async function GET(request: Request) {
   const token = cookies().get("otc_token")?.value;
   if (!token) {
-    return jsonResponse(JSON.stringify({ error: "not_authenticated" }), 401);
+    return jsonResponse(JSON.stringify(EMPTY_COUNTERPARTY_LIST_RESPONSE), 200);
   }
 
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
@@ -19,6 +24,10 @@ export async function GET(request: Request) {
     headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId },
     cache: "no-store"
   });
+
+  if (res.status === 401 || res.status === 403) {
+    return jsonResponse(JSON.stringify(EMPTY_COUNTERPARTY_LIST_RESPONSE), 200);
+  }
 
   return jsonResponse(await res.text(), res.status);
 }

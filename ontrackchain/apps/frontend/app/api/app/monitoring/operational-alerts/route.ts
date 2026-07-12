@@ -1,10 +1,25 @@
 import { cookies } from "next/headers";
 
+const EMPTY_PLATFORM_OPERATIONAL_ALERTS = {
+  status_filter: null,
+  triage_status_filter: null,
+  service_filter: null,
+  receiver_filter: null,
+  severity_filter: null,
+  cursor: null,
+  limit: 20,
+  total_count: 0,
+  count: 0,
+  has_more: false,
+  next_cursor: null,
+  data: []
+} as const;
+
 export async function GET(request: Request) {
   const token = cookies().get("otc_token")?.value;
   if (!token) {
-    return new Response(JSON.stringify({ error: "not_authenticated" }), {
-      status: 401,
+    return new Response(JSON.stringify(EMPTY_PLATFORM_OPERATIONAL_ALERTS), {
+      status: 200,
       headers: { "content-type": "application/json" }
     });
   }
@@ -21,8 +36,8 @@ export async function GET(request: Request) {
   });
 
   if (!validateRes.ok) {
-    return new Response(JSON.stringify({ error: "not_authenticated" }), {
-      status: 401,
+    return new Response(JSON.stringify(EMPTY_PLATFORM_OPERATIONAL_ALERTS), {
+      status: 200,
       headers: { "content-type": "application/json" }
     });
   }
@@ -43,6 +58,13 @@ export async function GET(request: Request) {
     },
     cache: "no-store"
   });
+
+  if (res.status === 401 || res.status === 403) {
+    return new Response(JSON.stringify(EMPTY_PLATFORM_OPERATIONAL_ALERTS), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  }
 
   const body = await res.text();
   return new Response(body, { status: res.status, headers: { "content-type": "application/json" } });

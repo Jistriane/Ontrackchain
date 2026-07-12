@@ -21,6 +21,10 @@ type DlqRemediationPanelProps = {
   resolvingCaseId: string | null;
 };
 
+function hasDlqSnapshotGeneratedAt(value: string | null | undefined) {
+  return typeof value === "string" && value.trim().length > 0 && value !== "1970-01-01T00:00:00.000Z";
+}
+
 export function DlqRemediationPanel({
   t,
   dlqFilterState,
@@ -70,7 +74,9 @@ export function DlqRemediationPanel({
           {t("monitoring.dlq.refresh")}
         </button>
         <span data-testid="dlq-generated-at" className="otc-monitoring-meta">
-          {dlq ? t("monitoring.dlq.snapshot", { value: dlq.generated_at }) : t("monitoring.platform.noSnapshot")}
+          {dlq && hasDlqSnapshotGeneratedAt(dlq.generated_at)
+            ? t("monitoring.dlq.snapshot", { value: dlq.generated_at })
+            : t("monitoring.platform.noSnapshot")}
         </span>
         {dlq ? (
           <span data-testid="dlq-credits-available" className="otc-monitoring-meta">

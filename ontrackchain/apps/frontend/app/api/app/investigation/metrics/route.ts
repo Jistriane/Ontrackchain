@@ -1,10 +1,12 @@
 import { cookies } from "next/headers";
 
+const EMPTY_METRICS_PREVIEW = "# metrics_unavailable_anonymous 1\n";
+
 export async function GET(request: Request) {
   const token = cookies().get("otc_token")?.value;
   if (!token) {
-    return new Response("not_authenticated", {
-      status: 401,
+    return new Response(EMPTY_METRICS_PREVIEW, {
+      status: 200,
       headers: { "content-type": "text/plain; charset=utf-8" }
     });
   }
@@ -16,6 +18,13 @@ export async function GET(request: Request) {
     headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId },
     cache: "no-store"
   });
+
+  if (res.status === 401 || res.status === 403) {
+    return new Response(EMPTY_METRICS_PREVIEW, {
+      status: 200,
+      headers: { "content-type": "text/plain; charset=utf-8" }
+    });
+  }
 
   const body = await res.text();
   return new Response(body, {

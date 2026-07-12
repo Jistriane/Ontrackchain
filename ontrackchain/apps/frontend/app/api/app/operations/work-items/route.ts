@@ -1,10 +1,21 @@
 import { authenticateRequest, proxyOperationsRequest } from "../_shared";
 
+const EMPTY_WORK_ITEMS = {
+  data: [],
+  page: 1,
+  limit: 100,
+  total: 0,
+  has_more: false
+} as const;
+
 export async function GET(request: Request) {
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const auth = await authenticateRequest(requestId);
   if (auth instanceof Response) {
-    return auth;
+    return new Response(JSON.stringify(EMPTY_WORK_ITEMS), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
   }
 
   const url = new URL(request.url);

@@ -1,17 +1,25 @@
-import { authenticateTeamRequest, proxyTeamJsonRequest } from "../_shared";
+import { authenticateTeamRequest, jsonResponse, proxyTeamJsonRequest } from "../_shared";
+
+const EMPTY_TEAM_USERS_RESPONSE = {
+  data: []
+} as const;
 
 export async function GET(request: Request) {
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const auth = await authenticateTeamRequest(requestId);
   if (auth instanceof Response) {
-    return auth;
+    return jsonResponse(JSON.stringify(EMPTY_TEAM_USERS_RESPONSE), 200);
   }
 
-  return proxyTeamJsonRequest(auth, {
+  const response = await proxyTeamJsonRequest(auth, {
     method: "GET",
     path: "/api/v1/team/users",
     requestId
   });
+  if (response.status === 401 || response.status === 403) {
+    return jsonResponse(JSON.stringify(EMPTY_TEAM_USERS_RESPONSE), 200);
+  }
+  return response;
 }
 
 export async function POST(request: Request) {

@@ -297,6 +297,137 @@ CREATE TABLE IF NOT EXISTS credit_ledger (
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
+CREATE TABLE IF NOT EXISTS counterparties (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES organizations(id),
+  created_by_user_id UUID NOT NULL REFERENCES users(id),
+  counterparty_type VARCHAR(50) NOT NULL,
+  legal_name VARCHAR(500) NOT NULL,
+  trading_name VARCHAR(500),
+  document_type VARCHAR(20) NOT NULL,
+  document_number VARCHAR(50) NOT NULL,
+  document_country CHAR(3) NOT NULL DEFAULT 'BRA',
+  document_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  document_verified_at TIMESTAMPTZ,
+  registration_data JSONB NOT NULL DEFAULT '{}',
+  beneficial_owners JSONB NOT NULL DEFAULT '[]',
+  wallet_addresses JSONB NOT NULL DEFAULT '[]',
+  risk_level INTEGER NOT NULL DEFAULT 1 CHECK (risk_level BETWEEN 1 AND 4),
+  risk_rationale TEXT,
+  risk_classified_by UUID REFERENCES users(id),
+  risk_classified_at TIMESTAMPTZ,
+  onchain_risk_score INTEGER CHECK (onchain_risk_score BETWEEN 0 AND 100),
+  onchain_analysis JSONB DEFAULT '{}',
+  is_pep BOOLEAN NOT NULL DEFAULT FALSE,
+  pep_detail JSONB DEFAULT '{}',
+  sanctions_cleared BOOLEAN NOT NULL DEFAULT FALSE,
+  sanctions_check_date TIMESTAMPTZ,
+  sanctions_hits JSONB NOT NULL DEFAULT '[]',
+  kyc_status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+  kyc_reviewed_by UUID REFERENCES users(id),
+  kyc_reviewed_at TIMESTAMPTZ,
+  kyc_rejection_reason TEXT,
+  enhanced_dd_required BOOLEAN NOT NULL DEFAULT FALSE,
+  enhanced_dd_status VARCHAR(50),
+  enhanced_dd_completed_by UUID REFERENCES users(id),
+  enhanced_dd_completed_at TIMESTAMPTZ,
+  enhanced_dd_findings TEXT,
+  enhanced_dd_checklist JSONB DEFAULT '[]',
+  next_review_date DATE,
+  review_frequency_days INTEGER NOT NULL DEFAULT 365,
+  last_reviewed_at TIMESTAMPTZ,
+  last_reviewed_by UUID REFERENCES users(id),
+  status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+  status_changed_at TIMESTAMPTZ,
+  status_changed_by UUID REFERENCES users(id),
+  status_reason TEXT,
+  evidence_hash VARCHAR(64) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  retain_until TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '5 years'),
+  CONSTRAINT uq_counterparty_doc_org UNIQUE (organization_id, document_type, document_number)
+);
+
+CREATE OR REPLACE FUNCTION update_counterparty_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS counterparty_updated_at ON counterparties;
+CREATE TRIGGER counterparty_updated_at
+  BEFORE UPDATE ON counterparties
+  FOR EACH ROW EXECUTE FUNCTION update_counterparty_updated_at();
+
+CREATE TABLE IF NOT EXISTS counterparty_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  counterparty_id UUID NOT NULL REFERENCES counterparties(id),
+  organization_id UUID NOT NULL REFERENCES organizations(id),
+  changed_by_user_id UUID NOT NULL REFERENCES users(id),
+  change_type VARCHAR(50) NOT NULL,
+  field_changed VARCHAR(100),
+  old_value TEXT,
+  new_value TEXT,
+  change_reason TEXT,
+  changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  evidence_hash VARCHAR(64) NOT NULL
+);
+
+ALTER TABLE counterparties ENABLE ROW LEVEL SECURITY;
+ALTER TABLE counterparty_history ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS counterparties_tenant_isolation ON counterparties;
+CREATE POLICY counterparties_tenant_isolation
+  ON counterparties FOR ALL
+  USING (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', TRUE), '')::UUID
+  )
+  WITH CHECK (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', TRUE), '')::UUID
+  );
+
+DROP POLICY IF EXISTS counterparty_history_tenant_isolation ON counterparty_history;
+CREATE POLICY counterparty_history_tenant_isolation
+  ON counterparty_history FOR ALL
+  USING (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', TRUE), '')::UUID
+  )
+  WITH CHECK (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', TRUE), '')::UUID
+  );
+
+CREATE INDEX IF NOT EXISTS idx_counterparties_org
+  ON counterparties(organization_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_counterparties_kyc_status
+  ON counterparties(organization_id, kyc_status)
+  WHERE kyc_status != 'APPROVED';
+
+CREATE INDEX IF NOT EXISTS idx_counterparties_risk_level
+  ON counterparties(organization_id, risk_level)
+  WHERE risk_level >= 3;
+
+CREATE INDEX IF NOT EXISTS idx_counterparties_review_due
+  ON counterparties(organization_id, next_review_date)
+  WHERE status = 'ACTIVE';
+
+CREATE INDEX IF NOT EXISTS idx_counterparties_pep
+  ON counterparties(organization_id)
+  WHERE is_pep = TRUE;
+
+CREATE INDEX IF NOT EXISTS idx_counterparties_sanctions
+  ON counterparties(organization_id)
+  WHERE sanctions_cleared = FALSE;
+
+CREATE INDEX IF NOT EXISTS idx_counterparty_history_cp
+  ON counterparty_history(counterparty_id, changed_at DESC);
+
 CREATE OR REPLACE FUNCTION jsonb_is_string_or_null(value JSONB)
 RETURNS BOOLEAN AS $$
   SELECT value IS NULL OR jsonb_typeof(value) IN ('string', 'null');

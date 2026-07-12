@@ -19,6 +19,10 @@ type InvestigationOperationsPanelProps = {
 const manualPackageMfaAuditHref =
   "/audit?preset=manual-package-mfa&action=evidence_manual_review_package_mfa_violation&resource_type=evidence_package_seal";
 
+function hasWorkerSnapshotGeneratedAt(value: string | null | undefined) {
+  return typeof value === "string" && value.trim().length > 0 && value !== "1970-01-01T00:00:00.000Z";
+}
+
 export function InvestigationOperationsPanel({
   t,
   operations,
@@ -38,7 +42,9 @@ export function InvestigationOperationsPanel({
             {t("monitoring.worker.refresh")}
           </button>
           <span data-testid="worker-generated-at" className="otc-monitoring-meta">
-            {operations ? t("monitoring.worker.snapshot", { value: operations.generated_at }) : t("monitoring.worker.noSnapshot")}
+            {operations && hasWorkerSnapshotGeneratedAt(operations.generated_at)
+              ? t("monitoring.worker.snapshot", { value: operations.generated_at })
+              : t("monitoring.worker.noSnapshot")}
           </span>
         </div>
 
