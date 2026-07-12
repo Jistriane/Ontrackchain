@@ -34,6 +34,7 @@ Definir um blueprint unico para staging no Render sem quebrar a arquitetura atua
 
 - preencha todos os `sync: false` no Render antes do primeiro deploy.
 - use `infra/render/render-staging.example.env` como checklist de secrets, nao como arquivo para commit.
+- use [Primeiro Sync no Render](file:///home/jistriane/Ontrackchain/ontrackchain/docs/render-staging-first-sync.md) como runbook operacional para a ordem de preenchimento e validacao inicial.
 - se o Render gerar subdominios diferentes dos nomes previstos, atualize:
   - `ONTRACKCHAIN_PUBLIC_BASE_URL`
   - `KEYCLOAK_PUBLIC_URL`
