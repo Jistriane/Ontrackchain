@@ -58,6 +58,7 @@ Interpretacao honesta:
 - `P1-01` concluiu a padronizacao de metadata dos `work-items`, reduzindo drift entre cockpit, backend e contrato de API
 - `P2-03` saiu de desenho abstrato para trilha canônica leve: playbook indexado, RCA persistida no `work-item` do alerta, leitura read-only em `/monitoring`, export administrativo enriquecido e resumo opcional para snapshot/comms executivos
 - `P2-05` entrou em trilho real de enforcement fino: `REVIEWER` e `BILLING_ADMIN` ja operam em superficies concretas, incluindo `manual-package`, `ROS/COAF`, `billing/balance`, `billing/reconciliation` e a degradação coerente de CTAs e do acesso direto ao dashboard financeiro no frontend
+- a segregacao regulatoria de `ROS/COAF` agora tambem aparece de forma explicita na UX: `REVIEWER` segue aprovando/rejeitando, mas nao recebe a superficie de submissao manual reservada a `COMPLIANCE_OFFICER`
 - isso reduz ambiguidade entre triagem tecnica e narrativa executiva, porque a causa raiz deixa de ficar implícita ou dispersa entre UI, comentário e export
 - este avanço melhora qualidade operacional e auditabilidade, mas ainda nao altera a baseline oficial `92/79/88` por si só
 - o ganho executivo formal so deve ocorrer quando houver uso recorrente em janela real, com resumo RCA materializado e revisão humana coerente com o rito semanal

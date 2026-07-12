@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
 import { formatDateTime as formatDate } from "../lib/date-format";
 import { useI18n } from "../../components/i18n-provider";
+import { canReviewRosCoaf, canSubmitRosCoaf } from "../lib/authz";
 import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel";
 import type { MessageKey } from "../lib/i18n";
 import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
@@ -181,21 +182,6 @@ type RosWorkspaceRecord = {
 
 const STORAGE_KEY = "otc-ros-coaf-workspace";
 const WORKSPACE_PAGE_LIMIT = 100;
-const ROS_COAF_APPROVE_ALLOWED_ROLES = new Set([
-  "ADMIN",
-  "COMPLIANCE_OFFICER",
-  "OTK_COMPLIANCE_OFFICER",
-  "LEGAL_REVIEWER",
-  "OTK_LEGAL_REVIEWER",
-  "REVIEWER",
-  "OTK_REVIEWER"
-]);
-const ROS_COAF_SUBMITTED_ALLOWED_ROLES = new Set(["ADMIN", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"]);
-
-function normalizeAuthRole(role: string | null | undefined) {
-  return String(role ?? "").trim().toUpperCase();
-}
-
 function loadWorkspace(): RosWorkspaceRecord[] {
   return loadWorkspaceRecords<RosWorkspaceRecord>(STORAGE_KEY, (record) => {
     const source: WorkspaceSource = record.source === "server" ? "server" : "local";
@@ -266,21 +252,45 @@ function upsertWorkspaceRecord(
 }
 
 function mergeWorkspaceRecords(serverRecords: RosWorkspaceRecord[], localRecords: RosWorkspaceRecord[]) {
-  const merged = [...serverRecords];
-  const seenRosIds = new Set(serverRecords.map((record) => record.rosId));
+  const mergedByRosId = new Map(serverRecords.map((record) => [record.rosId, record]));
   const seenWorkItemIds = new Set(serverRecords.map((record) => record.workItemId).filter(Boolean));
 
   for (const record of localRecords) {
-    if (seenRosIds.has(record.rosId)) {
+    const existing = mergedByRosId.get(record.rosId);
+    if (existing) {
+      mergedByRosId.set(record.rosId, {
+        ...record,
+        ...existing,
+        source: existing.source === "server" || record.source === "server" ? "server" : existing.source,
+        caseId: existing.caseId || record.caseId,
+        owner: existing.owner || record.owner,
+        priority: existing.priority || record.priority,
+        localDeadline: existing.localDeadline || record.localDeadline,
+        status: existing.status || record.status,
+        reportId: existing.reportId || record.reportId,
+        createdAt: existing.createdAt || record.createdAt,
+        approvedAt: existing.approvedAt || record.approvedAt,
+        submittedAt: existing.submittedAt || record.submittedAt,
+        coafProtocolNumber: existing.coafProtocolNumber || record.coafProtocolNumber,
+        coafReceiptHash: existing.coafReceiptHash || record.coafReceiptHash,
+        submissionDeadline: existing.submissionDeadline || record.submissionDeadline,
+        deadlineBreached: existing.deadlineBreached || record.deadlineBreached,
+        rejectionReason: existing.rejectionReason || record.rejectionReason,
+        approval2faVerified: existing.approval2faVerified || record.approval2faVerified,
+        lastActionAt:
+          (existing.lastActionAt || "").localeCompare(record.lastActionAt || "") > 0
+            ? existing.lastActionAt
+            : record.lastActionAt
+      });
       continue;
     }
     if (record.workItemId && seenWorkItemIds.has(record.workItemId)) {
       continue;
     }
-    merged.push(record);
+    mergedByRosId.set(record.rosId, record);
   }
 
-  return sortByLastActionAtDesc(merged);
+  return sortByLastActionAtDesc([...mergedByRosId.values()]);
 }
 
 function mapQueueStatusToRosStatus(status: WorkItemQueueStatus) {
@@ -913,8 +923,8 @@ export default function RosCoafPage() {
   const [officialDetail, setOfficialDetail] = useState<RosCoafDetailResponse | null>(null);
 
   const canApproveDecision = approved || rejectionReason.trim().length > 0;
-  const canApproveRole = ROS_COAF_APPROVE_ALLOWED_ROLES.has(normalizeAuthRole(authContext?.role));
-  const canSubmitRole = ROS_COAF_SUBMITTED_ALLOWED_ROLES.has(normalizeAuthRole(authContext?.role));
+  const canApproveRole = canReviewRosCoaf(authContext?.role);
+  const canSubmitRole = canSubmitRosCoaf(authContext?.role);
   const draftDownloadUrl = useMemo(() => {
     if (!draft?.report_id || !draft?.created_at) return null;
     return buildReportDownloadUrl(draft.report_id, draft.created_at, caseId);
@@ -1831,98 +1841,110 @@ export default function RosCoafPage() {
       />
 
       <Panel title={tr("rosCoaf.approve.title" as MessageKey)} description={tr("rosCoaf.approve.description" as MessageKey)}>
-        <form className="otc-stack" onSubmit={onApprove}>
-          <div className="otc-grid otc-grid--counterparty-form">
-            <label className="otc-field">
-              {tr("rosCoaf.approve.rosId" as MessageKey)}
-              <input className="otc-input" data-testid="roscoaf-approve-ros-id" value={approveRosId} onChange={(event) => setApproveRosId(event.target.value)} required />
-            </label>
-            <label className="otc-field">
-              {tr("rosCoaf.approve.decision" as MessageKey)}
-              <select className="otc-select" value={approved ? "approve" : "reject"} onChange={(event) => setApproved(event.target.value === "approve")}>
-                <option value="approve">{tr("rosCoaf.approve.approve" as MessageKey)}</option>
-                <option value="reject">{tr("rosCoaf.approve.reject" as MessageKey)}</option>
-              </select>
-            </label>
-            {!approved ? (
+        {canApproveRole ? (
+          <form className="otc-stack" onSubmit={onApprove}>
+            <div className="otc-grid otc-grid--counterparty-form">
               <label className="otc-field">
-                {tr("rosCoaf.approve.rejectionReason" as MessageKey)}
-                <input className="otc-input" value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} />
+                {tr("rosCoaf.approve.rosId" as MessageKey)}
+                <input className="otc-input" data-testid="roscoaf-approve-ros-id" value={approveRosId} onChange={(event) => setApproveRosId(event.target.value)} required />
               </label>
-            ) : null}
-          </div>
-          <div className="otc-controls">
-            <button
-              className="otc-button otc-button--accent"
-              type="submit"
-              data-testid="roscoaf-approve-btn"
-              disabled={approving || syncingWorkspace || !canApproveDecision || !canApproveRole}
-            >
-              {approving ? tr("rosCoaf.approve.submitting" as MessageKey) : tr("rosCoaf.approve.submit" as MessageKey)}
-            </button>
-            {buildRosContextLinks(
-              buildRosOperationalContext({
-                caseId,
-                reportId: draft?.report_id ?? "",
-                rosId: approveRosId
-              }),
-              {
-                case: "rosCoaf.approve.openCase",
-                audit: "rosCoaf.approve.openAudit",
-                evidence: "rosCoaf.approve.openEvidence"
-              }
-            ).map((link: OperationalContextLink & { labelKey: MessageKey }) => (
-              <a key={`approve-${link.testIdSuffix}`} className="otc-link-button" href={link.href}>
-                {tr(link.labelKey)}
-              </a>
-            ))}
-          </div>
-        </form>
+              <label className="otc-field">
+                {tr("rosCoaf.approve.decision" as MessageKey)}
+                <select className="otc-select" value={approved ? "approve" : "reject"} onChange={(event) => setApproved(event.target.value === "approve")}>
+                  <option value="approve">{tr("rosCoaf.approve.approve" as MessageKey)}</option>
+                  <option value="reject">{tr("rosCoaf.approve.reject" as MessageKey)}</option>
+                </select>
+              </label>
+              {!approved ? (
+                <label className="otc-field">
+                  {tr("rosCoaf.approve.rejectionReason" as MessageKey)}
+                  <input className="otc-input" value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} />
+                </label>
+              ) : null}
+            </div>
+            <div className="otc-controls">
+              <button
+                className="otc-button otc-button--accent"
+                type="submit"
+                data-testid="roscoaf-approve-btn"
+                disabled={approving || syncingWorkspace || !canApproveDecision}
+              >
+                {approving ? tr("rosCoaf.approve.submitting" as MessageKey) : tr("rosCoaf.approve.submit" as MessageKey)}
+              </button>
+              {buildRosContextLinks(
+                buildRosOperationalContext({
+                  caseId,
+                  reportId: draft?.report_id ?? "",
+                  rosId: approveRosId
+                }),
+                {
+                  case: "rosCoaf.approve.openCase",
+                  audit: "rosCoaf.approve.openAudit",
+                  evidence: "rosCoaf.approve.openEvidence"
+                }
+              ).map((link: OperationalContextLink & { labelKey: MessageKey }) => (
+                <a key={`approve-${link.testIdSuffix}`} className="otc-link-button" href={link.href}>
+                  {tr(link.labelKey)}
+                </a>
+              ))}
+            </div>
+          </form>
+        ) : (
+          <Message tone="error" data-testid="roscoaf-approve-access-denied">
+            {tr("apiErrors.coafReviewRoleRequired" as MessageKey)}
+          </Message>
+        )}
       </Panel>
 
       <Panel title={tr("rosCoaf.submitted.title" as MessageKey)} description={tr("rosCoaf.submitted.description" as MessageKey)}>
-        <form className="otc-stack" onSubmit={onSubmitted}>
-          <div className="otc-grid otc-grid--counterparty-form">
-            <label className="otc-field">
-              {tr("rosCoaf.submitted.rosId" as MessageKey)}
-              <input className="otc-input" data-testid="roscoaf-submitted-ros-id" value={submitRosId} onChange={(event) => setSubmitRosId(event.target.value)} required />
-            </label>
-            <label className="otc-field">
-              {tr("rosCoaf.submitted.protocol" as MessageKey)}
-              <input className="otc-input" data-testid="roscoaf-protocol" value={coafProtocolNumber} onChange={(event) => setCoafProtocolNumber(event.target.value)} required />
-            </label>
-            <label className="otc-field">
-              {tr("rosCoaf.submitted.receiptHash" as MessageKey)}
-              <input className="otc-input" value={coafReceiptHash} onChange={(event) => setCoafReceiptHash(event.target.value)} />
-            </label>
-          </div>
-          <div className="otc-controls">
-            <button
-              className="otc-button otc-button--accent"
-              type="submit"
-              data-testid="roscoaf-submitted-btn"
-              disabled={submitting || syncingWorkspace || !canSubmitRole}
-            >
-              {submitting ? tr("rosCoaf.submitted.submitting" as MessageKey) : tr("rosCoaf.submitted.submit" as MessageKey)}
-            </button>
-            {buildRosContextLinks(
-              buildRosOperationalContext({
-                caseId,
-                reportId: draft?.report_id ?? "",
-                rosId: submitRosId
-              }),
-              {
-                case: "rosCoaf.submitted.openCase",
-                audit: "rosCoaf.submitted.openAudit",
-                evidence: "rosCoaf.submitted.openEvidence"
-              }
-            ).map((link: OperationalContextLink & { labelKey: MessageKey }) => (
-              <a key={`submitted-${link.testIdSuffix}`} className="otc-link-button" href={link.href}>
-                {tr(link.labelKey)}
-              </a>
-            ))}
-          </div>
-        </form>
+        {canSubmitRole ? (
+          <form className="otc-stack" onSubmit={onSubmitted}>
+            <div className="otc-grid otc-grid--counterparty-form">
+              <label className="otc-field">
+                {tr("rosCoaf.submitted.rosId" as MessageKey)}
+                <input className="otc-input" data-testid="roscoaf-submitted-ros-id" value={submitRosId} onChange={(event) => setSubmitRosId(event.target.value)} required />
+              </label>
+              <label className="otc-field">
+                {tr("rosCoaf.submitted.protocol" as MessageKey)}
+                <input className="otc-input" data-testid="roscoaf-protocol" value={coafProtocolNumber} onChange={(event) => setCoafProtocolNumber(event.target.value)} required />
+              </label>
+              <label className="otc-field">
+                {tr("rosCoaf.submitted.receiptHash" as MessageKey)}
+                <input className="otc-input" value={coafReceiptHash} onChange={(event) => setCoafReceiptHash(event.target.value)} />
+              </label>
+            </div>
+            <div className="otc-controls">
+              <button
+                className="otc-button otc-button--accent"
+                type="submit"
+                data-testid="roscoaf-submitted-btn"
+                disabled={submitting || syncingWorkspace}
+              >
+                {submitting ? tr("rosCoaf.submitted.submitting" as MessageKey) : tr("rosCoaf.submitted.submit" as MessageKey)}
+              </button>
+              {buildRosContextLinks(
+                buildRosOperationalContext({
+                  caseId,
+                  reportId: draft?.report_id ?? "",
+                  rosId: submitRosId
+                }),
+                {
+                  case: "rosCoaf.submitted.openCase",
+                  audit: "rosCoaf.submitted.openAudit",
+                  evidence: "rosCoaf.submitted.openEvidence"
+                }
+              ).map((link: OperationalContextLink & { labelKey: MessageKey }) => (
+                <a key={`submitted-${link.testIdSuffix}`} className="otc-link-button" href={link.href}>
+                  {tr(link.labelKey)}
+                </a>
+              ))}
+            </div>
+          </form>
+        ) : (
+          <Message tone="error" data-testid="roscoaf-submitted-access-denied">
+            {tr("apiErrors.coafSubmissionRoleRequired" as MessageKey)}
+          </Message>
+        )}
       </Panel>
 
       <Panel title={tr("rosCoaf.debug.title" as MessageKey)} description={tr("rosCoaf.debug.description" as MessageKey)}>
