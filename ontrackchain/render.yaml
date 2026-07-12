@@ -1,0 +1,618 @@
+version: "1"
+
+previews:
+  generation: off
+
+services:
+  - type: web
+    runtime: docker
+    name: ontrackchain-staging
+    plan: starter
+    dockerContext: .
+    dockerfilePath: ./infra/render/traefik/Dockerfile
+    healthCheckPath: /auth/config
+    envVars:
+      - key: AUTH_SERVICE_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-auth-staging
+          property: hostport
+      - key: PUBLIC_API_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-public-api-staging
+          property: hostport
+      - key: INVESTIGATION_API_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-investigation-api-staging
+          property: hostport
+      - key: COMPLIANCE_API_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-compliance-api-staging
+          property: hostport
+      - key: MONITORING_API_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-monitoring-api-staging
+          property: hostport
+      - key: REPORT_API_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-report-api-staging
+          property: hostport
+      - key: FRONTEND_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-frontend-staging
+          property: hostport
+
+  - type: web
+    runtime: docker
+    name: ontrackchain-auth-idp-staging
+    plan: starter
+    dockerContext: .
+    dockerfilePath: ./infra/render/keycloak/Dockerfile
+    healthCheckPath: /realms/ontrackchain/.well-known/openid-configuration
+    envVars:
+      - key: KEYCLOAK_PUBLIC_URL
+        value: https://ontrackchain-auth-idp-staging.onrender.com
+      - key: ONTRACKCHAIN_PUBLIC_BASE_URL
+        value: https://ontrackchain-staging.onrender.com
+      - key: KEYCLOAK_ADMIN
+        value: admin
+      - key: KEYCLOAK_ADMIN_PASSWORD
+        sync: false
+      - key: KEYCLOAK_B2B_CLIENT_SECRET
+        sync: false
+      - key: KC_DB
+        value: dev-file
+      - key: KC_HTTP_ENABLED
+        value: "true"
+      - key: KC_PROXY_HEADERS
+        value: xforwarded
+      - key: KC_HOSTNAME
+        value: https://ontrackchain-auth-idp-staging.onrender.com
+      - key: KEYCLOAK_SYSTEM_USER_PASSWORD
+        sync: false
+      - key: KEYCLOAK_KMD_TESTER_PASSWORD
+        sync: false
+      - key: KEYCLOAK_JIBSO_ADMIN_PASSWORD
+        sync: false
+      - key: KEYCLOAK_AUDITOR_PASSWORD
+        sync: false
+      - key: KEYCLOAK_ANALYST_PASSWORD
+        sync: false
+      - key: KEYCLOAK_VIEWER_PASSWORD
+        sync: false
+      - key: KEYCLOAK_SEM_ORG_PASSWORD
+        sync: false
+
+  - type: pserv
+    runtime: docker
+    name: ontrackchain-frontend-staging
+    plan: starter
+    dockerContext: ./apps/frontend
+    dockerfilePath: ./apps/frontend/Dockerfile
+    dockerCommand: >-
+      /bin/sh -lc 'export INTERNAL_API_BASE_URL="http://${INTERNAL_GATEWAY_HOSTPORT}" &&
+      export INTERNAL_AUTH_BASE_URL="http://${AUTH_SERVICE_HOSTPORT}" &&
+      export INTERNAL_KEYCLOAK_BASE_URL="http://${KEYCLOAK_INTERNAL_HOSTPORT}" &&
+      exec npm run start'
+    healthCheckPath: /login
+    envVars:
+      - key: INTERNAL_GATEWAY_HOSTPORT
+        fromService:
+          type: web
+          name: ontrackchain-staging
+          property: hostport
+      - key: AUTH_SERVICE_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-auth-staging
+          property: hostport
+      - key: KEYCLOAK_INTERNAL_HOSTPORT
+        fromService:
+          type: web
+          name: ontrackchain-auth-idp-staging
+          property: hostport
+      - key: APP_ENV
+        value: staging
+      - key: AUTH_MODE
+        value: oidc
+      - key: DEV_AUTH_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_APP_ENV
+        value: staging
+      - key: NEXT_PUBLIC_AUTH_MODE
+        value: oidc
+      - key: NEXT_PUBLIC_DEV_AUTH_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_API_BASE_URL
+        value: https://ontrackchain-staging.onrender.com
+
+  - type: pserv
+    runtime: docker
+    name: ontrackchain-auth-staging
+    plan: starter
+    dockerContext: .
+    dockerfilePath: ./infra/render/auth-service/Dockerfile
+    preDeployCommand: python /app/infra/render/scripts/apply_postgres_bootstrap.py
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: staging
+      - key: AUTH_MODE
+        value: oidc
+      - key: DEV_AUTH_ENABLED
+        value: "false"
+      - key: OIDC_PROVIDER
+        value: keycloak
+      - key: JWT_ISSUER
+        value: ontrackchain
+      - key: JWT_AUDIENCE
+        value: ontrackchain-api
+      - key: JWT_HS256_SECRET
+        sync: false
+      - key: MFA_TOTP_SECRET
+        sync: false
+      - key: MFA_TOTP_ISSUER
+        value: OnTrackChain
+      - key: MFA_TOTP_ACCOUNT_NAME
+        value: staging-admin@ontrackchain
+      - key: MFA_TOTP_PERIOD_SECONDS
+        value: "30"
+      - key: MFA_TOTP_DIGITS
+        value: "6"
+      - key: MFA_TOTP_WINDOW
+        value: "1"
+      - key: MFA_EXTERNAL_PROVIDER_HOMOLOGATED
+        value: "false"
+      - key: OIDC_ISSUER_URL
+        value: https://ontrackchain-auth-idp-staging.onrender.com/realms/ontrackchain
+      - key: OIDC_AUDIENCE
+        value: ontrackchain-api
+      - key: OIDC_CLIENT_ID
+        value: ontrackchain-web
+      - key: OIDC_JWKS_URL
+        value: https://ontrackchain-auth-idp-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/certs
+      - key: OIDC_AUTHORIZATION_URL
+        value: https://ontrackchain-auth-idp-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/auth
+      - key: OIDC_ORG_CLAIM
+        value: org
+      - key: OIDC_PLAN_CLAIM
+        value: plan
+      - key: OIDC_ROLE_CLAIM
+        value: otk_role
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: port
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: password
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: database
+
+  - type: pserv
+    runtime: docker
+    name: ontrackchain-public-api-staging
+    plan: starter
+    dockerContext: ./apps/public-api
+    dockerfilePath: ./apps/public-api/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: REDIS_HOST
+        fromService:
+          type: keyvalue
+          name: ontrackchain-redis-staging
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: keyvalue
+          name: ontrackchain-redis-staging
+          property: port
+
+  - type: pserv
+    runtime: docker
+    name: ontrackchain-investigation-api-staging
+    plan: starter
+    dockerContext: .
+    dockerfilePath: ./apps/investigation-api/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: port
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: password
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: database
+      - key: REDIS_HOST
+        fromService:
+          type: keyvalue
+          name: ontrackchain-redis-staging
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: keyvalue
+          name: ontrackchain-redis-staging
+          property: port
+      - key: INVESTIGATION_INTERNAL_METRICS_ENABLED
+        value: "true"
+      - key: INVESTIGATION_RPC_PROVIDER
+        value: evm_rpc
+      - key: INVESTIGATION_RPC_ENABLED
+        value: "true"
+      - key: INVESTIGATION_RPC_PRIMARY_URL
+        sync: false
+      - key: INVESTIGATION_RPC_FALLBACK_URL
+        sync: false
+      - key: INVESTIGATION_RPC_TIMEOUT_MS
+        value: "1500"
+      - key: INVESTIGATION_RPC_MAX_RETRIES
+        value: "1"
+
+  - type: worker
+    runtime: docker
+    name: ontrackchain-investigation-worker-staging
+    plan: starter
+    dockerContext: .
+    dockerfilePath: ./apps/investigation-api/Dockerfile
+    dockerCommand: >-
+      /bin/sh -lc 'export INVESTIGATION_INTERNAL_BASE_URL="http://${INVESTIGATION_INTERNAL_BASE_HOSTPORT}" &&
+      exec python -m investigation_api.worker'
+    envVars:
+      - key: INVESTIGATION_INTERNAL_BASE_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-investigation-api-staging
+          property: hostport
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: port
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: password
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: database
+      - key: REDIS_HOST
+        fromService:
+          type: keyvalue
+          name: ontrackchain-redis-staging
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: keyvalue
+          name: ontrackchain-redis-staging
+          property: port
+      - key: INVESTIGATION_WORKER_PROCESSING_SECONDS
+        value: "2"
+      - key: INVESTIGATION_WORKER_LOCAL_CONCURRENCY
+        value: "8"
+      - key: INVESTIGATION_WORKER_BASE_BACKOFF_SECONDS
+        value: "5"
+      - key: INVESTIGATION_RPC_PROVIDER
+        value: evm_rpc
+      - key: INVESTIGATION_RPC_ENABLED
+        value: "true"
+      - key: INVESTIGATION_RPC_PRIMARY_URL
+        sync: false
+      - key: INVESTIGATION_RPC_FALLBACK_URL
+        sync: false
+      - key: INVESTIGATION_RPC_TIMEOUT_MS
+        value: "1500"
+      - key: INVESTIGATION_RPC_MAX_RETRIES
+        value: "1"
+
+  - type: pserv
+    runtime: docker
+    name: ontrackchain-compliance-api-staging
+    plan: starter
+    dockerContext: .
+    dockerfilePath: ./apps/compliance-api/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: port
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: password
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: database
+      - key: COMPLIANCE_INTERNAL_METRICS_ENABLED
+        value: "true"
+      - key: COMPLIANCE_QUEUED_CASES_WARN_THRESHOLD
+        value: "5"
+      - key: COMPLIANCE_FAILED_LAST_24H_CRITICAL_THRESHOLD
+        value: "1"
+      - key: COMPLIANCE_EXPIRED_QUOTES_WARN_THRESHOLD
+        value: "10"
+      - key: COMPLIANCE_COMPLETED_WITHOUT_REPORT_WARN_THRESHOLD
+        value: "3"
+      - key: COMPLIANCE_PROVIDER_DEGRADED_WARN_THRESHOLD
+        value: "1"
+      - key: COMPLIANCE_RISK_PROVIDER
+        value: trm_labs
+      - key: COMPLIANCE_TRM_ENABLED
+        value: "true"
+      - key: COMPLIANCE_TRM_SCREENING_URL
+        sync: false
+      - key: COMPLIANCE_TRM_API_KEY
+        sync: false
+      - key: COMPLIANCE_TRM_API_KEY_HEADER
+        value: Authorization
+      - key: COMPLIANCE_TRM_API_KEY_PREFIX
+        value: "Bearer "
+
+  - type: worker
+    runtime: docker
+    name: ontrackchain-compliance-worker-staging
+    plan: starter
+    dockerContext: .
+    dockerfilePath: ./apps/compliance-api/Dockerfile
+    dockerCommand: python -m compliance_api.worker
+    envVars:
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: port
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: password
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: database
+      - key: OPENSANCTIONS_API_KEY
+        sync: false
+      - key: COMPLIANCE_OFAC_SDN_SOURCE_URL
+        value: https://sanctionslist.ofac.treas.gov/SDN.xml
+      - key: COMPLIANCE_EU_SANCTIONS_SOURCE_URL
+        sync: false
+      - key: COMPLIANCE_WORKER_IDLE_WAIT_SECONDS
+        value: "60"
+      - key: COMPLIANCE_WORKER_OFAC_SYNC_SECONDS
+        value: "21600"
+      - key: COMPLIANCE_WORKER_UN_SYNC_SECONDS
+        value: "86400"
+      - key: COMPLIANCE_WORKER_EU_SYNC_SECONDS
+        value: "86400"
+      - key: COMPLIANCE_WORKER_OPENSANCTIONS_SYNC_SECONDS
+        value: "86400"
+      - key: COMPLIANCE_WORKER_ROS_DEADLINE_SCAN_SECONDS
+        value: "3600"
+
+  - type: pserv
+    runtime: docker
+    name: ontrackchain-monitoring-api-staging
+    plan: starter
+    dockerContext: .
+    dockerfilePath: ./apps/monitoring-api/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: port
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: password
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: database
+      - key: REDIS_HOST
+        fromService:
+          type: keyvalue
+          name: ontrackchain-redis-staging
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: keyvalue
+          name: ontrackchain-redis-staging
+          property: port
+      - key: MONITORING_INTERNAL_METRICS_ENABLED
+        value: "true"
+      - key: MONITORING_ALERTS_LAST_HOUR_WARN_THRESHOLD
+        value: "5"
+      - key: MONITORING_CRITICAL_ALERTS_LAST_24H_CRITICAL_THRESHOLD
+        value: "1"
+      - key: MONITORING_EXPIRED_QUOTES_WARN_THRESHOLD
+        value: "10"
+      - key: MONITORING_OPEN_QUOTES_WARN_THRESHOLD
+        value: "25"
+      - key: ALERTMANAGER_WEBHOOK_BEARER_TOKEN
+        sync: false
+
+  - type: pserv
+    runtime: docker
+    name: ontrackchain-report-api-staging
+    plan: starter
+    dockerContext: .
+    dockerfilePath: ./apps/report-api/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: port
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: password
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: database
+      - key: REPORT_INTERNAL_METRICS_ENABLED
+        value: "true"
+      - key: REPORT_DOWNLOADS_LAST_24H_WARN_THRESHOLD
+        value: "10"
+      - key: REPORT_PENDING_ONCHAIN_WARN_THRESHOLD
+        value: "3"
+      - key: REPORT_LEGAL_DOWNLOAD_SECURITY_VIOLATION_THRESHOLD
+        value: "1"
+      - key: REPORT_PERSISTED_WITHOUT_DOWNLOAD_WARN_THRESHOLD
+        value: "3"
+
+  - type: pserv
+    runtime: docker
+    name: ontrackchain-alertmanager-staging
+    plan: starter
+    dockerContext: .
+    dockerfilePath: ./infra/render/alertmanager/Dockerfile
+    envVars:
+      - key: MONITORING_API_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-monitoring-api-staging
+          property: hostport
+      - key: ALERTMANAGER_WEBHOOK_BEARER_TOKEN
+        sync: false
+
+  - type: pserv
+    runtime: docker
+    name: ontrackchain-prometheus-staging
+    plan: starter
+    dockerContext: .
+    dockerfilePath: ./infra/render/prometheus/Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: ALERTMANAGER_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-alertmanager-staging
+          property: hostport
+      - key: INVESTIGATION_API_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-investigation-api-staging
+          property: hostport
+      - key: MONITORING_API_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-monitoring-api-staging
+          property: hostport
+      - key: COMPLIANCE_API_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-compliance-api-staging
+          property: hostport
+      - key: REPORT_API_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-report-api-staging
+          property: hostport
+
+  - type: pserv
+    runtime: docker
+    name: ontrackchain-grafana-staging
+    plan: starter
+    dockerContext: .
+    dockerfilePath: ./infra/render/grafana/Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: PROMETHEUS_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-prometheus-staging
+          property: hostport
+      - key: GF_SECURITY_ADMIN_USER
+        value: admin
+      - key: GF_SECURITY_ADMIN_PASSWORD
+        sync: false
+      - key: GF_AUTH_ANONYMOUS_ENABLED
+        value: "false"
+      - key: GF_AUTH_DISABLE_LOGIN_FORM
+        value: "false"
+
+  - type: keyvalue
+    name: ontrackchain-redis-staging
+    plan: starter
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
+databases:
+  - name: ontrackchain-postgres-staging
+    plan: starter
+    postgresMajorVersion: "16"
+    databaseName: ontrackchain
+    user: ontrackchain
+    ipAllowList: []

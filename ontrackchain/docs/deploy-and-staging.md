@@ -25,6 +25,7 @@ Use os documentos abaixo quando o foco nao for deploy tecnico:
 
 - [Governanca Semanal](./governance-weekly/README.md): tracking e sign-off por ciclo
 - [Gates de Release para Staging Serio](project-release-gates.md): decidir `go/no-go` formal
+- [Blueprint Render para Staging](render-staging-blueprint.md): topologia, servicos e secrets para a opcao de deploy via Render
 
 ## Estrategia Atual
 

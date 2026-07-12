@@ -1,0 +1,125 @@
+http:
+  middlewares:
+    public-ratelimit:
+      rateLimit:
+        average: 10
+        period: 1h
+
+    auth:
+      forwardAuth:
+        address: "http://${AUTH_SERVICE_HOSTPORT}/validate"
+        trustForwardHeader: true
+        authResponseHeaders:
+          - "X-Org-Id"
+          - "X-User-Id"
+          - "X-Linked-User-Id"
+          - "X-Plan"
+          - "X-Role"
+          - "X-Auth-Method"
+          - "X-MFA-Mode"
+          - "X-MFA-Provider-Homologated"
+
+  routers:
+    auth:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/auth`)"
+      service: "auth-service"
+      priority: 200
+
+    public:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/public`)"
+      middlewares: ["public-ratelimit"]
+      service: "public-api"
+      priority: 150
+
+    investigation:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/api/v1/investigation`)"
+      middlewares: ["auth"]
+      service: "investigation-api"
+      priority: 150
+
+    report-types:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/api/v1/report-types`)"
+      middlewares: ["auth"]
+      service: "investigation-api"
+      priority: 150
+
+    billing:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/api/v1/billing`)"
+      middlewares: ["auth"]
+      service: "investigation-api"
+      priority: 150
+
+    audit:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/api/v1/audit`)"
+      middlewares: ["auth"]
+      service: "investigation-api"
+      priority: 150
+
+    compliance:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/api/v1/compliance`) || PathPrefix(`/api/v1/operations`)"
+      middlewares: ["auth"]
+      service: "compliance-api"
+      priority: 150
+
+    monitoring:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/api/v1/monitoring`)"
+      middlewares: ["auth"]
+      service: "monitoring-api"
+      priority: 150
+
+    reports:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/api/v1/reports`)"
+      middlewares: ["auth"]
+      service: "report-api"
+      priority: 150
+
+    frontend:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/`)"
+      service: "frontend"
+      priority: 1
+
+  services:
+    auth-service:
+      loadBalancer:
+        servers:
+          - url: "http://${AUTH_SERVICE_HOSTPORT}"
+
+    public-api:
+      loadBalancer:
+        servers:
+          - url: "http://${PUBLIC_API_HOSTPORT}"
+
+    investigation-api:
+      loadBalancer:
+        servers:
+          - url: "http://${INVESTIGATION_API_HOSTPORT}"
+
+    compliance-api:
+      loadBalancer:
+        servers:
+          - url: "http://${COMPLIANCE_API_HOSTPORT}"
+
+    monitoring-api:
+      loadBalancer:
+        servers:
+          - url: "http://${MONITORING_API_HOSTPORT}"
+
+    report-api:
+      loadBalancer:
+        servers:
+          - url: "http://${REPORT_API_HOSTPORT}"
+
+    frontend:
+      loadBalancer:
+        servers:
+          - url: "http://${FRONTEND_HOSTPORT}"
