@@ -7,7 +7,7 @@ Executar o primeiro sync do blueprint do Render com a menor chance possivel de e
 ## Premissas
 
 - o commit com o blueprint ja esta em `main`
-- o arquivo canônico e `render.yaml`
+- o arquivo canônico e `render.yaml` na raiz do repositório Git
 - o fluxo usa `*.onrender.com`
 - o primeiro deploy e de `staging`, nao de producao
 
@@ -15,7 +15,7 @@ Executar o primeiro sync do blueprint do Render com a menor chance possivel de e
 
 1. conectar o repositório `Jistriane/Ontrackchain` no Render
 2. criar um novo `Blueprint` apontando para a branch `main`
-3. revisar os servicos detectados a partir de [render.yaml](file:///home/jistriane/Ontrackchain/ontrackchain/render.yaml)
+3. revisar os servicos detectados a partir de [render.yaml](file:///home/jistriane/Ontrackchain/render.yaml)
 4. antes de confirmar o deploy, preencher todos os `sync: false`
 5. disparar o sync inicial
 6. validar primeiro o `Keycloak` publico

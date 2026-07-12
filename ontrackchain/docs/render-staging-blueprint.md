@@ -4,6 +4,8 @@
 
 Definir um blueprint unico para staging no Render sem quebrar a arquitetura atual baseada em gateway path-based.
 
+O arquivo canônico consumido pelo Render fica na raiz do repositório Git em [render.yaml](file:///home/jistriane/Ontrackchain/render.yaml).
+
 ## Decisoes Arquiteturais
 
 - `ontrackchain-staging` e o unico entrypoint publico da aplicacao.
@@ -59,7 +61,7 @@ Definir um blueprint unico para staging no Render sem quebrar a arquitetura atua
 
 ## Fluxo Recomendado
 
-1. subir o blueprint a partir de `render.yaml`;
+1. subir o blueprint a partir de `render.yaml` na raiz do repositório;
 2. preencher todos os `sync: false`;
 3. validar `ontrackchain-auth-idp-staging` e `ontrackchain-staging`;
 4. executar smoke OIDC e E2E criticos;
