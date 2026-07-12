@@ -1192,7 +1192,7 @@ export default function EvidenceTrailPage() {
     const data = (await res.json().catch(() => null)) as EvidenceWorkItemListResponse | { error?: string; detail?: unknown } | null;
     if (!res.ok) {
       setWorkspace(localRecords);
-      setNotice(tr("evidenceTrail.workspace.noticeLoadedLocal" as MessageKey));
+      setError(resolveApiErrorMessage(t, data, tr("evidenceTrail.workspace.errorSync" as MessageKey)));
       return;
     }
 
@@ -1204,11 +1204,11 @@ export default function EvidenceTrailPage() {
   useEffect(() => {
     const nextFilters = filtersFromSearchParams();
     setFilters(nextFilters);
-    const localRecords = loadWorkspace();
+    const localRecords: EvidenceWorkspaceRecord[] = [];
     setWorkspace(localRecords);
     loadOperationalWorkspace(localRecords).catch(() => {
       setWorkspace(localRecords);
-      setNotice(tr("evidenceTrail.workspace.noticeLoadedLocal" as MessageKey));
+      setError(tr("evidenceTrail.workspace.errorSync" as MessageKey));
     });
     fetchLogs(nextFilters).catch(() => {
       setError(tr("evidenceTrail.errorLoad" as MessageKey));

@@ -9,6 +9,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from typing import Annotated, Optional
+from uuid import UUID
 
 import jwt
 import redis.asyncio as aioredis
@@ -54,6 +55,19 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+TEAM_USER_ALLOWED_ROLES = {
+    "ADMIN",
+    "ANALYST",
+    "AUDITOR",
+    "VIEWER",
+    "COMPLIANCE_OFFICER",
+    "LEGAL_REVIEWER",
+    "REVIEWER",
+    "BILLING_ADMIN",
+}
+TEAM_USER_ALLOWED_STATUSES = {"active", "invited", "disabled"}
+TEAM_USER_WRITE_ALLOWED_ROLES = {"ADMIN"}
+
 app = FastAPI(title="OnTrackChain Auth Service")
 
 
@@ -67,6 +81,39 @@ class DevTokenRequest(BaseModel):
 
 class VerifyTwoFactorRequest(BaseModel):
     code: str
+
+
+class TeamUserRecord(BaseModel):
+    member_id: str
+    name: str
+    email: str
+    role: str
+    status: str
+    note: str
+    created_at: str
+    updated_at: str
+    linked_identity_count: int = 0
+    last_identity_seen_at: Optional[str] = None
+
+
+class TeamUserListResponse(BaseModel):
+    data: list[TeamUserRecord]
+
+
+class CreateTeamUserRequest(BaseModel):
+    name: str = ""
+    email: str
+    role: str = "ANALYST"
+    status: str = "invited"
+    note: str = ""
+
+
+class UpdateTeamUserRequest(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+    status: Optional[str] = None
+    note: Optional[str] = None
 
 
 def _dsn() -> str:
@@ -301,6 +348,64 @@ def _canonicalize_role(raw_role: object) -> str:
         "otk_billing_admin": "BILLING_ADMIN",
     }
     return mapping.get(normalized.lower(), normalized.upper())
+
+
+def _normalize_team_user_role(raw_role: Optional[str]) -> str:
+    normalized_role = _canonicalize_role(raw_role or "ANALYST")
+    if normalized_role not in TEAM_USER_ALLOWED_ROLES:
+        raise HTTPException(status_code=422, detail="invalid_team_user_role")
+    return normalized_role
+
+
+def _normalize_team_user_status(raw_status: Optional[str]) -> str:
+    normalized_status = str(raw_status or "invited").strip().lower()
+    if normalized_status not in TEAM_USER_ALLOWED_STATUSES:
+        raise HTTPException(status_code=422, detail="invalid_team_user_status")
+    return normalized_status
+
+
+def _normalize_team_user_name(raw_name: Optional[str], *, fallback_email: str) -> str:
+    normalized_name = str(raw_name or "").strip()
+    return normalized_name or fallback_email
+
+
+def _normalize_team_user_note(raw_note: Optional[str]) -> str:
+    return str(raw_note or "").strip()
+
+
+def _normalize_team_user_email(raw_email: Optional[str]) -> str:
+    normalized_email = str(raw_email or "").strip().lower()
+    if not normalized_email or "@" not in normalized_email:
+        raise HTTPException(status_code=422, detail="invalid_team_user_email")
+    return normalized_email
+
+
+def _require_team_user_write_role(auth: dict) -> None:
+    if str(auth.get("role") or "").upper() not in TEAM_USER_WRITE_ALLOWED_ROLES:
+        raise HTTPException(status_code=403, detail="team_user_write_role_required")
+
+
+def _serialize_team_user_row(row: dict) -> TeamUserRecord:
+    created_at = row.get("created_at")
+    updated_at = row.get("updated_at")
+    last_identity_seen_at = row.get("last_identity_seen_at")
+
+    return TeamUserRecord(
+        member_id=str(row.get("id") or row.get("member_id")),
+        name=str(row.get("display_name") or row.get("email") or ""),
+        email=str(row.get("email") or ""),
+        role=str(row.get("role") or "ANALYST"),
+        status=str(row.get("status") or "active"),
+        note=str(row.get("note") or ""),
+        created_at=created_at.astimezone(timezone.utc).isoformat() if isinstance(created_at, datetime) else str(created_at or ""),
+        updated_at=updated_at.astimezone(timezone.utc).isoformat() if isinstance(updated_at, datetime) else str(updated_at or ""),
+        linked_identity_count=int(row.get("linked_identity_count") or 0),
+        last_identity_seen_at=(
+            last_identity_seen_at.astimezone(timezone.utc).isoformat()
+            if isinstance(last_identity_seen_at, datetime)
+            else (str(last_identity_seen_at) if last_identity_seen_at else None)
+        ),
+    )
 
 
 @lru_cache(maxsize=1)
@@ -643,3 +748,201 @@ async def verify_two_factor(body: VerifyTwoFactorRequest, auth: dict = Depends(_
         "method": "totp",
         "verified_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+@app.get("/api/v1/team/users", response_model=TeamUserListResponse)
+async def list_team_users(auth: dict = Depends(_require_auth), pool: ConnectionPool = Depends(get_pool)) -> TeamUserListResponse:
+    organization_id = str(auth["org_id"])
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                  u.id,
+                  u.display_name,
+                  u.email,
+                  u.role,
+                  u.status,
+                  u.note,
+                  u.created_at,
+                  u.updated_at,
+                  COUNT(ei.id)::int AS linked_identity_count,
+                  MAX(ei.last_seen_at) AS last_identity_seen_at
+                FROM users u
+                LEFT JOIN external_identities ei
+                  ON ei.user_id = u.id
+                 AND ei.organization_id = u.organization_id
+                WHERE u.organization_id = %s
+                GROUP BY u.id, u.display_name, u.email, u.role, u.status, u.note, u.created_at, u.updated_at
+                ORDER BY u.updated_at DESC, u.created_at DESC, u.id DESC
+                """,
+                (organization_id,),
+            )
+            rows = cur.fetchall() or []
+
+    return TeamUserListResponse(data=[_serialize_team_user_row(row) for row in rows])
+
+
+@app.post("/api/v1/team/users", response_model=TeamUserRecord)
+async def create_team_user(
+    body: CreateTeamUserRequest,
+    auth: dict = Depends(_require_auth),
+    pool: ConnectionPool = Depends(get_pool),
+) -> TeamUserRecord:
+    _require_team_user_write_role(auth)
+    organization_id = str(auth["org_id"])
+    normalized_email = _normalize_team_user_email(body.email)
+    normalized_role = _normalize_team_user_role(body.role)
+    normalized_status = _normalize_team_user_status(body.status)
+    normalized_note = _normalize_team_user_note(body.note)
+    normalized_name = _normalize_team_user_name(body.name, fallback_email=normalized_email)
+
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id
+                FROM users
+                WHERE organization_id = %s
+                  AND lower(email) = %s
+                """,
+                (organization_id, normalized_email),
+            )
+            if cur.fetchone():
+                raise HTTPException(status_code=409, detail="team_user_email_already_exists")
+
+            cur.execute(
+                """
+                INSERT INTO users (
+                  organization_id,
+                  email,
+                  password_hash,
+                  display_name,
+                  role,
+                  status,
+                  note,
+                  updated_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                RETURNING
+                  id,
+                  display_name,
+                  email,
+                  role,
+                  status,
+                  note,
+                  created_at,
+                  updated_at
+                """,
+                (
+                    organization_id,
+                    normalized_email,
+                    "managed-by-app",
+                    normalized_name,
+                    normalized_role,
+                    normalized_status,
+                    normalized_note,
+                ),
+            )
+            row = cur.fetchone()
+        conn.commit()
+
+    if not row:
+        raise HTTPException(status_code=500, detail="team_user_create_failed")
+    return _serialize_team_user_row(row)
+
+
+@app.patch("/api/v1/team/users/{member_id}", response_model=TeamUserRecord)
+async def update_team_user(
+    member_id: str,
+    body: UpdateTeamUserRequest,
+    auth: dict = Depends(_require_auth),
+    pool: ConnectionPool = Depends(get_pool),
+) -> TeamUserRecord:
+    _require_team_user_write_role(auth)
+    organization_id = str(auth["org_id"])
+    try:
+        normalized_member_id = str(UUID(member_id))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid_team_user_id") from None
+
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, display_name, email, role, status, note, created_at, updated_at
+                FROM users
+                WHERE organization_id = %s
+                  AND id = %s
+                """,
+                (organization_id, normalized_member_id),
+            )
+            current_row = cur.fetchone()
+            if not current_row:
+                raise HTTPException(status_code=404, detail="team_user_not_found")
+
+            next_email = (
+                _normalize_team_user_email(body.email)
+                if body.email is not None
+                else str(current_row.get("email") or "")
+            )
+            if next_email != str(current_row.get("email") or ""):
+                cur.execute(
+                    """
+                    SELECT id
+                    FROM users
+                    WHERE organization_id = %s
+                      AND lower(email) = %s
+                      AND id <> %s
+                    """,
+                    (organization_id, next_email, normalized_member_id),
+                )
+                if cur.fetchone():
+                    raise HTTPException(status_code=409, detail="team_user_email_already_exists")
+
+            next_role = _normalize_team_user_role(body.role if body.role is not None else current_row.get("role"))
+            next_status = _normalize_team_user_status(body.status if body.status is not None else current_row.get("status"))
+            next_note = _normalize_team_user_note(body.note if body.note is not None else current_row.get("note"))
+            next_name = _normalize_team_user_name(
+                body.name if body.name is not None else current_row.get("display_name"),
+                fallback_email=next_email,
+            )
+
+            cur.execute(
+                """
+                UPDATE users
+                SET
+                  email = %s,
+                  display_name = %s,
+                  role = %s,
+                  status = %s,
+                  note = %s,
+                  updated_at = NOW()
+                WHERE organization_id = %s
+                  AND id = %s
+                RETURNING
+                  id,
+                  display_name,
+                  email,
+                  role,
+                  status,
+                  note,
+                  created_at,
+                  updated_at
+                """,
+                (
+                    next_email,
+                    next_name,
+                    next_role,
+                    next_status,
+                    next_note,
+                    organization_id,
+                    normalized_member_id,
+                ),
+            )
+            row = cur.fetchone()
+        conn.commit()
+
+    if not row:
+        raise HTTPException(status_code=500, detail="team_user_update_failed")
+    return _serialize_team_user_row(row)

@@ -54,6 +54,40 @@ class _FakeAuditCursor:
             self._fetchone = None
             return
 
+        if normalized_query.startswith("INSERT INTO reports"):
+            (
+                organization_id,
+                case_id,
+                external_report_id,
+                report_type_requested,
+                report_type,
+                content_type,
+                file_hash,
+                onchain_hash,
+                metadata_json,
+            ) = params_tuple
+            existing = next(
+                (row for row in self.state["reports"] if row["external_report_id"] == str(external_report_id)),
+                None,
+            )
+            payload = {
+                "organization_id": str(organization_id),
+                "case_id": str(case_id) if case_id is not None else None,
+                "external_report_id": str(external_report_id),
+                "report_type_requested": str(report_type_requested),
+                "report_type": str(report_type),
+                "content_type": str(content_type),
+                "file_hash": str(file_hash),
+                "onchain_hash": onchain_hash,
+                "metadata": json.loads(metadata_json),
+            }
+            if existing is None:
+                self.state["reports"].append(payload)
+            else:
+                existing.update(payload)
+            self._fetchone = None
+            return
+
         raise AssertionError(f"Query nao suportada no fake: {normalized_query}")
 
     def fetchone(self) -> dict[str, Any] | None:
@@ -100,6 +134,7 @@ class ReportRbacTests(unittest.TestCase):
         state = {
             "users": {user_id},
             "audit_logs": [],
+            "reports": [],
         }
         return state, _FakeAuditPool(state)
 
@@ -126,8 +161,9 @@ class ReportRbacTests(unittest.TestCase):
         log_entry = state["audit_logs"][0]
         self.assertEqual(log_entry["action"], "authorization_denied")
         self.assertEqual(log_entry["resource_type"], "report")
-        self.assertEqual(log_entry["resource_id"], "report-1")
+        self.assertIsNone(log_entry["resource_id"])
         self.assertEqual(log_entry["metadata"]["effective_role"], "TESTER")
+        self.assertEqual(log_entry["metadata"]["resource_reference_id"], "report-1")
         self.assertEqual(
             log_entry["metadata"]["allowed_roles"],
             ["ADMIN", "ANALYST", "AUDITOR", "VIEWER"],
@@ -179,12 +215,13 @@ class ReportRbacTests(unittest.TestCase):
         log_entry = state["audit_logs"][0]
         self.assertEqual(log_entry["action"], "authorization_denied")
         self.assertEqual(log_entry["resource_type"], "report")
-        self.assertEqual(log_entry["resource_id"], "case-1")
+        self.assertIsNone(log_entry["resource_id"])
         self.assertEqual(log_entry["metadata"]["request_id"], "req-report-generate-viewer")
         self.assertEqual(log_entry["metadata"]["effective_role"], "VIEWER")
+        self.assertEqual(log_entry["metadata"]["resource_reference_id"], "case-1")
 
     def test_generate_report_allows_analyst(self) -> None:
-        _state, pool = self._build_state()
+        state, pool = self._build_state()
 
         payload = asyncio.run(
             main.generate_report(
@@ -199,6 +236,40 @@ class ReportRbacTests(unittest.TestCase):
 
         self.assertEqual(payload.report_type, "technical_basic")
         self.assertEqual(payload.case_id, "case-1")
+        self.assertEqual(len(state["reports"]), 1)
+        persisted_report = state["reports"][0]
+        self.assertEqual(persisted_report["external_report_id"], payload.report_id)
+        self.assertIsNone(persisted_report["case_id"])
+        self.assertEqual(persisted_report["report_type"], "technical_basic")
+        self.assertEqual(persisted_report["report_type_requested"], "technical")
+        self.assertEqual(persisted_report["metadata"]["case_reference_id"], "case-1")
+        self.assertEqual(len(state["audit_logs"]), 1)
+        self.assertEqual(state["audit_logs"][0]["action"], "report_generated")
+        self.assertEqual(state["audit_logs"][0]["resource_type"], "case")
+        self.assertIsNone(state["audit_logs"][0]["resource_id"])
+        self.assertEqual(state["audit_logs"][0]["metadata"]["report_id"], payload.report_id)
+        self.assertEqual(state["audit_logs"][0]["metadata"]["resource_reference_id"], "case-1")
+
+    def test_generate_report_persists_uuid_case_id_when_available(self) -> None:
+        state, pool = self._build_state()
+        case_id = "22222222-2222-2222-2222-222222222222"
+
+        payload = asyncio.run(
+            main.generate_report(
+                main.GenerateReportRequest(case_id=case_id, report_type="technical"),
+                pool=pool,
+                x_org_id="org-1",
+                x_user_id="11111111-1111-1111-1111-111111111111",
+                x_role="ANALYST",
+                x_request_id="req-report-generate-uuid-case",
+            )
+        )
+
+        self.assertEqual(payload.case_id, case_id)
+        self.assertEqual(len(state["reports"]), 1)
+        persisted_report = state["reports"][0]
+        self.assertEqual(persisted_report["case_id"], case_id)
+        self.assertNotIn("case_reference_id", persisted_report["metadata"])
 
     def test_require_coaf_report_review_auth_allows_reviewer(self) -> None:
         state, pool = self._build_state()

@@ -2127,6 +2127,43 @@ async def add_watchlist_item(
     return {"item_id": str(row["id"]), "status": "created"}
 
 
+@app.get("/api/v1/monitoring/watchlists/{watchlist_id}/items")
+async def list_watchlist_items(
+    watchlist_id: UUID,
+    limit: int = Query(default=20, ge=1, le=200),
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+) -> dict:
+    org_id = _require_org_id(x_org_id)
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id
+                FROM watchlists
+                WHERE id = %s
+                """,
+                (watchlist_id,),
+            )
+            if not cur.fetchone():
+                raise HTTPException(status_code=404, detail="watchlist_not_found")
+
+            cur.execute(
+                """
+                SELECT id, watchlist_id, address, chain, created_at
+                FROM watchlist_items
+                WHERE watchlist_id = %s
+                ORDER BY created_at DESC, id DESC
+                LIMIT %s
+                """,
+                (watchlist_id, limit),
+            )
+            rows = cur.fetchall()
+
+    return {"watchlist_id": str(watchlist_id), "data": rows, "limit": limit}
+
+
 @app.get("/api/v1/monitoring/alerts")
 async def list_alerts(
     priority: Optional[str] = Query(default=None),

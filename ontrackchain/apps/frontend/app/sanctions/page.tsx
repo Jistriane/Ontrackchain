@@ -472,7 +472,7 @@ export default function SanctionsPage() {
     const data = (await res.json().catch(() => null)) as SanctionsWorkItemListResponse | { error?: string; detail?: unknown } | null;
     if (!res.ok) {
       setWorkspaceRecords(localRecords);
-      setNotice(tr("sanctions.noticeWorkspaceLoadedLocal" as MessageKey));
+      setError(resolveApiErrorMessage(t, data, tr("sanctions.workspace.errorSync" as MessageKey)));
       return;
     }
 
@@ -482,11 +482,11 @@ export default function SanctionsPage() {
   }
 
   useEffect(() => {
-    const localRecords = loadWorkspace();
+    const localRecords: SanctionsWorkspaceRecord[] = [];
     setWorkspaceRecords(localRecords);
     loadOperationalWorkspace(localRecords).catch(() => {
       setWorkspaceRecords(localRecords);
-      setNotice(tr("sanctions.noticeWorkspaceLoadedLocal" as MessageKey));
+      setError(tr("sanctions.workspace.errorSync" as MessageKey));
     });
 
     fetchAuthContext()

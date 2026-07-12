@@ -11,8 +11,8 @@ export default function LoginPage() {
   const { t } = useI18n();
   const [authMode, setAuthMode] = useState<"dev" | "oidc">(process.env.NEXT_PUBLIC_AUTH_MODE === "oidc" ? "oidc" : "dev");
   const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
-  const [email, setEmail] = useState("analyst@test.com");
-  const [password, setPassword] = useState("TestPass123!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [require2fa, setRequire2fa] = useState(false);
   const [totp, setTotp] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -154,7 +154,13 @@ export default function LoginPage() {
         ) : (
           <Message>{t("login.devRedirectReplaced")}</Message>
         )}
-        <button className="otc-button otc-button--accent" type="button" data-testid="login-btn" onClick={onLogin} disabled={isSubmitting}>
+        <button
+          className="otc-button otc-button--accent"
+          type="button"
+          data-testid="login-btn"
+          onClick={onLogin}
+          disabled={isSubmitting || (authMode !== "oidc" && (!email.trim() || !password))}
+        >
           {authMode === "oidc" ? t("login.enterKeycloak") : t("login.enter")}
         </button>
         {error ? <Message tone="error">{error}</Message> : null}

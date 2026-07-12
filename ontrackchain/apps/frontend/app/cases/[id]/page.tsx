@@ -236,6 +236,9 @@ export default function CasePage({ params }: { params: { id: string } }) {
                 <a className="otc-link-button" data-testid="download-link" href={downloadUrl} download>
                   {t("cases.report.download")}
                 </a>
+                <a className="otc-link-button" href={`/reports?history_report_id=${encodeURIComponent(report.report_id)}`}>
+                  {t("dashboard.cases.openReports")}
+                </a>
                 <a className="otc-link-button" href={`/audit?resource_type=report&report_id=${encodeURIComponent(report.report_id)}&resource_id=${encodeURIComponent(caseId)}`}>
                   {tr("cases.report.openAudit" as MessageKey)}
                 </a>

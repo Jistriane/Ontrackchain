@@ -32,6 +32,8 @@ type TeamMemberRecord = {
   note: string;
   created_at: string;
   updated_at: string;
+  linked_identity_count?: number;
+  last_identity_seen_at?: string | null;
 };
 
 type MemberFormState = {
@@ -42,7 +44,6 @@ type MemberFormState = {
   note: string;
 };
 
-const STORAGE_KEY = "otc-team-roster";
 const KEYCLOAK_URL_KEY = "otc-team-keycloak-url";
 
 const DEFAULT_MEMBER_FORM: MemberFormState = {
@@ -72,29 +73,6 @@ function buildBillingHref(record: TeamMemberRecord) {
   return `/billing?${params.toString()}`;
 }
 
-function loadRoster(): TeamMemberRecord[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveRoster(records: TeamMemberRecord[]) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-}
-
 function loadKeycloakUrl() {
   if (typeof window === "undefined") {
     return "";
@@ -117,6 +95,10 @@ function upsertMember(current: TeamMemberRecord[], record: TeamMemberRecord) {
   const next = [record, ...current.filter((entry) => entry.member_id !== record.member_id)];
   next.sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
   return next;
+}
+
+function replaceMemberById(current: TeamMemberRecord[], memberId: string, updater: (record: TeamMemberRecord) => TeamMemberRecord) {
+  return current.map((entry) => (entry.member_id === memberId ? updater(entry) : entry));
 }
 
 function exportRosterJson(records: TeamMemberRecord[]) {
@@ -143,6 +125,8 @@ export default function TeamPage() {
   const [keycloakUrl, setKeycloakUrl] = useState("");
 
   const [roster, setRoster] = useState<TeamMemberRecord[]>([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
+  const [rosterError, setRosterError] = useState<string | null>(null);
   const [memberForm, setMemberForm] = useState<MemberFormState>(DEFAULT_MEMBER_FORM);
   const [selectedMemberId, setSelectedMemberId] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<TeamMemberStatus | "all">("all");
@@ -185,13 +169,8 @@ export default function TeamPage() {
   }, [filterStatus, roster, search]);
 
   useEffect(() => {
-    setRoster(loadRoster());
     setKeycloakUrl(loadKeycloakUrl());
   }, []);
-
-  useEffect(() => {
-    saveRoster(roster);
-  }, [roster]);
 
   useEffect(() => {
     saveKeycloakUrl(keycloakUrl.trim());
@@ -219,6 +198,31 @@ export default function TeamPage() {
 
   useEffect(() => {
     loadAuthContext().catch(() => undefined);
+  }, []);
+
+  async function loadRoster() {
+    setRosterLoading(true);
+    setRosterError(null);
+    try {
+      const res = await fetch("/api/app/team/users", { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as
+        | { data?: TeamMemberRecord[]; error?: string; detail?: unknown }
+        | null;
+      if (!res.ok) {
+        setRosterError(resolveApiErrorMessage(t, data, tr("team.errors.loadRoster" as MessageKey)));
+        setRosterLoading(false);
+        return;
+      }
+      setRoster(Array.isArray(data?.data) ? data.data : []);
+      setRosterLoading(false);
+    } catch (err) {
+      setRosterError(err instanceof Error ? err.message : tr("team.errors.loadRoster" as MessageKey));
+      setRosterLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadRoster().catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -300,37 +304,73 @@ export default function TeamPage() {
     setMemberForm(DEFAULT_MEMBER_FORM);
   }
 
-  function removeMember(memberId: string) {
-    setRoster((current) => current.filter((entry) => entry.member_id !== memberId));
-    if (selectedMemberId === memberId) {
-      resetForm();
+  async function disableMember(memberId: string) {
+    setNotice(null);
+    setRosterError(null);
+    const res = await fetch(`/api/app/team/users/${encodeURIComponent(memberId)}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: "disabled" })
+    });
+    const data = (await res.json().catch(() => null)) as TeamMemberRecord | { error?: string; detail?: unknown } | null;
+    if (!res.ok) {
+      setRosterError(resolveApiErrorMessage(t, data, tr("team.errors.disableMember" as MessageKey)));
+      return;
     }
-    setNotice(tr("team.notice.memberRemoved" as MessageKey));
+    const record = data as TeamMemberRecord;
+    setRoster((current) => replaceMemberById(current, memberId, () => record));
+    if (selectedMemberId === memberId) {
+      setSelectedMemberId(memberId);
+      setMemberForm({
+        name: record.name,
+        email: record.email,
+        role: record.role,
+        status: record.status,
+        note: record.note
+      });
+    }
+    setNotice(tr("team.notice.memberDisabled" as MessageKey));
   }
 
-  function onSaveMember(event: FormEvent<HTMLFormElement>) {
+  async function onSaveMember(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setNotice(null);
+    setRosterError(null);
 
     const email = memberForm.email.trim().toLowerCase();
     if (!email) {
       return;
     }
 
-    const now = new Date().toISOString();
-    const memberId = selectedMemberId || crypto.randomUUID();
-    const record: TeamMemberRecord = {
-      member_id: memberId,
+    const payload = {
       name: memberForm.name.trim(),
       email,
       role: memberForm.role,
       status: memberForm.status,
-      note: memberForm.note.trim(),
-      created_at: selectedMemberId ? roster.find((entry) => entry.member_id === selectedMemberId)?.created_at ?? now : now,
-      updated_at: now
+      note: memberForm.note.trim()
     };
+    const isEditing = Boolean(selectedMemberId);
+    const res = await fetch(isEditing ? `/api/app/team/users/${encodeURIComponent(selectedMemberId)}` : "/api/app/team/users", {
+      method: isEditing ? "PATCH" : "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = (await res.json().catch(() => null)) as TeamMemberRecord | { error?: string; detail?: unknown } | null;
+    if (!res.ok) {
+      setRosterError(resolveApiErrorMessage(t, data, tr("team.errors.saveMember" as MessageKey)));
+      return;
+    }
+
+    const record = data as TeamMemberRecord;
     setRoster((current) => upsertMember(current, record));
-    setSelectedMemberId(memberId);
+    setSelectedMemberId(record.member_id);
+    setMemberForm({
+      name: record.name,
+      email: record.email,
+      role: record.role,
+      status: record.status,
+      note: record.note
+    });
     setNotice(tr("team.notice.memberSaved" as MessageKey));
   }
 
@@ -434,6 +474,7 @@ export default function TeamPage() {
             </button>
           </div>
           {notice ? <Message tone="success">{notice}</Message> : null}
+          {rosterError ? <Message tone="error">{rosterError}</Message> : null}
         </form>
 
         <div className="otc-controls otc-controls--spaced">
@@ -496,7 +537,7 @@ export default function TeamPage() {
                       <a className="otc-button otc-button--ghost" href={buildBillingHref(record)}>
                         {tr("team.roster.table.openBilling" as MessageKey)}
                       </a>
-                      <button className="otc-button otc-button--ghost" type="button" onClick={() => removeMember(record.member_id)}>
+                      <button className="otc-button otc-button--ghost" type="button" onClick={() => disableMember(record.member_id)}>
                         {tr("team.roster.table.remove" as MessageKey)}
                       </button>
                     </div>
@@ -505,6 +546,8 @@ export default function TeamPage() {
               ))}
             </tbody>
           </table>
+        ) : rosterLoading ? (
+          <Message>{t("common.loading")}</Message>
         ) : (
           <Message>{tr("team.roster.table.empty" as MessageKey)}</Message>
         )}

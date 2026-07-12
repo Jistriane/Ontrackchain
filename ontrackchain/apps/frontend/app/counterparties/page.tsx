@@ -649,7 +649,7 @@ export default function CounterpartiesPage() {
     const data = (await res.json().catch(() => null)) as CounterpartyWorkItemListResponse | { error?: string; detail?: unknown } | null;
     if (!res.ok) {
       setWorkspaceRecords(localRecords);
-      setNotice(tr("counterparties.workspace.noticeLoadedLocal" as MessageKey));
+      setError(resolveApiErrorMessage(t, data, tr("counterparties.workspace.errorSync" as MessageKey)));
       return;
     }
 
@@ -689,11 +689,11 @@ export default function CounterpartiesPage() {
   }, [t]);
 
   useEffect(() => {
-    const localRecords = loadWorkspace();
+    const localRecords: CounterpartyWorkspaceRecord[] = [];
     setWorkspaceRecords(localRecords);
     loadOperationalWorkspace(localRecords).catch(() => {
       setWorkspaceRecords(localRecords);
-      setNotice(tr("counterparties.workspace.noticeLoadedLocal" as MessageKey));
+      setError(tr("counterparties.workspace.errorSync" as MessageKey));
     });
 
     fetchAuthContext()

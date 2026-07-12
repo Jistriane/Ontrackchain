@@ -15,32 +15,11 @@ async function seedFrontendAuth(page: Page) {
 }
 
 test.describe("billing users table", () => {
-  test("renderiza status amigavel e updated_at normalizado no roster local", async ({ page }) => {
+  test("renderiza status amigavel e updated_at normalizado para usuários reais", async ({ page }) => {
     const memberId = "billing-member-e2e-01";
     const memberEmail = "compliance.billing@ontrackchain.local";
 
     await seedFrontendAuth(page);
-
-    await page.addInitScript(
-      ({ seededMemberId, seededMemberEmail }) => {
-        window.localStorage.setItem(
-          "otc-team-roster",
-          JSON.stringify([
-            {
-              member_id: seededMemberId,
-              name: "Billing Compliance",
-              email: seededMemberEmail,
-              role: "COMPLIANCE_OFFICER",
-              status: "invited",
-              note: "seed",
-              created_at: "2026-07-06T12:00:00.000Z",
-              updated_at: "2026-07-06T12:10:00.000Z"
-            }
-          ])
-        );
-      },
-      { seededMemberId: memberId, seededMemberEmail: memberEmail }
-    );
 
     await page.route("**/api/app/billing/balance", async (route: Route) => {
       await route.fulfill({
@@ -109,6 +88,27 @@ test.describe("billing users table", () => {
           auth_method: "jwt",
           mfa_mode: "totp",
           mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/team/users", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              member_id: memberId,
+              name: "Billing Compliance",
+              email: memberEmail,
+              role: "COMPLIANCE_OFFICER",
+              status: "invited",
+              note: "seed",
+              created_at: "2026-07-06T12:00:00.000Z",
+              updated_at: "2026-07-06T12:10:00.000Z"
+            }
+          ]
         })
       });
     });
@@ -192,6 +192,14 @@ test.describe("billing users table", () => {
           },
           generated_at: "2026-07-06T12:15:00.000Z"
         })
+      });
+    });
+
+    await page.route("**/api/app/team/users", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] })
       });
     });
 

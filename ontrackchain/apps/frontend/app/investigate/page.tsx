@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "../../components/i18n-provider";
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
+import type { MessageKey } from "../lib/i18n";
 
 type ReportTypeItem = {
   canonical: string;
@@ -16,7 +17,7 @@ export default function InvestigatePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useI18n();
-  const [address, setAddress] = useState("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045");
+  const [address, setAddress] = useState("");
   const [chain, setChain] = useState("ethereum");
   const [reportType, setReportType] = useState("technical_basic");
   const [catalog, setCatalog] = useState<ReportTypeItem[]>([]);
@@ -25,20 +26,29 @@ export default function InvestigatePage() {
 
   useEffect(() => {
     fetch("/api/app/report-types?include_unavailable=true&include_deprecated=false", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
+      .then(async (r) => {
+        if (!r.ok) {
+          throw new Error("report_catalog_unavailable");
+        }
+        return r.json();
+      })
       .then((data) => {
         const items = (data?.types ?? []) as any[];
-        setCatalog(
-          items.map((item) => ({
-            canonical: item.canonical,
-            label: item.label,
-            available: Boolean(item.available),
-            cost_credits: Number(item.cost_credits)
-          }))
-        );
+        const nextCatalog = items.map((item) => ({
+          canonical: item.canonical,
+          label: item.label,
+          available: Boolean(item.available),
+          cost_credits: Number(item.cost_credits)
+        }));
+        setCatalog(nextCatalog);
+        setReportType((current) => (nextCatalog.some((item) => item.canonical === current) ? current : nextCatalog.find((item) => item.available)?.canonical ?? ""));
       })
-      .catch(() => setCatalog([]));
-  }, []);
+      .catch(() => {
+        setCatalog([]);
+        setReportType("");
+        setError(t("investigate.errorLoadReportCatalog"));
+      });
+  }, [t]);
 
   useEffect(() => {
     const nextReportType = searchParams.get("report_type");
@@ -59,6 +69,14 @@ export default function InvestigatePage() {
 
   async function onEstimate() {
     setError(null);
+    if (!catalog.length || !reportType.trim()) {
+      setError(t("investigate.errorLoadReportCatalog"));
+      return;
+    }
+    if (!address.trim()) {
+      setError(t("investigate.errorAddressRequired" as MessageKey));
+      return;
+    }
     const res = await fetch("/api/app/investigation/estimate", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -109,7 +127,11 @@ export default function InvestigatePage() {
       actions={<Pill>{t("investigate.active")}</Pill>}
     >
       <MetricGrid>
-        <MetricCard label={t("investigate.stats.targetAddress")} value={address.slice(0, 10) + "..."} meta={t("investigate.stats.targetAddressMeta")} />
+        <MetricCard
+          label={t("investigate.stats.targetAddress")}
+          value={address.trim() ? address.slice(0, 10) + "..." : t("common.notAvailable")}
+          meta={t("investigate.stats.targetAddressMeta")}
+        />
         <MetricCard label={t("investigate.stats.network")} value={chain.toUpperCase()} meta={t("investigate.stats.networkMeta")} />
         <MetricCard label={t("investigate.stats.reportType")} value={reportType} meta={t("investigate.stats.reportTypeMeta")} />
         <MetricCard label={t("investigate.stats.quote")} value={quote ? String(quote.total_credits) : "--"} meta={t("investigate.stats.quoteMeta")} accent />
@@ -124,6 +146,7 @@ export default function InvestigatePage() {
               data-testid="wallet-address"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
+              placeholder="0x..."
             />
           </label>
           <label className="otc-field">
@@ -147,13 +170,18 @@ export default function InvestigatePage() {
                   </option>
                 ))
               ) : (
-                <option value="technical_basic">{t("investigate.fallbackReportType")}</option>
+                <option value="">{t("common.notAvailable")}</option>
               )}
             </select>
           </label>
         </div>
         <div className="otc-controls" style={{ marginTop: 16 }}>
-          <button className="otc-button otc-button--accent" data-testid="start-investigation-btn" onClick={onEstimate}>
+          <button
+            className="otc-button otc-button--accent"
+            data-testid="start-investigation-btn"
+            onClick={onEstimate}
+            disabled={!catalog.length || !reportType.trim()}
+          >
             {t("investigate.form.generateQuote")}
           </button>
         </div>

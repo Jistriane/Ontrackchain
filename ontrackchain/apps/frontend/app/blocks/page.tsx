@@ -507,7 +507,7 @@ export default function BlocksPage() {
     const data = (await res.json().catch(() => null)) as BlocksWorkItemListResponse | { error?: string; detail?: unknown } | null;
     if (!res.ok) {
       setWorkspaceRecords(localRecords);
-      setNotice(tr("blocks.noticeWorkspaceLoadedLocal" as MessageKey));
+      setError(resolveApiErrorMessage(t, data, tr("blocks.workspace.errorSync" as MessageKey)));
       return;
     }
 
@@ -517,11 +517,11 @@ export default function BlocksPage() {
   }
 
   useEffect(() => {
-    const localRecords = loadWorkspace();
+    const localRecords: BlockWorkspaceRecord[] = [];
     setWorkspaceRecords(localRecords);
     loadOperationalWorkspace(localRecords).catch(() => {
       setWorkspaceRecords(localRecords);
-      setNotice(tr("blocks.noticeWorkspaceLoadedLocal" as MessageKey));
+      setError(tr("blocks.workspace.errorSync" as MessageKey));
     });
 
     fetchAuthContext()

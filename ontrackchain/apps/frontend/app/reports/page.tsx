@@ -925,7 +925,7 @@ export default function ReportsPage() {
     const data = (await res.json().catch(() => null)) as ReportWorkItemListResponse | { error?: string; detail?: unknown } | null;
     if (!res.ok) {
       setWorkspace(localRecords);
-      setNotice(tr("reports.workspace.noticeLoadedLocal" as MessageKey));
+      setError(resolveApiErrorMessage(t, data, tr("reports.workspace.errorSync" as MessageKey)));
       return;
     }
 
@@ -1210,11 +1210,11 @@ export default function ReportsPage() {
     void loadCatalog();
     void loadCases(1);
     void loadReportHistory(1);
-    const localRecords = loadWorkspace();
+    const localRecords: ReportWorkspaceRecord[] = [];
     setWorkspace(localRecords);
     loadOperationalWorkspace(localRecords).catch(() => {
       setWorkspace(localRecords);
-      setNotice(tr("reports.workspace.noticeLoadedLocal" as MessageKey));
+      setError(tr("reports.workspace.errorSync" as MessageKey));
     });
 
     fetchAuthContext()

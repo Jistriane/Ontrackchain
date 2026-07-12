@@ -505,7 +505,9 @@ def _serialize_report_list_row(row: dict) -> ReportListItem:
     else:
         created_at_value = str(created_at) if created_at else ""
 
-    case_id = row.get("case_id")
+    raw_metadata = row.get("metadata")
+    metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
+    case_id = row.get("case_id") or metadata.get("case_reference_id")
     report_id = row.get("external_report_id")
 
     return ReportListItem(
@@ -560,6 +562,7 @@ def _record_audit_log(
 ) -> None:
     normalized_metadata = dict(metadata)
     persisted_user_id: Optional[str] = None
+    persisted_resource_id: Optional[str] = None
 
     if user_id:
         try:
@@ -572,12 +575,69 @@ def _record_audit_log(
         except (TypeError, ValueError):
             normalized_metadata.setdefault("external_user_id", str(user_id))
 
+    if resource_id:
+        try:
+            persisted_resource_id = str(UUID(str(resource_id)))
+        except (TypeError, ValueError):
+            normalized_metadata.setdefault("resource_reference_id", str(resource_id))
+
     cur.execute(
         """
         INSERT INTO audit_logs (organization_id, user_id, action, resource_type, resource_id, metadata)
         VALUES (%s, %s, %s, %s, %s, %s::jsonb)
         """,
-        (organization_id, persisted_user_id, action, resource_type, resource_id, json.dumps(normalized_metadata)),
+        (organization_id, persisted_user_id, action, resource_type, persisted_resource_id, json.dumps(normalized_metadata)),
+    )
+
+
+def _upsert_report_record(
+    cur,
+    *,
+    organization_id: str,
+    case_id: Optional[str],
+    report_id: str,
+    report_type_requested: str,
+    report_type: str,
+    content_type: str,
+    file_hash_sha256: str,
+    onchain_hash: Optional[str],
+    metadata: dict,
+) -> None:
+    cur.execute(
+        """
+        INSERT INTO reports (
+            organization_id,
+            case_id,
+            external_report_id,
+            report_type_requested,
+            report_type,
+            content_type,
+            file_hash,
+            onchain_hash,
+            metadata
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+        ON CONFLICT (external_report_id)
+        DO UPDATE SET
+            case_id = EXCLUDED.case_id,
+            report_type_requested = EXCLUDED.report_type_requested,
+            report_type = EXCLUDED.report_type,
+            content_type = EXCLUDED.content_type,
+            file_hash = EXCLUDED.file_hash,
+            onchain_hash = EXCLUDED.onchain_hash,
+            metadata = EXCLUDED.metadata
+        """,
+        (
+            organization_id,
+            case_id,
+            report_id,
+            report_type_requested,
+            report_type,
+            content_type,
+            file_hash_sha256,
+            onchain_hash,
+            json.dumps(metadata),
+        ),
     )
 
 
@@ -804,6 +864,20 @@ def _build_report_platform_alerts(snapshot: dict) -> list[dict]:
         message="O volume de downloads de relatorio nas ultimas 24 horas excedeu o limiar operacional.",
         recommended_action="Correlacionar picos com clientes, campanhas ou comportamento anomalo.",
     )
+
+
+def _normalize_report_case_reference(case_id: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    if case_id is None:
+        return None, None
+
+    normalized_case_id = str(case_id).strip()
+    if not normalized_case_id:
+        return None, None
+
+    try:
+        return str(UUID(normalized_case_id)), None
+    except ValueError:
+        return None, normalized_case_id
     append_alert(
         code="report_pending_onchain_backlog",
         severity="warning",
@@ -955,16 +1029,60 @@ async def generate_report(
     )
     created_at = datetime.now(timezone.utc).isoformat()
     canonical_report_type, requested_alias = resolve_report_type(body.report_type)
+    report_type_requested = requested_alias or canonical_report_type
 
     content = _build_pdf_bytes(case_id=body.case_id, report_type=canonical_report_type, created_at=created_at)
     file_hash = hashlib.sha256(content).hexdigest()
     onchain_hash = "pending" if body.include_onchain_hash else None
     report_id = _compute_report_id(body.case_id, canonical_report_type)
+    persisted_case_id, case_reference_id = _normalize_report_case_reference(body.case_id)
+    metadata = {
+        "generated_at": created_at,
+        "request_id": x_request_id,
+        "generated_via": "report_api.generate_report",
+    }
+    if case_reference_id:
+        metadata["case_reference_id"] = case_reference_id
+
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            _upsert_report_record(
+                cur,
+                organization_id=x_org_id,
+                case_id=persisted_case_id,
+                report_id=report_id,
+                report_type_requested=report_type_requested,
+                report_type=canonical_report_type,
+                content_type="application/pdf",
+                file_hash_sha256=file_hash,
+                onchain_hash=onchain_hash,
+                metadata=metadata,
+            )
+            _record_audit_log(
+                cur,
+                organization_id=x_org_id,
+                user_id=effective_user_id,
+                action="report_generated",
+                resource_type="case",
+                resource_id=body.case_id,
+                metadata={
+                    "request_id": x_request_id,
+                    "report_id": report_id,
+                    "report_type_requested": report_type_requested,
+                    "report_type_canonical": canonical_report_type,
+                    "created_at": created_at,
+                    "content_type": "application/pdf",
+                    "file_hash_sha256": file_hash,
+                    "external_user_id": external_actor_user_id,
+                },
+            )
+        conn.commit()
 
     return GenerateReportResponse(
         report_id=report_id,
         case_id=body.case_id,
-        report_type_requested=requested_alias or canonical_report_type,
+        report_type_requested=report_type_requested,
         report_type=canonical_report_type,
         created_at=created_at,
         file_hash_sha256=file_hash,
@@ -1044,44 +1162,22 @@ async def generate_ros_coaf_report(
             )
             report_id = _compute_report_id(str(ros["case_id"] or ros["id"]), "coaf_ready_report")
 
-            cur.execute(
-                """
-                INSERT INTO reports (
-                    organization_id,
-                    case_id,
-                    external_report_id,
-                    report_type_requested,
-                    report_type,
-                    content_type,
-                    file_hash,
-                    onchain_hash,
-                    metadata
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
-                ON CONFLICT (external_report_id)
-                DO UPDATE SET
-                    file_hash = EXCLUDED.file_hash,
-                    content_type = EXCLUDED.content_type,
-                    metadata = EXCLUDED.metadata
-                """,
-                (
-                    x_org_id,
-                    str(ros["case_id"]) if ros["case_id"] else None,
-                    report_id,
-                    "coaf_ready_report",
-                    "coaf_ready_report",
-                    draft.content_type,
-                    draft.file_hash_sha256,
-                    None,
-                    json.dumps(
-                        {
-                            "ros_id": str(ros["id"]),
-                            "generated_at": draft.generated_at,
-                            "title": draft.title,
-                            "request_id": x_request_id,
-                        }
-                    ),
-                ),
+            _upsert_report_record(
+                cur,
+                organization_id=x_org_id,
+                case_id=str(ros["case_id"]) if ros["case_id"] else None,
+                report_id=report_id,
+                report_type_requested="coaf_ready_report",
+                report_type="coaf_ready_report",
+                content_type=draft.content_type,
+                file_hash_sha256=draft.file_hash_sha256,
+                onchain_hash=None,
+                metadata={
+                    "ros_id": str(ros["id"]),
+                    "generated_at": draft.generated_at,
+                    "title": draft.title,
+                    "request_id": x_request_id,
+                },
             )
             cur.execute(
                 """
@@ -2137,6 +2233,7 @@ async def list_reports(
                   r.file_hash,
                   r.onchain_hash,
                   r.created_at,
+                  r.metadata,
                   EXISTS (
                     SELECT 1
                     FROM audit_logs a
@@ -2219,7 +2316,8 @@ async def get_report(
                   content_type,
                   file_hash,
                   onchain_hash,
-                  created_at
+                  created_at,
+                  metadata
                 FROM reports
                 WHERE external_report_id = %s
                 """,
@@ -2249,7 +2347,8 @@ async def get_report(
     else:
         created_at_value = str(created_at) if created_at else ""
 
-    case_id = row.get("case_id")
+    metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+    case_id = row.get("case_id") or metadata.get("case_reference_id")
     if not case_id:
         raise HTTPException(status_code=409, detail="report_missing_case_id")
 
@@ -2334,9 +2433,9 @@ async def get_report_ros_coaf_ref(
 @app.get("/api/v1/reports/{report_id}/download")
 async def download_report(
     report_id: str,
-    case_id: str = Query(...),
-    report_type: str = Query(...),
-    created_at: str = Query(...),
+    case_id: Optional[str] = Query(default=None),
+    report_type: Optional[str] = Query(default=None),
+    created_at: Optional[str] = Query(default=None),
     pool: ConnectionPool = Depends(get_pool),
     x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
     x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
@@ -2348,16 +2447,51 @@ async def download_report(
     x_mfa_mode: Optional[str] = Header(default=None, alias="X-MFA-Mode"),
     x_mfa_provider_homologated: Optional[str] = Header(default=None, alias="X-MFA-Provider-Homologated"),
 ) -> Response:
-    canonical_report_type, _ = resolve_report_type(report_type)
-    expected_report_id = _compute_report_id(case_id, canonical_report_type)
-    if expected_report_id != report_id:
-        raise HTTPException(status_code=404, detail="report_not_found")
     if not x_org_id:
         raise HTTPException(status_code=401, detail="missing_org_context")
     effective_user_id, external_actor_user_id = _resolve_actor_ids(
         external_user_id=x_user_id,
         linked_user_id=x_linked_user_id,
     )
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT case_id, external_report_id, report_type, report_type_requested, content_type, created_at, metadata
+                FROM reports
+                WHERE external_report_id = %s
+                """,
+                (report_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="report_not_found")
+
+            metadata = row.get("metadata") or {}
+            effective_case_id = (
+                str(row["case_id"])
+                if row.get("case_id")
+                else str(metadata.get("case_reference_id") or metadata.get("ros_id") or case_id or "").strip() or None
+            )
+            persisted_report_type = str(row.get("report_type") or report_type or "").strip()
+            if not effective_case_id or not persisted_report_type:
+                raise HTTPException(status_code=404, detail="report_download_source_not_found")
+
+            canonical_report_type, _ = resolve_report_type(persisted_report_type)
+            expected_report_id = _compute_report_id(effective_case_id, canonical_report_type)
+            if expected_report_id != report_id:
+                raise HTTPException(status_code=404, detail="report_not_found")
+
+            persisted_created_at_raw = row.get("created_at")
+            persisted_created_at = (
+                persisted_created_at_raw.isoformat()
+                if isinstance(persisted_created_at_raw, datetime)
+                else str(persisted_created_at_raw or created_at or "")
+            )
+            if not persisted_created_at:
+                raise HTTPException(status_code=404, detail="report_created_at_not_found")
+
     if canonical_report_type == "legal_report":
         _require_strong_auth_for_legal_report(
             x_auth_method=x_auth_method,
@@ -2381,7 +2515,7 @@ async def download_report(
             endpoint="/api/v1/reports/{report_id}/download",
             method="GET",
         )
-    content = _build_pdf_bytes(case_id=case_id, report_type=canonical_report_type, created_at=created_at)
+    content = _build_pdf_bytes(case_id=effective_case_id, report_type=canonical_report_type, created_at=persisted_created_at)
     file_hash_sha256 = hashlib.sha256(content).hexdigest()
     with pool.connection() as conn:
         _apply_rls_context(conn, x_org_id)
@@ -2396,9 +2530,9 @@ async def download_report(
                 metadata={
                     "request_id": x_request_id,
                     "report_id": report_id,
-                    "case_id": case_id,
+                    "case_id": effective_case_id,
                     "report_type": canonical_report_type,
-                    "created_at": created_at,
+                    "created_at": persisted_created_at,
                     "content_type": "application/pdf",
                     "file_hash_sha256": file_hash_sha256,
                     "auth_method": x_auth_method,

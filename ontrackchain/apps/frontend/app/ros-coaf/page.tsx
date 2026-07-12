@@ -1095,7 +1095,7 @@ export default function RosCoafPage() {
       mergedRecords = mergeOfficialWorkspaceRecords(mergedRecords, officialRecords);
       officialLoaded = true;
     } catch {
-      // Keep local/work-item fallback when the official ROS/COAF list is unavailable.
+      // Ignore official drift here; operational workspace can still provide the shared queue.
     }
 
     try {
@@ -1103,21 +1103,21 @@ export default function RosCoafPage() {
       mergedRecords = mergeWorkspaceRecords(operationalRecords, mergedRecords);
       operationalLoaded = true;
     } catch {
-      // Keep local/domain records when the shared queue is unavailable.
+      // Shared queue unavailable; handled after both attempts complete.
     }
 
     setWorkspaceRecords(mergedRecords);
     if (!officialLoaded && !operationalLoaded) {
-      setNotice(tr("rosCoaf.workspace.noticeLoadedLocal" as MessageKey));
+      setError(tr("rosCoaf.workspace.errorSync" as MessageKey));
     }
   }
 
   useEffect(() => {
-    const localRecords = loadWorkspace();
+    const localRecords: RosWorkspaceRecord[] = [];
     setWorkspaceRecords(localRecords);
     hydrateWorkspace(localRecords).catch(() => {
       setWorkspaceRecords(localRecords);
-      setNotice(tr("rosCoaf.workspace.noticeLoadedLocal" as MessageKey));
+      setError(tr("rosCoaf.workspace.errorSync" as MessageKey));
     });
 
     fetchAuthContext()

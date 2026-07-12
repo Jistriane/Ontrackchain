@@ -12,6 +12,14 @@ export type Watchlist = {
   priority: string;
 };
 
+export type WatchlistItem = {
+  id: string;
+  watchlist_id: string;
+  address: string;
+  chain: string;
+  created_at: string;
+};
+
 export type Alert = {
   id: string;
   watchlist_id: string;
@@ -44,6 +52,18 @@ export async function fetchMonitoringAlerts(watchlistId?: string | null) {
     throw new Error("loadAlerts");
   }
   return (data?.data ?? []) as Alert[];
+}
+
+export async function fetchMonitoringWatchlistItems(watchlistId: string, limit = 20) {
+  const response = await fetch(
+    `/api/app/monitoring/watchlists/${encodeURIComponent(watchlistId)}/items?limit=${encodeURIComponent(String(limit))}`,
+    { cache: "no-store" }
+  );
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw new Error("loadWatchlistItems");
+  }
+  return (data?.data ?? []) as WatchlistItem[];
 }
 
 export async function fetchMonitoringOperations() {

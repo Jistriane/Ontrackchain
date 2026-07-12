@@ -83,7 +83,9 @@ type TeamMemberRecord = {
   updated_at: string;
 };
 
-const TEAM_STORAGE_KEY = "otc-team-roster";
+type TeamUsersResponse = {
+  data: TeamMemberRecord[];
+};
 
 function buildTeamMemberHref(member: TeamMemberRecord) {
   const params = new URLSearchParams({
@@ -97,22 +99,6 @@ function buildTeamMemberHref(member: TeamMemberRecord) {
     filter_status: member.status
   });
   return `/team?${params.toString()}`;
-}
-
-function loadTeamRoster(): TeamMemberRecord[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-  try {
-    const raw = window.localStorage.getItem(TEAM_STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as TeamMemberRecord[]) : [];
-  } catch {
-    return [];
-  }
 }
 
 export default function BillingPage() {
@@ -168,11 +154,12 @@ export default function BillingPage() {
     setLoading(true);
     setError(null);
 
-    const [billingRes, reconciliationRes, authRes, opsRes] = await Promise.all([
+    const [billingRes, reconciliationRes, authRes, opsRes, teamRes] = await Promise.all([
       fetch("/api/app/billing/balance", { cache: "no-store" }),
       fetch("/api/app/billing/reconciliation?limit=5", { cache: "no-store" }),
       fetch("/api/app/auth/context", { cache: "no-store" }),
-      fetch("/api/app/investigation/operations", { cache: "no-store" })
+      fetch("/api/app/investigation/operations", { cache: "no-store" }),
+      fetch("/api/app/team/users", { cache: "no-store" })
     ]);
     let nextError: string | null = null;
 
@@ -208,6 +195,16 @@ export default function BillingPage() {
       setOperations(null);
     }
 
+    const teamData = (await teamRes.json().catch(() => null)) as TeamUsersResponse | { error?: string; detail?: unknown } | null;
+    if (teamRes.ok) {
+      setTeamRoster(Array.isArray((teamData as TeamUsersResponse | null)?.data) ? (teamData as TeamUsersResponse).data : []);
+    } else {
+      setTeamRoster([]);
+      if (!nextError) {
+        nextError = resolveApiErrorMessage(t, teamData, t("billing.errorLoad"));
+      }
+    }
+
     setError(nextError);
     setLoading(false);
   }
@@ -218,10 +215,6 @@ export default function BillingPage() {
       setLoading(false);
     });
   }, [t]);
-
-  useEffect(() => {
-    setTeamRoster(loadTeamRoster());
-  }, []);
 
   useEffect(() => {
     const nextTeamStatus = searchParams.get("team_status");

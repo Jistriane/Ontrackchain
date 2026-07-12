@@ -27,12 +27,37 @@ CREATE TABLE IF NOT EXISTS users (
   organization_id UUID REFERENCES organizations(id),
   email VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
+  display_name VARCHAR(255),
   role VARCHAR(50) NOT NULL DEFAULT 'ANALYST',
+  status VARCHAR(20) NOT NULL DEFAULT 'active'
+    CHECK (status IN ('active', 'invited', 'disabled')),
+  note TEXT,
   is_2fa_enabled BOOLEAN DEFAULT FALSE,
   totp_secret_encrypted TEXT,
   last_login TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS display_name VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'active',
+  ADD COLUMN IF NOT EXISTS note TEXT,
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'users_status_check'
+  ) THEN
+    ALTER TABLE users
+      ADD CONSTRAINT users_status_check
+      CHECK (status IN ('active', 'invited', 'disabled'));
+  END IF;
+END
+$$;
 
 CREATE TABLE IF NOT EXISTS external_identities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -714,15 +739,24 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO users (id, organization_id, email, password_hash, role)
+INSERT INTO users (id, organization_id, email, password_hash, display_name, role, status, note, updated_at)
 VALUES (
   '00000000-0000-0000-0000-000000000002',
   '00000000-0000-0000-0000-000000000001',
   'demo@ontrackchain.local',
   'not-a-real-hash',
-  'ADMIN'
+  'Demo Admin',
+  'ADMIN',
+  'active',
+  'Conta bootstrap local para desenvolvimento.',
+  NOW()
 )
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
+  role = EXCLUDED.role,
+  status = EXCLUDED.status,
+  note = EXCLUDED.note,
+  updated_at = NOW();
 
 INSERT INTO api_keys (
   id,

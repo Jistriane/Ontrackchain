@@ -71,7 +71,7 @@ Interpretacao:
 ### Fila Operacional Compartilhada
 
 - `regulatory_work_items`, `regulatory_work_events` e `regulatory_work_comments` ja existem com `RLS` por organizacao
-- `sanctions` sincroniza sua fila operacional no backend e degrada para fallback local apenas quando necessario
+- `sanctions` sincroniza sua fila operacional no backend e bloqueia com erro explicito quando a fila compartilhada nao estiver disponivel
 - `alerts` rastreia incidentes em `work-items` e sincroniza o fechamento do item compartilhado quando ocorre `ack`
 
 ## Gaps Regulatorios Reais

@@ -29,6 +29,32 @@ async function seedFrontendAuth(page: Page) {
       })
     });
   });
+
+  await page.route("**/api/app/team/users", async (route: Route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] })
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        member_id: "team-member-e2e-01",
+        name: "compliance@ontrackchain.local",
+        email: "compliance@ontrackchain.local",
+        role: "COMPLIANCE_OFFICER",
+        status: "invited",
+        note: "",
+        created_at: "2026-07-06T12:00:00.000Z",
+        updated_at: "2026-07-06T12:10:00.000Z"
+      })
+    });
+  });
 }
 
 test.describe("team role labels", () => {

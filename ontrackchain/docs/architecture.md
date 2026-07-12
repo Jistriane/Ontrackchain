@@ -69,7 +69,7 @@ flowchart LR
 - `compliance-api` agora tambem expõe `POST/GET/PATCH /api/v1/operations/work-items*`.
 - a camada `operations` persiste fila multiusuario por `organization_id`, com `RLS`, timeline e comentarios estruturados.
 - a primeira integracao ativa no frontend cobre:
-  - `sanctions` como workspace multiusuario primario, mantendo fallback local
+  - `sanctions` como workspace multiusuario primario, sem fallback local de negocio no navegador
   - `alerts` com rastreamento por incidente e sincronizacao de fechamento via `ack`
 - o modelo evita criar um microservico novo e reaproveita o mesmo contexto de auth, tenant e auditoria do `compliance-api`.
 
@@ -150,7 +150,7 @@ compliance-worker -> sanctions_lists_meta/sanctions_hits_cache
 Observacao importante:
 
 - o endpoint direto `sanctions-check` e o catalogo de operacoes agora convergem para `provider=sanctions_lists_cache`, `provider_status=live` e `delivery_mode=local_cache`
-- a UI `/sanctions` agora sincroniza o resultado em `regulatory_work_items` como fila compartilhada primaria, com fallback local para continuidade operacional
+- a UI `/sanctions` agora sincroniza o resultado em `regulatory_work_items` como fila compartilhada primaria e falha explicitamente quando a fila compartilhada nao estiver disponivel
 
 ### Bloqueio Preventivo
 
