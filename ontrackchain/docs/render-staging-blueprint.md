@@ -1,68 +1,97 @@
-# Render Blueprint para Staging
+# Render Blueprint para Frontend-Only
 
 ## Objetivo
 
-Definir um blueprint unico para staging no Render sem quebrar a arquitetura atual baseada em gateway path-based.
+Documentar o blueprint do Render atualmente versionado na raiz do repositório, reduzido para `frontend-only` enquanto as credenciais reais de OIDC, RPC, TRM, OpenSanctions e observabilidade não estiverem disponíveis.
 
-O arquivo canônico consumido pelo Render fica na raiz do repositório Git em [render.yaml](file:///home/jistriane/Ontrackchain/render.yaml).
+O arquivo canônico consumido pelo Render continua na raiz do repositório Git em [render.yaml](file:///home/jistriane/Ontrackchain/render.yaml).
 
-## Decisoes Arquiteturais
+## Estado Atual
 
-- `ontrackchain-staging` e o unico entrypoint publico da aplicacao.
-- `frontend`, `auth-service`, APIs e observabilidade ficam na private network do Render.
-- `ontrackchain-auth-idp-staging` permanece publico porque o fluxo OIDC precisa de um issuer acessivel pelo navegador.
-- o `frontend` continua consumindo um `INTERNAL_API_BASE_URL` unico, agora fornecido pelo gateway interno do Render.
-- o bootstrap do Postgres sai do `docker-entrypoint-initdb.d` e passa para `preDeployCommand` do `auth-service`, usando lock advisory para manter idempotencia.
+O blueprint vigente provisiona apenas um serviço:
 
-## Topologia
+- `ontrackchain-frontend-staging`: serviço `web` do frontend `Next.js`
 
-[[diagram: staging Render com gateway publico ontrackchain-staging roteando / para frontend privado, /auth para auth-service privado, /public para public-api privado e /api/v1/* para APIs privadas; Keycloak publico separado em ontrackchain-auth-idp-staging; Postgres gerenciado e Redis gerenciado consumidos por auth-service, investigation-api/worker, compliance-api/worker, monitoring-api e report-api; Prometheus, Alertmanager e Grafana privados conectados aos hostports internos dos servicos.]]
+Parâmetros principais do deploy atual:
 
-## Servicos do Blueprint
+- `APP_ENV=test`
+- `AUTH_MODE=dev`
+- `DEV_AUTH_ENABLED=true`
+- `NEXT_PUBLIC_AUTH_MODE=dev`
+- `NEXT_PUBLIC_API_BASE_URL=https://ontrackchain-frontend-staging.onrender.com`
+- `INTERNAL_API_BASE_URL=https://ontrackchain-frontend-staging.onrender.com`
 
-- `ontrackchain-staging`: gateway Traefik publico.
-- `ontrackchain-auth-idp-staging`: Keycloak publico para OIDC.
-- `ontrackchain-frontend-staging`: Next.js privado.
-- `ontrackchain-auth-staging`: auth-service privado com bootstrap de banco.
-- `ontrackchain-public-api-staging`: public-api privado exposto via gateway em `/public`.
-- `ontrackchain-investigation-api-staging` e `ontrackchain-investigation-worker-staging`.
-- `ontrackchain-compliance-api-staging` e `ontrackchain-compliance-worker-staging`.
-- `ontrackchain-monitoring-api-staging`.
-- `ontrackchain-report-api-staging`.
-- `ontrackchain-prometheus-staging`, `ontrackchain-alertmanager-staging` e `ontrackchain-grafana-staging`.
-- `ontrackchain-postgres-staging` e `ontrackchain-redis-staging`.
+## Decisão Arquitetural
 
-## Variaveis Criticas
+Esta opção existe para colocar a interface no ar sem bloquear o deploy por falta de segredos externos. Ela não substitui a arquitetura alvo full-stack do produto, mas sim materializa um recorte operacional temporário de menor risco.
 
-- preencha todos os `sync: false` no Render antes do primeiro deploy.
-- use `infra/render/render-staging.example.env` como checklist de secrets, nao como arquivo para commit.
-- use [Primeiro Sync no Render](file:///home/jistriane/Ontrackchain/ontrackchain/docs/render-staging-first-sync.md) como runbook operacional para a ordem de preenchimento e validacao inicial.
-- se o Render gerar subdominios diferentes dos nomes previstos, atualize:
-  - `ONTRACKCHAIN_PUBLIC_BASE_URL`
-  - `KEYCLOAK_PUBLIC_URL`
-  - `OIDC_ISSUER_URL`
-  - `OIDC_JWKS_URL`
-  - `OIDC_AUTHORIZATION_URL`
-  - `NEXT_PUBLIC_API_BASE_URL`
+Trade-off aceito:
 
-## Bootstrap do Banco
+- reduz custo e dependência de terceiros
+- elimina a necessidade imediata de Postgres, Redis, Keycloak, APIs privadas e observabilidade no Render
+- permite validar shell, layout, assets, rotas públicas e estabilidade básica do frontend
+- não entrega staging funcional completo para autenticação real, dados dinâmicos ou fluxos regulatórios fim a fim
 
-- o script `infra/render/scripts/apply_postgres_bootstrap.py` aplica `init.sql` apenas quando a base esta vazia.
-- depois aplica todas as migrations `.sql` em ordem alfabetica.
-- o estado fica registrado em `render_schema_migrations`.
-- o lock `pg_advisory_lock` evita corrida entre deploys concorrentes.
+## Topologia Atual
 
-## Riscos e Trade-offs
+[[diagram: deploy frontend-only no Render com um único web service ontrackchain-frontend-staging servindo a aplicação Next.js; navegador acessa a interface pública; não há gateway Traefik, Keycloak, APIs privadas, banco gerenciado, Redis, workers nem observabilidade no blueprint atual; chamadas server-side do frontend apontam para a própria URL pública apenas para manter o bootstrap do shell sem segredos externos.]]
 
-- custo: o blueprint provisiona muitos servicos `starter`; e o caminho de menor risco para preservar a arquitetura atual, mas nao o mais barato.
-- Keycloak: continua em `KC_DB=dev-file` para reduzir escopo do primeiro staging; para maior resiliência, o proximo passo e migrar o IdP para Postgres dedicado.
-- observabilidade: Prometheus e Grafana entram como servicos privados; se houver necessidade de acesso humano remoto, adicione um gateway administrativo com allowlist.
-- subdominio: o blueprint assume os `*.onrender.com` derivados dos nomes definidos; valide isso no primeiro sync.
+## O Que Foi Removido do Blueprint
+
+O blueprint atual não provisiona:
+
+- `auth-service`
+- `public-api`
+- `investigation-api` e `investigation-worker`
+- `compliance-api` e `compliance-worker`
+- `monitoring-api`
+- `report-api`
+- `Keycloak`
+- `Postgres`
+- `Redis`
+- `Prometheus`, `Alertmanager` e `Grafana`
+
+## O Que Funciona Neste Modo
+
+- carregamento do frontend
+- página inicial
+- rota `/login`
+- assets estáticos
+- validação visual e smoke básico do shell
+
+## O Que Fica Limitado
+
+- login real via OIDC
+- emissão de sessão com backend real
+- dashboards com dados dinâmicos
+- fluxos de investigação, compliance, monitoring, reports e evidence dependentes de APIs reais
+- bundles sérios de readiness e smoke regulatório fim a fim
+
+## Quando Usar
+
+Use este blueprint quando:
+
+- o objetivo imediato for publicar a UI rapidamente
+- as integrações externas ainda não estiverem homologadas
+- os segredos reais ainda não estiverem disponíveis
+- o time precisar de uma URL pública do frontend para revisão visual, UX ou demonstração controlada
+
+## Quando Não Usar
+
+Não trate este blueprint como staging sério quando o objetivo for:
+
+- validar OIDC real
+- rodar smoke de autenticação federada
+- validar providers AML/KYT ou feed UE
+- testar filas, workers, persistência ou observabilidade
+- promover readiness regulatório ou decisão formal de `go/no-go`
+
+Para esses cenários, siga o rito de staging completo documentado em [deploy-and-staging.md](file:///home/jistriane/Ontrackchain/ontrackchain/docs/deploy-and-staging.md).
 
 ## Fluxo Recomendado
 
 1. subir o blueprint a partir de `render.yaml` na raiz do repositório;
-2. preencher todos os `sync: false`;
-3. validar `ontrackchain-auth-idp-staging` e `ontrackchain-staging`;
-4. executar smoke OIDC e E2E criticos;
-5. revisar custo e estabilidade antes de promover qualquer endurecimento adicional.
+2. validar `https://ontrackchain-frontend-staging.onrender.com/`;
+3. validar `https://ontrackchain-frontend-staging.onrender.com/login`;
+4. confirmar ausência de crash de runtime no shell;
+5. usar este ambiente apenas como preview operacional do frontend até a volta do stack completo.

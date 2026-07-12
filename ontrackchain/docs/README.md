@@ -13,6 +13,7 @@ Estado de referencia atual:
 - `P2-03` consolidado com RCA cross-domain leve
 - `P2-05` em execucao incremental com `REVIEWER` e `BILLING_ADMIN` em superficies reais
 - Playwright institucionalizado por classes (`stack real leve`, `browser-mocked`, `ssr-mocked`, `dev-auth`, `oidc-critical`)
+- o blueprint atual do Render foi reduzido para `frontend-only`; staging serio full-stack continua documentado separadamente
 
 ## Precedencia Documental
 
@@ -60,6 +61,7 @@ Regras objetivas:
 
 - [Operacao Local](./operations.md): bootstrap local, troubleshooting e comandos do dia a dia
 - [Deploy e Staging](./deploy-and-staging.md): fluxo `prepare -> validate -> preflight -> run`
+- [Blueprint Render para Frontend-Only](./render-staging-blueprint.md): estado atual do deploy publico no Render, limitado ao shell do frontend
 - [GitHub Environment para Staging Serio](./github-environment-staging-serious.md): contrato operacional do environment manual usado na janela seria
 - [Template Keycloak OIDC](./keycloak-oidc-template.md): referencia de configuracao inicial do IdP, util para alinhamento com `environment-variables.md`
 - [Variaveis de Ambiente](./environment-variables.md): baseline por servico e overrides
@@ -163,6 +165,7 @@ Esta base ja foi racionalizada para reduzir drift. Como referencia:
 - `docs/history/DAY_OF_WINDOW_RUNBOOK_STG_2026_07_06_A.md` foi absorvido pelo ciclo `governance-weekly/cycles/2026-07-06/`
 - os caminhos canônicos de artefatos gerados agora usam `docs/governance-weekly/generated/windows/<window_id>/`
 - o pos-processamento da janela seria agora gera `sign-off`, sincronizacao semanal, board operacional e `go/no-go decision packet` a partir do mesmo payload consolidado
+- a trilha antiga de Render full-stack foi consolidada no documento `render-staging-blueprint.md`, agora alinhado ao blueprint `frontend-only`; o runbook de primeiro sync e o checklist de secrets completos foram removidos por estarem obsoletos
 - `.publish_repo/` foi auditado e classificado como espelho de publicacao nao-canônico, sem evidencia suficiente para delecao automatica nesta rodada
 
 ## O Que Esta Documentado Agora

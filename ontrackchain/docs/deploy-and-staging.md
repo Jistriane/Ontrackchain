@@ -25,11 +25,32 @@ Use os documentos abaixo quando o foco nao for deploy tecnico:
 
 - [Governanca Semanal](./governance-weekly/README.md): tracking e sign-off por ciclo
 - [Gates de Release para Staging Serio](project-release-gates.md): decidir `go/no-go` formal
-- [Blueprint Render para Staging](render-staging-blueprint.md): topologia, servicos e secrets para a opcao de deploy via Render
+- [Blueprint Render para Frontend-Only](render-staging-blueprint.md): recorte atual do deploy no Render sem dependencias de backend real
 
 ## Estrategia Atual
 
 O projeto esta organizado para deploy baseado em containers, com `docker compose` como mecanismo principal no ambiente local e como referencia funcional para empacotamento.
+
+## Render Atual
+
+O blueprint do Render atualmente versionado na raiz do repositório esta reduzido para `frontend-only`.
+
+Isso significa que o deploy ativo no Render:
+
+- sobe apenas o `frontend` como serviço `web`
+- usa `APP_ENV=test`
+- mantém `AUTH_MODE=dev` e `DEV_AUTH_ENABLED=true`
+- não provisiona `auth-service`, Keycloak, APIs privadas, Postgres, Redis, workers ou observabilidade
+
+Esse recorte existe para destravar a publicação da interface enquanto os segredos e provedores externos reais ainda não estão disponíveis.
+
+Use [Blueprint Render para Frontend-Only](render-staging-blueprint.md) quando o objetivo for:
+
+- preview visual
+- validação de shell
+- smoke básico de UI
+
+Não use esse deploy como evidência de staging sério, readiness regulatório ou validação OIDC real.
 
 ## Ambientes Recomendados
 

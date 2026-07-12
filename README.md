@@ -59,6 +59,7 @@ flowchart TD
 - operacao multiusuario compartilhada via `regulatory_work_items`, timeline e comentarios estruturados
 - cockpit frontend tri-locale com 7 modulos operacionais sincronizados ao mesmo modelo de workspace
 - RCA cross-domain leve consolidada entre `alerts`, `/monitoring`, export administrativo e governanca
+- deploy publico atual no Render simplificado para `frontend-only`, preservando a interface enquanto o staging serio full-stack aguarda segredos reais
 
 ### O que ainda bloqueia o salto para `90%+`
 

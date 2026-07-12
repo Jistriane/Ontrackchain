@@ -20,6 +20,7 @@ Aqui vivem:
 - baseline oficial: `92%` tecnico, `79%` regulatorio/operacional, `88%` consolidado
 - o assessment formal datado continua em `docs/assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md`, mas a baseline viva esta em `docs/README.md`, `docs/project-kpi-scorecard.md` e `docs/project-maturity-assessment.md`
 - a leitura documental do workspace agora separa explicitamente fonte viva, evidência de ciclo, historico de apoio e historico frio
+- o blueprint publico atual no Render foi reduzido para `frontend-only`; a trilha de staging serio full-stack continua documentada em `docs/deploy-and-staging.md`
 - frentes recentes ja consolidadas:
   - `P1-01` metadata de work-items padronizada entre frontend, backend e contrato
   - `P2-02` timeline/comments compartilhados nos 7 cockpits
