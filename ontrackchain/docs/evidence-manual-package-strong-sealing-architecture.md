@@ -77,7 +77,26 @@ O gap residual mudou de "cadeia inexistente" para "baseline funcional entregue, 
 
 O diagrama abaixo resume o caminho completo da selagem forte, da consulta do pacote ate a verificacao offline do envelope.
 
-[[diagram: fluxo de selagem forte do manual package DD/SoF. O analista opera o cockpit evidence e consulta o selo/manual package via frontend Next.js. O App Router chama investigation-api. Investigation-api recupera o pacote canonico, manifesto, package_sha256, signoff requests e sign-offs efetivos. Antes da selagem, o backend valida papeis permitidos, vinculo entre role e signer_role, integridade do digest e estado do pacote. Em seguida abre um seal request e envia apenas o digest final ao institutional seal service. O seal service usa KMS/HSM para assinar e devolve envelope com algoritmo, key_id, certificate fingerprint, timestamp e metadados verificaveis. Investigation-api persiste o envelope, atualiza estado sealed/revoked/superseded, registra audit_logs e pode espelhar evento sintetico em evidence_trail. Os cockpits evidence e audit exibem status, trilha de transicoes e download do envelope para verificacao offline sem confiar em estado local.]]
+```mermaid
+flowchart LR
+    E[/evidence cockpit] --> AR[App Router]
+    AR --> I[investigation-api]
+    I --> PK[Pacote canonico e package_sha256]
+    I --> SO[signoff requests e sign-offs]
+    I --> V[Validacao de role, signer_role e integridade]
+    V --> SR[seal request]
+    SR --> SS[institutional seal service]
+    SS --> K[KMS e HSM]
+    SS --> ENV[Envelope assinado]
+    ENV --> I
+    I --> AU[audit_logs]
+    I --> ET[evidence_trail sintetico]
+    I --> ST[estado sealed, revoked ou superseded]
+    ST --> AC[/audit cockpit]
+    ST --> E
+    E --> OFF[verificacao offline]
+    AC --> OFF
+```
 
 ## Opcoes de Arquitetura
 

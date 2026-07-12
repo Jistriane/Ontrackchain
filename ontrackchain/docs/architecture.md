@@ -6,7 +6,33 @@ O `Ontrackchain` e uma plataforma modular para investigacao e compliance on-chai
 
 O diagrama abaixo resume a topologia corrente do sistema e destaca onde os fluxos operacionais, regulatorios e de governanca se conectam.
 
-[[diagram: arquitetura atual do Ontrackchain. Borda com Traefik e ForwardAuth. Operadores e sistemas externos entram pelo frontend Next.js e pelo gateway. O auth-service resolve JWT, API Key, OIDC, MFA, role efetiva, X-Linked-User-Id e contexto interno. O frontend orquestra investigation-api, compliance-api, monitoring-api e report-api. Investigation-api governa estimate, start, status, billing, reconciliation e ledger. Compliance-api governa sanctions, counterparties, preventive blocks e regulatory work-items. Monitoring-api recebe Alertmanager, persiste operational_alert_events e sustenta RCA cross-domain. Report-api governa reports, downloads sensiveis e ROS/COAF. PostgreSQL com RLS persiste work-items, audit_logs, evidence_trail, sanctions cache, counterparties, preventive_blocks, ros_records e credit_ledger. Redis sustenta fila, retry, DLQ e concorrencia. Compliance-worker sincroniza listas e readiness regulatorio. A trilha de janela seria conecta scripts e bundles a governance-weekly/generated para artefatos gerados e governance-weekly/cycles para war room, sign-off e decision packet.]]
+```mermaid
+flowchart LR
+    U[Operadores e sistemas externos] --> T[Traefik e ForwardAuth]
+    T --> A[auth-service]
+    T --> F[frontend Next.js]
+    F --> I[investigation-api]
+    F --> C[compliance-api]
+    F --> M[monitoring-api]
+    F --> R[report-api]
+    C --> CW[compliance-worker]
+    AM[Alertmanager] --> M
+
+    I --> P[(PostgreSQL RLS)]
+    C --> P
+    M --> P
+    R --> P
+
+    I --> X[(Redis)]
+    C --> X
+    M --> X
+    R --> X
+
+    C --> G[governance-weekly/generated]
+    M --> G
+    R --> G
+    G --> CY[governance-weekly/cycles]
+```
 
 ## Boundaries do Sistema
 

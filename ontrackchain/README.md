@@ -32,7 +32,27 @@ Aqui vivem:
 
 O diagrama abaixo resume como os componentes do workspace cooperam em runtime e onde cada domínio principal se conecta.
 
-[[diagram: fluxo tecnico do workspace ontrackchain. Operador acessa frontend Next.js. O frontend atravessa Traefik e depende do auth-service para identidade, sessao, OIDC, MFA e RBAC. A partir dai, o frontend orquestra chamadas para investigation-api, compliance-api, monitoring-api e report-api. Investigation-api governa estimate/start/status/billing; compliance-api governa sanctions/counterparties/blocks/work-items; monitoring-api governa webhooks, triagem e RCA; report-api governa relatorios e ROS/COAF. Todas as APIs persistem em PostgreSQL com RLS e usam Redis para fila, retry, concorrencia e DLQ. Workers e scripts de readiness complementam a trilha regulatoria e operacional.]]
+```mermaid
+flowchart LR
+    U[Operador] --> T[Traefik]
+    T --> A[auth-service]
+    T --> F[frontend Next.js]
+    F --> I[investigation-api]
+    F --> C[compliance-api]
+    F --> M[monitoring-api]
+    F --> R[report-api]
+    I --> P[(PostgreSQL RLS)]
+    C --> P
+    M --> P
+    R --> P
+    I --> X[(Redis)]
+    C --> X
+    M --> X
+    R --> X
+    C --> CW[workers e readiness]
+    M --> GW[governanca e RCA]
+    R --> GW
+```
 
 ## Servicos e Dominios
 
@@ -72,7 +92,17 @@ Classes de suite Playwright institucionalizadas:
 
 O diagrama abaixo mostra a ordem prática de validação local antes de qualquer promoção para readiness séria ou governança.
 
-[[diagram: fluxo de validacao local do workspace. Passo 1: subir ambiente com docker compose. Passo 2: executar smoke_runtime, migrations e smoke de ownership backend. Passo 3: entrar em apps/frontend e rodar typecheck. Passo 4: executar Playwright stack-real-light e browser-mocked; opcionalmente dev-auth ou oidc-critical conforme auth mode. Passo 5: quando a mudanca tocar readiness serio, executar preflight_external_integrations, checks de provider e bundles de readiness. Saida: baseline local validado antes de promover para janela seria ou governanca.]]
+```mermaid
+flowchart TD
+    A[Subir ambiente com docker compose] --> B[Rodar smoke_runtime e migrations]
+    B --> C[Validar ownership backend]
+    C --> D[Rodar typecheck do frontend]
+    D --> E[Executar Playwright stack-real-light]
+    E --> F[Executar browser-mocked]
+    F --> G[Opcional: dev-auth ou oidc-critical]
+    G --> H[Se necessario, rodar preflight e bundles de readiness]
+    H --> I[Baseline local validado]
+```
 
 ## Quick Start
 
@@ -181,7 +211,24 @@ Use esta precedencia quando houver conflito:
 
 O diagrama abaixo ajuda a distinguir decisão corrente, prova datada e contexto histórico dentro deste diretório técnico.
 
-[[diagram: fluxo de leitura documental do diretorio tecnico. Entrada: ontrackchain/README.md como porta de entrada tecnica. Em seguida, leitor consulta docs/README.md para fonte primaria. Se a necessidade for arquitetura, contrato, operacao ou readiness corrente, segue para documentos vivos indexados em docs. Se a necessidade for evidência de uma semana ou janela especifica, segue para docs/governance-weekly/cycles. Se a necessidade for trilha antiga ou contexto frio, segue para docs/history e docs/governance-weekly/archive. Regra visual: documentos vivos governam decisao atual; cycles comprovam uma execucao datada; history e archive apenas contextualizam.]]
+```mermaid
+flowchart TD
+    A[ontrackchain/README.md] --> B[docs/README.md]
+    B --> C[Documentos vivos]
+    B --> D[governance-weekly/cycles]
+    B --> E[docs/history]
+    B --> F[governance-weekly/archive]
+
+    classDef primary fill:#0f172a,stroke:#0f172a,color:#fff;
+    classDef live fill:#dbeafe,stroke:#2563eb,color:#111827;
+    classDef evidence fill:#dcfce7,stroke:#16a34a,color:#111827;
+    classDef history fill:#f3f4f6,stroke:#6b7280,color:#111827;
+
+    class A,B primary;
+    class C live;
+    class D evidence;
+    class E,F history;
+```
 
 ## Estrutura
 

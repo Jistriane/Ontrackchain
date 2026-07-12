@@ -33,7 +33,26 @@ Nao inclui ainda:
 
 O diagrama abaixo resume o fluxo esperado de autenticacao federada, do redirect inicial ate o enforcement efetivo nas APIs.
 
-[[diagram: topologia esperada do OIDC com Keycloak. O usuario acessa o frontend Next.js, que consulta auth-service para auth_config e decide effective_auth_mode=oidc. O frontend redireciona para o Keycloak. O Keycloak autentica, devolve o usuario ao callback do frontend e o frontend entrega token/codigo ao backend de sessao. O auth-service valida issuer, audience, assinatura e JWKS, resolve org, plan, role canonica e, quando houver, X-Linked-User-Id para identidade federada. O contexto autenticado segue via proxies internos para investigation-api, compliance-api, monitoring-api e report-api. A UX do frontend passa a esconder ou degradar CTAs conforme a role efetiva e o backend continua sendo a autoridade final de enforcement.]]
+```mermaid
+sequenceDiagram
+    participant U as Usuario
+    participant F as Frontend Next.js
+    participant K as Keycloak
+    participant A as auth-service
+    participant APIs as APIs internas
+
+    U->>F: acessa login
+    F->>A: consulta auth_config
+    A-->>F: effective_auth_mode=oidc
+    F->>K: redirect para authorization_endpoint
+    K-->>F: callback com codigo ou token
+    F->>A: inicia sessao backend
+    A->>A: valida issuer, audience, assinatura e JWKS
+    A->>A: resolve org, plan, role e linked user
+    A-->>F: contexto autenticado
+    F->>APIs: chamadas com contexto interno
+    APIs-->>F: enforcement final por role
+```
 
 ## Template de Variaveis
 

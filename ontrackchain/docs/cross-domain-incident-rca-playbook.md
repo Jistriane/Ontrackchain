@@ -50,7 +50,21 @@ Ele reaproveita a trilha ja existente:
 
 O diagrama abaixo mostra a passagem do incidente entre observabilidade, workspace operacional, auditoria e governanca.
 
-[[diagram: fluxo de incidente cross-domain com RCA leve. Alertmanager e Prometheus disparam para monitoring-api. Monitoring-api persiste operational_alert_events e expõe leitura administrativa para /monitoring. O cockpit /alerts promove o alerta material para regulatory_work_item compartilhado sem abrir novo microservico. O work-item concentra metadata canônica, ownership, status, timeline, comentarios e campos de RCA leve. Audit_logs registram acknowledge, export, negacoes e transicoes relevantes. Quando o blast radius atravessa dominios, o resumo do incidente alimenta governance-weekly/cycles, war room e o artefato operacional de RCA summary. Domain Owners de backend, compliance, report, frontend e platform executam mitigacoes e retornam atualizacoes ao work-item ate causa raiz, comandante e evidencias ficarem rastreaveis para fechamento.]]
+```mermaid
+flowchart LR
+    PM[Prometheus e Alertmanager] --> M[monitoring-api]
+    M --> O[operational_alert_events]
+    O --> MON[/monitoring]
+    MON --> AL[/alerts]
+    AL --> W[regulatory_work_item]
+    W --> T[timeline e comentarios]
+    W --> AU[audit_logs]
+    W --> RCA[RCA leve]
+    RCA --> CY[governance-weekly/cycles]
+    RCA --> WR[war room]
+    RCA --> RS[resumo operacional]
+    DO[Domain Owners] --> W
+```
 
 ## Papeis e Responsabilidades
 

@@ -42,7 +42,41 @@ O projeto ainda nao tem:
 
 O diagrama abaixo mostra como a trilha de `secrets` e a trilha de RBAC convergem para o mesmo endurecimento operacional pos-90%.
 
-[[diagram: mapa do endurecimento pos-90 por camadas. Atores: Security, Platform/SRE, Backend/Auth, Compliance Lead, Auditors e Sponsors. Sistemas: IdP/OIDC, Secret Manager de producao, auth-service, frontend Next.js, investigation-api, compliance-api, monitoring-api, report-api, PostgreSQL com RLS, GitHub Environment de staging serio, governance-weekly/cycles, governance-weekly/generated e KMS/HSM institucional. Fluxos principais: claims do IdP entram no auth-service e viram role efetiva, X-Linked-User-Id e headers internos; a role efetiva governa enforcement backend e degradacao/CTA no frontend; secrets de producao fluem do Secret Manager para runtime e servicos, enquanto staging serio permanece ancorado no GitHub Environment; eventos de negacao, bundles e artefatos da janela seria convergem para generated/windows e depois para war room, sign-off e decision packet em governance-weekly/cycles; a selagem institucional futura se conecta ao KMS/HSM sem mudar a topologia documental canônica.]]
+```mermaid
+flowchart LR
+    IDP[IdP e OIDC] --> AUTH[auth-service]
+    AUTH --> FE[frontend Next.js]
+    AUTH --> I[investigation-api]
+    AUTH --> C[compliance-api]
+    AUTH --> M[monitoring-api]
+    AUTH --> R[report-api]
+
+    SM[Secret Manager de producao] --> AUTH
+    SM --> I
+    SM --> C
+    SM --> M
+    SM --> R
+
+    GH[GitHub Environment de staging serio] --> AUTH
+    GH --> I
+    GH --> C
+
+    FE --> I
+    FE --> C
+    FE --> M
+    FE --> R
+
+    I --> P[(PostgreSQL RLS)]
+    C --> P
+    M --> P
+    R --> P
+
+    C --> G[governance-weekly/generated]
+    M --> G
+    R --> G
+    G --> CY[governance-weekly/cycles]
+    KMS[KMS e HSM institucional] --> R
+```
 
 ## Opcoes de Arquitetura
 
