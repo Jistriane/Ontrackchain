@@ -607,8 +607,9 @@ CREATE INDEX IF NOT EXISTS idx_cases_org_id ON cases(organization_id);
 CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(status);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_case_id ON agent_runs(case_id);
 CREATE INDEX IF NOT EXISTS idx_reports_case_id ON reports(case_id);
-DROP INDEX IF EXISTS uq_reports_external_report_id;
 DO $$
+DECLARE
+  orphan_index_exists BOOLEAN;
 BEGIN
   IF NOT EXISTS (
     SELECT 1
@@ -616,6 +617,24 @@ BEGIN
     WHERE conname = 'uq_reports_external_report_id'
       AND conrelid = 'reports'::regclass
   ) THEN
+    SELECT EXISTS (
+      SELECT 1
+      FROM pg_class idx
+      JOIN pg_index i ON i.indexrelid = idx.oid
+      WHERE idx.relname = 'uq_reports_external_report_id'
+        AND i.indrelid = 'reports'::regclass
+        AND NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint c
+          WHERE c.conindid = idx.oid
+        )
+    )
+    INTO orphan_index_exists;
+
+    IF orphan_index_exists THEN
+      EXECUTE 'DROP INDEX IF EXISTS uq_reports_external_report_id';
+    END IF;
+
     ALTER TABLE reports
       ADD CONSTRAINT uq_reports_external_report_id UNIQUE (external_report_id);
   END IF;
