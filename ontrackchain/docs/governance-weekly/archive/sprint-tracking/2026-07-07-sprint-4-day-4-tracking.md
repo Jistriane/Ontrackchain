@@ -94,4 +94,4 @@
 - classificacao: `parcial`
 - resumo executivo: a governanca consolidada esta pronta conceitualmente, mas ainda depende da publicacao do snapshot versionado
 - owner do primeiro passo do proximo marco: `Governanca`
-- artefato relacionado: [Runbook de Execucao do Dia 4 da Sprint 4](../../sprint-4-day-4-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-4-day-4-execution-runbook.md`

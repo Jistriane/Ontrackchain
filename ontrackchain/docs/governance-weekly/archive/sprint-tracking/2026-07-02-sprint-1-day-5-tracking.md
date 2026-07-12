@@ -122,4 +122,4 @@
 - classificacao: `parcial`
 - resumo executivo: o `Dia 5` esta pronto como rito de fechamento da Sprint 1, mas permanece bloqueado ate a geracao do bundle real e a classificacao final dos `P0`
 - owner do primeiro passo da proxima fase: `a definir apos fechamento real da Sprint 1`
-- artefato relacionado: [Runbook de Execucao do Dia 5 da Sprint 1](../../sprint-1-day-5-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-1-day-5-execution-runbook.md`

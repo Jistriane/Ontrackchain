@@ -13,3 +13,9 @@ Agrupar registros semanais fechados, atualizacoes de KPI e checks de readiness d
 - [Governanca Semanal 2026-07-01](./2026-07-01-weekly-governance.md)
 - [Governanca Semanal 2026-07-02](./2026-07-02-weekly-governance.md)
 - [Governanca Semanal 2026-07-03](./2026-07-03-weekly-governance.md)
+
+## Regra de Leitura
+
+- trate todos os arquivos desta pasta como snapshots historicos arquivados
+- use `cycles/` para navegacao operacional por data e `docs/` para a fonte canônica viva
+- quando um arquivo arquivado divergir do estado atual, prevalecem os scorecards, boards e runbooks mais recentes

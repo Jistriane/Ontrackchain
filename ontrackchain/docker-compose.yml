@@ -217,7 +217,7 @@ services:
       - ontrackchain
     labels:
       - traefik.enable=true
-      - traefik.http.routers.compliance.rule=PathPrefix(`/api/v1/compliance`)
+      - traefik.http.routers.compliance.rule=PathPrefix(`/api/v1/compliance`) || PathPrefix(`/api/v1/operations`)
       - traefik.http.routers.compliance.entrypoints=web
       - traefik.http.routers.compliance.priority=100
       - traefik.http.routers.compliance.middlewares=auth@docker

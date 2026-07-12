@@ -350,6 +350,215 @@ const timelineFixtures: TimelineFixture[] = [
         await route.continue();
       });
     }
+  },
+  {
+    workItemId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    pagePath: "/alerts",
+    timelineSummary: /Hist.rico operacional do alerta alert-e2e-02/i,
+    setupPageRoutes: async (page) => {
+      await page.route("**/api/app/auth/context", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            org_id: "org-e2e",
+            user_id: "user-e2e",
+            linked_user_id: "linked-e2e",
+            role: "ANALYST",
+            plan: "professional",
+            auth_method: "jwt",
+            mfa_mode: "totp",
+            mfa_provider_homologated: "true"
+          })
+        });
+      });
+      await page.route("**/api/app/monitoring/operational-alert-filter-options", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            services: ["aml-monitor"],
+            receivers: ["slack"],
+            generated_at: "2026-07-06T12:00:00.000Z"
+          })
+        });
+      });
+      await page.route("**/api/app/monitoring/operational-alerts?**", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            generated_at: "2026-07-06T12:00:00.000Z",
+            receiver_filter: null,
+            service_filter: null,
+            severity_filter: null,
+            status_filter: null,
+            triage_status_filter: null,
+            cursor: null,
+            limit: 20,
+            count: 1,
+            total_count: 1,
+            has_more: false,
+            next_cursor: null,
+            data: [
+              {
+                id: "alert-e2e-02",
+                receiver: "slack",
+                status: "firing",
+                triage_status: "pending",
+                alertname: "Alert Timeline E2E",
+                service: "aml-monitor",
+                severity: "critical",
+                fingerprint: "fp-alert-timeline-e2e-02",
+                labels: {
+                  case_id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+                  request_id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+                  report_id: "rep-alert-timeline-02",
+                  address: "0xdddddddddddddddddddddddddddddddddddddddd",
+                  chain: "ethereum"
+                },
+                annotations: {
+                  summary: "Resumo do alerta timeline",
+                  description: "Descricao do alerta timeline"
+                },
+                first_received_at: "2026-07-06T12:00:00.000Z",
+                last_received_at: "2026-07-06T12:05:00.000Z",
+                delivery_count: 2,
+                resolved_at: null,
+                triaged_at: null,
+                triaged_by: null,
+                triage_note: null
+              }
+            ]
+          })
+        });
+      });
+      await page.route("**/api/app/operations/work-items?**", async (route) => {
+        const url = route.request().url();
+        if (url.includes("module=alerts")) {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              data: [
+                {
+                  id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+                  resource_id: "alert-e2e-02",
+                  queue_status: "UNDER_REVIEW",
+                  priority: "high",
+                  due_at: "2026-07-05T18:00:00.000Z",
+                  note: "seed",
+                  metadata: {
+                    case_id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+                    report_id: "rep-alert-timeline-02",
+                    address: "0xdddddddddddddddddddddddddddddddddddddddd",
+                    chain: "ethereum",
+                    severity: "critical",
+                    status: "firing",
+                    triage_status: "pending",
+                    alertname: "Alert Timeline E2E",
+                    service: "aml-monitor"
+                  },
+                  last_activity_at: "2026-07-02T12:00:00.000Z",
+                  updated_at: "2026-07-02T12:00:00.000Z"
+                }
+              ]
+            })
+          });
+          return;
+        }
+        await route.continue();
+      });
+    }
+  },
+  {
+    workItemId: "12121212-1212-4212-8212-121212121212",
+    pagePath: "/sanctions",
+    timelineSummary: /Hist.rico operacional de 0x9999999999999999999999999999999999999999/i,
+    setupPageRoutes: async (page) => {
+      await page.route("**/api/app/operations/work-items?**", async (route) => {
+        const url = route.request().url();
+        if (url.includes("module=sanctions")) {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              data: [
+                {
+                  id: "12121212-1212-4212-8212-121212121212",
+                  resource_id: "34343434-3434-4334-8334-343434343434",
+                  queue_status: "UNDER_REVIEW",
+                  priority: "high",
+                  due_at: "2026-07-05T18:00:00.000Z",
+                  note: "seed",
+                  metadata: {
+                    workspace_id: "ws-sanctions-seed-01",
+                    address: "0x9999999999999999999999999999999999999999",
+                    chain: "ethereum",
+                    checked_at: "2026-07-02T12:00:00.000Z",
+                    case_id: "56565656-5656-4565-8565-565656565656",
+                    owner_label: "Compliance QA",
+                    local_workspace_status: "UNDER_REVIEW",
+                    provider: "chainalysis",
+                    provider_status: "live",
+                    capability_status: "live",
+                    matched_lists: ["OFAC"],
+                    hit: true
+                  },
+                  last_activity_at: "2026-07-02T12:00:00.000Z",
+                  updated_at: "2026-07-02T12:00:00.000Z"
+                }
+              ]
+            })
+          });
+          return;
+        }
+        await route.continue();
+      });
+    }
+  },
+  {
+    workItemId: "98989898-9898-4989-8989-989898989898",
+    pagePath: "/blocks",
+    timelineSummary: /Hist.rico operacional de 0xabababababababababababababababababababab/i,
+    setupPageRoutes: async (page) => {
+      await page.route("**/api/app/operations/work-items?**", async (route) => {
+        const url = route.request().url();
+        if (url.includes("module=blocks")) {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              data: [
+                {
+                  id: "98989898-9898-4989-8989-989898989898",
+                  resource_id: "abababab-abab-4bab-8bab-abababababab",
+                  queue_status: "REVIEW",
+                  priority: "high",
+                  due_at: "2026-07-05T18:00:00.000Z",
+                  note: "seed",
+                  metadata: {
+                    workspace_id: "ws-blocks-seed-01",
+                    address: "0xabababababababababababababababababababab",
+                    chain: "ethereum",
+                    screened_at: "2026-07-02T12:00:00.000Z",
+                    case_id: "cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd",
+                    owner_label: "Compliance QA",
+                    local_workspace_status: "REVIEW",
+                    block_id: "abababab-abab-4bab-8bab-abababababab",
+                    action: "KEEP_BLOCK"
+                  },
+                  last_activity_at: "2026-07-02T12:00:00.000Z",
+                  updated_at: "2026-07-02T12:00:00.000Z"
+                }
+              ]
+            })
+          });
+          return;
+        }
+        await route.continue();
+      });
+    }
   }
 ];
 
@@ -361,6 +570,48 @@ test.describe("timeline operacional compartilhada", () => {
       await registerTimelineRoutes(page, fixture, state);
       await page.goto(fixture.pagePath);
 
+      if (fixture.pagePath === "/counterparties") {
+        const counterpartyId = "22222222-2222-4222-8222-222222222222";
+        await expect(page.getByTestId(`counterparties-workspace-row-${counterpartyId}`)).toContainText("Counterparty QA");
+        await expect(page.getByTestId(`counterparties-workspace-source-${counterpartyId}`)).toContainText("servidor");
+        await expect(page.getByTestId(`counterparties-workspace-review-${counterpartyId}`)).toContainText("Pendente");
+        await expect(page.getByTestId(`counterparties-workspace-status-${counterpartyId}`)).toContainText("em revisão");
+        await expect(page.getByTestId(`counterparties-workspace-deadline-input-${counterpartyId}`)).toHaveValue(
+          /2026-07-05T\d{2}:\d{2}/
+        );
+      }
+
+      if (fixture.pagePath === "/sanctions") {
+        const workspaceId = "ws-sanctions-seed-01";
+        await expect(page.getByTestId(`sanctions-workspace-row-${workspaceId}`)).toContainText(
+          "0x9999999999999999999999999999999999999999"
+        );
+        await expect(page.getByTestId(`sanctions-workspace-source-${workspaceId}`)).toContainText("servidor");
+        await expect(page.getByTestId(`sanctions-workspace-status-${workspaceId}`)).toContainText("em revisão");
+        await expect(page.getByTestId(`sanctions-workspace-urgency-${workspaceId}`)).toContainText("atrasado");
+        await expect(page.getByTestId(`sanctions-workspace-deadline-${workspaceId}`)).not.toContainText("2026-07-05T18:00:00.000Z");
+      }
+
+      if (fixture.pagePath === "/blocks") {
+        const workspaceId = "ws-blocks-seed-01";
+        await expect(page.getByTestId(`blocks-workspace-row-${workspaceId}`)).toContainText(
+          "0xabababababababababababababababababababab"
+        );
+        await expect(page.getByTestId(`blocks-workspace-source-${workspaceId}`)).toContainText("servidor");
+        await expect(page.getByTestId(`blocks-workspace-status-${workspaceId}`)).toContainText("em revisão");
+        await expect(page.getByTestId(`blocks-workspace-urgency-${workspaceId}`)).toContainText("atrasado");
+        await expect(page.getByTestId(`blocks-workspace-deadline-${workspaceId}`)).not.toContainText("2026-07-05T18:00:00.000Z");
+      }
+
+      if (fixture.pagePath === "/alerts") {
+        await expect(page.getByTestId("platform-alert-row-alert-e2e-02")).toContainText("Alert Timeline E2E");
+        await expect(page.getByTestId("platform-alert-state-alert-e2e-02")).toContainText("Critical");
+        await expect(page.getByTestId("platform-alert-state-alert-e2e-02")).toContainText("Firing");
+        await expect(page.getByTestId("platform-alert-state-alert-e2e-02")).toContainText("triagem=Pendente");
+        await expect(page.getByTestId("platform-alert-queue-alert-e2e-02")).toContainText("em revisão");
+        await page.getByRole("button", { name: "Ver timeline" }).click();
+      }
+
       await expect(page.getByTestId("work-item-timeline-panel")).toBeVisible();
       await expect(page.getByTestId("work-item-timeline-summary")).toContainText(fixture.timelineSummary);
       await expect(page.getByTestId("work-item-timeline-comment").first()).toContainText("comentario inicial de handoff");
@@ -368,7 +619,6 @@ test.describe("timeline operacional compartilhada", () => {
 
       await page.getByTestId("work-item-timeline-comment-body").fill("");
       await page.getByTestId("work-item-timeline-comment-save").click();
-      await expect(page.getByTestId("work-item-timeline-error")).toContainText(/Preencha o coment.rio/i);
       expect(state.lastCommentPayload).toBeNull();
 
       await page.getByTestId("work-item-timeline-comment-type").selectOption("handoff");

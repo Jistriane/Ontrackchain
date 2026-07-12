@@ -46,9 +46,21 @@ test.describe("team role labels", () => {
 
     const row = page.locator('[data-testid="team-row"]').first();
     await expect(row).toContainText("Oficial de Compliance (COMPLIANCE_OFFICER)");
+    await expect(row.getByTestId("team-row-status")).toContainText("convidado");
+    await expect(row.getByTestId("team-row-updated")).not.toContainText(/T\d{2}:\d{2}:\d{2}\.\d{3}Z/);
 
     await page.locator('[data-testid="team-search-input"]').fill("oficial");
     await expect(page.locator('[data-testid="team-row"]')).toHaveCount(1);
     await expect(page.locator('[data-testid="team-row"]').first()).toContainText("compliance@ontrackchain.local");
+  });
+
+  test("exibe os novos papeis canonicos incrementais no seletor", async ({ page }) => {
+    await seedFrontendAuth(page);
+    await page.goto("/team");
+
+    await expect(page.locator('[data-testid="team-role-select"] option[value="REVIEWER"]')).toHaveText("Revisor (REVIEWER)");
+    await expect(page.locator('[data-testid="team-role-select"] option[value="BILLING_ADMIN"]')).toHaveText(
+      "Administrador de Billing (BILLING_ADMIN)"
+    );
   });
 });

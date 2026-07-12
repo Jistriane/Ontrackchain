@@ -150,6 +150,11 @@ class RunStagingWindowTests(unittest.TestCase):
                     return 0, {
                         "kind": "oidc_readiness_bundle",
                         "status": "ok",
+                        "readiness": {
+                            "readiness_status": "ready",
+                            "blockers": ["provider MFA/OIDC ainda nao esta homologado para trilho serio"],
+                            "next_action": "Substituir placeholders por provider serio homologado e rerodar o bundle com insumos reais.",
+                        },
                         "scope": {
                             "mfa_external_provider_homologated": "false",
                             "expected_oidc_provider": "keycloak",
@@ -164,13 +169,41 @@ class RunStagingWindowTests(unittest.TestCase):
                     return 0, {
                         "kind": "regulatory_readiness_bundle",
                         "status": "ok",
+                        "readiness": {
+                            "compliance_runtime": {
+                                "readiness_status": "ready_for_validation",
+                                "blockers": [],
+                                "next_action": "Revisar o artefato de `compliance_provider_runtime` e anexar o bundle regulatorio a governanca semanal.",
+                            },
+                            "eu_window": {
+                                "readiness_status": "ready",
+                                "blockers": [],
+                                "next_action": "Habilitar a trilha `eu_sanctions_window` com insumo real e rerodar o bundle regulatorio.",
+                            },
+                            "regulatory_bundle": {
+                                "readiness_status": "ready_for_validation",
+                                "blockers": [],
+                                "next_action": "Anexar o bundle regulatorio ao dossier/governanca e executar revisao formal das evidencias.",
+                            },
+                        },
                         "scope": {
                             "compliance_runtime_enabled": True,
                             "eu_window_enabled": False,
                         },
                         "steps": {
-                            "compliance_provider_runtime": {"status": "ok"},
-                            "eu_sanctions_window": {"status": "skipped"},
+                            "compliance_provider_runtime": {
+                                "status": "ok",
+                                "request_id": "req-comp-1",
+                            },
+                            "eu_sanctions_window": {
+                                "status": "skipped",
+                                "request_id": "req-eu-1",
+                                "correlation": {
+                                    "expected_source_url": "https://example.test/eu.xml?token=abc123",
+                                    "observed_source_url": "",
+                                    "source_url_matches_expected": False,
+                                },
+                            },
                         },
                         "errors": [],
                     }
@@ -238,11 +271,38 @@ class RunStagingWindowTests(unittest.TestCase):
             self.assertEqual(payload["steps"]["oidc_preflight"]["status"], "ok")
             self.assertEqual(payload["steps"]["external_preflight"]["status"], "ok")
             self.assertEqual(payload["steps"]["oidc_readiness_bundle"]["status"], "ok")
+            self.assertEqual(payload["steps"]["oidc_readiness_bundle"]["readiness_status"], "ready")
             self.assertEqual(payload["steps"]["regulatory_readiness_bundle"]["status"], "ok")
+            self.assertEqual(
+                payload["steps"]["regulatory_readiness_bundle"]["readiness"]["compliance_runtime"]["readiness_status"],
+                "ready_for_validation",
+            )
+            self.assertEqual(
+                payload["steps"]["regulatory_readiness_bundle"]["compliance_provider_runtime_request_id"],
+                "req-comp-1",
+            )
+            self.assertEqual(
+                payload["steps"]["regulatory_readiness_bundle"]["eu_sanctions_window_request_id"],
+                "req-eu-1",
+            )
+            self.assertEqual(
+                payload["steps"]["regulatory_readiness_bundle"]["eu_sanctions_observed_source_url"],
+                "pending",
+            )
+            self.assertTrue(payload["steps"]["regulatory_readiness_bundle"]["compliance_runtime_enabled"])
+            self.assertFalse(payload["steps"]["regulatory_readiness_bundle"]["eu_window_enabled"])
+            self.assertEqual(
+                payload["steps"]["regulatory_readiness_bundle"]["compliance_provider_runtime_status"],
+                "ok",
+            )
+            self.assertEqual(
+                payload["steps"]["regulatory_readiness_bundle"]["eu_sanctions_window_status"],
+                "skipped",
+            )
             self.assertEqual(payload["steps"]["homologation"]["status"], "ok")
             self.assertEqual(payload["steps"]["release_dossier"]["status"], "ok")
             self.assertEqual(payload["steps"]["final_artifact_validation"]["status"], "ok")
-            self.assertEqual(payload["steps"]["final_artifact_validation"]["scope"], ["P0-01", "P0-02", "P0-03"])
+            self.assertEqual(payload["steps"]["final_artifact_validation"]["scope"], ["P0-01", "P0-02"])
             self.assertTrue(packet_file.exists())
             self.assertTrue((checks_dir / "ownership-coverage-stg-2026-06-29-a.json").exists())
             self.assertTrue((checks_dir / "placeholders-stg-2026-06-29-a.json").exists())

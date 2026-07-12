@@ -19,6 +19,7 @@ import {
   type PlatformOperationalAlertsSnapshot
 } from "../lib/monitoring-platform-alerts";
 import type { MessageKey } from "../lib/i18n";
+import type { AlertsWorkItemMetadata, WorkItemListResponse, WorkItemResponse } from "../lib/work-items";
 
 type Translator = (key: MessageKey, values?: Record<string, string | number>) => string;
 
@@ -45,6 +46,7 @@ function resolveDownloadFilename(contentDisposition: string | null, fallbackName
 
 export function useMonitoringPlatformAlerts({ t, setError }: UseMonitoringPlatformAlertsArgs) {
   const [platformOperationalAlerts, setPlatformOperationalAlerts] = useState<PlatformOperationalAlertsSnapshot | null>(null);
+  const [platformAlertTrackedWorkItems, setPlatformAlertTrackedWorkItems] = useState<Record<string, WorkItemResponse<AlertsWorkItemMetadata>>>({});
   const [metricsText, setMetricsText] = useState("");
   const [platformAlertStatusFilter, setPlatformAlertStatusFilter] = useState("all");
   const [platformAlertTriageFilter, setPlatformAlertTriageFilter] = useState("all");
@@ -102,6 +104,18 @@ export function useMonitoringPlatformAlerts({ t, setError }: UseMonitoringPlatfo
         return;
       }
       setPlatformOperationalAlerts(data);
+      const workItemsResponse = await fetch("/api/app/operations/work-items?module=alerts&resource_type=operational_alert&limit=100", {
+        cache: "no-store"
+      });
+      const workItemsData = (await workItemsResponse.json().catch(() => null)) as WorkItemListResponse<AlertsWorkItemMetadata> | null;
+      if (!workItemsResponse.ok) {
+        setError(t("monitoring.errors.loadPlatformTrackedAlerts" as MessageKey));
+      } else {
+        const nextTrackedItems = Object.fromEntries(
+          (workItemsData?.data ?? []).map((item) => [item.resource_id, item] satisfies [string, WorkItemResponse<AlertsWorkItemMetadata>])
+        );
+        setPlatformAlertTrackedWorkItems(nextTrackedItems);
+      }
     } catch {
       if (requestId !== platformAlertsRequestIdRef.current) {
         return;
@@ -479,6 +493,7 @@ export function useMonitoringPlatformAlerts({ t, setError }: UseMonitoringPlatfo
     metricsText,
     refreshMetricsPreview,
     platformOperationalAlerts,
+    platformAlertTrackedWorkItems,
     platformAlertStatusFilter,
     platformAlertTriageFilter,
     platformAlertServiceFilter,

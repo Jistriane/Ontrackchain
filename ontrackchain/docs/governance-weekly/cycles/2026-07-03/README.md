@@ -2,7 +2,9 @@
 
 ## Escopo
 
-Materiais de calibracao de KPI e preflight local usados como apoio para a janela seria e para a governanca do inicio de julho.
+Materiais fechados de calibracao de KPI e preflight local usados como apoio para a janela seria e para a governanca do inicio de julho.
+
+Este ciclo deve ser lido como registro datado de apoio, nao como baseline viva atual.
 
 ## Documentos
 

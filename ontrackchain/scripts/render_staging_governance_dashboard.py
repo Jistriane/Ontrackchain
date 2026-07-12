@@ -13,6 +13,10 @@ def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def default_generated_window_dir(window_id: str) -> Path:
+    return Path("docs/governance-weekly/generated/windows") / window_id
+
+
 def latest_two_snapshots(history_dir: Path, window_id: str) -> list[Path]:
     files = sorted(
         history_dir.glob(f"{window_id}-status-snapshot-*.json"),
@@ -21,6 +25,26 @@ def latest_two_snapshots(history_dir: Path, window_id: str) -> list[Path]:
     if len(files) < 2:
         return files
     return files[-2:]
+
+
+def regulatory_summary(payload: dict[str, Any]) -> dict[str, str]:
+    regulatory = payload.get("regulatory") or {}
+    return {
+        "scope_label": str(regulatory.get("scope_label") or "none"),
+        "p0_04_bundle_readiness": str(regulatory.get("p0_04_bundle_readiness") or "unknown"),
+        "promotion_note": str(regulatory.get("promotion_note") or "indisponivel"),
+    }
+
+
+def operational_summary(payload: dict[str, Any]) -> dict[str, Any]:
+    operational = payload.get("operational_incidents") or {}
+    return {
+        "status": str(operational.get("status") or "not_available"),
+        "rca_attached_count": int(operational.get("rca_attached_count") or 0),
+        "critical_open_count": int(operational.get("critical_open_count") or 0),
+        "pending_triage_count": int(operational.get("pending_triage_count") or 0),
+        "top_rca_domains": operational.get("top_rca_domains") or [],
+    }
 
 
 def compute_signal(previous: dict[str, Any], current: dict[str, Any]) -> tuple[str, str]:
@@ -35,11 +59,24 @@ def compute_signal(previous: dict[str, Any], current: dict[str, Any]) -> tuple[s
     delta_p = cur_p - prev_p
     delta_h = cur_h - prev_h
     status = str(current.get("overall_status") or "unknown")
+    previous_regulatory = regulatory_summary(previous)
+    current_regulatory = regulatory_summary(current)
+    regulatory_changed = (
+        previous_regulatory["scope_label"] != current_regulatory["scope_label"]
+        or previous_regulatory["p0_04_bundle_readiness"] != current_regulatory["p0_04_bundle_readiness"]
+    )
 
     if status == "ok" and delta_p <= 0 and delta_h <= 0:
+        if (
+            current_regulatory["scope_label"] == "P0-02/P0-03"
+            and current_regulatory["p0_04_bundle_readiness"] == "ready_for_validation"
+        ):
+            return ("verde", "condicao tecnica para go com bundle regulatorio promovivel")
         return ("verde", "condicao tecnica para go")
     if delta_p > 0 or delta_h > 0:
         return ("vermelho", "regressao de bloqueios")
+    if regulatory_changed:
+        return ("amarelo", "progresso regulatorio material com bloqueios remanescentes")
     if delta_p < 0 or delta_h < 0:
         return ("amarelo", "progresso parcial com bloqueios remanescentes")
     return ("amarelo", "estado estavel sem progresso material")
@@ -50,6 +87,8 @@ def render_markdown(window_id: str, current_snapshot_file: Path, previous_snapsh
     prepare = current.get("prepare") or {}
     run = current.get("run") or {}
     artifact = current.get("artifact_validation") or {}
+    regulatory = regulatory_summary(current)
+    operational = operational_summary(current)
 
     signal, signal_note = compute_signal(previous, current)
 
@@ -64,6 +103,11 @@ def render_markdown(window_id: str, current_snapshot_file: Path, previous_snapsh
         f"- leitura: {signal_note}",
         f"- placeholders pendentes: `{blockers.get('unresolved_placeholders_count', 0)}`",
         f"- handoff pendente: `{blockers.get('missing_handoff_fields_count', 0)}`",
+        f"- escopo regulatorio da tentativa: `{regulatory['scope_label']}`",
+        f"- `P0-04` readiness: `{regulatory['p0_04_bundle_readiness']}`",
+        f"- leitura regulatoria: {regulatory['promotion_note']}",
+        f"- RCA cross-domain: `{operational['status']}` | RCA(s) `{operational['rca_attached_count']}` | criticos `{operational['critical_open_count']}` | pendentes `{operational['pending_triage_count']}`",
+        f"- dominios RCA em destaque: `{','.join(operational['top_rca_domains']) or 'none'}`",
         "",
         "## Status dos Steps",
         "",
@@ -147,14 +191,21 @@ def main() -> int:
     current = load_json(current_snapshot_file)
     previous = load_json(previous_snapshot_file) if previous_snapshot_file else {}
 
-    action_plan_file = Path(args.action_plan_file) if args.action_plan_file else Path(
-        f"docs/governance-weekly/{args.window_id}-war-room-action-plan.md"
+    generated_window_dir = default_generated_window_dir(args.window_id)
+    action_plan_file = (
+        Path(args.action_plan_file)
+        if args.action_plan_file
+        else generated_window_dir / f"{args.window_id}-war-room-action-plan.md"
     )
-    status_snapshot_md = Path(args.status_snapshot_file) if args.status_snapshot_file else Path(
-        f"docs/governance-weekly/{args.window_id}-status-snapshot.md"
+    status_snapshot_md = (
+        Path(args.status_snapshot_file)
+        if args.status_snapshot_file
+        else generated_window_dir / f"{args.window_id}-status-snapshot.md"
     )
-    status_delta_md = Path(args.status_delta_file) if args.status_delta_file else Path(
-        f"docs/governance-weekly/{args.window_id}-status-snapshot-delta.md"
+    status_delta_md = (
+        Path(args.status_delta_file)
+        if args.status_delta_file
+        else generated_window_dir / f"{args.window_id}-status-snapshot-delta.md"
     )
 
     generated_at = str(current.get("generated_at") or "unknown")

@@ -102,4 +102,4 @@
 - classificacao: `parcial`
 - resumo executivo: o modulo saiu da memoria local, mas ainda precisa evidenciar ownership e historico completos
 - owner do primeiro passo do proximo marco: `Frontend`
-- artefato relacionado: [Runbook de Execucao do Dia 6 da Sprint 2](../../sprint-2-day-6-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-2-day-6-execution-runbook.md`

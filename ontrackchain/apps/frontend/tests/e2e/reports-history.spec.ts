@@ -269,6 +269,15 @@ test.describe("reports history backend", () => {
     await expect(page.getByTestId("reports-detail-workspace-table")).toContainText("alta");
     await expect(page.getByTestId("reports-detail-workspace-table")).toContainText("em revisão");
     await expect(page.getByTestId("reports-detail-workspace-table")).toContainText("Aguardando validação operacional do handoff COAF.");
+    await expect(page.getByTestId("reports-workspace-row-22222222-2222-4222-8222-222222222222")).toContainText(
+      "22222222-2222-4222-8222-222222222222"
+    );
+    await expect(page.getByTestId("reports-workspace-priority-22222222-2222-4222-8222-222222222222")).toContainText("alta");
+    await expect(page.getByTestId("reports-workspace-source-22222222-2222-4222-8222-222222222222")).toContainText("servidor");
+    await expect(page.getByTestId("reports-workspace-sla-22222222-2222-4222-8222-222222222222")).toContainText("No prazo");
+    await expect(page.getByTestId("reports-workspace-deadline-22222222-2222-4222-8222-222222222222")).not.toContainText(
+      "2026-07-04T15:30:00.000Z"
+    );
     await expect(page.getByTestId("reports-detail-actions").locator("a")).toHaveCount(4);
     await expect(page.getByTestId("reports-detail-actions").locator('a[href*="report_id=rep-all-02"]').nth(1)).toBeVisible();
 

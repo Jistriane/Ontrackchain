@@ -39,6 +39,11 @@ export type OperationsSnapshot = {
     charged_cost: number | null;
     duration_ms: number | null;
   }>;
+  security: {
+    manual_package_mfa_violations_last_hour: number;
+    manual_package_mfa_2fa_required_last_hour: number;
+    manual_package_mfa_provider_not_homologated_last_hour: number;
+  };
   generated_at: string;
 };
 

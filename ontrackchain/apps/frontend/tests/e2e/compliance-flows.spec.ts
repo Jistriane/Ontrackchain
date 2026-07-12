@@ -1292,6 +1292,236 @@ test("monitoring registra auditoria do export administrativo por request_id", as
   expect(entry.metadata?.exported_count).toBeGreaterThanOrEqual(1);
 });
 
+test("monitoring exporta RCA leve do work-item rastreado no JSON administrativo", async ({ page, request }) => {
+  const service = `export-rca-service-${Date.now()}`;
+  const receiver = `export-rca-receiver-${Date.now()}`;
+  const alertname = `SyntheticExportRca-${Date.now()}`;
+  const fingerprint = `synthetic-export-rca-${Date.now()}`;
+
+  const trigger = await request.post("/api/v1/monitoring/test/trigger-operational-alert", {
+    headers: { "X-API-Key": API_KEY, "content-type": "application/json" },
+    data: {
+      alertname,
+      service,
+      receiver,
+      severity: "critical",
+      summary: "Incidente com RCA exportada",
+      description: "Valida export JSON enriquecido com work-item e RCA",
+      fingerprint
+    }
+  });
+  expect(trigger.status()).toBe(200);
+
+  const eventId = psqlExec(`
+    SELECT id::text
+    FROM operational_alert_events
+    WHERE fingerprint = ${sqlLiteral(fingerprint)}
+    ORDER BY last_received_at DESC, id DESC
+    LIMIT 1;
+  `).trim();
+  expect(eventId).toBeTruthy();
+
+  await loginAsAdmin(page);
+  const token = await readSessionToken(page);
+  const claims = decodeJwtPayload(token);
+  const orgId = claims.org!;
+  expect(orgId).toBeTruthy();
+
+  psqlExec(`
+    INSERT INTO regulatory_work_items (
+      organization_id,
+      module,
+      resource_type,
+      resource_id,
+      owner_user_id,
+      queue_status,
+      priority,
+      title,
+      note,
+      metadata
+    )
+    VALUES (
+      ${sqlLiteral(orgId)},
+      'alerts',
+      'operational_alert',
+      ${sqlLiteral(eventId)},
+      ${sqlLiteral(LINKED_USER_ID)},
+      'READY',
+      'critical',
+      ${sqlLiteral(`Alert ${alertname}`)},
+      'RCA seeded by Playwright',
+      ${sqlLiteral(
+        JSON.stringify({
+          domain: "compliance",
+          containment_status: "contained",
+          incident_commander: "Compliance QA",
+          affected_domains: ["compliance", "monitoring"],
+          impact_summary: "Falha controlada no receiver com atraso curto.",
+          suspected_root_cause: "Webhook instável.",
+          confirmed_root_cause: "Retry insuficiente no receiver.",
+          corrective_actions: ["ampliar retry", "validar receiver"],
+          evidence_refs: ["audit-log-rca", "snapshot-rca"]
+        })
+      )}::jsonb
+    )
+    ON CONFLICT (organization_id, resource_type, resource_id)
+    DO UPDATE SET
+      owner_user_id = EXCLUDED.owner_user_id,
+      queue_status = EXCLUDED.queue_status,
+      priority = EXCLUDED.priority,
+      title = EXCLUDED.title,
+      note = EXCLUDED.note,
+      metadata = EXCLUDED.metadata,
+      last_activity_at = NOW();
+  `);
+
+  const exported = await page.request.post("/api/app/monitoring/operational-alerts/export", {
+    headers: { "content-type": "application/json" },
+    data: {
+      format: "json",
+      scope: "filtered",
+      status: "firing",
+      triage_status: "pending",
+      service,
+      receiver,
+      severity: "critical"
+    }
+  });
+  expect(exported.status()).toBe(200);
+  const payload = (await exported.json()) as {
+    count: number;
+    data: Array<Record<string, unknown>>;
+  };
+  expect(payload.count).toBeGreaterThanOrEqual(1);
+  const exportedRow = payload.data.find((row) => row.id === eventId);
+  expect(exportedRow).toBeTruthy();
+  expect(exportedRow?.work_item_queue_status).toBe("READY");
+  expect(exportedRow?.work_item_priority).toBe("critical");
+  expect(exportedRow?.work_item_owner_user_id).toBe(LINKED_USER_ID);
+  expect(exportedRow?.rca_domain).toBe("compliance");
+  expect(exportedRow?.rca_containment_status).toBe("contained");
+  expect(exportedRow?.rca_incident_commander).toBe("Compliance QA");
+  expect(exportedRow?.rca_impact_summary).toBe("Falha controlada no receiver com atraso curto.");
+  expect(exportedRow?.rca_confirmed_root_cause).toBe("Retry insuficiente no receiver.");
+  expect(exportedRow?.rca_affected_domains).toEqual(["compliance", "monitoring"]);
+  expect(exportedRow?.rca_corrective_actions).toEqual(["ampliar retry", "validar receiver"]);
+  expect(exportedRow?.rca_evidence_refs).toEqual(["audit-log-rca", "snapshot-rca"]);
+});
+
+test("monitoring exporta RCA leve do work-item rastreado no CSV administrativo", async ({ page, request }) => {
+  const service = `export-rca-csv-service-${Date.now()}`;
+  const receiver = `export-rca-csv-receiver-${Date.now()}`;
+  const alertname = `SyntheticExportRcaCsv-${Date.now()}`;
+  const fingerprint = `synthetic-export-rca-csv-${Date.now()}`;
+
+  const trigger = await request.post("/api/v1/monitoring/test/trigger-operational-alert", {
+    headers: { "X-API-Key": API_KEY, "content-type": "application/json" },
+    data: {
+      alertname,
+      service,
+      receiver,
+      severity: "critical",
+      summary: "Incidente com RCA exportada em CSV",
+      description: "Valida export CSV enriquecido com work-item e RCA",
+      fingerprint
+    }
+  });
+  expect(trigger.status()).toBe(200);
+
+  const eventId = psqlExec(`
+    SELECT id::text
+    FROM operational_alert_events
+    WHERE fingerprint = ${sqlLiteral(fingerprint)}
+    ORDER BY last_received_at DESC, id DESC
+    LIMIT 1;
+  `).trim();
+  expect(eventId).toBeTruthy();
+
+  await loginAsAdmin(page);
+  const token = await readSessionToken(page);
+  const claims = decodeJwtPayload(token);
+  const orgId = claims.org!;
+  expect(orgId).toBeTruthy();
+
+  psqlExec(`
+    INSERT INTO regulatory_work_items (
+      organization_id,
+      module,
+      resource_type,
+      resource_id,
+      owner_user_id,
+      queue_status,
+      priority,
+      title,
+      note,
+      metadata
+    )
+    VALUES (
+      ${sqlLiteral(orgId)},
+      'alerts',
+      'operational_alert',
+      ${sqlLiteral(eventId)},
+      ${sqlLiteral(LINKED_USER_ID)},
+      'READY',
+      'critical',
+      ${sqlLiteral(`Alert ${alertname}`)},
+      'RCA CSV seeded by Playwright',
+      ${sqlLiteral(
+        JSON.stringify({
+          domain: "compliance",
+          containment_status: "contained",
+          incident_commander: "Compliance QA CSV",
+          affected_domains: ["compliance", "monitoring"],
+          impact_summary: "Falha exportada no receiver CSV.",
+          suspected_root_cause: "Webhook CSV instável.",
+          confirmed_root_cause: "Retry CSV insuficiente no receiver.",
+          corrective_actions: ["ampliar retry csv", "validar receiver csv"],
+          evidence_refs: ["audit-log-rca-csv", "snapshot-rca-csv"]
+        })
+      )}::jsonb
+    )
+    ON CONFLICT (organization_id, resource_type, resource_id)
+    DO UPDATE SET
+      owner_user_id = EXCLUDED.owner_user_id,
+      queue_status = EXCLUDED.queue_status,
+      priority = EXCLUDED.priority,
+      title = EXCLUDED.title,
+      note = EXCLUDED.note,
+      metadata = EXCLUDED.metadata,
+      last_activity_at = NOW();
+  `);
+
+  const exported = await page.request.post("/api/app/monitoring/operational-alerts/export", {
+    headers: { "content-type": "application/json" },
+    data: {
+      format: "csv",
+      scope: "filtered",
+      status: "firing",
+      triage_status: "pending",
+      service,
+      receiver,
+      severity: "critical"
+    }
+  });
+  expect(exported.status()).toBe(200);
+  expect(exported.headers()["content-type"]).toContain("text/csv");
+  expect(exported.headers()["content-disposition"]).toContain("operational-alerts-filtered-");
+  const csv = await exported.text();
+  expect(csv).toContain("work_item_queue_status");
+  expect(csv).toContain("rca_domain");
+  expect(csv).toContain("rca_confirmed_root_cause");
+  expect(csv).toContain(alertname);
+  expect(csv).toContain("READY");
+  expect(csv).toContain(LINKED_USER_ID);
+  expect(csv).toContain("compliance");
+  expect(csv).toContain("contained");
+  expect(csv).toContain("Compliance QA CSV");
+  expect(csv).toContain("Retry CSV insuficiente no receiver.");
+  expect(csv).toContain('["compliance","monitoring"]');
+  expect(csv).toContain('["ampliar retry csv","validar receiver csv"]');
+  expect(csv).toContain('["audit-log-rca-csv","snapshot-rca-csv"]');
+});
+
 test("monitoring permite filtrar incidentes globais por receiver", async ({ page, request }) => {
   const service = "report-api";
   const webhookAlert = `SyntheticReceiverUiWebhook-${Date.now()}`;

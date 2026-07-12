@@ -95,4 +95,4 @@
 - classificacao: `parcial`
 - resumo executivo: o dia avanca com direcao correta, mas ainda sem contrato comum fechado
 - owner do primeiro passo do proximo marco: `Backend/Compliance + Frontend`
-- artefato relacionado: [Runbook de Execucao do Dia 1 da Sprint 2](../../sprint-2-day-1-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-2-day-1-execution-runbook.md`

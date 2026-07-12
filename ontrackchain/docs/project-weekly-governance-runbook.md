@@ -58,6 +58,7 @@ Antes da reunião, o facilitador deve reunir:
    - `go/no-go decision packet` da janela, quando houver payload consolidado pós-processado
    - sign-offs formais recebidos
    - registro `D1-D7` quando houver execucao guiada pelo kit de evidencia
+   - resumo RCA cross-domain quando houver incidente material na semana
 6. lista de itens `blocked`, itens com prazo alvo vencido e itens sem artefato atualizado
 7. quando houver janela seria ativa ou planejada:
    - [Matriz de Execucao por Owner para Janela Seria](staging-serious-window-war-room-matrix.md)
@@ -75,6 +76,7 @@ Checklist do facilitador:
 - confirmar qual `GitHub Environment` foi usado nas janelas sérias da semana, quando aplicável
 - revisar se a baseline estratégica continua coerente com a execução
 - confirmar se a matriz de war room da janela seria precisa de escalacao adicional por owner
+- confirmar se houve incidente cross-domain aberto na semana, se a RCA minima foi registrada e se o resumo entrou em export/comms/snapshot quando aplicavel
 
 ## Agenda Recomendada
 
@@ -107,6 +109,7 @@ Para cada item `in_progress`, `ready` ou `blocked`, revisar:
 - artefato esperado
 - evidencia mais recente
 - proximo passo
+- quando houver incidente cross-domain relevante: confirmar `work_item_id`, RCA minima, comentario automatico de timeline e presenca ou ausencia do resumo executivo
 
 Regras:
 
@@ -190,6 +193,7 @@ Ao final de cada reunião, devem existir:
 - war room versionado quando houver decisao `go/no-go` formal da janela
 - tracking ao vivo versionado quando houver acompanhamento minuto a minuto da janela
 - `decision packet` versionado quando a janela tiver payload consolidado e reconciliacao executiva
+- status da RCA cross-domain explicitado quando houver incidente material, deixando claro se foi apenas endurecimento operacional ou se gerou artefato executivo revisado
 
 Quando houver recalibracao relevante do scorecard, anexar ou embutir um bloco baseado em:
 
@@ -210,6 +214,7 @@ Quando houver recalibracao relevante do scorecard, anexar ou embutir um bloco ba
 - artifact `serious-staging-window-<janela>` quando houver janela séria
 - bundle AML/KYT + gate runtime quando `P0-02` estiver no escopo
 - `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json` quando `P0-03` estiver no escopo
+- resumo RCA cross-domain quando houver incidente material
 
 ## Itens Atualizados
 - ID:
@@ -228,14 +233,21 @@ Quando houver recalibracao relevante do scorecard, anexar ou embutir um bloco ba
 ## Decisões
 - 
 
+## RCA Cross-Domain
+- houve incidente material? sim/nao
+- `work_item_id`:
+- RCA minima registrada? sim/nao
+- resumo entrou em export/comms/snapshot? sim/nao
+- leitura executiva: endurecimento operacional / artefato revisado / nao aplicavel
+
 ## Ações da Próxima Semana
 - 
 ```
 
 Registro inicial publicado:
 
-- [Governança Semanal 2026-06-29](governance-weekly/archive/weekly/2026-06-29-weekly-governance.md)
-- rascunho da janela do dia: [Governança Semanal 2026-06-30](governance-weekly/archive/weekly/2026-06-30-weekly-governance.md)
+- snapshot historico arquivado: [Governança Semanal 2026-06-29](governance-weekly/archive/weekly/2026-06-29-weekly-governance.md)
+- rascunho arquivado e incompleto da janela do dia: [Governança Semanal 2026-06-30](governance-weekly/archive/weekly/2026-06-30-weekly-governance.md)
 - rascunho do próximo ciclo: [Governança Semanal 2026-07-06](governance-weekly/cycles/2026-07-06/2026-07-06-weekly-governance.md)
 - ciclo ativo mais recente: [Ciclo 2026-07-13](governance-weekly/cycles/2026-07-13/README.md)
 

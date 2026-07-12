@@ -42,6 +42,7 @@ class RunEuSanctionsWindowTests(unittest.TestCase):
                     {
                         "status": "ok",
                         "errors": [],
+                        "request_id": "req-eu-window-1",
                     },
                 ),
                 (
@@ -49,7 +50,29 @@ class RunEuSanctionsWindowTests(unittest.TestCase):
                     {
                         "status": "ok",
                         "errors": [],
-                        "checks": [{"list_name": "EU_CONSOLIDATED", "status": "ok"}],
+                        "request_id": "req-eu-window-1",
+                        "checks": [
+                            {
+                                "list_name": "EU_CONSOLIDATED",
+                                "status": "ok",
+                                "source_url": "https://example.test/eu.xml?token=abc123",
+                                "persisted_status": "ACTIVE",
+                                "last_sync_status": "SUCCESS",
+                                "status_reason": "",
+                                "updated_at": "2026-07-01T12:00:00+00:00",
+                            }
+                        ],
+                        "correlation": {
+                            "expected_source_url": "https://example.test/eu.xml?token=abc123",
+                            "observed_source_url": "https://example.test/eu.xml?token=abc123",
+                            "source_url_matches_expected": True,
+                            "override_tokenized": True,
+                            "persisted_status": "ACTIVE",
+                            "persisted_status_active": True,
+                            "last_sync_status": "SUCCESS",
+                            "last_sync_status_success": True,
+                            "eu_window_converges_ready": True,
+                        },
                     },
                 ),
             ]
@@ -59,15 +82,20 @@ class RunEuSanctionsWindowTests(unittest.TestCase):
                     window_id="stg-2026-07-01-eu",
                     private_env_file=private_env_file,
                     checks_dir=checks_dir,
+                    request_id="req-eu-window-1",
                 )
 
             self.assertEqual(exit_code, 0)
             self.assertEqual(payload["status"], "ok")
+            self.assertEqual(payload["request_id"], "req-eu-window-1")
             self.assertEqual(payload["errors"], [])
             self.assertTrue((checks_dir / "stg-2026-07-01-eu-eu-sanctions-preflight.json").exists())
             self.assertTrue((checks_dir / "stg-2026-07-01-eu-eu-sanctions-sync.json").exists())
             self.assertEqual(payload["steps"]["external_preflight"]["status"], "ok")
             self.assertEqual(payload["steps"]["eu_sync_status"]["status"], "ok")
+            self.assertEqual(payload["steps"]["eu_sync_status"]["request_id"], "req-eu-window-1")
+            self.assertTrue(payload["correlation"]["source_url_matches_expected"])
+            self.assertTrue(payload["correlation"]["eu_window_converges_ready"])
 
     def test_run_window_skips_sync_when_preflight_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -90,12 +118,14 @@ class RunEuSanctionsWindowTests(unittest.TestCase):
                     window_id="stg-2026-07-01-eu",
                     private_env_file=private_env_file,
                     checks_dir=checks_dir,
+                    request_id="req-eu-window-2",
                 )
 
             self.assertEqual(exit_code, 1)
             self.assertEqual(payload["status"], "failed")
             self.assertEqual(run_module_main.call_count, 1)
             self.assertEqual(payload["steps"]["eu_sync_status"]["status"], "skipped")
+            self.assertEqual(payload["steps"]["eu_sync_status"]["request_id"], "req-eu-window-2")
             self.assertIn("external_preflight: falhou", payload["errors"])
 
     def test_main_renders_json_to_stdout_on_success(self) -> None:
@@ -113,6 +143,7 @@ class RunEuSanctionsWindowTests(unittest.TestCase):
                         "window_id": "stg-2026-07-01-eu",
                         "private_env_file": "/tmp/.env.staging.private",
                         "checks_dir": "/tmp/checks",
+                        "request_id": "req-eu-window-3",
                     },
                 )(),
             ),
@@ -125,6 +156,7 @@ class RunEuSanctionsWindowTests(unittest.TestCase):
                         "kind": "eu_sanctions_window_run",
                         "status": "ok",
                         "errors": [],
+                        "request_id": "req-eu-window-3",
                     },
                 ),
             ),

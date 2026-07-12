@@ -327,7 +327,7 @@ npm run test:e2e:dev-auth
 - verificar `audit_logs` do run
 - verificar `Prometheus` em `http://localhost:9090/api/v1/targets` e `.../rules`
 - verificar `Grafana` em `http://localhost:3001/api/health` e dashboard provisionado
-- registrar causa raiz
+- registrar causa raiz usando `docs/cross-domain-incident-rca-playbook.md` quando houver impacto cross-domain
 - registrar se houve gap de documentacao/teste
 
 ## Runbook 12 — Case em DLQ de investigation

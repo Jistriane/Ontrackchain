@@ -7,6 +7,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -95,10 +96,17 @@ def request_json(
         return 599, {"error": str(exc)}, {}
 
 
-def build_headers(*, bearer_token: str, api_key: str, plan: str) -> dict[str, str]:
+def build_headers(
+    *,
+    bearer_token: str,
+    api_key: str,
+    plan: str,
+    request_id: str,
+) -> dict[str, str]:
     headers: dict[str, str] = {
         "accept": "application/json",
         "X-Plan": plan,
+        "X-Request-Id": request_id,
     }
     if bearer_token:
         headers["Authorization"] = f"Bearer {bearer_token}"
@@ -118,15 +126,21 @@ def build_payload(
     bearer_token: str,
     api_key: str,
     timeout_seconds: float,
+    request_id: str,
 ) -> dict[str, Any]:
     errors: list[str] = []
     checks: list[dict[str, Any]] = []
-    headers = build_headers(bearer_token=bearer_token, api_key=api_key, plan=plan)
+    headers = build_headers(
+        bearer_token=bearer_token,
+        api_key=api_key,
+        plan=plan,
+        request_id=request_id,
+    )
 
     internal_status, internal_payload, _ = request_json(
         base_url=internal_base_url,
         path="/internal/provider-readiness",
-        headers={"accept": "application/json"},
+        headers={"accept": "application/json", "X-Request-Id": request_id},
         timeout_seconds=timeout_seconds,
     )
     internal_ok = True
@@ -245,8 +259,34 @@ def build_payload(
         }
     )
 
+    correlation = {
+        "internal_provider": internal_payload.get("provider"),
+        "internal_ready": internal_payload.get("ready"),
+        "internal_operating_mode": (internal_payload.get("details") or {}).get("operating_mode"),
+        "catalog_provider": catalog_payload.get("provider"),
+        "catalog_provider_status": catalog_payload.get("provider_status"),
+        "catalog_capability_status": catalog_payload.get("capability_status"),
+        "catalog_delivery_mode": catalog_payload.get("delivery_mode"),
+        "runtime_provider": kyc_payload.get("provider"),
+        "runtime_provider_status": kyc_payload.get("provider_status"),
+        "runtime_capability_status": kyc_payload.get("capability_status"),
+        "runtime_delivery_mode": kyc_payload.get("delivery_mode"),
+        "provider_converges_live": (
+            internal_payload.get("provider") == expected_provider
+            and catalog_payload.get("provider") == expected_provider
+            and kyc_payload.get("provider") == expected_provider
+            and internal_payload.get("ready") is True
+            and (internal_payload.get("details") or {}).get("operating_mode") == "live"
+            and catalog_payload.get("provider_status") == "live"
+            and catalog_payload.get("capability_status") == "live"
+            and kyc_payload.get("provider_status") == "live"
+            and kyc_payload.get("capability_status") == "live"
+        ),
+    }
+
     return {
         "status": "failed" if errors else "ok",
+        "request_id": request_id,
         "internal_base_url": internal_base_url,
         "public_base_url": public_base_url,
         "expected_provider": expected_provider,
@@ -254,6 +294,7 @@ def build_payload(
         "sample_address": sample_address,
         "sample_chain": sample_chain,
         "checks": checks,
+        "correlation": correlation,
         "errors": errors,
     }
 
@@ -277,6 +318,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bearer-token", default=env_value("ONTRACKCHAIN_BEARER_TOKEN"))
     parser.add_argument("--api-key", default=env_value("ONTRACKCHAIN_API_KEY"))
     parser.add_argument("--timeout-seconds", type=float, default=float(env_value("ONTRACKCHAIN_HTTP_TIMEOUT_SECONDS", "10")))
+    parser.add_argument(
+        "--request-id",
+        default=env_value("ONTRACKCHAIN_REGULATORY_COMPLIANCE_REQUEST_ID", f"compliance-runtime-{uuid.uuid4().hex[:12]}"),
+    )
     return parser.parse_args()
 
 
@@ -292,6 +337,7 @@ def main() -> int:
         bearer_token=args.bearer_token,
         api_key=args.api_key,
         timeout_seconds=args.timeout_seconds,
+        request_id=args.request_id,
     )
     output = sys.stdout if payload["status"] == "ok" else sys.stderr
     output.write(json.dumps(payload, ensure_ascii=True, indent=2) + "\n")

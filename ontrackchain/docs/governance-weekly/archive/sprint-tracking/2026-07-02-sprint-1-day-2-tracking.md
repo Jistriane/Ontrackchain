@@ -123,4 +123,4 @@
 - classificacao: `parcial`
 - resumo executivo: o `Dia 2` esta preparado como trilha de homologacao AML/KYT, mas permanece bloqueado ate a liberacao de credencial real e outputs dos checkers
 - owner do primeiro passo do `Dia 3`: `a definir apos fechamento real do Dia 2`
-- artefato relacionado: [Runbook de Execucao do Dia 2 da Sprint 1](../../sprint-1-day-2-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-1-day-2-execution-runbook.md`

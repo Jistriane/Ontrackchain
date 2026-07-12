@@ -95,4 +95,4 @@
 - classificacao: `parcial`
 - resumo executivo: o rito da janela esta bem mapeado, mas ainda sem todas as precondicoes nominais fechadas
 - owner do primeiro passo do proximo marco: `Governanca`
-- artefato relacionado: [Runbook de Execucao do Dia 1 da Sprint 3](../../sprint-3-day-1-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-3-day-1-execution-runbook.md`

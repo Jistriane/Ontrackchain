@@ -24,7 +24,39 @@ def latest_two_snapshots(history_dir: Path, window_id: str) -> list[Path]:
 
 
 def default_output_file(window_id: str) -> Path:
-    return Path("docs/governance-weekly") / f"{window_id}-status-snapshot-delta.md"
+    return (
+        Path("docs/governance-weekly/generated/windows")
+        / window_id
+        / f"{window_id}-status-snapshot-delta.md"
+    )
+
+
+def regulatory_summary(payload: dict[str, Any]) -> dict[str, str]:
+    regulatory = payload.get("regulatory") or {}
+    return {
+        "scope_label": str(regulatory.get("scope_label") or "none"),
+        "p0_04_bundle_readiness": str(regulatory.get("p0_04_bundle_readiness") or "unknown"),
+        "promotion_note": str(regulatory.get("promotion_note") or "indisponivel"),
+    }
+
+
+def regulatory_progress_note(
+    previous: dict[str, str],
+    current: dict[str, str],
+) -> str:
+    if (
+        previous["scope_label"] != current["scope_label"]
+        and current["scope_label"] == "P0-02/P0-03"
+    ):
+        return "houve convergencia de escopo para tentativa combinada"
+    if previous["scope_label"] != current["scope_label"]:
+        return f"houve mudanca de escopo regulatorio para `{current['scope_label']}`"
+    if previous["p0_04_bundle_readiness"] != current["p0_04_bundle_readiness"]:
+        return (
+            "houve evolucao de readiness de `P0-04`: "
+            f"`{previous['p0_04_bundle_readiness']}` -> `{current['p0_04_bundle_readiness']}`"
+        )
+    return "sem mudanca regulatoria material"
 
 
 def compute_executive_signal(
@@ -34,12 +66,28 @@ def compute_executive_signal(
     delta_handoff: int,
     added_placeholders: list[str],
     added_handoff: list[str],
+    previous_regulatory: dict[str, str],
+    current_regulatory: dict[str, str],
 ) -> tuple[str, str]:
+    regulatory_changed = (
+        previous_regulatory["scope_label"] != current_regulatory["scope_label"]
+        or previous_regulatory["p0_04_bundle_readiness"] != current_regulatory["p0_04_bundle_readiness"]
+    )
+    regulatory_note = regulatory_progress_note(previous_regulatory, current_regulatory)
+
     if cur_status == "ok" and delta_placeholders <= 0 and delta_handoff <= 0:
+        if (
+            current_regulatory["scope_label"] == "P0-02/P0-03"
+            and current_regulatory["p0_04_bundle_readiness"] == "ready_for_validation"
+        ):
+            return ("verde", f"janela elegivel para go tecnico com bundle regulatorio promovivel; {regulatory_note}")
         return ("verde", "janela elegivel para go tecnico, manter monitoramento")
 
     if added_placeholders or added_handoff or delta_placeholders > 0 or delta_handoff > 0:
         return ("vermelho", "houve regressao de bloqueios; manter no-go e abrir acao corretiva")
+
+    if regulatory_changed:
+        return ("amarelo", f"houve progresso regulatorio material; {regulatory_note}")
 
     if prev_status == "failed" and cur_status == "failed":
         if delta_placeholders < 0 or delta_handoff < 0:
@@ -75,6 +123,8 @@ def render_markdown(window_id: str, current: dict[str, Any], previous: dict[str,
 
     prev_status = str(previous.get("overall_status", "unknown"))
     cur_status = str(current.get("overall_status", "unknown"))
+    previous_regulatory = regulatory_summary(previous)
+    current_regulatory = regulatory_summary(current)
     signal, signal_note = compute_executive_signal(
         prev_status,
         cur_status,
@@ -82,6 +132,8 @@ def render_markdown(window_id: str, current: dict[str, Any], previous: dict[str,
         delta_h,
         placeholders_added,
         handoff_added,
+        previous_regulatory,
+        current_regulatory,
     )
 
     lines = [
@@ -98,11 +150,22 @@ def render_markdown(window_id: str, current: dict[str, Any], previous: dict[str,
         f"- status atual: `{cur_status}`",
         f"- placeholders: `{prev_count_p}` -> `{cur_count_p}` (delta `{delta_p:+d}`)",
         f"- handoff pendente: `{prev_count_h}` -> `{cur_count_h}` (delta `{delta_h:+d}`)",
+        f"- escopo regulatorio: `{previous_regulatory['scope_label']}` -> `{current_regulatory['scope_label']}`",
+        f"- `P0-04` readiness: `{previous_regulatory['p0_04_bundle_readiness']}` -> `{current_regulatory['p0_04_bundle_readiness']}`",
         "",
         "## Semaforo Executivo",
         "",
         f"- sinal: `{signal}`",
         f"- leitura: {signal_note}",
+        "",
+        "## Delta Regulatorio",
+        "",
+        f"- escopo anterior: `{previous_regulatory['scope_label']}`",
+        f"- escopo atual: `{current_regulatory['scope_label']}`",
+        f"- `P0-04` readiness anterior: `{previous_regulatory['p0_04_bundle_readiness']}`",
+        f"- `P0-04` readiness atual: `{current_regulatory['p0_04_bundle_readiness']}`",
+        f"- leitura anterior: {previous_regulatory['promotion_note']}",
+        f"- leitura atual: {current_regulatory['promotion_note']}",
         "",
         "## Placeholders",
         "",

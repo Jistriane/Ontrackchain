@@ -62,13 +62,24 @@ class CheckSanctionsSyncStatusTests(unittest.TestCase):
                 require_success=["OFAC_SDN", "UN_CSNU", "EU_CONSOLIDATED"],
                 eu_override_url="https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList_1_1/content?token=abc123",
                 ofac_override_url="https://sanctionslistservice.ofac.treas.gov/api/download/SDN_ADVANCED.XML",
+                request_id="req-eu-sync-1",
             )
 
         self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["request_id"], "req-eu-sync-1")
         self.assertEqual(payload["errors"], [])
         self.assertEqual(len(payload["checks"]), 3)
         eu_check = next(item for item in payload["checks"] if item["list_name"] == "EU_CONSOLIDATED")
         self.assertEqual(eu_check["status"], "ok")
+        self.assertEqual(
+            eu_check["source_url"],
+            "https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList_1_1/content?token=abc123",
+        )
+        self.assertEqual(eu_check["last_sync_status"], "SUCCESS")
+        self.assertTrue(payload["correlation"]["override_tokenized"])
+        self.assertTrue(payload["correlation"]["persisted_status_active"])
+        self.assertTrue(payload["correlation"]["last_sync_status_success"])
+        self.assertTrue(payload["correlation"]["eu_window_converges_ready"])
 
     def test_build_payload_flags_eu_failure_when_override_requires_success(self) -> None:
         rows = [
@@ -105,10 +116,13 @@ class CheckSanctionsSyncStatusTests(unittest.TestCase):
                 require_success=["OFAC_SDN", "UN_CSNU", "EU_CONSOLIDATED"],
                 eu_override_url="https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList_1_1/content?token=abc123",
                 ofac_override_url="",
+                request_id="req-eu-sync-2",
             )
 
         self.assertEqual(payload["status"], "failed")
         self.assertIn("EU_CONSOLIDATED: last_sync_status esperado=SUCCESS recebido=FAILED", payload["errors"])
+        self.assertFalse(payload["correlation"]["last_sync_status_success"])
+        self.assertFalse(payload["correlation"]["eu_window_converges_ready"])
 
     def test_build_payload_requires_eu_override_for_eu_window(self) -> None:
         rows = [
@@ -130,6 +144,7 @@ class CheckSanctionsSyncStatusTests(unittest.TestCase):
                 eu_override_url="",
                 ofac_override_url="",
                 require_eu_override=True,
+                request_id="req-eu-sync-3",
             )
 
         self.assertEqual(payload["status"], "failed")
@@ -138,6 +153,8 @@ class CheckSanctionsSyncStatusTests(unittest.TestCase):
             payload["errors"],
         )
         self.assertTrue(payload["overrides"]["eu_required"])
+        self.assertFalse(payload["correlation"]["override_present"])
+        self.assertFalse(payload["correlation"]["eu_window_converges_ready"])
 
     def test_main_eu_window_promotes_eu_to_required_success(self) -> None:
         captured: dict[str, Any] = {}
@@ -157,6 +174,7 @@ class CheckSanctionsSyncStatusTests(unittest.TestCase):
                     "eu_tokenized": True,
                     "ofac_present": False,
                 },
+                "request_id": kwargs["request_id"],
             }
 
         stdout = io.StringIO()
@@ -174,6 +192,8 @@ class CheckSanctionsSyncStatusTests(unittest.TestCase):
                     "--eu-window",
                     "--eu-override-url",
                     "https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList_1_1/content?token=abc123",
+                    "--request-id",
+                    "req-eu-sync-4",
                 ],
             ),
             redirect_stdout(stdout),
@@ -185,6 +205,7 @@ class CheckSanctionsSyncStatusTests(unittest.TestCase):
         self.assertIn("EU_CONSOLIDATED", captured["list_names"])
         self.assertIn("EU_CONSOLIDATED", captured["require_success"])
         self.assertTrue(captured["require_eu_override"])
+        self.assertEqual(captured["request_id"], "req-eu-sync-4")
 
     def test_main_requires_database_url(self) -> None:
         stdout = io.StringIO()

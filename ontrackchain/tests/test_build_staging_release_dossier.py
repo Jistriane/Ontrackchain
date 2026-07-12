@@ -105,6 +105,11 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                 {
                     "kind": "oidc_readiness_bundle",
                     "status": "ok",
+                    "readiness": {
+                        "readiness_status": "ready_for_validation",
+                        "blockers": [],
+                        "next_action": "Anexar bundle ao war room/sign-off e executar validacao formal com fluxo critico OIDC.",
+                    },
                     "scope": {
                         "mfa_external_provider_homologated": "true",
                         "expected_oidc_provider": "keycloak",
@@ -121,13 +126,53 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                 {
                     "kind": "regulatory_readiness_bundle",
                     "status": "ok",
+                    "readiness": {
+                        "compliance_runtime": {
+                            "readiness_status": "ready_for_validation",
+                            "blockers": [],
+                            "next_action": "Revisar o artefato de `compliance_provider_runtime` e anexar o bundle regulatorio a governanca semanal.",
+                        },
+                        "eu_window": {
+                            "readiness_status": "ready_for_validation",
+                            "blockers": [],
+                            "next_action": "Revisar o artefato de `eu_sanctions_window` e anexar o bundle regulatorio a governanca semanal.",
+                        },
+                        "regulatory_bundle": {
+                            "readiness_status": "ready_for_validation",
+                            "blockers": [],
+                            "next_action": "Anexar o bundle regulatorio ao dossier/governanca e executar revisao formal das evidencias.",
+                        },
+                    },
                     "scope": {
                         "compliance_runtime_enabled": True,
                         "eu_window_enabled": True,
                     },
                     "steps": {
-                        "compliance_provider_runtime": {"status": "ok"},
-                        "eu_sanctions_window": {"status": "ok"},
+                        "compliance_provider_runtime": {
+                            "status": "ok",
+                            "request_id": "req_comp_1",
+                            "correlation": {
+                                "internal_operating_mode": "live",
+                                "catalog_provider_status": "live",
+                                "runtime_provider_status": "live",
+                                "provider_converges_live": True,
+                            },
+                        },
+                        "eu_sanctions_window": {
+                            "status": "ok",
+                            "request_id": "req_eu_1",
+                            "correlation": {
+                                "expected_source_url": "https://example.test/eu.xml?token=abc123",
+                                "observed_source_url": "https://example.test/eu.xml?token=abc123",
+                                "source_url_matches_expected": True,
+                                "override_tokenized": True,
+                                "persisted_status": "ACTIVE",
+                                "persisted_status_active": True,
+                                "last_sync_status": "SUCCESS",
+                                "last_sync_status_success": True,
+                                "eu_window_converges_ready": True,
+                            },
+                        },
                     },
                 },
             )
@@ -156,14 +201,138 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
             payload["summaries"]["oidc_readiness_bundle"]["steps"]["smoke_auth_oidc_mode"],
             "ok",
         )
+        self.assertEqual(
+            payload["summaries"]["oidc_readiness_bundle"]["readiness"]["readiness_status"],
+            "ready_for_validation",
+        )
         self.assertEqual(payload["summaries"]["homologation"]["runs"]["rpc_case_id"], "case_1")
         self.assertEqual(
             payload["summaries"]["regulatory_readiness_bundle"]["steps"]["eu_sanctions_window"],
             "ok",
         )
+        self.assertEqual(
+            payload["summaries"]["regulatory_readiness_bundle"]["readiness"]["regulatory_bundle"]["readiness_status"],
+            "ready_for_validation",
+        )
+        self.assertEqual(
+            payload["summaries"]["regulatory_readiness_bundle"]["scope_items"],
+            ["P0-02", "P0-03"],
+        )
+        self.assertTrue(
+            payload["summaries"]["regulatory_readiness_bundle"]["correlation"]["compliance_request_id_matches_homologation"]
+        )
+        self.assertTrue(
+            payload["summaries"]["regulatory_readiness_bundle"]["correlation"]["compliance_runtime_provider_converges_live"]
+        )
+        self.assertEqual(
+            payload["summaries"]["regulatory_readiness_bundle"]["correlation"]["compliance_runtime_operating_mode"],
+            "live",
+        )
+        self.assertTrue(
+            payload["summaries"]["regulatory_readiness_bundle"]["correlation"]["eu_source_url_matches_expected"]
+        )
+        self.assertTrue(
+            payload["summaries"]["regulatory_readiness_bundle"]["correlation"]["eu_window_converges_ready"]
+        )
+        self.assertTrue(
+            payload["summaries"]["regulatory_readiness_bundle"]["correlation"]["eu_override_tokenized"]
+        )
+        self.assertTrue(
+            payload["summaries"]["regulatory_readiness_bundle"]["validation"]["compliance_runtime_scope_converges"]
+        )
+        self.assertTrue(
+            payload["summaries"]["regulatory_readiness_bundle"]["validation"]["eu_window_scope_converges"]
+        )
+        self.assertTrue(
+            payload["summaries"]["regulatory_readiness_bundle"]["validation"]["combined_regulatory_bundle_ready_for_validation"]
+        )
         self.assertIn("oidc_readiness_bundle_summary", payload["artifacts"])
         self.assertIn("regulatory_readiness_bundle_summary", payload["artifacts"])
         self.assertIn("sha256", payload["artifacts"]["window_packet"])
+
+    def test_build_payload_normalizes_partial_regulatory_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            base = Path(tmp_dir)
+            window_packet = base / "window-packet.md"
+            ownership_check = base / "ownership.json"
+            placeholder_check = base / "placeholders.json"
+            handoff_check = base / "handoff.json"
+            homologation_artifact = base / "homologation.json"
+            homologation_manifest = base / "homologation.manifest.json"
+            regulatory_bundle = base / "regulatory-bundle.json"
+            regulatory_bundle_summary = base / "regulatory-bundle.md"
+
+            window_packet.write_text("# Packet\n", encoding="utf-8")
+            _write_json(ownership_check, {"status": "ok", "missing_in_matrix": [], "stale_in_matrix": [], "incomplete_mappings": []})
+            _write_json(placeholder_check, {"status": "ok", "unresolved_placeholders": [], "missing_required": [], "empty_required": []})
+            _write_json(handoff_check, {"status": "ok", "missing_groups": [], "incomplete_groups": [], "invalid_statuses": [], "invalid_dates": []})
+            _write_json(
+                homologation_artifact,
+                {
+                    "status": "ok",
+                    "mode": "compliance",
+                    "artifact_file": "/tmp/external_homologation_compliance.json",
+                    "manifest_file": "/tmp/external_homologation_compliance.json.manifest.json",
+                    "runs": {"compliance": {"request_id": "req_comp_1"}},
+                },
+            )
+            _write_json(homologation_manifest, {"kind": "external_homologation_evidence", "status": "ok"})
+            _write_json(
+                regulatory_bundle,
+                {
+                    "kind": "regulatory_readiness_bundle",
+                    "status": "ok",
+                    "readiness": {
+                        "compliance_runtime": {"readiness_status": "ready_for_validation"},
+                        "eu_window": {"readiness_status": "ready"},
+                        "regulatory_bundle": {"readiness_status": "ready_for_validation"},
+                    },
+                    "scope": {
+                        "compliance_runtime_enabled": True,
+                        "eu_window_enabled": False,
+                    },
+                    "steps": {
+                        "compliance_provider_runtime": {
+                            "status": "ok",
+                            "request_id": "req_comp_1",
+                            "correlation": {
+                                "internal_operating_mode": "live",
+                                "catalog_provider_status": "live",
+                                "runtime_provider_status": "live",
+                                "provider_converges_live": True,
+                            },
+                        },
+                        "eu_sanctions_window": {
+                            "status": "skipped",
+                            "correlation": {},
+                        },
+                    },
+                },
+            )
+            regulatory_bundle_summary.write_text("# Regulatory Bundle\n", encoding="utf-8")
+
+            payload = MODULE.build_dossier_payload(
+                window_id="stg-2026-06-29-a",
+                window_packet=window_packet,
+                ownership_coverage_check=ownership_check,
+                placeholder_check=placeholder_check,
+                handoff_check=handoff_check,
+                homologation_artifact=homologation_artifact,
+                homologation_manifest=homologation_manifest,
+                oidc_readiness_bundle=None,
+                oidc_readiness_bundle_summary=None,
+                regulatory_readiness_bundle=regulatory_bundle,
+                regulatory_readiness_bundle_summary=regulatory_bundle_summary,
+                generated_at="2026-06-29T12:00:00+00:00",
+            )
+
+        summary = payload["summaries"]["regulatory_readiness_bundle"]
+        self.assertEqual(summary["scope_items"], ["P0-02"])
+        self.assertTrue(summary["validation"]["compliance_runtime_required"])
+        self.assertFalse(summary["validation"]["eu_window_required"])
+        self.assertTrue(summary["validation"]["compliance_runtime_scope_converges"])
+        self.assertTrue(summary["validation"]["eu_window_scope_converges"])
+        self.assertTrue(summary["validation"]["combined_regulatory_bundle_ready_for_validation"])
 
     def test_build_payload_fails_when_required_file_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

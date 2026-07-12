@@ -8,14 +8,15 @@ Consolidar os principais riscos tecnicos, operacionais e regulatorios do Ontrack
 
 Leituras oficiais:
 
-- `91%` de construcao tecnica
-- `78%` de prontidao regulatoria
-- `87%` de construcao total consolidada conforme o [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
+- `92%` de construcao tecnica
+- `79%` de prontidao regulatoria
+- `88%` de construcao total consolidada conforme o [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
 
 Referencias canonicas da baseline atual:
 
-- [Atualizacao de KPI 2026-07-01](./governance-weekly/archive/weekly/2026-07-01-kpi-scorecard-update.md)
-- [Governanca Semanal 2026-07-01](./governance-weekly/archive/weekly/2026-07-01-weekly-governance.md)
+- [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
+- [Avaliacao de Maturidade do Projeto](./project-maturity-assessment.md)
+- [Resumo Executivo de Readiness](./project-executive-readiness-brief.md)
 
 Interpretacao:
 
@@ -35,6 +36,8 @@ Interpretacao:
 | R-08 | Janela seria ser executada sem dossier ou ownership completo | Operacao | mitigado parcialmente | Baixa | P1 | Media | Platform/SRE | manter `run_staging_window.py` e checkers como gate obrigatorio |
 | R-09 | Screening local de sancoes divergir do estado persistido em `sanctions_lists_meta` | Dados/Integracao | mitigado parcialmente | Media | P1 | Alta | Compliance/Backend | executar `check_sanctions_sync_status.py` apos sync relevante |
 | R-10 | Drift documental voltar a subestimar ou superestimar o runtime real | Governanca | mitigado parcialmente | Baixa | P1 | Baixa | Arquitetura/Engenharia | revalidar docs a cada corte regulatorio relevante |
+| R-11 | Trilha DD/SoF permanecer sem endurecimento institucional final da selagem forte | Custodia/Compliance | mitigado parcialmente | Media | P1 | Alta | Compliance/Security/Arquitetura | consolidar provider institucional definitivo, trust bundle versionado e eventual prova temporal complementar, preservando a baseline `Opcao B` ja entregue |
+| R-12 | RCA cross-domain permanecer eventual e nao entrar no rito recorrente de governanca | Operacao/Governanca | mitigado parcialmente | Media | P2 | Media | Platform/Monitoring + Governanca | usar o playbook canonico, materializar resumo RCA em artefato executivo quando houver incidente e revisar semanalmente sem inflar baseline |
 
 ## Top Riscos Atuais
 
@@ -42,6 +45,7 @@ Interpretacao:
 2. MFA federado serio ainda nao homologado
 3. feed da UE ainda depende de URL tokenizada valida
 4. sign-off formal de retention/recovery ainda pendente
+5. RCA cross-domain ainda precisa de uso recorrente em ciclo real para deixar de ser apenas endurecimento operacional
 
 Leitura executiva atual dos P0 associados:
 
@@ -61,6 +65,39 @@ Leitura executiva atual dos P0 associados:
 - fechar sign-off formal de retention/recovery
 - exercitar MFA federado em janela seria real
 - institucionalizar a revisao periodica dos artefatos `artifacts/staging/checks/` no sign-off
+- endurecer a baseline ja entregue da selagem forte DD/SoF e fechar a cadeia de confianca institucional final
+- revisar semanalmente se incidentes cross-domain relevantes tiveram RCA minima registrada, export enriquecido e leitura executiva coerente
+
+## Riscos Emergentes de Operacao Cross-Domain
+
+### R-12. RCA cross-domain ainda sem recorrencia institucional
+
+- estado atual: playbook canonico indexado, RCA leve persistida em `alerts`/`work-items`, leitura read-only em `/monitoring`, export administrativo enriquecido e resumo opcional para governanca executiva
+- impacto real: reduz ambiguidade operacional e melhora handoff, mas ainda nao serve como prova recorrente de maturidade enquanto nao aparecer de forma revisavel no ciclo semanal
+- bloqueadores atuais:
+  - ausencia de serie historica com incidentes reais tratados pelo novo rito
+  - falta de uso recorrente do resumo RCA em snapshot/comms de semanas reais
+  - dependencia de disciplina operacional para nao deixar a RCA apenas na UI
+- mitigacao recomendada:
+  - manter o [Playbook Canonico de Incidente Cross-Domain e RCA](./cross-domain-incident-rca-playbook.md) como source of truth do rito
+  - registrar RCA minima sempre que houver impacto cross-domain relevante
+  - anexar resumo RCA ao artefato executivo quando a semana contiver incidente material
+
+## Riscos Emergentes de Custodia
+
+### R-11. Endurecimento institucional final ainda pendente em DD/SoF
+
+- estado atual: baseline funcional entregue com manifesto, `package_sha256`, sign-off, selagem local, revogacao, supersedencia e verificacao offline basica; ainda falta endurecimento institucional final
+- impacto real: nao bloqueia a trilha operacional atual, mas limita o grau maximo de confianca regulatoria enquanto o provider definitivo e o trust bundle institucional nao forem homologados
+- bloqueadores atuais:
+  - backend criptografico final ainda nao escolhido atras da abstracao aprovada
+  - trust model/cadeia de certificados nao aprovado
+  - trust bundle versionado ainda nao modelado operacionalmente
+  - runbook de evolucao para TSA/ancora externa ainda nao faseado
+- mitigacao recomendada:
+  - manter `Opcao B` como baseline oficial ja implementada
+  - usar `./api-contracts.md` como contrato canônico e `./evidence-manual-package-strong-sealing-architecture.md` como referencia arquitetural
+  - manter `package_sha256` como digest principal e proibir updates silenciosos de revogacao/supersedencia
 
 ## Criterio para Encerrar um Risco
 

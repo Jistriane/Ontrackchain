@@ -95,7 +95,9 @@ export async function proxyReportBinaryRequest(auth: ReportAuthContext, options:
   const headers = new Headers();
   const contentType = res.headers.get("content-type");
   const contentDisposition = res.headers.get("content-disposition");
+  const dossierSha256 = res.headers.get("x-ontrack-dossier-sha256");
   if (contentType) headers.set("content-type", contentType);
   if (contentDisposition) headers.set("content-disposition", contentDisposition);
+  if (dossierSha256) headers.set("x-ontrack-dossier-sha256", dossierSha256);
   return new Response(buf, { status: res.status, headers });
 }

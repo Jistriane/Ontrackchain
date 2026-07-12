@@ -96,4 +96,4 @@
 - classificacao: `parcial`
 - resumo executivo: o rito esta pronto, mas ainda depende da execucao material da janela para sair de preparacao
 - owner do primeiro passo do proximo marco: `Platform/SRE + Governanca`
-- artefato relacionado: [Runbook de Execucao do Dia 3 da Sprint 3](../../sprint-3-day-3-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-3-day-3-execution-runbook.md`

@@ -1,4 +1,4 @@
-.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle run-regulatory-readiness-bundle-local render-regulatory-readiness-bundle run-oidc-readiness-bundle run-oidc-readiness-bundle-local render-oidc-readiness-bundle validate-serious-window-artifact validate-serious-window-artifact-local render-staging-war-room-action-plan run-staging-window-status-snapshot-local render-staging-window-status-snapshot render-staging-window-status-snapshot-delta render-staging-governance-dashboard render-staging-unblock-checklist render-staging-comms-summary render-staging-executive-bullet render-staging-governance-consolidated-json notify-slack-governance evaluate-governance-gate track-governance-history render-governance-gate-history-dashboard update-governance-metrics refresh-staging-war-room-governance-local apply-regulatory-work-items-migration smoke-work-items-ownership-backend alert-pagerduty-governance-blocks generate-environment-promotion-policy generate-compliance-report generate-compliance-reports-all evaluate-auto-promotion-readiness check-workflow-hygiene
+.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle run-regulatory-readiness-bundle-local render-regulatory-readiness-bundle run-oidc-readiness-bundle run-oidc-readiness-bundle-local render-oidc-readiness-bundle validate-serious-window-artifact validate-serious-window-artifact-local render-staging-war-room-action-plan build-operational-alerts-rca-summary run-staging-window-status-snapshot-local render-staging-window-status-snapshot render-staging-window-status-snapshot-delta render-staging-governance-dashboard render-staging-unblock-checklist render-staging-comms-summary render-staging-executive-bullet render-staging-governance-consolidated-json notify-slack-governance evaluate-governance-gate track-governance-history render-governance-gate-history-dashboard update-governance-metrics refresh-staging-war-room-governance-local apply-regulatory-work-items-migration apply-regulatory-work-items-contract-guardrails-migration check-work-items-contracts validate-work-items-runtime-local smoke-work-items-ownership-backend alert-pagerduty-governance-blocks generate-environment-promotion-policy generate-compliance-report generate-compliance-reports-all evaluate-auto-promotion-readiness check-workflow-hygiene
 
 PYTHON ?= python
 WINDOW_ID ?= stg-2026-07-06-a
@@ -20,6 +20,8 @@ OIDC_BUNDLE_SUMMARY_FILE ?= artifacts/staging/dossiers/$(WINDOW_ID)-oidc-readine
 CHECKS_DIR ?= artifacts/staging/checks
 DOSSIERS_DIR ?= artifacts/staging/dossiers
 ART_SCOPE ?= P0-01,P0-02,P0-03
+OPERATIONAL_ALERTS_EXPORT_INPUT_FILE ?= $(CHECKS_DIR)/$(WINDOW_ID)-operational-alerts-export.json
+OPERATIONAL_ALERTS_RCA_SUMMARY_OUTPUT_FILE ?= $(CHECKS_DIR)/$(WINDOW_ID)-operational-alerts-rca-summary.json
 WAR_ROOM_ACTION_PLAN_OUTPUT_FILE ?= $(WINDOW_ARTIFACTS_DIR)/$(WINDOW_ID)-war-room-action-plan.md
 STATUS_SNAPSHOT_OUTPUT_FILE ?= artifacts/staging/checks/$(WINDOW_ID)-status-snapshot.json
 STATUS_SNAPSHOT_MARKDOWN_OUTPUT_FILE ?= $(WINDOW_ARTIFACTS_DIR)/$(WINDOW_ID)-status-snapshot.md
@@ -60,6 +62,7 @@ help:
 	@echo "  make validate-serious-window-artifact-local [WINDOW_ID=...]"
 	@echo "  make render-staging-war-room-action-plan [WINDOW_ID=...] [CHECKS_DIR=...] [WAR_ROOM_ACTION_PLAN_OUTPUT_FILE=...]"
 	@echo "  make run-staging-window-status-snapshot-local [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...] [DOSSIERS_DIR=...] [ART_SCOPE=...] [STATUS_SNAPSHOT_OUTPUT_FILE=...]"
+	@echo "  make build-operational-alerts-rca-summary [WINDOW_ID=...] [OPERATIONAL_ALERTS_EXPORT_INPUT_FILE=...] [OPERATIONAL_ALERTS_RCA_SUMMARY_OUTPUT_FILE=...]"
 	@echo "  make render-staging-window-status-snapshot [STATUS_SNAPSHOT_OUTPUT_FILE=...] [STATUS_SNAPSHOT_MARKDOWN_OUTPUT_FILE=...]"
 	@echo "  make render-staging-window-status-snapshot-delta [WINDOW_ID=...] [STATUS_SNAPSHOT_HISTORY_DIR=...] [STATUS_SNAPSHOT_DELTA_OUTPUT_FILE=...]"
 	@echo "  make render-staging-governance-dashboard [WINDOW_ID=...] [STATUS_SNAPSHOT_HISTORY_DIR=...] [GOVERNANCE_DASHBOARD_OUTPUT_FILE=...]"
@@ -68,6 +71,10 @@ help:
 	@echo "  make render-staging-executive-bullet [WINDOW_ID=...] [STATUS_SNAPSHOT_OUTPUT_FILE=...] [STATUS_SNAPSHOT_DELTA_OUTPUT_FILE=...] [EXECUTIVE_BULLET_OUTPUT_FILE=...]"
 	@echo "  make refresh-staging-war-room-governance-local [WINDOW_ID=...] [CHECKS_DIR=...] [PRIVATE_ENV_FILE=...] [DOSSIERS_DIR=...]"
 	@echo "  make apply-regulatory-work-items-migration"
+	@echo "  make apply-regulatory-work-items-contract-guardrails-migration"
+	@echo "  make apply-evidence-package-seals-migration"
+	@echo "  make check-work-items-contracts"
+	@echo "  make validate-work-items-runtime-local"
 	@echo "  make smoke-work-items-ownership-backend"
 	@echo "  make check-workflow-hygiene"
 
@@ -88,6 +95,7 @@ help-serious-window:
 	@echo " 12. Para P0-01 local: make run-oidc-readiness-bundle-local WINDOW_ID=$(WINDOW_ID) BASE_URL=http://localhost:8080"
 	@echo " 13. Para execucao local ponta a ponta: make run-serious-window-local WINDOW_ID=$(WINDOW_ID)"
 	@echo " 14. Validar completude do artifact: make validate-serious-window-artifact-local WINDOW_ID=$(WINDOW_ID)"
+	@echo " 14.1 Opcional para RCA cross-domain: make build-operational-alerts-rca-summary WINDOW_ID=$(WINDOW_ID) OPERATIONAL_ALERTS_EXPORT_INPUT_FILE=<export-json>"
 	@echo " 15. Atualizar pacote local de governanca: make refresh-staging-war-room-governance-local WINDOW_ID=$(WINDOW_ID)"
 	@echo " 16. Revisar sign-off versionado e board semanal sincronizado"
 
@@ -307,6 +315,13 @@ render-staging-war-room-action-plan:
 		--checks-dir "$(CHECKS_DIR)" \
 		--output-file "$(WAR_ROOM_ACTION_PLAN_OUTPUT_FILE)"
 
+build-operational-alerts-rca-summary:
+	@mkdir -p "$(dir $(OPERATIONAL_ALERTS_RCA_SUMMARY_OUTPUT_FILE))"
+	@$(PYTHON) scripts/build_operational_alerts_rca_summary.py \
+		--window-id "$(WINDOW_ID)" \
+		--input-file "$(OPERATIONAL_ALERTS_EXPORT_INPUT_FILE)" \
+		--output-file "$(OPERATIONAL_ALERTS_RCA_SUMMARY_OUTPUT_FILE)"
+
 run-staging-window-status-snapshot-local:
 	@$(PYTHON) scripts/run_staging_window_status_snapshot.py \
 		--window-id "$(WINDOW_ID)" \
@@ -481,6 +496,22 @@ update-governance-metrics:
 apply-regulatory-work-items-migration:
 	@cat infra/postgres/migrations/0013_regulatory_work_items.sql | \
 		docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U ontrackchain -d ontrackchain
+
+apply-regulatory-work-items-contract-guardrails-migration:
+	@cat infra/postgres/migrations/0014_regulatory_work_items_contract_guardrails.sql | \
+		docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U ontrackchain -d ontrackchain
+
+apply-evidence-package-seals-migration:
+	@cat infra/postgres/migrations/0015_evidence_package_seals.sql | \
+		docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U ontrackchain -d ontrackchain
+
+check-work-items-contracts:
+	@python3 scripts/run_work_item_contract_suite.py
+
+validate-work-items-runtime-local:
+	@docker compose up -d postgres redis compliance-api
+	@$(MAKE) --no-print-directory apply-regulatory-work-items-contract-guardrails-migration
+	@$(MAKE) --no-print-directory smoke-work-items-ownership-backend
 
 smoke-work-items-ownership-backend:
 	@cat scripts/smoke_work_items_ownership_backend.py | docker compose exec -T compliance-api python -

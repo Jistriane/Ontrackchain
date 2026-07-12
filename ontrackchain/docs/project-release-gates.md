@@ -28,11 +28,12 @@ Uma promocao para staging serio so deve acontecer quando:
 
 Baseline canônica de referencia:
 
-- `91%` de construcao tecnica
-- `78%` de prontidao regulatoria
-- `87%` de construcao total consolidada
-- [Governança Semanal 2026-07-01](governance-weekly/archive/weekly/2026-07-01-weekly-governance.md)
-- [Atualização de KPI 2026-07-01](governance-weekly/archive/weekly/2026-07-01-kpi-scorecard-update.md)
+- `92%` de construcao tecnica
+- `79%` de prontidao regulatoria
+- `88%` de construcao total consolidada
+- [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
+- [Avaliacao de Maturidade do Projeto](./project-maturity-assessment.md)
+- [Resumo Executivo de Readiness](./project-executive-readiness-brief.md)
 
 ## Gates Obrigatorios
 
@@ -155,4 +156,4 @@ No estado atual, os gates mais provaveis de continuar bloqueando uma janela regu
 
 Regra executiva:
 
-- manter esta leitura alinhada a baseline `91% / 78% / 87%` ate nova evidencia material publicada na governanca semanal
+- manter esta leitura alinhada a baseline `92% / 79% / 88%` ate nova evidencia material publicada na governanca semanal

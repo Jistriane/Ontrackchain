@@ -110,7 +110,7 @@ def determine_validation_scope(regulatory_bundle_payload: dict[str, Any]) -> lis
     Extract expected validation scope from regulatory bundle payload.
 
     P0-01 (OIDC) is always included.
-    P0-02/P0-03 (Regulatory) are included if enabled in the bundle scope.
+    P0-02/P0-03 (Regulatory) are included individually when enabled in the bundle scope.
 
     Args:
         regulatory_bundle_payload: The payload from run_regulatory_readiness_bundle
@@ -120,8 +120,10 @@ def determine_validation_scope(regulatory_bundle_payload: dict[str, Any]) -> lis
     """
     scope = ["P0-01"]  # OIDC always in scope
     regulatory_scope = regulatory_bundle_payload.get("scope", {})
-    if regulatory_scope.get("compliance_runtime_enabled") or regulatory_scope.get("eu_window_enabled"):
-        scope.extend(["P0-02", "P0-03"])
+    if regulatory_scope.get("compliance_runtime_enabled"):
+        scope.append("P0-02")
+    if regulatory_scope.get("eu_window_enabled"):
+        scope.append("P0-03")
     return scope
 
 
@@ -382,6 +384,9 @@ def run_window(
         output_file=str(oidc_bundle_output_file),
         summary_file=str(oidc_bundle_summary_output_file),
         summary_status=oidc_bundle_summary_status,
+        readiness_status=((oidc_bundle_payload.get("readiness") or {}).get("readiness_status") or "pending"),
+        readiness_blockers=((oidc_bundle_payload.get("readiness") or {}).get("blockers") or []),
+        next_action=((oidc_bundle_payload.get("readiness") or {}).get("next_action") or "pending"),
     )
     if oidc_bundle_summary_error is not None:
         payload["steps"]["oidc_readiness_bundle"]["summary_error"] = oidc_bundle_summary_error
@@ -444,6 +449,33 @@ def run_window(
         output_file=str(regulatory_bundle_output_file),
         summary_file=str(regulatory_bundle_summary_output_file),
         summary_status=regulatory_bundle_summary_status,
+        readiness=regulatory_bundle_payload.get("readiness", {}),
+        compliance_runtime_enabled=((regulatory_bundle_payload.get("scope") or {}).get("compliance_runtime_enabled") is True),
+        eu_window_enabled=((regulatory_bundle_payload.get("scope") or {}).get("eu_window_enabled") is True),
+        compliance_provider_runtime_status=(
+            (((regulatory_bundle_payload.get("steps") or {}).get("compliance_provider_runtime") or {}).get("status"))
+            or "skipped"
+        ),
+        compliance_provider_runtime_request_id=(
+            (((regulatory_bundle_payload.get("steps") or {}).get("compliance_provider_runtime") or {}).get("request_id"))
+            or "pending"
+        ),
+        eu_sanctions_window_status=(
+            (((regulatory_bundle_payload.get("steps") or {}).get("eu_sanctions_window") or {}).get("status"))
+            or "skipped"
+        ),
+        eu_sanctions_window_request_id=(
+            (((regulatory_bundle_payload.get("steps") or {}).get("eu_sanctions_window") or {}).get("request_id"))
+            or "pending"
+        ),
+        eu_sanctions_observed_source_url=(
+            (
+                ((((regulatory_bundle_payload.get("steps") or {}).get("eu_sanctions_window") or {}).get("correlation")) or {}
+            ).get("observed_source_url")
+            )
+            or "pending"
+        ),
+        errors=regulatory_bundle_payload.get("errors", []),
     )
     if regulatory_bundle_summary_error is not None:
         payload["steps"]["regulatory_readiness_bundle"]["summary_error"] = regulatory_bundle_summary_error

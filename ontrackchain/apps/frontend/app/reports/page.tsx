@@ -8,6 +8,13 @@ import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
 import { formatDateTime as formatDate } from "../lib/date-format";
 import {
+  loadWorkspaceRecords,
+  saveWorkspaceRecords,
+  sortByLastActionAtDesc,
+  toApiDueAt,
+  toDateTimeLocalValue
+} from "../lib/workspace-storage";
+import {
   buildOperationalContextLinks,
   type OperationalContext,
   type OperationalContextLink
@@ -19,12 +26,26 @@ import {
   REPORT_FORMAL_DOSSIER_SUMMARY_FIELDS,
   type ReportFormalDossierSummaryField
 } from "../lib/report-formal-dossier";
+import {
+  isWorkItemUuidLike as isUuidLike,
+  readWorkItemMetadataString,
+  resolveWorkItemOwnerDisplay,
+  resolveWorkItemWorkspaceStatus,
+  type CreateWorkItemRequest,
+  type PatchWorkItemRequest,
+  type ReportWorkItemMetadata,
+  type WorkItemListResponse,
+  type WorkItemPriority,
+  type WorkItemQueueStatus,
+  type WorkItemResponse,
+  withCanonicalWorkItemMetadata
+} from "../lib/work-items";
 import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
-import { createWorkItemComment, fetchWorkItemTimeline } from "../lib/work-item-timeline-client";
+import { useWorkItemTimeline } from "../lib/use-work-item-timeline";
 import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
 import type { MessageKey } from "../lib/i18n";
-import { formatTimelineEvent, type WorkCommentResponse, type WorkItemTimelineResponse } from "../lib/work-item-timeline";
+import { formatTimelineEvent } from "../lib/work-item-timeline";
 
 type ReportTypeItem = {
   canonical: string;
@@ -87,39 +108,30 @@ type ReportDetailResponse = {
   content_type: string;
 };
 
-type WorkspacePriority = "critical" | "high" | "normal";
+type ReportRosCoafRefResponse = {
+  report_id: string;
+  ros_id: string | null;
+};
+
+type WorkspacePriority = WorkItemPriority;
 type WorkspaceStatus = "draft" | "in_review" | "ready";
 type WorkspaceSource = "server" | "local";
-type WorkItemQueueStatus = "UNDER_REVIEW" | "ESCALATED" | "READY" | "APPROVED" | "SUBMITTED" | "CLOSED" | "REJECTED";
-
-type WorkItemResponse = {
-  id: string;
-  resource_id: string;
-  owner_user_id?: string | null;
-  queue_status: WorkItemQueueStatus;
-  priority: WorkspacePriority;
-  due_at: string | null;
-  note: string | null;
-  metadata: Record<string, unknown>;
-  last_activity_at: string;
-  updated_at: string;
-};
-
-type WorkItemListResponse = {
-  data: WorkItemResponse[];
-};
+type ReportWorkItemResponse = WorkItemResponse<ReportWorkItemMetadata>;
+type ReportWorkItemListResponse = WorkItemListResponse<ReportWorkItemMetadata>;
 
 type ReportWorkspaceRecord = {
   workItemId?: string;
   resourceId: string;
   source: WorkspaceSource;
   caseId: string;
+  reportExternalId: string;
   targetAddress: string;
   targetChain: string;
   reportType: string;
   owner: string;
   priority: WorkspacePriority;
   localDeadline: string;
+  slaBreached: boolean;
   workspaceStatus: WorkspaceStatus;
   note: string;
   lastActionAt: string;
@@ -139,53 +151,12 @@ const REPORT_DOSSIER_FIELD_LABEL_KEYS: Record<ReportFormalDossierSummaryField, M
 
 const STORAGE_KEY = "otc-reports-workspace";
 const WORKSPACE_PAGE_LIMIT = 100;
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-function isUuidLike(value: string | null | undefined) {
-  return Boolean(value && UUID_PATTERN.test(value.trim()));
-}
 
-function toDateTimeLocalValue(value: string | null | undefined) {
-  if (!value) {
-    return "";
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "";
-  }
-
-  const year = parsed.getFullYear();
-  const month = `${parsed.getMonth() + 1}`.padStart(2, "0");
-  const day = `${parsed.getDate()}`.padStart(2, "0");
-  const hours = `${parsed.getHours()}`.padStart(2, "0");
-  const minutes = `${parsed.getMinutes()}`.padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-}
-
-function toApiDueAt(value: string) {
-  const normalized = value.trim();
-  if (!normalized) {
-    return null;
-  }
-
-  const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-
-  return parsed.toISOString();
-}
-
-function readMetadataString(metadata: Record<string, unknown>, key: string) {
-  const value = metadata[key];
-  return typeof value === "string" ? value : "";
-}
-
-function normalizeLegacyStatus(value: unknown): WorkspaceStatus {
+function normalizeWorkspaceStatus(value: unknown): WorkspaceStatus | null {
   if (value === "draft" || value === "in_review" || value === "ready") {
     return value;
   }
-  return "draft";
+  return null;
 }
 
 function toPlanRank(plan: string) {
@@ -247,54 +218,94 @@ function buildReportContextLinks(context: OperationalContext) {
 }
 
 function loadWorkspace() {
-  if (typeof window === "undefined") {
-    return [] as ReportWorkspaceRecord[];
+  return loadWorkspaceRecords<ReportWorkspaceRecord>(STORAGE_KEY, (record) => {
+    const caseId = typeof record.caseId === "string" ? record.caseId : "";
+    const source: WorkspaceSource = record.source === "server" ? "server" : "local";
+    return {
+      workItemId: typeof record.workItemId === "string" ? record.workItemId : undefined,
+      resourceId: typeof record.resourceId === "string" ? record.resourceId : caseId,
+      source,
+      caseId,
+      targetAddress: typeof record.targetAddress === "string" ? record.targetAddress : "",
+      targetChain: typeof record.targetChain === "string" ? record.targetChain : "",
+      reportType: typeof record.reportType === "string" ? record.reportType : "",
+      reportExternalId: typeof record.reportExternalId === "string" ? record.reportExternalId : "",
+      owner: typeof record.owner === "string" ? record.owner : "",
+      priority: record.priority === "critical" || record.priority === "high" || record.priority === "normal" ? record.priority : "normal",
+      localDeadline: typeof record.localDeadline === "string" ? record.localDeadline : "",
+      slaBreached: record.slaBreached === true,
+      workspaceStatus: normalizeWorkspaceStatus(record.workspaceStatus) ?? "draft",
+      note: typeof record.note === "string" ? record.note : "",
+      lastActionAt: typeof record.lastActionAt === "string" ? record.lastActionAt : ""
+    };
+  });
+}
+
+function buildReportWorkspaceIdentity(input: {
+  caseId?: string | null;
+  reportExternalId?: string | null;
+  workItemId?: string | null;
+}) {
+  return input.reportExternalId?.trim() || input.caseId?.trim() || input.workItemId?.trim() || "";
+}
+
+function isSameReportWorkspaceRecord(
+  left: Pick<ReportWorkspaceRecord, "caseId" | "reportExternalId" | "workItemId">,
+  right: Pick<ReportWorkspaceRecord, "caseId" | "reportExternalId" | "workItemId">
+) {
+  const leftReportId = left.reportExternalId.trim();
+  const rightReportId = right.reportExternalId.trim();
+  if (leftReportId && rightReportId) {
+    return leftReportId === rightReportId;
   }
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return [];
+  if (left.caseId.trim() && right.caseId.trim()) {
+    return left.caseId.trim() === right.caseId.trim();
+  }
+  return Boolean(left.workItemId && right.workItemId && left.workItemId === right.workItemId);
+}
+
+function findReportWorkspaceRecord(
+  records: ReportWorkspaceRecord[],
+  input: { caseId?: string | null; reportExternalId?: string | null; workItemId?: string | null }
+) {
+  const reportExternalId = input.reportExternalId?.trim() ?? "";
+  if (reportExternalId) {
+    const byReportId = records.find((entry) => entry.reportExternalId.trim() === reportExternalId);
+    if (byReportId) {
+      return byReportId;
     }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed)
-      ? parsed.map((entry) => {
-          const record = (entry ?? {}) as Partial<ReportWorkspaceRecord>;
-          const caseId = typeof record.caseId === "string" ? record.caseId : "";
-          const source: WorkspaceSource = record.source === "server" ? "server" : "local";
-          return {
-            workItemId: typeof record.workItemId === "string" ? record.workItemId : undefined,
-            resourceId: typeof record.resourceId === "string" ? record.resourceId : caseId,
-            source,
-            caseId,
-            targetAddress: typeof record.targetAddress === "string" ? record.targetAddress : "",
-            targetChain: typeof record.targetChain === "string" ? record.targetChain : "",
-            reportType: typeof record.reportType === "string" ? record.reportType : "",
-            owner: typeof record.owner === "string" ? record.owner : "",
-            priority: record.priority === "critical" || record.priority === "high" || record.priority === "normal" ? record.priority : "normal",
-            localDeadline: typeof record.localDeadline === "string" ? record.localDeadline : "",
-            workspaceStatus: normalizeLegacyStatus(record.workspaceStatus),
-            note: typeof record.note === "string" ? record.note : "",
-            lastActionAt: typeof record.lastActionAt === "string" ? record.lastActionAt : ""
-          };
-        })
-      : [];
-  } catch {
-    return [];
   }
+
+  const workItemId = input.workItemId?.trim() ?? "";
+  if (workItemId) {
+    const byWorkItemId = records.find((entry) => entry.workItemId === workItemId);
+    if (byWorkItemId) {
+      return byWorkItemId;
+    }
+  }
+
+  const caseId = input.caseId?.trim() ?? "";
+  if (caseId) {
+    return records.find((entry) => entry.caseId === caseId) ?? null;
+  }
+  return null;
 }
 
 function saveWorkspace(records: ReportWorkspaceRecord[]) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  saveWorkspaceRecords(STORAGE_KEY, records);
 }
 
 function upsertWorkspaceRecord(
   current: ReportWorkspaceRecord[],
   next: Partial<ReportWorkspaceRecord> & { caseId: string }
 ) {
-  const existing = current.find((entry) => entry.caseId === next.caseId);
+  const nextIdentity = buildReportWorkspaceIdentity(next);
+  const existing =
+    findReportWorkspaceRecord(current, {
+      caseId: next.caseId,
+      reportExternalId: next.reportExternalId,
+      workItemId: next.workItemId
+    }) ?? null;
   const base: ReportWorkspaceRecord =
     existing ?? {
       workItemId: next.workItemId,
@@ -304,9 +315,11 @@ function upsertWorkspaceRecord(
       targetAddress: "",
       targetChain: "",
       reportType: "",
+      reportExternalId: "",
       owner: "",
       priority: "normal",
       localDeadline: "",
+      slaBreached: false,
       workspaceStatus: "draft",
       note: "",
       lastActionAt: ""
@@ -318,27 +331,31 @@ function upsertWorkspaceRecord(
     lastActionAt: next.lastActionAt ?? new Date().toISOString()
   };
 
-  return [merged, ...current.filter((entry) => entry.caseId !== next.caseId)].sort((left, right) =>
-    (right.lastActionAt || "").localeCompare(left.lastActionAt || "")
+  return sortByLastActionAtDesc(
+    [merged, ...current.filter((entry) => buildReportWorkspaceIdentity(entry) !== nextIdentity && !isSameReportWorkspaceRecord(entry, merged))]
   );
 }
 
 function mergeWorkspaceRecords(serverRecords: ReportWorkspaceRecord[], localRecords: ReportWorkspaceRecord[]) {
   const merged = [...serverRecords];
-  const seenCaseIds = new Set(serverRecords.map((record) => record.caseId));
+  const seenWorkspaceIdentities = new Set(serverRecords.map((record) => buildReportWorkspaceIdentity(record)).filter(Boolean));
   const seenWorkItemIds = new Set(serverRecords.map((record) => record.workItemId).filter(Boolean));
 
   for (const record of localRecords) {
-    if (seenCaseIds.has(record.caseId)) {
+    const workspaceIdentity = buildReportWorkspaceIdentity(record);
+    if (workspaceIdentity && seenWorkspaceIdentities.has(workspaceIdentity)) {
       continue;
     }
     if (record.workItemId && seenWorkItemIds.has(record.workItemId)) {
       continue;
     }
+    if (merged.some((serverRecord) => isSameReportWorkspaceRecord(serverRecord, record))) {
+      continue;
+    }
     merged.push(record);
   }
 
-  return merged.sort((left, right) => (right.lastActionAt || "").localeCompare(left.lastActionAt || ""));
+  return sortByLastActionAtDesc(merged);
 }
 
 function mapQueueStatusToWorkspaceStatus(status: WorkItemQueueStatus): WorkspaceStatus {
@@ -348,22 +365,24 @@ function mapQueueStatusToWorkspaceStatus(status: WorkItemQueueStatus): Workspace
   return "in_review";
 }
 
-function mapWorkItemToWorkspaceRecord(item: WorkItemResponse): ReportWorkspaceRecord {
+function mapWorkItemToWorkspaceRecord(item: ReportWorkItemResponse): ReportWorkspaceRecord {
   const metadata = item.metadata ?? {};
-  const caseId = readMetadataString(metadata, "case_id") || item.resource_id;
+  const caseId = item.case_id ?? (readWorkItemMetadataString(metadata, "case_id") || item.resource_id);
   return {
     workItemId: item.id,
     resourceId: item.resource_id,
     source: "server",
     caseId,
-    targetAddress: readMetadataString(metadata, "target_address"),
-    targetChain: readMetadataString(metadata, "target_chain"),
-    reportType: readMetadataString(metadata, "report_type"),
-    owner: readMetadataString(metadata, "owner_label") || item.owner_user_id || "",
+    targetAddress: readWorkItemMetadataString(metadata, "target_address"),
+    targetChain: readWorkItemMetadataString(metadata, "target_chain"),
+    reportType: readWorkItemMetadataString(metadata, "report_type"),
+    reportExternalId: item.report_external_id ?? readWorkItemMetadataString(metadata, "report_id"),
+    owner: resolveWorkItemOwnerDisplay(metadata, item.owner_user_id),
     priority: item.priority,
     localDeadline: toDateTimeLocalValue(item.due_at),
-    workspaceStatus: normalizeLegacyStatus(metadata["local_workspace_status"]) || mapQueueStatusToWorkspaceStatus(item.queue_status),
-    note: item.note ?? readMetadataString(metadata, "note"),
+    slaBreached: item.sla_breached === true,
+    workspaceStatus: normalizeWorkspaceStatus(resolveWorkItemWorkspaceStatus(metadata, "formal_report_case")) ?? mapQueueStatusToWorkspaceStatus(item.queue_status),
+    note: item.note ?? readWorkItemMetadataString(metadata, "note"),
     lastActionAt: item.last_activity_at || item.updated_at
   };
 }
@@ -425,6 +444,8 @@ function buildReportWorkspaceSummary(record: ReportWorkspaceRecord) {
     owner: record.owner || null,
     priority: record.priority,
     deadline: record.localDeadline || null,
+    report_external_id: record.reportExternalId || null,
+    sla_breached: record.slaBreached,
     status: record.workspaceStatus,
     source: record.source,
     note: record.note || null,
@@ -440,6 +461,14 @@ function getWorkspaceStatusLabelKey(status: WorkspaceStatus): MessageKey {
     return "reports.workspace.status.ready";
   }
   return "reports.workspace.status.draft";
+}
+
+function toneForWorkspaceSource(source: WorkspaceSource): "success" | "warning" {
+  return source === "server" ? "success" : "warning";
+}
+
+function toneForSla(record: ReportWorkspaceRecord): "success" | "danger" {
+  return record.slaBreached ? "danger" : "success";
 }
 
 const REPORT_PLAN_OPTIONS = ["free", "starter", "professional", "enterprise"] as const;
@@ -534,6 +563,8 @@ export default function ReportsPage() {
   const [historyRows, setHistoryRows] = useState<ReportHistoryRow[]>([]);
   const [selectedReportDetail, setSelectedReportDetail] = useState<ReportDetailResponse | null>(null);
   const [loadingReportDetail, setLoadingReportDetail] = useState(false);
+  const [linkedRosId, setLinkedRosId] = useState<string | null>(null);
+  const [linkedRosLoading, setLinkedRosLoading] = useState(false);
   const [exportingEvidenceBundle, setExportingEvidenceBundle] = useState(false);
   const [exportingFormalDossier, setExportingFormalDossier] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
@@ -546,12 +577,28 @@ export default function ReportsPage() {
   const [localDeadline, setLocalDeadline] = useState("");
   const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus>("draft");
   const [workspaceNote, setWorkspaceNote] = useState("");
-  const [timelineLoading, setTimelineLoading] = useState(false);
-  const [timelineError, setTimelineError] = useState<string | null>(null);
-  const [timelineData, setTimelineData] = useState<WorkItemTimelineResponse<WorkItemResponse> | null>(null);
-  const [commentType, setCommentType] = useState<WorkCommentResponse["comment_type"]>("note");
-  const [commentBody, setCommentBody] = useState("");
-  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const {
+    timelineLoading,
+    timelineError,
+    timelineData,
+    commentType,
+    commentBody,
+    commentSubmitting,
+    setCommentType,
+    setCommentBody,
+    resetTimeline,
+    loadTimeline,
+    submitTimelineComment
+  } = useWorkItemTimeline<WorkItemResponse>({
+    resolveErrorMessage: (apiError, fallback) => resolveApiErrorMessage(t, apiError, fallback),
+    loadErrorMessage: tr("reports.workspace.timeline.errorLoad" as MessageKey),
+    commentErrorMessage: tr("reports.workspace.timeline.errorComment" as MessageKey),
+    emptySelectionErrorMessage: tr("reports.workspace.timeline.emptyLocal" as MessageKey),
+    emptyCommentErrorMessage: tr("reports.workspace.timeline.commentEmpty" as MessageKey),
+    onCommentSaved: () => {
+      setNotice(tr("reports.workspace.timeline.commentSaved" as MessageKey));
+    }
+  });
 
   const availableReportCount = useMemo(() => catalog.filter((entry: ReportTypeItem) => entry.available).length, [catalog]);
   const deprecatedReportCount = useMemo(() => catalog.filter((entry: ReportTypeItem) => Boolean(entry.deprecated)).length, [catalog]);
@@ -584,8 +631,20 @@ export default function ReportsPage() {
     if (!selectedReportDetail) {
       return null;
     }
-    return workspace.find((entry: ReportWorkspaceRecord) => entry.caseId === selectedReportDetail.case_id) ?? null;
+    return findReportWorkspaceRecord(workspace, {
+      caseId: selectedReportDetail.case_id,
+      reportExternalId: selectedReportDetail.report_id
+    });
   }, [selectedReportDetail, workspace]);
+  const serverWorkspaceCount = useMemo(
+    () => workspace.filter((entry: ReportWorkspaceRecord) => entry.source === "server").length,
+    [workspace]
+  );
+  const localWorkspaceCount = useMemo(
+    () => workspace.filter((entry: ReportWorkspaceRecord) => entry.source === "local").length,
+    [workspace]
+  );
+  const hasMixedWorkspaceSources = serverWorkspaceCount > 0 && localWorkspaceCount > 0;
 
   const filteredCatalog = useMemo<ReportTypeItem[]>(() => {
     const query = catalogSearch.trim().toLowerCase();
@@ -645,14 +704,55 @@ export default function ReportsPage() {
     ? buildReportContextLinks(
         buildReportOperationalContext({
           caseId: openCaseId,
-          reportId: selectedReportDetail?.case_id === openCaseId.trim() ? selectedReportDetail.report_id : "",
+          reportId:
+            selectedReportWorkspaceRecord?.reportExternalId ||
+            (selectedReportDetail?.case_id === openCaseId.trim() ? selectedReportDetail.report_id : ""),
           reportType: selectedReportType,
           address: cases.find((entry: CaseRow) => entry.id === openCaseId)?.target_address ?? "",
           chain: cases.find((entry: CaseRow) => entry.id === openCaseId)?.target_chain ?? ""
         })
       )
     : [];
-  const selectedTimelineRecord = workspace.find((entry: ReportWorkspaceRecord) => entry.caseId === openCaseId.trim()) ?? null;
+  const selectedTimelineRecord =
+    selectedReportWorkspaceRecord ??
+    findReportWorkspaceRecord(workspace, {
+      caseId: openCaseId.trim(),
+      reportExternalId: historyReportIdFilter.trim()
+    });
+  const selectedReportLastHandoff = useMemo(() => {
+    if (!selectedReportWorkspaceRecord?.workItemId) {
+      return null;
+    }
+    const handoffComments = timelineData?.comments.filter((comment) => comment.comment_type === "handoff") ?? [];
+    if (!handoffComments.length) {
+      return null;
+    }
+    return [...handoffComments].sort((left, right) => right.created_at.localeCompare(left.created_at))[0] ?? null;
+  }, [selectedReportWorkspaceRecord?.workItemId, timelineData?.comments]);
+  const timelineContextBadges = selectedTimelineRecord
+    ? [
+        {
+          label: tr(`reports.workspace.source.${selectedTimelineRecord.source}` as MessageKey),
+          tone: toneForWorkspaceSource(selectedTimelineRecord.source) as "success" | "warning"
+        },
+        {
+          label: tr(getWorkspaceStatusLabelKey(selectedTimelineRecord.workspaceStatus)),
+          tone: (
+            selectedTimelineRecord.workspaceStatus === "ready"
+              ? "success"
+              : selectedTimelineRecord.workspaceStatus === "in_review"
+                ? "warning"
+                : "danger"
+          ) as "success" | "warning" | "danger"
+        },
+        {
+          label: tr(
+            selectedTimelineRecord.slaBreached ? ("reports.workspace.sla.breached" as MessageKey) : ("reports.workspace.sla.onTrack" as MessageKey)
+          ),
+          tone: toneForSla(selectedTimelineRecord) as "success" | "danger"
+        }
+      ]
+    : [];
 
   function renderReportTypeValue(value: string | null | undefined) {
     const normalized = value?.trim() ?? "";
@@ -748,6 +848,23 @@ export default function ReportsPage() {
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }
 
+  function openReportFromHistory(reportId: string) {
+    const normalizedReportId = reportId.trim();
+    if (!normalizedReportId) {
+      return;
+    }
+
+    setHistoryReportIdFilter(normalizedReportId);
+    syncHistoryLocation({
+      reportId: normalizedReportId,
+      reportType: historyTypeFilter,
+      caseId: historyCaseFilter,
+      createdFrom: toHistoryDateTimeQueryValue(historyCreatedFromFilter),
+      createdTo: toHistoryDateTimeQueryValue(historyCreatedToFilter)
+    });
+    void loadReportDetail(normalizedReportId);
+  }
+
   function applyHistoryFilters() {
     const nextReportId = historyReportIdFilter.trim();
     const nextType = historyTypeFilter;
@@ -792,27 +909,20 @@ export default function ReportsPage() {
     });
   }
 
-  async function loadTimeline(workItemId: string) {
-    setTimelineLoading(true);
-    setTimelineError(null);
-    const result = await fetchWorkItemTimeline<WorkItemResponse>(workItemId);
-    if (!result.ok) {
-      setTimelineData(null);
-      setTimelineError(resolveApiErrorMessage(t, result.error, tr("reports.workspace.timeline.errorLoad" as MessageKey)));
-      setTimelineLoading(false);
-      return;
+  async function loadOperationalWorkspace(localRecords: ReportWorkspaceRecord[], reportExternalId?: string) {
+    const query = new URLSearchParams({
+      module: "reports",
+      resource_type: "formal_report_case",
+      limit: String(WORKSPACE_PAGE_LIMIT)
+    });
+    if (reportExternalId?.trim()) {
+      query.set("report_external_id", reportExternalId.trim());
     }
-
-    setTimelineData(result.data);
-    setTimelineLoading(false);
-  }
-
-  async function loadOperationalWorkspace(localRecords: ReportWorkspaceRecord[]) {
     const res = await fetch(
-      `/api/app/operations/work-items?module=reports&resource_type=formal_report_case&limit=${WORKSPACE_PAGE_LIMIT}`,
+      `/api/app/operations/work-items?${query.toString()}`,
       { cache: "no-store" }
     );
-    const data = (await res.json().catch(() => null)) as WorkItemListResponse | { error?: string; detail?: unknown } | null;
+    const data = (await res.json().catch(() => null)) as ReportWorkItemListResponse | { error?: string; detail?: unknown } | null;
     if (!res.ok) {
       setWorkspace(localRecords);
       setNotice(tr("reports.workspace.noticeLoadedLocal" as MessageKey));
@@ -822,6 +932,16 @@ export default function ReportsPage() {
     const items = data && "data" in data && Array.isArray(data.data) ? data.data : [];
     const serverRecords = items.map((item) => mapWorkItemToWorkspaceRecord(item));
     setWorkspace(mergeWorkspaceRecords(serverRecords, localRecords));
+  }
+
+  async function hydrateWorkspaceByReportExternalId(reportExternalId: string) {
+    const normalizedReportId = reportExternalId.trim();
+    if (!normalizedReportId) {
+      return;
+    }
+
+    const currentLocalRecords = loadWorkspace();
+    await loadOperationalWorkspace(currentLocalRecords, normalizedReportId);
   }
 
   async function loadCatalog() {
@@ -980,6 +1100,7 @@ export default function ReportsPage() {
       }
 
       setSelectedReportDetail(data as ReportDetailResponse);
+      setOpenCaseId((data as ReportDetailResponse).case_id);
       setLoadingReportDetail(false);
     } catch (err) {
       setSelectedReportDetail(null);
@@ -1222,7 +1343,12 @@ export default function ReportsPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    const currentRecord = workspace.find((entry: ReportWorkspaceRecord) => entry.caseId === openCaseId.trim());
+    const currentRecord =
+      selectedReportWorkspaceRecord ??
+      findReportWorkspaceRecord(workspace, {
+        caseId: openCaseId.trim(),
+        reportExternalId: historyReportIdFilter.trim()
+      });
     if (!currentRecord) {
       return;
     }
@@ -1234,35 +1360,74 @@ export default function ReportsPage() {
     if (currentRecord.reportType) {
       setSelectedReportType(currentRecord.reportType);
     }
-  }, [openCaseId, workspace]);
+  }, [historyReportIdFilter, openCaseId, selectedReportWorkspaceRecord, workspace]);
+
+  useEffect(() => {
+    const reportExternalId = selectedReportDetail?.report_id?.trim() || historyReportIdFilter.trim();
+    if (!reportExternalId) {
+      return;
+    }
+
+    hydrateWorkspaceByReportExternalId(reportExternalId).catch(() => {
+      // Mantem o workspace atual quando a hidratação seletiva falha.
+    });
+  }, [historyReportIdFilter, selectedReportDetail?.report_id]);
+
+  useEffect(() => {
+    const reportId = selectedReportDetail?.report_id?.trim() ?? "";
+    const reportType = selectedReportDetail?.report_type?.trim() ?? "";
+    if (!reportId || reportType !== "coaf_ready_report") {
+      setLinkedRosId(null);
+      setLinkedRosLoading(false);
+      return;
+    }
+
+    setLinkedRosLoading(true);
+    fetch(`/api/app/reports/${encodeURIComponent(reportId)}/ros-coaf-ref`, { cache: "no-store" })
+      .then(async (res) => {
+        const data = (await res.json().catch(() => null)) as ReportRosCoafRefResponse | { error?: string; detail?: unknown } | null;
+        if (!res.ok) {
+          setLinkedRosId(null);
+          setLinkedRosLoading(false);
+          return;
+        }
+        setLinkedRosId(data && "ros_id" in data && typeof data.ros_id === "string" && data.ros_id.trim() ? data.ros_id.trim() : null);
+        setLinkedRosLoading(false);
+      })
+      .catch(() => {
+        setLinkedRosId(null);
+        setLinkedRosLoading(false);
+      });
+  }, [selectedReportDetail?.report_id, selectedReportDetail?.report_type]);
 
   useEffect(() => {
     if (!selectedTimelineRecord?.workItemId) {
-      setTimelineData(null);
-      setTimelineError(null);
+      resetTimeline();
       return;
     }
-    loadTimeline(selectedTimelineRecord.workItemId).catch(() => {
-      setTimelineData(null);
-      setTimelineError(tr("reports.workspace.timeline.errorLoad" as MessageKey));
-      setTimelineLoading(false);
-    });
-  }, [selectedTimelineRecord?.workItemId, t]);
+    void loadTimeline(selectedTimelineRecord.workItemId);
+  }, [loadTimeline, resetTimeline, selectedTimelineRecord?.workItemId]);
 
   function trackCase(entry: CaseRow) {
     void (async () => {
       const nextReportType = selectedReportType.trim();
       const draftRecord: ReportWorkspaceRecord = {
-        workItemId: workspace.find((current: ReportWorkspaceRecord) => current.caseId === entry.id)?.workItemId,
+        workItemId:
+          findReportWorkspaceRecord(workspace, {
+            caseId: entry.id,
+            reportExternalId: selectedReportDetail?.case_id === entry.id ? selectedReportDetail.report_id : ""
+          })?.workItemId,
         resourceId: entry.id,
         source: "local",
         caseId: entry.id,
         targetAddress: entry.target_address,
         targetChain: entry.target_chain,
         reportType: nextReportType,
+        reportExternalId: selectedReportDetail?.case_id === entry.id ? selectedReportDetail.report_id : "",
         owner,
         priority,
         localDeadline,
+        slaBreached: false,
         workspaceStatus,
         note: workspaceNote,
         lastActionAt: new Date().toISOString()
@@ -1286,6 +1451,17 @@ export default function ReportsPage() {
 
   function hydrateWorkspaceRecord(record: ReportWorkspaceRecord) {
     setOpenCaseId(record.caseId);
+    if (record.reportExternalId) {
+      setHistoryReportIdFilter(record.reportExternalId);
+      syncHistoryLocation({
+        reportId: record.reportExternalId,
+        reportType: historyTypeFilter,
+        caseId: historyCaseFilter,
+        createdFrom: toHistoryDateTimeQueryValue(historyCreatedFromFilter),
+        createdTo: toHistoryDateTimeQueryValue(historyCreatedToFilter)
+      });
+      void loadReportDetail(record.reportExternalId);
+    }
     setSelectedReportType(record.reportType);
     setOwner(record.owner);
     setPriority(record.priority);
@@ -1308,18 +1484,25 @@ export default function ReportsPage() {
 
     const localStatus = nextStatus ?? record.workspaceStatus;
     const queueStatus: WorkItemQueueStatus = localStatus === "ready" ? "READY" : "UNDER_REVIEW";
-    const metadata = {
-      case_id: record.caseId,
-      target_address: record.targetAddress,
-      target_chain: record.targetChain,
-      report_type: record.reportType,
-      owner_user_id: ownerUserId,
-      owner_label: record.owner,
-      local_workspace_status: localStatus,
-      note: record.note
-    };
-    const requestBody = record.workItemId
+    const metadata: ReportWorkItemMetadata = withCanonicalWorkItemMetadata(
+      {
+        target_address: record.targetAddress,
+        target_chain: record.targetChain,
+        report_type: record.reportType,
+        ...(record.reportExternalId ? { report_id: record.reportExternalId } : {})
+      },
+      {
+        resourceType: "formal_report_case",
+        caseId: record.caseId,
+        ownerLabel: record.owner,
+        ownerUserId,
+        workspaceStatus: localStatus,
+        note: record.note
+      }
+    );
+    const requestBody: CreateWorkItemRequest<ReportWorkItemMetadata> | PatchWorkItemRequest<ReportWorkItemMetadata> = record.workItemId
       ? {
+          ...(record.reportExternalId ? { report_external_id: record.reportExternalId } : {}),
           ...(ownerUserId ? { owner_user_id: ownerUserId } : {}),
           priority: record.priority,
           queue_status: queueStatus,
@@ -1333,6 +1516,7 @@ export default function ReportsPage() {
           resource_type: "formal_report_case",
           resource_id: record.caseId,
           case_id: record.caseId,
+          ...(record.reportExternalId ? { report_external_id: record.reportExternalId } : {}),
           ...(ownerUserId ? { owner_user_id: ownerUserId } : {}),
           priority: record.priority,
           queue_status: queueStatus,
@@ -1352,23 +1536,33 @@ export default function ReportsPage() {
         cache: "no-store"
       }
     );
-    const data = (await res.json().catch(() => null)) as WorkItemResponse | { error?: string; detail?: unknown } | null;
+    const data = (await res.json().catch(() => null)) as ReportWorkItemResponse | { error?: string; detail?: unknown } | null;
     setSyncingWorkspace(false);
     if (!res.ok) {
       throw new Error(resolveApiErrorMessage(t, data, tr("reports.workspace.errorSync" as MessageKey)));
     }
 
-    const nextRecord = mapWorkItemToWorkspaceRecord(data as WorkItemResponse);
+    const nextRecord = mapWorkItemToWorkspaceRecord(data as ReportWorkItemResponse);
     setWorkspace((current: ReportWorkspaceRecord[]) => upsertWorkspaceRecord(current, nextRecord));
-    if (openCaseId.trim() === nextRecord.caseId && nextRecord.workItemId) {
+    const currentSelectionMatchesNextRecord = Boolean(
+      nextRecord.workItemId &&
+        selectedTimelineRecord &&
+        isSameReportWorkspaceRecord(selectedTimelineRecord, nextRecord)
+    );
+    if (currentSelectionMatchesNextRecord && nextRecord.workItemId) {
       await loadTimeline(nextRecord.workItemId);
     }
     return nextRecord;
   }
 
-  function updateWorkspaceStatus(caseId: string, nextStatus: WorkspaceStatus) {
+  function updateWorkspaceStatus(recordToUpdate: ReportWorkspaceRecord, nextStatus: WorkspaceStatus) {
     void (async () => {
-      const currentRecord = workspace.find((entry: ReportWorkspaceRecord) => entry.caseId === caseId);
+      const currentRecord =
+        findReportWorkspaceRecord(workspace, {
+          caseId: recordToUpdate.caseId,
+          reportExternalId: recordToUpdate.reportExternalId,
+          workItemId: recordToUpdate.workItemId
+        }) ?? null;
       if (!currentRecord) {
         return;
       }
@@ -1376,7 +1570,8 @@ export default function ReportsPage() {
       const draftRecord = { ...currentRecord, workspaceStatus: nextStatus, lastActionAt: new Date().toISOString() };
       setWorkspace((current: ReportWorkspaceRecord[]) =>
         upsertWorkspaceRecord(current, {
-          caseId,
+          caseId: currentRecord.caseId,
+          reportExternalId: currentRecord.reportExternalId,
           workspaceStatus: nextStatus,
           lastActionAt: draftRecord.lastActionAt
         })
@@ -1385,44 +1580,19 @@ export default function ReportsPage() {
         await syncWorkspaceRecord(draftRecord, nextStatus);
       } catch (syncError) {
         setError(syncError instanceof Error ? syncError.message : tr("reports.workspace.errorSync" as MessageKey));
-        setNotice(tr("reports.workspace.noticeTrackedLocalOnly" as MessageKey, { caseId }));
+        setNotice(tr("reports.workspace.noticeTrackedLocalOnly" as MessageKey, { caseId: currentRecord.caseId }));
       }
     })();
   }
 
-  function removeWorkspaceRecord(caseId: string) {
+  function removeWorkspaceRecord(recordToRemove: ReportWorkspaceRecord) {
+    const identityToRemove = buildReportWorkspaceIdentity(recordToRemove);
     setWorkspace((current: ReportWorkspaceRecord[]) =>
-      current.filter((entry: ReportWorkspaceRecord) => entry.caseId !== caseId)
+      current.filter(
+        (entry: ReportWorkspaceRecord) =>
+          buildReportWorkspaceIdentity(entry) !== identityToRemove && !isSameReportWorkspaceRecord(entry, recordToRemove)
+      )
     );
-  }
-
-  async function submitTimelineComment() {
-    if (!selectedTimelineRecord?.workItemId) {
-      setTimelineError(tr("reports.workspace.timeline.emptyLocal" as MessageKey));
-      return;
-    }
-    if (!commentBody.trim()) {
-      setTimelineError(tr("reports.workspace.timeline.commentEmpty" as MessageKey));
-      return;
-    }
-
-    setCommentSubmitting(true);
-    setTimelineError(null);
-    const result = await createWorkItemComment(selectedTimelineRecord.workItemId, {
-      comment_type: commentType,
-      body: commentBody.trim()
-    });
-    if (!result.ok) {
-      setTimelineError(resolveApiErrorMessage(t, result.error, tr("reports.workspace.timeline.errorComment" as MessageKey)));
-      setCommentSubmitting(false);
-      return;
-    }
-
-    setCommentBody("");
-    setCommentType("note");
-    await loadTimeline(selectedTimelineRecord.workItemId);
-    setNotice(tr("reports.workspace.timeline.commentSaved" as MessageKey));
-    setCommentSubmitting(false);
   }
 
   return (
@@ -1660,37 +1830,67 @@ export default function ReportsPage() {
         </div>
 
         <Panel title={tr("reports.workspace.title" as MessageKey)} description={tr("reports.workspace.description" as MessageKey)}>
+          {localWorkspaceCount > 0 && serverWorkspaceCount === 0 ? (
+            <Message>{tr("reports.workspace.mode.localOnly" as MessageKey, { count: localWorkspaceCount })}</Message>
+          ) : null}
+          {hasMixedWorkspaceSources ? (
+            <Message>
+              {tr("reports.workspace.mode.mixed" as MessageKey, {
+                server: serverWorkspaceCount,
+                local: localWorkspaceCount
+              })}
+            </Message>
+          ) : null}
           {workspace.length ? (
             <table className="otc-table otc-table--spaced">
               <thead>
                 <tr>
                   <th>{tr("reports.workspace.table.caseId" as MessageKey)}</th>
+                  <th>{tr("reports.history.reportId" as MessageKey)}</th>
                   <th>{tr("reports.workspace.table.reportType" as MessageKey)}</th>
                   <th>{tr("reports.workspace.table.owner" as MessageKey)}</th>
                   <th>{tr("reports.workspace.table.priority" as MessageKey)}</th>
                   <th>{tr("reports.workspace.table.deadline" as MessageKey)}</th>
+                  <th>{tr("reports.workspace.table.sla" as MessageKey)}</th>
                   <th>{tr("reports.workspace.table.status" as MessageKey)}</th>
+                  <th>{tr("reports.workspace.table.source" as MessageKey)}</th>
                   <th>{tr("reports.workspace.table.actions" as MessageKey)}</th>
                 </tr>
               </thead>
               <tbody>
               {workspace.map((record: ReportWorkspaceRecord) => (
-                  <tr key={record.caseId}>
+                  <tr
+                    key={buildReportWorkspaceIdentity(record)}
+                    data-testid={`reports-workspace-row-${record.caseId}`}
+                    className={
+                      selectedReportWorkspaceRecord && isSameReportWorkspaceRecord(selectedReportWorkspaceRecord, record)
+                        ? "otc-row-selected"
+                        : undefined
+                    }
+                  >
                     <td>
                       <strong>{record.caseId}</strong>
                       {record.note ? <div className="otc-muted">{record.note}</div> : null}
                     </td>
+                    <td className="otc-mono">{record.reportExternalId || t("common.notAvailable")}</td>
                     <td>{renderReportTypeValue(record.reportType)}</td>
                     <td>{record.owner || t("common.notAvailable")}</td>
-                    <td>{t(`common.priority.${record.priority}` as MessageKey)}</td>
-                    <td>
+                    <td data-testid={`reports-workspace-priority-${record.caseId}`}>{t(`common.priority.${record.priority}` as MessageKey)}</td>
+                    <td data-testid={`reports-workspace-deadline-${record.caseId}`}>
                       {record.localDeadline ? formatDate(record.localDeadline, locale) ?? record.localDeadline : t("common.notAvailable")}
                       <div className="otc-muted">{tr(`reports.workspace.urgency.${getWorkspaceUrgency(record)}` as MessageKey)}</div>
                     </td>
+                    <td data-testid={`reports-workspace-sla-${record.caseId}`}>
+                      <Pill tone={toneForSla(record)}>
+                        {tr(record.slaBreached ? ("reports.workspace.sla.breached" as MessageKey) : ("reports.workspace.sla.onTrack" as MessageKey))}
+                      </Pill>
+                    </td>
                     <td>{tr(`reports.workspace.status.${record.workspaceStatus === "in_review" ? "inReview" : record.workspaceStatus}` as MessageKey)}</td>
+                    <td data-testid={`reports-workspace-source-${record.caseId}`}>
+                      <Pill tone={toneForWorkspaceSource(record.source)}>{tr(`reports.workspace.source.${record.source}` as MessageKey)}</Pill>
+                    </td>
                     <td>
                       <div className="otc-controls">
-                        <Pill tone={record.source === "server" ? "success" : "warning"}>{tr(`reports.workspace.source.${record.source}` as MessageKey)}</Pill>
                         <button type="button" className="otc-button otc-button--ghost" onClick={() => hydrateWorkspaceRecord(record)}>
                           {tr("reports.workspace.table.load" as MessageKey)}
                         </button>
@@ -1709,17 +1909,17 @@ export default function ReportsPage() {
                             {tr(link.labelKey)}
                           </a>
                         ))}
-                        <button type="button" className="otc-button otc-button--ghost" onClick={() => updateWorkspaceStatus(record.caseId, "draft")}>
+                        <button type="button" className="otc-button otc-button--ghost" onClick={() => updateWorkspaceStatus(record, "draft")}>
                           {tr("reports.workspace.table.markDraft" as MessageKey)}
                         </button>
-                        <button type="button" className="otc-button otc-button--ghost" onClick={() => updateWorkspaceStatus(record.caseId, "in_review")}>
+                        <button type="button" className="otc-button otc-button--ghost" onClick={() => updateWorkspaceStatus(record, "in_review")}>
                           {tr("reports.workspace.table.markInReview" as MessageKey)}
                         </button>
-                        <button type="button" className="otc-button otc-button--ghost" onClick={() => updateWorkspaceStatus(record.caseId, "ready")}>
+                        <button type="button" className="otc-button otc-button--ghost" onClick={() => updateWorkspaceStatus(record, "ready")}>
                           {tr("reports.workspace.table.markReady" as MessageKey)}
                         </button>
                         {record.source === "local" ? (
-                          <button type="button" className="otc-button otc-button--ghost" onClick={() => removeWorkspaceRecord(record.caseId)}>
+                          <button type="button" className="otc-button otc-button--ghost" onClick={() => removeWorkspaceRecord(record)}>
                             {tr("reports.workspace.table.remove" as MessageKey)}
                           </button>
                         ) : null}
@@ -1736,7 +1936,15 @@ export default function ReportsPage() {
 
         <WorkItemTimelinePanel
           state={!selectedTimelineRecord ? "empty_selection" : !selectedTimelineRecord.workItemId ? "local_only" : "ready"}
-          summary={selectedTimelineRecord ? tr("reports.workspace.timeline.summary" as MessageKey, { caseId: selectedTimelineRecord.caseId }) : null}
+          summary={
+            selectedTimelineRecord
+              ? tr("reports.workspace.timeline.summary" as MessageKey, {
+                  caseId: selectedTimelineRecord.caseId
+                })
+              : null
+          }
+          contextBadges={timelineContextBadges}
+          localOnlyHint={selectedTimelineRecord ? tr("reports.workspace.timeline.localHint" as MessageKey) : null}
           labels={buildWorkItemTimelineLabels(tr, "reports.workspace.timeline")}
           timelineError={timelineError}
           timelineData={timelineData}
@@ -1747,7 +1955,7 @@ export default function ReportsPage() {
           onCommentTypeChange={setCommentType}
           onCommentBodyChange={setCommentBody}
           onCommentSubmit={() => {
-            void submitTimelineComment();
+            void submitTimelineComment(selectedTimelineRecord?.workItemId);
           }}
           onRefresh={
             selectedTimelineRecord?.workItemId
@@ -1912,7 +2120,7 @@ export default function ReportsPage() {
           <button
             type="button"
             className="otc-button otc-button--ghost"
-            onClick={() => void loadReportDetail(historyReportIdFilter)}
+            onClick={() => openReportFromHistory(historyReportIdFilter)}
             disabled={!historyReportIdFilter.trim() || loadingReportDetail}
             data-testid="reports-history-load-detail"
           >
@@ -1938,11 +2146,10 @@ export default function ReportsPage() {
                 {filteredHistoryRows.map((record: ReportHistoryRow) => (
                   <tr
                     key={record.report_id}
-                    className={openCaseId === (record.case_id ?? "") ? "otc-row-selected otc-row-clickable" : "otc-row-clickable"}
+                    className={selectedReportDetail?.report_id === record.report_id ? "otc-row-selected otc-row-clickable" : "otc-row-clickable"}
                     onClick={() => {
                       setOpenCaseId(record.case_id ?? "");
-                      setHistoryReportIdFilter(record.report_id);
-                      void loadReportDetail(record.report_id);
+                      openReportFromHistory(record.report_id);
                     }}
                     data-testid="reports-history-row"
                   >
@@ -2001,12 +2208,21 @@ export default function ReportsPage() {
             <button
               type="button"
               className="otc-button otc-button--ghost"
-              onClick={() => void loadReportDetail(historyReportIdFilter)}
+              onClick={() => openReportFromHistory(historyReportIdFilter)}
               disabled={!historyReportIdFilter.trim() || loadingReportDetail}
               data-testid="reports-detail-refresh"
             >
               {loadingReportDetail ? tr("reports.detail.refreshing" as MessageKey) : tr("reports.detail.refresh" as MessageKey)}
             </button>
+            {linkedRosLoading ? (
+              <button type="button" className="otc-button otc-button--ghost" disabled>
+                {tr("reports.detail.loadingRosCoaf" as MessageKey)}
+              </button>
+            ) : linkedRosId ? (
+              <a className="otc-button" href={`/ros-coaf?ros_id=${encodeURIComponent(linkedRosId)}`}>
+                {tr("reports.detail.openRosCoaf" as MessageKey)}
+              </a>
+            ) : null}
             <button
               type="button"
               className="otc-button otc-button--ghost"
@@ -2152,8 +2368,43 @@ export default function ReportsPage() {
                       </td>
                     </tr>
                     <tr>
+                      <th>{tr("reports.workspace.table.sla" as MessageKey)}</th>
+                      <td>
+                        <Pill tone={toneForSla(selectedReportWorkspaceRecord)}>
+                          {tr(
+                            selectedReportWorkspaceRecord.slaBreached
+                              ? ("reports.workspace.sla.breached" as MessageKey)
+                              : ("reports.workspace.sla.onTrack" as MessageKey)
+                          )}
+                        </Pill>
+                      </td>
+                    </tr>
+                    <tr>
                       <th>{tr("reports.workspace.table.status" as MessageKey)}</th>
                       <td>{tr(getWorkspaceStatusLabelKey(selectedReportWorkspaceRecord.workspaceStatus) as MessageKey)}</td>
+                    </tr>
+                    <tr>
+                      <th>{tr("reports.workspace.table.source" as MessageKey)}</th>
+                      <td>{tr(`reports.workspace.source.${selectedReportWorkspaceRecord.source}` as MessageKey)}</td>
+                    </tr>
+                    <tr>
+                      <th>{tr("reports.detail.reportExternalId" as MessageKey)}</th>
+                      <td>{selectedReportWorkspaceRecord.reportExternalId || t("common.notAvailable")}</td>
+                    </tr>
+                    <tr>
+                      <th>{tr("reports.detail.lastHandoff" as MessageKey)}</th>
+                      <td>
+                        {selectedReportLastHandoff ? (
+                          <div className="otc-stack">
+                            <span>{selectedReportLastHandoff.body}</span>
+                            <span className="otc-muted">
+                              {formatDate(selectedReportLastHandoff.created_at, locale) ?? selectedReportLastHandoff.created_at}
+                            </span>
+                          </div>
+                        ) : (
+                          t("common.notAvailable")
+                        )}
+                      </td>
                     </tr>
                     <tr>
                       <th>{tr("reports.workspace.filters.note" as MessageKey)}</th>

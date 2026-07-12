@@ -69,7 +69,13 @@ class CheckComplianceProviderRuntimeTests(unittest.TestCase):
             ),
         ]
 
-        with patch.object(MODULE, "request_json", side_effect=responses):
+        captured_headers: list[dict[str, str]] = []
+
+        def _request_json(**kwargs):
+            captured_headers.append(dict(kwargs["headers"]))
+            return responses[len(captured_headers) - 1]
+
+        with patch.object(MODULE, "request_json", side_effect=_request_json):
             payload = MODULE.build_payload(
                 internal_base_url="http://localhost:8002",
                 public_base_url="http://localhost:8002",
@@ -80,11 +86,18 @@ class CheckComplianceProviderRuntimeTests(unittest.TestCase):
                 bearer_token="",
                 api_key="",
                 timeout_seconds=5.0,
+                request_id="req-compliance-1",
             )
 
         self.assertEqual(payload["status"], "ok")
         self.assertEqual(payload["errors"], [])
+        self.assertEqual(payload["request_id"], "req-compliance-1")
         self.assertEqual([check["status"] for check in payload["checks"]], ["ok", "ok", "ok"])
+        self.assertTrue(payload["correlation"]["provider_converges_live"])
+        self.assertEqual(payload["correlation"]["internal_operating_mode"], "live")
+        self.assertEqual(payload["correlation"]["catalog_provider_status"], "live")
+        self.assertEqual(payload["correlation"]["runtime_provider_status"], "live")
+        self.assertTrue(all(headers.get("X-Request-Id") == "req-compliance-1" for headers in captured_headers))
 
     def test_build_payload_flags_degraded_runtime_and_internal_failures(self) -> None:
         responses = [
@@ -131,12 +144,14 @@ class CheckComplianceProviderRuntimeTests(unittest.TestCase):
                 bearer_token="",
                 api_key="",
                 timeout_seconds=5.0,
+                request_id="req-compliance-2",
             )
 
         self.assertEqual(payload["status"], "failed")
         self.assertIn("internal/provider-readiness: ready esperado=true", payload["errors"][0])
         self.assertIn("operations/kyc_wallet: provider_status esperado=live recebido=degraded", payload["errors"])
         self.assertIn("kyc-wallet: provider_status esperado=live recebido=degraded degraded_reason=provider_unavailable", payload["errors"])
+        self.assertFalse(payload["correlation"]["provider_converges_live"])
 
     def test_main_emits_json_and_non_zero_exit_code_on_failure(self) -> None:
         payload = {
@@ -158,6 +173,7 @@ class CheckComplianceProviderRuntimeTests(unittest.TestCase):
                 "bearer_token": "",
                 "api_key": "",
                 "timeout_seconds": 5.0,
+                "request_id": "req-compliance-3",
             })()),
             patch.object(MODULE, "build_payload", return_value=payload),
             redirect_stdout(stdout),

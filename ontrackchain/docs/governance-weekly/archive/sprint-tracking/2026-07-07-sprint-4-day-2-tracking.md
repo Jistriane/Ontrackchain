@@ -94,4 +94,4 @@
 - classificacao: `parcial`
 - resumo executivo: a baseline nova esta clara conceitualmente, mas ainda precisa da publicacao formal nos documentos oficiais
 - owner do primeiro passo do proximo marco: `Arquitetura/Governanca`
-- artefato relacionado: [Runbook de Execucao do Dia 2 da Sprint 4](../../sprint-4-day-2-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-4-day-2-execution-runbook.md`

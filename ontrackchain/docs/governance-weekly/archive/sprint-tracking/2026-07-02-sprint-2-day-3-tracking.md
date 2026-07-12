@@ -102,4 +102,4 @@
 - classificacao: `parcial`
 - resumo executivo: o cockpit ROS avancou, mas ainda sem comprovacao completa de auditabilidade na UI
 - owner do primeiro passo do proximo marco: `Frontend + Report API`
-- artefato relacionado: [Runbook de Execucao do Dia 3 da Sprint 2](../../sprint-2-day-3-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-2-day-3-execution-runbook.md`

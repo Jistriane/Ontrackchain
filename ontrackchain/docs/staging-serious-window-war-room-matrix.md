@@ -14,6 +14,7 @@ Use esta matriz junto com:
 
 - [Ownership do `.env.staging`](staging-env-ownership.md)
 - [Owners e SLAs Operacionais](operational-ownership-and-slas.md)
+- [Playbook de Incidente Cross-Domain e RCA](cross-domain-incident-rca-playbook.md)
 - [Gates de Release para Staging Serio](project-release-gates.md)
 
 ## Quando Usar
@@ -25,6 +26,11 @@ Usar este documento quando houver:
 - necessidade de coordenacao rapida entre owners
 - bloqueio externo que exija escalacao imediata
 
+Regra complementar para incidentes:
+
+- se a semana ou a janela contiver incidente cross-domain material, o war room deve verificar se a RCA minima foi registrada conforme o [Playbook de Incidente Cross-Domain e RCA](cross-domain-incident-rca-playbook.md)
+- essa verificacao endurece o handoff operacional e a leitura executiva, mas nao substitui nenhum gate de `P0-01` a `P0-07`
+
 ## Matriz de Execucao
 
 | Trilha | Owner primario | Backup/Escalacao | Dependencia de entrada | Comando minimo | Evidencia minima | No-go imediato |
@@ -34,6 +40,7 @@ Usar este documento quando houver:
 | `Investigation/RPC` | `Backend Core` | `Platform/SRE` | endpoints primario/fallback definidos e roteaveis | `python3 scripts/preflight_external_integrations.py` | output coerente com `ONTRACKCHAIN_EXPECT_RPC_MODE` e handoff de `Investigation/RPC` atualizado | RPC primario/fallback indisponivel ou placeholder ainda aberto |
 | `Compliance/AML` | `Compliance/Backend` | `Security` | credenciais reais do provider, URL tokenizada da UE quando aplicavel, handoff pronto | `python3 scripts/preflight_external_integrations.py` e `make check-compliance-provider-runtime INTERNAL_BASE_URL=http://compliance-api:8002 PUBLIC_BASE_URL=http://localhost:8080` | runtime AML/KYT verde e, quando houver UE, JSONs `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json` | provider real indisponivel, `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` placeholder ou bundle regulatorio falhando |
 | `Gate Agregado da Janela` | `Arquiteto/Responsavel Tecnico` | `Platform/SRE` | todas as trilhas acima em estado verde ou waived formalmente | `python3 scripts/prepare_staging_window.py --window-id stg-YYYY-MM-DD-a --mode baseline --private-env-file .env.staging.private --validate --preflight` | resultado `status=ok` e pacote pronto para `make run-serious-window-local` | qualquer trilha anterior em `pending`, `failed` ou sem evidencia anexavel |
+| `Incidente Cross-Domain` | `Platform/SRE` | `Arquiteto/Responsavel Tecnico` | incidente material detectado no ciclo ou na janela | revisar `work_item_id`, timeline do alerta, export administrativo e resumo RCA quando houver | RCA minima registrada, comentario automatico presente quando aplicavel e resumo executivo coerente com o impacto observado | incidente material sem RCA minima, sem owner definido ou com narrativa executiva incoerente |
 
 ## Sequencia de War Room
 
@@ -42,8 +49,9 @@ Usar este documento quando houver:
 3. validar `Auth/OIDC`
 4. validar `Investigation/RPC`
 5. validar `Compliance/AML`
-6. rerodar o gate agregado da janela
-7. se verde, autorizar `make run-serious-window-local`
+6. se houver incidente material, validar `Incidente Cross-Domain`
+7. rerodar o gate agregado da janela
+8. se verde, autorizar `make run-serious-window-local`
 
 ## Escalacao Recomendada
 
@@ -53,6 +61,7 @@ Usar este documento quando houver:
 | preflight OIDC falhando | `Backend/Auth` + `Security` | `30 min` |
 | provider AML/KYT ou UE indisponivel | `Compliance/Backend` + owner externo do provider | `60 min` |
 | falha de RPC ou conectividade | `Backend Core` + `Platform/SRE` | `30 min` |
+| incidente material sem RCA minima ou sem owner claro | `Platform/SRE` + `Arquiteto/Responsavel Tecnico` | `30 min` |
 | gate agregado da janela falhando | `Arquiteto/Responsavel Tecnico` + owner da trilha vermelha | `15 min` |
 
 ## Definition of Ready para Execucao
@@ -75,5 +84,6 @@ A janela so entra em execucao quando:
 - `artifacts/staging/checks/<janela>-eu-sanctions-sync.json` quando a UE estiver no escopo
 - `artifacts/staging/checks/<janela>-regulatory-readiness-bundle.json` quando `P0-02` e `P0-03` forem exercitados em conjunto
 - `artifacts/staging/dossiers/<janela>-regulatory-readiness-bundle.md` quando `P0-02` e `P0-03` forem exercitados em conjunto
+- `artifacts/staging/checks/<janela>-operational-alerts-rca-summary.json` quando houver incidente cross-domain material e export administrativo disponivel
 - `ci-artifacts/prepare-staging-window-output.json`
 - `ci-artifacts/staging-serious-window-signoff.md`

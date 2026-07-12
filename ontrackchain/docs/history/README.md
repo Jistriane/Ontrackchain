@@ -31,6 +31,14 @@ Comece por estes documentos:
 ## Artefatos Movidos
 
 - [Plano Consolidado de Continuidade e Execucao](./CONTINUATION_EXECUTION_PLAN_2026_07.md)
-- [Roteiro Operacional do Dia da Janela `stg-2026-07-06-a`](./DAY_OF_WINDOW_RUNBOOK_STG_2026_07_06_A.md)
 - [Plano Tatico Sprint 7-9: Escalacao Controlada para 95%](./TACTICAL_ROADMAP_SPRINT_7_TO_95_PERCENT.md)
 - [Tracker Semanal de Owners para 95%](./WEEKLY_OWNERS_TRACKER_TO_95_PERCENT.md)
+- [Checklist de Evidencia Minima da Primeira Janela Seria](./first-serious-window-evidence-checklist.md)
+- [Runbook do Primeiro Disparo Real](./first-serious-window-first-dispatch-runbook.md)
+- [Template de Sign-Off da Janela Seria](./staging-serious-window-signoff-template.md)
+- [Auditoria de `.publish_repo` - 2026-07-11](./PUBLISH_REPO_AUDIT_2026_07_11.md)
+
+## Notas de Consolidacao
+
+- o roteiro operacional datado da janela `stg-2026-07-06-a` foi absorvido pelos artefatos do ciclo em `../governance-weekly/cycles/2026-07-06/`
+- use `../project-construction-plan-to-95-percent.md` e `../project-operational-execution-board.md` como referencias vivas; os arquivos desta pasta permanecem apenas como registro frio

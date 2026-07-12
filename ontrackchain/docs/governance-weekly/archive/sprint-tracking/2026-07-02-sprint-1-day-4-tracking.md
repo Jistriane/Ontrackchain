@@ -122,4 +122,4 @@
 - classificacao: `parcial`
 - resumo executivo: o `Dia 4` esta pronto como trilha de validacao de identidade forte, mas segue bloqueado por dependencia institucional e ausencia de evidência operacional do MFA homologado
 - owner do primeiro passo do `Dia 5`: `a definir apos fechamento real do Dia 4`
-- artefato relacionado: [Runbook de Execucao do Dia 4 da Sprint 1](../../sprint-1-day-4-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-1-day-4-execution-runbook.md`

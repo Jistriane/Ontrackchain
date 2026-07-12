@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import importlib
-import importlib.util
 import sys
 import unittest
 from pathlib import Path
@@ -11,17 +10,17 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-FASTAPI_AVAILABLE = importlib.util.find_spec("fastapi") is not None
-
-if FASTAPI_AVAILABLE:
-    HTTPException = importlib.import_module("fastapi").HTTPException
+try:
+    HTTPException: Any = importlib.import_module("fastapi").HTTPException
     main: Any = importlib.import_module("compliance_api.main")
-else:
-    HTTPException: Any = Exception
-    main: Any = None
+    MAIN_IMPORT_AVAILABLE = True
+except ModuleNotFoundError:
+    HTTPException = Exception
+    main = None
+    MAIN_IMPORT_AVAILABLE = False
 
 
-@unittest.skipUnless(FASTAPI_AVAILABLE, "fastapi dependency not installed in current interpreter")
+@unittest.skipUnless(MAIN_IMPORT_AVAILABLE, "compliance_api.main dependencies not installed in current interpreter")
 class ComplianceInternalMetricsTests(unittest.TestCase):
     def test_provider_readiness_returns_contract_for_current_provider(self) -> None:
         with (

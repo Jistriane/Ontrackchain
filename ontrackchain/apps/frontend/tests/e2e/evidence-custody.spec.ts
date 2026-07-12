@@ -426,13 +426,27 @@ test.describe("evidence custody flow", () => {
       });
     });
 
-    await page.goto("/evidence?request_id=req-dd-1&domain=due_diligence");
+    await page.goto(
+      "/evidence?request_id=req-dd-1&domain=due_diligence&action=compliance_due_diligence_checked&resource_type=address&audit_origin=manual_package"
+    );
 
     await expect(page.locator('[data-testid="evidence-filter-action"] option[value="compliance_due_diligence_checked"]')).toHaveText(
       "Due diligence verificada (compliance_due_diligence_checked)"
     );
     await expect(page.locator('[data-testid="evidence-filter-resource-type"] option[value="address"]')).toHaveText(
       "Endereço (address)"
+    );
+    await expect(page.getByTestId("evidence-audit-return-banner")).toContainText(
+      "Retorno da trilha auditável manual"
+    );
+    await expect(page.getByTestId("evidence-audit-return-banner")).toContainText(
+      "Due diligence verificada"
+    );
+    await expect(page.getByTestId("evidence-audit-return-banner")).toContainText("Due diligence");
+    await expect(page.getByTestId("evidence-audit-return-banner")).toContainText("req-dd-1");
+    await expect(page.getByTestId("evidence-audit-return-open-audit")).toHaveAttribute(
+      "href",
+      "/audit?action=evidence_manual_review_package_exported&resource_type=audit_log&request_id=req-dd-1"
     );
     await expect(page.getByTestId("evidence-manual-review-panel")).toContainText("manual_review_pending");
     await expect(page.getByTestId("evidence-manual-review-panel")).toContainText("Revisão manual pendente");
@@ -441,6 +455,7 @@ test.describe("evidence custody flow", () => {
     await expect(page.getByTestId("evidence-manual-package-focus-chain")).toBeVisible();
     await expect(page.getByTestId("evidence-manual-package-export-chain")).toBeVisible();
     await expect(page.getByTestId("evidence-manual-package-export-package")).toBeVisible();
+    await expect(page.getByTestId("evidence-manual-package-open-audit-preset")).toBeVisible();
     await expect(page.getByTestId("evidence-manual-package-open-audit")).toBeVisible();
     await expect(page.getByTestId("evidence-manual-package-open-reports")).toBeVisible();
     await expect(page.getByTestId("evidence-manual-package-open-investigate")).toBeVisible();
@@ -472,6 +487,10 @@ test.describe("evidence custody flow", () => {
     await page.getByTestId("evidence-manual-package-export-chain").click();
     const chainDownload = await chainDownloadFromPackage;
     expect(chainDownload.suggestedFilename()).toContain("ontrackchain-manual-review-due-diligence-req-dd-1.json");
+    await expect(page.getByTestId("evidence-manual-package-open-audit-preset")).toHaveAttribute(
+      "href",
+      "/audit?action=evidence_manual_review_package_exported&resource_type=audit_log&request_id=req-dd-1"
+    );
     await expect(page.getByTestId("evidence-manual-package-open-audit")).toHaveAttribute("href", /\/audit/);
     await expect(page.getByTestId("evidence-manual-package-open-reports")).toHaveAttribute("href", /\/reports/);
     await expect(page.getByTestId("evidence-manual-package-open-investigate")).toHaveAttribute("href", /\/investigate\?address=0xdddddddddddddddddddddddddddddddddddddddd/);
@@ -1237,5 +1256,998 @@ test.describe("evidence custody flow", () => {
     await page.getByTestId("evidence-export-manual-package").click();
     const download = await evidenceDownload;
     expect(download.suggestedFilename()).toContain("ontrackchain-manual-review-source-of-funds-req-sof-1.json");
+  });
+  test("materializa a selagem institucional pelo package_sha256 correlacionado", async ({ page }: { page: Page }) => {
+    await page.context().addCookies([
+      {
+        name: "otc_token",
+        value: "pw-e2e-token",
+        domain: "localhost",
+        path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax"
+      }
+    ]);
+
+    await page.route("**/api/app/auth/context", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-e2e",
+          user_id: "user-e2e",
+          linked_user_id: "linked-e2e",
+          role: "AUDITOR",
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/operations/work-items?module=evidence**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] })
+      });
+    });
+
+    await page.route("**/api/app/audit/logs?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "audit-dd-seal-01",
+              user_id: "user-e2e",
+              action: "compliance_due_diligence_checked",
+              resource_type: "address",
+              resource_id: "0xsealdddddddddddddddddddddddddddddddddddddd",
+              request_id: "req-dd-seal-1",
+              report_id: "rep-dd-seal-1",
+              file_hash_sha256: "a".repeat(64),
+              created_at: "2026-07-08T10:00:00.000Z",
+              metadata: {
+                request_id: "req-dd-seal-1",
+                report_id: "rep-dd-seal-1",
+                address: "0xsealdddddddddddddddddddddddddddddddddddddd",
+                chain: "ethereum",
+                provider: "manual_review",
+                provider_status: "degraded",
+                degraded_reason: "manual_review_required",
+                capability_status: "degraded",
+                delivery_mode: "manual_review_pending",
+                requires_human_review: true
+              }
+            },
+            {
+              id: "audit-dd-seal-02",
+              user_id: "user-e2e",
+              action: "evidence_manual_review_package_exported",
+              resource_type: "audit_log",
+              resource_id: "audit-dd-seal-02",
+              request_id: "req-dd-seal-1",
+              report_id: "rep-dd-seal-1",
+              file_hash_sha256: null,
+              created_at: "2026-07-08T10:05:00.000Z",
+              metadata: {
+                request_id: "req-dd-seal-1",
+                report_id: "rep-dd-seal-1",
+                scope_id: "req-dd-seal-1",
+                filename: "ontrackchain-manual-review-due-diligence-req-dd-seal-1.json",
+                package_sha256: "f".repeat(64),
+                manual_review_action: "compliance_due_diligence_checked"
+              }
+            }
+          ],
+          page: 1,
+          count: 2,
+          limit: 50,
+          total: 2,
+          total_pages: 1,
+          has_more: false
+        })
+      });
+    });
+
+    await page.route("**/api/app/evidence/manual-package/seal?**", async (route: Route) => {
+      const url = new URL(route.request().url());
+      expect(url.searchParams.get("package_sha256")).toBe("f".repeat(64));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          seal_id: "seal-dd-01",
+          organization_id: "org-e2e",
+          package_kind: "manual_review_package",
+          request_id: "req-dd-seal-1",
+          report_id: "rep-dd-seal-1",
+          scope_id: "req-dd-seal-1",
+          manual_review_action: "compliance_due_diligence_checked",
+          package_sha256: "f".repeat(64),
+          manifest_schema_version: "manual_review_package/v2",
+          classification: "restricted_regulatory",
+          signoff_mode: "compliance_ops_signoff",
+          seal_status: "sealed",
+          seal_format: "jws_json_flattened",
+          signature_algorithm: "HS256",
+          kms_key_ref: null,
+          certificate_fingerprint_sha256: null,
+          certificate_bundle_ref: "local-hs256-trust-bundle",
+          policy_version: "manual_package_sealing/v1",
+          sealed_at: "2026-07-08T10:06:00.000Z",
+          sealed_by_user_id: "user-e2e",
+          revoked_at: null,
+          superseded_by_seal_id: null,
+          required_signers: ["compliance_owner", "ops_owner"],
+          completed_signoffs: 2,
+          approved_required_signoffs: 2,
+          required_signoffs: 2,
+          signoffs: [
+            {
+              id: "signoff-dd-01",
+              seal_id: "seal-dd-01",
+              organization_id: "org-e2e",
+              signer_role: "compliance_owner",
+              signer_user_id: "user-e2e",
+              signer_display_name: "Compliance Owner",
+              decision: "approved",
+              signoff_method: "platform_authenticated_2fa",
+              ticket_ref: "CMP-1",
+              notes: null,
+              signed_at: "2026-07-08T10:01:00.000Z",
+              metadata: {}
+            },
+            {
+              id: "signoff-dd-02",
+              seal_id: "seal-dd-01",
+              organization_id: "org-e2e",
+              signer_role: "ops_owner",
+              signer_user_id: "user-e2e",
+              signer_display_name: "Ops Owner",
+              decision: "approved",
+              signoff_method: "platform_authenticated_2fa",
+              ticket_ref: "OPS-1",
+              notes: null,
+              signed_at: "2026-07-08T10:02:00.000Z",
+              metadata: {}
+            }
+          ],
+          seal_envelope: {
+            protected: "header",
+            payload: "payload",
+            signature: "signature"
+          },
+          verification_summary: {
+            verified: true,
+            verification_method: "local_hs256_self_check",
+            seal_backend: "local_hs256",
+            signature_algorithm: "HS256",
+            issuer: "ontrackchain-investigation-api",
+            key_id: "manual-package-local-hs256"
+          },
+          created_at: "2026-07-08T10:00:00.000Z",
+          updated_at: "2026-07-08T10:06:00.000Z"
+        })
+      });
+    });
+
+    await page.goto("/evidence?request_id=req-dd-seal-1&domain=due_diligence&action=compliance_due_diligence_checked&resource_type=address");
+
+    await expect(page.getByTestId("evidence-hash-context")).toContainText(`Hash principal do contexto${"f".repeat(64)}`);
+    await expect(page.getByTestId("evidence-hash-context")).toContainText("manifesto do pacote manual");
+    await expect(page.getByTestId("evidence-manual-package-export-hash")).toContainText("f".repeat(64));
+    await expect(page.getByTestId("evidence-manual-package-export-filename")).toContainText(
+      "ontrackchain-manual-review-due-diligence-req-dd-seal-1.json"
+    );
+    await expect(page.getByTestId("evidence-manual-package-seal-panel")).toContainText("Selagem institucional");
+    await expect(page.getByTestId("evidence-manual-package-seal-panel")).toContainText("Selado");
+    await expect(page.getByTestId("evidence-manual-package-seal-panel")).toContainText("2/2");
+    await expect(page.getByTestId("evidence-manual-package-seal-panel")).toContainText("Compliance Owner");
+    await expect(page.getByTestId("evidence-manual-package-seal-panel")).toContainText("Ops Owner");
+    await expect(page.getByTestId("evidence-manual-package-seal-panel")).toContainText("local-hs256-trust-bundle");
+    await expect(page.getByTestId("evidence-manual-package-seal-panel")).toContainText("local_hs256_self_check");
+    await expect(page.getByTestId("evidence-manual-package-seal-panel")).toContainText("ontrackchain-investigation-api");
+    await expect(page.getByTestId("evidence-manual-package-seal-panel")).toContainText("manual-package-local-hs256");
+    await expect(page.getByTestId("evidence-manual-package-open-audit-governance")).toHaveAttribute(
+      "href",
+      "/audit?preset=governanca&seal_id=seal-dd-01&report_id=rep-dd-seal-1"
+    );
+  });
+
+  test("inicializa a trilha institucional e registra o primeiro sign-off obrigatório", async ({ page }: { page: Page }) => {
+    let currentSeal:
+      | {
+          seal_id: string;
+          organization_id: string;
+          package_kind: string;
+          request_id: string;
+          report_id: string | null;
+          scope_id: string;
+          manual_review_action: string;
+          package_sha256: string;
+          manifest_schema_version: string;
+          classification: string;
+          signoff_mode: string;
+          seal_status: string;
+          seal_format: string;
+          signature_algorithm: string | null;
+          kms_key_ref: string | null;
+          certificate_fingerprint_sha256: string | null;
+          certificate_bundle_ref: string | null;
+          policy_version: string;
+          sealed_at: string | null;
+          sealed_by_user_id: string | null;
+          revoked_at: string | null;
+          superseded_by_seal_id: string | null;
+          required_signers: string[];
+          completed_signoffs: number;
+          approved_required_signoffs: number;
+          required_signoffs: number;
+          signoffs: Array<Record<string, unknown>>;
+          seal_envelope: Record<string, unknown>;
+          verification_summary: Record<string, unknown>;
+          created_at: string | null;
+          updated_at: string | null;
+        }
+      | null = null;
+
+    await page.context().addCookies([
+      {
+        name: "otc_token",
+        value: "pw-e2e-token",
+        domain: "localhost",
+        path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax"
+      }
+    ]);
+
+    await page.route("**/api/app/auth/context", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-e2e",
+          user_id: "user-e2e",
+          linked_user_id: "linked-e2e",
+          role: "AUDITOR",
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/operations/work-items?module=evidence**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] })
+      });
+    });
+
+    await page.route("**/api/app/audit/logs?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "audit-dd-write-01",
+              user_id: "user-e2e",
+              action: "compliance_due_diligence_checked",
+              resource_type: "address",
+              resource_id: "0xwriteeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              request_id: "req-dd-write-1",
+              report_id: "rep-dd-write-1",
+              file_hash_sha256: "a".repeat(64),
+              created_at: "2026-07-08T10:00:00.000Z",
+              metadata: {
+                request_id: "req-dd-write-1",
+                report_id: "rep-dd-write-1",
+                address: "0xwriteeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                chain: "ethereum",
+                provider: "manual_review",
+                provider_status: "degraded",
+                degraded_reason: "manual_review_required",
+                capability_status: "degraded",
+                delivery_mode: "manual_review_pending",
+                requires_human_review: true
+              }
+            },
+            {
+              id: "audit-dd-write-02",
+              user_id: "user-e2e",
+              action: "evidence_manual_review_package_exported",
+              resource_type: "audit_log",
+              resource_id: "audit-dd-write-02",
+              request_id: "req-dd-write-1",
+              report_id: "rep-dd-write-1",
+              file_hash_sha256: null,
+              created_at: "2026-07-08T10:05:00.000Z",
+              metadata: {
+                request_id: "req-dd-write-1",
+                report_id: "rep-dd-write-1",
+                scope_id: "req-dd-write-1",
+                filename: "ontrackchain-manual-review-due-diligence-req-dd-write-1.json",
+                package_sha256: "b".repeat(64),
+                manual_review_action: "compliance_due_diligence_checked"
+              }
+            }
+          ],
+          page: 1,
+          count: 2,
+          limit: 50,
+          total: 2,
+          total_pages: 1,
+          has_more: false
+        })
+      });
+    });
+
+    await page.route("**/api/app/evidence/manual-package/seal?**", async (route: Route) => {
+      const url = new URL(route.request().url());
+      expect(url.searchParams.get("package_sha256")).toBe("b".repeat(64));
+      if (!currentSeal) {
+        await route.fulfill({
+          status: 404,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "manual_package_seal_not_found" })
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(currentSeal)
+      });
+    });
+
+    await page.route("**/api/app/evidence/manual-package/signoff-requests", async (route: Route) => {
+      const payload = JSON.parse(route.request().postData() ?? "{}") as Record<string, string>;
+      expect(payload.request_id).toBe("req-dd-write-1");
+      expect(payload.scope_id).toBe("req-dd-write-1");
+      expect(payload.manual_review_action).toBe("compliance_due_diligence_checked");
+      expect(payload.package_sha256).toBe("b".repeat(64));
+      expect(payload.signoff_mode).toBe("compliance_ops_signoff");
+
+      currentSeal = {
+        seal_id: "seal-dd-write-01",
+        organization_id: "org-e2e",
+        package_kind: "manual_review_package",
+        request_id: "req-dd-write-1",
+        report_id: "rep-dd-write-1",
+        scope_id: "req-dd-write-1",
+        manual_review_action: "compliance_due_diligence_checked",
+        package_sha256: "b".repeat(64),
+        manifest_schema_version: "manual_review_package/v2",
+        classification: "restricted_regulatory",
+        signoff_mode: "compliance_ops_signoff",
+        seal_status: "pending_signoff",
+        seal_format: "jws_json_flattened",
+        signature_algorithm: null,
+        kms_key_ref: null,
+        certificate_fingerprint_sha256: null,
+        certificate_bundle_ref: null,
+        policy_version: "manual_package_sealing/v1",
+        sealed_at: null,
+        sealed_by_user_id: null,
+        revoked_at: null,
+        superseded_by_seal_id: null,
+        required_signers: ["compliance_owner", "ops_owner"],
+        completed_signoffs: 0,
+        approved_required_signoffs: 0,
+        required_signoffs: 2,
+        signoffs: [],
+        seal_envelope: {},
+        verification_summary: {},
+        created_at: "2026-07-08T10:06:00.000Z",
+        updated_at: "2026-07-08T10:06:00.000Z"
+      };
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(currentSeal)
+      });
+    });
+
+    await page.route("**/api/app/evidence/manual-package/seals/seal-dd-write-01/signoffs", async (route: Route) => {
+      const payload = JSON.parse(route.request().postData() ?? "{}") as Record<string, string>;
+      expect(payload.signer_role).toBe("compliance_owner");
+      expect(payload.decision).toBe("approved");
+      expect(payload.signoff_method).toBe("platform_authenticated_2fa");
+
+      currentSeal = {
+        ...(currentSeal as NonNullable<typeof currentSeal>),
+        seal_status: "pending_signoff",
+        completed_signoffs: 1,
+        approved_required_signoffs: 1,
+        signoffs: [
+          {
+            id: "signoff-dd-write-01",
+            seal_id: "seal-dd-write-01",
+            organization_id: "org-e2e",
+            signer_role: "compliance_owner",
+            signer_user_id: "user-e2e",
+            signer_display_name: "Compliance Owner",
+            decision: "approved",
+            signoff_method: "platform_authenticated_2fa",
+            ticket_ref: null,
+            notes: "Primeira aprovação",
+            signed_at: "2026-07-08T10:07:00.000Z",
+            metadata: {
+              source: "evidence_manual_package_ui"
+            }
+          }
+        ],
+        updated_at: "2026-07-08T10:07:00.000Z"
+      };
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(currentSeal)
+      });
+    });
+
+    await page.goto("/evidence?request_id=req-dd-write-1&domain=due_diligence&action=compliance_due_diligence_checked&resource_type=address");
+
+    const sealPanel = page.locator('[data-testid="evidence-manual-package-seal-panel"]').last();
+    const signoffForm = page.locator('[data-testid="evidence-manual-package-signoff-form"]').last();
+    await expect(page.getByTestId("evidence-manual-package-signoff-init-panel")).toContainText(
+      "A inicialização cria a trilha institucional por hash"
+    );
+    await page.getByTestId("evidence-manual-package-init-signoff-request").click();
+    await expect(sealPanel).toContainText("Seal ID");
+    await expect(sealPanel).toContainText("seal-dd-write-01");
+    await expect(signoffForm).toContainText("Registrar sign-off institucional");
+    await expect(page.getByTestId("evidence-manual-package-signoff-role")).toHaveValue("compliance_owner");
+    await page.getByTestId("evidence-manual-package-signoff-display-name").fill("Compliance Owner");
+    await page.getByTestId("evidence-manual-package-signoff-notes").fill("Primeira aprovação");
+    await page.getByTestId("evidence-manual-package-record-signoff").click();
+
+    await expect(sealPanel).toContainText("1/2");
+    await expect(sealPanel).toContainText(
+      "Compliance Owner • Responsável de Compliance (compliance_owner) • Aprovado (approved)"
+    );
+    await expect(sealPanel).toContainText(
+      "Responsável de Operações (ops_owner)"
+    );
+  });
+
+  test("finaliza a selagem institucional quando o quorum obrigatório está completo", async ({ page }: { page: Page }) => {
+    let currentSeal:
+      | {
+          seal_id: string;
+          organization_id: string;
+          package_kind: string;
+          request_id: string;
+          report_id: string | null;
+          scope_id: string;
+          manual_review_action: string;
+          package_sha256: string;
+          manifest_schema_version: string;
+          classification: string;
+          signoff_mode: string;
+          seal_status: string;
+          seal_format: string;
+          signature_algorithm: string | null;
+          kms_key_ref: string | null;
+          certificate_fingerprint_sha256: string | null;
+          certificate_bundle_ref: string | null;
+          policy_version: string;
+          sealed_at: string | null;
+          sealed_by_user_id: string | null;
+          revoked_at: string | null;
+          superseded_by_seal_id: string | null;
+          required_signers: string[];
+          completed_signoffs: number;
+          approved_required_signoffs: number;
+          required_signoffs: number;
+          signoffs: Array<Record<string, unknown>>;
+          seal_envelope: Record<string, unknown>;
+          verification_summary: Record<string, unknown>;
+          created_at: string | null;
+          updated_at: string | null;
+        }
+      | null = {
+        seal_id: "seal-dd-final-01",
+        organization_id: "org-e2e",
+        package_kind: "manual_review_package",
+        request_id: "req-dd-final-1",
+        report_id: "rep-dd-final-1",
+        scope_id: "req-dd-final-1",
+        manual_review_action: "compliance_due_diligence_checked",
+        package_sha256: "d".repeat(64),
+        manifest_schema_version: "manual_review_package/v2",
+        classification: "restricted_regulatory",
+        signoff_mode: "compliance_ops_signoff",
+        seal_status: "ready_to_seal",
+        seal_format: "jws_json_flattened",
+        signature_algorithm: null,
+        kms_key_ref: null,
+        certificate_fingerprint_sha256: null,
+        certificate_bundle_ref: null,
+        policy_version: "manual_package_sealing/v1",
+        sealed_at: null,
+        sealed_by_user_id: null,
+        revoked_at: null,
+        superseded_by_seal_id: null,
+        required_signers: ["compliance_owner", "ops_owner"],
+        completed_signoffs: 2,
+        approved_required_signoffs: 2,
+        required_signoffs: 2,
+        signoffs: [
+          {
+            id: "signoff-dd-final-01",
+            seal_id: "seal-dd-final-01",
+            organization_id: "org-e2e",
+            signer_role: "compliance_owner",
+            signer_user_id: "user-e2e",
+            signer_display_name: "Compliance Owner",
+            decision: "approved",
+            signoff_method: "platform_authenticated_2fa",
+            ticket_ref: null,
+            notes: "Aprovado por compliance",
+            signed_at: "2026-07-08T10:07:00.000Z",
+            metadata: { source: "evidence_manual_package_ui" }
+          },
+          {
+            id: "signoff-dd-final-02",
+            seal_id: "seal-dd-final-01",
+            organization_id: "org-e2e",
+            signer_role: "ops_owner",
+            signer_user_id: "user-e2e",
+            signer_display_name: "Ops Owner",
+            decision: "approved",
+            signoff_method: "platform_authenticated_2fa",
+            ticket_ref: null,
+            notes: "Aprovado por operações",
+            signed_at: "2026-07-08T10:08:00.000Z",
+            metadata: { source: "evidence_manual_package_ui" }
+          }
+        ],
+        seal_envelope: {},
+        verification_summary: {},
+        created_at: "2026-07-08T10:06:00.000Z",
+        updated_at: "2026-07-08T10:08:00.000Z"
+      };
+
+    await page.context().addCookies([
+      {
+        name: "otc_token",
+        value: "pw-e2e-token",
+        domain: "localhost",
+        path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax"
+      }
+    ]);
+
+    await page.route("**/api/app/auth/context", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-e2e",
+          user_id: "user-e2e",
+          linked_user_id: "linked-e2e",
+          role: "AUDITOR",
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/operations/work-items?module=evidence**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] })
+      });
+    });
+
+    await page.route("**/api/app/audit/logs?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "audit-dd-final-01",
+              user_id: "user-e2e",
+              action: "compliance_due_diligence_checked",
+              resource_type: "address",
+              resource_id: "0xfinaleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              request_id: "req-dd-final-1",
+              report_id: "rep-dd-final-1",
+              file_hash_sha256: "c".repeat(64),
+              created_at: "2026-07-08T10:00:00.000Z",
+              metadata: {
+                request_id: "req-dd-final-1",
+                report_id: "rep-dd-final-1",
+                address: "0xfinaleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                chain: "ethereum",
+                provider: "manual_review",
+                provider_status: "degraded",
+                degraded_reason: "manual_review_required",
+                capability_status: "degraded",
+                delivery_mode: "manual_review_pending",
+                requires_human_review: true
+              }
+            },
+            {
+              id: "audit-dd-final-02",
+              user_id: "user-e2e",
+              action: "evidence_manual_review_package_exported",
+              resource_type: "audit_log",
+              resource_id: "audit-dd-final-02",
+              request_id: "req-dd-final-1",
+              report_id: "rep-dd-final-1",
+              file_hash_sha256: null,
+              created_at: "2026-07-08T10:05:00.000Z",
+              metadata: {
+                request_id: "req-dd-final-1",
+                report_id: "rep-dd-final-1",
+                scope_id: "req-dd-final-1",
+                filename: "ontrackchain-manual-review-due-diligence-req-dd-final-1.json",
+                package_sha256: "d".repeat(64),
+                manual_review_action: "compliance_due_diligence_checked"
+              }
+            }
+          ],
+          page: 1,
+          count: 2,
+          limit: 50,
+          total: 2,
+          total_pages: 1,
+          has_more: false
+        })
+      });
+    });
+
+    await page.route("**/api/app/evidence/manual-package/seal?**", async (route: Route) => {
+      const url = new URL(route.request().url());
+      expect(url.searchParams.get("package_sha256")).toBe("d".repeat(64));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(currentSeal)
+      });
+    });
+
+    await page.route("**/api/app/evidence/manual-package/seals/seal-dd-final-01/finalize", async (route: Route) => {
+      const payload = route.request().postDataJSON() as { metadata?: Record<string, string> };
+      expect(payload.metadata?.source).toBe("evidence_manual_package_ui");
+      expect(payload.metadata?.request_id).toBe("req-dd-final-1");
+      expect(payload.metadata?.report_id).toBe("rep-dd-final-1");
+      expect(payload.metadata?.package_sha256).toBe("d".repeat(64));
+
+      currentSeal = {
+        ...(currentSeal as NonNullable<typeof currentSeal>),
+        seal_status: "sealed",
+        signature_algorithm: "HS256",
+        kms_key_ref: "manual-package-local-hs256",
+        certificate_bundle_ref: "local-hs256-trust-bundle",
+        sealed_at: "2026-07-08T10:09:00.000Z",
+        seal_envelope: {
+          protected: "header",
+          payload: "payload",
+          signature: "signature"
+        },
+        verification_summary: {
+          verified: true,
+          verification_method: "local_hs256_self_check",
+          issuer: "ontrackchain-investigation-api",
+          key_id: "manual-package-local-hs256"
+        },
+        updated_at: "2026-07-08T10:09:00.000Z"
+      };
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(currentSeal)
+      });
+    });
+
+    await page.goto("/evidence?request_id=req-dd-final-1&domain=due_diligence&action=compliance_due_diligence_checked&resource_type=address");
+
+    const sealPanel = page.locator('[data-testid="evidence-manual-package-seal-panel"]').last();
+    const readyPanel = page.locator('[data-testid="evidence-manual-package-ready-to-seal"]').last();
+    await expect(readyPanel).toContainText("Quorum obrigatório completo. O pacote está pronto para a etapa de selagem final.");
+    await page.getByTestId("evidence-manual-package-finalize").click();
+
+    await expect(sealPanel).toContainText("Selado");
+    await expect(sealPanel).toContainText("HS256");
+    await expect(sealPanel).toContainText("local-hs256-trust-bundle");
+    await expect(sealPanel).toContainText("Sim");
+    await expect(sealPanel).toContainText("local_hs256_self_check");
+    await expect(sealPanel).toContainText("ontrackchain-investigation-api");
+    await expect(page.getByTestId("evidence-manual-package-sealed-notice")).toContainText(
+      "O pacote já possui selo institucional persistido e verificado."
+    );
+  });
+
+  test("revoga o selo institucional com ticket e motivo", async ({ page }: { page: Page }) => {
+    const seal = {
+      seal_id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      organization_id: "org-e2e",
+      package_kind: "manual_review_package",
+      request_id: "req-dd-revoke-1",
+      report_id: "rep-dd-revoke-1",
+      scope_id: "req-dd-revoke-1",
+      manual_review_action: "compliance_due_diligence_checked",
+      package_sha256: "e".repeat(64),
+      manifest_schema_version: "manual_review_package/v2",
+      classification: "restricted_regulatory",
+      signoff_mode: "compliance_ops_signoff",
+      seal_status: "pending_signoff",
+      seal_format: "jws_json_flattened",
+      signature_algorithm: null,
+      kms_key_ref: null,
+      certificate_fingerprint_sha256: null,
+      certificate_bundle_ref: null,
+      policy_version: "manual_package_sealing/v1",
+      sealed_at: null,
+      sealed_by_user_id: null,
+      revoked_at: null,
+      superseded_by_seal_id: null,
+      required_signers: ["compliance_owner", "ops_owner"],
+      completed_signoffs: 0,
+      approved_required_signoffs: 0,
+      required_signoffs: 2,
+      signoffs: [],
+      seal_envelope: {},
+      verification_summary: {},
+      created_at: "2026-07-08T10:00:00.000Z",
+      updated_at: "2026-07-08T10:00:00.000Z"
+    };
+
+    await page.context().addCookies([
+      { name: "otc_token", value: "pw-e2e-token", domain: "localhost", path: "/", httpOnly: false, secure: false, sameSite: "Lax" }
+    ]);
+
+    await page.route("**/api/app/auth/context", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-e2e",
+          user_id: "user-e2e",
+          linked_user_id: "linked-e2e",
+          role: "AUDITOR",
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/operations/work-items?module=evidence**", async (route: Route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+    });
+
+    await page.route("**/api/app/audit/logs?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "audit-dd-revoke-01",
+              user_id: "user-e2e",
+              action: "compliance_due_diligence_checked",
+              resource_type: "address",
+              resource_id: "0xrevokeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              request_id: "req-dd-revoke-1",
+              report_id: "rep-dd-revoke-1",
+              file_hash_sha256: "f".repeat(64),
+              created_at: "2026-07-08T10:00:00.000Z",
+              metadata: { request_id: "req-dd-revoke-1", report_id: "rep-dd-revoke-1", address: "0xrevokeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", chain: "ethereum" }
+            },
+            {
+              id: "audit-dd-revoke-02",
+              user_id: "user-e2e",
+              action: "evidence_manual_review_package_exported",
+              resource_type: "audit_log",
+              resource_id: "audit-dd-revoke-02",
+              request_id: "req-dd-revoke-1",
+              report_id: "rep-dd-revoke-1",
+              file_hash_sha256: null,
+              created_at: "2026-07-08T10:05:00.000Z",
+              metadata: {
+                request_id: "req-dd-revoke-1",
+                report_id: "rep-dd-revoke-1",
+                scope_id: "req-dd-revoke-1",
+                filename: "ontrackchain-manual-review-due-diligence-req-dd-revoke-1.json",
+                package_sha256: "e".repeat(64),
+                manual_review_action: "compliance_due_diligence_checked"
+              }
+            }
+          ],
+          page: 1,
+          count: 2,
+          limit: 50,
+          total: 2,
+          total_pages: 1,
+          has_more: false
+        })
+      });
+    });
+
+    await page.route("**/api/app/evidence/manual-package/seal?**", async (route: Route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(seal) });
+    });
+
+    await page.route("**/api/app/evidence/manual-package/seals/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/revoke", async (route: Route) => {
+      const payload = route.request().postDataJSON() as { ticket_ref: string; reason: string };
+      expect(payload.ticket_ref).toBe("GOV-123");
+      expect(payload.reason).toBe("Documento substituído");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ...seal, seal_status: "revoked", revoked_at: "2026-07-08T10:06:00.000Z" })
+      });
+    });
+
+    await page.goto("/evidence?request_id=req-dd-revoke-1&domain=due_diligence&action=compliance_due_diligence_checked&resource_type=address");
+
+    await page.getByTestId("evidence-manual-package-revoke-ticket-ref").fill("GOV-123");
+    await page.getByTestId("evidence-manual-package-revoke-reason").fill("Documento substituído");
+    await page.getByTestId("evidence-manual-package-revoke").click();
+
+    await expect(page.getByTestId("evidence-manual-package-revoked-notice")).toContainText(
+      "O pacote está com selo institucional revogado."
+    );
+    await expect(page.locator('[data-testid="evidence-manual-package-seal-panel"]').last()).toContainText("Revogado");
+  });
+
+  test("supersede o selo institucional apontando para um novo seal_id selado", async ({ page }: { page: Page }) => {
+    const seal = {
+      seal_id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      organization_id: "org-e2e",
+      package_kind: "manual_review_package",
+      request_id: "req-dd-supersede-1",
+      report_id: "rep-dd-supersede-1",
+      scope_id: "req-dd-supersede-1",
+      manual_review_action: "compliance_due_diligence_checked",
+      package_sha256: "0".repeat(64),
+      manifest_schema_version: "manual_review_package/v2",
+      classification: "restricted_regulatory",
+      signoff_mode: "compliance_ops_signoff",
+      seal_status: "sealed",
+      seal_format: "jws_json_flattened",
+      signature_algorithm: "HS256",
+      kms_key_ref: "manual-package-local-hs256",
+      certificate_fingerprint_sha256: null,
+      certificate_bundle_ref: "local-hs256-trust-bundle",
+      policy_version: "manual_package_sealing/v1",
+      sealed_at: "2026-07-08T10:06:00.000Z",
+      sealed_by_user_id: "user-e2e",
+      revoked_at: null,
+      superseded_by_seal_id: null,
+      required_signers: ["compliance_owner", "ops_owner"],
+      completed_signoffs: 2,
+      approved_required_signoffs: 2,
+      required_signoffs: 2,
+      signoffs: [],
+      seal_envelope: {},
+      verification_summary: { verified: true, verification_method: "local_hs256_self_check" },
+      created_at: "2026-07-08T10:00:00.000Z",
+      updated_at: "2026-07-08T10:06:00.000Z"
+    };
+
+    await page.context().addCookies([
+      { name: "otc_token", value: "pw-e2e-token", domain: "localhost", path: "/", httpOnly: false, secure: false, sameSite: "Lax" }
+    ]);
+
+    await page.route("**/api/app/auth/context", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-e2e",
+          user_id: "user-e2e",
+          linked_user_id: "linked-e2e",
+          role: "AUDITOR",
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/operations/work-items?module=evidence**", async (route: Route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+    });
+
+    await page.route("**/api/app/audit/logs?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "audit-dd-supersede-01",
+              user_id: "user-e2e",
+              action: "compliance_due_diligence_checked",
+              resource_type: "address",
+              resource_id: "0xsupersedeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              request_id: "req-dd-supersede-1",
+              report_id: "rep-dd-supersede-1",
+              file_hash_sha256: "1".repeat(64),
+              created_at: "2026-07-08T10:00:00.000Z",
+              metadata: { request_id: "req-dd-supersede-1", report_id: "rep-dd-supersede-1", address: "0xsupersedeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", chain: "ethereum" }
+            },
+            {
+              id: "audit-dd-supersede-02",
+              user_id: "user-e2e",
+              action: "evidence_manual_review_package_exported",
+              resource_type: "audit_log",
+              resource_id: "audit-dd-supersede-02",
+              request_id: "req-dd-supersede-1",
+              report_id: "rep-dd-supersede-1",
+              file_hash_sha256: null,
+              created_at: "2026-07-08T10:05:00.000Z",
+              metadata: {
+                request_id: "req-dd-supersede-1",
+                report_id: "rep-dd-supersede-1",
+                scope_id: "req-dd-supersede-1",
+                filename: "ontrackchain-manual-review-due-diligence-req-dd-supersede-1.json",
+                package_sha256: "0".repeat(64),
+                manual_review_action: "compliance_due_diligence_checked"
+              }
+            }
+          ],
+          page: 1,
+          count: 2,
+          limit: 50,
+          total: 2,
+          total_pages: 1,
+          has_more: false
+        })
+      });
+    });
+
+    await page.route("**/api/app/evidence/manual-package/seal?**", async (route: Route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(seal) });
+    });
+
+    await page.route("**/api/app/evidence/manual-package/seals/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/supersede", async (route: Route) => {
+      const payload = route.request().postDataJSON() as { superseded_by_seal_id: string; ticket_ref: string; reason: string };
+      expect(payload.superseded_by_seal_id).toBe("cccccccc-cccc-cccc-cccc-cccccccccccc");
+      expect(payload.ticket_ref).toBe("GOV-555");
+      expect(payload.reason).toBe("Nova versão do pacote");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ...seal, seal_status: "superseded", superseded_by_seal_id: "cccccccc-cccc-cccc-cccc-cccccccccccc" })
+      });
+    });
+
+    await page.goto("/evidence?request_id=req-dd-supersede-1&domain=due_diligence&action=compliance_due_diligence_checked&resource_type=address");
+
+    await page.getByTestId("evidence-manual-package-supersede-seal-id").fill("cccccccc-cccc-cccc-cccc-cccccccccccc");
+    await page.getByTestId("evidence-manual-package-supersede-ticket-ref").fill("GOV-555");
+    await page.getByTestId("evidence-manual-package-supersede-reason").fill("Nova versão do pacote");
+    await page.getByTestId("evidence-manual-package-supersede").click();
+
+    await expect(page.getByTestId("evidence-manual-package-superseded-notice")).toContainText(
+      "O pacote foi supersedido pelo seal_id cccccccc-cccc-cccc-cccc-cccccccccccc."
+    );
   });
 });

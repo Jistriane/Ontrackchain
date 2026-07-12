@@ -11,13 +11,37 @@ import type { MessageKey } from "../lib/i18n";
 import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
 import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
-import { createWorkItemComment, fetchWorkItemTimeline } from "../lib/work-item-timeline-client";
-import { formatTimelineEvent, type WorkCommentResponse, type WorkItemTimelineResponse } from "../lib/work-item-timeline";
+import { formatTimelineEvent } from "../lib/work-item-timeline";
+import { useWorkItemTimeline } from "../lib/use-work-item-timeline";
+import {
+  loadWorkspaceRecords,
+  saveWorkspaceRecords,
+  sortByLastActionAtDesc,
+  toApiDueAt,
+  toDateTimeLocalValue
+} from "../lib/workspace-storage";
 import {
   buildOperationalContextLinks,
   type OperationalContext,
   type OperationalContextLink
 } from "../lib/operational-context";
+import {
+  isWorkItemUuidLike as isUuidLike,
+  readWorkItemMetadataBoolean,
+  readWorkItemMetadataNumber,
+  readWorkItemMetadataString,
+  readWorkItemMetadataStringArray,
+  resolveWorkItemOwnerDisplay,
+  resolveWorkItemWorkspaceStatus,
+  type BlocksWorkItemMetadata,
+  type CreateWorkItemRequest,
+  type PatchWorkItemRequest,
+  type WorkItemListResponse,
+  type WorkItemPriority,
+  type WorkItemQueueStatus,
+  type WorkItemResponse,
+  withCanonicalWorkItemMetadata
+} from "../lib/work-items";
 
 type BlockEvaluateResponse = {
   address: string;
@@ -39,27 +63,11 @@ type BlockLiftResponse = {
   lifted_at: string;
 };
 
-type BlockWorkspacePriority = "critical" | "high" | "normal";
+type BlockWorkspacePriority = WorkItemPriority;
 type BlockWorkspaceStatus = "BLOCKED" | "REVIEW" | "CLEARED" | "LIFTED";
 type BlockWorkspaceSource = "server" | "local";
-type WorkItemQueueStatus = "UNDER_REVIEW" | "ESCALATED" | "READY" | "APPROVED" | "SUBMITTED" | "CLOSED" | "REJECTED";
-
-type WorkItemResponse = {
-  id: string;
-  resource_id: string;
-  owner_user_id?: string | null;
-  queue_status: WorkItemQueueStatus;
-  priority: BlockWorkspacePriority;
-  due_at: string | null;
-  note: string | null;
-  metadata: Record<string, unknown>;
-  last_activity_at: string;
-  updated_at: string;
-};
-
-type WorkItemListResponse = {
-  data: WorkItemResponse[];
-};
+type BlocksWorkItemResponse = WorkItemResponse<BlocksWorkItemMetadata>;
+type BlocksWorkItemListResponse = WorkItemListResponse<BlocksWorkItemMetadata>;
 
 type EvaluateFormState = {
   address: string;
@@ -101,7 +109,6 @@ type BlockWorkspaceRecord = {
 
 const STORAGE_KEY = "otc-blocks-workspace";
 const WORKSPACE_PAGE_LIMIT = 100;
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const DEFAULT_FORM: EvaluateFormState = {
   address: "",
@@ -113,59 +120,6 @@ const DEFAULT_FORM: EvaluateFormState = {
   priority: "normal",
   localDeadline: ""
 };
-
-function isUuidLike(value: string | null | undefined) {
-  return Boolean(value && UUID_PATTERN.test(value.trim()));
-}
-
-function toDateTimeLocalValue(value: string | null | undefined) {
-  if (!value) {
-    return "";
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "";
-  }
-
-  const year = parsed.getFullYear();
-  const month = `${parsed.getMonth() + 1}`.padStart(2, "0");
-  const day = `${parsed.getDate()}`.padStart(2, "0");
-  const hours = `${parsed.getHours()}`.padStart(2, "0");
-  const minutes = `${parsed.getMinutes()}`.padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-}
-
-function toApiDueAt(value: string) {
-  const normalized = value.trim();
-  if (!normalized) {
-    return null;
-  }
-
-  const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-
-  return parsed.toISOString();
-}
-
-function readMetadataString(metadata: Record<string, unknown>, key: string) {
-  const value = metadata[key];
-  return typeof value === "string" ? value : "";
-}
-
-function readMetadataStringArray(metadata: Record<string, unknown>, key: string) {
-  const value = metadata[key];
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter((entry): entry is string => typeof entry === "string");
-}
-
-function readMetadataBoolean(metadata: Record<string, unknown>, key: string) {
-  return metadata[key] === true;
-}
 
 function normalizeLegacyStatus(value: unknown): BlockWorkspaceStatus {
   if (value === "BLOCKED" || value === "REVIEW" || value === "CLEARED" || value === "LIFTED") {
@@ -206,27 +160,11 @@ function normalizeWorkspaceRecord(record: Partial<BlockWorkspaceRecord>): BlockW
 }
 
 function loadWorkspace(): BlockWorkspaceRecord[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.map((entry) => normalizeWorkspaceRecord((entry ?? {}) as Partial<BlockWorkspaceRecord>)) : [];
-  } catch {
-    return [];
-  }
+  return loadWorkspaceRecords(STORAGE_KEY, normalizeWorkspaceRecord);
 }
 
 function saveWorkspace(records: BlockWorkspaceRecord[]) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  saveWorkspaceRecords(STORAGE_KEY, records);
 }
 
 function buildWorkspaceId(result: BlockEvaluateResponse) {
@@ -252,7 +190,7 @@ function mergeWorkspaceRecords(serverRecords: BlockWorkspaceRecord[], localRecor
     merged.push(record);
   }
 
-  return merged.sort((a, b) => (b.lastActionAt || "").localeCompare(a.lastActionAt || ""));
+  return sortByLastActionAtDesc(merged);
 }
 
 function toneForAction(action: string): "success" | "default" | "error" {
@@ -311,9 +249,7 @@ function upsertWorkspaceRecord(
     lastActionAt: next.lastActionAt ?? new Date().toISOString()
   };
 
-  return [merged, ...current.filter((record) => record.workspaceId !== next.workspaceId)].sort((a, b) =>
-    (b.lastActionAt || "").localeCompare(a.lastActionAt || "")
-  );
+  return sortByLastActionAtDesc([merged, ...current.filter((record) => record.workspaceId !== next.workspaceId)]);
 }
 
 function getUrgency(record: BlockWorkspaceRecord): "overdue" | "due_soon" | "on_track" | "no_deadline" {
@@ -366,34 +302,38 @@ function toneForWorkspaceStatus(status: BlockWorkspaceStatus): "warning" | "dang
   return undefined;
 }
 
-function mapWorkItemToWorkspaceRecord(item: WorkItemResponse): BlockWorkspaceRecord {
+function toneForWorkspaceSource(source: BlockWorkspaceSource): "success" | "warning" {
+  return source === "server" ? "success" : "warning";
+}
+
+function mapWorkItemToWorkspaceRecord(item: BlocksWorkItemResponse): BlockWorkspaceRecord {
   const metadata = item.metadata ?? {};
-  const localStatus = normalizeLegacyStatus(metadata["local_block_status"]);
-  const blockId = readMetadataString(metadata, "block_id") || item.resource_id;
+  const localStatus = normalizeLegacyStatus(resolveWorkItemWorkspaceStatus(metadata, "preventive_block"));
+  const blockId = readWorkItemMetadataString(metadata, "block_id") || item.resource_id;
   return {
-    workspaceId: readMetadataString(metadata, "workspace_id") || blockId,
+    workspaceId: readWorkItemMetadataString(metadata, "workspace_id") || blockId,
     resourceId: item.resource_id,
     workItemId: item.id,
     source: "server",
-    address: readMetadataString(metadata, "address"),
-    chain: readMetadataString(metadata, "chain") || "ethereum",
-    entityName: readMetadataString(metadata, "entity_name"),
-    entityDocument: readMetadataString(metadata, "entity_document"),
-    caseId: readMetadataString(metadata, "local_case_id"),
-    owner: readMetadataString(metadata, "owner_label") || item.owner_user_id || "",
+    address: readWorkItemMetadataString(metadata, "address"),
+    chain: readWorkItemMetadataString(metadata, "chain") || "ethereum",
+    entityName: readWorkItemMetadataString(metadata, "entity_name"),
+    entityDocument: readWorkItemMetadataString(metadata, "entity_document"),
+    caseId: item.case_id ?? readWorkItemMetadataString(metadata, "case_id", "local_case_id"),
+    owner: resolveWorkItemOwnerDisplay(metadata, item.owner_user_id),
     priority: item.priority,
     localDeadline: toDateTimeLocalValue(item.due_at),
-    action: readMetadataString(metadata, "action"),
+    action: readWorkItemMetadataString(metadata, "action"),
     status: localStatus,
-    requiresCoafReport: readMetadataBoolean(metadata, "requires_coaf_report"),
-    decisionConfidence: typeof metadata["decision_confidence"] === "number" ? metadata["decision_confidence"] : 0,
-    regulatoryBasis: readMetadataStringArray(metadata, "regulatory_basis"),
-    matchedLists: readMetadataStringArray(metadata, "matched_lists"),
-    evidenceHash: readMetadataString(metadata, "evidence_hash"),
+    requiresCoafReport: readWorkItemMetadataBoolean(metadata, "requires_coaf_report") === true,
+    decisionConfidence: readWorkItemMetadataNumber(metadata, "decision_confidence") ?? 0,
+    regulatoryBasis: readWorkItemMetadataStringArray(metadata, "regulatory_basis"),
+    matchedLists: readWorkItemMetadataStringArray(metadata, "matched_lists"),
+    evidenceHash: readWorkItemMetadataString(metadata, "evidence_hash"),
     blockId,
-    screenedAt: readMetadataString(metadata, "screened_at"),
-    liftedAt: readMetadataString(metadata, "lifted_at"),
-    liftReason: item.note ?? readMetadataString(metadata, "lift_reason"),
+    screenedAt: readWorkItemMetadataString(metadata, "screened_at"),
+    liftedAt: readWorkItemMetadataString(metadata, "lifted_at"),
+    liftReason: item.note ?? readWorkItemMetadataString(metadata, "lift_reason"),
     lastActionAt: item.last_activity_at || item.updated_at
   };
 }
@@ -480,12 +420,28 @@ export default function BlocksPage() {
   const [workspaceFilter, setWorkspaceFilter] = useState("all");
   const [workspaceSearch, setWorkspaceSearch] = useState("");
   const [timelineWorkspaceId, setTimelineWorkspaceId] = useState("");
-  const [timelineLoading, setTimelineLoading] = useState(false);
-  const [timelineError, setTimelineError] = useState<string | null>(null);
-  const [timelineData, setTimelineData] = useState<WorkItemTimelineResponse<WorkItemResponse> | null>(null);
-  const [commentType, setCommentType] = useState<WorkCommentResponse["comment_type"]>("note");
-  const [commentBody, setCommentBody] = useState("");
-  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const {
+    timelineLoading,
+    timelineError,
+    timelineData,
+    commentType,
+    commentBody,
+    commentSubmitting,
+    setCommentType,
+    setCommentBody,
+    resetTimeline,
+    loadTimeline,
+    submitTimelineComment
+  } = useWorkItemTimeline<BlocksWorkItemResponse>({
+    resolveErrorMessage: (apiError, fallback) => resolveApiErrorMessage(t, apiError, fallback),
+    loadErrorMessage: tr("blocks.workspace.timeline.errorLoad" as MessageKey),
+    commentErrorMessage: tr("blocks.workspace.timeline.errorComment" as MessageKey),
+    emptySelectionErrorMessage: tr("blocks.workspace.timeline.emptyLocal" as MessageKey),
+    emptyCommentErrorMessage: tr("blocks.workspace.timeline.commentEmpty" as MessageKey),
+    onCommentSaved: () => {
+      setNotice(tr("blocks.workspace.timeline.commentSaved" as MessageKey));
+    }
+  });
 
   const matchedLists = useMemo(() => result?.matched_lists ?? [], [result]);
   const regulatoryBasis = useMemo(() => result?.regulatory_basis ?? [], [result]);
@@ -521,13 +477,34 @@ export default function BlocksPage() {
     [workspaceRecords]
   );
   const selectedTimelineRecord = timelineWorkspaceId ? workspaceById.get(timelineWorkspaceId) ?? null : null;
+  const serverWorkspaceCount = useMemo(
+    () => workspaceRecords.filter((record: BlockWorkspaceRecord) => record.source === "server").length,
+    [workspaceRecords]
+  );
+  const localWorkspaceCount = useMemo(
+    () => workspaceRecords.filter((record: BlockWorkspaceRecord) => record.source === "local").length,
+    [workspaceRecords]
+  );
+  const hasMixedWorkspaceSources = serverWorkspaceCount > 0 && localWorkspaceCount > 0;
+  const timelineContextBadges = selectedTimelineRecord
+    ? [
+        {
+          label: tr(`blocks.workspace.source.${selectedTimelineRecord.source}` as MessageKey),
+          tone: toneForWorkspaceSource(selectedTimelineRecord.source) as "success" | "warning"
+        },
+        {
+          label: tr(`blocks.workspace.status.${selectedTimelineRecord.status.toLowerCase()}` as MessageKey),
+          tone: (toneForWorkspaceStatus(selectedTimelineRecord.status) ?? "success") as "success" | "warning" | "danger"
+        }
+      ]
+    : [];
 
   async function loadOperationalWorkspace(localRecords: BlockWorkspaceRecord[]) {
     const res = await fetch(
       `/api/app/operations/work-items?module=blocks&resource_type=preventive_block&limit=${WORKSPACE_PAGE_LIMIT}`,
       { cache: "no-store" }
     );
-    const data = (await res.json().catch(() => null)) as WorkItemListResponse | { error?: string; detail?: unknown } | null;
+    const data = (await res.json().catch(() => null)) as BlocksWorkItemListResponse | { error?: string; detail?: unknown } | null;
     if (!res.ok) {
       setWorkspaceRecords(localRecords);
       setNotice(tr("blocks.noticeWorkspaceLoadedLocal" as MessageKey));
@@ -565,8 +542,7 @@ export default function BlocksPage() {
   useEffect(() => {
     if (!workspaceRecords.length) {
       setTimelineWorkspaceId("");
-      setTimelineData(null);
-      setTimelineError(null);
+      resetTimeline();
       return;
     }
     if (!timelineWorkspaceId || !workspaceRecords.some((record: BlockWorkspaceRecord) => record.workspaceId === timelineWorkspaceId)) {
@@ -577,46 +553,11 @@ export default function BlocksPage() {
 
   useEffect(() => {
     if (!selectedTimelineRecord?.workItemId) {
-      setTimelineData(null);
-      setTimelineError(null);
+      resetTimeline();
       return;
     }
-    loadTimeline(selectedTimelineRecord.workItemId).catch(() => {
-      setTimelineData(null);
-      setTimelineError(tr("blocks.workspace.timeline.errorLoad" as MessageKey));
-      setTimelineLoading(false);
-    });
-  }, [selectedTimelineRecord?.workItemId, t]);
-
-  async function loadTimeline(workItemId: string) {
-    setTimelineLoading(true);
-    setTimelineError(null);
-    const result = await fetchWorkItemTimeline<WorkItemResponse>(workItemId);
-    if (!result.ok) {
-      setTimelineData(null);
-      setTimelineError(resolveApiErrorMessage(t, result.error, tr("blocks.workspace.timeline.errorLoad" as MessageKey)));
-      setTimelineLoading(false);
-      return;
-    }
-    setTimelineData(result.data);
-    setTimelineLoading(false);
-  }
-
-  async function submitTimelineComment() {
-    if (!selectedTimelineRecord?.workItemId || !commentBody.trim()) return;
-    setCommentSubmitting(true);
-    const result = await createWorkItemComment(selectedTimelineRecord.workItemId, {
-      comment_type: commentType,
-      body: commentBody.trim()
-    });
-    setCommentSubmitting(false);
-    if (!result.ok) {
-      setTimelineError(resolveApiErrorMessage(t, result.error, tr("blocks.workspace.timeline.errorComment" as MessageKey)));
-      return;
-    }
-    setCommentBody("");
-    await loadTimeline(selectedTimelineRecord.workItemId);
-  }
+    void loadTimeline(selectedTimelineRecord.workItemId);
+  }, [loadTimeline, resetTimeline, selectedTimelineRecord?.workItemId]);
 
   function updateForm<K extends keyof EvaluateFormState>(key: K, value: EvaluateFormState[K]) {
     setForm((current: EvaluateFormState) => ({ ...current, [key]: value }));
@@ -701,28 +642,33 @@ export default function BlocksPage() {
     const localStatus = nextStatus ?? record.status;
     const queueStatus: WorkItemQueueStatus =
       localStatus === "CLEARED" || localStatus === "LIFTED" ? "CLOSED" : "UNDER_REVIEW";
-    const metadata = {
-      workspace_id: record.workspaceId,
-      local_block_status: localStatus,
-      address: record.address,
-      chain: record.chain,
-      entity_name: record.entityName,
-      entity_document: record.entityDocument,
-      local_case_id: record.caseId,
-      owner_user_id: ownerUserId,
-      owner_label: record.owner,
-      action: record.action,
-      requires_coaf_report: record.requiresCoafReport,
-      decision_confidence: record.decisionConfidence,
-      regulatory_basis: record.regulatoryBasis,
-      matched_lists: record.matchedLists,
-      evidence_hash: record.evidenceHash,
-      block_id: record.blockId,
-      screened_at: record.screenedAt,
-      lifted_at: record.liftedAt,
-      lift_reason: record.liftReason
-    };
-    const requestBody = record.workItemId
+    const metadata: BlocksWorkItemMetadata = withCanonicalWorkItemMetadata(
+      {
+        workspace_id: record.workspaceId,
+        address: record.address,
+        chain: record.chain,
+        entity_name: record.entityName,
+        entity_document: record.entityDocument,
+        action: record.action,
+        requires_coaf_report: record.requiresCoafReport,
+        decision_confidence: record.decisionConfidence,
+        regulatory_basis: record.regulatoryBasis,
+        matched_lists: record.matchedLists,
+        evidence_hash: record.evidenceHash,
+        block_id: record.blockId,
+        screened_at: record.screenedAt,
+        lifted_at: record.liftedAt,
+        lift_reason: record.liftReason
+      },
+      {
+        resourceType: "preventive_block",
+        caseId: record.caseId,
+        ownerLabel: record.owner,
+        ownerUserId,
+        workspaceStatus: localStatus
+      }
+    );
+    const requestBody: CreateWorkItemRequest<BlocksWorkItemMetadata> | PatchWorkItemRequest<BlocksWorkItemMetadata> = record.workItemId
       ? {
           ...(ownerUserId ? { owner_user_id: ownerUserId } : {}),
           priority: record.priority,
@@ -756,13 +702,13 @@ export default function BlocksPage() {
         cache: "no-store"
       }
     );
-    const data = (await res.json().catch(() => null)) as WorkItemResponse | { error?: string; detail?: unknown } | null;
+    const data = (await res.json().catch(() => null)) as BlocksWorkItemResponse | { error?: string; detail?: unknown } | null;
     setSyncingWorkspace(false);
     if (!res.ok) {
       throw new Error(resolveApiErrorMessage(t, data, tr("blocks.errorWorkspaceSync" as MessageKey)));
     }
 
-    const nextRecord = mapWorkItemToWorkspaceRecord(data as WorkItemResponse);
+    const nextRecord = mapWorkItemToWorkspaceRecord(data as BlocksWorkItemResponse);
     setWorkspaceRecords((current: BlockWorkspaceRecord[]) => upsertWorkspaceRecord(current, nextRecord));
     return nextRecord;
   }
@@ -988,6 +934,19 @@ export default function BlocksPage() {
       </Panel>
 
       <Panel title={tr("blocks.workspace.title" as MessageKey)} description={tr("blocks.workspace.description" as MessageKey)}>
+        {localWorkspaceCount > 0 && serverWorkspaceCount === 0 ? (
+          <Message>
+            {tr("blocks.workspace.mode.localOnly" as MessageKey, { count: localWorkspaceCount })}
+          </Message>
+        ) : null}
+        {hasMixedWorkspaceSources ? (
+          <Message>
+            {tr("blocks.workspace.mode.mixed" as MessageKey, {
+              server: serverWorkspaceCount,
+              local: localWorkspaceCount
+            })}
+          </Message>
+        ) : null}
         <div className="otc-controls">
           <label className="otc-field">
             {tr("blocks.workspace.filterStatus" as MessageKey)}
@@ -1016,6 +975,7 @@ export default function BlocksPage() {
                 <th>{tr("blocks.workspace.deadline" as MessageKey)}</th>
                 <th>{tr("blocks.workspace.urgency" as MessageKey)}</th>
                 <th>{tr("blocks.workspace.status" as MessageKey)}</th>
+                <th>{tr("blocks.workspace.sourceLabel" as MessageKey)}</th>
                 <th>{tr("blocks.workspace.actions" as MessageKey)}</th>
               </tr>
             </thead>
@@ -1023,7 +983,7 @@ export default function BlocksPage() {
               {filteredWorkspaceRecords.map((record: BlockWorkspaceRecord) => {
                 const urgency = getUrgency(record);
                 return (
-                  <tr key={record.workspaceId}>
+                  <tr key={record.workspaceId} data-testid={`blocks-workspace-row-${record.workspaceId}`}>
                     <td>
                       <strong>{record.address}</strong>
                       <div className="otc-muted">{record.blockId || tr("blocks.notAvailable" as MessageKey)}</div>
@@ -1035,16 +995,20 @@ export default function BlocksPage() {
                         {tr(`blocks.priority.${record.priority}` as MessageKey)}
                       </Pill>
                     </td>
-                    <td>{formatDate(record.localDeadline, locale) ?? tr("blocks.workspace.noDeadline" as MessageKey)}</td>
-                    <td>
+                    <td data-testid={`blocks-workspace-deadline-${record.workspaceId}`}>
+                      {formatDate(record.localDeadline, locale) ?? tr("blocks.workspace.noDeadline" as MessageKey)}
+                    </td>
+                    <td data-testid={`blocks-workspace-urgency-${record.workspaceId}`}>
                       <Pill tone={toneForUrgency(urgency)}>{tr(`blocks.urgency.${urgency}` as MessageKey)}</Pill>
                     </td>
-                    <td>
+                    <td data-testid={`blocks-workspace-status-${record.workspaceId}`}>
                       <Pill tone={toneForWorkspaceStatus(record.status)}>{tr(`blocks.workspace.status.${record.status.toLowerCase()}` as MessageKey)}</Pill>
+                    </td>
+                    <td data-testid={`blocks-workspace-source-${record.workspaceId}`}>
+                      <Pill tone={toneForWorkspaceSource(record.source)}>{tr(`blocks.workspace.source.${record.source}` as MessageKey)}</Pill>
                     </td>
                     <td>
                       <div className="otc-controls">
-                        <Pill tone={record.source === "server" ? "success" : "warning"}>{tr(`blocks.workspace.source.${record.source}` as MessageKey)}</Pill>
                         <button type="button" className="otc-button otc-button--ghost" onClick={() => hydrateWorkspaceRecord(record)}>
                           {tr("blocks.workspace.load" as MessageKey)}
                         </button>
@@ -1226,7 +1190,16 @@ export default function BlocksPage() {
 
       <WorkItemTimelinePanel
         state={!selectedTimelineRecord ? "empty_selection" : !selectedTimelineRecord.workItemId ? "local_only" : "ready"}
-        summary={selectedTimelineRecord ? tr("blocks.workspace.timeline.summary" as MessageKey, { address: selectedTimelineRecord.address }) : null}
+        summary={
+          selectedTimelineRecord
+            ? tr("blocks.workspace.timeline.summary" as MessageKey, {
+                address: selectedTimelineRecord.address,
+                caseId: selectedTimelineRecord.caseId || tr("blocks.workspace.noCaseId" as MessageKey)
+              })
+            : null
+        }
+        contextBadges={timelineContextBadges}
+        localOnlyHint={selectedTimelineRecord ? tr("blocks.workspace.timeline.localHint" as MessageKey) : null}
         labels={buildWorkItemTimelineLabels(tr, "blocks.workspace.timeline")}
         timelineError={timelineError}
         timelineData={timelineData}
@@ -1237,7 +1210,7 @@ export default function BlocksPage() {
         onCommentTypeChange={setCommentType}
         onCommentBodyChange={setCommentBody}
         onCommentSubmit={() => {
-          void submitTimelineComment();
+          void submitTimelineComment(selectedTimelineRecord?.workItemId);
         }}
         onRefresh={
           selectedTimelineRecord?.workItemId
@@ -1246,7 +1219,7 @@ export default function BlocksPage() {
               }
             : undefined
         }
-          formatDate={(value) => formatDate(value, locale)}
+        formatDate={(value) => formatDate(value, locale)}
         formatEventLabel={formatTimelineEvent}
       />
 
@@ -1259,6 +1232,7 @@ export default function BlocksPage() {
                 <th>{tr("blocks.history.chain" as MessageKey)}</th>
                 <th>{tr("blocks.history.action" as MessageKey)}</th>
                 <th>{tr("blocks.history.status" as MessageKey)}</th>
+                <th>{tr("blocks.history.source" as MessageKey)}</th>
                 <th>{tr("blocks.history.screenedAt" as MessageKey)}</th>
                 <th>{tr("blocks.history.lastAction" as MessageKey)}</th>
               </tr>
@@ -1284,6 +1258,11 @@ export default function BlocksPage() {
                     <td>
                       <Pill tone={record.status === "BLOCKED" ? "danger" : record.status === "LIFTED" ? "success" : "warning"}>
                         {record.status}
+                      </Pill>
+                    </td>
+                    <td>
+                      <Pill tone={toneForWorkspaceSource(record.source)}>
+                        {tr(`blocks.workspace.source.${record.source}` as MessageKey)}
                       </Pill>
                     </td>
                     <td>{formatDate(record.screenedAt, locale) ?? record.screenedAt}</td>

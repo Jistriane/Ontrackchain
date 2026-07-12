@@ -1,5 +1,7 @@
 # Atualização de KPI — 2026-07-01
 
+> Snapshot historico arquivado. Este documento preserva a baseline formal daquele momento (`91/78/87`), mas a fonte viva atual do projeto e `docs/project-kpi-scorecard.md`.
+
 ## Objetivo
 
 Registrar a primeira baseline formal do KPI consolidado do Ontrackchain apos a convergencia entre:
@@ -58,7 +60,7 @@ Registrar a primeira baseline formal do KPI consolidado do Ontrackchain apos a c
   - nota anterior: `76%`
   - nota atual: `78%`
   - motivo da mudança: documentação viva, runbooks e artefatos mínimos ficaram coerentes com os gaps reais
-  - evidência objetiva: `project-release-gates.md`, `first-serious-window-evidence-checklist.md`, `runbooks.md` e `project-weekly-governance-runbook.md`
+  - evidência objetiva: `project-release-gates.md`, `history/first-serious-window-evidence-checklist.md`, `runbooks.md` e `project-weekly-governance-runbook.md`
 
 ## Evidências Utilizadas
 
@@ -72,8 +74,8 @@ Registrar a primeira baseline formal do KPI consolidado do Ontrackchain apos a c
 - sign-off: critérios e templates de sign-off institucionalizados, ainda pendentes de execução real recorrente
 - runbook/janela:
   - `runbooks.md`
-  - `first-serious-window-first-dispatch-runbook.md`
-  - `staging-serious-window-signoff-template.md`
+  - `history/first-serious-window-first-dispatch-runbook.md`
+  - `history/staging-serious-window-signoff-template.md`
 
 ## Regras Aplicadas
 

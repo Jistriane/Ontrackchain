@@ -96,4 +96,4 @@
 - classificacao: `parcial`
 - resumo executivo: a preparacao esta corretamente modelada, mas ainda sem evidencia tecnica material anexada
 - owner do primeiro passo do proximo marco: `Platform/SRE`
-- artefato relacionado: [Runbook de Execucao do Dia 2 da Sprint 3](../../sprint-3-day-2-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-3-day-2-execution-runbook.md`

@@ -22,7 +22,7 @@ Servir como lista curta e objetiva para fechar um ciclo semanal sem inflar progr
 - [ ] preencher ou revisar a versao operacional da semana
 - [ ] sincronizar o rascunho completo da semana
 - [ ] decidir se a semana deve ser promovida para `YYYY-MM-DD-weekly-governance.md`
-- [ ] se houve mudanca material, sincronizar o [Plano Consolidado de Continuidade e Execucao](../../history/CONTINUATION_EXECUTION_PLAN_2026_07.md)
+- [ ] se houve mudanca material, sincronizar o [Plano Consolidado ate 95%](../../project-construction-plan-to-95-percent.md)
 - [ ] se houve mudanca de KPI, sincronizar scorecard e avaliacao consolidada
 - [ ] registrar paths dos artefatos revisados no fechamento
 

@@ -90,7 +90,9 @@ Esperado:
 - readiness interna `ready=true`
 - `details.operating_mode=live`
 - catalogo publico coerente com `kyc_wallet.provider=trm_labs`
+- correlacao estruturada do checker com `provider_converges_live=true`
 - evidencia JSON preservavel no terminal ou no arquivo de execucao da janela
+- preservar o `request_id` do checker para correlacao posterior com homologacao externa, bundle regulatorio e dossier
 
 ### 3. Smoke Runtime
 
@@ -120,6 +122,7 @@ Esperado:
 - JSON em `artifacts/homologation/`
 - manifesto correspondente `.manifest.json`
 - `request_id` correlacionavel entre readiness, catalogo, `risk-check` e bundle `/audit`
+- sempre que possivel, reutilizar ou registrar explicitamente o mesmo `request_id` do checker AML/KYT para facilitar reconciliacao no dossier
 
 ### 5. Bundle Regulatório Quando `P0-03` Tambem Estiver no Escopo
 
@@ -134,6 +137,8 @@ Esperado:
 
 - `artifacts/staging/checks/<window_id>-regulatory-readiness-bundle.json`
 - `artifacts/staging/dossiers/<window_id>-regulatory-readiness-bundle.md`
+- o JSON do bundle deve explicitar `readiness.compliance_runtime.readiness_status` e `readiness.regulatory_bundle.readiness_status`
+- o markdown do bundle deve refletir readiness executivo, bloqueadores e `next_action` coerentes com a trilha `P0-02`
 
 ### 6. Reconciliar Governanca Semanal
 
@@ -154,8 +159,10 @@ Esperado:
 
 - saida verde do `preflight_external_integrations.py`
 - gate verde de `make check-compliance-provider-runtime`
+- `steps.compliance_provider_runtime.correlation.provider_converges_live=true`
 - artefato JSON de homologacao em `artifacts/homologation/`
 - bundle `/audit` correlacionado pelo mesmo `request_id`
+- bundle regulatorio preservando `steps.compliance_provider_runtime.request_id`
 - quando aplicavel, `regulatory-readiness-bundle.json` e resumo `.md`
 - snapshot/governance atualizados apos `refresh-staging-war-room-governance-local`
 

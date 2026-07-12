@@ -61,3 +61,13 @@ groups:
         annotations:
           summary: Concorrencia global saturada
           description: O limite global de concorrencia do worker foi atingido.
+
+      - alert: OntrackInvestigationManualPackageMfaViolations
+        expr: ontrack_investigation_platform_operational_alert_status{code="investigation_manual_package_mfa_violations"} == 1
+        for: 1m
+        labels:
+          severity: warning
+          service: investigation-api
+        annotations:
+          summary: Violacoes MFA em selagem manual
+          description: Houve violacoes recentes de MFA no fluxo institucional de manual-package.

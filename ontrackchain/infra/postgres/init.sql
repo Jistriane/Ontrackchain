@@ -272,6 +272,162 @@ CREATE TABLE IF NOT EXISTS credit_ledger (
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
+CREATE OR REPLACE FUNCTION jsonb_is_string_or_null(value JSONB)
+RETURNS BOOLEAN AS $$
+  SELECT value IS NULL OR jsonb_typeof(value) IN ('string', 'null');
+$$ LANGUAGE sql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION jsonb_is_bool_or_null(value JSONB)
+RETURNS BOOLEAN AS $$
+  SELECT value IS NULL OR jsonb_typeof(value) IN ('boolean', 'null');
+$$ LANGUAGE sql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION jsonb_is_number_or_null(value JSONB)
+RETURNS BOOLEAN AS $$
+  SELECT value IS NULL OR jsonb_typeof(value) IN ('number', 'null');
+$$ LANGUAGE sql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION jsonb_is_string_array_or_null(value JSONB)
+RETURNS BOOLEAN AS $$
+  SELECT
+    value IS NULL
+    OR jsonb_typeof(value) = 'null'
+    OR (
+      jsonb_typeof(value) = 'array'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements(value) AS entry
+        WHERE jsonb_typeof(entry) <> 'string'
+      )
+    );
+$$ LANGUAGE sql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION regulatory_work_item_module_resource_pair_valid(
+  module_value TEXT,
+  resource_type_value TEXT
+)
+RETURNS BOOLEAN AS $$
+  SELECT CASE module_value
+    WHEN 'alerts' THEN resource_type_value = 'operational_alert'
+    WHEN 'sanctions' THEN resource_type_value = 'sanctions_screening'
+    WHEN 'blocks' THEN resource_type_value = 'preventive_block'
+    WHEN 'reports' THEN resource_type_value = 'formal_report_case'
+    WHEN 'ros_coaf' THEN resource_type_value = 'ros_record'
+    WHEN 'counterparties' THEN resource_type_value = 'counterparty'
+    WHEN 'evidence' THEN resource_type_value = 'evidence_event'
+    ELSE FALSE
+  END;
+$$ LANGUAGE sql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION regulatory_work_item_metadata_guard(
+  resource_type_value TEXT,
+  metadata_value JSONB
+)
+RETURNS BOOLEAN AS $$
+  SELECT
+    metadata_value IS NOT NULL
+    AND jsonb_typeof(metadata_value) = 'object'
+    AND jsonb_is_string_or_null(metadata_value -> 'case_id')
+    AND jsonb_is_string_or_null(metadata_value -> 'local_case_id')
+    AND jsonb_is_string_or_null(metadata_value -> 'owner_user_id')
+    AND jsonb_is_string_or_null(metadata_value -> 'owner_label')
+    AND jsonb_is_string_or_null(metadata_value -> 'workspace_status')
+    AND jsonb_is_string_or_null(metadata_value -> 'local_workspace_status')
+    AND jsonb_is_string_or_null(metadata_value -> 'note')
+    AND CASE resource_type_value
+      WHEN 'operational_alert' THEN
+        jsonb_is_string_or_null(metadata_value -> 'alertname')
+        AND jsonb_is_string_or_null(metadata_value -> 'receiver')
+        AND jsonb_is_string_or_null(metadata_value -> 'service')
+        AND jsonb_is_string_or_null(metadata_value -> 'severity')
+        AND jsonb_is_string_or_null(metadata_value -> 'fingerprint')
+        AND jsonb_is_string_or_null(metadata_value -> 'first_received_at')
+        AND jsonb_is_string_or_null(metadata_value -> 'last_received_at')
+        AND jsonb_is_number_or_null(metadata_value -> 'delivery_count')
+        AND jsonb_is_string_or_null(metadata_value -> 'triage_status')
+        AND jsonb_is_string_or_null(metadata_value -> 'triaged_at')
+        AND jsonb_is_string_or_null(metadata_value -> 'triaged_by')
+        AND jsonb_is_string_or_null(metadata_value -> 'triage_note')
+        AND jsonb_is_string_or_null(metadata_value -> 'address')
+        AND jsonb_is_string_or_null(metadata_value -> 'report_id')
+      WHEN 'sanctions_screening' THEN
+        jsonb_is_string_or_null(metadata_value -> 'workspace_id')
+        AND jsonb_is_string_or_null(metadata_value -> 'address')
+        AND jsonb_is_string_or_null(metadata_value -> 'chain')
+        AND jsonb_is_string_array_or_null(metadata_value -> 'lists')
+        AND jsonb_is_string_or_null(metadata_value -> 'provider')
+        AND jsonb_is_string_or_null(metadata_value -> 'provider_status')
+        AND jsonb_is_string_or_null(metadata_value -> 'capability_status')
+        AND jsonb_is_string_or_null(metadata_value -> 'degraded_reason')
+        AND jsonb_is_string_array_or_null(metadata_value -> 'matched_lists')
+        AND jsonb_is_bool_or_null(metadata_value -> 'hit')
+        AND jsonb_is_string_or_null(metadata_value -> 'entity_name')
+        AND jsonb_is_string_or_null(metadata_value -> 'designation_date')
+        AND jsonb_is_string_or_null(metadata_value -> 'checked_at')
+        AND jsonb_is_string_or_null(metadata_value -> 'triage_note')
+      WHEN 'preventive_block' THEN
+        jsonb_is_string_or_null(metadata_value -> 'workspace_id')
+        AND jsonb_is_string_or_null(metadata_value -> 'local_block_status')
+        AND jsonb_is_string_or_null(metadata_value -> 'address')
+        AND jsonb_is_string_or_null(metadata_value -> 'chain')
+        AND jsonb_is_string_or_null(metadata_value -> 'entity_name')
+        AND jsonb_is_string_or_null(metadata_value -> 'entity_document')
+        AND jsonb_is_string_or_null(metadata_value -> 'action')
+        AND jsonb_is_bool_or_null(metadata_value -> 'requires_coaf_report')
+        AND jsonb_is_number_or_null(metadata_value -> 'decision_confidence')
+        AND jsonb_is_string_array_or_null(metadata_value -> 'regulatory_basis')
+        AND jsonb_is_string_array_or_null(metadata_value -> 'matched_lists')
+        AND jsonb_is_string_or_null(metadata_value -> 'evidence_hash')
+        AND jsonb_is_string_or_null(metadata_value -> 'block_id')
+        AND jsonb_is_string_or_null(metadata_value -> 'screened_at')
+        AND jsonb_is_string_or_null(metadata_value -> 'lifted_at')
+        AND jsonb_is_string_or_null(metadata_value -> 'lift_reason')
+      WHEN 'formal_report_case' THEN
+        jsonb_is_string_or_null(metadata_value -> 'target_address')
+        AND jsonb_is_string_or_null(metadata_value -> 'target_chain')
+        AND jsonb_is_string_or_null(metadata_value -> 'report_type')
+      WHEN 'ros_record' THEN
+        jsonb_is_string_or_null(metadata_value -> 'ros_id')
+        AND jsonb_is_string_or_null(metadata_value -> 'ros_status')
+        AND jsonb_is_string_or_null(metadata_value -> 'report_id')
+        AND jsonb_is_string_or_null(metadata_value -> 'created_at')
+        AND jsonb_is_string_or_null(metadata_value -> 'approved_at')
+        AND jsonb_is_string_or_null(metadata_value -> 'submitted_at')
+        AND jsonb_is_string_or_null(metadata_value -> 'coaf_protocol_number')
+        AND jsonb_is_string_or_null(metadata_value -> 'coaf_receipt_hash')
+      WHEN 'counterparty' THEN
+        jsonb_is_string_or_null(metadata_value -> 'counterparty_id')
+        AND jsonb_is_string_or_null(metadata_value -> 'legal_name')
+        AND jsonb_is_string_or_null(metadata_value -> 'counterparty_type')
+        AND jsonb_is_string_or_null(metadata_value -> 'document_type')
+        AND jsonb_is_string_or_null(metadata_value -> 'document_number')
+        AND jsonb_is_string_or_null(metadata_value -> 'wallet_chain')
+        AND jsonb_is_string_or_null(metadata_value -> 'wallet_address')
+        AND jsonb_is_string_or_null(metadata_value -> 'wallet_label')
+        AND jsonb_is_number_or_null(metadata_value -> 'risk_level')
+        AND jsonb_is_string_or_null(metadata_value -> 'kyc_status')
+        AND jsonb_is_bool_or_null(metadata_value -> 'sanctions_cleared')
+        AND jsonb_is_bool_or_null(metadata_value -> 'is_pep')
+        AND jsonb_is_bool_or_null(metadata_value -> 'enhanced_dd_required')
+        AND jsonb_is_string_or_null(metadata_value -> 'next_review_date')
+        AND jsonb_is_string_or_null(metadata_value -> 'status')
+        AND jsonb_is_string_or_null(metadata_value -> 'created_at')
+        AND jsonb_is_string_or_null(metadata_value -> 'dd_review_status')
+        AND jsonb_is_string_or_null(metadata_value -> 'dd_review_note')
+        AND jsonb_is_string_or_null(metadata_value -> 'sof_description')
+        AND jsonb_is_string_or_null(metadata_value -> 'sof_document_ref')
+      WHEN 'evidence_event' THEN
+        jsonb_is_string_or_null(metadata_value -> 'event_id')
+        AND jsonb_is_string_or_null(metadata_value -> 'audit_action')
+        AND jsonb_is_string_or_null(metadata_value -> 'audit_resource_type')
+        AND jsonb_is_string_or_null(metadata_value -> 'audit_resource_id')
+        AND jsonb_is_string_or_null(metadata_value -> 'request_id')
+        AND jsonb_is_string_or_null(metadata_value -> 'report_id')
+        AND jsonb_is_string_or_null(metadata_value -> 'file_hash_sha256')
+      ELSE FALSE
+    END;
+$$ LANGUAGE sql IMMUTABLE;
+
 CREATE TABLE IF NOT EXISTS regulatory_work_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES organizations(id),
@@ -306,10 +462,14 @@ CREATE TABLE IF NOT EXISTS regulatory_work_items (
       'counterparty',
       'evidence_event'
     )),
+  CONSTRAINT ck_regulatory_work_items_module_resource_pair
+    CHECK (regulatory_work_item_module_resource_pair_valid(module, resource_type)),
   CONSTRAINT ck_regulatory_work_items_queue_status
     CHECK (queue_status IN ('UNDER_REVIEW', 'ESCALATED', 'READY', 'APPROVED', 'SUBMITTED', 'CLOSED', 'REJECTED')),
   CONSTRAINT ck_regulatory_work_items_priority
-    CHECK (priority IN ('critical', 'high', 'normal'))
+    CHECK (priority IN ('critical', 'high', 'normal')),
+  CONSTRAINT ck_regulatory_work_items_metadata_shape
+    CHECK (regulatory_work_item_metadata_guard(resource_type, metadata))
 );
 
 CREATE TABLE IF NOT EXISTS regulatory_work_events (
@@ -336,6 +496,85 @@ CREATE TABLE IF NOT EXISTS regulatory_work_comments (
     CHECK (comment_type IN ('note', 'decision', 'handoff'))
 );
 
+CREATE TABLE IF NOT EXISTS evidence_package_seals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES organizations(id),
+  package_kind VARCHAR(50) NOT NULL DEFAULT 'manual_review_package',
+  request_id VARCHAR(120) NOT NULL,
+  report_id VARCHAR(64),
+  scope_id VARCHAR(120) NOT NULL,
+  manual_review_action VARCHAR(80) NOT NULL,
+  package_sha256 VARCHAR(64) NOT NULL,
+  manifest_schema_version VARCHAR(80) NOT NULL,
+  classification VARCHAR(80) NOT NULL,
+  signoff_mode VARCHAR(80) NOT NULL,
+  seal_status VARCHAR(40) NOT NULL DEFAULT 'pending_signoff',
+  seal_format VARCHAR(40) NOT NULL DEFAULT 'jws_json_flattened',
+  signature_algorithm VARCHAR(40),
+  kms_key_ref VARCHAR(255),
+  certificate_fingerprint_sha256 VARCHAR(64),
+  certificate_bundle_ref VARCHAR(255),
+  policy_version VARCHAR(80) NOT NULL DEFAULT 'manual_package_sealing/v1',
+  sealed_at TIMESTAMPTZ,
+  sealed_by_user_id UUID REFERENCES users(id),
+  revoked_at TIMESTAMPTZ,
+  superseded_by_seal_id UUID REFERENCES evidence_package_seals(id),
+  seal_envelope JSONB NOT NULL DEFAULT '{}'::jsonb,
+  verification_summary JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_evidence_package_seals_org_digest_policy
+    UNIQUE (organization_id, package_sha256, policy_version),
+  CONSTRAINT ck_evidence_package_seals_kind
+    CHECK (package_kind IN ('manual_review_package')),
+  CONSTRAINT ck_evidence_package_seals_manual_action
+    CHECK (manual_review_action IN (
+      'compliance_due_diligence_checked',
+      'compliance_source_of_funds_checked'
+    )),
+  CONSTRAINT ck_evidence_package_seals_status
+    CHECK (seal_status IN (
+      'pending_signoff',
+      'ready_to_seal',
+      'sealed',
+      'revoked',
+      'superseded',
+      'failed'
+    )),
+  CONSTRAINT ck_evidence_package_seals_format
+    CHECK (seal_format IN ('jws_json_flattened'))
+);
+
+CREATE TABLE IF NOT EXISTS evidence_package_signoffs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  seal_id UUID NOT NULL REFERENCES evidence_package_seals(id) ON DELETE CASCADE,
+  organization_id UUID NOT NULL REFERENCES organizations(id),
+  signer_role VARCHAR(40) NOT NULL,
+  signer_user_id UUID REFERENCES users(id),
+  signer_display_name VARCHAR(255) NOT NULL,
+  decision VARCHAR(20) NOT NULL,
+  signoff_method VARCHAR(40) NOT NULL,
+  ticket_ref VARCHAR(120),
+  notes TEXT,
+  signed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  CONSTRAINT uq_evidence_package_signoffs_role
+    UNIQUE (seal_id, signer_role),
+  CONSTRAINT ck_evidence_package_signoffs_role
+    CHECK (signer_role IN (
+      'compliance_owner',
+      'ops_owner',
+      'legal_owner_optional'
+    )),
+  CONSTRAINT ck_evidence_package_signoffs_decision
+    CHECK (decision IN ('approved', 'rejected')),
+  CONSTRAINT ck_evidence_package_signoffs_method
+    CHECK (signoff_method IN (
+      'platform_authenticated_2fa',
+      'governance_ticket'
+    ))
+);
+
 CREATE OR REPLACE FUNCTION update_regulatory_work_items_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -349,6 +588,19 @@ DROP TRIGGER IF EXISTS regulatory_work_items_updated_at ON regulatory_work_items
 CREATE TRIGGER regulatory_work_items_updated_at
   BEFORE UPDATE ON regulatory_work_items
   FOR EACH ROW EXECUTE FUNCTION update_regulatory_work_items_updated_at();
+
+CREATE OR REPLACE FUNCTION update_evidence_package_seals_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS evidence_package_seals_updated_at ON evidence_package_seals;
+CREATE TRIGGER evidence_package_seals_updated_at
+  BEFORE UPDATE ON evidence_package_seals
+  FOR EACH ROW EXECUTE FUNCTION update_evidence_package_seals_updated_at();
 
 CREATE INDEX IF NOT EXISTS idx_users_org_id ON users(organization_id);
 CREATE INDEX IF NOT EXISTS idx_cases_org_id ON cases(organization_id);
@@ -416,6 +668,21 @@ CREATE INDEX IF NOT EXISTS idx_regulatory_work_events_work_item
   ON regulatory_work_events(work_item_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_regulatory_work_comments_work_item
   ON regulatory_work_comments(work_item_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_evidence_package_seals_org_request_action_created
+  ON evidence_package_seals(organization_id, request_id, manual_review_action, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_evidence_package_seals_org_package_sha
+  ON evidence_package_seals(organization_id, package_sha256);
+CREATE INDEX IF NOT EXISTS idx_evidence_package_seals_org_status_created
+  ON evidence_package_seals(organization_id, seal_status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_evidence_package_signoffs_org_signed_at
+  ON evidence_package_signoffs(organization_id, signed_at DESC);
+
+COMMENT ON TABLE evidence_package_seals IS
+  'Estado persistido da selagem institucional de pacotes manuais DD/SoF por tenant. '
+  'Preserva package_sha256, signoff_mode, seal_status e envelope assinado sem quebrar o contrato atual.';
+
+COMMENT ON TABLE evidence_package_signoffs IS
+  'Decisoes institucionais por papel para selagem forte de pacotes manuais DD/SoF.';
 
 INSERT INTO organizations (id, name, plan, credits_available, credits_reserved, credits_used_total)
 VALUES (
@@ -478,6 +745,8 @@ ALTER TABLE credit_ledger ENABLE ROW LEVEL SECURITY;
 ALTER TABLE regulatory_work_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE regulatory_work_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE regulatory_work_comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE evidence_package_seals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE evidence_package_signoffs ENABLE ROW LEVEL SECURITY;
 
 CREATE OR REPLACE FUNCTION check_rls_context()
 RETURNS BOOLEAN AS $$
@@ -682,6 +951,28 @@ CREATE POLICY regulatory_work_events_tenant_isolation ON regulatory_work_events
 
 DROP POLICY IF EXISTS regulatory_work_comments_tenant_isolation ON regulatory_work_comments;
 CREATE POLICY regulatory_work_comments_tenant_isolation ON regulatory_work_comments
+  USING (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', true), '')::uuid
+  )
+  WITH CHECK (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', true), '')::uuid
+  );
+
+DROP POLICY IF EXISTS evidence_package_seals_tenant_isolation ON evidence_package_seals;
+CREATE POLICY evidence_package_seals_tenant_isolation ON evidence_package_seals
+  USING (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', true), '')::uuid
+  )
+  WITH CHECK (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', true), '')::uuid
+  );
+
+DROP POLICY IF EXISTS evidence_package_signoffs_tenant_isolation ON evidence_package_signoffs;
+CREATE POLICY evidence_package_signoffs_tenant_isolation ON evidence_package_signoffs
   USING (
     check_rls_context()
     AND organization_id = NULLIF(current_setting('app.organization_id', true), '')::uuid

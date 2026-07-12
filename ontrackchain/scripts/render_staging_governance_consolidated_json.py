@@ -18,9 +18,7 @@ Usage:
 import argparse
 import json
 import os
-import sys
 from datetime import datetime, timezone
-from pathlib import Path
 
 
 def load_json_file(path):
@@ -88,6 +86,43 @@ def extract_executive_bullet(content):
     return ""
 
 
+def _safe_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def regulatory_summary(snapshot):
+    """Extract normalized regulatory summary from snapshot."""
+    regulatory = snapshot.get("regulatory") if isinstance(snapshot, dict) else {}
+    if not isinstance(regulatory, dict):
+        regulatory = {}
+    return {
+        "scope_label": str(regulatory.get("scope_label") or "none"),
+        "validation_scope": regulatory.get("validation_scope") or [],
+        "p0_04_bundle_readiness": str(regulatory.get("p0_04_bundle_readiness") or "unknown"),
+        "promotion_note": str(regulatory.get("promotion_note") or "indisponivel"),
+    }
+
+
+def operational_summary(snapshot):
+    operational = snapshot.get("operational_incidents") if isinstance(snapshot, dict) else {}
+    if not isinstance(operational, dict):
+        operational = {}
+    return {
+        "status": str(operational.get("status") or "not_available"),
+        "exported_count": int(operational.get("exported_count") or 0),
+        "tracked_work_items_count": int(operational.get("tracked_work_items_count") or 0),
+        "rca_attached_count": int(operational.get("rca_attached_count") or 0),
+        "confirmed_root_cause_count": int(operational.get("confirmed_root_cause_count") or 0),
+        "critical_open_count": int(operational.get("critical_open_count") or 0),
+        "pending_triage_count": int(operational.get("pending_triage_count") or 0),
+        "top_rca_domains": operational.get("top_rca_domains") or [],
+        "top_affected_domains": operational.get("top_affected_domains") or [],
+    }
+
+
 def find_latest_history_file(checks_dir, window_id):
     """Find the latest status snapshot in history dir."""
     history_dir = os.path.join(checks_dir, 'history')
@@ -149,13 +184,8 @@ def build_consolidated_json(window_id, checks_dir, dossiers_dir, docs_dir):
     previous_snapshot_data = load_json_file(previous_snapshot)
     
     # Load markdown content
-    delta_content = extract_markdown_content(delta_file)
-    action_plan_content = extract_markdown_content(action_plan_file)
-    unblock_checklist_content = extract_markdown_content(unblock_checklist_file)
     comms_summary_content = extract_markdown_content(comms_summary_file)
     executive_bullet_content = extract_markdown_content(executive_bullet_file)
-    dashboard_content = extract_markdown_content(dashboard_file)
-    status_snapshot_content = extract_markdown_content(status_snapshot_md_file)
     
     # Extract key fields
     executive_bullet = extract_executive_bullet(executive_bullet_content)
@@ -165,7 +195,16 @@ def build_consolidated_json(window_id, checks_dir, dossiers_dir, docs_dir):
         "status": "unknown",
         "signal": "unknown",
         "blockers": {"placeholders": 0, "handoff": 0},
-        "decision": "unknown"
+        "decision": "unknown",
+        "regulatory": {
+            "scope_label": "none",
+            "p0_04_bundle_readiness": "unknown",
+        },
+        "operational": {
+            "status": "not_available",
+            "rca_attached_count": 0,
+            "critical_open_count": 0,
+        },
     }
     
     if 'status=' in executive_bullet:
@@ -188,6 +227,14 @@ def build_consolidated_json(window_id, checks_dir, dossiers_dir, docs_dir):
                         governance_state['blockers']['handoff'] = int(hf_part)
                     except ValueError:
                         pass
+            elif part.startswith('escopo_regulatorio='):
+                governance_state['regulatory']['scope_label'] = part.replace('escopo_regulatorio=', '').strip()
+            elif part.startswith('p0_04='):
+                governance_state['regulatory']['p0_04_bundle_readiness'] = part.replace('p0_04=', '').strip()
+            elif part.startswith('rca='):
+                governance_state['operational']['rca_attached_count'] = _safe_int(part.replace('rca=', '').strip())
+            elif part.startswith('criticos_abertos='):
+                governance_state['operational']['critical_open_count'] = _safe_int(part.replace('criticos_abertos=', '').strip())
             elif part.startswith('decisao='):
                 governance_state['decision'] = part.replace('decisao=', '').strip()
     
@@ -197,6 +244,10 @@ def build_consolidated_json(window_id, checks_dir, dossiers_dir, docs_dir):
     unblock_items = []
     
     # Build consolidated JSON
+    current_regulatory = regulatory_summary(current_snapshot if current_snapshot else {})
+    previous_regulatory = regulatory_summary(previous_snapshot_data if previous_snapshot_data else {})
+    current_operational = operational_summary(current_snapshot if current_snapshot else {})
+    previous_operational = operational_summary(previous_snapshot_data if previous_snapshot_data else {})
     consolidated = {
         "window_id": window_id,
         "generated_at": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
@@ -215,6 +266,14 @@ def build_consolidated_json(window_id, checks_dir, dossiers_dir, docs_dir):
             "comms_summary": {
                 "short": comms_summary_content[:500] + "..." if len(comms_summary_content) > 500 else comms_summary_content
             }
+        },
+        "regulatory_summary": {
+            "current": current_regulatory,
+            "previous": previous_regulatory,
+        },
+        "operational_summary": {
+            "current": current_operational,
+            "previous": previous_operational,
         },
         "artefact_files": {
             "war_room_action_plan": action_plan_file if os.path.exists(action_plan_file) else None,
@@ -247,7 +306,7 @@ def main():
     parser.add_argument('--dossiers-dir', default='artifacts/staging/dossiers', help='Path to dossiers directory')
     parser.add_argument(
         '--docs-dir',
-        default='docs/governance-weekly',
+        default=None,
         help='Path to the governance artefacts directory for the target window (usually generated/windows/<window_id>)',
     )
     parser.add_argument('--output-file', required=True, help='Output JSON file path')
@@ -255,11 +314,13 @@ def main():
     args = parser.parse_args()
     
     # Build consolidated JSON
+    docs_dir = args.docs_dir or f'docs/governance-weekly/generated/windows/{args.window_id}'
+
     consolidated = build_consolidated_json(
         args.window_id,
         args.checks_dir,
         args.dossiers_dir,
-        args.docs_dir
+        docs_dir
     )
     
     # Ensure output directory exists

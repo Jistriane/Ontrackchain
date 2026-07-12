@@ -1,6 +1,6 @@
 # Checklist de Evidência Mínima da Primeira Janela Séria
 
-> Documento de apoio historico. Para a versao canônica da execucao integrada e dos criterios de reconciliacao, use `docs/governance-weekly/guides/SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md`.
+> Documento de apoio historico. Para a versao canônica da execucao integrada e dos criterios de reconciliacao, use `../governance-weekly/guides/SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md`.
 
 ## Objetivo
 
@@ -9,9 +9,9 @@ Definir o pacote mínimo de evidências para considerar a primeira janela séria
 Use este checklist junto com:
 
 - `python scripts/run_staging_window.py`
-- [Deploy e Staging](deploy-and-staging.md)
-- [Gates de Release para Staging Serio](project-release-gates.md)
-- [Ownership do `.env.staging`](staging-env-ownership.md)
+- [Deploy e Staging](../deploy-and-staging.md)
+- [Gates de Release para Staging Serio](../project-release-gates.md)
+- [Ownership do `.env.staging`](../staging-env-ownership.md)
 
 ## Pré-condições
 

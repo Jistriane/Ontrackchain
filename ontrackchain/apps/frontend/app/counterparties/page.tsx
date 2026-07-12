@@ -10,36 +10,43 @@ import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel
 import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
 import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
-import { createWorkItemComment, fetchWorkItemTimeline } from "../lib/work-item-timeline-client";
+import { useWorkItemTimeline } from "../lib/use-work-item-timeline";
+import {
+  loadWorkspaceRecords,
+  saveWorkspaceRecords,
+  sortByLastActionAtDesc,
+  toApiDueAt,
+  toDateTimeLocalValue
+} from "../lib/workspace-storage";
 import {
   buildOperationalContextLinks,
   type OperationalContext,
   type OperationalContextLink
 } from "../lib/operational-context";
+import {
+  readWorkItemMetadataBoolean,
+  readWorkItemMetadataNumber,
+  readWorkItemMetadataString,
+  resolveWorkItemOwnerDisplay,
+  resolveWorkItemWorkspaceStatus,
+  isWorkItemUuidLike as isUuidLike,
+  type CounterpartyWorkItemMetadata,
+  type CreateWorkItemRequest,
+  type PatchWorkItemRequest,
+  type WorkItemListResponse,
+  type WorkItemPriority,
+  type WorkItemQueueStatus,
+  type WorkItemResponse,
+  withCanonicalWorkItemMetadata
+} from "../lib/work-items";
 import type { MessageKey } from "../lib/i18n";
-import { formatTimelineEvent, type WorkCommentResponse, type WorkItemTimelineResponse } from "../lib/work-item-timeline";
+import { formatTimelineEvent } from "../lib/work-item-timeline";
 
-type WorkspacePriority = "critical" | "high" | "normal";
+type WorkspacePriority = WorkItemPriority;
 type WorkspaceStatus = "UNDER_REVIEW" | "ESCALATED" | "CLOSED";
 type WorkspaceSource = "server" | "local";
-type WorkItemQueueStatus = "UNDER_REVIEW" | "ESCALATED" | "READY" | "APPROVED" | "SUBMITTED" | "CLOSED" | "REJECTED";
-
-type WorkItemResponse = {
-  id: string;
-  resource_id: string;
-  owner_user_id?: string | null;
-  queue_status: WorkItemQueueStatus;
-  priority: WorkspacePriority;
-  due_at: string | null;
-  note: string | null;
-  metadata: Record<string, unknown>;
-  last_activity_at: string;
-  updated_at: string;
-};
-
-type WorkItemListResponse = {
-  data: WorkItemResponse[];
-};
+type CounterpartyWorkItemResponse = WorkItemResponse<CounterpartyWorkItemMetadata>;
+type CounterpartyWorkItemListResponse = WorkItemListResponse<CounterpartyWorkItemMetadata>;
 
 type CounterpartyListItem = {
   id: string;
@@ -55,6 +62,11 @@ type CounterpartyListItem = {
   next_review_date: string | null;
   status: string;
   created_at: string;
+  dd_review_status?: string;
+  dd_review_note?: string;
+  sof_description?: string;
+  sof_document_ref?: string;
+  last_reviewed_at?: string | null;
 };
 
 type CounterpartyListResponse = {
@@ -72,6 +84,15 @@ type CounterpartyCreateResponse = {
   enhanced_dd_required: boolean;
   next_review_date: string;
   status: string;
+};
+
+type CounterpartyReviewResponse = {
+  counterparty_id: string;
+  dd_review_status: string;
+  dd_review_note: string;
+  sof_description: string;
+  sof_document_ref: string;
+  last_reviewed_at?: string | null;
 };
 
 type CounterpartyFormState = {
@@ -134,7 +155,6 @@ type CounterpartyWorkspaceRecord = {
 const DEFAULT_LIMIT = 20;
 const STORAGE_KEY = "otc-counterparties-workspace";
 const WORKSPACE_PAGE_LIMIT = 100;
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const DEFAULT_FORM: CounterpartyFormState = {
   counterpartyType: "CLIENTE_PJ",
@@ -170,61 +190,24 @@ const COUNTERPARTY_TYPES = [
 
 const DOCUMENT_TYPES = ["CPF", "CNPJ", "PASSPORT", "FOREIGN_ID"] as const;
 
-function isUuidLike(value: string | null | undefined) {
-  return Boolean(value && UUID_PATTERN.test(value.trim()));
-}
-
-function toDateTimeLocalValue(value: string | null | undefined) {
-  if (!value) {
-    return "";
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "";
-  }
-
-  const year = parsed.getFullYear();
-  const month = `${parsed.getMonth() + 1}`.padStart(2, "0");
-  const day = `${parsed.getDate()}`.padStart(2, "0");
-  const hours = `${parsed.getHours()}`.padStart(2, "0");
-  const minutes = `${parsed.getMinutes()}`.padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-}
-
-function toApiDueAt(value: string) {
-  const normalized = value.trim();
-  if (!normalized) {
-    return null;
-  }
-
-  const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-
-  return parsed.toISOString();
-}
-
-function readMetadataString(metadata: Record<string, unknown>, key: string) {
-  const value = metadata[key];
-  return typeof value === "string" ? value : "";
-}
-
-function readMetadataBoolean(metadata: Record<string, unknown>, key: string) {
-  return metadata[key] === true;
-}
-
-function readMetadataNumber(metadata: Record<string, unknown>, key: string) {
-  const value = metadata[key];
-  return typeof value === "number" ? value : 0;
-}
-
 function normalizeWorkspaceStatus(value: unknown): WorkspaceStatus {
   if (value === "UNDER_REVIEW" || value === "ESCALATED" || value === "CLOSED") {
     return value;
   }
   return "UNDER_REVIEW";
+}
+
+function normalizeDdReviewStatus(value: unknown): DdReviewStatus {
+  return value === "in_progress" || value === "completed" || value === "escalated" ? value : "pending";
+}
+
+function getCounterpartyDomainReviewFields(item: Partial<CounterpartyListItem>) {
+  return {
+    ddReviewStatus: normalizeDdReviewStatus(item.dd_review_status),
+    ddReviewNote: typeof item.dd_review_note === "string" ? item.dd_review_note : "",
+    sofDescription: typeof item.sof_description === "string" ? item.sof_description : "",
+    sofDocumentRef: typeof item.sof_document_ref === "string" ? item.sof_document_ref : ""
+  };
 }
 
 function buildRegistrationData(form: CounterpartyFormState) {
@@ -343,67 +326,45 @@ function riskTone(level: number): "success" | "warning" | "danger" {
 }
 
 function loadWorkspace(): CounterpartyWorkspaceRecord[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed)
-      ? parsed.map((entry) => {
-          const record = (entry ?? {}) as Partial<CounterpartyWorkspaceRecord>;
-          const counterpartyId = typeof record.counterpartyId === "string" ? record.counterpartyId : "";
-          const source: WorkspaceSource = record.source === "server" ? "server" : "local";
-          return {
-            workItemId: typeof record.workItemId === "string" ? record.workItemId : undefined,
-            source,
-            counterpartyId,
-            legalName: typeof record.legalName === "string" ? record.legalName : "",
-            counterpartyType: typeof record.counterpartyType === "string" ? record.counterpartyType : "",
-            documentType: typeof record.documentType === "string" ? record.documentType : "",
-            documentNumber: typeof record.documentNumber === "string" ? record.documentNumber : "",
-            walletChain: typeof record.walletChain === "string" ? record.walletChain : "",
-            walletAddress: typeof record.walletAddress === "string" ? record.walletAddress : "",
-            walletLabel: typeof record.walletLabel === "string" ? record.walletLabel : "",
-            riskLevel: typeof record.riskLevel === "number" ? record.riskLevel : 0,
-            kycStatus: typeof record.kycStatus === "string" ? record.kycStatus : "",
-            sanctionsCleared: record.sanctionsCleared === true,
-            isPep: record.isPep === true,
-            enhancedDdRequired: record.enhancedDdRequired === true,
-            nextReviewDate: typeof record.nextReviewDate === "string" ? record.nextReviewDate : "",
-            status: typeof record.status === "string" ? record.status : "",
-            createdAt: typeof record.createdAt === "string" ? record.createdAt : "",
-            caseId: typeof record.caseId === "string" ? record.caseId : "",
-            owner: typeof record.owner === "string" ? record.owner : "",
-            priority: record.priority === "critical" || record.priority === "high" || record.priority === "normal" ? record.priority : "normal",
-            localDeadline: typeof record.localDeadline === "string" ? record.localDeadline : "",
-            workspaceStatus: normalizeWorkspaceStatus(record.workspaceStatus),
-            note: typeof record.note === "string" ? record.note : "",
-            ddReviewStatus:
-              record.ddReviewStatus === "in_progress" || record.ddReviewStatus === "completed" || record.ddReviewStatus === "escalated"
-                ? record.ddReviewStatus
-                : "pending",
-            ddReviewNote: typeof record.ddReviewNote === "string" ? record.ddReviewNote : "",
-            sofDescription: typeof record.sofDescription === "string" ? record.sofDescription : "",
-            sofDocumentRef: typeof record.sofDocumentRef === "string" ? record.sofDocumentRef : "",
-            lastActionAt: typeof record.lastActionAt === "string" ? record.lastActionAt : ""
-          };
-        })
-      : [];
-  } catch {
-    return [];
-  }
+  return loadWorkspaceRecords<CounterpartyWorkspaceRecord>(STORAGE_KEY, (record) => {
+    const counterpartyId = typeof record.counterpartyId === "string" ? record.counterpartyId : "";
+    const source: WorkspaceSource = record.source === "server" ? "server" : "local";
+    return {
+      workItemId: typeof record.workItemId === "string" ? record.workItemId : undefined,
+      source,
+      counterpartyId,
+      legalName: typeof record.legalName === "string" ? record.legalName : "",
+      counterpartyType: typeof record.counterpartyType === "string" ? record.counterpartyType : "",
+      documentType: typeof record.documentType === "string" ? record.documentType : "",
+      documentNumber: typeof record.documentNumber === "string" ? record.documentNumber : "",
+      walletChain: typeof record.walletChain === "string" ? record.walletChain : "",
+      walletAddress: typeof record.walletAddress === "string" ? record.walletAddress : "",
+      walletLabel: typeof record.walletLabel === "string" ? record.walletLabel : "",
+      riskLevel: typeof record.riskLevel === "number" ? record.riskLevel : 0,
+      kycStatus: typeof record.kycStatus === "string" ? record.kycStatus : "",
+      sanctionsCleared: record.sanctionsCleared === true,
+      isPep: record.isPep === true,
+      enhancedDdRequired: record.enhancedDdRequired === true,
+      nextReviewDate: typeof record.nextReviewDate === "string" ? record.nextReviewDate : "",
+      status: typeof record.status === "string" ? record.status : "",
+      createdAt: typeof record.createdAt === "string" ? record.createdAt : "",
+      caseId: typeof record.caseId === "string" ? record.caseId : "",
+      owner: typeof record.owner === "string" ? record.owner : "",
+      priority: record.priority === "critical" || record.priority === "high" || record.priority === "normal" ? record.priority : "normal",
+      localDeadline: typeof record.localDeadline === "string" ? record.localDeadline : "",
+      workspaceStatus: normalizeWorkspaceStatus(record.workspaceStatus),
+      note: typeof record.note === "string" ? record.note : "",
+      ddReviewStatus: normalizeDdReviewStatus(record.ddReviewStatus),
+      ddReviewNote: typeof record.ddReviewNote === "string" ? record.ddReviewNote : "",
+      sofDescription: typeof record.sofDescription === "string" ? record.sofDescription : "",
+      sofDocumentRef: typeof record.sofDocumentRef === "string" ? record.sofDocumentRef : "",
+      lastActionAt: typeof record.lastActionAt === "string" ? record.lastActionAt : ""
+    };
+  });
 }
 
 function saveWorkspace(records: CounterpartyWorkspaceRecord[]) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  saveWorkspaceRecords(STORAGE_KEY, records);
 }
 
 function upsertWorkspaceRecord(
@@ -450,9 +411,7 @@ function upsertWorkspaceRecord(
     lastActionAt: next.lastActionAt ?? new Date().toISOString()
   };
 
-  return [merged, ...current.filter((record) => record.counterpartyId !== next.counterpartyId)].sort((a, b) =>
-    (b.lastActionAt || "").localeCompare(a.lastActionAt || "")
-  );
+  return sortByLastActionAtDesc([merged, ...current.filter((record) => record.counterpartyId !== next.counterpartyId)]);
 }
 
 function mergeWorkspaceRecords(serverRecords: CounterpartyWorkspaceRecord[], localRecords: CounterpartyWorkspaceRecord[]) {
@@ -470,7 +429,7 @@ function mergeWorkspaceRecords(serverRecords: CounterpartyWorkspaceRecord[], loc
     merged.push(record);
   }
 
-  return merged.sort((a, b) => (b.lastActionAt || "").localeCompare(a.lastActionAt || ""));
+  return sortByLastActionAtDesc(merged);
 }
 
 function mapQueueStatusToWorkspaceStatus(status: WorkItemQueueStatus): WorkspaceStatus {
@@ -483,40 +442,62 @@ function mapQueueStatusToWorkspaceStatus(status: WorkItemQueueStatus): Workspace
   return "UNDER_REVIEW";
 }
 
-function mapWorkItemToWorkspaceRecord(item: WorkItemResponse): CounterpartyWorkspaceRecord {
+function mapWorkItemToWorkspaceRecord(item: CounterpartyWorkItemResponse): CounterpartyWorkspaceRecord {
   const metadata = item.metadata ?? {};
-  const counterpartyId = readMetadataString(metadata, "counterparty_id") || item.resource_id;
+  const counterpartyId = readWorkItemMetadataString(metadata, "counterparty_id") || item.resource_id;
   return {
     workItemId: item.id,
     source: "server",
     counterpartyId,
-    legalName: readMetadataString(metadata, "legal_name"),
-    counterpartyType: readMetadataString(metadata, "counterparty_type"),
-    documentType: readMetadataString(metadata, "document_type"),
-    documentNumber: readMetadataString(metadata, "document_number"),
-    walletChain: readMetadataString(metadata, "wallet_chain"),
-    walletAddress: readMetadataString(metadata, "wallet_address"),
-    walletLabel: readMetadataString(metadata, "wallet_label"),
-    riskLevel: readMetadataNumber(metadata, "risk_level"),
-    kycStatus: readMetadataString(metadata, "kyc_status"),
-    sanctionsCleared: readMetadataBoolean(metadata, "sanctions_cleared"),
-    isPep: readMetadataBoolean(metadata, "is_pep"),
-    enhancedDdRequired: readMetadataBoolean(metadata, "enhanced_dd_required"),
-    nextReviewDate: readMetadataString(metadata, "next_review_date"),
-    status: readMetadataString(metadata, "status"),
-    createdAt: readMetadataString(metadata, "created_at"),
-    caseId: readMetadataString(metadata, "case_id"),
-    owner: readMetadataString(metadata, "owner_label") || item.owner_user_id || "",
+    legalName: readWorkItemMetadataString(metadata, "legal_name"),
+    counterpartyType: readWorkItemMetadataString(metadata, "counterparty_type"),
+    documentType: readWorkItemMetadataString(metadata, "document_type"),
+    documentNumber: readWorkItemMetadataString(metadata, "document_number"),
+    walletChain: readWorkItemMetadataString(metadata, "wallet_chain"),
+    walletAddress: readWorkItemMetadataString(metadata, "wallet_address"),
+    walletLabel: readWorkItemMetadataString(metadata, "wallet_label"),
+    riskLevel: readWorkItemMetadataNumber(metadata, "risk_level") ?? 0,
+    kycStatus: readWorkItemMetadataString(metadata, "kyc_status"),
+    sanctionsCleared: readWorkItemMetadataBoolean(metadata, "sanctions_cleared") === true,
+    isPep: readWorkItemMetadataBoolean(metadata, "is_pep") === true,
+    enhancedDdRequired: readWorkItemMetadataBoolean(metadata, "enhanced_dd_required") === true,
+    nextReviewDate: readWorkItemMetadataString(metadata, "next_review_date"),
+    status: readWorkItemMetadataString(metadata, "status"),
+    createdAt: readWorkItemMetadataString(metadata, "created_at"),
+    caseId: item.case_id ?? readWorkItemMetadataString(metadata, "case_id"),
+    owner: resolveWorkItemOwnerDisplay(metadata, item.owner_user_id),
     priority: item.priority,
     localDeadline: toDateTimeLocalValue(item.due_at),
-    workspaceStatus: normalizeWorkspaceStatus(metadata["local_workspace_status"]) || mapQueueStatusToWorkspaceStatus(item.queue_status),
-    note: item.note ?? readMetadataString(metadata, "note"),
-    ddReviewStatus: (readMetadataString(metadata, "dd_review_status") || "pending") as DdReviewStatus,
-    ddReviewNote: readMetadataString(metadata, "dd_review_note"),
-    sofDescription: readMetadataString(metadata, "sof_description"),
-    sofDocumentRef: readMetadataString(metadata, "sof_document_ref"),
+    workspaceStatus: normalizeWorkspaceStatus(resolveWorkItemWorkspaceStatus(metadata, "counterparty")) || mapQueueStatusToWorkspaceStatus(item.queue_status),
+    note: item.note ?? readWorkItemMetadataString(metadata, "note"),
+    ddReviewStatus: (readWorkItemMetadataString(metadata, "dd_review_status") || "pending") as DdReviewStatus,
+    ddReviewNote: readWorkItemMetadataString(metadata, "dd_review_note"),
+    sofDescription: readWorkItemMetadataString(metadata, "sof_description"),
+    sofDocumentRef: readWorkItemMetadataString(metadata, "sof_document_ref"),
     lastActionAt: item.last_activity_at || item.updated_at
   };
+}
+
+function mergeDomainReviewIntoWorkspace(
+  current: CounterpartyWorkspaceRecord[],
+  items: CounterpartyListItem[]
+): CounterpartyWorkspaceRecord[] {
+  if (!items.length || !current.length) {
+    return current;
+  }
+
+  const byId = new Map(items.map((item) => [item.id, item]));
+  return current.map((record) => {
+    const domainItem = byId.get(record.counterpartyId);
+    if (!domainItem) {
+      return record;
+    }
+
+    return {
+      ...record,
+      ...getCounterpartyDomainReviewFields(domainItem)
+    };
+  });
 }
 
 function getUrgency(record: CounterpartyWorkspaceRecord): "overdue" | "due_soon" | "on_track" | "no_deadline" {
@@ -553,6 +534,23 @@ function toneForWorkspaceStatus(status: WorkspaceStatus): "warning" | "danger" |
   return undefined;
 }
 
+function toneForWorkspaceSource(source: WorkspaceSource): "success" | "warning" {
+  return source === "server" ? "success" : "warning";
+}
+
+function getDdReviewStatusLabelKey(status: DdReviewStatus): MessageKey {
+  switch (status) {
+    case "in_progress":
+      return "counterparties.workspace.ddReview.statusInProgress";
+    case "completed":
+      return "counterparties.workspace.ddReview.statusCompleted";
+    case "escalated":
+      return "counterparties.workspace.ddReview.statusEscalated";
+    default:
+      return "counterparties.workspace.ddReview.statusPending";
+  }
+}
+
 export default function CounterpartiesPage() {
   const searchParams = useSearchParams();
   const { locale, t } = useI18n();
@@ -573,12 +571,28 @@ export default function CounterpartiesPage() {
   const [workspaceSearch, setWorkspaceSearch] = useState("");
   const [workspaceNoteId, setWorkspaceNoteId] = useState<string>("");
   const [timelineCounterpartyId, setTimelineCounterpartyId] = useState<string>("");
-  const [timelineLoading, setTimelineLoading] = useState(false);
-  const [timelineError, setTimelineError] = useState<string | null>(null);
-  const [timelineData, setTimelineData] = useState<WorkItemTimelineResponse<WorkItemResponse> | null>(null);
-  const [commentType, setCommentType] = useState<WorkCommentResponse["comment_type"]>("note");
-  const [commentBody, setCommentBody] = useState("");
-  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const {
+    timelineLoading,
+    timelineError,
+    timelineData,
+    commentType,
+    commentBody,
+    commentSubmitting,
+    setCommentType,
+    setCommentBody,
+    resetTimeline,
+    loadTimeline,
+    submitTimelineComment
+  } = useWorkItemTimeline<CounterpartyWorkItemResponse>({
+    resolveErrorMessage: (apiError, fallback) => resolveApiErrorMessage(t, apiError, fallback),
+    loadErrorMessage: tr("counterparties.workspace.timeline.errorLoad" as MessageKey),
+    commentErrorMessage: tr("counterparties.workspace.timeline.errorComment" as MessageKey),
+    emptySelectionErrorMessage: tr("counterparties.workspace.timeline.emptyLocal" as MessageKey),
+    emptyCommentErrorMessage: tr("counterparties.workspace.timeline.commentEmpty" as MessageKey),
+    onCommentSaved: () => {
+      setNotice(tr("counterparties.workspace.timeline.commentSaved" as MessageKey));
+    }
+  });
 
   const highRiskCount = useMemo(() => items.filter((item: CounterpartyListItem) => item.risk_level >= 3).length, [items]);
   const pendingKycCount = useMemo(() => items.filter((item: CounterpartyListItem) => item.kyc_status !== "APPROVED").length, [items]);
@@ -595,28 +609,44 @@ export default function CounterpartiesPage() {
     [workspaceRecords]
   );
   const selectedTimelineRecord = timelineCounterpartyId ? workspaceById.get(timelineCounterpartyId) ?? null : null;
-
-  async function loadTimeline(workItemId: string) {
-    setTimelineLoading(true);
-    setTimelineError(null);
-    const result = await fetchWorkItemTimeline<WorkItemResponse>(workItemId);
-    if (!result.ok) {
-      setTimelineData(null);
-      setTimelineError(resolveApiErrorMessage(t, result.error, tr("counterparties.workspace.timeline.errorLoad" as MessageKey)));
-      setTimelineLoading(false);
-      return;
-    }
-
-    setTimelineData(result.data);
-    setTimelineLoading(false);
-  }
+  const serverWorkspaceCount = useMemo(
+    () => workspaceRecords.filter((record: CounterpartyWorkspaceRecord) => record.source === "server").length,
+    [workspaceRecords]
+  );
+  const localWorkspaceCount = useMemo(
+    () => workspaceRecords.filter((record: CounterpartyWorkspaceRecord) => record.source === "local").length,
+    [workspaceRecords]
+  );
+  const hasMixedWorkspaceSources = serverWorkspaceCount > 0 && localWorkspaceCount > 0;
+  const timelineContextBadges = selectedTimelineRecord
+    ? [
+        {
+          label: tr(`counterparties.workspace.source.${selectedTimelineRecord.source}` as MessageKey),
+          tone: toneForWorkspaceSource(selectedTimelineRecord.source) as "success" | "warning"
+        },
+        {
+          label: tr(`counterparties.workspace.status.${selectedTimelineRecord.workspaceStatus.toLowerCase()}` as MessageKey),
+          tone: (toneForWorkspaceStatus(selectedTimelineRecord.workspaceStatus) ?? "success") as "success" | "warning" | "danger"
+        },
+        {
+          label: tr(getDdReviewStatusLabelKey(selectedTimelineRecord.ddReviewStatus)),
+          tone: (
+            selectedTimelineRecord.ddReviewStatus === "completed"
+              ? "success"
+              : selectedTimelineRecord.ddReviewStatus === "escalated"
+                ? "danger"
+                : "warning"
+          ) as "success" | "warning" | "danger"
+        }
+      ]
+    : [];
 
   async function loadOperationalWorkspace(localRecords: CounterpartyWorkspaceRecord[]) {
     const res = await fetch(
       `/api/app/operations/work-items?module=counterparties&resource_type=counterparty&limit=${WORKSPACE_PAGE_LIMIT}`,
       { cache: "no-store" }
     );
-    const data = (await res.json().catch(() => null)) as WorkItemListResponse | { error?: string; detail?: unknown } | null;
+    const data = (await res.json().catch(() => null)) as CounterpartyWorkItemListResponse | { error?: string; detail?: unknown } | null;
     if (!res.ok) {
       setWorkspaceRecords(localRecords);
       setNotice(tr("counterparties.workspace.noticeLoadedLocal" as MessageKey));
@@ -643,9 +673,11 @@ export default function CounterpartiesPage() {
       return;
     }
 
-    setItems(data && "items" in data ? data.items : []);
+    const nextItems = data && "items" in data ? data.items : [];
+    setItems(nextItems);
     setTotal(data && "total" in data ? data.total : 0);
     setOffset(nextOffset);
+    setWorkspaceRecords((current) => mergeDomainReviewIntoWorkspace(current, nextItems));
     setLoading(false);
   }
 
@@ -766,8 +798,7 @@ export default function CounterpartiesPage() {
     if (!workspaceRecords.length) {
       setWorkspaceNoteId("");
       setTimelineCounterpartyId("");
-      setTimelineData(null);
-      setTimelineError(null);
+      resetTimeline();
       return;
     }
     if (!workspaceNoteId || !workspaceRecords.some((record: CounterpartyWorkspaceRecord) => record.counterpartyId === workspaceNoteId)) {
@@ -782,16 +813,11 @@ export default function CounterpartiesPage() {
   useEffect(() => {
     const currentRecord = timelineCounterpartyId ? workspaceById.get(timelineCounterpartyId) : null;
     if (!currentRecord?.workItemId) {
-      setTimelineData(null);
-      setTimelineError(null);
+      resetTimeline();
       return;
     }
-    loadTimeline(currentRecord.workItemId).catch(() => {
-      setTimelineData(null);
-      setTimelineError(tr("counterparties.workspace.timeline.errorLoad" as MessageKey));
-      setTimelineLoading(false);
-    });
-  }, [timelineCounterpartyId, workspaceById, t]);
+    void loadTimeline(currentRecord.workItemId);
+  }, [loadTimeline, resetTimeline, timelineCounterpartyId, workspaceById]);
 
   function updateForm<K extends keyof CounterpartyFormState>(key: K, value: CounterpartyFormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -810,34 +836,39 @@ export default function CounterpartiesPage() {
 
     const localStatus = nextStatus ?? record.workspaceStatus;
     const queueStatus: WorkItemQueueStatus = localStatus;
-    const metadata = {
-      counterparty_id: record.counterpartyId,
-      legal_name: record.legalName,
-      counterparty_type: record.counterpartyType,
-      document_type: record.documentType,
-      document_number: record.documentNumber,
-      wallet_chain: record.walletChain,
-      wallet_address: record.walletAddress,
-      wallet_label: record.walletLabel,
-      risk_level: record.riskLevel,
-      kyc_status: record.kycStatus,
-      sanctions_cleared: record.sanctionsCleared,
-      is_pep: record.isPep,
-      enhanced_dd_required: record.enhancedDdRequired,
-      next_review_date: record.nextReviewDate,
-      status: record.status,
-      created_at: record.createdAt,
-      case_id: record.caseId,
-      owner_user_id: ownerUserId,
-      owner_label: record.owner,
-      local_workspace_status: localStatus,
-      note: record.note,
-      dd_review_status: record.ddReviewStatus,
-      dd_review_note: record.ddReviewNote,
-      sof_description: record.sofDescription,
-      sof_document_ref: record.sofDocumentRef
-    };
-    const requestBody = record.workItemId
+    const metadata: CounterpartyWorkItemMetadata = withCanonicalWorkItemMetadata(
+      {
+        counterparty_id: record.counterpartyId,
+        legal_name: record.legalName,
+        counterparty_type: record.counterpartyType,
+        document_type: record.documentType,
+        document_number: record.documentNumber,
+        wallet_chain: record.walletChain,
+        wallet_address: record.walletAddress,
+        wallet_label: record.walletLabel,
+        risk_level: record.riskLevel,
+        kyc_status: record.kycStatus,
+        sanctions_cleared: record.sanctionsCleared,
+        is_pep: record.isPep,
+        enhanced_dd_required: record.enhancedDdRequired,
+        next_review_date: record.nextReviewDate,
+        status: record.status,
+        created_at: record.createdAt,
+        dd_review_status: record.ddReviewStatus,
+        dd_review_note: record.ddReviewNote,
+        sof_description: record.sofDescription,
+        sof_document_ref: record.sofDocumentRef
+      },
+      {
+        resourceType: "counterparty",
+        caseId: record.caseId,
+        ownerLabel: record.owner,
+        ownerUserId,
+        workspaceStatus: localStatus,
+        note: record.note
+      }
+    );
+    const requestBody: CreateWorkItemRequest<CounterpartyWorkItemMetadata> | PatchWorkItemRequest<CounterpartyWorkItemMetadata> = record.workItemId
       ? {
           ...(ownerUserId ? { owner_user_id: ownerUserId } : {}),
           priority: record.priority,
@@ -871,13 +902,13 @@ export default function CounterpartiesPage() {
         cache: "no-store"
       }
     );
-    const data = (await res.json().catch(() => null)) as WorkItemResponse | { error?: string; detail?: unknown } | null;
+    const data = (await res.json().catch(() => null)) as CounterpartyWorkItemResponse | { error?: string; detail?: unknown } | null;
     setSyncingWorkspace(false);
     if (!res.ok) {
       throw new Error(resolveApiErrorMessage(t, data, tr("counterparties.workspace.errorSync" as MessageKey)));
     }
 
-    const nextRecord = mapWorkItemToWorkspaceRecord(data as WorkItemResponse);
+    const nextRecord = mapWorkItemToWorkspaceRecord(data as CounterpartyWorkItemResponse);
     setWorkspaceRecords((current: CounterpartyWorkspaceRecord[]) => upsertWorkspaceRecord(current, nextRecord));
     if (timelineCounterpartyId === nextRecord.counterpartyId && nextRecord.workItemId) {
       await loadTimeline(nextRecord.workItemId);
@@ -890,6 +921,64 @@ export default function CounterpartiesPage() {
     if (!currentRecord) {
       return null;
     }
+    return syncWorkspaceRecord(currentRecord);
+  }
+
+  async function syncCounterpartyDomainReview(record: CounterpartyWorkspaceRecord) {
+    if (!isUuidLike(record.counterpartyId)) {
+      throw new Error(tr("counterparties.workspace.errorSyncMissingCounterpartyId" as MessageKey));
+    }
+
+    const res = await fetch(`/api/app/compliance/counterparties/${encodeURIComponent(record.counterpartyId)}/review`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        dd_review_status: record.ddReviewStatus,
+        dd_review_note: record.ddReviewNote,
+        sof_description: record.sofDescription,
+        sof_document_ref: record.sofDocumentRef
+      }),
+      cache: "no-store"
+    });
+    const data = (await res.json().catch(() => null)) as CounterpartyReviewResponse | { error?: string; detail?: string } | null;
+    if (!res.ok) {
+      throw new Error(resolveApiErrorMessage(t, data, tr("counterparties.workspace.errorSync" as MessageKey)));
+    }
+
+    if (data && "counterparty_id" in data) {
+      setItems((current) =>
+        current.map((item) =>
+          item.id === data.counterparty_id
+            ? {
+                ...item,
+                dd_review_status: data.dd_review_status,
+                dd_review_note: data.dd_review_note,
+                sof_description: data.sof_description,
+                sof_document_ref: data.sof_document_ref,
+                last_reviewed_at: data.last_reviewed_at ?? null
+              }
+            : item
+        )
+      );
+      setWorkspaceRecords((current) =>
+        upsertWorkspaceRecord(current, {
+          counterpartyId: data.counterparty_id,
+          ddReviewStatus: normalizeDdReviewStatus(data.dd_review_status),
+          ddReviewNote: data.dd_review_note,
+          sofDescription: data.sof_description,
+          sofDocumentRef: data.sof_document_ref
+        })
+      );
+    }
+  }
+
+  async function syncCounterpartyReviewById(counterpartyId: string) {
+    const currentRecord = workspaceById.get(counterpartyId);
+    if (!currentRecord) {
+      return null;
+    }
+
+    await syncCounterpartyDomainReview(currentRecord);
     return syncWorkspaceRecord(currentRecord);
   }
 
@@ -920,10 +1009,10 @@ export default function CounterpartiesPage() {
         localDeadline: workspaceById.get(item.id)?.localDeadline ?? "",
         workspaceStatus: item.kyc_status === "APPROVED" && item.sanctions_cleared ? "CLOSED" : "UNDER_REVIEW",
         note: workspaceById.get(item.id)?.note ?? "",
-        ddReviewStatus: workspaceById.get(item.id)?.ddReviewStatus ?? "pending",
-        ddReviewNote: workspaceById.get(item.id)?.ddReviewNote ?? "",
-        sofDescription: workspaceById.get(item.id)?.sofDescription ?? "",
-        sofDocumentRef: workspaceById.get(item.id)?.sofDocumentRef ?? "",
+        ddReviewStatus: workspaceById.get(item.id)?.ddReviewStatus ?? getCounterpartyDomainReviewFields(item).ddReviewStatus,
+        ddReviewNote: workspaceById.get(item.id)?.ddReviewNote ?? getCounterpartyDomainReviewFields(item).ddReviewNote,
+        sofDescription: workspaceById.get(item.id)?.sofDescription ?? getCounterpartyDomainReviewFields(item).sofDescription,
+        sofDocumentRef: workspaceById.get(item.id)?.sofDocumentRef ?? getCounterpartyDomainReviewFields(item).sofDocumentRef,
         lastActionAt: new Date().toISOString()
       };
       setWorkspaceRecords((current: CounterpartyWorkspaceRecord[]) => upsertWorkspaceRecord(current, draftRecord));
@@ -994,35 +1083,6 @@ export default function CounterpartiesPage() {
         lastActionAt: new Date().toISOString()
       })
     );
-  }
-
-  async function submitTimelineComment() {
-    if (!selectedTimelineRecord?.workItemId) {
-      setTimelineError(tr("counterparties.workspace.timeline.emptyLocal" as MessageKey));
-      return;
-    }
-    if (!commentBody.trim()) {
-      setTimelineError(tr("counterparties.workspace.timeline.commentEmpty" as MessageKey));
-      return;
-    }
-
-    setCommentSubmitting(true);
-    setTimelineError(null);
-    const result = await createWorkItemComment(selectedTimelineRecord.workItemId, {
-      comment_type: commentType,
-      body: commentBody.trim()
-    });
-    if (!result.ok) {
-      setTimelineError(resolveApiErrorMessage(t, result.error, tr("counterparties.workspace.timeline.errorComment" as MessageKey)));
-      setCommentSubmitting(false);
-      return;
-    }
-
-    setCommentBody("");
-    setCommentType("note");
-    await loadTimeline(selectedTimelineRecord.workItemId);
-    setNotice(tr("counterparties.workspace.timeline.commentSaved" as MessageKey));
-    setCommentSubmitting(false);
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -1238,6 +1298,17 @@ export default function CounterpartiesPage() {
       </Panel>
 
       <Panel title={tr("counterparties.workspace.title" as MessageKey)} description={tr("counterparties.workspace.description" as MessageKey)}>
+        {localWorkspaceCount > 0 && serverWorkspaceCount === 0 ? (
+          <Message>{tr("counterparties.workspace.mode.localOnly" as MessageKey, { count: localWorkspaceCount })}</Message>
+        ) : null}
+        {hasMixedWorkspaceSources ? (
+          <Message>
+            {tr("counterparties.workspace.mode.mixed" as MessageKey, {
+              server: serverWorkspaceCount,
+              local: localWorkspaceCount
+            })}
+          </Message>
+        ) : null}
         <div className="otc-controls">
           <label className="otc-field">
             {tr("counterparties.workspace.filterStatus" as MessageKey)}
@@ -1274,7 +1345,9 @@ export default function CounterpartiesPage() {
                 <th>{tr("counterparties.workspace.priority" as MessageKey)}</th>
                 <th>{tr("counterparties.workspace.deadline" as MessageKey)}</th>
                 <th>{tr("counterparties.workspace.urgency" as MessageKey)}</th>
+                <th>{tr("counterparties.workspace.review" as MessageKey)}</th>
                 <th>{tr("counterparties.workspace.status" as MessageKey)}</th>
+                <th>{tr("counterparties.workspace.sourceLabel" as MessageKey)}</th>
                 <th>{tr("counterparties.workspace.actions" as MessageKey)}</th>
               </tr>
             </thead>
@@ -1309,15 +1382,14 @@ export default function CounterpartiesPage() {
                   const sanctionsHref = buildSanctionsHref(record);
                   const isTimelineSelected = timelineCounterpartyId === record.counterpartyId;
                   return (
-                    <tr key={record.counterpartyId} className={isTimelineSelected ? "otc-row-selected" : undefined}>
+                    <tr
+                      key={record.counterpartyId}
+                      data-testid={`counterparties-workspace-row-${record.counterpartyId}`}
+                      className={isTimelineSelected ? "otc-row-selected" : undefined}
+                    >
                       <td>
                         <strong>{record.legalName}</strong>
                         <div className="otc-muted">{tr(`counterparties.types.${record.counterpartyType}` as MessageKey)}</div>
-                        <div className="otc-muted">
-                          <Pill tone={record.source === "server" ? "success" : "warning"}>
-                            {tr(`counterparties.workspace.source.${record.source}` as MessageKey)}
-                          </Pill>
-                        </div>
                       </td>
                       <td>{record.documentType} - {record.documentNumber}</td>
                       <td>
@@ -1357,10 +1429,11 @@ export default function CounterpartiesPage() {
                           <option value="normal">{tr("counterparties.priority.normal" as MessageKey)}</option>
                         </select>
                       </td>
-                      <td>
+                      <td data-testid={`counterparties-workspace-deadline-${record.counterpartyId}`}>
                         <input
                           className="otc-input"
                           type="datetime-local"
+                          data-testid={`counterparties-workspace-deadline-input-${record.counterpartyId}`}
                           value={record.localDeadline}
                           onChange={(event) => {
                             const nextDeadline = event.target.value;
@@ -1380,8 +1453,26 @@ export default function CounterpartiesPage() {
                       <td>
                         <Pill tone={toneForUrgency(urgency)}>{tr(`counterparties.urgency.${urgency}` as MessageKey)}</Pill>
                       </td>
-                      <td>
+                      <td data-testid={`counterparties-workspace-review-${record.counterpartyId}`}>
+                        <Pill
+                          tone={
+                            record.ddReviewStatus === "completed"
+                              ? "success"
+                              : record.ddReviewStatus === "escalated"
+                                ? "danger"
+                                : "warning"
+                          }
+                        >
+                          {tr(getDdReviewStatusLabelKey(record.ddReviewStatus))}
+                        </Pill>
+                      </td>
+                      <td data-testid={`counterparties-workspace-status-${record.counterpartyId}`}>
                         <Pill tone={toneForWorkspaceStatus(record.workspaceStatus)}>{tr(`counterparties.workspace.status.${record.workspaceStatus.toLowerCase()}` as MessageKey)}</Pill>
+                      </td>
+                      <td data-testid={`counterparties-workspace-source-${record.counterpartyId}`}>
+                        <Pill tone={toneForWorkspaceSource(record.source)}>
+                          {tr(`counterparties.workspace.source.${record.source}` as MessageKey)}
+                        </Pill>
                       </td>
                       <td>
                         <div className="otc-controls">
@@ -1483,7 +1574,7 @@ export default function CounterpartiesPage() {
                       onChange={(event) => {
                         const nextStatus = event.target.value as DdReviewStatus;
                         updateWorkspaceField(ddId, "ddReviewStatus", nextStatus);
-                        void syncRecordById(ddId).catch((syncError) => {
+                        void syncCounterpartyReviewById(ddId).catch((syncError) => {
                           setError(syncError instanceof Error ? syncError.message : tr("counterparties.workspace.errorSync" as MessageKey));
                         });
                       }}
@@ -1501,7 +1592,7 @@ export default function CounterpartiesPage() {
                       value={ddRecord.sofDocumentRef}
                       placeholder={tr("counterparties.workspace.ddReview.sofDocumentRefPlaceholder" as MessageKey)}
                       onChange={(event) => updateWorkspaceField(ddId, "sofDocumentRef", event.target.value)}
-                      onBlur={() => void syncRecordById(ddId).catch(() => undefined)}
+                      onBlur={() => void syncCounterpartyReviewById(ddId).catch(() => undefined)}
                     />
                   </label>
                   <label className="otc-field otc-field--span2">
@@ -1512,7 +1603,7 @@ export default function CounterpartiesPage() {
                       value={ddRecord.sofDescription}
                       placeholder={tr("counterparties.workspace.ddReview.sofDescriptionPlaceholder" as MessageKey)}
                       onChange={(event) => updateWorkspaceField(ddId, "sofDescription", event.target.value)}
-                      onBlur={() => void syncRecordById(ddId).catch(() => undefined)}
+                      onBlur={() => void syncCounterpartyReviewById(ddId).catch(() => undefined)}
                     />
                   </label>
                   <label className="otc-field otc-field--span2">
@@ -1523,7 +1614,7 @@ export default function CounterpartiesPage() {
                       value={ddRecord.ddReviewNote}
                       placeholder={tr("counterparties.workspace.ddReview.notePlaceholder" as MessageKey)}
                       onChange={(event) => updateWorkspaceField(ddId, "ddReviewNote", event.target.value)}
-                      onBlur={() => void syncRecordById(ddId).catch(() => undefined)}
+                      onBlur={() => void syncCounterpartyReviewById(ddId).catch(() => undefined)}
                     />
                   </label>
                 </div>
@@ -1541,6 +1632,8 @@ export default function CounterpartiesPage() {
                 })
               : null
           }
+          contextBadges={timelineContextBadges}
+          localOnlyHint={selectedTimelineRecord ? tr("counterparties.workspace.timeline.localHint" as MessageKey) : null}
           labels={buildWorkItemTimelineLabels(tr, "counterparties.workspace.timeline")}
           timelineError={timelineError}
           timelineData={timelineData}
@@ -1551,7 +1644,7 @@ export default function CounterpartiesPage() {
           onCommentTypeChange={setCommentType}
           onCommentBodyChange={setCommentBody}
           onCommentSubmit={() => {
-            void submitTimelineComment();
+            void submitTimelineComment(selectedTimelineRecord?.workItemId);
           }}
           onRefresh={
             selectedTimelineRecord?.workItemId

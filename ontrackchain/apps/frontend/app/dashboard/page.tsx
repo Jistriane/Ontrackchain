@@ -262,16 +262,20 @@ export default async function DashboardPage() {
           <tbody>
             {recentCases.length ? (
               recentCases.map((entry) => (
-                <tr key={entry.case_id}>
+                <tr key={entry.case_id} data-testid={`dashboard-case-row-${entry.case_id}`}>
                   <td>
                     <strong>{entry.case_id}</strong>
                     {entry.last_error ? <div className="otc-muted">{entry.last_error}</div> : null}
                   </td>
                   <td>{entry.report_type_canonical ?? t("common.notAvailable")}</td>
-                  <td>{entry.status}</td>
+                  <td data-testid={`dashboard-case-status-${entry.case_id}`}>{entry.status}</td>
                   <td>{entry.target_chain}</td>
-                  <td>{formatDateTime(entry.created_at, locale) ?? t("common.notAvailable")}</td>
-                  <td>{formatDateTime(entry.completed_at, locale) ?? t("common.notAvailable")}</td>
+                  <td data-testid={`dashboard-case-created-at-${entry.case_id}`}>
+                    {formatDateTime(entry.created_at, locale) ?? t("common.notAvailable")}
+                  </td>
+                  <td data-testid={`dashboard-case-completed-at-${entry.case_id}`}>
+                    {formatDateTime(entry.completed_at, locale) ?? t("common.notAvailable")}
+                  </td>
                   <td>{typeof entry.charged_cost === "number" ? entry.charged_cost : t("common.notAvailable")}</td>
                   <td>
                     <div className="otc-controls">

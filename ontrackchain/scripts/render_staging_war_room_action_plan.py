@@ -67,6 +67,15 @@ def load_json(path: Path) -> dict[str, Any]:
         return {}
 
 
+def regulatory_summary(snapshot: dict[str, Any]) -> dict[str, str]:
+    regulatory = snapshot.get("regulatory") or {}
+    return {
+        "scope_label": str(regulatory.get("scope_label") or "none"),
+        "p0_04_bundle_readiness": str(regulatory.get("p0_04_bundle_readiness") or "unknown"),
+        "promotion_note": str(regulatory.get("promotion_note") or "indisponivel"),
+    }
+
+
 def resolve_file(checks_dir: Path, canonical: str, legacy: str | None = None) -> Path:
     preferred = checks_dir / canonical
     if preferred.exists():
@@ -85,7 +94,7 @@ def detect_domain_from_placeholder(name: str) -> str:
     return "Platform/Operations"
 
 
-def build_model(window_id: str, checks_dir: Path) -> dict[str, Any]:
+def build_model(window_id: str, checks_dir: Path, snapshot_file: Path | None = None) -> dict[str, Any]:
     placeholders_file = resolve_file(
         checks_dir,
         f"placeholders-{window_id}.json",
@@ -99,6 +108,7 @@ def build_model(window_id: str, checks_dir: Path) -> dict[str, Any]:
 
     placeholders_payload = load_json(placeholders_file)
     handoff_payload = load_json(handoff_file)
+    snapshot_payload = load_json(snapshot_file) if snapshot_file else {}
 
     by_domain: dict[str, dict[str, Any]] = {
         domain: {
@@ -134,7 +144,9 @@ def build_model(window_id: str, checks_dir: Path) -> dict[str, Any]:
         "sources": {
             "placeholders": str(placeholders_file),
             "handoff": str(handoff_file),
+            "snapshot": str(snapshot_file) if snapshot_file else "pending",
         },
+        "regulatory": regulatory_summary(snapshot_payload),
         "domains": by_domain,
     }
 
@@ -147,6 +159,13 @@ def render_markdown(model: dict[str, Any]) -> str:
     lines.append(f"- checks_dir: `{model['checks_dir']}`")
     lines.append(f"- fonte placeholders: `{model['sources']['placeholders']}`")
     lines.append(f"- fonte handoff: `{model['sources']['handoff']}`")
+    lines.append(f"- fonte snapshot: `{model['sources']['snapshot']}`")
+    lines.append("")
+    lines.append("## Contexto Regulatorio")
+    lines.append("")
+    lines.append(f"- escopo regulatorio da tentativa: `{model['regulatory']['scope_label']}`")
+    lines.append(f"- `P0-04` readiness: `{model['regulatory']['p0_04_bundle_readiness']}`")
+    lines.append(f"- leitura regulatoria: {model['regulatory']['promotion_note']}")
     lines.append("")
 
     domains = model["domains"]
@@ -172,6 +191,16 @@ def render_markdown(model: dict[str, Any]) -> str:
         lines.append("- comandos sugeridos:")
         for command in payload["commands"]:
             lines.append(f"  - `{command}`")
+        if domain == "Compliance/AML":
+            lines.append("- observacao regulatoria:")
+            if model["regulatory"]["scope_label"] == "P0-02/P0-03":
+                lines.append("  - tentativa combinada em curso; usar esta trilha para perseguir fechamento oficial de `P0-04`")
+            elif model["regulatory"]["scope_label"] == "none":
+                lines.append("  - sem escopo regulatorio material no snapshot atual")
+            else:
+                lines.append(
+                    f"  - tentativa atual cobre `{model['regulatory']['scope_label']}`; endurece a trilha, mas `P0-04` ainda depende de convergencia combinada"
+                )
         lines.append("")
 
     lines.append("## Fechamento")
@@ -197,6 +226,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Gera plano de acao do war room a partir dos checks da janela.")
     parser.add_argument("--window-id", required=True)
     parser.add_argument("--checks-dir", default="artifacts/staging/checks")
+    parser.add_argument("--snapshot-file")
     parser.add_argument("--output-file", required=True)
     return parser.parse_args()
 
@@ -206,7 +236,8 @@ def main() -> int:
     checks_dir = Path(args.checks_dir)
     output_file = Path(args.output_file)
 
-    model = build_model(args.window_id, checks_dir)
+    snapshot_file = Path(args.snapshot_file) if args.snapshot_file else None
+    model = build_model(args.window_id, checks_dir, snapshot_file)
     markdown = render_markdown(model)
 
     output_file.parent.mkdir(parents=True, exist_ok=True)

@@ -13,7 +13,7 @@ Concentrar em um unico artefato o rito minimo para mover `P0-01` de `blocked` pa
 ## Fontes Canonicas
 
 - [Deploy e Staging](../../deploy-and-staging.md)
-- [Checklist de Evidência Mínima da Primeira Janela Séria](../../first-serious-window-evidence-checklist.md)
+- [Checklist de Evidência Mínima da Primeira Janela Séria](../../history/first-serious-window-evidence-checklist.md)
 - [Project Release Gates](../../project-release-gates.md)
 - [Project Operational Execution Board](../../project-operational-execution-board.md)
 - [Staging Env Ownership](../../staging-env-ownership.md)
@@ -127,6 +127,9 @@ Esperado:
 
 - `artifacts/staging/checks/<window_id>-oidc-readiness-bundle.json`
 - `artifacts/staging/dossiers/<window_id>-oidc-readiness-bundle.md`
+- o JSON do bundle deve explicitar `readiness.readiness_status` em `blocked`, `ready` ou `ready_for_validation`
+- o markdown do bundle deve listar `Bloqueadores de Readiness` e `Proximo Passo` coerentes com a situacao da janela
+- o `release dossier`, o draft de `sign-off` e a governanca semanal da janela devem refletir o mesmo `readiness_status`, para que `P0-01` possa ser promovido por evidencia e nao apenas por leitura manual dos steps tecnicos
 
 ### 5. Evidencia Externa Quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true`
 

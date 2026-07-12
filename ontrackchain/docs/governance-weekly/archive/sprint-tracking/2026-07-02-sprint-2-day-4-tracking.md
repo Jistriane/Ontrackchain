@@ -102,4 +102,4 @@
 - classificacao: `parcial`
 - resumo executivo: o modulo preserva a navegacao cruzada, mas ainda precisa fechar a trilha persistida por evento
 - owner do primeiro passo do proximo marco: `Frontend`
-- artefato relacionado: [Runbook de Execucao do Dia 4 da Sprint 2](../../sprint-2-day-4-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-2-day-4-execution-runbook.md`

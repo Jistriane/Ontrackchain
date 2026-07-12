@@ -11,6 +11,11 @@ Instanciar um ciclo real de execucao baseado no [Kit de Execucao por Evidencia](
 
 Use este template quando houver um ciclo concreto de fechamento de `P0-02`, `P0-03`, `P0-01`, bundle regulatorio ou janela seria completa.
 
+Regra de uso para `P0-04`:
+
+- tentativa parcial de `P0-02` ou `P0-03` pode ser registrada neste template como endurecimento valido de correlacao, dossier e narrativa executiva
+- o fechamento oficial de `P0-04` continua reservado a bundle regulatorio coerente com `P0-02` e `P0-03` na mesma trilha revisavel
+
 Nao use este template para planejamento generico sem data ou sem owner definido. Nesses casos, use o [Kit de Execucao por Evidencia](../../project-maturity-evidence-execution-kit.md).
 
 ## Baseline de Referencia
@@ -36,7 +41,7 @@ Nao use este template para planejamento generico sem data ou sem owner definido.
 | `D1` | preparar `P0-02` | `preencher` | `preencher` | `preencher` | `preencher` | `cinza/vermelho/amarelo/verde` |
 | `D2` | executar `P0-02` | `preencher` | `preencher` | `preencher` | `preencher` | `cinza/vermelho/amarelo/verde` |
 | `D3` | executar `P0-03` | `preencher` | `preencher` | `preencher` | `preencher` | `cinza/vermelho/amarelo/verde` |
-| `D4` | consolidar `P0-02 + P0-03` | `preencher` | `preencher` | `preencher` | `preencher` | `cinza/vermelho/amarelo/verde` |
+| `D4` | consolidar `P0-02 + P0-03` | `preencher`; se parcial, marcar como endurecimento de trilha e nao como fechamento oficial de `P0-04` | `preencher` | `preencher` | `preencher` | `cinza/vermelho/amarelo/verde` |
 | `D5` | preparar `P0-01` | `preencher` | `preencher` | `preencher` | `preencher` | `cinza/vermelho/amarelo/verde` |
 | `D6` | executar `P0-01` | `preencher` | `preencher` | `preencher` | `preencher` | `cinza/vermelho/amarelo/verde` |
 | `D7` | janela seria completa | `preencher` | `preencher` | `preencher` | `preencher` | `cinza/vermelho/amarelo/verde` |
@@ -121,6 +126,11 @@ Nao use este template para planejamento generico sem data ou sem owner definido.
 - delta regulatorio/operacional:
 - delta consolidado:
 - justificativa:
+
+Regra de decisao:
+
+- se o ciclo cobriu apenas `P0-02` ou apenas `P0-03`, a justificativa deve registrar explicitamente que houve progresso parcial sem fechamento oficial de `P0-04`
+- se o ciclo cobriu `P0-02` e `P0-03` com correlacao revisavel na mesma trilha, a justificativa pode sustentar fechamento formal de `P0-04`
 
 ## Bloqueios e Escalacoes
 

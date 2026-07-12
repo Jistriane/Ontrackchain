@@ -136,4 +136,4 @@
 - classificacao: `parcial`
 - resumo executivo: dia preparado com status iniciais coerentes, mas ainda sem evidencias materiais para liberar homologacao real
 - owner do primeiro passo do `Dia 2`: `a definir apos leitura real do Dia 1`
-- artefato relacionado: [Runbook de Execucao do Dia 1 da Sprint 1](../../sprint-1-day-1-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-1-day-1-execution-runbook.md`

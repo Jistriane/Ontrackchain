@@ -7,8 +7,11 @@ Centralizar a documentacao viva do Ontrackchain em um unico indice, reduzindo dr
 Estado de referencia atual:
 
 - baseline oficial: `92%` tecnico, `79%` regulatorio/operacional, `88%` consolidado
-- frontend operacional com tri-locale, contratos compartilhados e cockpits endurecidos
+- frontend operacional com tri-locale, contratos compartilhados e 7 cockpits convergidos ao mesmo modelo de workspace
 - `monitoring` decomposto em loaders, hooks e paineis dedicados
+- `P1-01` concluido com contrato unificado de metadata para `work-items`
+- `P2-03` consolidado com RCA cross-domain leve
+- `P2-05` em execucao incremental com `REVIEWER` e `BILLING_ADMIN` em superficies reais
 - Playwright institucionalizado por classes (`stack real leve`, `browser-mocked`, `ssr-mocked`, `dev-auth`, `oidc-critical`)
 
 ## Precedencia Documental
@@ -30,6 +33,7 @@ Use esta classificacao para decidir onde cada artefato deve viver:
 - `documentacao gerada`: artefatos produzidos automaticamente em `docs/governance-weekly/generated/`, especialmente no namespace `generated/windows/<window_id>/`
 - `documentacao de ciclo`: materiais humanos datados ainda ativos em `docs/governance-weekly/cycles/`
 - `documentacao arquivada`: historico preservado em `docs/governance-weekly/archive/`
+- `.publish_repo/`, quando existir na raiz agregadora, deve ser tratado apenas como espelho de publicacao e nunca como fonte primaria de baseline, contrato ou status
 
 Regras objetivas:
 
@@ -46,6 +50,9 @@ Regras objetivas:
 - [Contratos de API](./api-contracts.md): endpoints, payloads e fluxos expostos
 - [Arquitetura da Selagem DD/SoF](./evidence-manual-package-strong-sealing-architecture.md): visao arquitetural da trilha de selagem institucional forte ja implementada no baseline atual
 - [Cobertura do Frontend](./frontend-coverage-matrix.md): rotas reais, cobertura por modulo e lacunas remanescentes
+- [Rastreabilidade de Regressao Estatica do Frontend](./frontend-static-regression-traceability.md): mapeia `cockpit -> spec -> contrato protegido`
+- [Checklist de Regressao Estatica do Frontend](./frontend-static-regression-checklist.md): gate operacional da trilha de contratos visuais e semanticos
+- [Checklist de Rollout dos Contratos Visuais](./frontend-visual-contract-rollout-checklist.md): criterio de rollout seguro do hardening de UI
 - [RBAC e Permissoes](./rbac-and-permissions.md): matriz funcional de acesso
 - [Roadmap de Secrets e RBAC para Producao](./production-secrets-and-rbac-roadmap.md): caminho canonico pos-90% para `P2-04` e `P2-05`
 
@@ -53,9 +60,12 @@ Regras objetivas:
 
 - [Operacao Local](./operations.md): bootstrap local, troubleshooting e comandos do dia a dia
 - [Deploy e Staging](./deploy-and-staging.md): fluxo `prepare -> validate -> preflight -> run`
+- [GitHub Environment para Staging Serio](./github-environment-staging-serious.md): contrato operacional do environment manual usado na janela seria
+- [Template Keycloak OIDC](./keycloak-oidc-template.md): referencia de configuracao inicial do IdP, util para alinhamento com `environment-variables.md`
 - [Variaveis de Ambiente](./environment-variables.md): baseline por servico e overrides
 - [CI/CD e Release](./ci-cd-and-release.md): workflows, quality gates e promocao
 - [Runbooks Operacionais](./runbooks.md): resposta inicial por sintoma e severidade
+- [Playbook de Incidente Cross-Domain e RCA](./cross-domain-incident-rca-playbook.md): escalacao leve, ownership e fechamento de causa raiz sem abrir um servico novo
 - [Pre-Production Checklist](./pre-production-checklist.md): validacoes obrigatorias antes de promover
 
 ### Validacao, Compliance e Auditoria
@@ -65,6 +75,7 @@ Regras objetivas:
 - [Matriz de Evidencias e Auditoria](./evidence-and-audit-matrix.md): relacao entre fluxos, artefatos e provas
 - [Readiness Regulatorio](./regulatory-readiness.md): leitura honesta da prontidao regulatoria
 - [Retention e Recovery](./retention-and-recovery-policy.md): baseline de recuperacao e retencao
+- [Checklist de Rollout do Manual Package DD/SoF](./evidence-manual-package-rollout-checklist.md): gate complementar para mudancas na trilha manual forte
 
 ### Planejamento e Governanca
 
@@ -89,6 +100,12 @@ Regras objetivas:
 - [Matriz de War Room](./staging-serious-window-war-room-matrix.md)
 - [Historico de apoio](./history/README.md): indice de planos, trackers e runbooks datados que nao sao fonte primaria
 - [Governanca Semanal](./governance-weekly/README.md): ciclos, guias permanentes, templates, artefatos gerados e historico datado
+
+### Legado Mantido por Compatibilidade
+
+- [Checklist de Evidencia Minima da Primeira Janela Seria](./history/first-serious-window-evidence-checklist.md): apoio historico movido para `history/`; a fonte viva e `governance-weekly/guides/`
+- [Runbook do Primeiro Disparo Real](./history/first-serious-window-first-dispatch-runbook.md): apoio historico movido para `history/` para reconciliar ciclos antigos
+- [Template de Sign-Off da Janela Seria](./history/staging-serious-window-signoff-template.md): template legado movido para `history/` e preservado apenas para compatibilidade de referencia
 
 ### Decisoes Arquiteturais
 
@@ -140,10 +157,13 @@ Esta base ja foi racionalizada para reduzir drift. Como referencia:
 
 - `api-contracts.md` passou a ser a fonte canônica dos contratos HTTP da trilha de selagem DD/SoF
 - `docs/evidence-manual-package-strong-sealing-backlog.md` foi consolidado e removido
+- `docs/frontend-hardening-executive-summary.md` foi absorvido pelo conjunto `frontend-coverage-matrix.md` + `frontend-static-regression-*` e removido
+- os artefatos `first-serious-window-*` e `staging-serious-window-signoff-template.md` foram movidos para `history/` e deixaram de competir com a raiz viva de `docs/`
 - a execucao integrada de janela seria foi consolidada em `governance-weekly/guides/SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md`
 - `docs/history/DAY_OF_WINDOW_RUNBOOK_STG_2026_07_06_A.md` foi absorvido pelo ciclo `governance-weekly/cycles/2026-07-06/`
 - os caminhos canônicos de artefatos gerados agora usam `docs/governance-weekly/generated/windows/<window_id>/`
 - o pos-processamento da janela seria agora gera `sign-off`, sincronizacao semanal, board operacional e `go/no-go decision packet` a partir do mesmo payload consolidado
+- `.publish_repo/` foi auditado e classificado como espelho de publicacao nao-canônico, sem evidencia suficiente para delecao automatica nesta rodada
 
 ## O Que Esta Documentado Agora
 

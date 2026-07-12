@@ -1,3 +1,4 @@
+import importlib.machinery
 import importlib.util
 import io
 import json
@@ -5,6 +6,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from typing import cast
 from unittest.mock import patch
 
 
@@ -13,11 +15,12 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 
 def _load_module(module_name: str, relative_path: str):
     module_path = ROOT_DIR / relative_path
-    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    spec = cast(importlib.machinery.ModuleSpec | None, importlib.util.spec_from_file_location(module_name, module_path))
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Nao foi possivel carregar modulo em {module_path}")
+    loader = spec.loader
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    loader.exec_module(module)
     return module
 
 
@@ -65,10 +68,92 @@ class RunOidcReadinessBundleTests(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             self.assertEqual(payload["status"], "ok")
+            self.assertEqual(payload["readiness"]["readiness_status"], "ready_for_validation")
+            self.assertEqual(payload["readiness"]["blockers"], [])
             self.assertEqual(payload["steps"]["oidc_preflight"]["status"], "ok")
             self.assertEqual(payload["steps"]["smoke_auth_oidc_mode"]["status"], "ok")
             self.assertTrue((checks_dir / "stg-2026-07-03-oidc-oidc-preflight.json").exists())
             self.assertTrue((checks_dir / "stg-2026-07-03-oidc-oidc-smoke-auth.json").exists())
+
+    def test_run_bundle_marks_non_homologated_provider_as_ready_not_ready_for_validation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            private_env_file = Path(temp_dir) / ".env.staging.private"
+            private_env_file.write_text(
+                "\n".join(
+                    [
+                        "MFA_EXTERNAL_PROVIDER_HOMOLOGATED=false",
+                        "OIDC_ORG_CLAIM=org_id",
+                        "OIDC_PLAN_CLAIM=plan",
+                        "OIDC_ROLE_CLAIM=roles",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            checks_dir = Path(temp_dir) / "checks"
+
+            side_effects = [
+                (0, {"status": "ok", "errors": []}),
+                (0, {"status": "ok", "errors": [], "auth_config": {}}),
+            ]
+
+            with patch.object(MODULE, "run_module_capture", side_effect=side_effects):
+                exit_code, payload = MODULE.run_bundle(
+                    window_id="stg-2026-07-03-oidc",
+                    private_env_file=private_env_file,
+                    checks_dir=checks_dir,
+                    base_url="http://localhost:8080",
+                    expected_oidc_provider="keycloak",
+                    expected_mfa_provider_homologated="false",
+                    expected_org_claim="org_id",
+                    expected_plan_claim="plan",
+                    expected_role_claim="roles",
+                )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(payload["status"], "ok")
+            self.assertEqual(payload["readiness"]["readiness_status"], "ready")
+            self.assertIn("provider MFA/OIDC ainda nao esta homologado para trilho serio", payload["readiness"]["blockers"])
+
+    def test_run_bundle_marks_failed_step_as_blocked(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            private_env_file = Path(temp_dir) / ".env.staging.private"
+            private_env_file.write_text(
+                "\n".join(
+                    [
+                        "MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true",
+                        "OIDC_ORG_CLAIM=org_id",
+                        "OIDC_PLAN_CLAIM=plan",
+                        "OIDC_ROLE_CLAIM=roles",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            checks_dir = Path(temp_dir) / "checks"
+
+            side_effects = [
+                (1, {"status": "failed", "errors": ["issuer ausente"]}),
+                (0, {"status": "ok", "errors": [], "auth_config": {}}),
+            ]
+
+            with patch.object(MODULE, "run_module_capture", side_effect=side_effects):
+                exit_code, payload = MODULE.run_bundle(
+                    window_id="stg-2026-07-03-oidc",
+                    private_env_file=private_env_file,
+                    checks_dir=checks_dir,
+                    base_url="http://localhost:8080",
+                    expected_oidc_provider="keycloak",
+                    expected_mfa_provider_homologated="true",
+                    expected_org_claim="org_id",
+                    expected_plan_claim="plan",
+                    expected_role_claim="roles",
+                )
+
+            self.assertEqual(exit_code, 1)
+            self.assertEqual(payload["status"], "failed")
+            self.assertEqual(payload["readiness"]["readiness_status"], "blocked")
+            self.assertIn("preflight_oidc_serious_env ainda nao esta verde", payload["readiness"]["blockers"])
 
     def test_run_module_capture_wraps_plain_text_failures(self) -> None:
         module_file = Path(tempfile.gettempdir()) / "fake_smoke_auth_module_for_ontrackchain.py"
@@ -82,6 +167,8 @@ class RunOidcReadinessBundleTests(unittest.TestCase):
 
         with patch.object(MODULE, "load_module") as load_module:
             spec = importlib.util.spec_from_file_location("fake_smoke_auth", module_file)
+            assert spec is not None
+            assert spec.loader is not None
             fake_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(fake_module)
             load_module.return_value = fake_module

@@ -1,6 +1,6 @@
 # Runbook do Primeiro Disparo Real
 
-> Documento de apoio historico. Para execucao viva e canônica da janela seria integrada, use `docs/governance-weekly/guides/SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md`. Para artefatos executivos da tentativa corrente, use o ciclo ativo em `docs/governance-weekly/cycles/`.
+> Documento de apoio historico. Para execucao viva e canônica da janela seria integrada, use `../governance-weekly/guides/SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md`. Para artefatos executivos da tentativa corrente, use o ciclo ativo em `../governance-weekly/cycles/`.
 
 ## Objetivo
 

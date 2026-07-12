@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import base64
 import json
 import uuid
 import hashlib
+import hmac
 import logging
 from datetime import datetime, timezone
 from datetime import timedelta
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Any, Literal, Optional
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
@@ -51,6 +53,11 @@ class Settings(BaseSettings):
     investigation_rpc_fallback_url: str = ""
     investigation_rpc_timeout_ms: int = 1500
     investigation_rpc_max_retries: int = 1
+    investigation_manual_seal_backend: str = "local_hs256"
+    investigation_manual_seal_hs256_secret: str = ""
+    investigation_manual_seal_key_id: str = "manual-package-local-hs256"
+    investigation_manual_seal_certificate_bundle_ref: str = "local-hs256-trust-bundle"
+    investigation_manual_seal_issuer: str = "ontrackchain-investigation-api"
 
 
 settings = Settings()
@@ -93,6 +100,55 @@ REPORT_TYPE_ALIASES = {
     "simple_report": "technical_basic",
     "coaf_lite": "compliance_aml",
 }
+
+MANUAL_PACKAGE_EXPORT_AUDIT_ACTION = "evidence_manual_review_package_exported"
+MANUAL_PACKAGE_SEAL_AUDIT_ACTIONS = frozenset(
+    {
+        "evidence_manual_review_package_signoff_requested",
+        "evidence_manual_review_package_signoff_recorded",
+        "evidence_manual_review_package_sealed",
+        "evidence_manual_review_package_seal_revoked",
+        "evidence_manual_review_package_seal_superseded",
+    }
+)
+MANUAL_PACKAGE_AUDIT_ACTIONS = MANUAL_PACKAGE_SEAL_AUDIT_ACTIONS | {
+    MANUAL_PACKAGE_EXPORT_AUDIT_ACTION
+}
+MANUAL_PACKAGE_REQUIRED_SIGNER_ROLES = ("compliance_owner", "ops_owner")
+MANUAL_PACKAGE_ALLOWED_SIGNER_ROLES = MANUAL_PACKAGE_REQUIRED_SIGNER_ROLES + ("legal_owner_optional",)
+MANUAL_PACKAGE_SIGNOFF_METHODS = ("platform_authenticated_2fa", "governance_ticket")
+MANUAL_PACKAGE_SIGNOFF_DECISIONS = ("approved", "rejected")
+MANUAL_PACKAGE_MFA_VIOLATION_ACTION = "evidence_manual_review_package_mfa_violation"
+MANUAL_PACKAGE_READ_ALLOWED_ROLES = {"ADMIN", "AUDITOR", "COMPLIANCE_OFFICER", "LEGAL_REVIEWER", "REVIEWER", "OTK_REVIEWER"}
+MANUAL_PACKAGE_ADMIN_MUTATION_ALLOWED_ROLES = {"ADMIN"}
+MANUAL_PACKAGE_SIGNOFF_ALLOWED_ROLES = {
+    "ADMIN",
+    "COMPLIANCE_OFFICER",
+    "OTK_COMPLIANCE_OFFICER",
+    "LEGAL_REVIEWER",
+    "OTK_LEGAL_REVIEWER",
+    "REVIEWER",
+    "OTK_REVIEWER",
+}
+MANUAL_PACKAGE_AUTH_ROLE_TO_SIGNER_ROLES = {
+    "ADMIN": set(MANUAL_PACKAGE_ALLOWED_SIGNER_ROLES),
+    "COMPLIANCE_OFFICER": {"compliance_owner"},
+    "OTK_COMPLIANCE_OFFICER": {"compliance_owner"},
+    "LEGAL_REVIEWER": {"legal_owner_optional"},
+    "OTK_LEGAL_REVIEWER": {"legal_owner_optional"},
+    "REVIEWER": {"legal_owner_optional"},
+    "OTK_REVIEWER": {"legal_owner_optional"},
+}
+BILLING_READ_ALLOWED_ROLES = {"ADMIN", "BILLING_ADMIN", "OTK_BILLING_ADMIN"}
+MANUAL_PACKAGE_SEAL_STATUSES = (
+    "pending_signoff",
+    "ready_to_seal",
+    "sealed",
+    "revoked",
+    "superseded",
+    "failed",
+)
+MANUAL_PACKAGE_SEAL_RESOURCE_TYPE = "evidence_package_seal"
 
 PLAN_ORDER = ["free", "starter", "professional", "enterprise"]
 
@@ -283,6 +339,23 @@ def _require_org_id(org_id: Optional[str]) -> str:
 
 def _normalized_role(x_role: Optional[str]) -> str:
     return (x_role or "").strip().upper()
+
+
+def _require_platform_authenticated_2fa(
+    *,
+    x_2fa: Optional[str],
+    x_mfa_mode: Optional[str],
+    x_mfa_provider_homologated: Optional[str],
+) -> None:
+    normalized_mfa_mode = (x_mfa_mode or "").lower()
+    if normalized_mfa_mode == "external_provider":
+        if (x_mfa_provider_homologated or "").lower() != "true":
+            raise HTTPException(status_code=403, detail="mfa_not_homologated_for_oidc")
+        if x_2fa not in {"managed_externally", "managed_externally_homologated", "ok"}:
+            raise HTTPException(status_code=403, detail="2fa_required")
+        return
+    if x_2fa != "ok":
+        raise HTTPException(status_code=403, detail="2fa_required")
 
 
 def _require_role(x_role: Optional[str], *, allowed_roles: set[str], detail: str) -> str:
@@ -690,6 +763,44 @@ def _resolve_actor_ids(
     return effective_user_id, None
 
 
+def _record_manual_package_audit_event(
+    cur,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    action: str,
+    resource_type: str,
+    resource_id: Optional[str | UUID],
+    request_id: Optional[str],
+    report_id: Optional[str],
+    metadata: dict[str, object],
+    created_at: str,
+    external_user_id: Optional[str],
+) -> dict[str, object]:
+    if action not in MANUAL_PACKAGE_AUDIT_ACTIONS:
+        raise ValueError(f"unsupported_manual_package_audit_action: {action}")
+
+    normalized_metadata: dict[str, object] = {
+        **metadata,
+        "request_id": request_id,
+        "report_id": report_id,
+        "created_at": created_at,
+    }
+    if external_user_id:
+        normalized_metadata["external_user_id"] = external_user_id
+
+    _record_audit_log(
+        cur,
+        organization_id=organization_id,
+        user_id=user_id,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        metadata=normalized_metadata,
+    )
+    return normalized_metadata
+
+
 def _record_audit_log(
     cur,
     *,
@@ -697,7 +808,7 @@ def _record_audit_log(
     user_id: Optional[str],
     action: str,
     resource_type: str,
-    resource_id: Optional[UUID],
+    resource_id: Optional[str | UUID],
     metadata: dict,
 ) -> None:
     normalized_metadata = dict(metadata)
@@ -730,6 +841,7 @@ def _record_audit_log(
         "report_generated":       "REPORT_GENERATED",
         "report_downloaded":      "REPORT_DOWNLOADED",
         "operational_alerts_exported": "EVIDENCE_EXPORTED",
+        "evidence_manual_review_package_exported": "EVIDENCE_EXPORTED",
     }
     evidence_event_type = _AUDIT_TO_EVIDENCE.get(action)
     if evidence_event_type:
@@ -766,7 +878,7 @@ def _record_authorization_denial(
     allowed_roles: set[str],
     detail: str,
     resource_type: str,
-    resource_id: Optional[UUID],
+    resource_id: Optional[str | UUID],
     endpoint: str,
     method: str,
 ) -> None:
@@ -796,6 +908,50 @@ def _record_authorization_denial(
         logger.exception("failed_to_record_authorization_denial")
 
 
+def _record_manual_package_mfa_violation(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    seal_id: str | UUID,
+    request_id: str,
+    auth_role: str,
+    signer_role: str,
+    signoff_method: str,
+    mfa_mode: Optional[str],
+    mfa_provider_homologated: Optional[str],
+    two_factor_status: Optional[str],
+    detail: str,
+) -> None:
+    try:
+        with pool.connection() as conn:
+            _apply_rls_context(conn, organization_id)
+            with conn.cursor() as cur:
+                _record_audit_log(
+                    cur,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                    action=MANUAL_PACKAGE_MFA_VIOLATION_ACTION,
+                    resource_type=MANUAL_PACKAGE_SEAL_RESOURCE_TYPE,
+                    resource_id=seal_id,
+                    metadata={
+                        "request_id": request_id,
+                        "auth_role": auth_role,
+                        "asserted_signer_role": signer_role,
+                        "signoff_method": signoff_method,
+                        "mfa_mode": mfa_mode or "not_informed",
+                        "mfa_provider_homologated": (mfa_provider_homologated or "").lower() == "true",
+                        "two_factor_status": two_factor_status or "not_informed",
+                        "detail": detail,
+                        "external_user_id": external_user_id,
+                    },
+                )
+            conn.commit()
+    except Exception:
+        logger.exception("failed_to_record_manual_package_mfa_violation")
+
+
 def _require_role_with_audit(
     pool: ConnectionPool,
     *,
@@ -807,7 +963,7 @@ def _require_role_with_audit(
     allowed_roles: set[str],
     detail: str,
     resource_type: str,
-    resource_id: Optional[UUID],
+    resource_id: Optional[str | UUID],
     endpoint: str,
     method: str,
 ) -> str:
@@ -876,6 +1032,478 @@ def _serialize_audit_log_row(row: dict) -> dict:
     }
 
 
+def _required_manual_package_signer_roles(_signoff_mode: Optional[str]) -> tuple[str, ...]:
+    # Baseline arquitetural aprovada: quorum minimo Compliance + Ops.
+    return MANUAL_PACKAGE_REQUIRED_SIGNER_ROLES
+
+
+def _require_manual_package_read_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=MANUAL_PACKAGE_READ_ALLOWED_ROLES,
+        detail="manual_package_read_role_required",
+        resource_type=MANUAL_PACKAGE_SEAL_RESOURCE_TYPE,
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _require_manual_package_admin_mutation_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=MANUAL_PACKAGE_ADMIN_MUTATION_ALLOWED_ROLES,
+        detail="manual_package_admin_role_required",
+        resource_type=MANUAL_PACKAGE_SEAL_RESOURCE_TYPE,
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _require_billing_read_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=BILLING_READ_ALLOWED_ROLES,
+        detail="billing_balance_role_required",
+        resource_type="billing_balance",
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _require_manual_package_signoff_role_binding(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    signer_role: str,
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    auth_role = _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=MANUAL_PACKAGE_SIGNOFF_ALLOWED_ROLES,
+        detail="manual_package_signoff_role_required",
+        resource_type=MANUAL_PACKAGE_SEAL_RESOURCE_TYPE,
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+    allowed_signer_roles = MANUAL_PACKAGE_AUTH_ROLE_TO_SIGNER_ROLES.get(auth_role, set())
+    if signer_role not in allowed_signer_roles:
+        _record_authorization_denial(
+            pool,
+            organization_id=organization_id,
+            user_id=user_id,
+            external_user_id=external_user_id,
+            request_id=request_id,
+            effective_role=auth_role,
+            allowed_roles=set(allowed_signer_roles),
+            detail="manual_package_signer_role_mismatch",
+            resource_type=MANUAL_PACKAGE_SEAL_RESOURCE_TYPE,
+            resource_id=resource_id,
+            endpoint=endpoint,
+            method=method,
+        )
+        raise HTTPException(status_code=403, detail="manual_package_signer_role_mismatch")
+    return auth_role
+
+
+def _serialize_manual_package_signoff_row(row: dict) -> dict:
+    raw_metadata = row.get("metadata")
+    metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
+    return {
+        "id": str(row["id"]),
+        "seal_id": str(row["seal_id"]),
+        "organization_id": str(row["organization_id"]),
+        "signer_role": row["signer_role"],
+        "signer_user_id": str(row["signer_user_id"]) if row.get("signer_user_id") else None,
+        "signer_display_name": row["signer_display_name"],
+        "decision": row["decision"],
+        "signoff_method": row["signoff_method"],
+        "ticket_ref": row.get("ticket_ref"),
+        "notes": row.get("notes"),
+        "signed_at": row["signed_at"].isoformat() if row.get("signed_at") else None,
+        "metadata": metadata,
+    }
+
+
+def _serialize_manual_package_seal_row(row: dict, signoffs: list[dict]) -> dict:
+    raw_envelope = row.get("seal_envelope")
+    seal_envelope = raw_envelope if isinstance(raw_envelope, dict) else {}
+    raw_verification_summary = row.get("verification_summary")
+    verification_summary = raw_verification_summary if isinstance(raw_verification_summary, dict) else {}
+    serialized_signoffs = [_serialize_manual_package_signoff_row(signoff_row) for signoff_row in signoffs]
+    approved_roles = {
+        signoff["signer_role"]
+        for signoff in serialized_signoffs
+        if signoff["decision"] == "approved"
+    }
+    required_signers = list(_required_manual_package_signer_roles(row.get("signoff_mode")))
+    return {
+        "seal_id": str(row["id"]),
+        "organization_id": str(row["organization_id"]),
+        "package_kind": row["package_kind"],
+        "request_id": row["request_id"],
+        "report_id": row.get("report_id"),
+        "scope_id": row["scope_id"],
+        "manual_review_action": row["manual_review_action"],
+        "package_sha256": row["package_sha256"],
+        "manifest_schema_version": row["manifest_schema_version"],
+        "classification": row["classification"],
+        "signoff_mode": row["signoff_mode"],
+        "seal_status": row["seal_status"],
+        "seal_format": row["seal_format"],
+        "signature_algorithm": row.get("signature_algorithm"),
+        "kms_key_ref": row.get("kms_key_ref"),
+        "certificate_fingerprint_sha256": row.get("certificate_fingerprint_sha256"),
+        "certificate_bundle_ref": row.get("certificate_bundle_ref"),
+        "policy_version": row["policy_version"],
+        "sealed_at": row["sealed_at"].isoformat() if row.get("sealed_at") else None,
+        "sealed_by_user_id": str(row["sealed_by_user_id"]) if row.get("sealed_by_user_id") else None,
+        "revoked_at": row["revoked_at"].isoformat() if row.get("revoked_at") else None,
+        "superseded_by_seal_id": str(row["superseded_by_seal_id"]) if row.get("superseded_by_seal_id") else None,
+        "required_signers": required_signers,
+        "completed_signoffs": len(serialized_signoffs),
+        "approved_required_signoffs": sum(1 for role in required_signers if role in approved_roles),
+        "required_signoffs": len(required_signers),
+        "signoffs": serialized_signoffs,
+        "seal_envelope": seal_envelope,
+        "verification_summary": verification_summary,
+        "created_at": row["created_at"].isoformat() if row.get("created_at") else None,
+        "updated_at": row["updated_at"].isoformat() if row.get("updated_at") else None,
+    }
+
+
+def _load_manual_package_seal(cur, *, organization_id: str, seal_id: UUID) -> tuple[dict, list[dict]]:
+    cur.execute(
+        """
+        SELECT
+            id,
+            organization_id,
+            package_kind,
+            request_id,
+            report_id,
+            scope_id,
+            manual_review_action,
+            package_sha256,
+            manifest_schema_version,
+            classification,
+            signoff_mode,
+            seal_status,
+            seal_format,
+            signature_algorithm,
+            kms_key_ref,
+            certificate_fingerprint_sha256,
+            certificate_bundle_ref,
+            policy_version,
+            sealed_at,
+            sealed_by_user_id,
+            revoked_at,
+            superseded_by_seal_id,
+            seal_envelope,
+            verification_summary,
+            created_at,
+            updated_at
+        FROM evidence_package_seals
+        WHERE organization_id = %s
+          AND id = %s
+        """,
+        (organization_id, seal_id),
+    )
+    seal_row = cur.fetchone()
+    if not seal_row:
+        raise HTTPException(status_code=404, detail="manual_package_seal_not_found")
+
+    cur.execute(
+        """
+        SELECT
+            id,
+            seal_id,
+            organization_id,
+            signer_role,
+            signer_user_id,
+            signer_display_name,
+            decision,
+            signoff_method,
+            ticket_ref,
+            notes,
+            signed_at,
+            metadata
+        FROM evidence_package_signoffs
+        WHERE organization_id = %s
+          AND seal_id = %s
+        ORDER BY signed_at ASC
+        """,
+        (organization_id, seal_id),
+    )
+    signoff_rows = cur.fetchall()
+    return seal_row, signoff_rows
+
+
+def _load_manual_package_seal_by_digest(
+    cur,
+    *,
+    organization_id: str,
+    package_sha256: str,
+    policy_version: str,
+) -> tuple[dict, list[dict]]:
+    cur.execute(
+        """
+        SELECT id
+        FROM evidence_package_seals
+        WHERE organization_id = %s
+          AND package_sha256 = %s
+          AND policy_version = %s
+        """,
+        (organization_id, package_sha256, policy_version),
+    )
+    seal_row = cur.fetchone()
+    if not seal_row:
+        raise HTTPException(status_code=404, detail="manual_package_seal_not_found")
+    return _load_manual_package_seal(cur, organization_id=organization_id, seal_id=seal_row["id"])
+
+
+def _resolve_manual_package_seal_status(signoff_mode: str, signoffs: list[dict]) -> str:
+    if any(signoff.get("decision") == "rejected" for signoff in signoffs):
+        return "failed"
+
+    approved_roles = {
+        signoff.get("signer_role")
+        for signoff in signoffs
+        if signoff.get("decision") == "approved"
+    }
+    required_roles = set(_required_manual_package_signer_roles(signoff_mode))
+    if required_roles.issubset(approved_roles):
+        return "ready_to_seal"
+    return "pending_signoff"
+
+
+def _canonical_json_bytes(value: Any) -> bytes:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+
+def _base64url_encode(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
+
+
+def _base64url_decode(value: str) -> bytes:
+    padding = "=" * (-len(value) % 4)
+    return base64.urlsafe_b64decode((value + padding).encode("ascii"))
+
+
+def _build_manual_package_signing_payload(
+    seal_row: dict,
+    signoff_rows: list[dict],
+    *,
+    finalized_at: str,
+    finalized_by_user_id: Optional[str],
+    issuer: str,
+    key_id: str,
+    finalize_metadata: dict[str, object],
+) -> dict[str, object]:
+    serialized_signoffs = [_serialize_manual_package_signoff_row(row) for row in signoff_rows]
+    return {
+        "iss": issuer,
+        "sub": str(seal_row["id"]),
+        "iat": finalized_at,
+        "jti": str(uuid.uuid4()),
+        "seal_id": str(seal_row["id"]),
+        "organization_id": str(seal_row["organization_id"]),
+        "package_kind": seal_row["package_kind"],
+        "request_id": seal_row["request_id"],
+        "report_id": seal_row.get("report_id"),
+        "scope_id": seal_row["scope_id"],
+        "manual_review_action": seal_row["manual_review_action"],
+        "package_sha256": seal_row["package_sha256"],
+        "manifest_schema_version": seal_row["manifest_schema_version"],
+        "classification": seal_row["classification"],
+        "signoff_mode": seal_row["signoff_mode"],
+        "policy_version": seal_row["policy_version"],
+        "seal_format": "JWS JSON Flattened",
+        "key_id": key_id,
+        "finalized_at": finalized_at,
+        "finalized_by_user_id": finalized_by_user_id,
+        "required_signer_roles": list(_required_manual_package_signer_roles(seal_row["signoff_mode"])),
+        "signoffs": serialized_signoffs,
+        "finalize_metadata": finalize_metadata,
+    }
+
+
+def _verify_local_hs256_jws(
+    *,
+    envelope: dict[str, object],
+    secret: str,
+) -> tuple[bool, dict[str, object]]:
+    protected = str(envelope.get("protected") or "")
+    payload = str(envelope.get("payload") or "")
+    signature = str(envelope.get("signature") or "")
+    signing_input = f"{protected}.{payload}".encode("ascii")
+    expected_signature = _base64url_encode(hmac.new(secret.encode("utf-8"), signing_input, hashlib.sha256).digest())
+    verified = hmac.compare_digest(signature, expected_signature)
+    payload_dict = json.loads(_base64url_decode(payload).decode("utf-8"))
+    return verified, payload_dict
+
+
+def _seal_manual_package_with_local_hs256(
+    *,
+    seal_row: dict,
+    signoff_rows: list[dict],
+    finalized_at: str,
+    finalized_by_user_id: Optional[str],
+    finalize_metadata: dict[str, object],
+) -> dict[str, object]:
+    secret = settings.investigation_manual_seal_hs256_secret.strip()
+    if not secret:
+        raise HTTPException(
+            status_code=424,
+            detail={
+                "code": "manual_seal_secret_missing",
+                "message": "configure INVESTIGATION_MANUAL_SEAL_HS256_SECRET para habilitar a selagem local_hs256",
+            },
+        )
+
+    protected_header = {
+        "alg": "HS256",
+        "typ": "JWS",
+        "cty": "application/json",
+        "kid": settings.investigation_manual_seal_key_id,
+    }
+    payload = _build_manual_package_signing_payload(
+        seal_row,
+        signoff_rows,
+        finalized_at=finalized_at,
+        finalized_by_user_id=finalized_by_user_id,
+        issuer=settings.investigation_manual_seal_issuer,
+        key_id=settings.investigation_manual_seal_key_id,
+        finalize_metadata=finalize_metadata,
+    )
+    protected_b64 = _base64url_encode(_canonical_json_bytes(protected_header))
+    payload_b64 = _base64url_encode(_canonical_json_bytes(payload))
+    signing_input = f"{protected_b64}.{payload_b64}".encode("ascii")
+    signature_b64 = _base64url_encode(hmac.new(secret.encode("utf-8"), signing_input, hashlib.sha256).digest())
+    envelope = {
+        "protected": protected_b64,
+        "payload": payload_b64,
+        "signature": signature_b64,
+        "header": {
+            "kid": settings.investigation_manual_seal_key_id,
+            "seal_backend": "local_hs256",
+        },
+    }
+    verified, verified_payload = _verify_local_hs256_jws(envelope=envelope, secret=secret)
+    verified_signoffs = verified_payload.get("signoffs")
+    verified_signoff_count = len(verified_signoffs) if isinstance(verified_signoffs, list) else 0
+    verification_summary = {
+        "verified": verified,
+        "verification_method": "local_hs256_self_check",
+        "seal_backend": "local_hs256",
+        "signature_algorithm": "HS256",
+        "issuer": settings.investigation_manual_seal_issuer,
+        "key_id": settings.investigation_manual_seal_key_id,
+        "certificate_bundle_ref": settings.investigation_manual_seal_certificate_bundle_ref,
+        "certificate_material_present": False,
+        "package_sha256": verified_payload.get("package_sha256"),
+        "payload_sha256": hashlib.sha256(_canonical_json_bytes(verified_payload)).hexdigest(),
+        "signed_at": finalized_at,
+        "required_signer_roles": verified_payload.get("required_signer_roles", []),
+        "signoff_count": verified_signoff_count,
+    }
+    return {
+        "seal_envelope": envelope,
+        "verification_summary": verification_summary,
+        "signature_algorithm": "HS256",
+        "kms_key_ref": settings.investigation_manual_seal_key_id,
+        "certificate_bundle_ref": settings.investigation_manual_seal_certificate_bundle_ref,
+        "certificate_fingerprint_sha256": None,
+    }
+
+
+def _finalize_manual_package_with_institutional_seal_service(
+    *,
+    seal_row: dict,
+    signoff_rows: list[dict],
+    finalized_at: str,
+    finalized_by_user_id: Optional[str],
+    finalize_metadata: dict[str, object],
+) -> dict[str, object]:
+    backend = settings.investigation_manual_seal_backend.strip().lower()
+    if backend == "local_hs256":
+        return _seal_manual_package_with_local_hs256(
+            seal_row=seal_row,
+            signoff_rows=signoff_rows,
+            finalized_at=finalized_at,
+            finalized_by_user_id=finalized_by_user_id,
+            finalize_metadata=finalize_metadata,
+        )
+    raise HTTPException(
+        status_code=424,
+        detail={
+            "code": "institutional_seal_backend_unsupported",
+            "message": f"backend de selagem nao suportado: {backend or 'vazio'}",
+        },
+    )
+
+
 def _serialize_credit_ledger_row(row: dict) -> dict:
     raw_metadata = row.get("metadata")
     metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
@@ -889,6 +1517,121 @@ def _serialize_credit_ledger_row(row: dict) -> dict:
         "quote_id": metadata.get("quote_id"),
         "metadata": metadata,
         "created_at": row["created_at"].isoformat() if row.get("created_at") else None,
+    }
+
+
+def _serialize_billing_action_total_row(row: dict) -> dict:
+    return {
+        "action": str(row["action"]),
+        "entry_count": int(row["entry_count"] or 0),
+        "amount_total": float(row["amount_total"] or 0),
+    }
+
+
+def _fetch_billing_balance_row(cur, org_id: str) -> dict:
+    cur.execute(
+        """
+        SELECT credits_available, credits_reserved, credits_used_total
+        FROM organizations
+        WHERE id = %s
+        """,
+        (org_id,),
+    )
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="organization_not_found")
+    return row
+
+
+def _build_billing_balance_payload(row: dict) -> dict[str, float]:
+    return {
+        "credits_available": float(row["credits_available"]),
+        "credits_reserved": float(row["credits_reserved"]),
+        "credits_used_total": float(row["credits_used_total"]),
+    }
+
+
+def _fetch_billing_reconciliation_snapshot(cur, *, org_id: str, limit: int) -> dict[str, object]:
+    balance_row = _fetch_billing_balance_row(cur, org_id)
+    balance = _build_billing_balance_payload(balance_row)
+
+    cur.execute(
+        """
+        SELECT
+          (SELECT COUNT(*) FROM investigation_quotes WHERE organization_id = %s AND used_at IS NULL AND expires_at > NOW()) AS investigation_open_total,
+          (SELECT COUNT(*) FROM investigation_quotes WHERE organization_id = %s AND used_at IS NULL AND expires_at <= NOW()) AS investigation_expired_total,
+          (SELECT COUNT(*) FROM compliance_quotes WHERE organization_id = %s AND used_at IS NULL AND expires_at > NOW()) AS compliance_open_total,
+          (SELECT COUNT(*) FROM compliance_quotes WHERE organization_id = %s AND used_at IS NULL AND expires_at <= NOW()) AS compliance_expired_total,
+          (SELECT COUNT(*) FROM monitoring_quotes WHERE organization_id = %s AND used_at IS NULL AND expires_at > NOW()) AS monitoring_open_total,
+          (SELECT COUNT(*) FROM monitoring_quotes WHERE organization_id = %s AND used_at IS NULL AND expires_at <= NOW()) AS monitoring_expired_total
+        """,
+        (org_id, org_id, org_id, org_id, org_id, org_id),
+    )
+    quote_row = cur.fetchone() or {}
+    quotes_by_domain = {
+        "investigation": {
+            "open_total": int(quote_row.get("investigation_open_total") or 0),
+            "expired_total": int(quote_row.get("investigation_expired_total") or 0),
+        },
+        "compliance": {
+            "open_total": int(quote_row.get("compliance_open_total") or 0),
+            "expired_total": int(quote_row.get("compliance_expired_total") or 0),
+        },
+        "monitoring": {
+            "open_total": int(quote_row.get("monitoring_open_total") or 0),
+            "expired_total": int(quote_row.get("monitoring_expired_total") or 0),
+        },
+    }
+    quotes_open_total = (
+        quotes_by_domain["investigation"]["open_total"]
+        + quotes_by_domain["compliance"]["open_total"]
+        + quotes_by_domain["monitoring"]["open_total"]
+    )
+    quotes_expired_total = (
+        quotes_by_domain["investigation"]["expired_total"]
+        + quotes_by_domain["compliance"]["expired_total"]
+        + quotes_by_domain["monitoring"]["expired_total"]
+    )
+
+    cur.execute(
+        """
+        SELECT action, COUNT(*) AS entry_count, COALESCE(SUM(amount), 0) AS amount_total
+        FROM credit_ledger
+        WHERE org_id = %s
+        GROUP BY action
+        ORDER BY action ASC
+        """,
+        (org_id,),
+    )
+    action_totals = [_serialize_billing_action_total_row(row) for row in cur.fetchall()]
+
+    cur.execute(
+        """
+        SELECT id, case_id, action, amount, balance_after, metadata, created_at
+        FROM credit_ledger
+        WHERE org_id = %s
+        ORDER BY created_at DESC
+        LIMIT %s
+        """,
+        (org_id, limit),
+    )
+    recent = [_serialize_credit_ledger_row(row) for row in cur.fetchall()]
+
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "balance": balance,
+        "quotes": {
+            "investigation": quotes_by_domain["investigation"],
+            "compliance": quotes_by_domain["compliance"],
+            "monitoring": quotes_by_domain["monitoring"],
+            "open_total": quotes_open_total,
+            "expired_total": quotes_expired_total,
+        },
+        "ledger": {
+            "total_entries": sum(entry["entry_count"] for entry in action_totals),
+            "action_totals": action_totals,
+            "recent": recent,
+        },
     }
 
 
@@ -1036,6 +1779,33 @@ async def _build_investigation_operations_snapshot(
             cur.execute(
                 """
                 SELECT
+                  COUNT(*) FILTER (
+                    WHERE action = %s
+                      AND created_at >= NOW() - INTERVAL '1 hour'
+                  ) AS manual_package_mfa_violations_last_hour,
+                  COUNT(*) FILTER (
+                    WHERE action = %s
+                      AND created_at >= NOW() - INTERVAL '1 hour'
+                      AND COALESCE(metadata->>'detail', '') = '2fa_required'
+                  ) AS manual_package_mfa_2fa_required_last_hour,
+                  COUNT(*) FILTER (
+                    WHERE action = %s
+                      AND created_at >= NOW() - INTERVAL '1 hour'
+                      AND COALESCE(metadata->>'detail', '') = 'mfa_not_homologated_for_oidc'
+                  ) AS manual_package_mfa_provider_not_homologated_last_hour
+                FROM audit_logs
+                """,
+                (
+                    MANUAL_PACKAGE_MFA_VIOLATION_ACTION,
+                    MANUAL_PACKAGE_MFA_VIOLATION_ACTION,
+                    MANUAL_PACKAGE_MFA_VIOLATION_ACTION,
+                ),
+            )
+            security_row = cur.fetchone() or {}
+
+            cur.execute(
+                """
+                SELECT
                   c.id,
                   c.status,
                   c.target_address,
@@ -1096,6 +1866,17 @@ async def _build_investigation_operations_snapshot(
             "ready": provider_readiness.ready,
             "degraded_reason": provider_readiness.degraded_reason,
             "details": provider_readiness.details,
+        },
+        "security": {
+            "manual_package_mfa_violations_last_hour": int(
+                security_row.get("manual_package_mfa_violations_last_hour") or 0
+            ),
+            "manual_package_mfa_2fa_required_last_hour": int(
+                security_row.get("manual_package_mfa_2fa_required_last_hour") or 0
+            ),
+            "manual_package_mfa_provider_not_homologated_last_hour": int(
+                security_row.get("manual_package_mfa_provider_not_homologated_last_hour") or 0
+            ),
         },
         "recent_cases": [_serialize_worker_case_row(row) for row in recent_rows],
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -1165,6 +1946,33 @@ async def _build_investigation_platform_snapshot(
             )
             duration_row = cur.fetchone() or {}
 
+            cur.execute(
+                """
+                SELECT
+                  COUNT(*) FILTER (
+                    WHERE action = %s
+                      AND created_at >= NOW() - INTERVAL '1 hour'
+                  ) AS manual_package_mfa_violations_last_hour,
+                  COUNT(*) FILTER (
+                    WHERE action = %s
+                      AND created_at >= NOW() - INTERVAL '1 hour'
+                      AND COALESCE(metadata->>'detail', '') = '2fa_required'
+                  ) AS manual_package_mfa_2fa_required_last_hour,
+                  COUNT(*) FILTER (
+                    WHERE action = %s
+                      AND created_at >= NOW() - INTERVAL '1 hour'
+                      AND COALESCE(metadata->>'detail', '') = 'mfa_not_homologated_for_oidc'
+                  ) AS manual_package_mfa_provider_not_homologated_last_hour
+                FROM audit_logs
+                """,
+                (
+                    MANUAL_PACKAGE_MFA_VIOLATION_ACTION,
+                    MANUAL_PACKAGE_MFA_VIOLATION_ACTION,
+                    MANUAL_PACKAGE_MFA_VIOLATION_ACTION,
+                ),
+            )
+            security_row = cur.fetchone() or {}
+
     return {
         "queue": {
             "ready": int(ready_count),
@@ -1202,6 +2010,17 @@ async def _build_investigation_platform_snapshot(
             "degraded_reason": provider_readiness.degraded_reason,
             "details": provider_readiness.details,
         },
+        "security": {
+            "manual_package_mfa_violations_last_hour": int(
+                security_row.get("manual_package_mfa_violations_last_hour") or 0
+            ),
+            "manual_package_mfa_2fa_required_last_hour": int(
+                security_row.get("manual_package_mfa_2fa_required_last_hour") or 0
+            ),
+            "manual_package_mfa_provider_not_homologated_last_hour": int(
+                security_row.get("manual_package_mfa_provider_not_homologated_last_hour") or 0
+            ),
+        },
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -1235,6 +2054,7 @@ def _build_investigation_operational_alerts(snapshot: dict) -> list[dict]:
     global_limit = snapshot["concurrency"]["global_limit"]
     provider_enabled = snapshot["provider"]["enabled"]
     provider_ready = snapshot["provider"]["ready"]
+    manual_package_mfa_violations_last_hour = snapshot["security"]["manual_package_mfa_violations_last_hour"]
 
     append_alert(
         code="investigation_waiting_backlog",
@@ -1313,6 +2133,17 @@ def _build_investigation_operational_alerts(snapshot: dict) -> list[dict]:
         message="O provider RPC habilitado não está pronto para atender o worker de investigação.",
         recommended_action="Validar primary/fallback, fixture mode ou credenciais do provider RPC.",
     )
+    append_alert(
+        code="investigation_manual_package_mfa_violations",
+        severity="warning",
+        status="open" if manual_package_mfa_violations_last_hour >= 1 else "closed",
+        metric="security.manual_package_mfa_violations_last_hour",
+        value=float(manual_package_mfa_violations_last_hour),
+        threshold=1.0,
+        title="Violações MFA em selagem manual",
+        message="Houve violações recentes de MFA no fluxo institucional de manual-package.",
+        recommended_action="Revisar a trilha de auditoria do selo e validar headers MFA/2FA no fluxo de signoff.",
+    )
     return alerts
 
 
@@ -1354,6 +2185,7 @@ def _build_investigation_platform_alerts(snapshot: dict) -> list[dict]:
     global_limit = snapshot["concurrency"]["global_limit"]
     provider_enabled = snapshot["provider"]["enabled"]
     provider_ready = snapshot["provider"]["ready"]
+    manual_package_mfa_violations_last_hour = snapshot["security"]["manual_package_mfa_violations_last_hour"]
 
     append_alert(
         code="investigation_waiting_backlog",
@@ -1432,6 +2264,17 @@ def _build_investigation_platform_alerts(snapshot: dict) -> list[dict]:
         message="O provider RPC habilitado não está pronto na visão global da plataforma.",
         recommended_action="Validar URLs primária/secundária, fixture mode ou indisponibilidade do provider.",
     )
+    append_alert(
+        code="investigation_manual_package_mfa_violations",
+        severity="warning",
+        status="open" if manual_package_mfa_violations_last_hour >= 1 else "closed",
+        metric="security.manual_package_mfa_violations_last_hour",
+        value=float(manual_package_mfa_violations_last_hour),
+        threshold=1.0,
+        title="Violações globais de MFA em selagem manual",
+        message="Houve violações recentes de MFA no fluxo institucional global de manual-package.",
+        recommended_action="Revisar audit logs, confirmar homologação MFA/OIDC e validar tentativas recentes de signoff.",
+    )
     return alerts
 
 
@@ -1490,6 +2333,15 @@ def _render_prometheus_metrics(snapshot: dict, alerts: list[dict]) -> str:
         "# HELP ontrack_investigation_provider_ready Estado de prontidao do provider RPC configurado.",
         "# TYPE ontrack_investigation_provider_ready gauge",
         f"ontrack_investigation_provider_ready {1 if snapshot['provider']['ready'] else 0}",
+        "# HELP ontrack_investigation_manual_package_mfa_violations_last_hour Violacoes de MFA em manual-package/signoffs na ultima hora.",
+        "# TYPE ontrack_investigation_manual_package_mfa_violations_last_hour gauge",
+        f"ontrack_investigation_manual_package_mfa_violations_last_hour {snapshot['security']['manual_package_mfa_violations_last_hour']}",
+        "# HELP ontrack_investigation_manual_package_mfa_2fa_required_last_hour Violacoes por ausencia de 2FA valido em manual-package/signoffs na ultima hora.",
+        "# TYPE ontrack_investigation_manual_package_mfa_2fa_required_last_hour gauge",
+        f"ontrack_investigation_manual_package_mfa_2fa_required_last_hour {snapshot['security']['manual_package_mfa_2fa_required_last_hour']}",
+        "# HELP ontrack_investigation_manual_package_mfa_provider_not_homologated_last_hour Violacoes por provedor MFA nao homologado em manual-package/signoffs na ultima hora.",
+        "# TYPE ontrack_investigation_manual_package_mfa_provider_not_homologated_last_hour gauge",
+        f"ontrack_investigation_manual_package_mfa_provider_not_homologated_last_hour {snapshot['security']['manual_package_mfa_provider_not_homologated_last_hour']}",
         "# HELP ontrack_investigation_operational_alerts_open_total Total de alertas operacionais abertos.",
         "# TYPE ontrack_investigation_operational_alerts_open_total gauge",
         f"ontrack_investigation_operational_alerts_open_total {alert_open_total}",
@@ -1564,6 +2416,15 @@ def _render_platform_prometheus_metrics(snapshot: dict, alerts: list[dict]) -> s
         "# HELP ontrack_investigation_platform_provider_ready Estado de prontidao do provider RPC configurado.",
         "# TYPE ontrack_investigation_platform_provider_ready gauge",
         f"ontrack_investigation_platform_provider_ready {1 if snapshot['provider']['ready'] else 0}",
+        "# HELP ontrack_investigation_platform_manual_package_mfa_violations_last_hour Violacoes globais de MFA em manual-package/signoffs na ultima hora.",
+        "# TYPE ontrack_investigation_platform_manual_package_mfa_violations_last_hour gauge",
+        f"ontrack_investigation_platform_manual_package_mfa_violations_last_hour {snapshot['security']['manual_package_mfa_violations_last_hour']}",
+        "# HELP ontrack_investigation_platform_manual_package_mfa_2fa_required_last_hour Violacoes globais por ausencia de 2FA valido em manual-package/signoffs na ultima hora.",
+        "# TYPE ontrack_investigation_platform_manual_package_mfa_2fa_required_last_hour gauge",
+        f"ontrack_investigation_platform_manual_package_mfa_2fa_required_last_hour {snapshot['security']['manual_package_mfa_2fa_required_last_hour']}",
+        "# HELP ontrack_investigation_platform_manual_package_mfa_provider_not_homologated_last_hour Violacoes globais por provedor MFA nao homologado em manual-package/signoffs na ultima hora.",
+        "# TYPE ontrack_investigation_platform_manual_package_mfa_provider_not_homologated_last_hour gauge",
+        f"ontrack_investigation_platform_manual_package_mfa_provider_not_homologated_last_hour {snapshot['security']['manual_package_mfa_provider_not_homologated_last_hour']}",
         "# HELP ontrack_investigation_platform_operational_alerts_open_total Total de alertas operacionais abertos.",
         "# TYPE ontrack_investigation_platform_operational_alerts_open_total gauge",
         f"ontrack_investigation_platform_operational_alerts_open_total {alert_open_total}",
@@ -1619,6 +2480,58 @@ class EvidenceExportRequest(BaseModel):
     include_audit_logs: bool = True
     include_credit_ledger: bool = True
     include_reports: bool = False
+
+
+class ManualPackageAuditRequest(BaseModel):
+    action: Literal["evidence_manual_review_package_exported"] = MANUAL_PACKAGE_EXPORT_AUDIT_ACTION
+    resource_type: str = "audit_log"
+    resource_id: Optional[str] = None
+    request_id: Optional[str] = None
+    report_id: Optional[str] = None
+    metadata: dict[str, object] = Field(default_factory=dict)
+
+
+class ManualPackageSignoffRequestCreate(BaseModel):
+    request_id: str
+    report_id: Optional[str] = None
+    scope_id: str
+    manual_review_action: Literal[
+        "compliance_due_diligence_checked",
+        "compliance_source_of_funds_checked",
+    ]
+    package_sha256: str = Field(min_length=64, max_length=64)
+    manifest_schema_version: str = "manual_review_package/v2"
+    classification: str = "restricted_regulatory"
+    signoff_mode: str = "compliance_ops_signoff"
+    package_kind: str = "manual_review_package"
+    policy_version: str = "manual_package_sealing/v1"
+
+
+class ManualPackageSignoffRecordRequest(BaseModel):
+    decision: Literal["approved", "rejected"]
+    signer_role: Literal["compliance_owner", "ops_owner", "legal_owner_optional"]
+    signoff_method: Literal["platform_authenticated_2fa", "governance_ticket"]
+    ticket_ref: Optional[str] = None
+    notes: Optional[str] = None
+    signer_display_name: Optional[str] = None
+    metadata: dict[str, object] = Field(default_factory=dict)
+
+
+class ManualPackageFinalizeRequest(BaseModel):
+    metadata: dict[str, object] = Field(default_factory=dict)
+
+
+class ManualPackageRevokeRequest(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)
+    ticket_ref: str = Field(min_length=3, max_length=120)
+    metadata: dict[str, object] = Field(default_factory=dict)
+
+
+class ManualPackageSupersedeRequest(BaseModel):
+    superseded_by_seal_id: UUID
+    reason: str = Field(min_length=3, max_length=500)
+    ticket_ref: str = Field(min_length=3, max_length=120)
+    metadata: dict[str, object] = Field(default_factory=dict)
 
 
 class RequoteRequiredResponse(BaseModel):
@@ -2320,27 +3233,66 @@ async def history(
 async def billing_balance(
     pool: ConnectionPool = Depends(get_pool),
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> dict:
     org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_billing_read_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_id=org_id,
+        endpoint="/api/v1/billing/balance",
+        method="GET",
+    )
     with pool.connection() as conn:
         _apply_rls_context(conn, org_id)
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT credits_available, credits_reserved, credits_used_total
-                FROM organizations
-                WHERE id = %s
-                """,
-                (org_id,),
-            )
-            row = cur.fetchone()
-            if not row:
-                raise HTTPException(status_code=404, detail="organization_not_found")
-    return {
-        "credits_available": float(row["credits_available"]),
-        "credits_reserved": float(row["credits_reserved"]),
-        "credits_used_total": float(row["credits_used_total"]),
-    }
+            row = _fetch_billing_balance_row(cur, org_id)
+    return _build_billing_balance_payload(row)
+
+
+@app.get("/api/v1/billing/reconciliation")
+async def billing_reconciliation(
+    limit: int = Query(default=10, ge=1, le=25),
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> dict:
+    org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_billing_read_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_id=org_id,
+        endpoint="/api/v1/billing/reconciliation",
+        method="GET",
+    )
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            return _fetch_billing_reconciliation_snapshot(cur, org_id=org_id, limit=limit)
 
 
 @app.get("/api/v1/investigation/admin/operations")
@@ -3262,6 +4214,708 @@ async def export_evidence_bundle(
         media_type="application/json; charset=utf-8",
         headers={"content-disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@app.post("/api/v1/audit/manual-package-export")
+async def record_manual_package_export(
+    body: ManualPackageAuditRequest,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> dict:
+    org_id = _require_org_id(x_org_id)
+    effective_request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_role_with_audit(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=effective_request_id,
+        x_role=x_role,
+        allowed_roles={"ADMIN", "AUDITOR"},
+        detail="privileged_read_role_required",
+        resource_type=body.resource_type,
+        resource_id=body.resource_id,
+        endpoint="/api/v1/audit/manual-package-export",
+        method="POST",
+    )
+
+    created_at = datetime.now(timezone.utc).isoformat()
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            metadata = _record_manual_package_audit_event(
+                cur,
+                organization_id=org_id,
+                user_id=effective_user_id,
+                action=body.action,
+                resource_type=body.resource_type,
+                resource_id=body.resource_id,
+                request_id=body.request_id,
+                report_id=body.report_id,
+                metadata=body.metadata,
+                created_at=created_at,
+                external_user_id=external_actor_user_id,
+            )
+        conn.commit()
+
+    return {
+        "action": body.action,
+        "resource_type": body.resource_type,
+        "resource_id": body.resource_id,
+        "request_id": body.request_id,
+        "report_id": body.report_id,
+        "created_at": created_at,
+        "metadata": metadata,
+    }
+
+
+@app.post("/api/v1/evidence/manual-package/signoff-requests")
+async def create_manual_package_signoff_request(
+    body: ManualPackageSignoffRequestCreate,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> dict:
+    org_id = _require_org_id(x_org_id)
+    effective_request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_manual_package_admin_mutation_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=effective_request_id,
+        x_role=x_role,
+        resource_id=None,
+        endpoint="/api/v1/evidence/manual-package/signoff-requests",
+        method="POST",
+    )
+
+    created_at = datetime.now(timezone.utc).isoformat()
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id
+                FROM evidence_package_seals
+                WHERE organization_id = %s
+                  AND package_sha256 = %s
+                  AND policy_version = %s
+                """,
+                (org_id, body.package_sha256, body.policy_version),
+            )
+            existing_row = cur.fetchone()
+            if existing_row:
+                seal_id = existing_row["id"]
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO evidence_package_seals (
+                        organization_id,
+                        package_kind,
+                        request_id,
+                        report_id,
+                        scope_id,
+                        manual_review_action,
+                        package_sha256,
+                        manifest_schema_version,
+                        classification,
+                        signoff_mode,
+                        seal_status,
+                        seal_format,
+                        policy_version
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (
+                        org_id,
+                        body.package_kind,
+                        body.request_id,
+                        body.report_id,
+                        body.scope_id,
+                        body.manual_review_action,
+                        body.package_sha256,
+                        body.manifest_schema_version,
+                        body.classification,
+                        body.signoff_mode,
+                        "pending_signoff",
+                        "jws_json_flattened",
+                        body.policy_version,
+                    ),
+                )
+                inserted = cur.fetchone()
+                if not inserted:
+                    raise HTTPException(status_code=500, detail="manual_package_seal_not_created")
+                seal_id = inserted["id"]
+                _record_manual_package_audit_event(
+                    cur,
+                    organization_id=org_id,
+                    user_id=effective_user_id,
+                    action="evidence_manual_review_package_signoff_requested",
+                    resource_type=MANUAL_PACKAGE_SEAL_RESOURCE_TYPE,
+                    resource_id=seal_id,
+                    request_id=body.request_id,
+                    report_id=body.report_id,
+                    metadata={
+                        "seal_id": str(seal_id),
+                        "scope_id": body.scope_id,
+                        "manual_review_action": body.manual_review_action,
+                        "package_sha256": body.package_sha256,
+                        "policy_version": body.policy_version,
+                        "required_signers": list(_required_manual_package_signer_roles(body.signoff_mode)),
+                    },
+                    created_at=created_at,
+                    external_user_id=external_actor_user_id,
+                )
+
+            seal_row, signoff_rows = _load_manual_package_seal(cur, organization_id=org_id, seal_id=seal_id)
+        conn.commit()
+
+    return _serialize_manual_package_seal_row(seal_row, signoff_rows)
+
+
+@app.post("/api/v1/evidence/manual-package/seals/{seal_id}/signoffs")
+async def record_manual_package_signoff(
+    seal_id: UUID,
+    body: ManualPackageSignoffRecordRequest,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+    x_2fa: Annotated[Optional[str], Header(alias="X-2FA")] = None,
+    x_mfa_mode: Annotated[Optional[str], Header(alias="X-MFA-Mode")] = None,
+    x_mfa_provider_homologated: Annotated[Optional[str], Header(alias="X-MFA-Provider-Homologated")] = None,
+) -> dict:
+    org_id = _require_org_id(x_org_id)
+    effective_request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    auth_role = _require_manual_package_signoff_role_binding(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=effective_request_id,
+        x_role=x_role,
+        signer_role=body.signer_role,
+        resource_id=seal_id,
+        endpoint="/api/v1/evidence/manual-package/seals/{seal_id}/signoffs",
+        method="POST",
+    )
+    if body.signoff_method == "platform_authenticated_2fa":
+        try:
+            _require_platform_authenticated_2fa(
+                x_2fa=x_2fa,
+                x_mfa_mode=x_mfa_mode,
+                x_mfa_provider_homologated=x_mfa_provider_homologated,
+            )
+        except HTTPException as exc:
+            if exc.status_code == 403 and exc.detail in {"2fa_required", "mfa_not_homologated_for_oidc"}:
+                _record_manual_package_mfa_violation(
+                    pool,
+                    organization_id=org_id,
+                    user_id=effective_user_id,
+                    external_user_id=external_actor_user_id,
+                    seal_id=seal_id,
+                    request_id=effective_request_id,
+                    auth_role=auth_role,
+                    signer_role=body.signer_role,
+                    signoff_method=body.signoff_method,
+                    mfa_mode=x_mfa_mode,
+                    mfa_provider_homologated=x_mfa_provider_homologated,
+                    two_factor_status=x_2fa,
+                    detail=str(exc.detail),
+                )
+            raise
+
+    signed_at = datetime.now(timezone.utc).isoformat()
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            seal_row, signoff_rows = _load_manual_package_seal(cur, organization_id=org_id, seal_id=seal_id)
+            if seal_row["seal_status"] in {"sealed", "revoked", "superseded"}:
+                raise HTTPException(status_code=409, detail="manual_package_seal_locked")
+
+            if any(signoff["signer_role"] == body.signer_role for signoff in signoff_rows):
+                raise HTTPException(status_code=409, detail="manual_package_signoff_role_already_recorded")
+
+            signer_display_name = (
+                body.signer_display_name
+                or effective_user_id
+                or external_actor_user_id
+                or body.signer_role
+            )
+            signer_user_id = _resolve_persisted_user_id(cur, effective_user_id)
+            signoff_metadata = dict(body.metadata)
+            signoff_metadata.update(
+                {
+                    "auth_role": auth_role,
+                    "asserted_signer_role": body.signer_role,
+                    "request_id": effective_request_id,
+                    "signer_binding_enforced": True,
+                    "mfa_mode": x_mfa_mode or "not_informed",
+                    "mfa_provider_homologated": (x_mfa_provider_homologated or "").lower() == "true",
+                    "two_factor_status": x_2fa or "not_informed",
+                }
+            )
+            if external_actor_user_id:
+                signoff_metadata.setdefault("external_user_id", external_actor_user_id)
+
+            cur.execute(
+                """
+                INSERT INTO evidence_package_signoffs (
+                    seal_id,
+                    organization_id,
+                    signer_role,
+                    signer_user_id,
+                    signer_display_name,
+                    decision,
+                    signoff_method,
+                    ticket_ref,
+                    notes,
+                    metadata
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+                RETURNING id
+                """,
+                (
+                    seal_id,
+                    org_id,
+                    body.signer_role,
+                    signer_user_id,
+                    str(signer_display_name),
+                    body.decision,
+                    body.signoff_method,
+                    body.ticket_ref,
+                    body.notes,
+                    json.dumps(signoff_metadata),
+                ),
+            )
+            inserted_signoff = cur.fetchone()
+            if not inserted_signoff:
+                raise HTTPException(status_code=500, detail="manual_package_signoff_not_recorded")
+
+            seal_row, signoff_rows = _load_manual_package_seal(cur, organization_id=org_id, seal_id=seal_id)
+            next_status = _resolve_manual_package_seal_status(seal_row["signoff_mode"], signoff_rows)
+            cur.execute(
+                """
+                UPDATE evidence_package_seals
+                SET seal_status = %s
+                WHERE id = %s
+                """,
+                (next_status, seal_id),
+            )
+            seal_row, signoff_rows = _load_manual_package_seal(cur, organization_id=org_id, seal_id=seal_id)
+
+            _record_manual_package_audit_event(
+                cur,
+                organization_id=org_id,
+                user_id=effective_user_id,
+                action="evidence_manual_review_package_signoff_recorded",
+                resource_type=MANUAL_PACKAGE_SEAL_RESOURCE_TYPE,
+                resource_id=seal_id,
+                request_id=seal_row["request_id"],
+                report_id=seal_row.get("report_id"),
+                metadata={
+                    "seal_id": str(seal_id),
+                    "scope_id": seal_row["scope_id"],
+                    "manual_review_action": seal_row["manual_review_action"],
+                    "package_sha256": seal_row["package_sha256"],
+                    "signer_role": body.signer_role,
+                    "auth_role": auth_role,
+                    "decision": body.decision,
+                    "signoff_method": body.signoff_method,
+                    "ticket_ref": body.ticket_ref,
+                    "seal_status": next_status,
+                },
+                created_at=signed_at,
+                external_user_id=external_actor_user_id,
+            )
+        conn.commit()
+
+    return _serialize_manual_package_seal_row(seal_row, signoff_rows)
+
+
+@app.post("/api/v1/evidence/manual-package/seals/{seal_id}/finalize")
+async def finalize_manual_package_seal(
+    seal_id: UUID,
+    body: ManualPackageFinalizeRequest,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> dict:
+    org_id = _require_org_id(x_org_id)
+    effective_request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_manual_package_admin_mutation_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=effective_request_id,
+        x_role=x_role,
+        resource_id=seal_id,
+        endpoint="/api/v1/evidence/manual-package/seals/{seal_id}/finalize",
+        method="POST",
+    )
+
+    finalized_at = datetime.now(timezone.utc).isoformat()
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            seal_row, signoff_rows = _load_manual_package_seal(cur, organization_id=org_id, seal_id=seal_id)
+            if seal_row["seal_status"] != "ready_to_seal":
+                raise HTTPException(status_code=409, detail="manual_package_seal_not_ready")
+
+            approved_roles = {
+                signoff["signer_role"]
+                for signoff in signoff_rows
+                if signoff.get("decision") == "approved"
+            }
+            missing_roles = [
+                role
+                for role in _required_manual_package_signer_roles(seal_row["signoff_mode"])
+                if role not in approved_roles
+            ]
+            if missing_roles:
+                raise HTTPException(status_code=409, detail="manual_package_signoff_incomplete")
+            finalized_by_user_id = _resolve_persisted_user_id(cur, effective_user_id)
+            seal_result = _finalize_manual_package_with_institutional_seal_service(
+                seal_row=seal_row,
+                signoff_rows=signoff_rows,
+                finalized_at=finalized_at,
+                finalized_by_user_id=str(finalized_by_user_id) if finalized_by_user_id else None,
+                finalize_metadata=body.metadata,
+            )
+            raw_verification_summary = seal_result["verification_summary"]
+            verification_summary = (
+                raw_verification_summary if isinstance(raw_verification_summary, dict) else {}
+            )
+            cur.execute(
+                """
+                UPDATE evidence_package_seals
+                SET
+                    seal_status = %s,
+                    signature_algorithm = %s,
+                    kms_key_ref = %s,
+                    certificate_fingerprint_sha256 = %s,
+                    certificate_bundle_ref = %s,
+                    sealed_at = %s,
+                    sealed_by_user_id = %s,
+                    seal_envelope = %s::jsonb,
+                    verification_summary = %s::jsonb
+                WHERE id = %s
+                """,
+                (
+                    "sealed",
+                    seal_result["signature_algorithm"],
+                    seal_result["kms_key_ref"],
+                    seal_result["certificate_fingerprint_sha256"],
+                    seal_result["certificate_bundle_ref"],
+                    finalized_at,
+                    finalized_by_user_id,
+                    json.dumps(seal_result["seal_envelope"]),
+                    json.dumps(seal_result["verification_summary"]),
+                    seal_id,
+                ),
+            )
+            _record_manual_package_audit_event(
+                cur,
+                organization_id=org_id,
+                user_id=effective_user_id,
+                action="evidence_manual_review_package_sealed",
+                resource_type=MANUAL_PACKAGE_SEAL_RESOURCE_TYPE,
+                resource_id=seal_id,
+                request_id=seal_row["request_id"],
+                report_id=seal_row.get("report_id"),
+                metadata={
+                    "seal_id": str(seal_id),
+                    "scope_id": seal_row["scope_id"],
+                    "manual_review_action": seal_row["manual_review_action"],
+                    "package_sha256": seal_row["package_sha256"],
+                    "seal_backend": verification_summary["seal_backend"],
+                    "signature_algorithm": seal_result["signature_algorithm"],
+                    "certificate_bundle_ref": seal_result["certificate_bundle_ref"],
+                    "verification_summary": verification_summary,
+                },
+                created_at=finalized_at,
+                external_user_id=external_actor_user_id,
+            )
+            seal_row, signoff_rows = _load_manual_package_seal(cur, organization_id=org_id, seal_id=seal_id)
+        conn.commit()
+    return _serialize_manual_package_seal_row(seal_row, signoff_rows)
+
+
+@app.post("/api/v1/evidence/manual-package/seals/{seal_id}/revoke")
+async def revoke_manual_package_seal(
+    seal_id: UUID,
+    body: ManualPackageRevokeRequest,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> dict:
+    org_id = _require_org_id(x_org_id)
+    effective_request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_manual_package_admin_mutation_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=effective_request_id,
+        x_role=x_role,
+        resource_id=seal_id,
+        endpoint="/api/v1/evidence/manual-package/seals/{seal_id}/revoke",
+        method="POST",
+    )
+
+    revoked_at = datetime.now(timezone.utc).isoformat()
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            seal_row, signoff_rows = _load_manual_package_seal(cur, organization_id=org_id, seal_id=seal_id)
+            previous_status = seal_row["seal_status"]
+            if seal_row["seal_status"] == "revoked":
+                raise HTTPException(status_code=409, detail="manual_package_seal_already_revoked")
+            if seal_row["seal_status"] == "superseded":
+                raise HTTPException(status_code=409, detail="manual_package_seal_already_superseded")
+
+            cur.execute(
+                """
+                UPDATE evidence_package_seals
+                SET
+                    seal_status = %s,
+                    revoked_at = %s,
+                    superseded_by_seal_id = NULL,
+                    updated_at = NOW()
+                WHERE id = %s
+                """,
+                ("revoked", revoked_at, seal_id),
+            )
+            seal_row, signoff_rows = _load_manual_package_seal(cur, organization_id=org_id, seal_id=seal_id)
+            _record_manual_package_audit_event(
+                cur,
+                organization_id=org_id,
+                user_id=effective_user_id,
+                action="evidence_manual_review_package_seal_revoked",
+                resource_type=MANUAL_PACKAGE_SEAL_RESOURCE_TYPE,
+                resource_id=seal_id,
+                request_id=seal_row["request_id"],
+                report_id=seal_row.get("report_id"),
+                metadata={
+                    "seal_id": str(seal_id),
+                    "scope_id": seal_row["scope_id"],
+                    "manual_review_action": seal_row["manual_review_action"],
+                    "package_sha256": seal_row["package_sha256"],
+                    "previous_seal_status": previous_status,
+                    "reason": body.reason,
+                    "ticket_ref": body.ticket_ref,
+                    "metadata": body.metadata,
+                },
+                created_at=revoked_at,
+                external_user_id=external_actor_user_id,
+            )
+        conn.commit()
+    return _serialize_manual_package_seal_row(seal_row, signoff_rows)
+
+
+@app.post("/api/v1/evidence/manual-package/seals/{seal_id}/supersede")
+async def supersede_manual_package_seal(
+    seal_id: UUID,
+    body: ManualPackageSupersedeRequest,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> dict:
+    org_id = _require_org_id(x_org_id)
+    effective_request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_manual_package_admin_mutation_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=effective_request_id,
+        x_role=x_role,
+        resource_id=seal_id,
+        endpoint="/api/v1/evidence/manual-package/seals/{seal_id}/supersede",
+        method="POST",
+    )
+
+    superseded_at = datetime.now(timezone.utc).isoformat()
+    if body.superseded_by_seal_id == seal_id:
+        raise HTTPException(status_code=422, detail="manual_package_supersede_target_invalid")
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            seal_row, signoff_rows = _load_manual_package_seal(cur, organization_id=org_id, seal_id=seal_id)
+            if seal_row["seal_status"] == "revoked":
+                raise HTTPException(status_code=409, detail="manual_package_seal_revoked")
+            if seal_row["seal_status"] == "superseded":
+                raise HTTPException(status_code=409, detail="manual_package_seal_already_superseded")
+
+            replacement_seal_row, replacement_signoffs = _load_manual_package_seal(
+                cur, organization_id=org_id, seal_id=body.superseded_by_seal_id
+            )
+            if replacement_seal_row["seal_status"] != "sealed":
+                raise HTTPException(status_code=409, detail="manual_package_supersede_target_not_sealed")
+            if replacement_seal_row.get("revoked_at"):
+                raise HTTPException(status_code=409, detail="manual_package_supersede_target_revoked")
+            if replacement_seal_row.get("superseded_by_seal_id"):
+                raise HTTPException(status_code=409, detail="manual_package_supersede_target_superseded")
+
+            cur.execute(
+                """
+                UPDATE evidence_package_seals
+                SET
+                    seal_status = %s,
+                    superseded_by_seal_id = %s,
+                    updated_at = NOW()
+                WHERE id = %s
+                """,
+                ("superseded", body.superseded_by_seal_id, seal_id),
+            )
+            seal_row, signoff_rows = _load_manual_package_seal(cur, organization_id=org_id, seal_id=seal_id)
+            _record_manual_package_audit_event(
+                cur,
+                organization_id=org_id,
+                user_id=effective_user_id,
+                action="evidence_manual_review_package_seal_superseded",
+                resource_type=MANUAL_PACKAGE_SEAL_RESOURCE_TYPE,
+                resource_id=seal_id,
+                request_id=seal_row["request_id"],
+                report_id=seal_row.get("report_id"),
+                metadata={
+                    "seal_id": str(seal_id),
+                    "superseded_by_seal_id": str(body.superseded_by_seal_id),
+                    "scope_id": seal_row["scope_id"],
+                    "manual_review_action": seal_row["manual_review_action"],
+                    "package_sha256": seal_row["package_sha256"],
+                    "replacement_package_sha256": replacement_seal_row.get("package_sha256"),
+                    "replacement_policy_version": replacement_seal_row.get("policy_version"),
+                    "reason": body.reason,
+                    "ticket_ref": body.ticket_ref,
+                    "metadata": body.metadata,
+                },
+                created_at=superseded_at,
+                external_user_id=external_actor_user_id,
+            )
+        conn.commit()
+    return _serialize_manual_package_seal_row(seal_row, signoff_rows)
+
+
+@app.get("/api/v1/evidence/manual-package/seals/{seal_id}")
+async def get_manual_package_seal(
+    seal_id: UUID,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> dict:
+    org_id = _require_org_id(x_org_id)
+    effective_request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_manual_package_read_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=effective_request_id,
+        x_role=x_role,
+        resource_id=seal_id,
+        endpoint="/api/v1/evidence/manual-package/seals/{seal_id}",
+        method="GET",
+    )
+
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            seal_row, signoff_rows = _load_manual_package_seal(cur, organization_id=org_id, seal_id=seal_id)
+    return _serialize_manual_package_seal_row(seal_row, signoff_rows)
+
+
+@app.get("/api/v1/evidence/manual-package/seals/by-digest")
+async def get_manual_package_seal_by_digest(
+    package_sha256: Annotated[str, Query(min_length=64, max_length=64)],
+    policy_version: Annotated[str, Query(min_length=1)] = "manual_package_sealing/v1",
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> dict:
+    org_id = _require_org_id(x_org_id)
+    effective_request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_manual_package_read_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=effective_request_id,
+        x_role=x_role,
+        resource_id=package_sha256,
+        endpoint="/api/v1/evidence/manual-package/seals/by-digest",
+        method="GET",
+    )
+
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            seal_row, signoff_rows = _load_manual_package_seal_by_digest(
+                cur,
+                organization_id=org_id,
+                package_sha256=package_sha256,
+                policy_version=policy_version,
+            )
+    return _serialize_manual_package_seal_row(seal_row, signoff_rows)
 
 
 @app.post("/api/v1/investigation/{case_id}/internal/complete")

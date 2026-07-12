@@ -105,6 +105,7 @@ Esperado:
 
 - `artifacts/staging/checks/<window_id>-eu-sanctions-preflight.json`
 - `artifacts/staging/checks/<window_id>-eu-sanctions-sync.json`
+- preservar o `request_id` da janela UE para correlacao entre runner, bundle regulatorio, janela seria e dossier
 
 ### 4. Checker Pos-Sync
 
@@ -120,6 +121,11 @@ Esperado:
 - `EU_CONSOLIDATED.status=ACTIVE`
 - `EU_CONSOLIDATED.last_sync_status=SUCCESS`
 - `sanctions_lists_meta.source_url` igual ao override configurado
+- o checker deve preservar `request_id` e `source_url` observada de `EU_CONSOLIDATED` para reconciliacao executiva
+- o checker deve expor correlacao estruturada com `override_tokenized=true`
+- o checker deve expor correlacao estruturada com `persisted_status_active=true`
+- o checker deve expor correlacao estruturada com `last_sync_status_success=true`
+- o checker deve expor correlacao estruturada com `eu_window_converges_ready=true`
 
 ### 5. Bundle Regulatorio Quando `P0-02` Tambem Estiver no Escopo
 
@@ -134,6 +140,8 @@ Esperado:
 
 - `artifacts/staging/checks/<window_id>-regulatory-readiness-bundle.json`
 - `artifacts/staging/dossiers/<window_id>-regulatory-readiness-bundle.md`
+- o bundle deve preservar `steps.eu_sanctions_window.request_id`
+- o bundle deve refletir `expected_source_url`, `observed_source_url`, `source_url_matches_expected`, `override_tokenized`, `persisted_status_active`, `last_sync_status_success` e `eu_window_converges_ready`
 
 ### 6. Reconciliar Governanca Semanal
 
@@ -158,6 +166,8 @@ Esperado:
 - `make check-eu-sanctions-window` verde
 - `EU_CONSOLIDATED` em `ACTIVE/SUCCESS`
 - `source_url` persistido igual ao override configurado
+- `request_id` da janela UE preservado nos artefatos executivos
+- correlacao estruturada com `eu_window_converges_ready=true`
 - quando aplicavel, `regulatory-readiness-bundle.json` e resumo `.md`
 - snapshot/governanca atualizados apos `refresh-staging-war-room-governance-local`
 

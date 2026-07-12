@@ -94,4 +94,4 @@
 - classificacao: `parcial`
 - resumo executivo: a institucionalizacao esta bem direcionada, mas ainda precisa fechar cadencia e ownership finais
 - owner do primeiro passo do proximo marco: `Governanca + Platform/SRE`
-- artefato relacionado: [Runbook de Execucao do Dia 3 da Sprint 4](../../sprint-4-day-3-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-4-day-3-execution-runbook.md`

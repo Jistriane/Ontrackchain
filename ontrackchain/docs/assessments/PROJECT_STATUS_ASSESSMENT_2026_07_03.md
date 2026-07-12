@@ -18,7 +18,7 @@ Este documento complementa e nao substitui:
 - [Scorecard Oficial do Projeto](../project-kpi-scorecard.md)
 - [Avaliacao de Maturidade do Projeto](../project-maturity-assessment.md)
 - [Readiness Regulatorio](../regulatory-readiness.md)
-- [Continuation Execution Plan](../history/CONTINUATION_EXECUTION_PLAN_2026_07.md)
+- [Plano Consolidado ate 95%](../project-construction-plan-to-95-percent.md)
 
 Use este documento quando a necessidade for:
 
@@ -69,7 +69,7 @@ Leitura executiva resultante:
 - [Owners e SLAs Operacionais](../operational-ownership-and-slas.md)
 - [Retention e Recovery](../retention-and-recovery-policy.md)
 - [Validacao e Auditoria](../validation-and-audit.md)
-- [Continuation Execution Plan](../history/CONTINUATION_EXECUTION_PLAN_2026_07.md)
+- [Plano Consolidado ate 95%](../project-construction-plan-to-95-percent.md)
 
 ### Evidencias de runtime, testes e CI
 

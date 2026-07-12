@@ -40,6 +40,8 @@ def render_markdown(
     prepare = payload.get("prepare") or {}
     run = payload.get("run") or {}
     artifact = payload.get("artifact_validation") or {}
+    regulatory = payload.get("regulatory") or {}
+    operational = payload.get("operational_incidents") or {}
 
     signal, reading = parse_delta_signal(delta_file)
 
@@ -49,9 +51,12 @@ def render_markdown(
         "## Bloco Curto (Slack/Teams)",
         "",
         f"Janela {window_id}: status `{payload.get('overall_status', 'unknown')}` | semaforo `{signal}`.",
+        f"Escopo regulatorio: `{regulatory.get('scope_label', 'unknown')}` | `P0-04` readiness: `{regulatory.get('p0_04_bundle_readiness', 'unknown')}`.",
+        f"RCA cross-domain: `{operational.get('rca_attached_count', 0)}` RCA(s) em `{operational.get('tracked_work_items_count', 0)}` work-item(s) rastreado(s) | pendente `{operational.get('pending_triage_count', 0)}` | criticos `{operational.get('critical_open_count', 0)}`.",
         f"Bloqueios: `{blockers.get('unresolved_placeholders_count', 0)}` placeholders e `{blockers.get('missing_handoff_fields_count', 0)}` handoff.",
         f"Steps: prepare `{prepare.get('status', 'unknown')}`, run `{run.get('status', 'unknown')}`, artifact `{artifact.get('status', 'unknown')}`.",
         f"Leitura: {reading}",
+        f"Leitura regulatoria: {regulatory.get('promotion_note', 'indisponivel')}",
         "Acao: owners por trilha devem executar o checklist de desbloqueio e rerodar o comando unico.",
         "",
         "## Mensagem Expandida",
@@ -61,6 +66,18 @@ def render_markdown(
         f"- status geral: `{payload.get('overall_status', 'unknown')}`",
         f"- semaforo executivo: `{signal}`",
         f"- leitura do delta: {reading}",
+        f"- escopo regulatorio da tentativa: `{regulatory.get('scope_label', 'unknown')}`",
+        f"- scope validado no gate final: `{','.join(regulatory.get('validation_scope') or []) or 'none'}`",
+        f"- `P0-04` readiness: `{regulatory.get('p0_04_bundle_readiness', 'unknown')}`",
+        f"- leitura regulatoria: {regulatory.get('promotion_note', 'indisponivel')}",
+        f"- resumo RCA disponivel: `{operational.get('status', 'unknown')}`",
+        f"- incidentes exportados no resumo: `{operational.get('exported_count', 0)}`",
+        f"- work-items rastreados: `{operational.get('tracked_work_items_count', 0)}`",
+        f"- RCAs anexadas: `{operational.get('rca_attached_count', 0)}`",
+        f"- causas confirmadas: `{operational.get('confirmed_root_cause_count', 0)}`",
+        f"- incidentes criticos abertos: `{operational.get('critical_open_count', 0)}`",
+        f"- triagem pendente: `{operational.get('pending_triage_count', 0)}`",
+        f"- dominios RCA em destaque: `{','.join(operational.get('top_rca_domains') or []) or 'none'}`",
         f"- placeholders pendentes: `{blockers.get('unresolved_placeholders_count', 0)}`",
         f"- handoff pendente: `{blockers.get('missing_handoff_fields_count', 0)}`",
         "",

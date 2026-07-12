@@ -8,7 +8,7 @@ Use esta folha junto com:
 
 - [War Room da Janela `stg-2026-07-06-a`](./2026-07-06-staging-serious-window-war-room.md)
 - [Tracking ao Vivo da Janela `stg-2026-07-06-a`](./2026-07-06-staging-serious-window-live-tracking.md)
-- [Runbook do Primeiro Disparo](../../../first-serious-window-first-dispatch-runbook.md)
+- [Runbook do Primeiro Disparo](../../../history/first-serious-window-first-dispatch-runbook.md)
 - [Matriz de Execucao por Owner para Janela Seria](../../../staging-serious-window-war-room-matrix.md)
 
 ## Regra de Uso

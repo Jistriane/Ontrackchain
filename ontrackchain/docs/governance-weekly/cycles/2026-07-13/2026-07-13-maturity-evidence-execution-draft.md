@@ -12,9 +12,9 @@ Estado deste arquivo:
 
 ## Baseline de Referencia
 
-- construcao tecnica: `91%`
-- prontidao regulatoria/operacional: `78%`
-- consolidado total: `87%`
+- construcao tecnica: `92%`
+- prontidao regulatoria/operacional: `79%`
+- consolidado total: `88%`
 - accountable oficial da baseline: `pendente de definicao`
 
 ## Escopo do Ciclo
@@ -33,7 +33,7 @@ Estado deste arquivo:
 | `D1` | preparar `P0-02` | validar credencial real do provider e ambiente alvo | `Backend/Compliance Lead` | credencial real disponivel | preflight externo + checklist de ambiente | `cinza` |
 | `D2` | executar `P0-02` | provar `AML/KYT live` em runtime | `Backend/Compliance Lead` | `D1` verde | `check-compliance-provider-runtime` + artefato JSON | `cinza` |
 | `D3` | executar `P0-03` | ativar feed UE real com persistencia valida | `Compliance/Ops Lead` | URL tokenizada real validada | JSONs da janela UE + check de sync | `cinza` |
-| `D4` | consolidar `P0-02 + P0-03` | gerar bundle regulatorio revisavel | `Arquitetura + Compliance` | `D2` e `D3` com evidencia valida | bundle regulatorio + resumo executivo | `cinza` |
+| `D4` | consolidar `P0-02 + P0-03` | gerar bundle regulatorio revisavel; se apenas uma trilha estiver disponivel, registrar endurecimento parcial do dossier sem fechar `P0-04` | `Arquitetura + Compliance` | `D2` e `D3` com evidencia valida | bundle regulatorio + resumo executivo | `cinza` |
 | `D5` | preparar `P0-01` | deixar OIDC serio pronto sem fallback `dev` | `Auth/Infra Lead` | IdP real e MFA disponiveis | bundle de readiness OIDC | `cinza` |
 | `D6` | executar `P0-01` | provar login federado, MFA e enforcement | `Auth/Infra Lead` | `D5` verde | E2E critico + evidencia auditavel | `cinza` |
 | `D7` | janela seria completa | emitir `go/no-go` formal | `Ops / Release Manager` | `D2`, `D3` e `D6` suficientemente fechados | dossier, sign-off e decisao formal | `cinza` |
@@ -75,6 +75,7 @@ Estado deste arquivo:
 - bloqueadores: dependencia de `D2` e `D3`
 - decisao do dia: `pendente`
 - proximo gate: bundle revisavel por governanca
+- observacao: se o ciclo cobrir apenas `P0-02` ou apenas `P0-03`, registrar explicitamente progresso parcial sem promover fechamento oficial de `P0-04`
 
 ### D5
 
@@ -117,7 +118,7 @@ Estado deste arquivo:
 - delta tecnico: `0`
 - delta regulatorio/operacional: `0`
 - delta consolidado: `0`
-- justificativa: rascunho sem execucao real ainda
+- justificativa: rascunho sem execucao real ainda; tentativa parcial futura deve ser registrada como progresso operacional, nao como fechamento oficial de `P0-04`
 
 ## Bloqueios e Escalacoes
 

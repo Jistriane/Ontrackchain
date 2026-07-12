@@ -4,7 +4,6 @@ WORKDIR /app
 
 COPY apps/compliance-api/pyproject.toml /app/pyproject.toml
 COPY apps/compliance-api/src /app/src
-COPY apps/compliance-api/fixtures /app/fixtures
 COPY packages/shared /tmp/ontrackchain-shared
 COPY packages/agents /tmp/ontrackchain-agents
 

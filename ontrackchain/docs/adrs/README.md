@@ -14,6 +14,8 @@ Este diretorio concentra as Architectural Decision Records do scaffold atual.
 - [ADR-008 — Retention e Recovery Baseline](./ADR-008-retention-e-recovery-baseline.md)
 - [ADR-009 — Continuidade: Hardening First e Modularização Guiada](./ADR-009-continuation-strategy-hardening-first.md)
 - [ADR-010 — Promocao de Maturidade Baseada em Evidencia](./ADR-010-promocao-de-maturidade-baseada-em-evidencia.md)
+- [ADR-011 — Hardening Estatico de Contratos Visuais do Frontend](./ADR-011-hardening-estatico-de-contratos-visuais-do-frontend.md)
+- [ADR-012 — Selagem Institucional Forte para Pacotes Manuais DD/SoF](./ADR-012-selagem-institucional-forte-para-pacotes-manuais-dd-sof.md)
 
 ## Como usar
 

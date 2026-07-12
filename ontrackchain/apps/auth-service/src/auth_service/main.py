@@ -295,6 +295,10 @@ def _canonicalize_role(raw_role: object) -> str:
         "otk_tester": "TESTER",
         "otk_auditor": "AUDITOR",
         "otk_viewer": "VIEWER",
+        "otk_compliance_officer": "COMPLIANCE_OFFICER",
+        "otk_legal_reviewer": "LEGAL_REVIEWER",
+        "otk_reviewer": "REVIEWER",
+        "otk_billing_admin": "BILLING_ADMIN",
     }
     return mapping.get(normalized.lower(), normalized.upper())
 

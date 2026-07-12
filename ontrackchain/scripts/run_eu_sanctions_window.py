@@ -7,6 +7,7 @@ import io
 import json
 import os
 import sys
+import uuid
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
 from pathlib import Path
@@ -92,7 +93,15 @@ def build_output_file(window_id: str, step_name: str, checks_dir: Path) -> Path:
     return checks_dir / f"{window_id}-{step_name}.json"
 
 
-def build_step(*, status: str, exit_code: int | None = None, output_file: Path | None = None, errors: list[str] | None = None) -> dict[str, Any]:
+def build_step(
+    *,
+    status: str,
+    exit_code: int | None = None,
+    output_file: Path | None = None,
+    errors: list[str] | None = None,
+    request_id: str | None = None,
+    correlation: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     payload: dict[str, Any] = {"status": status}
     if exit_code is not None:
         payload["exit_code"] = exit_code
@@ -100,10 +109,63 @@ def build_step(*, status: str, exit_code: int | None = None, output_file: Path |
         payload["output_file"] = str(output_file)
     if errors is not None:
         payload["errors"] = errors
+    if request_id is not None:
+        payload["request_id"] = request_id
+    if correlation is not None:
+        payload["correlation"] = correlation
     return payload
 
 
-def run_window(*, window_id: str, private_env_file: Path, checks_dir: Path) -> tuple[int, dict[str, Any]]:
+def extract_eu_sync_correlation(sync_payload: dict[str, Any], expected_source_url: str) -> dict[str, Any]:
+    top_level_correlation = sync_payload.get("correlation") or {}
+    if isinstance(top_level_correlation, dict) and top_level_correlation:
+        correlation = dict(top_level_correlation)
+        correlation.setdefault("expected_source_url", expected_source_url)
+        correlation.setdefault(
+            "source_url_matches_expected",
+            bool(expected_source_url)
+            and str(correlation.get("observed_source_url") or "") == expected_source_url,
+        )
+        return correlation
+    eu_check = next(
+        (
+            item
+            for item in (sync_payload.get("checks") or [])
+            if isinstance(item, dict) and item.get("list_name") == "EU_CONSOLIDATED"
+        ),
+        {},
+    )
+    observed_source_url = str(eu_check.get("source_url") or "")
+    return {
+        "expected_source_url": expected_source_url,
+        "observed_source_url": observed_source_url,
+        "source_url_matches_expected": bool(expected_source_url) and observed_source_url == expected_source_url,
+        "override_present": bool(expected_source_url),
+        "override_required": True,
+        "override_tokenized": "token=" in expected_source_url.lower() if expected_source_url else False,
+        "persisted_status": str(eu_check.get("persisted_status") or ""),
+        "persisted_status_active": str(eu_check.get("persisted_status") or "") == "ACTIVE",
+        "last_sync_status": str(eu_check.get("last_sync_status") or ""),
+        "last_sync_status_success": str(eu_check.get("last_sync_status") or "") == "SUCCESS",
+        "status_reason": str(eu_check.get("status_reason") or ""),
+        "updated_at": eu_check.get("updated_at"),
+        "eu_window_converges_ready": (
+            bool(expected_source_url)
+            and observed_source_url == expected_source_url
+            and "token=" in expected_source_url.lower()
+            and str(eu_check.get("persisted_status") or "") == "ACTIVE"
+            and str(eu_check.get("last_sync_status") or "") == "SUCCESS"
+        ),
+    }
+
+
+def run_window(
+    *,
+    window_id: str,
+    private_env_file: Path,
+    checks_dir: Path,
+    request_id: str,
+) -> tuple[int, dict[str, Any]]:
     env_values = load_env_values(private_env_file)
     checks_dir.mkdir(parents=True, exist_ok=True)
 
@@ -113,6 +175,7 @@ def run_window(*, window_id: str, private_env_file: Path, checks_dir: Path) -> t
     payload: dict[str, Any] = {
         "kind": "eu_sanctions_window_run",
         "window_id": window_id,
+        "request_id": request_id,
         "generated_at": utc_now().isoformat(),
         "status": "ok",
         "errors": [],
@@ -122,6 +185,7 @@ def run_window(*, window_id: str, private_env_file: Path, checks_dir: Path) -> t
         },
         "steps": {},
     }
+    expected_eu_source_url = str(env_values.get("COMPLIANCE_EU_SANCTIONS_SOURCE_URL") or "")
 
     with temporary_environ(env_values):
         preflight_exit_code, preflight_payload = run_module_main(
@@ -135,6 +199,7 @@ def run_window(*, window_id: str, private_env_file: Path, checks_dir: Path) -> t
         exit_code=preflight_exit_code,
         output_file=preflight_output_file,
         errors=preflight_payload.get("errors", []),
+        request_id=request_id,
     )
     if preflight_exit_code != 0:
         payload["errors"].append("external_preflight: falhou")
@@ -143,6 +208,7 @@ def run_window(*, window_id: str, private_env_file: Path, checks_dir: Path) -> t
         payload["steps"]["eu_sync_status"] = build_step(
             status="skipped",
             errors=["preflight_failed"],
+            request_id=request_id,
         )
         payload["status"] = "failed"
         return 1, payload
@@ -150,20 +216,24 @@ def run_window(*, window_id: str, private_env_file: Path, checks_dir: Path) -> t
     with temporary_environ(env_values):
         sync_exit_code, sync_payload = run_module_main(
             "scripts/check_sanctions_sync_status.py",
-            ["check_sanctions_sync_status.py", "--eu-window"],
+            ["check_sanctions_sync_status.py", "--eu-window", "--request-id", request_id],
             f"eu_window_sync_{window_id}",
         )
     write_json_file(sync_output_file, sync_payload)
+    eu_correlation = extract_eu_sync_correlation(sync_payload, expected_eu_source_url)
     payload["steps"]["eu_sync_status"] = build_step(
         status=sync_payload.get("status", "failed"),
         exit_code=sync_exit_code,
         output_file=sync_output_file,
         errors=sync_payload.get("errors", []),
+        request_id=str(sync_payload.get("request_id") or request_id),
+        correlation=eu_correlation,
     )
     if sync_exit_code != 0:
         payload["errors"].append("eu_sync_status: falhou")
 
     payload["status"] = "ok" if not payload["errors"] else "failed"
+    payload["correlation"] = eu_correlation
     return (0 if payload["status"] == "ok" else 1), payload
 
 
@@ -174,6 +244,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--window-id", default=f"stg-{utc_now().strftime('%Y-%m-%d')}-eu")
     parser.add_argument("--private-env-file", default=str(DEFAULT_PRIVATE_ENV_FILE))
     parser.add_argument("--checks-dir", default=str(DEFAULT_CHECKS_DIR))
+    parser.add_argument(
+        "--request-id",
+        default=os.getenv("ONTRACKCHAIN_REGULATORY_EU_REQUEST_ID") or f"eu-window-{uuid.uuid4().hex[:12]}",
+    )
     return parser.parse_args()
 
 
@@ -183,6 +257,7 @@ def main() -> int:
         window_id=args.window_id,
         private_env_file=Path(args.private_env_file),
         checks_dir=Path(args.checks_dir),
+        request_id=args.request_id,
     )
     output = sys.stdout if exit_code == 0 else sys.stderr
     output.write(json.dumps(payload, ensure_ascii=True, indent=2) + "\n")

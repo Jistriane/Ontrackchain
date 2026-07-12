@@ -97,4 +97,4 @@
 - classificacao: `parcial`
 - resumo executivo: a passagem para baseline esta bem estruturada, mas ainda depende do fechamento material da janela seria
 - owner do primeiro passo do proximo marco: `Arquitetura/Governanca`
-- artefato relacionado: [Runbook de Execucao do Dia 5 da Sprint 3](../../sprint-3-day-5-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-3-day-5-execution-runbook.md`

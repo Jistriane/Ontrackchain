@@ -1,9 +1,11 @@
 import { CodeBlock, Message, Panel } from "../../components/ui";
+import { buildAlertRcaSummary } from "../lib/alert-rca";
 import type { MessageKey } from "../lib/i18n";
 import type {
   PlatformAlertExportFormat,
   PlatformOperationalAlertsSnapshot
 } from "../lib/monitoring-platform-alerts";
+import type { AlertsWorkItemMetadata, WorkItemResponse } from "../lib/work-items";
 
 type Translator = (key: MessageKey, values?: Record<string, string | number>) => string;
 
@@ -20,6 +22,7 @@ type PlatformAlertTriagePanelProps = {
   acknowledgeFilteredPlatformAlerts: () => void;
   acknowledgeSelectedPlatformAlerts: () => void;
   platformOperationalAlerts: PlatformOperationalAlertsSnapshot | null;
+  platformAlertTrackedWorkItems: Record<string, WorkItemResponse<AlertsWorkItemMetadata>>;
   acknowledgingPlatformAlertsBatch: boolean;
   selectedPlatformAlertIds: string[];
   platformAlertExportFormat: PlatformAlertExportFormat;
@@ -39,6 +42,8 @@ type PlatformAlertTriagePanelProps = {
   translatePlatformSeverity: (severity: string | null) => string;
   translatePlatformStatus: (status: string) => string;
   translatePlatformTriage: (status: string) => string;
+  translatePlatformQueueStatus: (status: string) => string;
+  translatePlatformContainmentStatus: (status: string) => string;
   acknowledgingPlatformAlertId: string | null;
   acknowledgePlatformAlert: (eventId: string) => void;
   handlePlatformAlertStatusFilterChange: (value: string) => void;
@@ -61,6 +66,7 @@ export function PlatformAlertTriagePanel({
   acknowledgeFilteredPlatformAlerts,
   acknowledgeSelectedPlatformAlerts,
   platformOperationalAlerts,
+  platformAlertTrackedWorkItems,
   acknowledgingPlatformAlertsBatch,
   selectedPlatformAlertIds,
   platformAlertExportFormat,
@@ -80,6 +86,8 @@ export function PlatformAlertTriagePanel({
   translatePlatformSeverity,
   translatePlatformStatus,
   translatePlatformTriage,
+  translatePlatformQueueStatus,
+  translatePlatformContainmentStatus,
   acknowledgingPlatformAlertId,
   acknowledgePlatformAlert,
   handlePlatformAlertStatusFilterChange,
@@ -268,6 +276,11 @@ export function PlatformAlertTriagePanel({
                 data-testid="platform-alert-row"
                 className={`otc-monitoring-card ${entry.status === "firing" ? "otc-monitoring-card--warning" : "otc-monitoring-card--success"}`}
               >
+                {(() => {
+                  const trackedWorkItem = platformAlertTrackedWorkItems[entry.id] ?? null;
+                  const rcaSummary = buildAlertRcaSummary(trackedWorkItem);
+                  return (
+                    <>
                 <div className="otc-monitoring-row">
                   <div className="otc-monitoring-inline">
                     <input
@@ -305,6 +318,26 @@ export function PlatformAlertTriagePanel({
                 {entry.triage_note ? (
                   <div className="otc-monitoring-detail--subtle">{t("monitoring.platform.note")}: {entry.triage_note}</div>
                 ) : null}
+                {trackedWorkItem ? (
+                  <div className="otc-monitoring-detail--subtle" data-testid={`monitoring-platform-alert-rca-summary-${entry.id}`}>
+                    {t("monitoring.platform.rcaSummary", {
+                      queue: translatePlatformQueueStatus(trackedWorkItem.queue_status),
+                      containment: rcaSummary
+                        ? translatePlatformContainmentStatus(rcaSummary.containmentStatus)
+                        : t("monitoring.platform.rcaPendingShort"),
+                      domain: rcaSummary?.domain || t("common.notAvailable"),
+                      commander: rcaSummary?.incidentCommander || t("common.notAvailable")
+                    })}
+                    {rcaSummary?.affectedDomains.length
+                      ? ` • ${t("monitoring.platform.rcaDomains")}=${rcaSummary.affectedDomains.join(", ")}`
+                      : ""}
+                    {rcaSummary?.confirmedRootCause
+                      ? ` • ${t("monitoring.platform.rcaConfirmed")}=${rcaSummary.confirmedRootCause}`
+                      : rcaSummary?.suspectedRootCause
+                        ? ` • ${t("monitoring.platform.rcaSuspected")}=${rcaSummary.suspectedRootCause}`
+                        : ` • ${t("monitoring.platform.rcaPending")}`}
+                  </div>
+                ) : null}
                 {entry.annotations?.summary ? <div className="otc-monitoring-detail">{String(entry.annotations.summary)}</div> : null}
                 {entry.annotations?.description ? (
                   <div className="otc-monitoring-detail--subtle">{String(entry.annotations.description)}</div>
@@ -326,6 +359,9 @@ export function PlatformAlertTriagePanel({
                     {acknowledgingPlatformAlertId === entry.id ? t("monitoring.platform.ackLoading") : t("monitoring.platform.ack")}
                   </button>
                 </div>
+                    </>
+                  );
+                })()}
               </div>
             ))}
           </div>

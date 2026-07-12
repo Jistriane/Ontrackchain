@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const query = url.search ? url.search : "";
   const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
-  const res = await fetch(`${baseUrl}/api/v1/cases${query}`, {
+  const res = await fetch(`${baseUrl}/api/v1/investigation/history${query}`, {
     method: "GET",
     headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId },
     cache: "no-store"
@@ -22,4 +22,3 @@ export async function GET(request: Request) {
   const body = await res.text();
   return new Response(body, { status: res.status, headers: { "content-type": "application/json" } });
 }
-

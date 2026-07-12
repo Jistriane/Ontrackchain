@@ -6,18 +6,33 @@ import { useSearchParams } from "next/navigation";
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
 import { useI18n } from "../../components/i18n-provider";
 import { formatDateTime as formatDate } from "../lib/date-format";
+import { buildAlertRcaSummary, normalizeAlertContainmentStatus, type AlertRcaContainmentStatus } from "../lib/alert-rca";
 import type { MessageKey } from "../lib/i18n";
 import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
 import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel";
 import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
-import { createWorkItemComment, fetchWorkItemTimeline } from "../lib/work-item-timeline-client";
-import { formatTimelineEvent, type WorkCommentResponse, type WorkItemTimelineResponse } from "../lib/work-item-timeline";
+import { formatTimelineEvent } from "../lib/work-item-timeline";
+import { createWorkItemComment } from "../lib/work-item-timeline-client";
 import {
   buildOperationalContextLinks,
   type OperationalContextLink,
   inferAlertOperationalContext
 } from "../lib/operational-context";
+import { useWorkItemTimeline } from "../lib/use-work-item-timeline";
+import {
+  type AlertsWorkItemMetadata,
+  type CreateWorkItemRequest,
+  type PatchWorkItemRequest,
+  readWorkItemMetadataString,
+  readWorkItemMetadataStringArray,
+  resolveWorkItemOwnerDisplay,
+  type WorkItemListResponse,
+  type WorkItemPriority,
+  type WorkItemQueueStatus,
+  type WorkItemResponse,
+  withCanonicalWorkItemMetadata
+} from "../lib/work-items";
 
 const PLATFORM_ALERT_SELECTION_STORAGE_KEY = "monitoring-platform-alert-selection";
 
@@ -54,6 +69,7 @@ type PlatformOperationalAlertsSnapshot = {
     triage_note: string | null;
   }>;
 };
+type PlatformOperationalAlertEntry = PlatformOperationalAlertsSnapshot["data"][number];
 
 type PlatformOperationalAlertFilterOptions = {
   services: string[];
@@ -62,27 +78,51 @@ type PlatformOperationalAlertFilterOptions = {
 };
 
 type PlatformAlertExportFormat = "csv" | "json";
-type WorkItemPriority = "critical" | "high" | "normal";
-type WorkItemQueueStatus = "UNDER_REVIEW" | "ESCALATED" | "READY" | "APPROVED" | "SUBMITTED" | "CLOSED" | "REJECTED";
-
-type WorkItemResponse = {
-  id: string;
-  resource_id: string;
-  owner_user_id?: string | null;
-  queue_status: WorkItemQueueStatus;
-  priority: WorkItemPriority;
-  note: string | null;
-  metadata: Record<string, unknown>;
-  last_activity_at?: string | null;
-  updated_at?: string | null;
+type AlertsWorkItemResponse = WorkItemResponse<AlertsWorkItemMetadata>;
+type AlertsWorkItemListResponse = WorkItemListResponse<AlertsWorkItemMetadata>;
+type AlertRcaForm = {
+  queueStatus: WorkItemQueueStatus;
+  domain: string;
+  affectedDomains: string;
+  incidentCommander: string;
+  containmentStatus: AlertRcaContainmentStatus;
+  runbookRef: string;
+  impactSummary: string;
+  suspectedRootCause: string;
+  confirmedRootCause: string;
+  correctiveActions: string;
+  evidenceRefs: string;
 };
-
-type WorkItemListResponse = {
-  data: WorkItemResponse[];
+type AlertRcaSnapshot = {
+  queueStatus: WorkItemQueueStatus;
+  domain: string;
+  affectedDomains: string[];
+  incidentCommander: string;
+  containmentStatus: AlertRcaContainmentStatus;
+  runbookRef: string;
+  impactSummary: string;
+  suspectedRootCause: string;
+  confirmedRootCause: string;
+  correctiveActions: string[];
+  evidenceRefs: string[];
 };
 
 const WORK_ITEMS_LIMIT = 100;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ALERT_RCA_CONTAINMENT_STATUSES: AlertRcaContainmentStatus[] = ["not_started", "in_progress", "contained", "validated"];
+const DEFAULT_ALERT_RCA_FORM: AlertRcaForm = {
+  queueStatus: "UNDER_REVIEW",
+  domain: "monitoring",
+  affectedDomains: "",
+  incidentCommander: "",
+  containmentStatus: "not_started",
+  runbookRef: "",
+  impactSummary: "",
+  suspectedRootCause: "",
+  confirmedRootCause: "",
+  correctiveActions: "",
+  evidenceRefs: ""
+};
 
 function buildDynamicFilterValues(currentValue: string, values: string[] | undefined) {
   const merged = new Set((values ?? []).filter((entry) => entry && entry !== "all"));
@@ -116,6 +156,81 @@ function toneForQueueStatus(status: WorkItemQueueStatus): "success" | "warning" 
   return "success";
 }
 
+function parseCommaSeparatedList(value: string) {
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function buildAlertRcaForm(item: AlertsWorkItemResponse | null): AlertRcaForm {
+  if (!item) {
+    return DEFAULT_ALERT_RCA_FORM;
+  }
+
+  const metadata = (item.metadata ?? {}) as Record<string, unknown>;
+  return {
+    queueStatus: item.queue_status,
+    domain: readWorkItemMetadataString(metadata, "domain", "service") || "monitoring",
+    affectedDomains: readWorkItemMetadataStringArray(metadata, "affected_domains").join(", "),
+    incidentCommander: readWorkItemMetadataString(metadata, "incident_commander") || resolveWorkItemOwnerDisplay(metadata, item.owner_user_id),
+    containmentStatus: normalizeAlertContainmentStatus(readWorkItemMetadataString(metadata, "containment_status")),
+    runbookRef: readWorkItemMetadataString(metadata, "runbook_ref"),
+    impactSummary: readWorkItemMetadataString(metadata, "impact_summary"),
+    suspectedRootCause: readWorkItemMetadataString(metadata, "suspected_root_cause"),
+    confirmedRootCause: readWorkItemMetadataString(metadata, "confirmed_root_cause"),
+    correctiveActions: readWorkItemMetadataStringArray(metadata, "corrective_actions").join(", "),
+    evidenceRefs: readWorkItemMetadataStringArray(metadata, "evidence_refs").join(", ")
+  };
+}
+
+function buildAlertRcaSnapshotFromForm(form: AlertRcaForm): AlertRcaSnapshot {
+  return {
+    queueStatus: form.queueStatus,
+    domain: form.domain.trim(),
+    affectedDomains: parseCommaSeparatedList(form.affectedDomains),
+    incidentCommander: form.incidentCommander.trim(),
+    containmentStatus: form.containmentStatus,
+    runbookRef: form.runbookRef.trim(),
+    impactSummary: form.impactSummary.trim(),
+    suspectedRootCause: form.suspectedRootCause.trim(),
+    confirmedRootCause: form.confirmedRootCause.trim(),
+    correctiveActions: parseCommaSeparatedList(form.correctiveActions),
+    evidenceRefs: parseCommaSeparatedList(form.evidenceRefs)
+  };
+}
+
+function buildAlertRcaSnapshotFromItem(item: AlertsWorkItemResponse | null): AlertRcaSnapshot {
+  return buildAlertRcaSnapshotFromForm(buildAlertRcaForm(item));
+}
+
+function sameAlertRcaSnapshot(left: AlertRcaSnapshot, right: AlertRcaSnapshot) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function buildFallbackPlatformAlertEntry(item: AlertsWorkItemResponse): PlatformOperationalAlertEntry {
+  const metadata = (item.metadata ?? {}) as Record<string, unknown>;
+  return {
+    id: item.resource_id,
+    receiver: readWorkItemMetadataString(metadata, "receiver") || "unknown",
+    status: readWorkItemMetadataString(metadata, "status") || "firing",
+    triage_status: readWorkItemMetadataString(metadata, "triage_status") || (item.queue_status === "CLOSED" ? "acknowledged" : "pending"),
+    alertname: readWorkItemMetadataString(metadata, "alertname") || item.resource_id,
+    service: readWorkItemMetadataString(metadata, "service") || null,
+    severity: readWorkItemMetadataString(metadata, "severity") || null,
+    fingerprint: readWorkItemMetadataString(metadata, "fingerprint") || item.id,
+    labels: {},
+    annotations: {},
+    first_received_at: readWorkItemMetadataString(metadata, "first_received_at") || item.created_at || item.updated_at,
+    last_received_at: readWorkItemMetadataString(metadata, "last_received_at") || item.last_activity_at || item.updated_at,
+    delivery_count: typeof metadata["delivery_count"] === "number" ? metadata["delivery_count"] : 0,
+    resolved_at: item.queue_status === "CLOSED" ? item.updated_at : null,
+    triaged_at: readWorkItemMetadataString(metadata, "triaged_at") || null,
+    triaged_by: readWorkItemMetadataString(metadata, "triaged_by") || null,
+    triage_note: item.note ?? readWorkItemMetadataString(metadata, "triage_note")
+  };
+}
+
 export default function AlertsPage() {
   const { locale, t } = useI18n();
   const searchParams = useSearchParams();
@@ -138,16 +253,28 @@ export default function AlertsPage() {
   const [platformAlertSelectionScope, setPlatformAlertSelectionScope] = useState<string | null>(null);
   const [platformAlertSelectionHydrated, setPlatformAlertSelectionHydrated] = useState(false);
   const [platformAlertFilterOptions, setPlatformAlertFilterOptions] = useState<PlatformOperationalAlertFilterOptions | null>(null);
-  const [platformAlertWorkItems, setPlatformAlertWorkItems] = useState<Record<string, WorkItemResponse>>({});
+  const [platformAlertWorkItems, setPlatformAlertWorkItems] = useState<Record<string, AlertsWorkItemResponse>>({});
   const [trackingPlatformAlertId, setTrackingPlatformAlertId] = useState<string | null>(null);
+  const [rcaForm, setRcaForm] = useState<AlertRcaForm>(DEFAULT_ALERT_RCA_FORM);
+  const [rcaSaving, setRcaSaving] = useState(false);
   const [authContext, setAuthContext] = useState<AuthContext | null>(null);
   const [timelineAlertId, setTimelineAlertId] = useState<string | null>(null);
-  const [timelineLoading, setTimelineLoading] = useState(false);
-  const [timelineError, setTimelineError] = useState<string | null>(null);
-  const [timelineData, setTimelineData] = useState<WorkItemTimelineResponse<WorkItemResponse> | null>(null);
-  const [commentType, setCommentType] = useState<WorkCommentResponse["comment_type"]>("note");
-  const [commentBody, setCommentBody] = useState("");
-  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const {
+    timelineLoading,
+    timelineError,
+    timelineData,
+    commentType,
+    commentBody,
+    commentSubmitting,
+    setCommentType,
+    setCommentBody,
+    loadTimeline,
+    submitTimelineComment
+  } = useWorkItemTimeline<AlertsWorkItemResponse>({
+    resolveErrorMessage: (apiError, fallback) => resolveApiErrorMessage(t, apiError, fallback),
+    loadErrorMessage: tr("alerts.workspace.timeline.errorLoad" as MessageKey),
+    commentErrorMessage: tr("alerts.workspace.timeline.errorComment" as MessageKey)
+  });
   const [error, setError] = useState<string | null>(null);
   const platformAlertsRequestIdRef = useRef(0);
 
@@ -251,6 +378,14 @@ export default function AlertsPage() {
     return status;
   }
 
+  function formatPlatformTimestamp(value: string | null | undefined) {
+    const normalized = value?.trim() ?? "";
+    if (!normalized) {
+      return t("common.notAvailable");
+    }
+    return formatDate(normalized, locale) ?? normalized;
+  }
+
   function translatePlatformSeverity(severity: string | null) {
     if (severity === "info") {
       return t("monitoring.platform.severity.info");
@@ -279,13 +414,13 @@ export default function AlertsPage() {
       `/api/app/operations/work-items?module=alerts&resource_type=operational_alert&limit=${WORK_ITEMS_LIMIT}`,
       { cache: "no-store" }
     );
-    const data = (await res.json().catch(() => null)) as WorkItemListResponse | { error?: string; detail?: unknown } | null;
+    const data = (await res.json().catch(() => null)) as AlertsWorkItemListResponse | { error?: string; detail?: unknown } | null;
     if (!res.ok) {
       return;
     }
 
     const items = data && "data" in data && Array.isArray(data.data) ? data.data : [];
-    const nextMap = items.reduce<Record<string, WorkItemResponse>>((accumulator, item) => {
+    const nextMap = items.reduce<Record<string, AlertsWorkItemResponse>>((accumulator, item) => {
       accumulator[item.resource_id] = item;
       return accumulator;
     }, {});
@@ -434,7 +569,7 @@ export default function AlertsPage() {
     }
     if (trackedWorkItem && currentEntry) {
       try {
-        await syncPlatformAlertWorkItem(currentEntry, "CLOSED");
+        await syncPlatformAlertWorkItem(currentEntry, { nextStatus: "CLOSED" });
       } catch (syncError) {
         setError(syncError instanceof Error ? syncError.message : t("monitoring.errors.trackPlatformAlert" as MessageKey));
       }
@@ -585,8 +720,11 @@ export default function AlertsPage() {
   }
 
   async function syncPlatformAlertWorkItem(
-    entry: PlatformOperationalAlertsSnapshot["data"][number],
-    nextStatus?: WorkItemQueueStatus
+    entry: PlatformOperationalAlertEntry,
+    options?: {
+      nextStatus?: WorkItemQueueStatus;
+      metadataOverrides?: Partial<AlertsWorkItemMetadata>;
+    }
   ) {
     const existing = platformAlertWorkItems[entry.id];
     const context = inferAlertOperationalContext(entry);
@@ -596,34 +734,46 @@ export default function AlertsPage() {
       isUuidLike
     });
     const queueStatus =
-      nextStatus ??
+      options?.nextStatus ??
       existing?.queue_status ??
       (entry.triage_status === "acknowledged" || entry.status === "resolved" ? "CLOSED" : "UNDER_REVIEW");
-    const requestBody = existing
+    const buildMetadata = (): AlertsWorkItemMetadata =>
+      withCanonicalWorkItemMetadata(
+        {
+          ...(existing?.metadata ?? {}),
+          alertname: entry.alertname,
+          receiver: entry.receiver,
+          service: entry.service,
+          severity: entry.severity,
+          status: entry.status,
+          fingerprint: entry.fingerprint,
+          first_received_at: entry.first_received_at,
+          last_received_at: entry.last_received_at,
+          delivery_count: entry.delivery_count,
+          triage_status: entry.triage_status,
+          triaged_at: entry.triaged_at,
+          triaged_by: entry.triaged_by,
+          triage_note: entry.triage_note,
+          ...(context.address ? { address: context.address } : {}),
+          ...(context.reportId ? { report_id: context.reportId } : {}),
+          ...(options?.metadataOverrides ?? {})
+        },
+        {
+          resourceType: "operational_alert",
+          caseId: context.caseId,
+          ownerLabel: readWorkItemMetadataString(existing?.metadata ?? {}, "owner_label"),
+          ownerUserId
+        }
+      );
+    const requestBody: CreateWorkItemRequest<AlertsWorkItemMetadata> | PatchWorkItemRequest<AlertsWorkItemMetadata> = existing
       ? {
           ...(ownerUserId ? { owner_user_id: ownerUserId } : {}),
           priority: priorityFromSeverity(entry.severity),
           queue_status: queueStatus,
+          due_at: existing.due_at ?? null,
           title: `Alert ${entry.alertname}`,
           note: entry.triage_note ?? existing.note,
-          metadata: {
-            ...(existing.metadata ?? {}),
-            alertname: entry.alertname,
-            receiver: entry.receiver,
-            service: entry.service,
-            severity: entry.severity,
-            fingerprint: entry.fingerprint,
-            first_received_at: entry.first_received_at,
-            last_received_at: entry.last_received_at,
-            delivery_count: entry.delivery_count,
-            triage_status: entry.triage_status,
-            triaged_at: entry.triaged_at,
-            triaged_by: entry.triaged_by,
-            triage_note: entry.triage_note,
-            case_id: context.caseId,
-            address: context.address,
-            report_id: context.reportId
-          }
+          metadata: buildMetadata()
         }
       : {
           module: "alerts",
@@ -633,25 +783,10 @@ export default function AlertsPage() {
           ...(ownerUserId ? { owner_user_id: ownerUserId } : {}),
           priority: priorityFromSeverity(entry.severity),
           queue_status: queueStatus,
+          due_at: null,
           title: `Alert ${entry.alertname}`,
           note: entry.triage_note,
-          metadata: {
-            alertname: entry.alertname,
-            receiver: entry.receiver,
-            service: entry.service,
-            severity: entry.severity,
-            fingerprint: entry.fingerprint,
-            first_received_at: entry.first_received_at,
-            last_received_at: entry.last_received_at,
-            delivery_count: entry.delivery_count,
-            triage_status: entry.triage_status,
-            triaged_at: entry.triaged_at,
-            triaged_by: entry.triaged_by,
-            triage_note: entry.triage_note,
-            case_id: context.caseId,
-            address: context.address,
-            report_id: context.reportId
-          }
+          metadata: buildMetadata()
         };
 
     setTrackingPlatformAlertId(entry.id);
@@ -664,13 +799,13 @@ export default function AlertsPage() {
         cache: "no-store"
       }
     );
-    const data = (await res.json().catch(() => null)) as WorkItemResponse | { error?: string; detail?: unknown } | null;
+    const data = (await res.json().catch(() => null)) as AlertsWorkItemResponse | { error?: string; detail?: unknown } | null;
     setTrackingPlatformAlertId(null);
     if (!res.ok) {
       throw new Error(resolveApiErrorMessage(t, data, t("monitoring.errors.trackPlatformAlert" as MessageKey)));
     }
 
-    const workItem = data as WorkItemResponse;
+    const workItem = data as AlertsWorkItemResponse;
     setPlatformAlertWorkItems((current) => ({ ...current, [workItem.resource_id]: workItem }));
     return workItem;
   }
@@ -769,35 +904,111 @@ export default function AlertsPage() {
   );
 
   const selectedTimelineWorkItem = timelineAlertId ? platformAlertWorkItems[timelineAlertId] ?? null : null;
+  const selectedTimelineEntry = timelineAlertId
+    ? platformOperationalAlerts?.data.find((entry) => entry.id === timelineAlertId) ?? null
+    : null;
 
-  async function loadTimeline(workItemId: string) {
-    setTimelineLoading(true);
-    setTimelineError(null);
-    const result = await fetchWorkItemTimeline<WorkItemResponse>(workItemId);
-    if (!result.ok) {
-      setTimelineData(null);
-      setTimelineError(resolveApiErrorMessage(t, result.error, tr("alerts.workspace.timeline.errorLoad" as MessageKey)));
-      setTimelineLoading(false);
-      return;
-    }
-    setTimelineData(result.data);
-    setTimelineLoading(false);
+  useEffect(() => {
+    setRcaForm(buildAlertRcaForm(selectedTimelineWorkItem));
+  }, [selectedTimelineWorkItem]);
+
+  function updateRcaForm<Key extends keyof AlertRcaForm>(field: Key, value: AlertRcaForm[Key]) {
+    setRcaForm((current) => ({ ...current, [field]: value }));
   }
 
-  async function submitTimelineComment() {
-    if (!selectedTimelineWorkItem || !commentBody.trim()) return;
-    setCommentSubmitting(true);
-    const result = await createWorkItemComment(selectedTimelineWorkItem.id, {
-      comment_type: commentType,
-      body: commentBody.trim()
-    });
-    setCommentSubmitting(false);
-    if (!result.ok) {
-      setTimelineError(resolveApiErrorMessage(t, result.error, tr("alerts.workspace.timeline.errorComment" as MessageKey)));
+  function translateContainmentStatus(status: AlertRcaContainmentStatus) {
+    return tr(`alerts.workspace.rca.containment.${status}` as MessageKey);
+  }
+
+  function buildAlertRcaAutoCommentBody(snapshot: AlertRcaSnapshot) {
+    const lines = [tr("alerts.workspace.rca.autoCommentTitle" as MessageKey)];
+    lines.push(
+      `${tr("alerts.workspace.rca.queueStatus" as MessageKey)}: ${tr(`monitoring.platform.queueStatus.${snapshot.queueStatus.toLowerCase()}` as MessageKey)}`
+    );
+    lines.push(`${tr("alerts.workspace.rca.domain" as MessageKey)}: ${snapshot.domain || tr("alerts.history.notAvailable" as MessageKey)}`);
+    lines.push(
+      `${tr("alerts.workspace.rca.containmentStatus" as MessageKey)}: ${translateContainmentStatus(snapshot.containmentStatus)}`
+    );
+    if (snapshot.incidentCommander) {
+      lines.push(`${tr("alerts.workspace.rca.incidentCommander" as MessageKey)}: ${snapshot.incidentCommander}`);
+    }
+    if (snapshot.affectedDomains.length) {
+      lines.push(`${tr("alerts.workspace.rca.affectedDomains" as MessageKey)}: ${snapshot.affectedDomains.join(", ")}`);
+    }
+    if (snapshot.runbookRef) {
+      lines.push(`${tr("alerts.workspace.rca.runbookRef" as MessageKey)}: ${snapshot.runbookRef}`);
+    }
+    if (snapshot.impactSummary) {
+      lines.push(`${tr("alerts.workspace.rca.impactSummary" as MessageKey)}: ${snapshot.impactSummary}`);
+    }
+    if (snapshot.suspectedRootCause) {
+      lines.push(`${tr("alerts.workspace.rca.suspectedRootCause" as MessageKey)}: ${snapshot.suspectedRootCause}`);
+    }
+    if (snapshot.confirmedRootCause) {
+      lines.push(`${tr("alerts.workspace.rca.confirmedRootCause" as MessageKey)}: ${snapshot.confirmedRootCause}`);
+    }
+    if (snapshot.correctiveActions.length) {
+      lines.push(`${tr("alerts.workspace.rca.correctiveActions" as MessageKey)}: ${snapshot.correctiveActions.join(", ")}`);
+    }
+    if (snapshot.evidenceRefs.length) {
+      lines.push(`${tr("alerts.workspace.rca.evidenceRefs" as MessageKey)}: ${snapshot.evidenceRefs.join(", ")}`);
+    }
+    return lines.join("\n");
+  }
+
+  async function saveAlertRca() {
+    if (!selectedTimelineWorkItem) {
+      setError(tr("alerts.workspace.rca.errorSave" as MessageKey));
       return;
     }
-    setCommentBody("");
-    await loadTimeline(selectedTimelineWorkItem.id);
+
+    setRcaSaving(true);
+    setError(null);
+    setPlatformAlertMessage(null);
+    try {
+      const previousSnapshot = buildAlertRcaSnapshotFromItem(selectedTimelineWorkItem);
+      const nextSnapshot = buildAlertRcaSnapshotFromForm(rcaForm);
+      const workItem = await syncPlatformAlertWorkItem(selectedTimelineEntry ?? buildFallbackPlatformAlertEntry(selectedTimelineWorkItem), {
+        nextStatus: nextSnapshot.queueStatus,
+        metadataOverrides: {
+          domain: nextSnapshot.domain,
+          affected_domains: nextSnapshot.affectedDomains,
+          incident_commander: nextSnapshot.incidentCommander,
+          containment_status: nextSnapshot.containmentStatus,
+          runbook_ref: nextSnapshot.runbookRef,
+          impact_summary: nextSnapshot.impactSummary,
+          suspected_root_cause: nextSnapshot.suspectedRootCause,
+          confirmed_root_cause: nextSnapshot.confirmedRootCause,
+          corrective_actions: nextSnapshot.correctiveActions,
+          evidence_refs: nextSnapshot.evidenceRefs
+        }
+      });
+      const shouldPostAutoComment = !sameAlertRcaSnapshot(previousSnapshot, nextSnapshot);
+      let autoCommentFailed = false;
+      if (shouldPostAutoComment) {
+        const commentResult = await createWorkItemComment(workItem.id, {
+          comment_type: "decision",
+          body: buildAlertRcaAutoCommentBody(nextSnapshot)
+        });
+        autoCommentFailed = !commentResult.ok;
+      }
+      setPlatformAlertMessage(
+        tr(
+          shouldPostAutoComment && !autoCommentFailed ? ("alerts.workspace.rca.savedWithComment" as MessageKey) : ("alerts.workspace.rca.saved" as MessageKey),
+          {
+            alertId: selectedTimelineEntry?.id ?? selectedTimelineWorkItem.resource_id
+          }
+        )
+      );
+      await loadTimeline(workItem.id);
+      if (shouldPostAutoComment && autoCommentFailed) {
+        setError(tr("alerts.workspace.rca.errorCommentAuto" as MessageKey));
+      }
+    } catch (rcaError) {
+      setError(rcaError instanceof Error ? rcaError.message : tr("alerts.workspace.rca.errorSave" as MessageKey));
+    } finally {
+      setRcaSaving(false);
+    }
   }
 
   return (
@@ -986,6 +1197,7 @@ export default function AlertsPage() {
                 (() => {
                   const context = inferAlertOperationalContext(entry);
                   const trackedWorkItem = platformAlertWorkItems[entry.id];
+                  const rcaSummary = buildAlertRcaSummary(trackedWorkItem ?? null);
                   const contextLinks = buildOperationalContextLinks(context, {
                     includeEvidence: true,
                     evidenceDomain: "all",
@@ -1005,7 +1217,7 @@ export default function AlertsPage() {
                   return (
                     <div
                       key={entry.id}
-                      data-testid="platform-alert-row"
+                      data-testid={`platform-alert-row-${entry.id}`}
                       className={`otc-monitoring-card ${entry.status === "firing" ? "otc-monitoring-card--warning" : "otc-monitoring-card--success"}`}
                     >
                       <div className="otc-monitoring-row">
@@ -1020,15 +1232,15 @@ export default function AlertsPage() {
                           />
                           <strong>{entry.alertname}</strong>
                         </div>
-                        <span>
+                        <span data-testid={`platform-alert-state-${entry.id}`}>
                           {translatePlatformSeverity(entry.severity)} • {translatePlatformStatus(entry.status)} • {t("monitoring.platform.triageLabel")}={translatePlatformTriage(entry.triage_status)}
                         </span>
                       </div>
                       <div className="otc-monitoring-detail">
                         {t("monitoring.platform.service")}={entry.service ?? t("common.notAvailable")} • {t("monitoring.platform.receiver")}={entry.receiver} • {t("monitoring.platform.deliveries")}={entry.delivery_count}
                       </div>
-                      <div className="otc-monitoring-detail--subtle">
-                        {t("monitoring.platform.firstReceived")}={entry.first_received_at} • {t("monitoring.platform.lastReceived")}={entry.last_received_at}
+                      <div className="otc-monitoring-detail--subtle" data-testid={`platform-alert-timestamps-${entry.id}`}>
+                        {t("monitoring.platform.firstReceived")}={formatPlatformTimestamp(entry.first_received_at)} • {t("monitoring.platform.lastReceived")}={formatPlatformTimestamp(entry.last_received_at)}
                       </div>
                       {context.caseId || context.address || context.reportId ? (
                         <div className="otc-monitoring-detail--subtle">
@@ -1039,19 +1251,34 @@ export default function AlertsPage() {
                         <div className="otc-monitoring-detail--subtle">{t("monitoring.platform.resolvedAt")}={entry.resolved_at}</div>
                       ) : null}
                       {entry.triaged_at ? (
-                        <div className="otc-monitoring-detail--subtle">
-                          {t("monitoring.platform.triagedAt")}={entry.triaged_at} {t("common.by")} {entry.triaged_by ?? t("monitoring.platform.adminFallback")}
+                        <div className="otc-monitoring-detail--subtle" data-testid={`platform-alert-triaged-at-${entry.id}`}>
+                          {t("monitoring.platform.triagedAt")}={formatPlatformTimestamp(entry.triaged_at)} {t("common.by")} {entry.triaged_by ?? t("monitoring.platform.adminFallback")}
                         </div>
                       ) : null}
                       {entry.triage_note ? (
                         <div className="otc-monitoring-detail--subtle">{t("monitoring.platform.note")}: {entry.triage_note}</div>
                       ) : null}
                       {trackedWorkItem ? (
-                        <div className="otc-monitoring-detail--subtle">
+                        <div className="otc-monitoring-detail--subtle" data-testid={`platform-alert-queue-${entry.id}`}>
                           {t("monitoring.platform.queueLabel" as MessageKey)}{" "}
                           <Pill tone={toneForQueueStatus(trackedWorkItem.queue_status)}>
                             {t(`monitoring.platform.queueStatus.${trackedWorkItem.queue_status.toLowerCase()}` as MessageKey)}
                           </Pill>
+                        </div>
+                      ) : null}
+                      {rcaSummary ? (
+                        <div className="otc-monitoring-detail--subtle" data-testid={`platform-alert-rca-summary-${entry.id}`}>
+                          {tr("alerts.workspace.rca.inlineSummary" as MessageKey, {
+                            domain: rcaSummary.domain || tr("alerts.history.notAvailable" as MessageKey),
+                            containment: translateContainmentStatus(rcaSummary.containmentStatus),
+                            commander: rcaSummary.incidentCommander || tr("alerts.history.notAvailable" as MessageKey)
+                          })}
+                          {rcaSummary.affectedDomains.length ? ` • ${tr("alerts.workspace.rca.inlineDomains" as MessageKey)}=${rcaSummary.affectedDomains.join(", ")}` : ""}
+                          {rcaSummary.confirmedRootCause
+                            ? ` • ${tr("alerts.workspace.rca.inlineConfirmed" as MessageKey)}=${rcaSummary.confirmedRootCause}`
+                            : rcaSummary.suspectedRootCause
+                              ? ` • ${tr("alerts.workspace.rca.inlineSuspected" as MessageKey)}=${rcaSummary.suspectedRootCause}`
+                              : ""}
                         </div>
                       ) : null}
                       {entry.annotations?.summary ? (
@@ -1134,6 +1361,163 @@ export default function AlertsPage() {
         )}
       </Panel>
 
+      <Panel title={tr("alerts.workspace.rca.title" as MessageKey)} description={tr("alerts.workspace.rca.description" as MessageKey)}>
+        {!timelineAlertId ? (
+          <div data-testid="platform-alert-rca-empty-selection">
+            <Message>{tr("alerts.workspace.rca.emptySelection" as MessageKey)}</Message>
+          </div>
+        ) : !selectedTimelineWorkItem ? (
+          <div data-testid="platform-alert-rca-local-only">
+            <Message>{tr("alerts.workspace.rca.localOnly" as MessageKey)}</Message>
+          </div>
+        ) : (
+          <div data-testid="platform-alert-rca-panel" className="otc-controls otc-controls--spaced">
+            <div className="otc-monitoring-detail">
+              {tr("alerts.workspace.rca.summary" as MessageKey, {
+                alertId: selectedTimelineEntry?.id ?? selectedTimelineWorkItem.resource_id
+              })}
+            </div>
+            <div className="otc-monitoring-detail--subtle" data-testid="platform-alert-rca-badges">
+              <Pill tone={toneForQueueStatus(rcaForm.queueStatus)}>
+                {tr(`monitoring.platform.queueStatus.${rcaForm.queueStatus.toLowerCase()}` as MessageKey)}
+              </Pill>{" "}
+              <Pill>{translateContainmentStatus(rcaForm.containmentStatus)}</Pill>
+            </div>
+            <label>
+              {tr("alerts.workspace.rca.queueStatus" as MessageKey)}
+              <select
+                className="otc-select"
+                data-testid="platform-alert-rca-queue-status"
+                value={rcaForm.queueStatus}
+                onChange={(event) => updateRcaForm("queueStatus", event.target.value as WorkItemQueueStatus)}
+              >
+                <option value="UNDER_REVIEW">{tr("monitoring.platform.queueStatus.under_review" as MessageKey)}</option>
+                <option value="ESCALATED">{tr("monitoring.platform.queueStatus.escalated" as MessageKey)}</option>
+                <option value="READY">{tr("monitoring.platform.queueStatus.ready" as MessageKey)}</option>
+                <option value="APPROVED">{tr("monitoring.platform.queueStatus.approved" as MessageKey)}</option>
+                <option value="SUBMITTED">{tr("monitoring.platform.queueStatus.submitted" as MessageKey)}</option>
+                <option value="CLOSED">{tr("monitoring.platform.queueStatus.closed" as MessageKey)}</option>
+                <option value="REJECTED">{tr("monitoring.platform.queueStatus.rejected" as MessageKey)}</option>
+              </select>
+            </label>
+            <label>
+              {tr("alerts.workspace.rca.domain" as MessageKey)}
+              <input
+                className="otc-input"
+                data-testid="platform-alert-rca-domain"
+                value={rcaForm.domain}
+                onChange={(event) => updateRcaForm("domain", event.target.value)}
+              />
+            </label>
+            <label>
+              {tr("alerts.workspace.rca.affectedDomains" as MessageKey)}
+              <input
+                className="otc-input"
+                data-testid="platform-alert-rca-affected-domains"
+                value={rcaForm.affectedDomains}
+                onChange={(event) => updateRcaForm("affectedDomains", event.target.value)}
+              />
+            </label>
+            <label>
+              {tr("alerts.workspace.rca.incidentCommander" as MessageKey)}
+              <input
+                className="otc-input"
+                data-testid="platform-alert-rca-incident-commander"
+                value={rcaForm.incidentCommander}
+                onChange={(event) => updateRcaForm("incidentCommander", event.target.value)}
+              />
+            </label>
+            <label>
+              {tr("alerts.workspace.rca.containmentStatus" as MessageKey)}
+              <select
+                className="otc-select"
+                data-testid="platform-alert-rca-containment-status"
+                value={rcaForm.containmentStatus}
+                onChange={(event) => updateRcaForm("containmentStatus", event.target.value as AlertRcaContainmentStatus)}
+              >
+                {ALERT_RCA_CONTAINMENT_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {translateContainmentStatus(status)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {tr("alerts.workspace.rca.runbookRef" as MessageKey)}
+              <input
+                className="otc-input"
+                data-testid="platform-alert-rca-runbook-ref"
+                value={rcaForm.runbookRef}
+                onChange={(event) => updateRcaForm("runbookRef", event.target.value)}
+              />
+            </label>
+            <label>
+              {tr("alerts.workspace.rca.impactSummary" as MessageKey)}
+              <textarea
+                className="otc-textarea"
+                rows={3}
+                data-testid="platform-alert-rca-impact-summary"
+                value={rcaForm.impactSummary}
+                onChange={(event) => updateRcaForm("impactSummary", event.target.value)}
+              />
+            </label>
+            <label>
+              {tr("alerts.workspace.rca.suspectedRootCause" as MessageKey)}
+              <textarea
+                className="otc-textarea"
+                rows={3}
+                data-testid="platform-alert-rca-suspected-root-cause"
+                value={rcaForm.suspectedRootCause}
+                onChange={(event) => updateRcaForm("suspectedRootCause", event.target.value)}
+              />
+            </label>
+            <label>
+              {tr("alerts.workspace.rca.confirmedRootCause" as MessageKey)}
+              <textarea
+                className="otc-textarea"
+                rows={3}
+                data-testid="platform-alert-rca-confirmed-root-cause"
+                value={rcaForm.confirmedRootCause}
+                onChange={(event) => updateRcaForm("confirmedRootCause", event.target.value)}
+              />
+            </label>
+            <label>
+              {tr("alerts.workspace.rca.correctiveActions" as MessageKey)}
+              <textarea
+                className="otc-textarea"
+                rows={2}
+                data-testid="platform-alert-rca-corrective-actions"
+                value={rcaForm.correctiveActions}
+                onChange={(event) => updateRcaForm("correctiveActions", event.target.value)}
+              />
+            </label>
+            <label>
+              {tr("alerts.workspace.rca.evidenceRefs" as MessageKey)}
+              <textarea
+                className="otc-textarea"
+                rows={2}
+                data-testid="platform-alert-rca-evidence-refs"
+                value={rcaForm.evidenceRefs}
+                onChange={(event) => updateRcaForm("evidenceRefs", event.target.value)}
+              />
+            </label>
+            <div className="otc-controls">
+              <button
+                type="button"
+                className="otc-button"
+                data-testid="platform-alert-rca-save"
+                onClick={() => {
+                  void saveAlertRca();
+                }}
+                disabled={rcaSaving}
+              >
+                {rcaSaving ? tr("alerts.workspace.rca.saving" as MessageKey) : tr("alerts.workspace.rca.save" as MessageKey)}
+              </button>
+            </div>
+          </div>
+        )}
+      </Panel>
+
       <WorkItemTimelinePanel
         state={!timelineAlertId ? "empty_selection" : !selectedTimelineWorkItem ? "local_only" : "ready"}
         summary={timelineAlertId && selectedTimelineWorkItem ? tr("alerts.workspace.timeline.summary" as MessageKey, { alertId: timelineAlertId }) : null}
@@ -1146,7 +1530,9 @@ export default function AlertsPage() {
         commentSubmitting={commentSubmitting}
         onCommentTypeChange={setCommentType}
         onCommentBodyChange={setCommentBody}
-        onCommentSubmit={() => { void submitTimelineComment(); }}
+        onCommentSubmit={() => {
+          void submitTimelineComment(selectedTimelineWorkItem?.id);
+        }}
         onRefresh={
           selectedTimelineWorkItem
             ? () => { void loadTimeline(selectedTimelineWorkItem.id); }
@@ -1166,6 +1552,7 @@ export default function AlertsPage() {
                 <th>{tr("alerts.history.severity" as MessageKey)}</th>
                 <th>{tr("alerts.history.status" as MessageKey)}</th>
                 <th>{tr("alerts.history.queueStatus" as MessageKey)}</th>
+                <th>{tr("alerts.history.rca" as MessageKey)}</th>
               </tr>
             </thead>
             <tbody>
@@ -1176,6 +1563,7 @@ export default function AlertsPage() {
                 .slice(0, 100)
                 .map((item) => {
                   const meta = (item.metadata ?? {}) as Record<string, unknown>;
+                  const rcaSummary = buildAlertRcaSummary(item);
                   const alertname = typeof meta["alertname"] === "string" ? meta["alertname"] : item.resource_id;
                   const service = typeof meta["service"] === "string" ? meta["service"] : null;
                   const severity = typeof meta["severity"] === "string" ? meta["severity"] : null;
@@ -1197,7 +1585,25 @@ export default function AlertsPage() {
                           {item.queue_status}
                         </Pill>
                       </td>
-                      <td>{item.note ?? tr("alerts.history.notAvailable" as MessageKey)}</td>
+                      <td data-testid={`platform-alert-history-rca-${item.resource_id}`}>
+                        {rcaSummary ? (
+                          <>
+                            <div>
+                              <strong>{rcaSummary.domain || tr("alerts.history.notAvailable" as MessageKey)}</strong> •{" "}
+                              {translateContainmentStatus(rcaSummary.containmentStatus)}
+                            </div>
+                            <div className="otc-monitoring-detail--subtle">
+                              {rcaSummary.confirmedRootCause ||
+                                rcaSummary.suspectedRootCause ||
+                                rcaSummary.impactSummary ||
+                                rcaSummary.incidentCommander ||
+                                tr("alerts.history.notAvailable" as MessageKey)}
+                            </div>
+                          </>
+                        ) : (
+                          tr("alerts.history.rcaEmpty" as MessageKey)
+                        )}
+                      </td>
                     </tr>
                   );
                 })}

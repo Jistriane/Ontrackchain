@@ -22,7 +22,10 @@ const API_ERROR_MESSAGE_KEYS: Partial<Record<string, MessageKey>> = {
   linked_user_required_for_block_lift: "apiErrors.linkedUserRequiredForBlockLift",
   mfa_external_provider_required: "apiErrors.mfaExternalProviderRequired",
   mfa_provider_not_homologated: "apiErrors.mfaProviderNotHomologated",
+  billing_balance_role_required: "apiErrors.billingBalanceRoleRequired",
   coaf_report_requires_compliance_officer: "apiErrors.coafRequiresComplianceOfficer",
+  coaf_report_review_role_required: "apiErrors.coafReviewRoleRequired",
+  coaf_report_submission_role_required: "apiErrors.coafSubmissionRoleRequired",
   coaf_report_requires_external_provider_mfa: "apiErrors.coafRequiresExternalMfa",
   coaf_report_requires_homologated_provider: "apiErrors.coafRequiresHomologatedProvider",
   linked_user_required_for_coaf_report: "apiErrors.linkedUserRequiredForCoafReport",
@@ -32,7 +35,22 @@ const API_ERROR_MESSAGE_KEYS: Partial<Record<string, MessageKey>> = {
   rejection_reason_required: "apiErrors.rejectionReasonRequired",
   coaf_protocol_number_required: "apiErrors.coafProtocolNumberRequired",
   coaf_receipt_hash_must_be_sha256: "apiErrors.coafReceiptHashMustBeSha256",
-  unsupported_chain: "apiErrors.unsupportedChain"
+  unsupported_chain: "apiErrors.unsupportedChain",
+  privileged_read_role_required: "apiErrors.privilegedReadRoleRequired",
+  privileged_write_role_required: "apiErrors.privilegedWriteRoleRequired",
+  manual_package_seal_not_found: "apiErrors.manualPackageSealNotFound",
+  manual_package_seal_locked: "apiErrors.manualPackageSealLocked",
+  manual_package_signoff_role_already_recorded: "apiErrors.manualPackageSignoffRoleAlreadyRecorded",
+  manual_package_seal_not_ready: "apiErrors.manualPackageSealNotReady",
+  manual_package_signoff_incomplete: "apiErrors.manualPackageSignoffIncomplete",
+  manual_seal_secret_missing: "apiErrors.manualSealSecretMissing",
+  manual_package_seal_already_revoked: "apiErrors.manualPackageSealAlreadyRevoked",
+  manual_package_seal_already_superseded: "apiErrors.manualPackageSealAlreadySuperseded",
+  manual_package_seal_revoked: "apiErrors.manualPackageSealRevoked",
+  manual_package_supersede_target_invalid: "apiErrors.manualPackageSupersedeTargetInvalid",
+  manual_package_supersede_target_not_sealed: "apiErrors.manualPackageSupersedeTargetNotSealed",
+  manual_package_supersede_target_revoked: "apiErrors.manualPackageSupersedeTargetRevoked",
+  manual_package_supersede_target_superseded: "apiErrors.manualPackageSupersedeTargetSuperseded"
 };
 
 export function extractApiErrorCode(payload: unknown): string | null {

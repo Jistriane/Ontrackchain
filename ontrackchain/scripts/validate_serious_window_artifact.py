@@ -120,7 +120,94 @@ def validate_artifact(
                 else:
                     payload["found_artifacts"].append(str(artifact_path))
 
-    if payload["missing_artifacts"]:
+    regulatory_bundle_file = checks_dir / f"{window_id}-regulatory-readiness-bundle.json"
+    dossier_file = dossiers_dir / f"{window_id}-dossier.json"
+
+    if "P0-02" in scope and regulatory_bundle_file.exists():
+        regulatory_bundle_payload = load_json_file(regulatory_bundle_file)
+        compliance_step = ((regulatory_bundle_payload.get("steps") or {}).get("compliance_provider_runtime") or {})
+        compliance_correlation = compliance_step.get("correlation") or {}
+        if not str(compliance_step.get("request_id") or "").strip():
+            payload["errors"].append(
+                "Regulatory bundle: compliance_provider_runtime.request_id ausente"
+            )
+        if compliance_correlation.get("provider_converges_live") is not True:
+            payload["errors"].append(
+                "Regulatory bundle: compliance_provider_runtime.correlation.provider_converges_live != true"
+            )
+
+    if "P0-03" in scope and regulatory_bundle_file.exists():
+        regulatory_bundle_payload = load_json_file(regulatory_bundle_file)
+        eu_step = ((regulatory_bundle_payload.get("steps") or {}).get("eu_sanctions_window") or {})
+        eu_correlation = eu_step.get("correlation") or {}
+        if not str(eu_step.get("request_id") or "").strip():
+            payload["errors"].append(
+                "Regulatory bundle: eu_sanctions_window.request_id ausente"
+            )
+        if eu_correlation.get("eu_window_converges_ready") is not True:
+            payload["errors"].append(
+                "Regulatory bundle: eu_sanctions_window.correlation.eu_window_converges_ready != true"
+            )
+
+    if "P0-02" in scope and "P0-03" in scope and regulatory_bundle_file.exists():
+        regulatory_bundle_payload = load_json_file(regulatory_bundle_file)
+        bundle_readiness = (((regulatory_bundle_payload.get("readiness") or {}).get("regulatory_bundle")) or {})
+        if bundle_readiness.get("readiness_status") != "ready_for_validation":
+            payload["errors"].append(
+                "Regulatory bundle: readiness.regulatory_bundle.readiness_status precisa ser ready_for_validation para janela combinada"
+            )
+
+    if ("P0-02" in scope or "P0-03" in scope) and dossier_file.exists():
+        dossier_payload = load_json_file(dossier_file)
+        regulatory_summary = ((dossier_payload.get("summaries") or {}).get("regulatory_readiness_bundle") or {})
+        regulatory_scope = regulatory_summary.get("scope") or {}
+        regulatory_correlation = regulatory_summary.get("correlation") or {}
+        regulatory_validation = regulatory_summary.get("validation") or {}
+
+        if ("P0-02" in scope) != (regulatory_scope.get("compliance_runtime_enabled") is True):
+            payload["errors"].append(
+                "Dossier: summaries.regulatory_readiness_bundle.scope.compliance_runtime_enabled diverge do escopo validado"
+            )
+        if ("P0-03" in scope) != (regulatory_scope.get("eu_window_enabled") is True):
+            payload["errors"].append(
+                "Dossier: summaries.regulatory_readiness_bundle.scope.eu_window_enabled diverge do escopo validado"
+            )
+
+        if "P0-02" in scope and not str(regulatory_correlation.get("compliance_runtime_request_id") or "").strip():
+            payload["errors"].append(
+                "Dossier: summaries.regulatory_readiness_bundle.correlation.compliance_runtime_request_id ausente"
+            )
+        if "P0-02" in scope and regulatory_correlation.get("compliance_runtime_provider_converges_live") is not True:
+            payload["errors"].append(
+                "Dossier: summaries.regulatory_readiness_bundle.correlation.compliance_runtime_provider_converges_live != true"
+            )
+        if "P0-02" in scope and regulatory_validation.get("compliance_runtime_scope_converges") is not True:
+            payload["errors"].append(
+                "Dossier: summaries.regulatory_readiness_bundle.validation.compliance_runtime_scope_converges != true"
+            )
+        if "P0-03" in scope:
+            if not str(regulatory_correlation.get("eu_window_request_id") or "").strip():
+                payload["errors"].append(
+                    "Dossier: summaries.regulatory_readiness_bundle.correlation.eu_window_request_id ausente"
+                )
+            if regulatory_correlation.get("eu_window_converges_ready") is not True:
+                payload["errors"].append(
+                    "Dossier: summaries.regulatory_readiness_bundle.correlation.eu_window_converges_ready != true"
+                )
+            if regulatory_validation.get("eu_window_scope_converges") is not True:
+                payload["errors"].append(
+                    "Dossier: summaries.regulatory_readiness_bundle.validation.eu_window_scope_converges != true"
+                )
+        if (
+            "P0-02" in scope
+            and "P0-03" in scope
+            and regulatory_validation.get("combined_regulatory_bundle_ready_for_validation") is not True
+        ):
+            payload["errors"].append(
+                "Dossier: summaries.regulatory_readiness_bundle.validation.combined_regulatory_bundle_ready_for_validation != true"
+            )
+
+    if payload["missing_artifacts"] or payload["errors"]:
         payload["status"] = "failed"
 
     return (0 if payload["status"] == "ok" else 1, payload)

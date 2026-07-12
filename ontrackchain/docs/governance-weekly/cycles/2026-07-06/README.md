@@ -4,6 +4,8 @@
 
 Materiais humanos do ciclo que consolidou a governanca semanal de 2026-07-06 e a janela seria `stg-2026-07-06-a`.
 
+Este ciclo permanece como referencia operacional fechada, nao como ciclo ativo corrente.
+
 ## Documentos
 
 - [Preparacao da Governanca](./2026-07-06-governance-meeting-prep.md)

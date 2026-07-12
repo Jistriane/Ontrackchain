@@ -90,7 +90,7 @@ RESTORE_TARGET_DB=ontrackchain_restore_check bash scripts/restore_postgres.sh ar
 - os prazos por classe estiverem definidos
 - houver aprovacao explicita de Security/Compliance
 
-`P1-02` pode ser considerado encerrado quando:
+A baseline tecnica de backup/restore pode ser considerada evidenciada quando:
 
 - houver pelo menos um backup recente
 - um restore controlado tiver sido executado com evidencia

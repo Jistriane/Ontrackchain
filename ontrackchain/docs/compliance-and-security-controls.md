@@ -54,18 +54,27 @@ Observacao operacional:
 - `counterparties` registra KYC/KYB, PEP, sanctions clearance, DD reforcada e calendario de revisao
 - `ros_records` modela geracao, aprovacao/rejeicao e submissao manual de ROS/COAF
 
+### 7. Custodia Formal de Pacotes Manuais DD/SoF
+
+- o cockpit `evidence` ja gera pacote canonico com manifesto deterministico `manual_review_package/v2`
+- a exportacao oficial ja produz `package_sha256`, checksums derivados e evento `evidence_manual_review_package_exported`
+- o `audit` ja trata `package_sha256` como hash principal do contexto manual e preserva navegacao bidirecional para a origem DD/SoF
+- a selagem institucional forte ja esta implementada com `signoff-request`, sign-offs por papel, `finalize`, `revoke`, `supersede`, lookup canonico por digest e preset de governanca no `audit`
+- o contrato publico canônico dessa trilha agora vive em `./api-contracts.md`, enquanto `./evidence-manual-package-strong-sealing-architecture.md` permanece como visao arquitetural
+
 ## Matriz de Controles
 
 | Area | Controle Atual | Estado | Observacao |
 | --- | --- | --- | --- |
 | Tenant isolation | `RLS` + contexto SQL | forte | aderente ao padrao `app.organization_id` |
-| Auth | `ForwardAuth` + `JWT|API Key|OIDC` | forte | homologacao seria ainda pendente |
+| Auth | `ForwardAuth` + `JWT / API Key / OIDC` | forte | homologacao seria ainda pendente |
 | MFA sensivel | `legal_report`, `ROS/COAF`, `block lift` | medio/forte | trilho serio exige homologacao externa |
 | Auditoria | `audit_logs` + `request_id` | forte | boa cobertura operacional |
 | Evidencia regulatoria | `evidence_trail` + `SHA-256` | forte | source of truth unico e teste cruzado reduzem drift atual |
 | Screening de sancoes | cache local + worker | forte | catalogo e endpoint direto convergem para `live` via cache local |
 | AML/KYT live | provider-aware + runtime gate | parcial | falta homologacao com credenciais reais e evidencia recorrente |
 | DD/SoF | `manual_review_required` | parcial | comportamento intencional do produto atual |
+| Custodia formal DD/SoF | manifesto canônico + `package_sha256` + export auditado + selagem institucional forte | medio/forte | baseline funcional entregue com quorum `Compliance + Ops`, revogacao/supersedencia e verificacao local; pendente endurecimento com provider institucional homologado |
 | ROS/COAF | workflow completo | forte | submissao final segue manual e auditada |
 | Operacao seria | preflight + dossier + ownership | forte | faltam sign-offs formais recorrentes |
 
@@ -118,7 +127,14 @@ Observacao operacional:
 ### 5. Cadeia formal de custodia
 
 - hashes, manifestos e dossier existem
-- ainda faltam sign-off formal, classificacao de sensibilidade e rotina institucionalizada de aceite
+- o pacote manual DD/SoF agora possui manifesto canônico, `package_sha256` e evento auditável oficial
+- o baseline funcional agora inclui sign-off formal por papel, selagem local em `JWS JSON Flattened`, revogacao, supersedencia e leitura canônica por `package_sha256`
+- os gaps residuais reais passaram a ser:
+  - homologacao do provider institucional definitivo (KMS/HSM)
+  - trust bundle institucional versionado
+  - classificacao formal de sensibilidade/aceite operacional recorrente
+  - eventual evolucao para TSA/ancora externa
+- a visao arquitetural de medio prazo permanece descrita em `./evidence-manual-package-strong-sealing-architecture.md`, com contrato HTTP canônico em `./api-contracts.md`
 
 ## Recomendacoes Imediatas
 
@@ -126,4 +142,4 @@ Observacao operacional:
 - rodar a janela UE com `run-eu-sanctions-window-local` quando `EU_CONSOLIDATED` estiver no escopo
 - registrar formalmente sign-off de retention/recovery e owners operacionais
 - manter `manual_review_required` explicitamente documentado ate existir motor homologado para DD/SoF
-
+- endurecer a trilha de selagem DD/SoF ja entregue, homologando o provider institucional definitivo e formalizando o trust bundle versionado

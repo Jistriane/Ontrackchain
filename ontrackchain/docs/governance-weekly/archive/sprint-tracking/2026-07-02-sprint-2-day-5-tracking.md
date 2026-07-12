@@ -102,4 +102,4 @@
 - classificacao: `parcial`
 - resumo executivo: o cockpit de relatorios esta bem encaminhado, mas ainda precisa fechar o handoff por caso
 - owner do primeiro passo do proximo marco: `Frontend + Report API`
-- artefato relacionado: [Runbook de Execucao do Dia 5 da Sprint 2](../../sprint-2-day-5-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-2-day-5-execution-runbook.md`

@@ -247,6 +247,157 @@ class AuditLogsPaginationTests(unittest.TestCase):
         self.assertEqual(audit_metadata["sections"]["reports"]["count"], 1)
         self.assertTrue(audit_metadata["sections"]["reports"]["included"])
 
+    def test_record_manual_package_export_persists_audit_entry(self) -> None:
+        cursor = _FakeCursor()
+        pool = _FakePool(cursor)
+
+        with (
+            patch.object(main, "_require_role_with_audit"),
+            patch.object(main, "_apply_rls_context"),
+            patch.object(main, "_record_audit_log") as record_audit_log,
+        ):
+            payload = asyncio.run(
+                main.record_manual_package_export(
+                    body=main.ManualPackageAuditRequest(
+                        request_id="req-dd-1",
+                        report_id="rep-dd-1",
+                        metadata={
+                            "scope_id": "req-dd-1",
+                            "filename": "ontrackchain-manual-review-due-diligence-req-dd-1.json",
+                            "package_sha256": "a" * 64,
+                            "manual_review_action": "compliance_due_diligence_checked",
+                        },
+                    ),
+                    pool=pool,
+                    x_org_id="org-1",
+                    x_user_id="external-user-1",
+                    x_linked_user_id="linked-user-1",
+                    x_role="ADMIN",
+                    x_request_id="req-call-1",
+                )
+            )
+
+        self.assertEqual(payload["action"], "evidence_manual_review_package_exported")
+        self.assertEqual(payload["request_id"], "req-dd-1")
+        self.assertEqual(payload["report_id"], "rep-dd-1")
+        self.assertEqual(payload["resource_type"], "audit_log")
+        audit_metadata = record_audit_log.call_args.kwargs["metadata"]
+        self.assertEqual(audit_metadata["scope_id"], "req-dd-1")
+        self.assertEqual(audit_metadata["filename"], "ontrackchain-manual-review-due-diligence-req-dd-1.json")
+        self.assertEqual(audit_metadata["package_sha256"], "a" * 64)
+        self.assertEqual(audit_metadata["manual_review_action"], "compliance_due_diligence_checked")
+        self.assertEqual(audit_metadata["request_id"], "req-dd-1")
+        self.assertEqual(audit_metadata["report_id"], "rep-dd-1")
+        self.assertEqual(record_audit_log.call_args.kwargs["user_id"], "linked-user-1")
+
+    def test_record_manual_package_audit_event_rejects_unknown_action(self) -> None:
+        with self.assertRaisesRegex(ValueError, "unsupported_manual_package_audit_action"):
+            main._record_manual_package_audit_event(
+                _FakeCursor(),
+                organization_id="org-1",
+                user_id="user-1",
+                action="unsupported_action",
+                resource_type="audit_log",
+                resource_id=None,
+                request_id="req-1",
+                report_id="rep-1",
+                metadata={"scope_id": "scope-1"},
+                created_at="2026-07-08T16:00:00+00:00",
+                external_user_id="external-user-1",
+            )
+
+    def test_local_hs256_seal_backend_generates_verified_flattened_jws(self) -> None:
+        seal_row = {
+            "id": "11111111-1111-1111-1111-111111111111",
+            "organization_id": "org-1",
+            "package_kind": "manual_review_package",
+            "request_id": "req-dd-1",
+            "report_id": "rep-dd-1",
+            "scope_id": "scope-dd-1",
+            "manual_review_action": "compliance_due_diligence_checked",
+            "package_sha256": "a" * 64,
+            "manifest_schema_version": "manual_review_package/v2",
+            "classification": "restricted_regulatory",
+            "signoff_mode": "compliance_ops_signoff",
+            "policy_version": "manual_package_sealing/v1",
+        }
+        signoff_rows = [
+            {
+                "id": "signoff-1",
+                "seal_id": "11111111-1111-1111-1111-111111111111",
+                "organization_id": "org-1",
+                "signer_role": "compliance_owner",
+                "signer_user_id": None,
+                "signer_display_name": "Compliance Owner",
+                "decision": "approved",
+                "signoff_method": "platform_authenticated_2fa",
+                "ticket_ref": "GOV-1",
+                "notes": None,
+                "signed_at": None,
+                "metadata": {},
+            },
+            {
+                "id": "signoff-2",
+                "seal_id": "11111111-1111-1111-1111-111111111111",
+                "organization_id": "org-1",
+                "signer_role": "ops_owner",
+                "signer_user_id": None,
+                "signer_display_name": "Ops Owner",
+                "decision": "approved",
+                "signoff_method": "governance_ticket",
+                "ticket_ref": "GOV-2",
+                "notes": None,
+                "signed_at": None,
+                "metadata": {},
+            },
+        ]
+
+        with patch.object(main.settings, "investigation_manual_seal_hs256_secret", "super-secret-test-key"):
+            result = main._seal_manual_package_with_local_hs256(
+                seal_row=seal_row,
+                signoff_rows=signoff_rows,
+                finalized_at="2026-07-08T17:00:00+00:00",
+                finalized_by_user_id="user-1",
+                finalize_metadata={"ticket": "PKG-1"},
+            )
+
+        self.assertEqual(result["signature_algorithm"], "HS256")
+        self.assertEqual(result["verification_summary"]["seal_backend"], "local_hs256")
+        self.assertTrue(result["verification_summary"]["verified"])
+        self.assertEqual(result["verification_summary"]["package_sha256"], "a" * 64)
+        self.assertIn("protected", result["seal_envelope"])
+        self.assertIn("payload", result["seal_envelope"])
+        self.assertIn("signature", result["seal_envelope"])
+
+    def test_local_hs256_seal_backend_requires_secret(self) -> None:
+        seal_row = {
+            "id": "11111111-1111-1111-1111-111111111111",
+            "organization_id": "org-1",
+            "package_kind": "manual_review_package",
+            "request_id": "req-dd-1",
+            "report_id": None,
+            "scope_id": "scope-dd-1",
+            "manual_review_action": "compliance_due_diligence_checked",
+            "package_sha256": "a" * 64,
+            "manifest_schema_version": "manual_review_package/v2",
+            "classification": "restricted_regulatory",
+            "signoff_mode": "compliance_ops_signoff",
+            "policy_version": "manual_package_sealing/v1",
+        }
+
+        with patch.object(main.settings, "investigation_manual_seal_hs256_secret", ""):
+            with self.assertRaises(main.HTTPException) as exc_info:
+                main._seal_manual_package_with_local_hs256(
+                    seal_row=seal_row,
+                    signoff_rows=[],
+                    finalized_at="2026-07-08T17:00:00+00:00",
+                    finalized_by_user_id="user-1",
+                    finalize_metadata={},
+                )
+
+        self.assertEqual(exc_info.exception.status_code, 424)
+        self.assertEqual(exc_info.exception.detail["code"], "manual_seal_secret_missing")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,7 @@
 # Governança Semanal — 2026-06-30
 
+> Registro historico arquivado e incompleto. Este arquivo preserva o rascunho operacional da epoca, mas nao deve ser lido como governanca semanal fechada nem como baseline viva do projeto.
+
 ## Leitura do Ciclo
 
 - Baseline técnica: `89%`
@@ -13,11 +15,11 @@
 - `environment_name`: `staging-serious`
 - status esperado: `RUN-STG-01` de `ready -> in_progress` ou `ready -> done` (apenas se dossier final estiver `ok`)
 - checklist canônico:
-  - [Checklist de Evidência Mínima da Primeira Janela Séria](../../../first-serious-window-evidence-checklist.md)
+  - [Checklist de Evidência Mínima da Primeira Janela Séria](../../../history/first-serious-window-evidence-checklist.md)
 - runbook operacional:
-  - [Runbook do Primeiro Disparo Real](../../../first-serious-window-first-dispatch-runbook.md)
+  - [Runbook do Primeiro Disparo Real](../../../history/first-serious-window-first-dispatch-runbook.md)
 - template de sign-off:
-  - [Template de Sign-Off da Janela Seria](../../../staging-serious-window-signoff-template.md)
+  - [Template de Sign-Off da Janela Seria](../../../history/staging-serious-window-signoff-template.md)
 
 ## Evidências Revisadas
 

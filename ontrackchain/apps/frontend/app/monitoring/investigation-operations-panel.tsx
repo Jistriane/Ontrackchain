@@ -16,6 +16,9 @@ type InvestigationOperationsPanelProps = {
   metricsText: string;
 };
 
+const manualPackageMfaAuditHref =
+  "/audit?preset=manual-package-mfa&action=evidence_manual_review_package_mfa_violation&resource_type=evidence_package_seal";
+
 export function InvestigationOperationsPanel({
   t,
   operations,
@@ -76,6 +79,17 @@ export function InvestigationOperationsPanel({
                 <strong>DLQ</strong>
                 <div>{t("monitoring.worker.metricDlqOpen")} {operations.states.dlq_failed}</div>
                 <div>{t("monitoring.worker.metricDlqResolved")} {operations.states.dlq_resolved}</div>
+              </div>
+              <div data-testid="worker-metric-manual-package-mfa" className="otc-monitoring-card">
+                <strong>{t("monitoring.worker.metricManualPackageMfa" as MessageKey)}</strong>
+                <div>{t("monitoring.worker.metricManualPackageMfaTotal" as MessageKey)} {operations.security.manual_package_mfa_violations_last_hour}</div>
+                <div>{t("monitoring.worker.metricManualPackageMfa2fa" as MessageKey)} {operations.security.manual_package_mfa_2fa_required_last_hour}</div>
+                <div>{t("monitoring.worker.metricManualPackageMfaProvider" as MessageKey)} {operations.security.manual_package_mfa_provider_not_homologated_last_hour}</div>
+                <div className="otc-monitoring-actions">
+                  <a className="otc-button otc-button--ghost" href={manualPackageMfaAuditHref}>
+                    {t("monitoring.worker.openAudit")}
+                  </a>
+                </div>
               </div>
             </div>
 

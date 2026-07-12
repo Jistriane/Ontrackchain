@@ -29,6 +29,8 @@ def render_markdown(payload: dict[str, Any], snapshot_file: Path) -> str:
     prepare = payload.get("prepare") or {}
     run = payload.get("run") or {}
     artifact = payload.get("artifact_validation") or {}
+    regulatory = payload.get("regulatory") or {}
+    operational = payload.get("operational_incidents") or {}
 
     lines = [
         f"# Staging Window Status Snapshot - {format_value(payload.get('window_id'), 'unknown-window')}",
@@ -52,6 +54,32 @@ def render_markdown(payload: dict[str, Any], snapshot_file: Path) -> str:
         "",
         f"- placeholders pendentes: `{format_value(blockers.get('unresolved_placeholders_count'), '0')}`",
         f"- campos handoff pendentes: `{format_value(blockers.get('missing_handoff_fields_count'), '0')}`",
+        "",
+        "## Escopo Regulatorio",
+        "",
+        f"- escopo regulatorio da tentativa: `{format_value(regulatory.get('scope_label'))}`",
+        f"- scope validado pelo gate final: `{format_value(','.join(regulatory.get('validation_scope') or []), 'none')}`",
+        f"- AML/KYT runtime gate: `{format_value(regulatory.get('aml_kyt_runtime_status'))}`",
+        f"- AML/KYT runtime readiness: `{format_value(regulatory.get('aml_kyt_runtime_readiness'))}`",
+        f"- feed UE tokenizado: `{format_value(regulatory.get('eu_feed_status'))}`",
+        f"- feed UE readiness: `{format_value(regulatory.get('eu_feed_readiness'))}`",
+        f"- bundle regulatorio (`P0-04`) readiness: `{format_value(regulatory.get('p0_04_bundle_readiness'))}`",
+        f"- leitura de promocao: {format_value(regulatory.get('promotion_note'))}",
+        "",
+        "## Incidentes Operacionais e RCA",
+        "",
+        f"- status do resumo RCA: `{format_value(operational.get('status'))}`",
+        f"- exportados no resumo: `{format_value(operational.get('exported_count'), '0')}`",
+        f"- work-items rastreados: `{format_value(operational.get('tracked_work_items_count'), '0')}`",
+        f"- RCAs anexadas: `{format_value(operational.get('rca_attached_count'), '0')}`",
+        f"- causas confirmadas: `{format_value(operational.get('confirmed_root_cause_count'), '0')}`",
+        f"- incidentes `firing`: `{format_value(operational.get('firing_count'), '0')}`",
+        f"- incidentes criticos abertos: `{format_value(operational.get('critical_open_count'), '0')}`",
+        f"- fila `READY`: `{format_value(operational.get('ready_queue_count'), '0')}`",
+        f"- triagem pendente: `{format_value(operational.get('pending_triage_count'), '0')}`",
+        f"- triagem acknowledged: `{format_value(operational.get('acknowledged_count'), '0')}`",
+        f"- dominios RCA em destaque: `{format_value(','.join(operational.get('top_rca_domains') or []), 'none')}`",
+        f"- dominios afetados em destaque: `{format_value(','.join(operational.get('top_affected_domains') or []), 'none')}`",
         "",
         "### Placeholders pendentes",
         "",

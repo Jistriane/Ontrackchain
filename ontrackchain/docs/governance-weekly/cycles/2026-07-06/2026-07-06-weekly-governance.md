@@ -15,11 +15,11 @@
 - run do GitHub Actions: `pending`
 - status esperado: `RUN-STG-01` de `ready -> in_progress` ou `ready -> done` (apenas se dossier final estiver `ok`)
 - checklist canônico:
-  - [Checklist de Evidência Mínima da Primeira Janela Séria](../../../first-serious-window-evidence-checklist.md)
+  - [Checklist de Evidência Mínima da Primeira Janela Séria](../../../history/first-serious-window-evidence-checklist.md)
 - runbook do primeiro disparo:
-  - [Runbook do Primeiro Disparo Real](../../../first-serious-window-first-dispatch-runbook.md)
+  - [Runbook do Primeiro Disparo Real](../../../history/first-serious-window-first-dispatch-runbook.md)
 - template de sign-off:
-  - [Template de Sign-Off da Janela Seria](../../../staging-serious-window-signoff-template.md)
+  - [Template de Sign-Off da Janela Seria](../../../history/staging-serious-window-signoff-template.md)
 - war room desta janela:
   - [War Room da Janela `stg-2026-07-06-a`](./2026-07-06-staging-serious-window-war-room.md)
 - tracking ao vivo desta janela:

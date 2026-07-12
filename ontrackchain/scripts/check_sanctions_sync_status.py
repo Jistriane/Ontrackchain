@@ -6,6 +6,7 @@ import importlib
 import json
 import os
 import sys
+import uuid
 from typing import Any
 
 DEFAULT_LISTS = ("OFAC_SDN", "UN_CSNU", "EU_CONSOLIDATED")
@@ -53,6 +54,49 @@ def _load_rows(*, database_url: str, list_names: list[str]) -> list[dict[str, An
     return payload
 
 
+def _build_eu_correlation(
+    *,
+    checks: list[dict[str, Any]],
+    eu_override_url: str,
+    require_eu_override: bool,
+) -> dict[str, Any]:
+    eu_check = next(
+        (
+            item
+            for item in checks
+            if isinstance(item, dict) and item.get("list_name") == "EU_CONSOLIDATED"
+        ),
+        {},
+    )
+    observed_source_url = str(eu_check.get("source_url") or "")
+    persisted_status = str(eu_check.get("persisted_status") or "")
+    last_sync_status = str(eu_check.get("last_sync_status") or "")
+    override_tokenized = "token=" in eu_override_url.lower() if eu_override_url else False
+    source_url_matches_expected = bool(eu_override_url) and observed_source_url == eu_override_url
+    persisted_status_active = persisted_status == "ACTIVE"
+    last_sync_status_success = last_sync_status == "SUCCESS"
+    return {
+        "expected_source_url": eu_override_url,
+        "observed_source_url": observed_source_url,
+        "source_url_matches_expected": source_url_matches_expected,
+        "override_present": bool(eu_override_url),
+        "override_required": require_eu_override,
+        "override_tokenized": override_tokenized,
+        "persisted_status": persisted_status,
+        "persisted_status_active": persisted_status_active,
+        "last_sync_status": last_sync_status,
+        "last_sync_status_success": last_sync_status_success,
+        "status_reason": str(eu_check.get("status_reason") or ""),
+        "updated_at": eu_check.get("updated_at"),
+        "eu_window_converges_ready": (
+            source_url_matches_expected
+            and override_tokenized
+            and persisted_status_active
+            and last_sync_status_success
+        ),
+    }
+
+
 def build_payload(
     *,
     database_url: str,
@@ -61,6 +105,7 @@ def build_payload(
     eu_override_url: str,
     ofac_override_url: str,
     require_eu_override: bool = False,
+    request_id: str | None = None,
 ) -> dict[str, Any]:
     errors: list[str] = []
     checks: list[dict[str, Any]] = []
@@ -125,6 +170,10 @@ def build_payload(
                 "list_name": list_name,
                 "status": "failed" if row_errors else "ok",
                 "details": details,
+                "source_url": row["source_url"],
+                "persisted_status": row["status"],
+                "last_sync_status": row["last_sync_status"],
+                "status_reason": row["status_reason"],
                 "updated_at": row["updated_at"],
                 "errors": row_errors,
             }
@@ -136,6 +185,7 @@ def build_payload(
         "status": "failed" if errors else "ok",
         "errors": errors,
         "checks": checks,
+        "request_id": request_id or f"sanctions-sync-{uuid.uuid4().hex[:12]}",
         "list_names": list_names,
         "require_success": require_success,
         "overrides": {
@@ -144,6 +194,11 @@ def build_payload(
             "eu_tokenized": "token=" in eu_override_url.lower() if eu_override_url else False,
             "ofac_present": bool(ofac_override_url),
         },
+        "correlation": _build_eu_correlation(
+            checks=checks,
+            eu_override_url=eu_override_url,
+            require_eu_override=require_eu_override,
+        ),
     }
 
 
@@ -158,6 +213,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eu-window", action="store_true")
     parser.add_argument("--eu-override-url", default=_env("COMPLIANCE_EU_SANCTIONS_SOURCE_URL"))
     parser.add_argument("--ofac-override-url", default=_env("COMPLIANCE_OFAC_SDN_SOURCE_URL"))
+    parser.add_argument(
+        "--request-id",
+        default=_env("ONTRACKCHAIN_REGULATORY_EU_REQUEST_ID", f"eu-sync-{uuid.uuid4().hex[:12]}"),
+    )
     return parser.parse_args()
 
 
@@ -178,6 +237,7 @@ def main() -> int:
         eu_override_url=args.eu_override_url,
         ofac_override_url=args.ofac_override_url,
         require_eu_override=args.eu_window,
+        request_id=args.request_id,
     )
     output = sys.stdout if payload["status"] == "ok" else sys.stderr
     output.write(json.dumps(payload, ensure_ascii=True, indent=2) + "\n")

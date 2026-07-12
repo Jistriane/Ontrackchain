@@ -17,4 +17,8 @@ Consulte esta pasta quando precisar:
 - recuperar contexto de calibracoes e readiness antigos
 - investigar como uma sprint ou semana foi conduzida antes da taxonomia atual
 
-Nao use esta pasta como fonte primaria para operacao atual.
+## Regra de Precedencia
+
+- trate `archive/` como historico frio consolidado
+- quando houver divergencia entre um artefato arquivado e o estado atual, prevalecem `docs/`, `governance-weekly/cycles/` e os scorecards/boards vivos
+- nao use esta pasta como fonte primaria para operacao atual, baseline executiva ou contrato canônico

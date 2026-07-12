@@ -6,8 +6,10 @@ export const EVIDENCE_ACTION_VALUES = [
   "coaf_report_approved",
   "coaf_report_rejected",
   "coaf_report_submitted_manual",
+  "coaf_regulatory_dossier_downloaded",
   "report_generated",
   "report_downloaded",
+  "evidence_manual_review_package_exported",
   "compliance_due_diligence_checked",
   "compliance_source_of_funds_checked",
   "evidence_bundle_exported"
@@ -15,7 +17,7 @@ export const EVIDENCE_ACTION_VALUES = [
 
 export type EvidenceActionValue = (typeof EVIDENCE_ACTION_VALUES)[number];
 
-export const EVIDENCE_RESOURCE_TYPE_VALUES = ["address", "case", "report", "ros_record", "preventive_block", "counterparty"] as const;
+export const EVIDENCE_RESOURCE_TYPE_VALUES = ["address", "case", "report", "ros_record", "preventive_block", "counterparty", "audit_log"] as const;
 
 export type EvidenceResourceTypeValue = (typeof EVIDENCE_RESOURCE_TYPE_VALUES)[number];
 

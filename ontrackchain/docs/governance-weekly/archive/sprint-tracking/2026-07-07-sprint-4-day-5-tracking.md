@@ -89,4 +89,4 @@
 - classificacao: `aceitavel`
 - resumo executivo: Sprint 4 encerrada com institucionalizacao completa da baseline `91/78/87` e abertura formal do ciclo pos-90%
 - owner do primeiro passo do proximo marco: `Arquitetura/Governanca`
-- artefato relacionado: [Runbook de Execucao do Dia 5 da Sprint 4](../../sprint-4-day-5-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-4-day-5-execution-runbook.md`

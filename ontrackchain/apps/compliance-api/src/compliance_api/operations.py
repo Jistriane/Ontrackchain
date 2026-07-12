@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Any, Callable, Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
@@ -42,6 +42,15 @@ RESOURCE_TYPE_VALUES = (
     "counterparty",
     "evidence_event",
 )
+MODULE_RESOURCE_TYPE_MAP = {
+    "alerts": "operational_alert",
+    "sanctions": "sanctions_screening",
+    "blocks": "preventive_block",
+    "reports": "formal_report_case",
+    "ros_coaf": "ros_record",
+    "counterparties": "counterparty",
+    "evidence": "evidence_event",
+}
 ALLOWED_TRANSITIONS = {
     "UNDER_REVIEW": {"ESCALATED", "READY", "REJECTED", "CLOSED"},
     "ESCALATED": {"READY", "REJECTED", "CLOSED"},
@@ -50,6 +59,184 @@ ALLOWED_TRANSITIONS = {
     "SUBMITTED": {"CLOSED"},
     "CLOSED": set(),
     "REJECTED": set(),
+}
+MetadataValidator = Callable[[Any], bool]
+
+
+def _is_string(value: Any) -> bool:
+    return isinstance(value, str)
+
+
+def _is_nullable_string(value: Any) -> bool:
+    return value is None or isinstance(value, str)
+
+
+def _is_bool(value: Any) -> bool:
+    return isinstance(value, bool)
+
+
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _is_string_list(value: Any) -> bool:
+    return isinstance(value, list) and all(isinstance(entry, str) for entry in value)
+
+
+COMMON_METADATA_VALIDATORS: dict[str, tuple[MetadataValidator, str]] = {
+    "case_id": (_is_string, "string"),
+    "local_case_id": (_is_string, "string"),
+    "owner_user_id": (_is_string, "string"),
+    "owner_label": (_is_string, "string"),
+    "workspace_status": (_is_string, "string"),
+    "local_workspace_status": (_is_string, "string"),
+    "note": (_is_string, "string"),
+}
+
+RESOURCE_CASE_ID_ALIAS_KEYS: dict[str, tuple[str, ...]] = {
+    "sanctions_screening": ("case_id", "local_case_id"),
+    "preventive_block": ("case_id", "local_case_id"),
+    "formal_report_case": ("case_id",),
+    "ros_record": ("case_id",),
+    "counterparty": ("case_id",),
+    "evidence_event": ("case_id",),
+    "operational_alert": ("case_id",),
+}
+
+RESOURCE_WORKSPACE_STATUS_ALIAS_KEYS: dict[str, tuple[str, ...]] = {
+    "operational_alert": ("workspace_status", "local_workspace_status"),
+    "sanctions_screening": ("workspace_status", "local_workspace_status"),
+    "preventive_block": ("workspace_status", "local_workspace_status", "local_block_status"),
+    "formal_report_case": ("workspace_status", "local_workspace_status"),
+    "ros_record": ("workspace_status", "ros_status"),
+    "counterparty": ("workspace_status", "local_workspace_status"),
+    "evidence_event": ("workspace_status", "local_workspace_status"),
+}
+
+RESOURCE_METADATA_VALIDATORS: dict[str, dict[str, tuple[MetadataValidator, str]]] = {
+    "operational_alert": {
+        "alertname": (_is_string, "string"),
+        "receiver": (_is_string, "string"),
+        "service": (_is_nullable_string, "string|null"),
+        "severity": (_is_nullable_string, "string|null"),
+        "fingerprint": (_is_string, "string"),
+        "first_received_at": (_is_string, "string"),
+        "last_received_at": (_is_string, "string"),
+        "delivery_count": (_is_number, "number"),
+        "triage_status": (_is_string, "string"),
+        "triaged_at": (_is_nullable_string, "string|null"),
+        "triaged_by": (_is_nullable_string, "string|null"),
+        "triage_note": (_is_nullable_string, "string|null"),
+        "address": (_is_string, "string"),
+        "report_id": (_is_string, "string"),
+        "domain": (_is_string, "string"),
+        "affected_domains": (_is_string_list, "string[]"),
+        "incident_commander": (_is_string, "string"),
+        "containment_status": (_is_string, "string"),
+        "runbook_ref": (_is_string, "string"),
+        "impact_summary": (_is_string, "string"),
+        "suspected_root_cause": (_is_string, "string"),
+        "confirmed_root_cause": (_is_string, "string"),
+        "corrective_actions": (_is_string_list, "string[]"),
+        "evidence_refs": (_is_string_list, "string[]"),
+    },
+    "sanctions_screening": {
+        "workspace_id": (_is_string, "string"),
+        "address": (_is_string, "string"),
+        "chain": (_is_string, "string"),
+        "lists": (_is_string_list, "string[]"),
+        "provider": (_is_string, "string"),
+        "provider_status": (_is_string, "string"),
+        "capability_status": (_is_string, "string"),
+        "degraded_reason": (_is_string, "string"),
+        "matched_lists": (_is_string_list, "string[]"),
+        "hit": (_is_bool, "boolean"),
+        "entity_name": (_is_string, "string"),
+        "designation_date": (_is_string, "string"),
+        "checked_at": (_is_string, "string"),
+        "triage_note": (_is_string, "string"),
+    },
+    "preventive_block": {
+        "workspace_id": (_is_string, "string"),
+        "local_block_status": (_is_string, "string"),
+        "address": (_is_string, "string"),
+        "chain": (_is_string, "string"),
+        "entity_name": (_is_string, "string"),
+        "entity_document": (_is_string, "string"),
+        "action": (_is_string, "string"),
+        "requires_coaf_report": (_is_bool, "boolean"),
+        "decision_confidence": (_is_number, "number"),
+        "regulatory_basis": (_is_string_list, "string[]"),
+        "matched_lists": (_is_string_list, "string[]"),
+        "evidence_hash": (_is_string, "string"),
+        "block_id": (_is_string, "string"),
+        "screened_at": (_is_string, "string"),
+        "lifted_at": (_is_string, "string"),
+        "lift_reason": (_is_string, "string"),
+    },
+    "formal_report_case": {
+        "target_address": (_is_string, "string"),
+        "target_chain": (_is_string, "string"),
+        "report_type": (_is_string, "string"),
+    },
+    "ros_record": {
+        "ros_id": (_is_string, "string"),
+        "ros_status": (_is_string, "string"),
+        "ros_phase": (_is_string, "string"),
+        "report_id": (_is_string, "string"),
+        "created_at": (_is_string, "string"),
+        "approved_at": (_is_string, "string"),
+        "approval_2fa_verified": (_is_bool, "boolean"),
+        "submitted_at": (_is_string, "string"),
+        "coaf_protocol_number": (_is_string, "string"),
+        "coaf_receipt_hash": (_is_string, "string"),
+        "rejection_reason": (_is_string, "string"),
+    },
+    "counterparty": {
+        "counterparty_id": (_is_string, "string"),
+        "legal_name": (_is_string, "string"),
+        "counterparty_type": (_is_string, "string"),
+        "document_type": (_is_string, "string"),
+        "document_number": (_is_string, "string"),
+        "wallet_chain": (_is_string, "string"),
+        "wallet_address": (_is_string, "string"),
+        "wallet_label": (_is_string, "string"),
+        "risk_level": (_is_number, "number"),
+        "kyc_status": (_is_string, "string"),
+        "sanctions_cleared": (_is_bool, "boolean"),
+        "is_pep": (_is_bool, "boolean"),
+        "enhanced_dd_required": (_is_bool, "boolean"),
+        "next_review_date": (_is_string, "string"),
+        "status": (_is_string, "string"),
+        "created_at": (_is_string, "string"),
+        "dd_review_status": (_is_string, "string"),
+        "dd_review_note": (_is_string, "string"),
+        "sof_description": (_is_string, "string"),
+        "sof_document_ref": (_is_string, "string"),
+    },
+    "evidence_event": {
+        "event_id": (_is_string, "string"),
+        "audit_action": (_is_string, "string"),
+        "audit_resource_type": (_is_string, "string"),
+        "audit_resource_id": (_is_string, "string"),
+        "request_id": (_is_string, "string"),
+        "report_id": (_is_string, "string"),
+        "file_hash_sha256": (_is_string, "string"),
+        "provider": (_is_string, "string"),
+        "provider_status": (_is_string, "string"),
+        "degraded_reason": (_is_string, "string"),
+        "capability_status": (_is_string, "string"),
+        "delivery_mode": (_is_string, "string"),
+        "origin_analysis_status": (_is_string, "string"),
+        "requires_human_review": (_is_bool, "boolean"),
+        "counterparty_context_present": (_is_bool, "boolean"),
+        "counterparty_context": (_is_string, "string"),
+        "purpose": (_is_string, "string"),
+        "amount": (_is_number, "number"),
+        "manual_review_action": (_is_string, "string"),
+        "package_sha256": (_is_string, "string"),
+        "filename": (_is_string, "string"),
+    },
 }
 
 
@@ -232,6 +419,95 @@ def _validate_transition(current_status: str, next_status: str, note: Optional[s
         raise HTTPException(status_code=422, detail="note_required_for_rejected")
 
 
+def _validate_module_resource_pair(module: str, resource_type: str) -> None:
+    expected_resource_type = MODULE_RESOURCE_TYPE_MAP.get(module)
+    if expected_resource_type != resource_type:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "invalid_module_resource_type_pair",
+                "module": module,
+                "resource_type": resource_type,
+                "expected_resource_type": expected_resource_type,
+            },
+        )
+
+
+def _raise_invalid_metadata_field(resource_type: str, field: str, expected: str, value: Any) -> None:
+    raise HTTPException(
+        status_code=422,
+        detail={
+            "code": "invalid_work_item_metadata",
+            "resource_type": resource_type,
+            "field": field,
+            "expected": expected,
+            "received_type": type(value).__name__,
+        },
+    )
+
+
+def _first_string_field(metadata: dict[str, Any], keys: tuple[str, ...]) -> Optional[str]:
+    for key in keys:
+        value = metadata.get(key)
+        if isinstance(value, str):
+            return value
+    return None
+
+
+def _normalize_work_item_metadata(
+    *,
+    resource_type: str,
+    metadata: Optional[dict],
+    case_id: Optional[UUID | str],
+    owner_user_id: Optional[str],
+    note: Optional[str],
+) -> dict:
+    normalized = dict(metadata or {})
+
+    resolved_case_id = str(case_id) if case_id else _first_string_field(
+        normalized, RESOURCE_CASE_ID_ALIAS_KEYS.get(resource_type, ("case_id", "local_case_id"))
+    )
+    if resolved_case_id:
+        normalized["case_id"] = resolved_case_id
+        if resource_type in {"sanctions_screening", "preventive_block"}:
+            normalized.setdefault("local_case_id", resolved_case_id)
+
+    if owner_user_id and not normalized.get("owner_user_id"):
+        normalized["owner_user_id"] = str(owner_user_id)
+    if note and not normalized.get("note"):
+        normalized["note"] = note
+
+    workspace_status = _first_string_field(
+        normalized, RESOURCE_WORKSPACE_STATUS_ALIAS_KEYS.get(resource_type, ("workspace_status",))
+    )
+    if isinstance(workspace_status, str):
+        normalized["workspace_status"] = workspace_status
+        if resource_type in {
+            "sanctions_screening",
+            "formal_report_case",
+            "counterparty",
+            "evidence_event",
+            "preventive_block",
+        }:
+            normalized.setdefault("local_workspace_status", workspace_status)
+        if resource_type == "preventive_block":
+            normalized.setdefault("local_block_status", workspace_status)
+        if resource_type == "ros_record":
+            normalized.setdefault("ros_status", workspace_status)
+
+    return normalized
+
+
+def _validate_work_item_metadata(resource_type: str, metadata: dict) -> None:
+    for field, (validator, expected) in COMMON_METADATA_VALIDATORS.items():
+        if field in metadata and not validator(metadata[field]):
+            _raise_invalid_metadata_field(resource_type, field, expected, metadata[field])
+
+    for field, (validator, expected) in RESOURCE_METADATA_VALIDATORS.get(resource_type, {}).items():
+        if field in metadata and not validator(metadata[field]):
+            _raise_invalid_metadata_field(resource_type, field, expected, metadata[field])
+
+
 def _resource_exists(cur, resource_type: str, resource_id: UUID, case_id: Optional[UUID]) -> bool:
     lookup_sql = {
         "operational_alert": ("SELECT 1 FROM operational_alert_events WHERE id = %s", (resource_id,)),
@@ -315,6 +591,7 @@ async def create_work_item(
 ) -> WorkItemResponse:
     org_id = _require_org_id(x_org_id)
     _require_role(x_role, WRITABLE_ROLES, "privileged_write_role_required")
+    _validate_module_resource_pair(body.module, body.resource_type)
     effective_user_id, external_actor_user_id = _resolve_actor_ids(
         external_user_id=x_user_id,
         linked_user_id=x_linked_user_id,
@@ -330,6 +607,14 @@ async def create_work_item(
             owner_user_id = str(body.owner_user_id) if body.owner_user_id else None
             if owner_user_id and not _resolve_persisted_user_id(cur, owner_user_id):
                 raise HTTPException(status_code=422, detail="owner_user_not_found")
+            normalized_metadata = _normalize_work_item_metadata(
+                resource_type=body.resource_type,
+                metadata=body.metadata,
+                case_id=body.case_id,
+                owner_user_id=owner_user_id,
+                note=body.note,
+            )
+            _validate_work_item_metadata(body.resource_type, normalized_metadata)
             sla_breached = _compute_sla_breached(body.queue_status, body.due_at)
             cur.execute(
                 """
@@ -381,7 +666,7 @@ async def create_work_item(
                     sla_breached,
                     body.title,
                     body.note,
-                    json.dumps(body.metadata),
+                    json.dumps(normalized_metadata),
                 ),
             )
             work_item = cur.fetchone()
@@ -437,6 +722,7 @@ async def list_work_items(
     owner_user_id: Optional[UUID] = Query(default=None),
     priority: Optional[str] = Query(default=None),
     case_id: Optional[UUID] = Query(default=None),
+    report_external_id: Optional[str] = Query(default=None, max_length=64),
     resource_type: Optional[str] = Query(default=None),
     due_before: Optional[datetime] = Query(default=None),
     page: int = Query(default=1, ge=1),
@@ -455,6 +741,8 @@ async def list_work_items(
         raise HTTPException(status_code=422, detail="invalid_priority")
     if resource_type and resource_type not in RESOURCE_TYPE_VALUES:
         raise HTTPException(status_code=422, detail="invalid_resource_type")
+    if module and resource_type:
+        _validate_module_resource_pair(module, resource_type)
     offset = (page - 1) * limit
     with pool.connection() as conn:
         _apply_rls_context(conn, org_id)
@@ -479,6 +767,9 @@ async def list_work_items(
             if case_id:
                 base_query += " AND case_id = %s"
                 params.append(case_id)
+            if report_external_id:
+                base_query += " AND report_external_id = %s"
+                params.append(report_external_id)
             if resource_type:
                 base_query += " AND resource_type = %s"
                 params.append(resource_type)
@@ -544,6 +835,7 @@ async def update_work_item(
             current = cur.fetchone()
             if not current:
                 raise HTTPException(status_code=404, detail="work_item_not_found")
+            _validate_module_resource_pair(current["module"], current["resource_type"])
             next_status = body.queue_status or current["queue_status"]
             _validate_transition(current["queue_status"], next_status, body.note)
             owner_user_id = str(body.owner_user_id) if body.owner_user_id else current["owner_user_id"]
@@ -552,6 +844,14 @@ async def update_work_item(
             merged_metadata = dict(current["metadata"] or {})
             if body.metadata:
                 merged_metadata.update(body.metadata)
+            merged_metadata = _normalize_work_item_metadata(
+                resource_type=current["resource_type"],
+                metadata=merged_metadata,
+                case_id=current["case_id"],
+                owner_user_id=owner_user_id,
+                note=body.note or current["note"],
+            )
+            _validate_work_item_metadata(current["resource_type"], merged_metadata)
             due_at = body.due_at if body.due_at is not None else current["due_at"]
             sla_breached = _compute_sla_breached(next_status, due_at)
             cur.execute(

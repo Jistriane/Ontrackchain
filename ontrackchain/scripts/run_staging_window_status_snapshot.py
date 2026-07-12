@@ -59,6 +59,44 @@ def load_json(path: Path) -> dict[str, Any]:
         return {}
 
 
+def load_operational_alerts_rca_summary(checks_dir: Path, window_id: str) -> dict[str, Any]:
+    summary_file = checks_dir / f"{window_id}-operational-alerts-rca-summary.json"
+    payload = load_json(summary_file)
+    if not payload:
+        return {
+            "status": "not_available",
+            "summary_file": str(summary_file),
+            "exported_count": 0,
+            "tracked_work_items_count": 0,
+            "rca_attached_count": 0,
+            "confirmed_root_cause_count": 0,
+            "firing_count": 0,
+            "critical_open_count": 0,
+            "pending_triage_count": 0,
+            "acknowledged_count": 0,
+            "ready_queue_count": 0,
+            "containment_status_counts": {},
+            "top_rca_domains": [],
+            "top_affected_domains": [],
+        }
+
+    payload["status"] = "available"
+    payload["summary_file"] = str(summary_file)
+    payload.setdefault("exported_count", 0)
+    payload.setdefault("tracked_work_items_count", 0)
+    payload.setdefault("rca_attached_count", 0)
+    payload.setdefault("confirmed_root_cause_count", 0)
+    payload.setdefault("firing_count", 0)
+    payload.setdefault("critical_open_count", 0)
+    payload.setdefault("pending_triage_count", 0)
+    payload.setdefault("acknowledged_count", 0)
+    payload.setdefault("ready_queue_count", 0)
+    payload.setdefault("containment_status_counts", {})
+    payload.setdefault("top_rca_domains", [])
+    payload.setdefault("top_affected_domains", [])
+    return payload
+
+
 def collect_blockers(checks_dir: Path, window_id: str) -> dict[str, Any]:
     placeholders_file = checks_dir / f"placeholders-{window_id}.json"
     handoff_file = checks_dir / f"handoff-{window_id}.json"
@@ -108,6 +146,49 @@ def compute_overall_status(prepare: dict[str, Any], run: dict[str, Any], validat
     if any(status == "failed" for status in statuses):
         return "failed"
     return "unknown"
+
+
+def derive_regulatory_scope_label(regulatory_bundle: dict[str, Any]) -> str:
+    scope_items: list[str] = []
+    if regulatory_bundle.get("compliance_runtime_enabled") is True:
+        scope_items.append("P0-02")
+    if regulatory_bundle.get("eu_window_enabled") is True:
+        scope_items.append("P0-03")
+    return "/".join(scope_items) if scope_items else "none"
+
+
+def build_regulatory_snapshot(run: dict[str, Any], validate: dict[str, Any]) -> dict[str, Any]:
+    run_payload = run.get("payload") or {}
+    run_steps = run_payload.get("steps") or {}
+    regulatory_bundle = run_steps.get("regulatory_readiness_bundle") or {}
+    readiness = regulatory_bundle.get("readiness") or {}
+    validation_payload = validate.get("payload") or {}
+    validation_scope = validation_payload.get("scope") or []
+    regulatory_scope_label = derive_regulatory_scope_label(regulatory_bundle)
+    combined_scope = regulatory_scope_label == "P0-02/P0-03"
+    if combined_scope:
+        promotion_note = "tentativa combinada; P0-04 pode ser promovido se a validacao final convergir"
+    elif regulatory_scope_label == "none":
+        promotion_note = "sem escopo regulatorio material nesta tentativa"
+    else:
+        promotion_note = (
+            f"tentativa parcial ({regulatory_scope_label}); endurece a trilha, "
+            "mas a promocao oficial de P0-04 ainda exige P0-02 + P0-03"
+        )
+
+    return {
+        "scope_label": regulatory_scope_label,
+        "scope_is_combined": combined_scope,
+        "validation_scope": validation_scope,
+        "aml_kyt_runtime_status": regulatory_bundle.get("compliance_provider_runtime_status") or "unknown",
+        "aml_kyt_runtime_readiness": (readiness.get("compliance_runtime") or {}).get("readiness_status")
+        or "unknown",
+        "eu_feed_status": regulatory_bundle.get("eu_sanctions_window_status") or "unknown",
+        "eu_feed_readiness": (readiness.get("eu_window") or {}).get("readiness_status") or "unknown",
+        "p0_04_bundle_readiness": (readiness.get("regulatory_bundle") or {}).get("readiness_status")
+        or "unknown",
+        "promotion_note": promotion_note,
+    }
 
 
 def parse_args() -> argparse.Namespace:
@@ -177,12 +258,15 @@ def main() -> int:
     validate_result = run_command(validate_cmd)
 
     blockers = collect_blockers(Path(args.checks_dir), args.window_id)
+    operational_incidents = load_operational_alerts_rca_summary(Path(args.checks_dir), args.window_id)
 
     snapshot = {
         "kind": "staging_window_status_snapshot",
         "generated_at": utc_now_iso(),
         "window_id": args.window_id,
         "overall_status": compute_overall_status(prepare_result, run_result, validate_result),
+        "regulatory": build_regulatory_snapshot(run_result, validate_result),
+        "operational_incidents": operational_incidents,
         "blockers": blockers,
         "prepare": {
             "exit_code": prepare_result["exit_code"],

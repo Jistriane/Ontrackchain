@@ -1,5 +1,7 @@
 # Governança Semanal — 2026-06-29
 
+> Registro historico arquivado. Este documento preserva o snapshot semanal daquele momento (`89/76`), mas nao representa a baseline viva atual do projeto.
+
 ## Leitura do Ciclo
 
 - Baseline técnica: `89%`

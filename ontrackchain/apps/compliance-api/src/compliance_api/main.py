@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -64,10 +65,12 @@ settings = Settings()
 
 app = FastAPI(title="OnTrackChain Compliance API")
 app.include_router(operations_router)
+logger = logging.getLogger("compliance_api")
 
 SUPPORTED_CHAINS = {"ethereum", "polygon", "bsc", "arbitrum", "base", "bitcoin"}
 QUOTE_TTL_MINUTES = 15
 CALCULATION_VERSION = "v1.0"
+COMPLIANCE_WRITE_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
 
 COMPLIANCE_OPERATION_ALIASES = {
     "kyc": "kyc_wallet",
@@ -187,6 +190,115 @@ def _require_org_id(org_id: Optional[str]) -> str:
     if not org_id:
         raise HTTPException(status_code=401, detail="missing_org_context")
     return org_id
+
+
+def _normalized_role(role: Optional[str]) -> str:
+    return str(role or "").strip().upper()
+
+
+def _record_authorization_denial(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    effective_role: Optional[str],
+    allowed_roles: set[str],
+    detail: str,
+    resource_type: str,
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> None:
+    try:
+        with pool.connection() as conn:
+            _apply_rls_context(conn, organization_id)
+            with conn.cursor() as cur:
+                _record_audit_log(
+                    cur,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                    action="authorization_denied",
+                    resource_type=resource_type,
+                    resource_id=str(resource_id) if resource_id is not None else None,
+                    metadata={
+                        "request_id": request_id,
+                        "effective_role": effective_role or "UNSPECIFIED",
+                        "allowed_roles": sorted(allowed_roles),
+                        "detail": detail,
+                        "endpoint": endpoint,
+                        "method": method,
+                        "external_user_id": external_user_id,
+                    },
+                )
+            conn.commit()
+    except Exception:
+        logger.exception("failed_to_record_authorization_denial")
+
+
+def _require_role_with_audit(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    allowed_roles: set[str],
+    detail: str,
+    resource_type: str,
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    role = _normalized_role(x_role)
+    if role not in allowed_roles:
+        _record_authorization_denial(
+            pool,
+            organization_id=organization_id,
+            user_id=user_id,
+            external_user_id=external_user_id,
+            request_id=request_id,
+            effective_role=role,
+            allowed_roles=allowed_roles,
+            detail=detail,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            endpoint=endpoint,
+            method=method,
+        )
+        raise HTTPException(status_code=403, detail=detail)
+    return role
+
+
+def _require_compliance_write_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_type: str,
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=COMPLIANCE_WRITE_ALLOWED_ROLES,
+        detail="compliance_write_role_required",
+        resource_type=resource_type,
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
 
 
 def _normalize_chain(chain: str) -> str:
@@ -1150,11 +1262,68 @@ class CounterpartyListItem(BaseModel):
     next_review_date: Optional[str]
     status: str
     created_at: str
+    dd_review_status: str = "pending"
+    dd_review_note: str = ""
+    sof_description: str = ""
+    sof_document_ref: str = ""
+    last_reviewed_at: Optional[str] = None
 
 
 class CounterpartyListResponse(BaseModel):
     items: list[CounterpartyListItem]
     total: int
+
+
+class CounterpartyReviewUpdateRequest(BaseModel):
+    dd_review_status: Literal["pending", "in_progress", "completed", "escalated"] = "pending"
+    dd_review_note: str = ""
+    sof_description: str = ""
+    sof_document_ref: str = ""
+
+
+class CounterpartyReviewResponse(BaseModel):
+    counterparty_id: uuid.UUID
+    dd_review_status: str
+    dd_review_note: str
+    sof_description: str
+    sof_document_ref: str
+    last_reviewed_at: Optional[str] = None
+
+
+def _normalize_counterparty_review_status(value: Optional[str]) -> str:
+    normalized = (value or "").strip().lower()
+    if normalized in {"pending", "in_progress", "completed", "escalated"}:
+        return normalized
+
+    aliases = {
+        "in progress": "in_progress",
+        "in-progress": "in_progress",
+        "under_review": "in_progress",
+        "approved": "completed",
+        "done": "completed",
+        "waived_with_justification": "escalated",
+    }
+    return aliases.get(normalized, "pending")
+
+
+def _normalize_counterparty_review_payload(value: object) -> dict[str, str]:
+    if isinstance(value, dict):
+        return {
+            "sof_description": value.get("sof_description", "") if isinstance(value.get("sof_description"), str) else "",
+            "sof_document_ref": value.get("sof_document_ref", "") if isinstance(value.get("sof_document_ref"), str) else "",
+        }
+    return {"sof_description": "", "sof_document_ref": ""}
+
+
+def _build_counterparty_review_snapshot(row: dict) -> dict[str, Optional[str]]:
+    payload = _normalize_counterparty_review_payload(row.get("enhanced_dd_checklist"))
+    return {
+        "dd_review_status": _normalize_counterparty_review_status(row.get("enhanced_dd_status")),
+        "dd_review_note": row.get("enhanced_dd_findings") or "",
+        "sof_description": payload["sof_description"],
+        "sof_document_ref": payload["sof_document_ref"],
+        "last_reviewed_at": row["last_reviewed_at"].isoformat() if row.get("last_reviewed_at") else None,
+    }
 
 
 @app.get("/health")
@@ -1309,6 +1478,18 @@ async def start_compliance(
     effective_user_id, external_actor_user_id = _resolve_actor_ids(
         external_user_id=x_user_id,
         linked_user_id=x_linked_user_id,
+    )
+    _require_compliance_write_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_type="case",
+        resource_id=None,
+        endpoint="/api/v1/compliance/start",
+        method="POST",
     )
 
     with pool.connection() as conn:
@@ -1554,7 +1735,17 @@ def _default_report_type_for_operation(operation: str) -> str:
     return mapping.get(operation, "compliance_aml")
 
 
-def _generate_report_for_case(case_id: str, report_type: str, include_onchain_hash: bool) -> dict:
+def _generate_report_for_case(
+    case_id: str,
+    report_type: str,
+    include_onchain_hash: bool,
+    *,
+    org_id: str,
+    user_id: Optional[str],
+    linked_user_id: Optional[str],
+    role: Optional[str],
+    request_id: Optional[str],
+) -> dict:
     payload = json.dumps(
         {
             "case_id": case_id,
@@ -1562,10 +1753,22 @@ def _generate_report_for_case(case_id: str, report_type: str, include_onchain_ha
             "include_onchain_hash": include_onchain_hash,
         }
     ).encode("utf-8")
+    headers = {
+        "content-type": "application/json",
+        "X-Org-Id": org_id,
+    }
+    if user_id:
+        headers["X-User-Id"] = user_id
+    if linked_user_id:
+        headers["X-Linked-User-Id"] = linked_user_id
+    if role:
+        headers["X-Role"] = role
+    if request_id:
+        headers["X-Request-Id"] = request_id
     request = urllib.request.Request(
         f"{settings.report_api_base_url}/api/v1/reports/generate",
         data=payload,
-        headers={"content-type": "application/json"},
+        headers=headers,
         method="POST",
     )
     with urllib.request.urlopen(request) as response:
@@ -1592,6 +1795,7 @@ async def generate_compliance_report(
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
     x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
     x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
     x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> GenerateComplianceReportResponse:
     org_id = _require_org_id(x_org_id)
@@ -1620,7 +1824,16 @@ async def generate_compliance_report(
             metadata = case_row["metadata"] or {}
             operation = metadata.get("operation_canonical", "kyc_wallet")
             requested_report_type = body.report_type or _default_report_type_for_operation(operation)
-            report = _generate_report_for_case(str(case_id), requested_report_type, body.include_onchain_hash)
+            report = _generate_report_for_case(
+                str(case_id),
+                requested_report_type,
+                body.include_onchain_hash,
+                org_id=org_id,
+                user_id=x_user_id,
+                linked_user_id=x_linked_user_id,
+                role=x_role,
+                request_id=request_id,
+            )
 
             cur.execute(
                 """
@@ -1981,6 +2194,7 @@ async def evaluate_block(
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
     x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
     x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
     x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> BlockEvaluateResponse:
     request_id = x_request_id or str(uuid.uuid4())
@@ -1989,6 +2203,18 @@ async def evaluate_block(
     effective_user_id, external_actor_user_id = _resolve_actor_ids(
         external_user_id=x_user_id,
         linked_user_id=x_linked_user_id,
+    )
+    _require_compliance_write_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_type="preventive_block",
+        resource_id=None,
+        endpoint="/api/v1/compliance/blocks/evaluate",
+        method="POST",
     )
 
     screening = _screen_address_local(
@@ -2151,10 +2377,13 @@ async def lift_block(
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
     x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
     x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
     x_mfa_mode: Annotated[Optional[str], Header(alias="X-MFA-Mode")] = None,
     x_mfa_provider_homologated: Annotated[Optional[str], Header(alias="X-MFA-Provider-Homologated")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> BlockLiftResponse:
     org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
     _require_external_provider_2fa(
         x_mfa_mode=x_mfa_mode,
         x_mfa_provider_homologated=x_mfa_provider_homologated,
@@ -2165,6 +2394,18 @@ async def lift_block(
     )
     if not effective_user_id:
         raise HTTPException(status_code=401, detail="missing_user_context")
+    _require_compliance_write_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_type="preventive_block",
+        resource_id=block_id,
+        endpoint="/api/v1/compliance/blocks/{block_id}/lift",
+        method="POST",
+    )
 
     lifted_at = datetime.now(timezone.utc).isoformat()
     with pool.connection() as conn:
@@ -2246,9 +2487,10 @@ async def create_counterparty(
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
     x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
     x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
     x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> CounterpartyCreateResponse:
-    _ = x_request_id or str(uuid.uuid4())
+    request_id = x_request_id or str(uuid.uuid4())
     org_id = _require_org_id(x_org_id)
     effective_user_id, external_actor_user_id = _resolve_actor_ids(
         external_user_id=x_user_id,
@@ -2256,6 +2498,18 @@ async def create_counterparty(
     )
     if not effective_user_id:
         raise HTTPException(status_code=401, detail="missing_user_context")
+    _require_compliance_write_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_type="counterparty",
+        resource_id=None,
+        endpoint="/api/v1/compliance/counterparties",
+        method="POST",
+    )
 
     screening = _screen_address_local(
         pool=pool,
@@ -2425,7 +2679,11 @@ async def list_counterparties(
                     sanctions_cleared,
                     is_pep,
                     enhanced_dd_required,
+                    enhanced_dd_status,
+                    enhanced_dd_findings,
+                    enhanced_dd_checklist,
                     next_review_date,
+                    last_reviewed_at,
                     status,
                     created_at
                 FROM counterparties
@@ -2437,6 +2695,7 @@ async def list_counterparties(
             )
             rows = cur.fetchall()
     for row in rows:
+        review_snapshot = _build_counterparty_review_snapshot(row)
         items.append(
             CounterpartyListItem(
                 id=row["id"],
@@ -2452,6 +2711,156 @@ async def list_counterparties(
                 next_review_date=row["next_review_date"].isoformat() if row["next_review_date"] else None,
                 status=row["status"],
                 created_at=row["created_at"].isoformat(),
+                dd_review_status=review_snapshot["dd_review_status"] or "pending",
+                dd_review_note=review_snapshot["dd_review_note"] or "",
+                sof_description=review_snapshot["sof_description"] or "",
+                sof_document_ref=review_snapshot["sof_document_ref"] or "",
+                last_reviewed_at=review_snapshot["last_reviewed_at"],
             )
         )
     return CounterpartyListResponse(items=items, total=total)
+
+
+@app.patch("/api/v1/compliance/counterparties/{counterparty_id}/review", response_model=CounterpartyReviewResponse)
+async def update_counterparty_review(
+    counterparty_id: uuid.UUID,
+    body: CounterpartyReviewUpdateRequest,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> CounterpartyReviewResponse:
+    org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    if not effective_user_id:
+        raise HTTPException(status_code=401, detail="missing_user_context")
+    _require_compliance_write_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_type="counterparty",
+        resource_id=counterparty_id,
+        endpoint="/api/v1/compliance/counterparties/{counterparty_id}/review",
+        method="PATCH",
+    )
+
+    reviewed_at = datetime.now(timezone.utc)
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            persisted_user_id = _resolve_persisted_user_id(cur, effective_user_id)
+            if not persisted_user_id:
+                raise HTTPException(status_code=403, detail="linked_user_required_for_counterparty_review")
+
+            cur.execute(
+                """
+                SELECT legal_name, enhanced_dd_status, enhanced_dd_findings, enhanced_dd_checklist, evidence_hash
+                FROM counterparties
+                WHERE id = %s
+                  AND organization_id = %s
+                """,
+                (str(counterparty_id), org_id),
+            )
+            existing_row = cur.fetchone()
+            if not existing_row:
+                raise HTTPException(status_code=404, detail="counterparty_not_found")
+
+            existing_payload = _normalize_counterparty_review_payload(existing_row["enhanced_dd_checklist"])
+            merged_payload = {
+                **existing_payload,
+                "sof_description": body.sof_description.strip(),
+                "sof_document_ref": body.sof_document_ref.strip(),
+            }
+            normalized_status = _normalize_counterparty_review_status(body.dd_review_status)
+
+            cur.execute(
+                """
+                UPDATE counterparties
+                   SET enhanced_dd_status = %s,
+                       enhanced_dd_findings = %s,
+                       enhanced_dd_checklist = %s::jsonb,
+                       last_reviewed_at = %s,
+                       last_reviewed_by = %s
+                 WHERE id = %s
+                   AND organization_id = %s
+                RETURNING id, enhanced_dd_status, enhanced_dd_findings, enhanced_dd_checklist, last_reviewed_at
+                """,
+                (
+                    normalized_status,
+                    body.dd_review_note.strip(),
+                    json.dumps(merged_payload),
+                    reviewed_at.isoformat(),
+                    persisted_user_id,
+                    str(counterparty_id),
+                    org_id,
+                ),
+            )
+            updated_row = cur.fetchone()
+
+            cur.execute(
+                """
+                INSERT INTO counterparty_history (
+                    counterparty_id, organization_id, changed_by_user_id, change_type,
+                    field_changed, old_value, new_value, change_reason, evidence_hash
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    str(counterparty_id),
+                    org_id,
+                    persisted_user_id,
+                    "DD_REVIEW_UPDATED",
+                    "enhanced_dd_status",
+                    existing_row["enhanced_dd_status"],
+                    normalized_status,
+                    body.dd_review_note.strip() or None,
+                    existing_row["evidence_hash"],
+                ),
+            )
+            _record_audit_log(
+                cur,
+                organization_id=org_id,
+                user_id=persisted_user_id,
+                action="counterparty_review_updated",
+                resource_type="counterparty",
+                resource_id=str(counterparty_id),
+                metadata={
+                    "legal_name": existing_row["legal_name"],
+                    "dd_review_status": normalized_status,
+                    "sof_document_ref": merged_payload["sof_document_ref"],
+                    "external_user_id": external_actor_user_id,
+                },
+            )
+            emit_evidence_event_sync(
+                cur=cur,
+                org_id=org_id,
+                event_type="COUNTERPARTY_UPDATED",
+                event_payload={
+                    "counterparty_id": str(counterparty_id),
+                    "legal_name": existing_row["legal_name"],
+                    "dd_review_status": normalized_status,
+                    "sof_document_ref": merged_payload["sof_document_ref"],
+                },
+                actor_user_id=persisted_user_id,
+                regulatory_basis=["BCB 520 Art. 47", "Circular BCB 3.978/2020"],
+            )
+        conn.commit()
+
+    review_snapshot = _build_counterparty_review_snapshot(updated_row)
+    return CounterpartyReviewResponse(
+        counterparty_id=counterparty_id,
+        dd_review_status=review_snapshot["dd_review_status"] or "pending",
+        dd_review_note=review_snapshot["dd_review_note"] or "",
+        sof_description=review_snapshot["sof_description"] or "",
+        sof_document_ref=review_snapshot["sof_document_ref"] or "",
+        last_reviewed_at=review_snapshot["last_reviewed_at"],
+    )

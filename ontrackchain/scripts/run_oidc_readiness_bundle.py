@@ -132,6 +132,39 @@ def build_step(
     return payload
 
 
+def build_readiness_summary(payload: dict[str, Any]) -> dict[str, Any]:
+    steps = payload.get("steps") or {}
+    preflight = steps.get("oidc_preflight") or {}
+    smoke = steps.get("smoke_auth_oidc_mode") or {}
+    scope = payload.get("scope") or {}
+
+    blockers: list[str] = []
+    if preflight.get("status") != "ok":
+        blockers.append("preflight_oidc_serious_env ainda nao esta verde")
+    if smoke.get("status") != "ok":
+        blockers.append("smoke_auth_oidc_mode ainda nao esta verde")
+
+    mfa_homologated = str(scope.get("mfa_external_provider_homologated", "false")).strip().lower() == "true"
+    if not mfa_homologated:
+        blockers.append("provider MFA/OIDC ainda nao esta homologado para trilho serio")
+
+    if preflight.get("status") != "ok" or smoke.get("status") != "ok":
+        readiness_status = "blocked"
+        next_action = "Corrigir preflight/smoke OIDC e rerodar o bundle antes de qualquer promocao."
+    elif not mfa_homologated:
+        readiness_status = "ready"
+        next_action = "Substituir placeholders por provider serio homologado e rerodar o bundle com insumos reais."
+    else:
+        readiness_status = "ready_for_validation"
+        next_action = "Anexar bundle ao war room/sign-off e executar validacao formal com fluxo critico OIDC."
+
+    return {
+        "readiness_status": readiness_status,
+        "blockers": blockers,
+        "next_action": next_action,
+    }
+
+
 def run_bundle(
     *,
     window_id: str,
@@ -215,6 +248,7 @@ def run_bundle(
         payload["errors"].append("smoke_auth_oidc_mode: falhou")
 
     payload["status"] = "ok" if not payload["errors"] else "failed"
+    payload["readiness"] = build_readiness_summary(payload)
     return (0 if payload["status"] == "ok" else 1), payload
 
 

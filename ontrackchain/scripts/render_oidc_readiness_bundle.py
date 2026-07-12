@@ -28,10 +28,14 @@ def build_model(payload: dict[str, Any], bundle_file: Path) -> dict[str, Any]:
     steps = payload.get("steps") or {}
     preflight = steps.get("oidc_preflight") or {}
     smoke = steps.get("smoke_auth_oidc_mode") or {}
+    readiness = payload.get("readiness") or {}
     return {
         "window_id": format_value(payload.get("window_id"), "unknown-window"),
         "generated_at": format_value(payload.get("generated_at")),
         "status": format_value(payload.get("status"), "unknown"),
+        "readiness_status": format_value(readiness.get("readiness_status"), "unknown"),
+        "readiness_blockers": readiness.get("blockers") or [],
+        "next_action": format_value(readiness.get("next_action"), "pending"),
         "bundle_file": str(bundle_file),
         "mfa_external_provider_homologated": format_value(
             (payload.get("scope") or {}).get("mfa_external_provider_homologated"),
@@ -60,6 +64,7 @@ def render_markdown(model: dict[str, Any]) -> str:
         f"- window_id: `{model['window_id']}`",
         f"- gerado em: `{model['generated_at']}`",
         f"- status geral: `{model['status']}`",
+        f"- status de readiness: `{model['readiness_status']}`",
         f"- arquivo fonte: `{model['bundle_file']}`",
         f"- provider esperado: `{model['expected_oidc_provider']}`",
         f"- MFA federado homologado: `{model['mfa_external_provider_homologated']}`",
@@ -76,6 +81,13 @@ def render_markdown(model: dict[str, Any]) -> str:
     ]
     if model["errors"]:
         for error in model["errors"]:
+            lines.append(f"- `{error}`")
+    else:
+        lines.append("- `none`")
+
+    lines.extend(["", "## Bloqueadores de Readiness", ""])
+    if model["readiness_blockers"]:
+        for error in model["readiness_blockers"]:
             lines.append(f"- `{error}`")
     else:
         lines.append("- `none`")
@@ -99,7 +111,7 @@ def render_markdown(model: dict[str, Any]) -> str:
             "",
             "## Proximo Passo",
             "",
-            "- revisar o preflight OIDC e o smoke de auth no mesmo pacote de evidencias",
+            f"- {model['next_action']}",
             "- anexar este markdown ao war room e ao sign-off quando a janela incluir P0-01",
             "- manter o Playwright critico como gate complementar fora deste bundle",
         ]
@@ -149,6 +161,7 @@ def main() -> int:
                 "output_file": str(output_file),
                 "window_id": model["window_id"],
                 "overall_status": model["status"],
+                "readiness_status": model["readiness_status"],
             },
             ensure_ascii=True,
             indent=2,

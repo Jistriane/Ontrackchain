@@ -2,157 +2,101 @@
 
 ![Ontrackchain](./ontrackchain/docs/assets/logo.jpeg)
 
-Plataforma modular de investigacao e compliance on-chain, com foco em trilha auditavel, fila operacional multiusuario, screening local de sancoes e governanca de release para operacao regulada.
-
-## Sumario
-
-- [Ontrackchain](#ontrackchain)
-  - [Sumario](#sumario)
-  - [Leitura em 2 Minutos](#leitura-em-2-minutos)
-  - [O Que Este Repositorio Contem](#o-que-este-repositorio-contem)
-  - [Estado Atual](#estado-atual)
-  - [Arquitetura em 60 Segundos](#arquitetura-em-60-segundos)
-  - [Mapa Rapido de Modulos](#mapa-rapido-de-modulos)
-  - [Como os Modulos se Conectam](#como-os-modulos-se-conectam)
-  - [Leitura Recomendada por Perfil](#leitura-recomendada-por-perfil)
-    - [Arquiteto / Lider Tecnico](#arquiteto--lider-tecnico)
-    - [Operacao / SRE / DevOps](#operacao--sre--devops)
-    - [Compliance / Regulacao](#compliance--regulacao)
-    - [Produto / Stakeholders Executivos](#produto--stakeholders-executivos)
-  - [Matriz de Fluxos Criticos](#matriz-de-fluxos-criticos)
-  - [Prontidao Rumo a 95%](#prontidao-rumo-a-95)
-    - [Capacidades Consolidadas](#capacidades-consolidadas)
-    - [Bloqueadores para `95%`](#bloqueadores-para-95)
-    - [Ordem Recomendada de Fechamento](#ordem-recomendada-de-fechamento)
-  - [Principais Decisoes Arquiteturais](#principais-decisoes-arquiteturais)
-    - [ADRs Mais Relevantes](#adrs-mais-relevantes)
-  - [Riscos Estruturais e Trade-offs](#riscos-estruturais-e-trade-offs)
-  - [Politica de Documentacao](#politica-de-documentacao)
-  - [Quick Start](#quick-start)
-    - [1. Subir a stack local](#1-subir-a-stack-local)
-    - [2. Validar o baseline local](#2-validar-o-baseline-local)
-    - [3. Validar integracoes externas e readiness serio](#3-validar-integracoes-externas-e-readiness-serio)
-    - [4. Sincronizar a camada executiva da janela seria](#4-sincronizar-a-camada-executiva-da-janela-seria)
-  - [Mapa Canonico](#mapa-canonico)
-  - [Fluxos Canonicos do Projeto](#fluxos-canonicos-do-projeto)
-    - [1. Fluxo de investigacao on-chain](#1-fluxo-de-investigacao-on-chain)
-    - [2. Fluxo de screening e decisao regulatoria](#2-fluxo-de-screening-e-decisao-regulatoria)
-    - [3. Fluxo de onboarding e contrapartes](#3-fluxo-de-onboarding-e-contrapartes)
-    - [4. Fluxo de reports e ROS/COAF](#4-fluxo-de-reports-e-roscoaf)
-    - [5. Fluxo de governanca e janela seria](#5-fluxo-de-governanca-e-janela-seria)
-  - [Diagramas do Projeto](#diagramas-do-projeto)
-    - [Arquitetura Geral](#arquitetura-geral)
-    - [Fluxo de Investigacao On-Chain](#fluxo-de-investigacao-on-chain)
-    - [Fluxo de Compliance Regulatorio](#fluxo-de-compliance-regulatorio)
-    - [Fluxo da Fila Operacional Compartilhada](#fluxo-da-fila-operacional-compartilhada)
-    - [Fluxo de Governanca Semanal e Janela Seria](#fluxo-de-governanca-semanal-e-janela-seria)
-  - [Janela Seria](#janela-seria)
-  - [Estrutura do Repositorio](#estrutura-do-repositorio)
-  - [Riscos Residuais](#riscos-residuais)
-  - [Proximo Passo Recomendado](#proximo-passo-recomendado)
+Plataforma modular de investigacao e compliance on-chain com foco em trilha auditavel, operacao multiusuario, screening local de sancoes, governanca de release e evidência regulatoria rastreavel.
 
 ## Leitura em 2 Minutos
 
-Se este e seu primeiro contato pela `main` do GitHub, leia nesta ordem:
+Se este e seu primeiro contato com o repositório, leia nesta ordem:
 
-1. [Estado Atual](#estado-atual)
+1. [Snapshot Atual](#snapshot-atual)
 2. [Mapa Canonico](#mapa-canonico)
-3. [Janela Seria](#janela-seria)
-4. [README tecnico da aplicacao](./ontrackchain/README.md)
-5. [Indice canonico da documentacao](./ontrackchain/docs/README.md)
+3. [README tecnico da aplicacao](./ontrackchain/README.md)
+4. [Indice canonico da documentacao](./ontrackchain/docs/README.md)
 
-Leitura executiva curta:
+Resumo executivo:
 
-- o projeto esta em `92% tecnico / 79% regulatorio-operacional / 88% consolidado`
-- a arquitetura principal ja esta conectada ponta a ponta entre `frontend`, APIs FastAPI, `PostgreSQL`, `Redis` e observabilidade
-- o maior gap remanescente nao e scaffold, e sim homologacao externa real de `P0-01`, `P0-02` e `P0-03`
-- o ciclo humano ativo hoje e `2026-07-13`, com a tentativa `stg-2026-07-13-a` ainda em `pending_no_go`
-- o README da raiz e uma visao GitHub/onboarding; a verdade canônica continua em `ontrackchain/docs/`
+- baseline oficial: `92%` tecnico, `79%` regulatorio/operacional, `88%` consolidado
+- o gargalo principal deixou de ser scaffold e passou a ser homologacao externa, prova operacional e aceite institucional
+- o ciclo ativo e `2026-07-13`, com a tentativa `stg-2026-07-13-a` ainda em `pending_no_go`
+- a raiz serve para onboarding e navegacao; a verdade canônica do projeto vive em `ontrackchain/docs/`
+- a malha documental foi saneada para separar fonte viva, evidência datada e historico frio sem competir pela mesma narrativa
 
-## O Que Este Repositorio Contem
+## Diagramas de Fluxo
 
-Este repositorio e dividido em dois niveis:
+### Fluxo de Leitura Canonica
 
-- a raiz concentra onboarding, atalhos operacionais e delegacao de `Makefile`
-- a aplicacao principal vive em [`./ontrackchain`](./ontrackchain/README.md)
-- a documentacao canonica do produto vive em [`./ontrackchain/docs`](./ontrackchain/docs/README.md)
+O diagrama abaixo mostra como navegar pelo repositório sem confundir fonte viva, evidência datada e histórico.
 
-## Estado Atual
+[[diagram: fluxo de onboarding documental do repositorio. Ponto de entrada: README raiz. Em seguida, o leitor consulta Snapshot Atual e Mapa Canonico. Depois bifurca para README tecnico da aplicacao e para docs/README.md. A partir de docs/README.md, a navegacao segue para quatro trilhas: documentacao viva de arquitetura/contratos/operacao; governance-weekly/cycles para evidencias datadas ainda ativas; docs/history para apoio historico; governance-weekly/archive para historico frio consolidado. Regra visual importante: docs/README e fonte primaria, cycles e prova datada, history e archive sao apenas contexto historico.]]
 
-- baseline oficial atual:
-  - `92%` de construcao tecnica
-  - `79%` de prontidao regulatoria/operacional
-  - `88%` de maturidade consolidada
-- para baseline corrente, priorizar `ontrackchain/docs/README.md`, `project-kpi-scorecard.md` e `project-maturity-assessment.md`
-- o assessment datado `PROJECT_STATUS_ASSESSMENT_2026_07_03.md` continua valido como parecer formal de corte, mas nao substitui a baseline viva atual
-- stack local executavel com `docker compose`:
-  - `Traefik`
-  - `FastAPI`
-  - `Next.js 14`
-  - `PostgreSQL`
-  - `Redis`
-  - `Prometheus`
-  - `Alertmanager`
-  - `Grafana`
-  - `Keycloak` no profile `oidc`
-- modulos principais ativos:
-  - `auth-service`
-  - `public-api`
-  - `investigation-api`
-  - `compliance-api`
-  - `monitoring-api`
-  - `report-api`
-  - `frontend`
-- capacidades ja institucionalizadas:
-  - `audit_logs`
-  - `evidence_trail` append-only
-  - `regulatory_work_items` com timeline e comentarios
-  - `preventive_blocks`
-  - `counterparties`
-  - `ros_records`
-  - cockpits operacionais tri-locale no frontend
-  - `monitoring` decomposto em hooks, loaders e paineis dedicados
-  - `go/no-go decision packet` derivado do payload consolidado da janela seria
+## Snapshot Atual
+
+### O que ja esta forte
+
+- arquitetura modular conectada entre `frontend`, servicos `FastAPI`, `PostgreSQL`, `Redis` e observabilidade
+- trilha regulatoria funcional com `evidence_trail`, `preventive_blocks`, `counterparties`, `ROS/COAF` e screening local de sancoes
+- operacao multiusuario compartilhada via `regulatory_work_items`, timeline e comentarios estruturados
+- cockpit frontend tri-locale com 7 modulos operacionais sincronizados ao mesmo modelo de workspace
+- RCA cross-domain leve consolidada entre `alerts`, `/monitoring`, export administrativo e governanca
+
+### O que ainda bloqueia o salto para `90%+`
+
+- `P0-01`: homologar `OIDC + MFA` federado em trilho serio
+- `P0-02`: fechar `AML/KYT live` com credencial real e artefato revisavel
+- `P0-03`: ativar feed UE real com URL tokenizada e persistencia auditavel
+- `P0-04`: consolidar `P0-02 + P0-03` em bundle regulatorio oficial
+- `P0-05`: executar a primeira janela seria material com `go/no-go` formal
+- `P0-06`: formalizar sign-off recorrente de retention/recovery
+
+## Frentes Recentes
+
+| Frente | Estado | Resultado atual |
+| --- | --- | --- |
+| `P1-01` metadata de work-items | `done` | contrato canonico unificado entre frontend, backend e `api-contracts.md` |
+| `P2-02` timeline/comments compartilhados | `done` | `useWorkItemTimeline` consolidado nos 7 cockpits |
+| `P2-03` RCA cross-domain | `done` | RCA leve persistida em `alerts`, leitura em `/monitoring` e resumo para export/governanca |
+| `P2-05` RBAC incremental | `in_progress` | `REVIEWER` e `BILLING_ADMIN` ja endurecidos em superficies reais, incluindo `billing/reconciliation` |
 
 ## Arquitetura em 60 Segundos
 
 - `Traefik` centraliza a borda e roteia requisicoes para os servicos internos
-- `auth-service` valida identidade, contexto `OIDC`, MFA e headers internos de tenant/ator
-- `frontend` em `Next.js 14` atua como cockpit operacional tri-locale e camada de orquestracao de UX
-- `investigation-api` concentra estimativa, abertura, status e resultado de investigacoes on-chain
-- `compliance-api` concentra screening, counterparties, bloqueios preventivos e fila operacional compartilhada
+- `auth-service` resolve identidade, contexto federado, MFA e headers internos de tenant/ator
+- `frontend` em `Next.js 14` atua como cockpit operacional e camada de orquestracao de UX
+- `investigation-api` concentra estimativa, abertura, status, billing e resultado de investigacoes
+- `compliance-api` concentra sanctions, counterparties, preventive blocks e fila operacional compartilhada
 - `monitoring-api` recebe webhooks do `Alertmanager` e sustenta a operacao global de incidentes
 - `report-api` gera relatorios deterministas e governa o workflow `ROS/COAF`
 - `PostgreSQL` com `RLS` persiste o dominio multi-tenant; `Redis` sustenta fila, retry, DLQ e concorrencia
-- `audit_logs` cobre trilha operacional; `evidence_trail` cobre cadeia regulatoria append-only
-- `compliance-worker` sincroniza listas locais de sancoes e reduz dependencia externa por request
 
-## Mapa Rapido de Modulos
+### Fluxo Macro da Plataforma
 
-| Modulo | Responsabilidade Principal | Documento Canonico |
-| --- | --- | --- |
-| `auth-service` | autenticacao, contexto federado, validacao de headers internos e MFA | [`ontrackchain/docs/keycloak-oidc-template.md`](./ontrackchain/docs/keycloak-oidc-template.md) |
-| `frontend` | cockpits operacionais, App Router, tri-locale e UX regulatoria | [`ontrackchain/docs/frontend-coverage-matrix.md`](./ontrackchain/docs/frontend-coverage-matrix.md) |
-| `investigation-api` | estimativa, abertura, execucao e resultado de investigacoes | [`ontrackchain/docs/architecture.md`](./ontrackchain/docs/architecture.md) |
-| `compliance-api` | sanctions-check, counterparties, preventive blocks e work-items | [`ontrackchain/docs/architecture.md`](./ontrackchain/docs/architecture.md) |
-| `monitoring-api` | ingestao de alertas, operacao global e remediacao | [`ontrackchain/docs/architecture.md`](./ontrackchain/docs/architecture.md) |
-| `report-api` | reports deterministas, downloads sensiveis e `ROS/COAF` | [`ontrackchain/docs/api-contracts.md`](./ontrackchain/docs/api-contracts.md) |
-| `PostgreSQL` | persistencia multi-tenant, trilhas operacionais e regulatorias | [`ontrackchain/docs/architecture.md`](./ontrackchain/docs/architecture.md) |
-| `Redis` | fila, retry, backoff, DLQ e concorrencia operacional | [`ontrackchain/docs/architecture.md`](./ontrackchain/docs/architecture.md) |
-| `governance-weekly` | ritos semanais, war room, sign-offs e historico operacional | [`ontrackchain/docs/governance-weekly/README.md`](./ontrackchain/docs/governance-weekly/README.md) |
-| `release gates` | readiness, preflight, evidencias e decisao `go/no-go` | [`ontrackchain/docs/project-release-gates.md`](./ontrackchain/docs/project-release-gates.md) |
+O diagrama abaixo resume a topologia funcional para leitura executiva, sem substituir a arquitetura detalhada em `ontrackchain/docs/architecture.md`.
 
-## Como os Modulos se Conectam
+[[diagram: fluxo macro do Ontrackchain. Atores externos: operador/compliance/sponsor e sistemas externos de identidade e providers regulatorios. O operador acessa o frontend Next.js atraves do Traefik. Traefik usa auth-service para identidade, RBAC, contexto federado e MFA. O frontend consome investigation-api, compliance-api, monitoring-api e report-api. Essas APIs persistem em PostgreSQL com RLS e usam Redis para fila, retry, concorrencia e DLQ. Compliance-worker sincroniza listas e readiness de providers. Monitoring-api recebe Alertmanager e alimenta RCA/governanca. Report-api governa ROS/COAF. Eventos e evidencias relevantes convergem para trilha auditavel, export administrativo e governanca semanal.]]
 
-- `frontend` concentra a experiencia operacional e fala com a borda por rotas do `App Router` e chamadas internas
-- `Traefik` recebe o trafego e encaminha para os servicos corretos por dominio funcional
-- `auth-service` autentica o ator, resolve contexto federado e propaga headers de tenant, papel, MFA e correlacao
-- `investigation-api` usa esse contexto para abrir casos, persistir billing/status e orquestrar execucao com apoio do `Redis`
-- `compliance-api` reutiliza o mesmo contexto autenticado para screening, counterparties, bloqueios e `work-items`
-- `monitoring-api` recebe eventos globais do `Alertmanager` e alimenta os cockpits de operacao de plataforma
-- `report-api` consome o mesmo dominio persistido para gerar relatorios e governar o workflow `ROS/COAF`
-- `PostgreSQL` com `RLS` unifica persistencia multi-tenant, enquanto `audit_logs` e `evidence_trail` separam trilha operacional de trilha regulatoria
-- `compliance-worker` atualiza listas locais de sancoes e evita dependencia de provider externo em cada request
+## Mapa Canonico
+
+### Portas de entrada
+
+- [README tecnico da aplicacao](./ontrackchain/README.md)
+- [Indice de documentacao](./ontrackchain/docs/README.md)
+
+### Documentos principais
+
+- [Arquitetura](./ontrackchain/docs/architecture.md)
+- [Contratos de API](./ontrackchain/docs/api-contracts.md)
+- [Resumo Executivo de Readiness](./ontrackchain/docs/project-executive-readiness-brief.md)
+- [Scorecard Oficial](./ontrackchain/docs/project-kpi-scorecard.md)
+- [Avaliacao de Maturidade](./ontrackchain/docs/project-maturity-assessment.md)
+- [Board de Prioridades](./ontrackchain/docs/project-priority-board.md)
+- [Board Operacional](./ontrackchain/docs/project-operational-execution-board.md)
+- [Governanca Semanal](./ontrackchain/docs/governance-weekly/README.md)
+
+### Evidencia datada e historico
+
+- [Ciclo ativo 2026-07-13](./ontrackchain/docs/governance-weekly/cycles/2026-07-13/README.md)
+- [Historico de apoio](./ontrackchain/docs/history/README.md)
+- [Arquivo historico da governanca](./ontrackchain/docs/governance-weekly/archive/README.md)
 
 ## Leitura Recomendada por Perfil
 
@@ -160,15 +104,15 @@ Este repositorio e dividido em dois niveis:
 
 1. [`ontrackchain/docs/architecture.md`](./ontrackchain/docs/architecture.md)
 2. [`ontrackchain/docs/api-contracts.md`](./ontrackchain/docs/api-contracts.md)
-3. [`ontrackchain/docs/project-release-gates.md`](./ontrackchain/docs/project-release-gates.md)
+3. [`ontrackchain/docs/rbac-and-permissions.md`](./ontrackchain/docs/rbac-and-permissions.md)
 4. [`ontrackchain/docs/adrs/README.md`](./ontrackchain/docs/adrs/README.md)
 
 ### Operacao / SRE / DevOps
 
 1. [`ontrackchain/docs/operations.md`](./ontrackchain/docs/operations.md)
 2. [`ontrackchain/docs/deploy-and-staging.md`](./ontrackchain/docs/deploy-and-staging.md)
-3. [`ontrackchain/docs/validation-and-audit.md`](./ontrackchain/docs/validation-and-audit.md)
-4. [`ontrackchain/docs/staging-serious-window-war-room-matrix.md`](./ontrackchain/docs/staging-serious-window-war-room-matrix.md)
+3. [`ontrackchain/docs/project-release-gates.md`](./ontrackchain/docs/project-release-gates.md)
+4. [`ontrackchain/docs/governance-weekly/README.md`](./ontrackchain/docs/governance-weekly/README.md)
 
 ### Compliance / Regulacao
 
@@ -182,80 +126,7 @@ Este repositorio e dividido em dois niveis:
 1. [`ontrackchain/docs/project-executive-readiness-brief.md`](./ontrackchain/docs/project-executive-readiness-brief.md)
 2. [`ontrackchain/docs/project-kpi-scorecard.md`](./ontrackchain/docs/project-kpi-scorecard.md)
 3. [`ontrackchain/docs/project-priority-board.md`](./ontrackchain/docs/project-priority-board.md)
-4. [`ontrackchain/docs/governance-weekly/README.md`](./ontrackchain/docs/governance-weekly/README.md)
-
-## Matriz de Fluxos Criticos
-
-| Fluxo | API / Entrada Principal | Tabelas / Estado Principal | Evidencia / Prova |
-| --- | --- | --- | --- |
-| Investigacao on-chain | `investigation-api` (`estimate`, `start`, `status`, `result`) | `credit_ledger`, trilha do caso, auditoria operacional | `audit_logs`, smoke runtime, suites E2E e resultado do caso |
-| Screening de sancoes | `GET /api/v1/compliance/sanctions-check` | `sanctions_lists_meta`, `sanctions_hits_cache` | `audit_logs`, `evidence_trail`, checks pos-sync e janela UE |
-| Bloqueio preventivo | `PreventiveBlockAgent` via `compliance-api` | `preventive_blocks` | `audit_logs`, `evidence_trail`, vinculo regulatorio e eventual `ros_records` |
-| Onboarding de contraparte | `POST /api/v1/compliance/counterparties` | `counterparties`, `counterparty_history` | `evidence_trail`, hash deterministico e historico regulado |
-| ROS/COAF | `report-api` e rotas `ros-coaf` | `reports`, `ros_records` | `evidence_trail`, aprovacao/rejeicao auditada e comprovante manual |
-| Fila operacional compartilhada | `/api/app/operations/work-items*` -> `compliance-api` | `regulatory_work_items`, `regulatory_work_events`, `regulatory_work_comments` | timeline, comentarios estruturados e ownership por organizacao |
-| Monitoring operacional | `monitoring-api` + webhooks do `Alertmanager` | `operational_alert_events` | alertas, ack auditado, export e contexto operacional |
-| Janela seria de staging | `prepare -> validate -> preflight -> run` | artefatos de bundle, snapshots e sign-offs | dossier, dashboard, bundles, war room e decisao `go/no-go` |
-
-## Prontidao Rumo a 95%
-
-### Capacidades Consolidadas
-
-- arquitetura modular com boundaries claros, gateway unico, `RLS` e servicos por dominio
-- frontend operacional real com cockpits tri-locale, contratos compartilhados e hardening recente
-- camada regulatoria funcional com `evidence_trail`, `preventive_blocks`, `counterparties`, `ROS/COAF` e screening local de sancoes
-- operacao multiusuario sustentada por `regulatory_work_items`, timeline e comentarios estruturados
-- observabilidade, runbooks, bundles de readiness e harnesses de validacao ja institucionalizados
-
-### Bloqueadores para `95%`
-
-- `P0-01`: homologar `OIDC + MFA` federado em trilho serio e recorrente
-- `P0-02`: fechar `AML/KYT live` com credencial real, check verde e evidencia anexavel
-- `P0-03`: ativar feed UE real com URL tokenizada e persistencia auditavel
-- executar uma janela seria completa com `go/no-go` formal e evidencias de ponta a ponta
-- institucionalizar sign-off recorrente de retention/recovery, owners e SLAs operacionais
-
-### Ordem Recomendada de Fechamento
-
-1. fechar `P0-02`
-2. fechar `P0-03`
-3. homologar `P0-01`
-4. executar a janela seria completa
-5. publicar a nova baseline oficial
-
-## Principais Decisoes Arquiteturais
-
-- **Screening local de sancoes:** o projeto privilegia cache local e sincronizacao recorrente em vez de chamada externa por request, reduzindo latencia e dependencia em tempo real
-- **Dupla trilha de prova:** `audit_logs` cobre operacao, suporte e correlacao por `request_id`, enquanto `evidence_trail` preserva cadeia regulatoria append-only
-- **`ROS/COAF` manual assistido:** a geracao e auditada e estruturada no sistema, mas a submissao final permanece humana para evitar acoplamento prematuro com trilhos externos
-- **Fila compartilhada antes de novos microservicos:** a camada `operations` foi incorporada ao `compliance-api` para reaproveitar `auth`, `tenant`, `RLS` e auditoria
-- **Promocao por evidencia:** maturidade nao sobe por configuracao pronta; sobe apenas por execucao real, evidencia preservada, revisao humana e aprovacao formal
-
-### ADRs Mais Relevantes
-
-- [`ADR-001`](./ontrackchain/docs/adrs/ADR-001-rls-multi-tenant.md): isolamento multi-tenant com `RLS`
-- [`ADR-003`](./ontrackchain/docs/adrs/ADR-003-audit-request-id.md): auditoria correlacionada por `request_id`
-- [`ADR-006`](./ontrackchain/docs/adrs/ADR-006-identidade-federada-e-users-locais.md): identidade federada e usuarios locais
-- [`ADR-009`](./ontrackchain/docs/adrs/ADR-009-continuation-strategy-hardening-first.md): estrategia `hardening first` e modularizacao guiada
-- [`ADR-010`](./ontrackchain/docs/adrs/ADR-010-promocao-de-maturidade-baseada-em-evidencia.md): regra formal de promocao de maturidade baseada em evidencia
-
-## Riscos Estruturais e Trade-offs
-
-- **Homologacao externa ainda e o gargalo principal:** `OIDC + MFA`, `AML/KYT live` e feed UE real dependem de credenciais, aceite institucional e repetibilidade operacional
-- **Cadeia formal de custodia ainda precisa de reforco organizacional:** os artefatos existem, mas classificacao de sensibilidade e sign-off recorrente ainda nao estao institucionalizados
-- **Fila compartilhada ainda nao cobre todos os cockpits:** `blocks`, `reports`, `counterparties`, `evidence` e `ros-coaf` ainda exigem expansao funcional para convergir no mesmo modelo operacional
-- **`manual_review_required` e um trade-off assumido, mas limita prontidao plena:** `due_diligence` e `source_of_funds` seguem fora de automacao completa por decisao consciente de produto e risco
-- **Mais rastreabilidade implica mais custo operacional:** separar `audit_logs` e `evidence_trail`, exigir bundles e sign-offs melhora governanca, mas eleva disciplina documental e carga de operacao
-
-## Politica de Documentacao
-
-- este README da raiz existe para onboarding, visao executiva e navegacao
-- [`ontrackchain/README.md`](./ontrackchain/README.md) e a porta de entrada tecnica da aplicacao
-- [`ontrackchain/docs/README.md`](./ontrackchain/docs/README.md) e o indice canonico da documentacao
-- [Governanca Semanal](./ontrackchain/docs/governance-weekly/README.md) guarda artefatos datados, sign-offs, war room e historico operacional
-- artefatos gerados da janela vivem em `ontrackchain/docs/governance-weekly/generated/windows/<window_id>/`
-- artefatos humanos do ciclo vivo, incluindo `sign-off` e `decision packet`, vivem em `ontrackchain/docs/governance-weekly/cycles/<data>/`
-- documentos paralelos fora dessa trilha devem ser consolidados ou removidos para evitar drift
+4. [`ontrackchain/docs/governance-weekly/cycles/2026-07-13/README.md`](./ontrackchain/docs/governance-weekly/cycles/2026-07-13/README.md)
 
 ## Quick Start
 
@@ -267,7 +138,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-Para exercitar OIDC localmente:
+Para exercitar `OIDC` localmente:
 
 ```bash
 cd ontrackchain
@@ -289,13 +160,7 @@ npm run test:e2e:stack-real-light
 npm run test:e2e:browser-mocked
 ```
 
-Comandos adicionais de frontend:
-
-- `npm run test:e2e:dev-auth`: usar apenas quando o scaffold local estiver em `AUTH_MODE=dev`
-- `npm run test:e2e:oidc-critical`: usar quando o runtime real estiver em `AUTH_MODE=oidc` e o provedor federado estiver pronto
-- `npm run test:e2e:ssr-mocked`: usar para suites que dependem de backend SSR mockado
-
-### 3. Validar integracoes externas e readiness serio
+### 3. Validar readiness serio
 
 ```bash
 cd ontrackchain
@@ -310,196 +175,36 @@ make run-regulatory-readiness-bundle-local \
   PUBLIC_BASE_URL=http://localhost:8080
 ```
 
-### 4. Sincronizar a camada executiva da janela seria
+### Fluxo da Janela Seria
 
-Quando existir `ci-artifacts/prepare-staging-window-output.json`, sincronize os artefatos executivos com:
+O diagrama abaixo mostra a sequência mínima esperada entre preparo, execução, artefatos e decisão formal de `go/no-go`.
 
-```bash
-cd ontrackchain
-make postprocess-serious-window \
-  RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
-```
+[[diagram: fluxo operacional da janela seria. Entrada: owner prepara ambiente e segredos reais. Etapa 1: preflight_external_integrations e checks de provider. Etapa 2: bundles de readiness OIDC e regulatorio quando aplicavel. Etapa 3: preparo e dispatch da serious window com window_id. Etapa 4: execucao local ou GitHub Actions gera packet, checks, homologation, dossier e manifestos. Etapa 5: pos-processamento sincroniza war room, sign-off, snapshot, dashboard e decision packet em governance-weekly/cycles. Saida: decisao go/no-go formal baseada em evidencias reais e artifact validado.]]
 
-Saidas esperadas:
+## Politica de Documentacao
 
-- `ci-artifacts/staging-serious-window-signoff.md`
-- sign-off versionado em `docs/governance-weekly/cycles/<data>/`
-- `go/no-go decision packet` versionado em `docs/governance-weekly/cycles/<data>/`
-- sincronizacao do registro semanal e do board operacional global
+- este `README.md` da raiz existe para onboarding, visao executiva curta e navegacao do GitHub
+- [`ontrackchain/README.md`](./ontrackchain/README.md) e a porta de entrada tecnica da aplicacao
+- [`ontrackchain/docs/README.md`](./ontrackchain/docs/README.md) e o indice canônico da documentacao
+- artefatos datados ainda operacionais vivem em `ontrackchain/docs/governance-weekly/cycles/`
+- historico datado de apoio fora da trilha viva deve viver em `ontrackchain/docs/history/`
+- historico frio consolidado de governanca deve viver em `ontrackchain/docs/governance-weekly/archive/`
+- se existir `.publish_repo/`, trate-o como espelho de publicacao e nunca como fonte primaria de status ou contrato
+- documentos paralelos, redundantes ou supersedidos devem ser consolidados, arquivados ou removidos
 
-## Mapa Canonico
+## Como Ler a Documentacao
 
-- [README Tecnico da Aplicacao](./ontrackchain/README.md)
-- [Indice de Documentacao](./ontrackchain/docs/README.md)
-- [Arquitetura](./ontrackchain/docs/architecture.md)
-- [Contratos de API](./ontrackchain/docs/api-contracts.md)
-- [Cobertura do frontend](./ontrackchain/docs/frontend-coverage-matrix.md)
-- [Operacao local](./ontrackchain/docs/operations.md)
-- [Deploy e staging](./ontrackchain/docs/deploy-and-staging.md)
-- [Validacao e auditoria](./ontrackchain/docs/validation-and-audit.md)
-- [Readiness Regulatorio](./ontrackchain/docs/regulatory-readiness.md)
-- [Gates de release](./ontrackchain/docs/project-release-gates.md)
-- [ADRs](./ontrackchain/docs/adrs/README.md)
+Use esta precedencia quando houver duvida sobre qual arquivo vale mais:
 
-## Fluxos Canonicos do Projeto
+1. `ontrackchain/docs/README.md` e os documentos canonicamente indexados nele
+2. `ontrackchain/docs/governance-weekly/cycles/` para evidencias datadas ainda navegaveis por ciclo
+3. `ontrackchain/docs/history/` e `ontrackchain/docs/governance-weekly/archive/` apenas como contexto historico
 
-Os fluxos abaixo resumem o comportamento atual institucionalizado do `Ontrackchain`. Eles existem para onboarding executivo e navegacao rapida; o detalhamento normativo continua em `ontrackchain/docs/`.
+Leitura pratica:
 
-### 1. Fluxo de investigacao on-chain
-
-1. o usuario inicia a jornada pelo `frontend`
-2. o `auth-service` valida o contexto do ator e propaga headers internos
-3. o `investigation-api` calcula estimativa, inicia o caso e coordena a execucao
-4. `Redis` sustenta fila, retry, backoff, DLQ e limites de concorrencia
-5. o resultado consolidado volta para o cockpit com trilha de billing e auditoria
-
-### 2. Fluxo de screening e decisao regulatoria
-
-1. o `compliance-worker` sincroniza listas de sancoes localmente
-2. o `compliance-api` consulta `sanctions_hits_cache` sem depender de chamada externa por request
-3. o resultado pode gerar `audit_logs`, `evidence_trail`, `preventive_blocks` e `ros_records`
-4. a fila operacional compartilhada organiza handoff, ownership, SLA e comentarios entre operadores
-
-### 3. Fluxo de onboarding e contrapartes
-
-1. a contraparte entra por `POST /api/v1/compliance/counterparties`
-2. o `CounterpartyAgent` classifica risco, PEP, KYC/KYB e periodicidade de revisao
-3. a decisao persiste em `counterparties` e `counterparty_history`
-4. a evidência regulatoria e encadeada em `evidence_trail`
-
-### 4. Fluxo de reports e ROS/COAF
-
-1. o `report-api` gera relatorios deterministas e artefatos formais
-2. o workflow `ROS/COAF` passa por `PENDING_GENERATION`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED` e `SUBMITTED_MANUAL`
-3. cada transicao relevante emite trilha em `evidence_trail`
-4. submissao final ao regulador permanece manual e auditada
-
-### 5. Fluxo de governanca e janela seria
-
-1. o ciclo semanal revisa prioridades, matriz operacional, riscos e evidencias
-2. a promocao de maturidade depende de execucao real, evidência preservada, revisao humana e aprovacao formal
-3. a janela seria de staging executa preflight, readiness bundles, validacao operacional e dossier de fechamento
-4. o pos-processamento executivo deriva `sign-off` e `go/no-go decision packet` do mesmo payload consolidado
-5. a decisao final segue rito `go/no-go` com owners, bloqueios explicitados e artefatos coerentes entre ciclo e camada gerada
-
-## Diagramas do Projeto
-
-### Arquitetura Geral
-
-```mermaid
-flowchart LR
-    User[Usuario Operacional] --> Frontend[Frontend Next.js 14]
-    Frontend --> Traefik[Traefik Gateway]
-    Traefik --> Auth[auth-service]
-    Traefik --> Investigation[investigation-api]
-    Traefik --> Compliance[compliance-api]
-    Traefik --> Monitoring[monitoring-api]
-    Traefik --> Report[report-api]
-    Investigation --> Redis[(Redis)]
-    Investigation --> Postgres[(PostgreSQL com RLS)]
-    Compliance --> Postgres
-    Compliance --> Evidence[evidence_trail]
-    Compliance --> Audit[audit_logs]
-    Compliance --> Sanctions[sanctions_hits_cache]
-    Compliance --> Blocks[preventive_blocks]
-    Compliance --> Counterparties[counterparties]
-    Compliance --> Ros[ros_records]
-    Monitoring --> Alertmanager[Alertmanager]
-    Monitoring --> Postgres
-    Report --> Postgres
-    Worker[compliance-worker] --> Sanctions
-    Worker --> FeedEU[Feed UE]
-    Worker --> FeedOFAC[OFAC / UN / OpenSanctions]
-```
-
-### Fluxo de Investigacao On-Chain
-
-```mermaid
-sequenceDiagram
-    participant U as Usuario
-    participant F as Frontend
-    participant A as auth-service
-    participant I as investigation-api
-    participant R as Redis
-    participant P as PostgreSQL
-
-    U->>F: inicia investigacao
-    F->>A: solicita contexto autenticado
-    A-->>F: headers internos validados
-    F->>I: estimate / start
-    I->>R: enfileira execucao e retry
-    I->>P: persiste caso, billing e status
-    R-->>I: worker/status/result
-    I-->>F: resultado consolidado
-    F-->>U: cockpit com trilha auditavel
-```
-
-### Fluxo de Compliance Regulatorio
-
-```mermaid
-flowchart TD
-    Sync[compliance-worker sincroniza listas] --> Cache[sanctions_lists_meta + sanctions_hits_cache]
-    Cache --> Check[GET sanctions-check]
-    Check --> Match{houve match?}
-    Match -- nao --> Audit[audit_logs]
-    Match -- sim --> Block[PreventiveBlockAgent]
-    Block --> PB[preventive_blocks]
-    Block --> Evidence[evidence_trail]
-    Block --> Ros[ros_records quando aplicavel]
-    PB --> WorkItems[regulatory_work_items]
-    Evidence --> WorkItems
-    Audit --> WorkItems
-```
-
-### Fluxo da Fila Operacional Compartilhada
-
-```mermaid
-flowchart LR
-    Cockpits[Sanctions / Alerts / Cockpits] --> AppRouter[App Router /api/app/operations/work-items]
-    AppRouter --> ComplianceOps[compliance-api operations]
-    ComplianceOps --> Items[regulatory_work_items]
-    ComplianceOps --> Events[regulatory_work_events]
-    ComplianceOps --> Comments[regulatory_work_comments]
-    Items --> Owners[Owners e SLAs]
-    Events --> Timeline[Timeline auditavel]
-    Comments --> Handoff[Handoff e decisao]
-```
-
-### Fluxo de Governanca Semanal e Janela Seria
-
-```mermaid
-flowchart TD
-    Inputs[Board + Matriz + Riscos + Scorecard + Evidencias] --> Weekly[Governanca semanal]
-    Weekly --> Decision{ha evidencia nova?}
-    Decision -- nao --> Blocked[manter bloqueado ou sem promocao]
-    Decision -- sim --> Plan[definir owners, proximo passo e janela]
-    Plan --> Preflight[preflight de staging e integracoes]
-    Preflight --> Bundles[bundles OIDC / AML-KYT / UE]
-    Bundles --> Window[execucao da janela seria]
-    Window --> Dossier[dossier, dashboard, sign-off]
-    Dossier --> GoNoGo[decisao go/no-go]
-```
-
-## Janela Seria
-
-Atalhos principais pela raiz:
-
-```bash
-make help-serious-window
-make prepare-serious-window-dispatch WINDOW_ID=stg-YYYY-MM-DD-a
-make render-serious-window-dispatch-packet WINDOW_ID=stg-YYYY-MM-DD-a
-make run-serious-window-local WINDOW_ID=stg-YYYY-MM-DD-a MODE=baseline
-make postprocess-serious-window RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
-```
-
-Leitura executiva atual:
-
-- `P0-01`: homologacao OIDC + MFA federado ainda depende de evidencia real recorrente
-- `P0-02`: provider `AML/KYT live` pronto para validacao com credencial real
-- `P0-03`: feed `EU_CONSOLIDATED` pronto para fechar com URL tokenizada real
-- ciclo ativo: `2026-07-13`
-- janela humana corrente: `stg-2026-07-13-a`
-- estado corrente da tentativa: `pending_no_go` ate confirmar owners online, credencial AML/KYT real e URL UE tokenizada
+- se voce quer o estado atual do projeto, comece por `docs/`
+- se voce quer a prova de uma janela ou semana especifica, use `governance-weekly/cycles/`
+- se voce quer entender como uma decisao antiga foi tomada, use `history/` ou `archive/`
 
 ## Estrutura do Repositorio
 
@@ -510,13 +215,6 @@ Ontrackchain/
 ├── README.md
 └── ontrackchain/
     ├── apps/
-    │   ├── auth-service/
-    │   ├── public-api/
-    │   ├── investigation-api/
-    │   ├── compliance-api/
-    │   ├── monitoring-api/
-    │   ├── report-api/
-    │   └── frontend/
     ├── docs/
     ├── infra/
     ├── packages/
@@ -528,18 +226,11 @@ Ontrackchain/
     └── README.md
 ```
 
-## Riscos Residuais
-
-- integracoes externas serias ainda dependem de credenciais e URLs reais
-- `due_diligence` e `source_of_funds` seguem intencionalmente em fluxo manual
-- `legal_report`, `ROS/COAF` e `block lift` exigem MFA forte homologado
-- retention/recovery e sign-off institucional ainda precisam de aceite recorrente
-
 ## Proximo Passo Recomendado
 
-As quatro frentes que mais movem a maturidade comprovada do projeto sao:
+As frentes que mais movem a maturidade comprovada do projeto continuam sendo:
 
-1. homologar `OIDC` + MFA federado serio
-2. fechar `AML/KYT live` com evidencia anexavel
-3. ativar feed UE real para `EU_CONSOLIDATED`
-4. executar uma janela seria completa com owners, handoff e sign-off formal
+1. fechar `P0-02`
+2. fechar `P0-03`
+3. homologar `P0-01`
+4. executar a janela seria completa com `go/no-go` formal

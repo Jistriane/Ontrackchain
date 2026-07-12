@@ -11,13 +11,36 @@ import type { MessageKey } from "../lib/i18n";
 import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
 import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
-import { createWorkItemComment, fetchWorkItemTimeline } from "../lib/work-item-timeline-client";
-import { formatTimelineEvent, type WorkCommentResponse, type WorkItemTimelineResponse } from "../lib/work-item-timeline";
+import { formatTimelineEvent } from "../lib/work-item-timeline";
+import { useWorkItemTimeline } from "../lib/use-work-item-timeline";
+import {
+  loadWorkspaceRecords,
+  saveWorkspaceRecords,
+  sortByLastActionAtDesc,
+  toApiDueAt,
+  toDateTimeLocalValue
+} from "../lib/workspace-storage";
 import {
   buildOperationalContextLinks,
   type OperationalContext,
   type OperationalContextLink
 } from "../lib/operational-context";
+import {
+  isWorkItemUuidLike as isUuidLike,
+  readWorkItemMetadataBoolean,
+  readWorkItemMetadataString,
+  readWorkItemMetadataStringArray,
+  resolveWorkItemOwnerDisplay,
+  resolveWorkItemWorkspaceStatus,
+  type CreateWorkItemRequest,
+  type PatchWorkItemRequest,
+  type SanctionsWorkItemMetadata,
+  type WorkItemPriority,
+  type WorkItemQueueStatus,
+  type WorkItemResponse,
+  type WorkItemListResponse,
+  withCanonicalWorkItemMetadata
+} from "../lib/work-items";
 
 type SanctionsCheckResponse = {
   address: string;
@@ -34,31 +57,11 @@ type SanctionsCheckResponse = {
   checked_at: string;
 };
 
-type WorkspacePriority = "critical" | "high" | "normal";
-type WorkspaceStatus = "UNDER_REVIEW" | "ESCALATED" | "READY" | "APPROVED" | "SUBMITTED" | "CLOSED" | "REJECTED";
+type WorkspacePriority = WorkItemPriority;
+type WorkspaceStatus = WorkItemQueueStatus;
 type WorkspaceSource = "server" | "local";
-
-type WorkItemResponse = {
-  id: string;
-  module: "sanctions";
-  resource_type: "sanctions_screening";
-  resource_id: string;
-  case_id: string | null;
-  owner_user_id: string | null;
-  queue_status: WorkspaceStatus;
-  priority: WorkspacePriority;
-  due_at: string | null;
-  title: string | null;
-  note: string | null;
-  metadata: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-  last_activity_at: string;
-};
-
-type WorkItemListResponse = {
-  data: WorkItemResponse[];
-};
+type SanctionsWorkItemResponse = WorkItemResponse<SanctionsWorkItemMetadata>;
+type SanctionsWorkItemListResponse = WorkItemListResponse<SanctionsWorkItemMetadata>;
 
 type SanctionsFormState = {
   address: string;
@@ -101,7 +104,6 @@ const STORAGE_KEY = "otc-sanctions-workspace";
 const WORKSPACE_PAGE_LIMIT = 100;
 const ACTIVE_WORKSPACE_STATUSES = new Set<WorkspaceStatus>(["UNDER_REVIEW", "ESCALATED", "READY", "APPROVED", "SUBMITTED"]);
 const TERMINAL_WORKSPACE_STATUSES = new Set<WorkspaceStatus>(["CLOSED", "REJECTED"]);
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const DEFAULT_FORM: SanctionsFormState = {
   address: "",
@@ -160,84 +162,15 @@ function normalizeWorkspaceRecord(record: Partial<SanctionsWorkspaceRecord>): Sa
 }
 
 function loadWorkspace(): SanctionsWorkspaceRecord[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.map((entry) => normalizeWorkspaceRecord((entry ?? {}) as Partial<SanctionsWorkspaceRecord>)) : [];
-  } catch {
-    return [];
-  }
+  return loadWorkspaceRecords(STORAGE_KEY, normalizeWorkspaceRecord);
 }
 
 function saveWorkspace(records: SanctionsWorkspaceRecord[]) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  saveWorkspaceRecords(STORAGE_KEY, records);
 }
 
 function buildWorkspaceId(result: SanctionsCheckResponse) {
   return `${result.address}:${result.chain}:${result.checked_at}`;
-}
-
-function isUuidLike(value: string | null | undefined) {
-  return Boolean(value && UUID_PATTERN.test(value.trim()));
-}
-
-function toDateTimeLocalValue(value: string | null | undefined) {
-  if (!value) {
-    return "";
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "";
-  }
-
-  const year = parsed.getFullYear();
-  const month = `${parsed.getMonth() + 1}`.padStart(2, "0");
-  const day = `${parsed.getDate()}`.padStart(2, "0");
-  const hours = `${parsed.getHours()}`.padStart(2, "0");
-  const minutes = `${parsed.getMinutes()}`.padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-}
-
-function toApiDueAt(value: string) {
-  const normalized = value.trim();
-  if (!normalized) {
-    return null;
-  }
-
-  const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-
-  return parsed.toISOString();
-}
-
-function readMetadataString(metadata: Record<string, unknown>, key: string) {
-  const value = metadata[key];
-  return typeof value === "string" ? value : "";
-}
-
-function readMetadataStringArray(metadata: Record<string, unknown>, key: string) {
-  const value = metadata[key];
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter((entry): entry is string => typeof entry === "string");
-}
-
-function readMetadataBoolean(metadata: Record<string, unknown>, key: string) {
-  return metadata[key] === true;
 }
 
 function buildWorkspaceIdFromFields(address: string, chain: string, checkedAt: string, resourceId: string) {
@@ -284,9 +217,7 @@ function upsertWorkspaceRecord(
     lastActionAt: next.lastActionAt ?? new Date().toISOString()
   };
 
-  return [merged, ...current.filter((record) => record.workspaceId !== next.workspaceId)].sort((a, b) =>
-    (b.lastActionAt || "").localeCompare(a.lastActionAt || "")
-  );
+  return sortByLastActionAtDesc([merged, ...current.filter((record) => record.workspaceId !== next.workspaceId)]);
 }
 
 function mergeWorkspaceRecords(serverRecords: SanctionsWorkspaceRecord[], localRecords: SanctionsWorkspaceRecord[]) {
@@ -308,7 +239,7 @@ function mergeWorkspaceRecords(serverRecords: SanctionsWorkspaceRecord[], localR
     merged.push(record);
   }
 
-  return merged.sort((a, b) => (b.lastActionAt || "").localeCompare(a.lastActionAt || ""));
+  return sortByLastActionAtDesc(merged);
 }
 
 function deriveStatus(result: SanctionsCheckResponse): WorkspaceStatus {
@@ -424,13 +355,13 @@ function buildBlocksHref(record: { address: string; chain: string; caseId: strin
   return `/blocks?${params.toString()}`;
 }
 
-function mapWorkItemToWorkspaceRecord(item: WorkItemResponse): SanctionsWorkspaceRecord {
+function mapWorkItemToWorkspaceRecord(item: SanctionsWorkItemResponse): SanctionsWorkspaceRecord {
   const metadata = item.metadata ?? {};
-  const checkedAt = readMetadataString(metadata, "checked_at") || item.updated_at;
-  const address = readMetadataString(metadata, "address");
-  const chain = readMetadataString(metadata, "chain") || "ethereum";
+  const checkedAt = readWorkItemMetadataString(metadata, "checked_at") || item.updated_at;
+  const address = readWorkItemMetadataString(metadata, "address");
+  const chain = readWorkItemMetadataString(metadata, "chain") || "ethereum";
   const workspaceId =
-    readMetadataString(metadata, "workspace_id") || buildWorkspaceIdFromFields(address, chain, checkedAt, item.resource_id);
+    readWorkItemMetadataString(metadata, "workspace_id") || buildWorkspaceIdFromFields(address, chain, checkedAt, item.resource_id);
 
   return {
     workspaceId,
@@ -439,22 +370,22 @@ function mapWorkItemToWorkspaceRecord(item: WorkItemResponse): SanctionsWorkspac
     source: "server",
     address,
     chain,
-    lists: readMetadataStringArray(metadata, "lists"),
-    caseId: item.case_id ?? readMetadataString(metadata, "local_case_id"),
-    owner: readMetadataString(metadata, "owner_label") || item.owner_user_id || "",
+    lists: readWorkItemMetadataStringArray(metadata, "lists"),
+    caseId: item.case_id ?? readWorkItemMetadataString(metadata, "case_id", "local_case_id"),
+    owner: resolveWorkItemOwnerDisplay(metadata, item.owner_user_id),
     priority: item.priority,
     localDeadline: toDateTimeLocalValue(item.due_at),
-    status: item.queue_status,
-    provider: readMetadataString(metadata, "provider"),
-    providerStatus: readMetadataString(metadata, "provider_status"),
-    capabilityStatus: readMetadataString(metadata, "capability_status"),
-    degradedReason: readMetadataString(metadata, "degraded_reason"),
-    matchedLists: readMetadataStringArray(metadata, "matched_lists"),
-    hit: readMetadataBoolean(metadata, "hit"),
-    entityName: readMetadataString(metadata, "entity_name"),
-    designationDate: readMetadataString(metadata, "designation_date"),
+    status: normalizeLegacyStatus(resolveWorkItemWorkspaceStatus(metadata, "sanctions_screening", item.queue_status)),
+    provider: readWorkItemMetadataString(metadata, "provider"),
+    providerStatus: readWorkItemMetadataString(metadata, "provider_status"),
+    capabilityStatus: readWorkItemMetadataString(metadata, "capability_status"),
+    degradedReason: readWorkItemMetadataString(metadata, "degraded_reason"),
+    matchedLists: readWorkItemMetadataStringArray(metadata, "matched_lists"),
+    hit: readWorkItemMetadataBoolean(metadata, "hit") === true,
+    entityName: readWorkItemMetadataString(metadata, "entity_name"),
+    designationDate: readWorkItemMetadataString(metadata, "designation_date"),
     checkedAt,
-    triageNote: item.note ?? readMetadataString(metadata, "triage_note"),
+    triageNote: item.note ?? readWorkItemMetadataString(metadata, "triage_note"),
     lastActionAt: item.last_activity_at || item.updated_at
   };
 }
@@ -480,12 +411,23 @@ export default function SanctionsPage() {
   const [workspaceSearch, setWorkspaceSearch] = useState("");
   const [historyAddressFilter, setHistoryAddressFilter] = useState("");
   const [timelineWorkspaceId, setTimelineWorkspaceId] = useState("");
-  const [timelineLoading, setTimelineLoading] = useState(false);
-  const [timelineError, setTimelineError] = useState<string | null>(null);
-  const [timelineData, setTimelineData] = useState<WorkItemTimelineResponse<WorkItemResponse> | null>(null);
-  const [commentType, setCommentType] = useState<WorkCommentResponse["comment_type"]>("note");
-  const [commentBody, setCommentBody] = useState("");
-  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const {
+    timelineLoading,
+    timelineError,
+    timelineData,
+    commentType,
+    commentBody,
+    commentSubmitting,
+    setCommentType,
+    setCommentBody,
+    resetTimeline,
+    loadTimeline,
+    submitTimelineComment
+  } = useWorkItemTimeline<SanctionsWorkItemResponse>({
+    resolveErrorMessage: (apiError, fallback) => resolveApiErrorMessage(t, apiError, fallback),
+    loadErrorMessage: tr("sanctions.workspace.timeline.errorLoad" as MessageKey),
+    commentErrorMessage: tr("sanctions.workspace.timeline.errorComment" as MessageKey)
+  });
 
   const isHit = Boolean(result?.hit);
   const matchedCount = result?.matched_lists?.length ?? 0;
@@ -527,7 +469,7 @@ export default function SanctionsPage() {
       `/api/app/operations/work-items?module=sanctions&resource_type=sanctions_screening&limit=${WORKSPACE_PAGE_LIMIT}`,
       { cache: "no-store" }
     );
-    const data = (await res.json().catch(() => null)) as WorkItemListResponse | { error?: string; detail?: unknown } | null;
+    const data = (await res.json().catch(() => null)) as SanctionsWorkItemListResponse | { error?: string; detail?: unknown } | null;
     if (!res.ok) {
       setWorkspaceRecords(localRecords);
       setNotice(tr("sanctions.noticeWorkspaceLoadedLocal" as MessageKey));
@@ -565,8 +507,7 @@ export default function SanctionsPage() {
   useEffect(() => {
     if (!workspaceRecords.length) {
       setTimelineWorkspaceId("");
-      setTimelineData(null);
-      setTimelineError(null);
+      resetTimeline();
       return;
     }
     if (!timelineWorkspaceId || !workspaceRecords.some((record: SanctionsWorkspaceRecord) => record.workspaceId === timelineWorkspaceId)) {
@@ -577,46 +518,11 @@ export default function SanctionsPage() {
 
   useEffect(() => {
     if (!selectedTimelineRecord?.workItemId) {
-      setTimelineData(null);
-      setTimelineError(null);
+      resetTimeline();
       return;
     }
-    loadTimeline(selectedTimelineRecord.workItemId).catch(() => {
-      setTimelineData(null);
-      setTimelineError(tr("sanctions.workspace.timeline.errorLoad" as MessageKey));
-      setTimelineLoading(false);
-    });
-  }, [selectedTimelineRecord?.workItemId, t]);
-
-  async function loadTimeline(workItemId: string) {
-    setTimelineLoading(true);
-    setTimelineError(null);
-    const result = await fetchWorkItemTimeline<WorkItemResponse>(workItemId);
-    if (!result.ok) {
-      setTimelineData(null);
-      setTimelineError(resolveApiErrorMessage(t, result.error, tr("sanctions.workspace.timeline.errorLoad" as MessageKey)));
-      setTimelineLoading(false);
-      return;
-    }
-    setTimelineData(result.data);
-    setTimelineLoading(false);
-  }
-
-  async function submitTimelineComment() {
-    if (!selectedTimelineRecord?.workItemId || !commentBody.trim()) return;
-    setCommentSubmitting(true);
-    const result = await createWorkItemComment(selectedTimelineRecord.workItemId, {
-      comment_type: commentType,
-      body: commentBody.trim()
-    });
-    setCommentSubmitting(false);
-    if (!result.ok) {
-      setTimelineError(resolveApiErrorMessage(t, result.error, tr("sanctions.workspace.timeline.errorComment" as MessageKey)));
-      return;
-    }
-    setCommentBody("");
-    await loadTimeline(selectedTimelineRecord.workItemId);
-  }
+    void loadTimeline(selectedTimelineRecord.workItemId);
+  }, [loadTimeline, resetTimeline, selectedTimelineRecord?.workItemId]);
 
   function updateForm<K extends keyof SanctionsFormState>(key: K, value: SanctionsFormState[K]) {
     setForm((current: SanctionsFormState) => ({ ...current, [key]: value }));
@@ -682,26 +588,32 @@ export default function SanctionsPage() {
       linkedUserId: authContext?.linked_user_id,
       isUuidLike
     });
-    const metadata = {
-      workspace_id: record.workspaceId,
-      address: record.address,
-      chain: record.chain,
-      lists: record.lists,
-      owner_user_id: ownerUserId,
-      owner_label: record.owner,
-      local_case_id: record.caseId,
-      provider: record.provider,
-      provider_status: record.providerStatus,
-      capability_status: record.capabilityStatus,
-      degraded_reason: record.degradedReason,
-      matched_lists: record.matchedLists,
-      hit: record.hit,
-      entity_name: record.entityName,
-      designation_date: record.designationDate,
-      checked_at: record.checkedAt,
-      triage_note: record.triageNote
-    };
-    const requestBody = {
+    const metadata: SanctionsWorkItemMetadata = withCanonicalWorkItemMetadata(
+      {
+        workspace_id: record.workspaceId,
+        address: record.address,
+        chain: record.chain,
+        lists: record.lists,
+        provider: record.provider,
+        provider_status: record.providerStatus,
+        capability_status: record.capabilityStatus,
+        degraded_reason: record.degradedReason,
+        matched_lists: record.matchedLists,
+        hit: record.hit,
+        entity_name: record.entityName,
+        designation_date: record.designationDate,
+        checked_at: record.checkedAt,
+        ...(record.triageNote ? { triage_note: record.triageNote } : {})
+      },
+      {
+        resourceType: "sanctions_screening",
+        caseId: record.caseId,
+        ownerLabel: record.owner,
+        ownerUserId,
+        workspaceStatus: nextStatus ?? record.status
+      }
+    );
+    const requestBody: CreateWorkItemRequest<SanctionsWorkItemMetadata> | PatchWorkItemRequest<SanctionsWorkItemMetadata> = {
       module: "sanctions",
       resource_type: "sanctions_screening",
       resource_id: record.resourceId,
@@ -736,13 +648,13 @@ export default function SanctionsPage() {
       body,
       cache: "no-store"
     });
-    const data = (await res.json().catch(() => null)) as WorkItemResponse | { error?: string; detail?: unknown } | null;
+    const data = (await res.json().catch(() => null)) as SanctionsWorkItemResponse | { error?: string; detail?: unknown } | null;
     setSyncingWorkspace(false);
     if (!res.ok) {
       throw new Error(resolveApiErrorMessage(t, data, tr("sanctions.errorWorkspaceSync" as MessageKey)));
     }
 
-    const nextRecord = mapWorkItemToWorkspaceRecord(data as WorkItemResponse);
+    const nextRecord = mapWorkItemToWorkspaceRecord(data as SanctionsWorkItemResponse);
     setWorkspaceRecords((current: SanctionsWorkspaceRecord[]) => upsertWorkspaceRecord(current, nextRecord));
     return nextRecord;
   }
@@ -955,7 +867,7 @@ export default function SanctionsPage() {
               {filteredWorkspaceRecords.map((record) => {
                 const urgency = getUrgency(record);
                 return (
-                  <tr key={record.workspaceId}>
+                  <tr key={record.workspaceId} data-testid={`sanctions-workspace-row-${record.workspaceId}`}>
                     <td>
                       <strong>{record.address}</strong>
                       <div className="otc-muted">{record.provider}</div>
@@ -967,14 +879,16 @@ export default function SanctionsPage() {
                         {tr(`sanctions.priority.${record.priority}` as MessageKey)}
                       </Pill>
                     </td>
-                    <td>{formatDate(record.localDeadline, locale) ?? tr("sanctions.workspace.noDeadline" as MessageKey)}</td>
-                    <td>
+                    <td data-testid={`sanctions-workspace-deadline-${record.workspaceId}`}>
+                      {formatDate(record.localDeadline, locale) ?? tr("sanctions.workspace.noDeadline" as MessageKey)}
+                    </td>
+                    <td data-testid={`sanctions-workspace-urgency-${record.workspaceId}`}>
                       <Pill tone={toneForUrgency(urgency)}>{tr(`sanctions.urgency.${urgency}` as MessageKey)}</Pill>
                     </td>
-                    <td>
+                    <td data-testid={`sanctions-workspace-status-${record.workspaceId}`}>
                       <Pill tone={toneForStatus(record.status)}>{tr(`sanctions.workspace.status.${record.status.toLowerCase()}` as MessageKey)}</Pill>
                     </td>
-                    <td>
+                    <td data-testid={`sanctions-workspace-source-${record.workspaceId}`}>
                       <div className="otc-controls">
                         <Pill tone={record.source === "server" ? "success" : "warning"}>
                           {tr(`sanctions.workspace.source.${record.source}` as MessageKey)}
@@ -1040,7 +954,9 @@ export default function SanctionsPage() {
         commentSubmitting={commentSubmitting}
         onCommentTypeChange={setCommentType}
         onCommentBodyChange={setCommentBody}
-        onCommentSubmit={() => { void submitTimelineComment(); }}
+        onCommentSubmit={() => {
+          void submitTimelineComment(selectedTimelineRecord?.workItemId);
+        }}
         onRefresh={
           selectedTimelineRecord?.workItemId
             ? () => { void loadTimeline(selectedTimelineRecord.workItemId!); }

@@ -17,6 +17,8 @@ Varios documentos desta pasta referenciam runbooks antigos que ja nao estao pres
 
 Em especial, referencias no formato `../../sprint-<n>-day-<m>-execution-runbook.md` representam a trilha de execucao usada durante o acompanhamento diario original da sprint. Esses runbooks nao existem mais na estrutura canonica atual e sua ausencia nao indica erro operacional da documentacao viva.
 
+Nos arquivos individuais desta pasta, esses alvos legados foram normalizados como texto explicito de contexto historico, evitando a aparencia de link ativo quebrado.
+
 ## Leitura Correta dos Links Legados
 
 - tratar links para `*-execution-runbook.md` como evidencia de contexto do acompanhamento historico, nao como documento que precisa ser restaurado

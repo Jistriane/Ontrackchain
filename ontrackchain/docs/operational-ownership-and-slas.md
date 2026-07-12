@@ -59,7 +59,7 @@ Nao use este documento como fonte primaria para:
 - Restore deve ocorrer preferencialmente em banco isolado antes de qualquer acao destrutiva no banco principal.
 - Durante war room de janela seria, usar a [Matriz de Execucao por Owner para Janela Seria](./staging-serious-window-war-room-matrix.md) como coordenador operacional de dependencias, escalacoes e criterio de `no-go`.
 
-## Criterios para Fechar `P2-02`
+## Criterios para Fechar `P1-02`
 
 - owners nomeados por dominio
 - SLA base aceito pelo time

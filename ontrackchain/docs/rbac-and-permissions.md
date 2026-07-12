@@ -76,6 +76,18 @@ Leitura arquitetural atual:
 - hoje nao possui matriz especifica de leitura-only por dominio no backend
 - na pratica, herda o mesmo limite dos papeis nao privilegiados: sem acesso administrativo, mas ainda sem segmentacao fina nos fluxos core
 
+### `COMPLIANCE_OFFICER`
+
+- papel especializado ja consumido pelo fluxo `ROS/COAF`
+- agora passa a ser canonizavel no `auth-service`, reduzindo drift entre `frontend`, `report-api` e claims do IdP
+- continua reservado a aprovacoes/submissoes reguladas e nao substitui automaticamente `ANALYST` no restante dos dominios
+
+### `LEGAL_REVIEWER`
+
+- papel observado no frontend e no catalogo de equipe
+- agora passa a ser canonizavel no `auth-service`
+- ainda nao possui enforcement backend dedicado nesta rodada
+
 ### `UNKNOWN`
 
 - valor usado em alguns metadados quando o papel nao esta presente
@@ -220,9 +232,10 @@ Do que de uma matriz RBAC fina por papel.
 | Catalogos protegidos | JWT ou API Key | qualquer autenticado | `enforced_by_context` | plano e filtros aplicam |
 | `investigation/estimate` | JWT ou API Key | qualquer autenticado | `enforced_by_context` | contexto valido |
 | `investigation/start` | JWT ou API Key | qualquer autenticado | `enforced_by_context` | `quote` valida + plan lock |
-| `billing/balance` | JWT ou API Key | qualquer autenticado | `enforced_by_context` | contexto valido |
+| `billing/balance` | JWT ou API Key | `ADMIN`, `BILLING_ADMIN` e alias legado `OTK_BILLING_ADMIN` | `partial_rbac_enforced` | leitura de saldo financeiro + negacao auditada |
+| `billing/reconciliation` | JWT ou API Key | `ADMIN`, `BILLING_ADMIN` e alias legado `OTK_BILLING_ADMIN` | `partial_rbac_enforced` | snapshot reconciliavel de `quotes` + `credit_ledger` com negacao auditada |
 | `monitoring` core (`watchlists`, `alerts`, `start`, `estimate`) | JWT ou API Key | qualquer autenticado | `enforced_by_context` | contexto valido |
-| `compliance/*` | JWT ou API Key | qualquer autenticado | `enforced_by_context` | contexto valido |
+| `compliance/*` | JWT ou API Key | contexto misto; mutacoes criticas com `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` e alias legado `OTK_COMPLIANCE_OFFICER` | `partial_rbac_enforced` | escrita prioritaria endurecida em `start`, `blocks/evaluate`, `blocks/*/lift`, `counterparties` e `counterparties/*/review` |
 | `monitoring/admin/operational-alerts` | contexto autenticado via gateway | `ADMIN` ou `AUDITOR` | `rbac_enforced` | leitura privilegiada + negacao auditada |
 | `monitoring/admin/operational-alerts/filter-options` | contexto autenticado via gateway | `ADMIN` ou `AUDITOR` | `rbac_enforced` | leitura privilegiada + negacao auditada |
 | `monitoring/admin/operational-alerts/export` | contexto autenticado via gateway | `ADMIN` | `rbac_enforced` | export sensivel + auditoria |
@@ -230,8 +243,15 @@ Do que de uma matriz RBAC fina por papel.
 | `investigation/admin` (`operations`, `alerts`, `metrics`, `dlq`) | contexto autenticado via gateway | `ADMIN` ou `AUDITOR` | `rbac_enforced` | leitura privilegiada + negacao auditada |
 | `investigation/admin/dlq/*` mutacoes | contexto autenticado via gateway | `ADMIN` | `rbac_enforced` | requeue e resolucao manual |
 | `audit/logs` | contexto autenticado via gateway | `ADMIN` ou `AUDITOR` | `rbac_enforced` | acesso restrito de leitura |
-| `report download` comum | JWT ou API Key | qualquer autenticado | `enforced_by_context` | query params corretos |
+| `report generate` | JWT ou API Key | `ADMIN` ou `ANALYST` | `partial_rbac_enforced` | negacao auditada na geracao basica |
+| `reports` leitura/listagem e `ROS/COAF` leitura | JWT ou API Key | `ADMIN`, `AUDITOR`, `ANALYST`, `VIEWER` | `partial_rbac_enforced` | negacao auditada em listagem, detalhe, dossie e downloads nao-juridicos |
+| `reports/ros-coaf` aprovacao formal (`/approve`) | JWT ou API Key | `ADMIN`, `COMPLIANCE_OFFICER`, `LEGAL_REVIEWER`, `REVIEWER` e aliases legados `OTK_*` correspondentes | `partial_rbac_enforced` | gate formal de revisao com MFA externo homologado + negacao auditada |
+| `reports/ros-coaf` submissao manual (`/submitted`) | JWT ou API Key | `ADMIN`, `COMPLIANCE_OFFICER` e alias legado `OTK_COMPLIANCE_OFFICER` | `partial_rbac_enforced` | segregacao entre revisao formal e submissao efetiva ao COAF |
+| `report download` comum | JWT ou API Key | `ADMIN`, `AUDITOR`, `ANALYST`, `VIEWER` | `partial_rbac_enforced` | query params corretos + negacao auditada |
 | `legal_report download` | JWT | `ADMIN` | `rbac_enforced` | `X-2FA=ok` |
+| `evidence/manual-package` leitura (`seal` e `by-digest`) | JWT ou API Key | `ADMIN`, `AUDITOR`, `COMPLIANCE_OFFICER`, `LEGAL_REVIEWER`, `REVIEWER` | `partial_rbac_enforced` | leitura institucional + negacao auditada |
+| `evidence/manual-package` `signoffs` | JWT ou API Key | `ADMIN`, `COMPLIANCE_OFFICER`, `LEGAL_REVIEWER`, `REVIEWER` | `partial_rbac_enforced` | vinculo obrigatorio entre `X-Role` e `signer_role` |
+| `evidence/manual-package` `signoff-requests/finalize/revoke/supersede` | JWT ou API Key | `ADMIN` | `rbac_enforced` | `AUDITOR` permanece somente leitura |
 
 ## Matriz por Papel e Dominio
 
@@ -244,9 +264,19 @@ Do que de uma matriz RBAC fina por papel.
 | `monitoring` leitura administrativa (`operational-alerts`, filtros) | Sim | Sim | Nao | Nao | Nao | `rbac_enforced` |
 | `monitoring` mutacao/export administrativo | Sim | Nao | Nao | Nao | Nao | `rbac_enforced` |
 | `audit/logs` leitura privilegiada | Sim | Sim | Nao | Nao | Nao | `rbac_enforced` |
-| `report` download comum | Sim | Sim | Sim | Sim | Sim | sem role fina adicional |
+| `report generate` | Sim | Nao | Sim | Nao | Nao | `partial_rbac_enforced` + negacao auditada |
+| `reports` leitura/listagem e `ROS/COAF` leitura | Sim | Sim | Sim | Nao | Sim | `partial_rbac_enforced` + negacao auditada |
+| `billing/balance` | Sim | Nao | Nao | Nao | Nao | `BILLING_ADMIN` e alias legado podem ler saldo financeiro; roles fora do dominio recebem negacao auditada |
+| `billing/reconciliation` | Sim | Nao | Nao | Nao | Nao | `BILLING_ADMIN` e alias legado podem ler o snapshot reconciliavel de saldo, quotes e `credit_ledger`; roles fora do dominio recebem negacao auditada |
+| `reports/ros-coaf` aprovacao formal (`/approve`) | Sim | Nao | Nao | Nao | Nao | `COMPLIANCE_OFFICER`, `LEGAL_REVIEWER` e `REVIEWER` aprovam/rejeitam com MFA externo homologado; aliases `OTK_*` equivalentes continuam aceitos |
+| `reports/ros-coaf` submissao manual (`/submitted`) | Sim | Nao | Nao | Nao | Nao | permanece restrita a `COMPLIANCE_OFFICER` e alias legado para preservar segregacao regulatoria |
+| `report` download comum | Sim | Sim | Sim | Nao | Sim | `partial_rbac_enforced` + negacao auditada |
 | `report` download de `legal_report` | Sim | Nao | Nao | Nao | Nao | `rbac_enforced` + `JWT` + `2FA` |
-| `compliance` core | Sim | Sim | Sim | Sim | Sim | ainda sem RBAC fino por papel |
+| `compliance` leitura core | Sim | Sim | Sim | Sim | Sim | leitura principal ainda guiada por contexto + `RLS` |
+| `compliance` mutacao core prioritaria (`start`, `blocks/evaluate`, `blocks/*/lift`, `counterparties`, `counterparties/*/review`) | Sim | Nao | Sim | Nao | Nao | `partial_rbac_enforced` + negacao auditada; `COMPLIANCE_OFFICER` e alias legado tambem autorizados |
+| `evidence/manual-package` leitura institucional | Sim | Sim | Nao | Nao | Nao | `COMPLIANCE_OFFICER`, `LEGAL_REVIEWER` e `REVIEWER` tambem leem para signoff dirigido |
+| `evidence/manual-package` `signoffs` | Sim | Nao | Nao | Nao | Nao | `COMPLIANCE_OFFICER -> compliance_owner`, `LEGAL_REVIEWER -> legal_owner_optional`, `REVIEWER -> legal_owner_optional` |
+| `evidence/manual-package` `finalize/revoke/supersede/signoff-request` | Sim | Nao | Nao | Nao | Nao | `rbac_enforced`; `AUDITOR` saiu da mutacao |
 
 Observacao importante:
 
@@ -257,8 +287,11 @@ Observacao importante:
 
 ## Evidencias Ja Confirmadas
 
-- `auth-service` canoniza hoje: `ADMIN`, `ANALYST`, `TESTER`, `AUDITOR`, `VIEWER`
+- `auth-service` canoniza hoje: `ADMIN`, `ANALYST`, `TESTER`, `AUDITOR`, `VIEWER`, `COMPLIANCE_OFFICER`, `LEGAL_REVIEWER`, `REVIEWER` e `BILLING_ADMIN`
 - `investigation-api` e `monitoring-api` persistem `authorization_denied` nas rotas administrativas endurecidas
+- `compliance-api` agora persiste `authorization_denied` na primeira fatia de mutacoes sensiveis do dominio
+- `report-api` agora persiste `authorization_denied` na leitura sensivel de `reports` e `ROS/COAF`, inclusive dossie regulatorio e download nao-juridico
+- `investigation-api` agora aplica `BILLING_ADMIN` tambem em `billing/reconciliation`, protegendo o snapshot reconciliavel de saldo, quotes e `credit_ledger`
 - no fluxo `OIDC`, a trilha de negacao agora preserva o `sub` externo em `metadata.external_user_id` quando nao ha usuario local correspondente
 - no fluxo `OIDC`, novos `cases` core preservam `metadata.external_user_id`; `quotes` passam a gravar `user_id = null` quando o principal nao existe em `users`
 - a suite Playwright ja cobre negacao de `AUDITOR` tentando:
@@ -289,19 +322,20 @@ Em outras palavras: o scaffold atual usa um modelo misto de autorizacao, e nao R
 - falta definir claramente:
   - diferenca operacional entre `ANALYST`, `TESTER` e `VIEWER`
   - se `TESTER` continuara apenas como papel de QA/scaffold ou ganhara semantica real
-  - futuros papeis como `REVIEWER` e `BILLING_ADMIN`
+  - como expandir `REVIEWER` e `BILLING_ADMIN` para mais superficies alem das fatias ja endurecidas
 
 ### 2. Falta de Granularidade
 
 - a maior parte das APIs protegidas ainda aceita qualquer contexto autenticado valido dentro da organizacao
-- `compliance`, `monitoring` core e `investigation` core ainda nao separam leitura, operacao e aprovacao por papel
+- `compliance` saiu do estado totalmente indiferenciado, mas ainda falta separar leitura, operacao e aprovacao para o dominio inteiro
+- `monitoring` core e `investigation` core ainda nao separam leitura, operacao e aprovacao por papel fora dos cortes ja endurecidos
 
 ### 3. Cobertura Parcial de Negacao Auditada por Papel
 
 - `WP-03` agora persiste `authorization_denied` nas rotas administrativas centrais de `monitoring`, `investigation` e `audit/logs`
 - os eventos carregam `request_id`, `effective_role`, `allowed_roles`, `detail` e endpoint
 - proxies do frontend nao devem sobrescrever `X-Role`; a role efetiva precisa vir do gateway/auth-service
-- ainda falta expandir o mesmo padrao para outros dominios sensiveis fora do corte inicial de RBAC
+- o mesmo padrao ainda precisa ser expandido para `compliance` restante; em `evidence/manual-package`, o `signoff_method=platform_authenticated_2fa` ja exige MFA real no backend
 
 ## Recomendacao para Fase 2
 
@@ -320,7 +354,7 @@ Definir uma matriz de permissoes por dominio:
 - `REVIEWER`
   - revisao/aprovacao de reports
 - `BILLING_ADMIN`
-  - conciliacao e export financeiro
+  - saldo e conciliacao financeira; export financeiro permanece como proxima superficie natural
 - `AUDITOR`
   - leitura ampliada de trilhas sem capacidade operacional
 

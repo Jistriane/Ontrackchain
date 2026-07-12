@@ -32,7 +32,7 @@ Referencias de apoio:
 | `P0-02` | `Compliance/AML` | credencial real valida no ambiente correto | JSON do `check-compliance-provider-runtime` + revisao em governanca | `ready_for_validation` | primeiro candidato real a tirar o ciclo de inercia |
 | `P0-03` | `Compliance/Backend` | URL tokenizada real + sync coerente | `eu-sanctions-preflight.json` + `eu-sanctions-sync.json` + checker coerente | `ready_for_validation` | segundo candidato real a sustentar recalibracao de readiness |
 | `P0-01` | `Security/Auth` | provider serio + MFA sem fallback | preflight + smoke + bundle OIDC + Playwright critico | `ready_for_validation` | reduz risco critico de identidade e melhora `go/no-go` |
-| `P0-04` | `Platform/SRE` | `P0-02` e `P0-03` ao menos revisaveis | bundle regulatorio oficial | `done` | principal ponte documental para `90%+` |
+| `P0-04` | `Platform/SRE` | `P0-02` e `P0-03` ao menos revisaveis; tentativa parcial pode fortalecer dossier, mas nao fecha o item | bundle regulatorio oficial | `done` | principal ponte documental para `90%+` |
 | `RUN-STG-01` | `Release Manager Tecnico` | janela sair de `no-go` | workflow artifact + packet + dossier + sign-off | `ready_for_validation` ou `done` | transforma readiness em prova operacional |
 
 ## Snapshot dos Itens Criticos
@@ -59,6 +59,7 @@ Referencias de apoio:
 - `88% -> 89%`: exigir pelo menos uma prova revisavel completa de `P0-02` ou `P0-03`
 - `89% -> 90%+`: exigir prova combinada de `P0-02` e `P0-03`, preferencialmente consolidada em `P0-04`
 - `90%+` com sustentacao institucional: exigir tambem reducao material do risco de identidade via `P0-01` e preparo objetivo para `RUN-STG-01`
+- tentativa parcial deve aparecer como endurecimento de trilha e preparo de janela, nao como substituto do fechamento oficial de `P0-04`
 
 ## Checklist de Encerramento do Encontro
 

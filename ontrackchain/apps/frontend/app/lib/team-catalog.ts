@@ -1,4 +1,11 @@
-export const TEAM_ROLE_VALUES = ["ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "LEGAL_REVIEWER"] as const;
+export const TEAM_ROLE_VALUES = [
+  "ADMIN",
+  "ANALYST",
+  "COMPLIANCE_OFFICER",
+  "LEGAL_REVIEWER",
+  "REVIEWER",
+  "BILLING_ADMIN"
+] as const;
 
 export type TeamRoleValue = (typeof TEAM_ROLE_VALUES)[number];
 

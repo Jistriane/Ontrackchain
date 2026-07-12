@@ -111,4 +111,4 @@
 - classificacao: `parcial`
 - resumo executivo: o fechamento server-primary esta desenhado e coerente, mas ainda precisa de execucao final para sair de preparacao e virar evidência material
 - owner do primeiro passo do proximo marco: `Frontend + Arquitetura`
-- artefato relacionado: [Runbook de Execucao do Dia 7 da Sprint 2](../../sprint-2-day-7-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-2-day-7-execution-runbook.md`

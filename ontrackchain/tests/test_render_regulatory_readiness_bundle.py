@@ -41,13 +41,52 @@ class RenderRegulatoryReadinessBundleTests(unittest.TestCase):
             "steps": {
                 "compliance_provider_runtime": {
                     "status": "ok",
+                    "request_id": "req-compliance-runtime-1",
                     "output_file": "artifacts/staging/checks/stg-2026-07-03-reg-compliance-provider-runtime.json",
                     "errors": [],
+                    "correlation": {
+                        "internal_operating_mode": "live",
+                        "catalog_provider_status": "live",
+                        "catalog_capability_status": "live",
+                        "runtime_provider_status": "live",
+                        "runtime_capability_status": "live",
+                        "runtime_delivery_mode": "risk_check_instant",
+                        "provider_converges_live": True,
+                    },
                 },
                 "eu_sanctions_window": {
                     "status": "ok",
+                    "request_id": "req-eu-window-1",
                     "output_file": "artifacts/staging/checks/stg-2026-07-03-reg-eu-sanctions-window.json",
                     "errors": [],
+                    "correlation": {
+                        "expected_source_url": "https://example.test/eu.xml?token=abc123",
+                        "observed_source_url": "https://example.test/eu.xml?token=abc123",
+                        "source_url_matches_expected": True,
+                        "override_tokenized": True,
+                        "persisted_status": "ACTIVE",
+                        "persisted_status_active": True,
+                        "last_sync_status": "SUCCESS",
+                        "last_sync_status_success": True,
+                        "eu_window_converges_ready": True,
+                    },
+                },
+            },
+            "readiness": {
+                "compliance_runtime": {
+                    "readiness_status": "ready_for_validation",
+                    "blockers": [],
+                    "next_action": "Revisar o artefato de `compliance_provider_runtime` e anexar o bundle regulatorio a governanca semanal.",
+                },
+                "eu_window": {
+                    "readiness_status": "ready_for_validation",
+                    "blockers": [],
+                    "next_action": "Revisar o artefato de `eu_sanctions_window` e anexar o bundle regulatorio a governanca semanal.",
+                },
+                "regulatory_bundle": {
+                    "readiness_status": "ready_for_validation",
+                    "blockers": [],
+                    "next_action": "Anexar o bundle regulatorio ao dossier/governanca e executar revisao formal das evidencias.",
                 },
             },
         }
@@ -56,9 +95,19 @@ class RenderRegulatoryReadinessBundleTests(unittest.TestCase):
         rendered = MODULE.render_markdown(model)
 
         self.assertEqual(model["status"], "ok")
+        self.assertEqual(model["bundle_readiness_status"], "ready_for_validation")
+        self.assertEqual(model["compliance_request_id"], "req-compliance-runtime-1")
         self.assertIn("Regulatory Readiness Bundle - stg-2026-07-03-reg", rendered)
         self.assertIn("compliance_provider_runtime", rendered)
         self.assertIn("eu_sanctions_window", rendered)
+        self.assertIn("bundle regulatorio readiness: `ready_for_validation`", rendered)
+        self.assertIn("request_id: `req-compliance-runtime-1`", rendered)
+        self.assertIn("convergencia live do provider: `True`", rendered)
+        self.assertIn("delivery_mode do runtime AML/KYT: `risk_check_instant`", rendered)
+        self.assertIn("request_id: `req-eu-window-1`", rendered)
+        self.assertIn("source_url converge com override: `True`", rendered)
+        self.assertIn("override tokenizado: `True`", rendered)
+        self.assertIn("convergencia pronta da janela UE: `True`", rendered)
 
     def test_main_writes_markdown_and_json_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -73,19 +122,58 @@ class RenderRegulatoryReadinessBundleTests(unittest.TestCase):
                         "status": "failed",
                         "scope": {
                             "compliance_runtime_enabled": True,
-                            "eu_window_enabled": False,
+                            "eu_window_enabled": True,
                         },
                         "errors": ["compliance_provider_runtime: falhou"],
                         "steps": {
                             "compliance_provider_runtime": {
                                 "status": "failed",
+                                "request_id": "req-compliance-runtime-2",
                                 "output_file": "checks/a.json",
                                 "errors": ["provider unreachable"],
+                                "correlation": {
+                                    "internal_operating_mode": "misconfigured",
+                                    "catalog_provider_status": "degraded",
+                                    "catalog_capability_status": "degraded",
+                                    "runtime_provider_status": "degraded",
+                                    "runtime_capability_status": "degraded",
+                                    "runtime_delivery_mode": "risk_check_instant",
+                                    "provider_converges_live": False,
+                                },
                             },
                             "eu_sanctions_window": {
                                 "status": "skipped",
+                                "request_id": "req-eu-window-2",
                                 "output_file": "pending",
                                 "errors": [],
+                                "correlation": {
+                                    "expected_source_url": "https://example.test/eu.xml?token=abc123",
+                                    "observed_source_url": "",
+                                    "source_url_matches_expected": False,
+                                    "override_tokenized": True,
+                                    "persisted_status": "FAILED",
+                                    "persisted_status_active": False,
+                                    "last_sync_status": "FAILED",
+                                    "last_sync_status_success": False,
+                                    "eu_window_converges_ready": False,
+                                },
+                            },
+                        },
+                        "readiness": {
+                            "compliance_runtime": {
+                                "readiness_status": "blocked",
+                                "blockers": ["provider unreachable"],
+                                "next_action": "Corrigir a trilha `compliance_provider_runtime` e rerodar o bundle regulatorio com insumos reais.",
+                            },
+                            "eu_window": {
+                                "readiness_status": "blocked",
+                                "blockers": ["eu_sanctions_window: correlacao estruturada da janela UE nao confirma convergencia pronta para validacao"],
+                                "next_action": "Corrigir a correlacao auditavel de `eu_sanctions_window` antes de promover o bundle regulatorio.",
+                            },
+                            "regulatory_bundle": {
+                                "readiness_status": "blocked",
+                                "blockers": ["eu_sanctions_window: correlacao estruturada da janela UE nao confirma convergencia pronta para validacao"],
+                                "next_action": "Corrigir correlacao ou falhas das trilhas regulatorias antes de promover o bundle oficial.",
                             },
                         },
                     }
@@ -115,6 +203,11 @@ class RenderRegulatoryReadinessBundleTests(unittest.TestCase):
             self.assertEqual(payload["status"], "ok")
             self.assertTrue(output_file.exists())
             self.assertIn("provider unreachable", output_file.read_text(encoding="utf-8"))
+            self.assertIn("bundle regulatorio readiness: `blocked`", output_file.read_text(encoding="utf-8"))
+            self.assertIn(
+                "readiness bundle: `eu_sanctions_window: correlacao estruturada da janela UE nao confirma convergencia pronta para validacao`",
+                output_file.read_text(encoding="utf-8"),
+            )
 
 
 if __name__ == "__main__":

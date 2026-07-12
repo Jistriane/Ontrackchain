@@ -1,129 +1,18 @@
 {
   "window_id": "stg-2026-07-06-a",
-  "generated_at": "2026-07-04T01:16:33.194563Z",
+  "generated_at": "2026-07-10T16:54:14.875889Z",
   "governance_state": {
-    "status": "failed",
-    "signal": "amarelo",
+    "status": "unknown",
+    "signal": "unknown",
     "blockers": {
-      "placeholders": 12,
-      "handoff": 8
+      "placeholders": 0,
+      "handoff": 0
     },
-    "decision": "recomendado_no_go"
+    "decision": "unknown"
   },
   "snapshots": {
-    "current": {
-      "kind": "staging_window_status_snapshot",
-      "generated_at": "2026-07-04T01:16:32.746097+00:00",
-      "window_id": "stg-2026-07-06-a",
-      "overall_status": "failed",
-      "blockers": {
-        "placeholders_file": "artifacts/staging/checks/placeholders-stg-2026-07-06-a.json",
-        "handoff_file": "artifacts/staging/checks/handoff-stg-2026-07-06-a.json",
-        "unresolved_placeholders_count": 12,
-        "unresolved_placeholders": [
-          "ALERTMANAGER_WEBHOOK_BEARER_TOKEN",
-          "COMPLIANCE_EU_SANCTIONS_SOURCE_URL",
-          "COMPLIANCE_TRM_API_KEY",
-          "COMPLIANCE_TRM_SCREENING_URL",
-          "GRAFANA_ADMIN_PASSWORD",
-          "INVESTIGATION_RPC_FALLBACK_URL",
-          "INVESTIGATION_RPC_PRIMARY_URL",
-          "JWT_HS256_SECRET",
-          "KEYCLOAK_ADMIN_PASSWORD",
-          "KEYCLOAK_B2B_CLIENT_SECRET",
-          "MFA_TOTP_SECRET",
-          "POSTGRES_PASSWORD"
-        ],
-        "missing_handoff_fields_count": 8,
-        "missing_handoff_fields": [
-          "Auth/OIDC.date",
-          "Auth/OIDC.status",
-          "Compliance/AML.date",
-          "Compliance/AML.status",
-          "Investigation/RPC.date",
-          "Investigation/RPC.status",
-          "Platform/Operations.date",
-          "Platform/Operations.status"
-        ]
-      },
-      "prepare": {
-        "exit_code": 1,
-        "status": "failed",
-        "generated_at": "2026-07-04T01:16:32.623997+00:00"
-      },
-      "run": {
-        "exit_code": 1,
-        "status": "failed",
-        "generated_at": "2026-07-04T01:16:32.682849+00:00",
-        "errors": [
-          "placeholder_check: falhou",
-          "handoff_check: falhou"
-        ]
-      },
-      "artifact_validation": {
-        "exit_code": 0,
-        "status": "ok",
-        "errors": [],
-        "missing_artifacts": []
-      },
-      "history_file": "artifacts/staging/checks/history/stg-2026-07-06-a-status-snapshot-20260704T011632Z.json"
-    },
-    "current_latest_from_history": {
-      "kind": "staging_window_status_snapshot",
-      "generated_at": "2026-07-04T01:16:32.746097+00:00",
-      "window_id": "stg-2026-07-06-a",
-      "overall_status": "failed",
-      "blockers": {
-        "placeholders_file": "artifacts/staging/checks/placeholders-stg-2026-07-06-a.json",
-        "handoff_file": "artifacts/staging/checks/handoff-stg-2026-07-06-a.json",
-        "unresolved_placeholders_count": 12,
-        "unresolved_placeholders": [
-          "ALERTMANAGER_WEBHOOK_BEARER_TOKEN",
-          "COMPLIANCE_EU_SANCTIONS_SOURCE_URL",
-          "COMPLIANCE_TRM_API_KEY",
-          "COMPLIANCE_TRM_SCREENING_URL",
-          "GRAFANA_ADMIN_PASSWORD",
-          "INVESTIGATION_RPC_FALLBACK_URL",
-          "INVESTIGATION_RPC_PRIMARY_URL",
-          "JWT_HS256_SECRET",
-          "KEYCLOAK_ADMIN_PASSWORD",
-          "KEYCLOAK_B2B_CLIENT_SECRET",
-          "MFA_TOTP_SECRET",
-          "POSTGRES_PASSWORD"
-        ],
-        "missing_handoff_fields_count": 8,
-        "missing_handoff_fields": [
-          "Auth/OIDC.date",
-          "Auth/OIDC.status",
-          "Compliance/AML.date",
-          "Compliance/AML.status",
-          "Investigation/RPC.date",
-          "Investigation/RPC.status",
-          "Platform/Operations.date",
-          "Platform/Operations.status"
-        ]
-      },
-      "prepare": {
-        "exit_code": 1,
-        "status": "failed",
-        "generated_at": "2026-07-04T01:16:32.623997+00:00"
-      },
-      "run": {
-        "exit_code": 1,
-        "status": "failed",
-        "generated_at": "2026-07-04T01:16:32.682849+00:00",
-        "errors": [
-          "placeholder_check: falhou",
-          "handoff_check: falhou"
-        ]
-      },
-      "artifact_validation": {
-        "exit_code": 0,
-        "status": "ok",
-        "errors": [],
-        "missing_artifacts": []
-      }
-    },
+    "current": {},
+    "current_latest_from_history": {},
     "previous": {}
   },
   "parsed_content": {
@@ -131,26 +20,26 @@
     "unblock_checklist_items": []
   },
   "communications": {
-    "executive_bullet": "Ontrackchain | janela stg-2026-07-06-a | status=failed | semaforo=amarelo | bloqueios=12 placeholders/8 handoff | decisao=recomendado_no_go",
+    "executive_bullet": "",
     "comms_summary": {
-      "short": "# Resumo de Comunicacao - stg-2026-07-06-a\n\n## Bloco Curto (Slack/Teams)\n\nJanela stg-2026-07-06-a: status `failed` | semaforo `amarelo`.\nBloqueios: `12` placeholders e `8` handoff.\nSteps: prepare `failed`, run `failed`, artifact `ok`.\nLeitura: estado estavel sem progresso material; manter no-go\nAcao: owners por trilha devem executar o checklist de desbloqueio e rerodar o comando unico.\n\n## Mensagem Expandida\n\n- janela: `stg-2026-07-06-a`\n- snapshot: `artifacts/staging/checks/stg-2026-07-06-a-sta..."
+      "short": ""
     }
   },
   "artefact_files": {
-    "war_room_action_plan": "docs/governance-weekly/generated/stg-2026-07-06-a-war-room-action-plan.md",
-    "status_snapshot": "artifacts/staging/checks/stg-2026-07-06-a-status-snapshot.json",
-    "status_snapshot_markdown": "docs/governance-weekly/generated/stg-2026-07-06-a-status-snapshot.md",
-    "status_snapshot_delta": "docs/governance-weekly/generated/stg-2026-07-06-a-status-snapshot-delta.md",
-    "governance_dashboard": "docs/governance-weekly/generated/stg-2026-07-06-a-governance-dashboard.md",
-    "unblock_checklist": "docs/governance-weekly/generated/stg-2026-07-06-a-unblock-checklist.md",
-    "comms_summary": "docs/governance-weekly/generated/stg-2026-07-06-a-comms-summary.md",
-    "executive_bullet": "docs/governance-weekly/generated/stg-2026-07-06-a-executive-bullet.md"
+    "war_room_action_plan": "docs/governance-weekly/generated/windows/stg-2026-07-06-a/stg-2026-07-06-a-war-room-action-plan.md",
+    "status_snapshot": null,
+    "status_snapshot_markdown": "docs/governance-weekly/generated/windows/stg-2026-07-06-a/stg-2026-07-06-a-status-snapshot.md",
+    "status_snapshot_delta": "docs/governance-weekly/generated/windows/stg-2026-07-06-a/stg-2026-07-06-a-status-snapshot-delta.md",
+    "governance_dashboard": "docs/governance-weekly/generated/windows/stg-2026-07-06-a/stg-2026-07-06-a-governance-dashboard.md",
+    "unblock_checklist": "docs/governance-weekly/generated/windows/stg-2026-07-06-a/stg-2026-07-06-a-unblock-checklist.md",
+    "comms_summary": null,
+    "executive_bullet": null
   },
   "metadata": {
     "checks_dir": "artifacts/staging/checks",
     "dossiers_dir": "artifacts/staging/dossiers",
-    "docs_dir": "docs/governance-weekly",
+    "docs_dir": "docs/governance-weekly/generated/windows/stg-2026-07-06-a",
     "previous_snapshot_file": null,
-    "current_snapshot_latest_file": "artifacts/staging/checks/history/stg-2026-07-06-a-status-snapshot-20260704T011632Z.json"
+    "current_snapshot_latest_file": null
   }
 }

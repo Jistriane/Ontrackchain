@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
@@ -33,6 +34,7 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+logger = logging.getLogger("report_api")
 
 REPORT_TYPE_ALIASES = {
     "technical": "technical_basic",
@@ -66,6 +68,9 @@ REPORT_TYPES = {
     "coaf_ready_report",
     "full_investigation",
 }
+
+REPORT_READ_ALLOWED_ROLES = {"ADMIN", "AUDITOR", "ANALYST", "VIEWER"}
+REPORT_WRITE_ALLOWED_ROLES = {"ADMIN", "ANALYST"}
 
 
 def resolve_report_type(raw_input: str) -> tuple[str, Optional[str]]:
@@ -139,6 +144,11 @@ class GenerateRosCoafResponse(BaseModel):
     content_type: str
 
 
+class ReportRosCoafRefResponse(BaseModel):
+    report_id: str
+    ros_id: Optional[str] = None
+
+
 class ApproveRosCoafRequest(BaseModel):
     approved: bool = True
     rejection_reason: Optional[str] = None
@@ -162,6 +172,133 @@ class SubmitRosCoafResponse(BaseModel):
     submitted_at: str
     coaf_protocol_number: str
     coaf_receipt_hash: str
+
+
+class RosCoafListItem(BaseModel):
+    ros_id: str
+    case_id: Optional[str] = None
+    status: str
+    report_id: str = ""
+    created_at: str
+    approved_at: Optional[str] = None
+    submitted_at: Optional[str] = None
+    coaf_protocol_number: str = ""
+    coaf_receipt_hash: str = ""
+    rejection_reason: str = ""
+    approval_2fa_verified: bool = False
+    submission_deadline: Optional[str] = None
+    deadline_breached: bool = False
+    last_activity_at: str
+
+
+class RosCoafListResponse(BaseModel):
+    data: list[RosCoafListItem]
+    page: int
+    limit: int
+    total: int
+    has_more: bool
+
+
+class RosCoafAuditEntry(BaseModel):
+    id: UUID
+    action: str
+    user_id: Optional[UUID] = None
+    created_at: str
+    metadata: dict = {}
+
+
+class RosCoafDetailResponse(BaseModel):
+    ros_id: str
+    case_id: Optional[str] = None
+    report_id: str = ""
+    status: str
+    tipologia_code: str
+    tipologia_description: str
+    trigger_reason: str
+    suspected_amount_brl: Optional[float] = None
+    suspected_address: str = ""
+    suspected_chain: str = ""
+    pdf_hash: str = ""
+    pdf_path: str = ""
+    generated_at: Optional[str] = None
+    approved_at: Optional[str] = None
+    submitted_at: Optional[str] = None
+    approval_2fa_verified: bool = False
+    rejection_reason: str = ""
+    submission_deadline: Optional[str] = None
+    deadline_breached: bool = False
+    coaf_protocol_number: str = ""
+    coaf_receipt_hash: str = ""
+    evidence_hash: str = ""
+    evidence_trail_ref: str = ""
+    created_at: str
+    updated_at: str
+    retain_until: str
+    audit: list[RosCoafAuditEntry] = []
+
+
+class RosCoafWorkItemSnapshot(BaseModel):
+    id: UUID
+    module: str
+    resource_type: str
+    resource_id: UUID
+    case_id: Optional[UUID] = None
+    report_external_id: Optional[str] = None
+    owner_user_id: Optional[UUID] = None
+    assigned_by_user_id: Optional[UUID] = None
+    queue_status: str
+    priority: str
+    due_at: Optional[str] = None
+    sla_breached: bool = False
+    title: Optional[str] = None
+    note: Optional[str] = None
+    metadata: dict = {}
+    created_at: str
+    updated_at: str
+    last_activity_at: str
+
+
+class RosCoafWorkEventEntry(BaseModel):
+    id: UUID
+    event_type: str
+    from_status: Optional[str] = None
+    to_status: Optional[str] = None
+    actor_user_id: Optional[UUID] = None
+    payload: dict = {}
+    created_at: str
+
+
+class RosCoafWorkCommentEntry(BaseModel):
+    id: UUID
+    comment_type: str
+    actor_user_id: Optional[UUID] = None
+    body: str
+    created_at: str
+
+
+class RosCoafRegulatoryTimelineEntry(BaseModel):
+    id: str
+    source: Literal["domain_audit", "work_event", "work_comment"]
+    label: str
+    detail: Optional[str] = None
+    actor: Optional[str] = None
+    created_at: str
+
+
+class RosCoafRegulatoryDossierResponse(BaseModel):
+    version: str = "v1"
+    generated_at: str
+    dossier_sha256: str = ""
+    ros_record: RosCoafDetailResponse
+    work_item: Optional[RosCoafWorkItemSnapshot] = None
+    work_events: list[RosCoafWorkEventEntry] = []
+    work_comments: list[RosCoafWorkCommentEntry] = []
+    unified_timeline: list[RosCoafRegulatoryTimelineEntry] = []
+
+
+def _build_ros_coaf_regulatory_dossier_filename(ros_id: str) -> str:
+    normalized_ros_id = ros_id.strip() or "selection"
+    return f"ontrackchain-ros-coaf-regulatory-dossier-{normalized_ros_id}.json"
 
 
 def _compute_report_id(case_id: str, report_type: str) -> str:
@@ -191,22 +328,92 @@ def _require_strong_auth_for_legal_report(
         raise HTTPException(status_code=403, detail="2fa_required")
 
 
-def _require_coaf_report_approval_auth(
+COAF_REPORT_REVIEW_ALLOWED_ROLES = {
+    "ADMIN",
+    "COMPLIANCE_OFFICER",
+    "OTK_COMPLIANCE_OFFICER",
+    "LEGAL_REVIEWER",
+    "OTK_LEGAL_REVIEWER",
+    "REVIEWER",
+    "OTK_REVIEWER",
+}
+COAF_REPORT_SUBMISSION_ALLOWED_ROLES = {"ADMIN", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
+
+
+def _require_coaf_report_review_auth(
     *,
+    pool: ConnectionPool,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: Optional[str],
+    ros_id: Optional[str],
     x_role: Optional[str],
     x_mfa_mode: Optional[str],
     x_mfa_provider_homologated: Optional[str],
     x_2fa: Optional[str],
-) -> None:
-    normalized_role = (x_role or "").upper()
-    if normalized_role not in {"ADMIN", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}:
-        raise HTTPException(status_code=403, detail="coaf_report_requires_compliance_officer")
+) -> str:
+    normalized_role = _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=COAF_REPORT_REVIEW_ALLOWED_ROLES,
+        detail="coaf_report_review_role_required",
+        resource_type="ros_record",
+        resource_id=ros_id,
+        endpoint="/api/v1/reports/ros-coaf/{ros_id}/approve",
+        method="POST",
+    )
     if (x_mfa_mode or "").lower() != "external_provider":
         raise HTTPException(status_code=403, detail="coaf_report_requires_external_provider_mfa")
     if (x_mfa_provider_homologated or "").lower() != "true":
         raise HTTPException(status_code=403, detail="coaf_report_requires_homologated_provider")
     if x_2fa not in {"managed_externally", "managed_externally_homologated", "ok"}:
         raise HTTPException(status_code=403, detail="2fa_required")
+    return normalized_role
+
+
+def _require_coaf_report_submission_auth(
+    *,
+    pool: ConnectionPool,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: Optional[str],
+    ros_id: Optional[str],
+    x_role: Optional[str],
+    x_mfa_mode: Optional[str],
+    x_mfa_provider_homologated: Optional[str],
+    x_2fa: Optional[str],
+) -> str:
+    normalized_role = _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=COAF_REPORT_SUBMISSION_ALLOWED_ROLES,
+        detail="coaf_report_submission_role_required",
+        resource_type="ros_record",
+        resource_id=ros_id,
+        endpoint="/api/v1/reports/ros-coaf/{ros_id}/submitted",
+        method="POST",
+    )
+    if (x_mfa_mode or "").lower() != "external_provider":
+        raise HTTPException(status_code=403, detail="coaf_report_requires_external_provider_mfa")
+    if (x_mfa_provider_homologated or "").lower() != "true":
+        raise HTTPException(status_code=403, detail="coaf_report_requires_homologated_provider")
+    if x_2fa not in {"managed_externally", "managed_externally_homologated", "ok"}:
+        raise HTTPException(status_code=403, detail="2fa_required")
+    return normalized_role
+
+
+def _normalized_role(role: Optional[str]) -> str:
+    return str(role or "").strip().upper()
 
 
 def _resolve_persisted_user_id(cur, effective_user_id: Optional[str]) -> Optional[str]:
@@ -260,6 +467,35 @@ def _normalize_report_filter_datetime(value: Optional[datetime]) -> Optional[dat
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
     return value.astimezone(timezone.utc)
+
+
+def _isoformat(value: Optional[datetime]) -> Optional[str]:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc).isoformat()
+    return value.astimezone(timezone.utc).isoformat()
+
+
+def _summarize_metadata_fields(record: Optional[dict], preferred_keys: list[str]) -> Optional[str]:
+    if not record:
+        return None
+    parts: list[str] = []
+    for key in preferred_keys:
+        value = record.get(key)
+        if isinstance(value, str) and value.strip():
+            parts.append(f"{key}: {value.strip()}")
+        elif isinstance(value, (int, float, bool)):
+            parts.append(f"{key}: {value}")
+        if len(parts) >= 3:
+            break
+    return " | ".join(parts) if parts else None
+
+
+def _format_work_event_label(event_type: str, from_status: Optional[str], to_status: Optional[str]) -> str:
+    if from_status and to_status and from_status != to_status:
+        return f"{event_type}: {from_status} -> {to_status}"
+    return event_type
 
 
 def _serialize_report_list_row(row: dict) -> ReportListItem:
@@ -354,6 +590,82 @@ def _resolve_actor_ids(
     if linked_user_id and external_user_id and linked_user_id != external_user_id:
         return effective_user_id, external_user_id
     return effective_user_id, None
+
+
+def _record_authorization_denial(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: Optional[str],
+    effective_role: Optional[str],
+    allowed_roles: set[str],
+    detail: str,
+    resource_type: str,
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> None:
+    try:
+        with pool.connection() as conn:
+            _apply_rls_context(conn, organization_id)
+            with conn.cursor() as cur:
+                _record_audit_log(
+                    cur,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                    action="authorization_denied",
+                    resource_type=resource_type,
+                    resource_id=str(resource_id) if resource_id is not None else None,
+                    metadata={
+                        "request_id": request_id,
+                        "effective_role": effective_role or "UNSPECIFIED",
+                        "allowed_roles": sorted(allowed_roles),
+                        "detail": detail,
+                        "endpoint": endpoint,
+                        "method": method,
+                        "external_user_id": external_user_id,
+                    },
+                )
+            conn.commit()
+    except Exception:
+        logger.exception("failed_to_record_authorization_denial")
+
+
+def _require_role_with_audit(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: Optional[str],
+    x_role: Optional[str],
+    allowed_roles: set[str],
+    detail: str,
+    resource_type: str,
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    role = _normalized_role(x_role)
+    if role not in allowed_roles:
+        _record_authorization_denial(
+            pool,
+            organization_id=organization_id,
+            user_id=user_id,
+            external_user_id=external_user_id,
+            request_id=request_id,
+            effective_role=role,
+            allowed_roles=allowed_roles,
+            detail=detail,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            endpoint=endpoint,
+            method=method,
+        )
+        raise HTTPException(status_code=403, detail=detail)
+    return role
 
 
 def _build_report_platform_snapshot(*, pool: ConnectionPool) -> dict:
@@ -612,7 +924,35 @@ async def internal_report_prometheus_metrics(pool: ConnectionPool = Depends(get_
 
 
 @app.post("/api/v1/reports/generate", response_model=GenerateReportResponse)
-async def generate_report(body: GenerateReportRequest) -> GenerateReportResponse:
+async def generate_report(
+    body: GenerateReportRequest,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+    x_linked_user_id: Optional[str] = Header(default=None, alias="X-Linked-User-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+    x_request_id: Optional[str] = Header(default=None, alias="X-Request-Id"),
+) -> GenerateReportResponse:
+    if not x_org_id:
+        raise HTTPException(status_code=401, detail="missing_org_context")
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_role_with_audit(
+        pool,
+        organization_id=x_org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=x_request_id,
+        x_role=x_role,
+        allowed_roles=REPORT_WRITE_ALLOWED_ROLES,
+        detail="report_write_role_required",
+        resource_type="report",
+        resource_id=body.case_id,
+        endpoint="/api/v1/reports/generate",
+        method="POST",
+    )
     created_at = datetime.now(timezone.utc).isoformat()
     canonical_report_type, requested_alias = resolve_report_type(body.report_type)
 
@@ -648,15 +988,21 @@ async def generate_ros_coaf_report(
 ) -> GenerateRosCoafResponse:
     if not x_org_id:
         raise HTTPException(status_code=401, detail="missing_org_context")
-    _require_coaf_report_approval_auth(
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_coaf_report_submission_auth(
+        pool=pool,
+        organization_id=x_org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=x_request_id,
+        ros_id=body.ros_id,
         x_role=x_role,
         x_mfa_mode=x_mfa_mode,
         x_mfa_provider_homologated=x_mfa_provider_homologated,
         x_2fa=x_2fa,
-    )
-    effective_user_id, external_actor_user_id = _resolve_actor_ids(
-        external_user_id=x_user_id,
-        linked_user_id=x_linked_user_id,
     )
 
     with pool.connection() as conn:
@@ -795,6 +1141,658 @@ async def generate_ros_coaf_report(
     )
 
 
+@app.get("/api/v1/reports/ros-coaf", response_model=RosCoafListResponse)
+async def list_ros_coaf_reports(
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+    x_linked_user_id: Optional[str] = Header(default=None, alias="X-Linked-User-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+    x_request_id: Optional[str] = Header(default=None, alias="X-Request-Id"),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
+    ros_id: Optional[str] = Query(default=None),
+    case_id: Optional[str] = Query(default=None),
+    report_id: Optional[str] = Query(default=None),
+    status: Optional[str] = Query(default=None),
+) -> RosCoafListResponse:
+    if not x_org_id:
+        raise HTTPException(status_code=401, detail="missing_org_context")
+
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    normalized_ros_id = ros_id.strip() if ros_id else None
+    normalized_case_id = case_id.strip() if case_id else None
+    normalized_report_id = report_id.strip() if report_id else None
+    normalized_status = status.strip().upper() if status else None
+    _require_role_with_audit(
+        pool,
+        organization_id=x_org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=x_request_id,
+        x_role=x_role,
+        allowed_roles=REPORT_READ_ALLOWED_ROLES,
+        detail="report_read_role_required",
+        resource_type="ros_record",
+        resource_id=normalized_ros_id or normalized_report_id,
+        endpoint="/api/v1/reports/ros-coaf",
+        method="GET",
+    )
+    offset = (page - 1) * limit
+
+    base_from = """
+        FROM ros_records ros
+        LEFT JOIN LATERAL (
+            SELECT external_report_id, created_at
+            FROM reports rep
+            WHERE rep.organization_id = ros.organization_id
+              AND rep.report_type = 'coaf_ready_report'
+              AND rep.metadata->>'ros_id' = ros.id::text
+            ORDER BY rep.created_at DESC, rep.id DESC
+            LIMIT 1
+        ) report_ref ON TRUE
+        WHERE ros.organization_id = %s
+    """
+    params: list[object] = [x_org_id]
+    if normalized_ros_id:
+        base_from += " AND ros.id::text = %s"
+        params.append(normalized_ros_id)
+    if normalized_case_id:
+        base_from += " AND ros.case_id::text = %s"
+        params.append(normalized_case_id)
+    if normalized_report_id:
+        base_from += " AND report_ref.external_report_id = %s"
+        params.append(normalized_report_id)
+    if normalized_status:
+        base_from += " AND ros.status = %s"
+        params.append(normalized_status)
+
+    total = 0
+    rows: list[dict] = []
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(f"SELECT COUNT(*) AS total {base_from}", params)
+            total = int(cur.fetchone()["total"])
+            cur.execute(
+                f"""
+                SELECT
+                    ros.id::text AS ros_id,
+                    ros.case_id::text AS case_id,
+                    ros.status,
+                    COALESCE(report_ref.external_report_id, '') AS report_id,
+                    COALESCE(report_ref.created_at, ros.generated_at, ros.created_at) AS created_at,
+                    ros.approved_at,
+                    ros.submitted_at,
+                    ros.coaf_protocol_number,
+                    ros.coaf_receipt_hash,
+                    ros.rejection_reason,
+                    ros.approval_2fa_verified,
+                    ros.submission_deadline,
+                    (
+                        ros.deadline_breached
+                        OR (
+                            ros.status NOT IN ('SUBMITTED_MANUAL', 'REJECTED')
+                            AND ros.submission_deadline < NOW()
+                        )
+                    ) AS deadline_breached,
+                    GREATEST(
+                        COALESCE(ros.updated_at, ros.created_at),
+                        COALESCE(ros.submitted_at, ros.created_at),
+                        COALESCE(ros.approved_at, ros.created_at),
+                        COALESCE(ros.generated_at, ros.created_at),
+                        COALESCE(report_ref.created_at, ros.created_at)
+                    ) AS last_activity_at
+                {base_from}
+                ORDER BY last_activity_at DESC, ros.id DESC
+                LIMIT %s OFFSET %s
+                """,
+                [*params, limit, offset],
+            )
+            rows = cur.fetchall()
+
+    data = [
+        RosCoafListItem(
+            ros_id=row["ros_id"],
+            case_id=row["case_id"],
+            status=row["status"],
+            report_id=row["report_id"] or "",
+            created_at=row["created_at"].isoformat(),
+            approved_at=row["approved_at"].isoformat() if row["approved_at"] else None,
+            submitted_at=row["submitted_at"].isoformat() if row["submitted_at"] else None,
+            coaf_protocol_number=row["coaf_protocol_number"] or "",
+            coaf_receipt_hash=row["coaf_receipt_hash"] or "",
+            rejection_reason=row["rejection_reason"] or "",
+            approval_2fa_verified=bool(row["approval_2fa_verified"]),
+            submission_deadline=row["submission_deadline"].isoformat() if row["submission_deadline"] else None,
+            deadline_breached=bool(row["deadline_breached"]),
+            last_activity_at=row["last_activity_at"].isoformat(),
+        )
+        for row in rows
+    ]
+    return RosCoafListResponse(
+        data=data,
+        page=page,
+        limit=limit,
+        total=total,
+        has_more=offset + len(data) < total,
+    )
+
+
+@app.get("/api/v1/reports/ros-coaf/{ros_id}", response_model=RosCoafDetailResponse)
+async def get_ros_coaf_report(
+    ros_id: str,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+    x_linked_user_id: Optional[str] = Header(default=None, alias="X-Linked-User-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+    x_request_id: Optional[str] = Header(default=None, alias="X-Request-Id"),
+) -> RosCoafDetailResponse:
+    if not x_org_id:
+        raise HTTPException(status_code=401, detail="missing_org_context")
+
+    normalized_ros_id = ros_id.strip()
+    if not normalized_ros_id:
+        raise HTTPException(status_code=422, detail="ros_id_required")
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_role_with_audit(
+        pool,
+        organization_id=x_org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=x_request_id,
+        x_role=x_role,
+        allowed_roles=REPORT_READ_ALLOWED_ROLES,
+        detail="report_read_role_required",
+        resource_type="ros_record",
+        resource_id=normalized_ros_id,
+        endpoint="/api/v1/reports/ros-coaf/{ros_id}",
+        method="GET",
+    )
+
+    ros_row: Optional[dict] = None
+    audit_rows: list[dict] = []
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    ros.id,
+                    ros.id::text AS ros_id,
+                    ros.case_id::text AS case_id,
+                    ros.status,
+                    COALESCE(report_ref.external_report_id, '') AS report_id,
+                    ros.tipologia_code,
+                    ros.tipologia_description,
+                    ros.trigger_reason,
+                    ros.suspected_amount_brl,
+                    ros.suspected_address,
+                    ros.suspected_chain,
+                    ros.pdf_hash,
+                    ros.pdf_path,
+                    ros.generated_at,
+                    ros.approved_at,
+                    ros.submitted_at,
+                    ros.approval_2fa_verified,
+                    ros.rejection_reason,
+                    ros.submission_deadline,
+                    (
+                        ros.deadline_breached
+                        OR (
+                            ros.status NOT IN ('SUBMITTED_MANUAL', 'REJECTED')
+                            AND ros.submission_deadline < NOW()
+                        )
+                    ) AS deadline_breached,
+                    ros.coaf_protocol_number,
+                    ros.coaf_receipt_hash,
+                    ros.evidence_hash,
+                    ros.evidence_trail_ref,
+                    ros.created_at,
+                    ros.updated_at,
+                    ros.retain_until
+                FROM ros_records ros
+                LEFT JOIN LATERAL (
+                    SELECT external_report_id, created_at
+                    FROM reports rep
+                    WHERE rep.organization_id = ros.organization_id
+                      AND rep.report_type = 'coaf_ready_report'
+                      AND rep.metadata->>'ros_id' = ros.id::text
+                    ORDER BY rep.created_at DESC, rep.id DESC
+                    LIMIT 1
+                ) report_ref ON TRUE
+                WHERE ros.organization_id = %s
+                  AND ros.id::text = %s
+                """,
+                (x_org_id, normalized_ros_id),
+            )
+            ros_row = cur.fetchone()
+            if not ros_row:
+                raise HTTPException(status_code=404, detail="ros_record_not_found")
+
+            cur.execute(
+                """
+                SELECT id, user_id, action, metadata, created_at
+                FROM audit_logs
+                WHERE organization_id = %s
+                  AND resource_type = 'ros_record'
+                  AND resource_id = %s
+                ORDER BY created_at DESC
+                LIMIT 50
+                """,
+                (x_org_id, ros_row["id"]),
+            )
+            audit_rows = cur.fetchall()
+
+    audit = [
+        RosCoafAuditEntry(
+            id=row["id"],
+            user_id=row["user_id"],
+            action=row["action"],
+            created_at=row["created_at"].isoformat(),
+            metadata=row["metadata"] or {},
+        )
+        for row in audit_rows
+    ]
+    return RosCoafDetailResponse(
+        ros_id=ros_row["ros_id"],
+        case_id=ros_row["case_id"],
+        report_id=ros_row["report_id"] or "",
+        status=ros_row["status"],
+        tipologia_code=ros_row["tipologia_code"],
+        tipologia_description=ros_row["tipologia_description"],
+        trigger_reason=ros_row["trigger_reason"],
+        suspected_amount_brl=float(ros_row["suspected_amount_brl"]) if ros_row["suspected_amount_brl"] is not None else None,
+        suspected_address=ros_row["suspected_address"] or "",
+        suspected_chain=ros_row["suspected_chain"] or "",
+        pdf_hash=ros_row["pdf_hash"] or "",
+        pdf_path=ros_row["pdf_path"] or "",
+        generated_at=ros_row["generated_at"].isoformat() if ros_row["generated_at"] else None,
+        approved_at=ros_row["approved_at"].isoformat() if ros_row["approved_at"] else None,
+        submitted_at=ros_row["submitted_at"].isoformat() if ros_row["submitted_at"] else None,
+        approval_2fa_verified=bool(ros_row["approval_2fa_verified"]),
+        rejection_reason=ros_row["rejection_reason"] or "",
+        submission_deadline=ros_row["submission_deadline"].isoformat() if ros_row["submission_deadline"] else None,
+        deadline_breached=bool(ros_row["deadline_breached"]),
+        coaf_protocol_number=ros_row["coaf_protocol_number"] or "",
+        coaf_receipt_hash=ros_row["coaf_receipt_hash"] or "",
+        evidence_hash=ros_row["evidence_hash"] or "",
+        evidence_trail_ref=ros_row["evidence_trail_ref"] or "",
+        created_at=ros_row["created_at"].isoformat(),
+        updated_at=ros_row["updated_at"].isoformat(),
+        retain_until=ros_row["retain_until"].isoformat(),
+        audit=audit,
+    )
+
+
+@app.get("/api/v1/reports/ros-coaf/{ros_id}/regulatory-dossier")
+async def get_ros_coaf_regulatory_dossier(
+    ros_id: str,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+    x_linked_user_id: Optional[str] = Header(default=None, alias="X-Linked-User-Id"),
+    x_request_id: Optional[str] = Header(default=None, alias="X-Request-Id"),
+    x_auth_method: Optional[str] = Header(default=None, alias="X-Auth-Method"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+    limit: int = Query(default=50, ge=1, le=200),
+) -> Response:
+    if not x_org_id:
+        raise HTTPException(status_code=401, detail="missing_org_context")
+
+    normalized_ros_id = ros_id.strip()
+    if not normalized_ros_id:
+        raise HTTPException(status_code=422, detail="ros_id_required")
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_role_with_audit(
+        pool,
+        organization_id=x_org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=x_request_id,
+        x_role=x_role,
+        allowed_roles=REPORT_READ_ALLOWED_ROLES,
+        detail="report_read_role_required",
+        resource_type="ros_record",
+        resource_id=normalized_ros_id,
+        endpoint="/api/v1/reports/ros-coaf/{ros_id}/regulatory-dossier",
+        method="GET",
+    )
+
+    ros_row: Optional[dict] = None
+    audit_rows: list[dict] = []
+    work_item_row: Optional[dict] = None
+    event_rows: list[dict] = []
+    comment_rows: list[dict] = []
+
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    ros.id,
+                    ros.id::text AS ros_id,
+                    ros.case_id::text AS case_id,
+                    ros.status,
+                    COALESCE(report_ref.external_report_id, '') AS report_id,
+                    ros.tipologia_code,
+                    ros.tipologia_description,
+                    ros.trigger_reason,
+                    ros.suspected_amount_brl,
+                    ros.suspected_address,
+                    ros.suspected_chain,
+                    ros.pdf_hash,
+                    ros.pdf_path,
+                    ros.generated_at,
+                    ros.approved_at,
+                    ros.submitted_at,
+                    ros.approval_2fa_verified,
+                    ros.rejection_reason,
+                    ros.submission_deadline,
+                    (
+                        ros.deadline_breached
+                        OR (
+                            ros.status NOT IN ('SUBMITTED_MANUAL', 'REJECTED')
+                            AND ros.submission_deadline < NOW()
+                        )
+                    ) AS deadline_breached,
+                    ros.coaf_protocol_number,
+                    ros.coaf_receipt_hash,
+                    ros.evidence_hash,
+                    ros.evidence_trail_ref,
+                    ros.created_at,
+                    ros.updated_at,
+                    ros.retain_until
+                FROM ros_records ros
+                LEFT JOIN LATERAL (
+                    SELECT external_report_id, created_at
+                    FROM reports rep
+                    WHERE rep.organization_id = ros.organization_id
+                      AND rep.report_type = 'coaf_ready_report'
+                      AND rep.metadata->>'ros_id' = ros.id::text
+                    ORDER BY rep.created_at DESC, rep.id DESC
+                    LIMIT 1
+                ) report_ref ON TRUE
+                WHERE ros.organization_id = %s
+                  AND ros.id::text = %s
+                """,
+                (x_org_id, normalized_ros_id),
+            )
+            ros_row = cur.fetchone()
+            if not ros_row:
+                raise HTTPException(status_code=404, detail="ros_record_not_found")
+
+            cur.execute(
+                """
+                SELECT id, user_id, action, metadata, created_at
+                FROM audit_logs
+                WHERE organization_id = %s
+                  AND resource_type = 'ros_record'
+                  AND resource_id = %s
+                ORDER BY created_at DESC
+                LIMIT %s
+                """,
+                (x_org_id, ros_row["id"], limit),
+            )
+            audit_rows = cur.fetchall()
+
+            cur.execute(
+                """
+                SELECT
+                    id,
+                    module,
+                    resource_type,
+                    resource_id,
+                    case_id,
+                    report_external_id,
+                    owner_user_id,
+                    assigned_by_user_id,
+                    queue_status,
+                    priority,
+                    due_at,
+                    sla_breached,
+                    title,
+                    note,
+                    metadata,
+                    created_at,
+                    updated_at,
+                    last_activity_at
+                FROM regulatory_work_items
+                WHERE organization_id = %s
+                  AND module = 'ros_coaf'
+                  AND resource_type = 'ros_record'
+                  AND resource_id = %s
+                LIMIT 1
+                """,
+                (x_org_id, ros_row["id"]),
+            )
+            work_item_row = cur.fetchone()
+
+            if work_item_row:
+                cur.execute(
+                    """
+                    SELECT id, event_type, from_status, to_status, actor_user_id, payload, created_at
+                    FROM regulatory_work_events
+                    WHERE work_item_id = %s
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (work_item_row["id"], limit),
+                )
+                event_rows = cur.fetchall()
+
+                cur.execute(
+                    """
+                    SELECT id, comment_type, actor_user_id, body, created_at
+                    FROM regulatory_work_comments
+                    WHERE work_item_id = %s
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (work_item_row["id"], limit),
+                )
+                comment_rows = cur.fetchall()
+
+    audit = [
+        RosCoafAuditEntry(
+            id=row["id"],
+            user_id=row["user_id"],
+            action=row["action"],
+            created_at=row["created_at"].isoformat(),
+            metadata=row["metadata"] or {},
+        )
+        for row in audit_rows
+    ]
+    ros_record = RosCoafDetailResponse(
+        ros_id=ros_row["ros_id"],
+        case_id=ros_row["case_id"],
+        report_id=ros_row["report_id"] or "",
+        status=ros_row["status"],
+        tipologia_code=ros_row["tipologia_code"],
+        tipologia_description=ros_row["tipologia_description"],
+        trigger_reason=ros_row["trigger_reason"],
+        suspected_amount_brl=float(ros_row["suspected_amount_brl"]) if ros_row["suspected_amount_brl"] is not None else None,
+        suspected_address=ros_row["suspected_address"] or "",
+        suspected_chain=ros_row["suspected_chain"] or "",
+        pdf_hash=ros_row["pdf_hash"] or "",
+        pdf_path=ros_row["pdf_path"] or "",
+        generated_at=_isoformat(ros_row.get("generated_at")),
+        approved_at=_isoformat(ros_row.get("approved_at")),
+        submitted_at=_isoformat(ros_row.get("submitted_at")),
+        approval_2fa_verified=bool(ros_row["approval_2fa_verified"]),
+        rejection_reason=ros_row["rejection_reason"] or "",
+        submission_deadline=_isoformat(ros_row.get("submission_deadline")),
+        deadline_breached=bool(ros_row["deadline_breached"]),
+        coaf_protocol_number=ros_row["coaf_protocol_number"] or "",
+        coaf_receipt_hash=ros_row["coaf_receipt_hash"] or "",
+        evidence_hash=ros_row["evidence_hash"] or "",
+        evidence_trail_ref=ros_row["evidence_trail_ref"] or "",
+        created_at=ros_row["created_at"].isoformat(),
+        updated_at=ros_row["updated_at"].isoformat(),
+        retain_until=ros_row["retain_until"].isoformat(),
+        audit=audit,
+    )
+
+    work_item = None
+    if work_item_row:
+        work_item = RosCoafWorkItemSnapshot(
+            id=work_item_row["id"],
+            module=work_item_row["module"],
+            resource_type=work_item_row["resource_type"],
+            resource_id=work_item_row["resource_id"],
+            case_id=work_item_row["case_id"],
+            report_external_id=work_item_row.get("report_external_id"),
+            owner_user_id=work_item_row.get("owner_user_id"),
+            assigned_by_user_id=work_item_row.get("assigned_by_user_id"),
+            queue_status=work_item_row["queue_status"],
+            priority=work_item_row["priority"],
+            due_at=_isoformat(work_item_row.get("due_at")),
+            sla_breached=bool(work_item_row.get("sla_breached")),
+            title=work_item_row.get("title"),
+            note=work_item_row.get("note"),
+            metadata=work_item_row.get("metadata") or {},
+            created_at=work_item_row["created_at"].isoformat(),
+            updated_at=work_item_row["updated_at"].isoformat(),
+            last_activity_at=work_item_row["last_activity_at"].isoformat(),
+        )
+
+    work_events = [
+        RosCoafWorkEventEntry(
+            id=row["id"],
+            event_type=row["event_type"],
+            from_status=row.get("from_status"),
+            to_status=row.get("to_status"),
+            actor_user_id=row.get("actor_user_id"),
+            payload=row.get("payload") or {},
+            created_at=row["created_at"].isoformat(),
+        )
+        for row in event_rows
+    ]
+    work_comments = [
+        RosCoafWorkCommentEntry(
+            id=row["id"],
+            comment_type=row["comment_type"],
+            actor_user_id=row.get("actor_user_id"),
+            body=row.get("body") or "",
+            created_at=row["created_at"].isoformat(),
+        )
+        for row in comment_rows
+    ]
+
+    timeline: list[tuple[datetime, RosCoafRegulatoryTimelineEntry]] = []
+    for entry in audit:
+        created_at_dt = datetime.fromisoformat(entry.created_at.replace("Z", "+00:00"))
+        timeline.append(
+            (
+                created_at_dt,
+                RosCoafRegulatoryTimelineEntry(
+                    id=f"audit-{entry.id}",
+                    source="domain_audit",
+                    label=entry.action,
+                    detail=_summarize_metadata_fields(
+                        entry.metadata if isinstance(entry.metadata, dict) else None,
+                        ["request_id", "report_id", "filename", "dossier_sha256", "external_user_id", "file_hash_sha256"],
+                    ),
+                    actor=str(entry.user_id) if entry.user_id else None,
+                    created_at=entry.created_at,
+                ),
+            )
+        )
+
+    for entry in work_events:
+        created_at_dt = datetime.fromisoformat(entry.created_at.replace("Z", "+00:00"))
+        timeline.append(
+            (
+                created_at_dt,
+                RosCoafRegulatoryTimelineEntry(
+                    id=f"event-{entry.id}",
+                    source="work_event",
+                    label=_format_work_event_label(entry.event_type, entry.from_status, entry.to_status),
+                    detail=_summarize_metadata_fields(
+                        entry.payload if isinstance(entry.payload, dict) else None,
+                        ["ros_id", "report_id", "request_id", "coaf_protocol_number", "coaf_receipt_hash"],
+                    ),
+                    actor=str(entry.actor_user_id) if entry.actor_user_id else None,
+                    created_at=entry.created_at,
+                ),
+            )
+        )
+
+    for entry in work_comments:
+        created_at_dt = datetime.fromisoformat(entry.created_at.replace("Z", "+00:00"))
+        timeline.append(
+            (
+                created_at_dt,
+                RosCoafRegulatoryTimelineEntry(
+                    id=f"comment-{entry.id}",
+                    source="work_comment",
+                    label=entry.comment_type,
+                    detail=entry.body.strip() or None,
+                    actor=str(entry.actor_user_id) if entry.actor_user_id else None,
+                    created_at=entry.created_at,
+                ),
+            )
+        )
+
+    unified_timeline = [entry for _, entry in sorted(timeline, key=lambda item: item[0], reverse=True)]
+
+    dossier = RosCoafRegulatoryDossierResponse(
+        generated_at=datetime.now(timezone.utc).isoformat(),
+        ros_record=ros_record,
+        work_item=work_item,
+        work_events=work_events,
+        work_comments=work_comments,
+        unified_timeline=unified_timeline,
+    )
+    serialized_without_hash = dossier.model_dump_json(indent=2)
+    dossier_sha256 = hashlib.sha256(serialized_without_hash.encode("utf-8")).hexdigest()
+    dossier.dossier_sha256 = dossier_sha256
+    serialized_with_hash = dossier.model_dump_json(indent=2)
+    dossier_filename = _build_ros_coaf_regulatory_dossier_filename(ros_record.ros_id)
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            _record_audit_log(
+                cur,
+                organization_id=x_org_id,
+                user_id=effective_user_id,
+                action="coaf_regulatory_dossier_downloaded",
+                resource_type="ros_record",
+                resource_id=ros_row["id"],
+                metadata={
+                    "request_id": x_request_id,
+                    "ros_id": ros_record.ros_id,
+                    "report_id": ros_record.report_id,
+                    "filename": dossier_filename,
+                    "content_type": "application/json",
+                    "dossier_sha256": dossier_sha256,
+                    "auth_method": x_auth_method,
+                    "role": x_role,
+                    "external_user_id": external_actor_user_id,
+                },
+            )
+        conn.commit()
+    return Response(
+        content=serialized_with_hash,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="{dossier_filename}"',
+            "X-Ontrack-Dossier-SHA256": dossier_sha256,
+        },
+    )
+
+
 @app.post("/api/v1/reports/ros-coaf/{ros_id}/approve", response_model=ApproveRosCoafResponse)
 async def approve_ros_coaf_report(
     ros_id: str,
@@ -811,7 +1809,17 @@ async def approve_ros_coaf_report(
 ) -> ApproveRosCoafResponse:
     if not x_org_id:
         raise HTTPException(status_code=401, detail="missing_org_context")
-    _require_coaf_report_approval_auth(
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_coaf_report_review_auth(
+        pool=pool,
+        organization_id=x_org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=x_request_id,
+        ros_id=ros_id,
         x_role=x_role,
         x_mfa_mode=x_mfa_mode,
         x_mfa_provider_homologated=x_mfa_provider_homologated,
@@ -819,11 +1827,6 @@ async def approve_ros_coaf_report(
     )
     if not body.approved and not body.rejection_reason:
         raise HTTPException(status_code=422, detail="rejection_reason_required")
-
-    effective_user_id, external_actor_user_id = _resolve_actor_ids(
-        external_user_id=x_user_id,
-        linked_user_id=x_linked_user_id,
-    )
     reviewed_at = datetime.now(timezone.utc).isoformat()
     next_status = "APPROVED" if body.approved else "REJECTED"
 
@@ -923,7 +1926,17 @@ async def mark_ros_coaf_submitted(
 ) -> SubmitRosCoafResponse:
     if not x_org_id:
         raise HTTPException(status_code=401, detail="missing_org_context")
-    _require_coaf_report_approval_auth(
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_coaf_report_submission_auth(
+        pool=pool,
+        organization_id=x_org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=x_request_id,
+        ros_id=ros_id,
         x_role=x_role,
         x_mfa_mode=x_mfa_mode,
         x_mfa_provider_homologated=x_mfa_provider_homologated,
@@ -931,11 +1944,6 @@ async def mark_ros_coaf_submitted(
     )
     if not body.coaf_protocol_number.strip():
         raise HTTPException(status_code=422, detail="coaf_protocol_number_required")
-
-    effective_user_id, external_actor_user_id = _resolve_actor_ids(
-        external_user_id=x_user_id,
-        linked_user_id=x_linked_user_id,
-    )
     submitted_at = datetime.now(timezone.utc).isoformat()
     receipt_hash = (
         body.coaf_receipt_hash.lower().strip()
@@ -1032,6 +2040,10 @@ async def mark_ros_coaf_submitted(
 async def list_reports(
     pool: ConnectionPool = Depends(get_pool),
     x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+    x_linked_user_id: Optional[str] = Header(default=None, alias="X-Linked-User-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+    x_request_id: Optional[str] = Header(default=None, alias="X-Request-Id"),
     page: int = Query(default=1),
     limit: int = Query(default=20),
     report_id: Optional[str] = Query(default=None),
@@ -1042,6 +2054,10 @@ async def list_reports(
 ) -> ReportListResponse:
     if not x_org_id:
         raise HTTPException(status_code=401, detail="missing_org_context")
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
 
     canonical_report_type: Optional[str] = None
     if report_type:
@@ -1060,6 +2076,20 @@ async def list_reports(
             case_id = str(UUID(case_id))
         except ValueError:
             raise HTTPException(status_code=422, detail="invalid_case_id") from None
+    _require_role_with_audit(
+        pool,
+        organization_id=x_org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=x_request_id,
+        x_role=x_role,
+        allowed_roles=REPORT_READ_ALLOWED_ROLES,
+        detail="report_read_role_required",
+        resource_type="report",
+        resource_id=normalized_report_id or case_id,
+        endpoint="/api/v1/reports",
+        method="GET",
+    )
 
     query_filters = ["r.organization_id = %s"]
     query_params: list = [x_org_id]
@@ -1143,6 +2173,9 @@ async def get_report(
     report_id: str,
     pool: ConnectionPool = Depends(get_pool),
     x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+    x_linked_user_id: Optional[str] = Header(default=None, alias="X-Linked-User-Id"),
+    x_request_id: Optional[str] = Header(default=None, alias="X-Request-Id"),
     x_auth_method: Optional[str] = Header(default=None, alias="X-Auth-Method"),
     x_role: Optional[str] = Header(default=None, alias="X-Role"),
     x_2fa: Optional[str] = Header(default=None, alias="X-2FA"),
@@ -1151,6 +2184,27 @@ async def get_report(
 ) -> GenerateReportResponse:
     if not x_org_id:
         raise HTTPException(status_code=401, detail="missing_org_context")
+    normalized_report_id = report_id.strip()
+    if not normalized_report_id:
+        raise HTTPException(status_code=422, detail="report_id_required")
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_role_with_audit(
+        pool,
+        organization_id=x_org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=x_request_id,
+        x_role=x_role,
+        allowed_roles=REPORT_READ_ALLOWED_ROLES,
+        detail="report_read_role_required",
+        resource_type="report",
+        resource_id=normalized_report_id,
+        endpoint="/api/v1/reports/{report_id}",
+        method="GET",
+    )
 
     with pool.connection() as conn:
         _apply_rls_context(conn, x_org_id)
@@ -1169,7 +2223,7 @@ async def get_report(
                 FROM reports
                 WHERE external_report_id = %s
                 """,
-                (report_id,),
+                (normalized_report_id,),
             )
             row = cur.fetchone()
 
@@ -1217,6 +2271,66 @@ async def get_report(
     )
 
 
+@app.get("/api/v1/reports/{report_id}/ros-coaf-ref", response_model=ReportRosCoafRefResponse)
+async def get_report_ros_coaf_ref(
+    report_id: str,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+    x_linked_user_id: Optional[str] = Header(default=None, alias="X-Linked-User-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+    x_request_id: Optional[str] = Header(default=None, alias="X-Request-Id"),
+) -> ReportRosCoafRefResponse:
+    if not x_org_id:
+        raise HTTPException(status_code=401, detail="missing_org_context")
+
+    normalized_report_id = report_id.strip()
+    if not normalized_report_id:
+        raise HTTPException(status_code=422, detail="report_id_required")
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_role_with_audit(
+        pool,
+        organization_id=x_org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=x_request_id,
+        x_role=x_role,
+        allowed_roles=REPORT_READ_ALLOWED_ROLES,
+        detail="report_read_role_required",
+        resource_type="report",
+        resource_id=normalized_report_id,
+        endpoint="/api/v1/reports/{report_id}/ros-coaf-ref",
+        method="GET",
+    )
+
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT external_report_id, metadata
+                FROM reports
+                WHERE external_report_id = %s
+                """,
+                (normalized_report_id,),
+            )
+            row = cur.fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="report_not_found")
+
+    metadata = row.get("metadata") or {}
+    ros_id = metadata.get("ros_id") if isinstance(metadata, dict) else None
+    ros_id_value = ros_id.strip() if isinstance(ros_id, str) and ros_id.strip() else None
+    return ReportRosCoafRefResponse(
+        report_id=row.get("external_report_id") or normalized_report_id,
+        ros_id=ros_id_value,
+    )
+
+
 @app.get("/api/v1/reports/{report_id}/download")
 async def download_report(
     report_id: str,
@@ -1238,6 +2352,12 @@ async def download_report(
     expected_report_id = _compute_report_id(case_id, canonical_report_type)
     if expected_report_id != report_id:
         raise HTTPException(status_code=404, detail="report_not_found")
+    if not x_org_id:
+        raise HTTPException(status_code=401, detail="missing_org_context")
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
     if canonical_report_type == "legal_report":
         _require_strong_auth_for_legal_report(
             x_auth_method=x_auth_method,
@@ -1246,37 +2366,46 @@ async def download_report(
             x_mfa_mode=x_mfa_mode,
             x_mfa_provider_homologated=x_mfa_provider_homologated,
         )
+    else:
+        _require_role_with_audit(
+            pool,
+            organization_id=x_org_id,
+            user_id=effective_user_id,
+            external_user_id=external_actor_user_id,
+            request_id=x_request_id,
+            x_role=x_role,
+            allowed_roles=REPORT_READ_ALLOWED_ROLES,
+            detail="report_read_role_required",
+            resource_type="report",
+            resource_id=report_id,
+            endpoint="/api/v1/reports/{report_id}/download",
+            method="GET",
+        )
     content = _build_pdf_bytes(case_id=case_id, report_type=canonical_report_type, created_at=created_at)
     file_hash_sha256 = hashlib.sha256(content).hexdigest()
-    effective_user_id, external_actor_user_id = _resolve_actor_ids(
-        external_user_id=x_user_id,
-        linked_user_id=x_linked_user_id,
-    )
-
-    if x_org_id:
-        with pool.connection() as conn:
-            _apply_rls_context(conn, x_org_id)
-            with conn.cursor() as cur:
-                _record_audit_log(
-                    cur,
-                    organization_id=x_org_id,
-                    user_id=effective_user_id,
-                    action="report_downloaded",
-                    resource_type="report",
-                    resource_id=None,
-                    metadata={
-                        "request_id": x_request_id,
-                        "report_id": report_id,
-                        "case_id": case_id,
-                        "report_type": canonical_report_type,
-                        "created_at": created_at,
-                        "content_type": "application/pdf",
-                        "file_hash_sha256": file_hash_sha256,
-                        "auth_method": x_auth_method,
-                        "role": x_role,
-                        "two_fa": x_2fa,
-                        "external_user_id": external_actor_user_id,
-                    },
-                )
-            conn.commit()
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            _record_audit_log(
+                cur,
+                organization_id=x_org_id,
+                user_id=effective_user_id,
+                action="report_downloaded",
+                resource_type="report",
+                resource_id=None,
+                metadata={
+                    "request_id": x_request_id,
+                    "report_id": report_id,
+                    "case_id": case_id,
+                    "report_type": canonical_report_type,
+                    "created_at": created_at,
+                    "content_type": "application/pdf",
+                    "file_hash_sha256": file_hash_sha256,
+                    "auth_method": x_auth_method,
+                    "role": x_role,
+                    "two_fa": x_2fa,
+                    "external_user_id": external_actor_user_id,
+                },
+            )
+        conn.commit()
     return Response(content=content, media_type="application/pdf", headers={"content-disposition": f'attachment; filename=\"report-{report_id}.pdf\"'})

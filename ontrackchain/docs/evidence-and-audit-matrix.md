@@ -32,6 +32,7 @@ Toda evidencia relevante deve permitir correlacao entre:
 | Sanctions check com hit | `compliance_sanctions_checked` | `SANCTIONS_HIT` | `request_id`, `address`, `chain`, `matched_lists` | hit cacheado | endpoint/testes |
 | Due diligence manual | `compliance_due_diligence_checked` | nao obrigatoria | `request_id`, `address`, `chain`, `delivery_mode`, `counterparty_context` | contrato `manual_review_pending` + pacote regulatório DD no cockpit `/evidence` | endpoint/testes/UI |
 | Source of funds manual | `compliance_source_of_funds_checked` | nao obrigatoria | `request_id`, `address`, `chain`, `delivery_mode`, `amount`, `purpose` | contrato `manual_review_pending` + pacote regulatório SoF no cockpit `/evidence` | endpoint/testes/UI |
+| Export de pacote manual | `evidence_manual_review_package_exported` | `EVIDENCE_EXPORTED` | `request_id`, `report_id`, `scope_id`, `package_sha256`, `manual_review_action`, `filename` | manifesto canônico SHA-256 + checksum do bundle/workspace + `audit_logs` oficial | endpoint/testes/UI |
 | Preventive block | `preventive_block_evaluated` | `BLOCK_*` conforme decisao | `request_id`, `block_id`, `evidence_hash` | `preventive_blocks` | testes/domain |
 | Block lift | `preventive_block_lifted` | `BLOCK_LIFTED` | `block_id`, `lifted_at` | update controlado | endpoint |
 | Counterparty onboarding | `counterparty_created` ou equivalente | `COUNTERPARTY_ONBOARDED` | `counterparty_id`, `document_number`, `evidence_hash` | `counterparties` | endpoint |
@@ -164,7 +165,9 @@ Scripts canonicos:
 - nem todo evento negativo sensivel possui espelho em `evidence_trail`; parte continua apenas em `audit_logs`
 - janelas `AML/KYT live` e UE ainda dependem de evidencia institucional recorrente, apesar dos guardrails tecnicos estarem prontos
 - `P0-01` agora possui bundle OIDC próprio, mas a homologação institucional de MFA/`external_provider` ainda depende de execução recorrente em janela séria
-- artefatos de manual review para `due_diligence` e `source_of_funds` agora possuem pacote regulatório operacional no cockpit `/evidence`, mas ainda sem assinatura/classificação institucional recorrente
+- artefatos de manual review para `due_diligence` e `source_of_funds` agora possuem pacote regulatório operacional no cockpit `/evidence`, com selagem institucional forte funcional, governança pós-selagem e correlação auditável por `package_sha256`
+- os gaps residuais dessa trilha agora se concentram em homologação do provider institucional definitivo, trust bundle versionado e aceite recorrente em janela séria
+- o contrato HTTP canônico dessa superfície está em `./api-contracts.md`, com visão arquitetural complementar em `./evidence-manual-package-strong-sealing-architecture.md`
 
 ## Uso Recomendado
 
@@ -174,3 +177,7 @@ Consultar esta matriz quando:
 - houver incidente regulatorio ou operacional
 - for necessario anexar prova tecnica a uma janela seria
 - um novo endpoint passar a gerar hash, evidencia ou export controlado
+
+Para a trilha manual DD/SoF, complementar a revisao com:
+
+- `./evidence-manual-package-rollout-checklist.md`

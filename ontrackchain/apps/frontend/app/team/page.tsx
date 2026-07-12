@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
 import { useI18n } from "../../components/i18n-provider";
+import { formatDateTime } from "../lib/date-format";
 import type { MessageKey } from "../lib/i18n";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
 import { TEAM_ROLE_VALUES, isTeamRoleValue } from "../lib/team-catalog";
@@ -132,7 +133,7 @@ function exportRosterJson(records: TeamMemberRecord[]) {
 
 export default function TeamPage() {
   const searchParams = useSearchParams();
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const tr = (key: MessageKey, values?: Record<string, string | number>) => t(key, values);
 
   const [authContext, setAuthContext] = useState<AuthContext | null>(null);
@@ -155,6 +156,14 @@ export default function TeamPage() {
   function formatTeamRoleValue(value: TeamRole | string) {
     const label = resolveTeamRoleLabel(value);
     return label === value ? value : `${label} (${value})`;
+  }
+
+  function formatTeamTimestamp(value: string) {
+    const normalized = value.trim();
+    if (!normalized) {
+      return tr("common.notAvailable" as MessageKey);
+    }
+    return formatDateTime(normalized, locale) ?? normalized;
   }
 
   const activeCount = useMemo(() => roster.filter((r) => r.status === "active").length, [roster]);
@@ -462,13 +471,23 @@ export default function TeamPage() {
                   <td>{record.email}</td>
                   <td>
                     <Pill
-                      tone={record.role === "ADMIN" ? "danger" : record.role === "COMPLIANCE_OFFICER" ? "warning" : undefined}
+                      tone={
+                        record.role === "ADMIN"
+                          ? "danger"
+                          : record.role === "COMPLIANCE_OFFICER" || record.role === "LEGAL_REVIEWER" || record.role === "REVIEWER"
+                            ? "warning"
+                            : undefined
+                      }
                     >
                       {formatTeamRoleValue(record.role)}
                     </Pill>
                   </td>
-                  <td><Pill tone={record.status === "disabled" ? "danger" : record.status === "invited" ? "warning" : undefined}>{tr(`team.roster.status.${record.status}` as MessageKey)}</Pill></td>
-                  <td>{record.updated_at}</td>
+                  <td data-testid="team-row-status">
+                    <Pill tone={record.status === "disabled" ? "danger" : record.status === "invited" ? "warning" : undefined}>
+                      {tr(`team.roster.status.${record.status}` as MessageKey)}
+                    </Pill>
+                  </td>
+                  <td data-testid="team-row-updated">{formatTeamTimestamp(record.updated_at)}</td>
                   <td>
                     <div className="otc-controls">
                       <button className="otc-button otc-button--ghost" type="button" onClick={() => selectMember(record.member_id)}>

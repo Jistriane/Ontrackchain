@@ -69,7 +69,7 @@ http:
 
     compliance:
       entryPoints: ["web"]
-      rule: "PathPrefix(`/api/v1/compliance`)"
+      rule: "PathPrefix(`/api/v1/compliance`) || PathPrefix(`/api/v1/operations`)"
       middlewares: ["auth"]
       service: "compliance-api"
       priority: 150

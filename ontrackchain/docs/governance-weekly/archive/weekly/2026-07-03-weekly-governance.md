@@ -1,5 +1,7 @@
 # Governança Semanal — 2026-07-03
 
+> Registro historico arquivado. Este documento preserva a avaliacao semanal daquele ciclo, mas nao substitui a governanca viva, os ciclos correntes e os scorecards atuais.
+
 ## Leitura do Ciclo
 
 - Baseline técnica: `91%`
@@ -14,11 +16,11 @@
 - run do GitHub Actions: `n/a`
 - status esperado: manter `P0-01`, `P0-02` e `P0-03` sem promoção artificial até existir evidência real de homologação externa
 - checklist canônico:
-  - [Checklist de Evidência Mínima da Primeira Janela Séria](../../../first-serious-window-evidence-checklist.md)
+  - [Checklist de Evidência Mínima da Primeira Janela Séria](../../../history/first-serious-window-evidence-checklist.md)
 - runbook do primeiro disparo:
-  - [Runbook do Primeiro Disparo Real](../../../first-serious-window-first-dispatch-runbook.md)
+  - [Runbook do Primeiro Disparo Real](../../../history/first-serious-window-first-dispatch-runbook.md)
 - template de sign-off:
-  - [Template de Sign-Off da Janela Seria](../../../staging-serious-window-signoff-template.md)
+  - [Template de Sign-Off da Janela Seria](../../../history/staging-serious-window-signoff-template.md)
 
 ## Evidências Revisadas
 

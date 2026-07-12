@@ -151,6 +151,26 @@ Camada operacional multiusuário persistida para módulos regulatórios.
   - `counterparties`
   - `evidence`
 
+### `0014_regulatory_work_items_contract_guardrails.sql` — Sprint 2 (2026-07-07)
+
+Endurece o contrato de `regulatory_work_items` sem quebrar compatibilidade incremental.
+
+- função para validar o par canônico `module -> resource_type`
+- função para validar shape mínimo e tipos conhecidos de `metadata`
+- backfill de `workspace_status` e aliases legados (`local_workspace_status`, `local_block_status`, `ros_status`)
+- novas constraints de contrato aplicadas diretamente na tabela
+- alvo operacional no `Makefile`: `make apply-regulatory-work-items-contract-guardrails-migration`
+
+### `0015_evidence_package_seals.sql` — Sprint 4 (2026-07-08)
+
+Persistencia da selagem institucional forte para pacotes manuais DD/SoF.
+
+- tabela `evidence_package_seals` — estado de selagem por `tenant`, digest e politica
+- tabela `evidence_package_signoffs` — decisoes institucionais por papel
+- `RLS` por `organization_id`
+- trigger `update_evidence_package_seals_updated_at()` para `updated_at`
+- indices por correlacao de `request_id`, `package_sha256`, `seal_status` e `signed_at`
+
 ## Aplicacao Local
 
 Rode as migrations em ordem:
@@ -169,7 +189,27 @@ docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/pos
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0011_counterparties.sql
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0012_sanctions_cache_ros_records.sql
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0013_regulatory_work_items.sql
+docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0014_regulatory_work_items_contract_guardrails.sql
+docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0015_evidence_package_seals.sql
 ```
+
+## Validacao de Contrato dos Work-Items
+
+Para a trilha de contrato do `compliance-api`, use:
+
+```bash
+make check-work-items-contracts
+```
+
+O alvo executa `python3`, compila os arquivos Python criticos da trilha e roda a suite focada `tests.test_work_item_contracts`.
+
+Para validacao operacional local ponta a ponta da trilha `work-items`, use:
+
+```bash
+make validate-work-items-runtime-local
+```
+
+O alvo sobe `postgres`, `redis` e `compliance-api`, aplica a migration `0014` e executa o smoke backend de ownership/work-items.
 
 ## Quando Usar
 

@@ -46,6 +46,15 @@ def validate_required_files(paths: list[Path]) -> list[str]:
     return errors
 
 
+def regulatory_scope_items(scope: dict[str, Any]) -> list[str]:
+    items: list[str] = []
+    if scope.get("compliance_runtime_enabled") is True:
+        items.append("P0-02")
+    if scope.get("eu_window_enabled") is True:
+        items.append("P0-03")
+    return items
+
+
 def build_dossier_payload(
     *,
     window_id: str,
@@ -182,6 +191,17 @@ def build_dossier_payload(
         },
     }
     if regulatory_readiness_bundle is not None and regulatory_bundle_payload is not None:
+        regulatory_scope = regulatory_bundle_payload.get("scope", {})
+        regulatory_readiness = regulatory_bundle_payload.get("readiness", {})
+        regulatory_steps = regulatory_bundle_payload.get("steps") or {}
+        compliance_runtime_step = regulatory_steps.get("compliance_provider_runtime") or {}
+        compliance_runtime_correlation = compliance_runtime_step.get("correlation") or {}
+        eu_window_step = regulatory_steps.get("eu_sanctions_window") or {}
+        eu_window_correlation = eu_window_step.get("correlation") or {}
+        homologation_runs = homologation_payload.get("runs") or {}
+        homologation_compliance_request_id = (
+            (homologation_runs.get("compliance") or {}).get("request_id")
+        )
         result["artifacts"]["regulatory_readiness_bundle"] = file_ref(
             regulatory_readiness_bundle
         )
@@ -189,21 +209,93 @@ def build_dossier_payload(
             result["artifacts"]["regulatory_readiness_bundle_summary"] = file_ref(
                 regulatory_readiness_bundle_summary
             )
+        compliance_in_scope = regulatory_scope.get("compliance_runtime_enabled") is True
+        eu_in_scope = regulatory_scope.get("eu_window_enabled") is True
+        combined_regulatory_scope = compliance_in_scope and eu_in_scope
+        compliance_request_id = compliance_runtime_step.get("request_id")
+        eu_request_id = eu_window_step.get("request_id")
+        compliance_step_status = compliance_runtime_step.get("status", "unknown")
+        eu_step_status = eu_window_step.get("status", "unknown")
         result["summaries"]["regulatory_readiness_bundle"] = {
-            "scope": regulatory_bundle_payload.get("scope", {}),
+            "scope": regulatory_scope,
+            "scope_items": regulatory_scope_items(regulatory_scope),
+            "readiness": regulatory_readiness,
             "steps": {
-                "compliance_provider_runtime": (
-                    (regulatory_bundle_payload.get("steps") or {}).get(
-                        "compliance_provider_runtime"
+                "compliance_provider_runtime": compliance_step_status,
+                "eu_sanctions_window": eu_step_status,
+            },
+            "correlation": {
+                "compliance_runtime_request_id": compliance_request_id,
+                "compliance_runtime_operating_mode": compliance_runtime_correlation.get(
+                    "internal_operating_mode"
+                ),
+                "compliance_runtime_catalog_provider_status": compliance_runtime_correlation.get(
+                    "catalog_provider_status"
+                ),
+                "compliance_runtime_runtime_provider_status": compliance_runtime_correlation.get(
+                    "runtime_provider_status"
+                ),
+                "compliance_runtime_provider_converges_live": (
+                    compliance_runtime_correlation.get("provider_converges_live") is True
+                ),
+                "homologation_compliance_request_id": homologation_compliance_request_id,
+                "compliance_request_id_matches_homologation": (
+                    compliance_request_id == homologation_compliance_request_id
+                    if (
+                        compliance_request_id
+                        and homologation_compliance_request_id
                     )
-                    or {}
-                ).get("status", "unknown"),
-                "eu_sanctions_window": (
-                    (regulatory_bundle_payload.get("steps") or {}).get(
-                        "eu_sanctions_window"
-                    )
-                    or {}
-                ).get("status", "unknown"),
+                    else False
+                ),
+                "eu_window_request_id": eu_request_id,
+                "eu_expected_source_url": eu_window_correlation.get("expected_source_url"),
+                "eu_observed_source_url": eu_window_correlation.get("observed_source_url"),
+                "eu_source_url_matches_expected": (
+                    eu_window_correlation.get("source_url_matches_expected") is True
+                ),
+                "eu_override_tokenized": (
+                    eu_window_correlation.get("override_tokenized") is True
+                ),
+                "eu_persisted_status": eu_window_correlation.get("persisted_status"),
+                "eu_persisted_status_active": (
+                    eu_window_correlation.get("persisted_status_active") is True
+                ),
+                "eu_last_sync_status": eu_window_correlation.get("last_sync_status"),
+                "eu_last_sync_status_success": (
+                    eu_window_correlation.get("last_sync_status_success") is True
+                ),
+                "eu_window_converges_ready": (
+                    eu_window_correlation.get("eu_window_converges_ready") is True
+                ),
+            },
+            "validation": {
+                "compliance_runtime_required": compliance_in_scope,
+                "compliance_runtime_request_id_present": bool(
+                    str(compliance_request_id or "").strip()
+                ),
+                "compliance_runtime_scope_converges": (
+                    compliance_step_status == "ok"
+                    and bool(str(compliance_request_id or "").strip())
+                    and (compliance_runtime_correlation.get("provider_converges_live") is True)
+                    if compliance_in_scope
+                    else True
+                ),
+                "eu_window_required": eu_in_scope,
+                "eu_window_request_id_present": bool(str(eu_request_id or "").strip()),
+                "eu_window_scope_converges": (
+                    eu_step_status == "ok"
+                    and bool(str(eu_request_id or "").strip())
+                    and (eu_window_correlation.get("eu_window_converges_ready") is True)
+                    if eu_in_scope
+                    else True
+                ),
+                "combined_regulatory_scope": combined_regulatory_scope,
+                "combined_regulatory_bundle_ready_for_validation": (
+                    ((regulatory_readiness.get("regulatory_bundle") or {}).get("readiness_status"))
+                    == "ready_for_validation"
+                    if combined_regulatory_scope
+                    else True
+                ),
             },
         }
         result["sources"]["regulatory_readiness_bundle"] = regulatory_bundle_payload
@@ -215,6 +307,7 @@ def build_dossier_payload(
             )
         result["summaries"]["oidc_readiness_bundle"] = {
             "scope": oidc_bundle_payload.get("scope", {}),
+            "readiness": oidc_bundle_payload.get("readiness", {}),
             "steps": {
                 "oidc_preflight": (
                     (oidc_bundle_payload.get("steps") or {}).get("oidc_preflight") or {}

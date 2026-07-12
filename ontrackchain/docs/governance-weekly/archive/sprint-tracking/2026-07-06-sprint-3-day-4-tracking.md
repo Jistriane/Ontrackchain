@@ -96,4 +96,4 @@
 - classificacao: `parcial`
 - resumo executivo: a cadeia de custodia esta bem estruturada, mas ainda precisa da camada formal de aceite institucional
 - owner do primeiro passo do proximo marco: `Security + Compliance`
-- artefato relacionado: [Runbook de Execucao do Dia 4 da Sprint 3](../../sprint-3-day-4-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-3-day-4-execution-runbook.md`

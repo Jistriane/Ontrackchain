@@ -40,14 +40,26 @@ Sem esses quatro elementos, o score oficial nao sobe.
 | `amarelo` | houve avancos, mas ainda existe lacuna residual explicita | promocao parcial ou nenhuma |
 | `vermelho` | falha critica, evidencia insuficiente ou execucao invalida | bloqueia promocao |
 
+Regra complementar para trilhas regulatorias:
+
+- tentativa parcial de `P0-02` ou `P0-03` pode terminar em `amarelo` util quando gerar artefato valido, correlação melhor e narrativa executiva mais forte
+- `verde` para travessia `89% -> 90%+` continua reservado a prova combinada e revisavel de `P0-02` + `P0-03`, preferencialmente consolidada por `P0-04`
+
+Regra complementar para incidentes e RCA cross-domain:
+
+- uma RCA leve em `alerts`/`work-items` pode terminar em `amarelo` util quando reduzir ambiguidade operacional, enriquecer export/comms e deixar a triagem revisavel
+- `verde` para essa trilha exige uso recorrente no ciclo, resumo RCA materializado em artefato executivo e revisao humana coerente com o rito semanal
+- a existencia de RCA persistida ou export enriquecido, sozinha, nao promove a baseline oficial do projeto
+
 ## Ordem Recomendada
 
 1. `P0-02` homologar `AML/KYT live`
 2. `P0-03` ativar feed UE real
-3. `P0-01` homologar `OIDC + MFA` serio
-4. gerar bundle regulatorio oficial
-5. executar janela seria completa
-6. publicar nova baseline oficial
+3. `P0-04` gerar bundle regulatorio oficial
+4. `P0-01` homologar `OIDC + MFA` serio
+5. `P0-05` executar janela seria completa
+6. `P0-06` formalizar sign-off minimo de retention/recovery
+7. `P0-07` publicar nova baseline oficial
 
 ## Plano D1-D7
 
@@ -56,10 +68,10 @@ Sem esses quatro elementos, o score oficial nao sobe.
 | `D1` | preparar `P0-02` | credencial real validada e ambiente pronto | destrava trilha |
 | `D2` | executar `P0-02` | checker verde com evidencia anexavel | `+2 a +3` pontos de prontidao |
 | `D3` | executar `P0-03` | sync UE real com persistencia valida | `+1,5 a +2,5` pontos |
-| `D4` | consolidar `P0-02 + P0-03` | bundle regulatorio integro e revisavel | institucionaliza a prova |
+| `D4` | consolidar `P0-02 + P0-03` em `P0-04` | bundle regulatorio integro e revisavel; tentativa parcial pode endurecer correlacao e dossier, mas nao substitui a consolidacao oficial | institucionaliza a prova |
 | `D5` | preparar `P0-01` | ambiente OIDC serio pronto | reduz risco do bloco mais critico |
 | `D6` | executar `P0-01` | login federado + MFA + enforcement comprovados | `+3 a +5` pontos |
-| `D7` | janela seria completa | war room, sign-off e `go/no-go` formal | converte capacidade em maturidade comprovada |
+| `D7` | executar `P0-05` | war room, sign-off e `go/no-go` formal | converte capacidade em maturidade comprovada |
 
 ## Template 1 - Execucao Diaria
 
@@ -138,6 +150,9 @@ Sem esses quatro elementos, o score oficial nao sobe.
 - Quem aprovou:
 - Quem foi informado:
 - Ha parecer formal? sim/nao
+- Houve incidente cross-domain? sim/nao
+- RCA minima registrada? sim/nao
+- Resumo RCA entrou em export/comms/snapshot? sim/nao
 
 ## Conclusao
 - Evidencia suficiente para promover status? sim/nao
@@ -263,6 +278,7 @@ Sem esses quatro elementos, o score oficial nao sobe.
 - meta: transformar `P0-02` e `P0-03` em pacote revisavel por governanca
 - comando principal: `make run-regulatory-readiness-bundle-local WINDOW_ID=stg-$(date +%F)-reg INTERNAL_BASE_URL=http://compliance-api:8002 PUBLIC_BASE_URL=http://localhost:8080`
 - gate de saida: bundle integro e revisavel
+- observacao: se apenas uma das trilhas regulatorias estiver disponivel, registrar o resultado como endurecimento parcial do dossier e remarcar a consolidacao oficial para a janela combinada
 
 ### D5 - Preparacao `P0-01`
 
@@ -289,6 +305,38 @@ Sem esses quatro elementos, o score oficial nao sobe.
   - `make run-serious-window-local WINDOW_ID=stg-2026-07-07-a MODE=baseline`
   - `make postprocess-serious-window RUN_URL=...`
 - gate de saida: dossier final, sign-off e decisao formal publicados
+
+## Evidencia Complementar - RCA Cross-Domain
+
+Use este bloco quando a semana contiver incidente operacional relevante, sem misturar isso com a promocao regulatoria principal.
+
+```md
+# Evidencia Complementar - RCA Cross-Domain
+
+## Contexto
+- request_id:
+- alert_id:
+- work_item_id:
+- dominios afetados:
+- comandante do incidente:
+
+## Persistencia
+- RCA registrada no `work-item`? sim/nao
+- Comentario automatico na timeline? sim/nao
+- Resumo visivel em `/monitoring`? sim/nao
+- Export administrativo enriquecido? sim/nao
+
+## Leitura Executiva
+- Status: verde / amarelo / vermelho
+- A RCA reduziu ambiguidade operacional? sim/nao
+- Houve causa confirmada? sim/nao
+- Houve fechamento com evidência revisavel? sim/nao
+- Isso altera a baseline oficial? sim/nao
+
+## Regra Aplicada
+- Se `sim` para reducao de ambiguidade e evidencia revisavel, pode endurecer narrativa executiva e handoff
+- Se nao houve uso recorrente ou revisao humana, nao promover score
+```
 
 ## Como Usar
 

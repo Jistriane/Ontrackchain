@@ -31,7 +31,9 @@ Nao inclui ainda:
 
 ## Topologia Esperada
 
-[[diagram: Frontend Next.js acessa auth-service para obter auth_config. Quando effective_auth_mode=oidc, o usuario inicia login por Redirect Web para o Keycloak. O Keycloak autentica o usuario, retorna ao frontend, o frontend entrega o token ao backend de sessao e o auth-service valida assinatura, issuer, audience e claims usando JWKS do realm. O contexto resolvido de org, plan e role e propagado para as rotas protegidas via proxies internos.]]
+O diagrama abaixo resume o fluxo esperado de autenticacao federada, do redirect inicial ate o enforcement efetivo nas APIs.
+
+[[diagram: topologia esperada do OIDC com Keycloak. O usuario acessa o frontend Next.js, que consulta auth-service para auth_config e decide effective_auth_mode=oidc. O frontend redireciona para o Keycloak. O Keycloak autentica, devolve o usuario ao callback do frontend e o frontend entrega token/codigo ao backend de sessao. O auth-service valida issuer, audience, assinatura e JWKS, resolve org, plan, role canonica e, quando houver, X-Linked-User-Id para identidade federada. O contexto autenticado segue via proxies internos para investigation-api, compliance-api, monitoring-api e report-api. A UX do frontend passa a esconder ou degradar CTAs conforme a role efetiva e o backend continua sendo a autoridade final de enforcement.]]
 
 ## Template de Variaveis
 

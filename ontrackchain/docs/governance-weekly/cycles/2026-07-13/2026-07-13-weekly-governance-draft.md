@@ -54,7 +54,7 @@ Este documento deve ser convertido em registro semanal final apenas quando houve
 | `P0-02` `AML/KYT live` | `Compliance/AML` | `check-compliance-provider-runtime` verde com credencial real + JSON persistido + revisao em governanca | `ready_for_validation` | habilita discutir saida de `88%` para `89%` se a prova for revisavel |
 | `P0-03` feed UE real | `Compliance/Backend` | URL tokenizada valida + `eu-sanctions-preflight.json` + `eu-sanctions-sync.json` + `check_sanctions_sync_status.py` coerente | `ready_for_validation` | habilita discutir saida de `88%` para `89%` se a prova for revisavel |
 | `P0-01` `OIDC + MFA` serio | `Security/Auth` | `preflight_oidc_serious_env.py` verde + `smoke_auth_oidc_mode.py` verde + bundle OIDC + Playwright critico verde com provider real | `ready_for_validation` | reduz risco critico, mas sozinho nao justifica nova baseline sem o fechamento regulatorio correspondente |
-| `P0-04` bundle regulatorio oficial | `Platform/SRE` | `<window>-regulatory-readiness-bundle.json/.md` consolidando `P0-02` e `P0-03` sem erro residual nao classificado | `done` | habilita discutir travessia legitima para `90%+` |
+| `P0-04` bundle regulatorio oficial | `Platform/SRE` | `<window>-regulatory-readiness-bundle.json/.md` consolidando `P0-02` e `P0-03` sem erro residual nao classificado; tentativa parcial pode fortalecer dossier e correlacao, mas nao fecha o item | `done` | habilita discutir travessia legitima para `90%+` |
 | `RUN-STG-01` primeira janela seria | `Platform/SRE + Governanca` | artifact oficial + packet + dossier + war room + sign-off formal | `done` | habilita recalibracao executiva mais forte e reduz dependencia de narrativa |
 
 Regras sinteticas:
@@ -62,6 +62,7 @@ Regras sinteticas:
 - uma unica prova isolada de `P0-02` ou `P0-03` pode sustentar debate de `89%`, mas nao de `90%+`
 - `90%+` exige prova combinada e revisavel de readiness regulatoria, preferencialmente fechando `P0-04`
 - `P0-01` reduz risco institucional, mas deve ser lido como multiplicador de confianca, nao como gatilho unico de score
+- tentativa parcial deve ser registrada como progresso operacional honesto, sem reclassificar `P0-04` como concluido
 
 ## KPI da Semana - Decisao Esperada
 
@@ -76,8 +77,8 @@ Regras sinteticas:
 
 - construcao tecnica: `92-93%`
 - prontidao regulatoria: `82-84%`
-- KPI total consolidado: `89-90%`
-- houve recalibracao material?: `sim`, se houver bundle/artefato revisavel
+- KPI total consolidado: `89-90%`, usando a borda superior apenas se houver convergencia revisavel entre as duas trilhas
+- houve recalibracao material?: `sim`, se houver artefato revisavel; tentativa isolada tende a sustentar `89%`, nao o fechamento oficial de `90%+`
 
 ### Cenario C - Fechamento de `RUN-STG-01` com dossie aceito
 
@@ -95,7 +96,7 @@ Regras sinteticas:
   - `check-compliance-provider-runtime` verde com credencial real
 - decisao de passagem:
   - se houver checker + JSON: `ready_for_validation`
-  - se houver checker + bundle consolidado revisado: `done`
+  - se houver checker + bundle consolidado revisado na mesma trilha de `P0-03`: `done`
   - se nao houver credencial real: manter `ready`
 - impacto minimo no KPI:
   - isoladamente, pode sustentar debate de `89%` quando a prova for revisavel
@@ -108,7 +109,7 @@ Regras sinteticas:
   - `source_url` tokenizada valida + JSONs de preflight/sync
 - decisao de passagem:
   - se houver JSONs validos: `ready_for_validation`
-  - se houver bundle regulatorio final revisado: `done`
+  - se houver bundle regulatorio final revisado na mesma trilha de `P0-02`: `done`
   - se nao houver URL valida: manter `ready`
 - impacto minimo no KPI:
   - isoladamente, pode sustentar debate de `89%` quando a prova for revisavel
@@ -145,7 +146,7 @@ Regras sinteticas:
 - decisao de passagem:
   - `ready_for_validation` ou `done`, conforme o aceite coletado
 
-### `P2-01` retention/recovery
+### `P1-01` retention/recovery
 
 - status anterior esperado: `in_progress`
 - gatilho legitimo de avanço:

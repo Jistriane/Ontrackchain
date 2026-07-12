@@ -13,7 +13,7 @@ Entregar um roteiro unico, objetivo e operacional para conduzir uma janela seria
 ## Artefatos de Apoio
 
 - [Checklist de Fechamento Semanal da Governanca](./WEEKLY_GOVERNANCE_CLOSEOUT_CHECKLIST.md)
-- [Checklist de Evidência Mínima da Primeira Janela Séria](../../first-serious-window-evidence-checklist.md)
+- [Checklist de Evidência Mínima da Primeira Janela Séria](../../history/first-serious-window-evidence-checklist.md)
 - [Checklist Executivo da Primeira Janela Combinada `P0-02 + P0-03`](./FIRST_COMBINED_SERIOUS_WINDOW_EXECUTIVE_CHECKLIST.md)
 - [Run Sheet Preenchivel da Primeira Janela Combinada](./FIRST_COMBINED_SERIOUS_WINDOW_RUN_SHEET.md)
 - [Workflow de Atualizacao Semanal da Governanca](./WEEKLY_GOVERNANCE_UPDATE_WORKFLOW.md)

@@ -8,7 +8,7 @@ Servir como pauta inicial e folha de preparação para a próxima reunião de go
 
 - [Avaliacao Consolidada de Status do Projeto](../../../assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md)
 - [Checklist Operacional para 95%](../../../EXECUTION_CHECKLIST_TO_95_PERCENT.md)
-- [Tracker Semanal de Owners para 95%](../../../history/WEEKLY_OWNERS_TRACKER_TO_95_PERCENT.md)
+- [Board Operacional Unico ate 90%+](../../../project-operational-execution-board.md)
 - [Governança Semanal 2026-07-03](../../archive/weekly/2026-07-03-weekly-governance.md)
 - [Execucao Local de Preflight da Janela Seria 2026-07-03](../2026-07-03/2026-07-03-staging-serious-window-local-preflight.md)
 - [Plano de Acao do War Room `stg-2026-07-06-a`](../../generated/windows/stg-2026-07-06-a/stg-2026-07-06-a-war-room-action-plan.md)

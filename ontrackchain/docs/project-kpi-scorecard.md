@@ -12,9 +12,9 @@ Este documento existe para evitar que o percentual global do projeto vire percep
 
 ## Leituras Oficiais Atuais
 
-- `91%` de construcao tecnica
-- `78%` de prontidao regulatoria/operacional
-- `87%` de maturidade consolidada
+- `92%` de construcao tecnica
+- `79%` de prontidao regulatoria/operacional
+- `88%` de maturidade consolidada
 
 ## Como Ler o Scorecard
 
@@ -52,12 +52,12 @@ KPI Total = (Construcao Tecnica x 0,70) + (Prontidao Regulatoria x 0,30)
 Aplicacao atual:
 
 ```text
-(91 x 0,70) + (78 x 0,30) = 87,1
+(92 x 0,70) + (79 x 0,30) = 88,1
 ```
 
 Leitura executiva oficial:
 
-- `87%`
+- `88%`
 
 ## Matriz Tecnica
 
@@ -65,22 +65,22 @@ Leitura executiva oficial:
 | --- | ---: | ---: | --- |
 | Arquitetura e Runtime | 13% | 94% | stack coerente, compose operacional, boundaries claros e migrations reguladas |
 | Auth e Identidade | 8% | 88% | trilho serio desenhado, runtime bom, homologacao externa ainda pendente |
-| Investigation + Billing | 9% | 90% | worker real, fallback, trilha financeira e contratos operacionais |
-| Compliance Core | 18% | 90% | sancoes locais, bloqueios, contrapartes, ROS/COAF e a base inicial de `work-items` ja implementados |
-| Monitoring Operacional | 8% | 91% | backlog global, triagem, export auditado e surface operacional consistente |
-| Reports e Evidencias | 12% | 92% | `evidence_trail`, hashes, bundles e ROS auditado bem integrados |
-| Frontend Operacional | 6% | 93% | todos 7 cockpits (`sanctions`, `alerts`, `counterparties`, `evidence`, `reports`, `blocks`, `ros-coaf`) ja usam fila compartilhada com paineis de historico consolidados e i18n tri-locale |
-| Observabilidade e Alerting | 7% | 88% | boa cobertura, ainda faltam sinais de seguranca mais fortes |
-| Testes e CI/CD | 11% | 94% | smoke, E2E, preflights, runners e checks bem institucionalizados |
-| Seguranca e Governanca Tecnica | 8% | 85% | controles tecnicos fortes, faltam alguns aceites formais e recorrencia |
+| Investigation + Billing | 9% | 90% | worker real, fallback, trilha financeira operacional e superfícies administrativas endurecidas em `billing/balance` e `billing/reconciliation` |
+| Compliance Core | 18% | 91% | sancoes locais, bloqueios, contrapartes, ROS/COAF, `work-items` multiusuario e metadata canônica padronizada entre frontend/backend/contrato |
+| Monitoring Operacional | 8% | 92% | backlog global, triagem, export auditado, RCA cross-domain leve derivada de `work-items` e surface operacional coerente com preset de governanca |
+| Reports e Evidencias | 12% | 95% | `evidence_trail`, hashes, bundles, ROS auditado e selagem institucional forte DD/SoF integrados ponta a ponta |
+| Frontend Operacional | 6% | 94% | todos 7 cockpits usam fila compartilhada, paineis de historico consolidados, i18n tri-locale e deep-links operacionais entre `audit` e `evidence` |
+| Observabilidade e Alerting | 7% | 89% | boa cobertura e bundles operacionais mais consistentes; alertas agora carregam trilha leve de RCA entre `alerts`, `/monitoring`, export administrativo e governanca, mas ainda faltam sinais de seguranca mais fortes e recorrencia real |
+| Testes e CI/CD | 11% | 95% | smoke, E2E, preflights, runners e checks ficaram mais fortes com a ampliacao da cobertura focal de custodia e governanca |
+| Seguranca e Governanca Tecnica | 8% | 88% | RBAC, quorum, `finalize`, `revoke` e `supersede` fortaleceram a trilha; `P2-05` ja endurece `REVIEWER` e `BILLING_ADMIN`, mas faltam provider institucional definitivo e recorrencia formal |
 
 Resultado ponderado:
 
-- `90,5%`
+- `91,86%`
 
 Leitura oficial arredondada:
 
-- `91%`
+- `92%`
 
 ## Matriz Regulatoria
 
@@ -91,38 +91,45 @@ Leitura oficial arredondada:
 | Feed UE `EU_CONSOLIDATED` | 12% | 70% | checker e runner prontos, falta URL tokenizada real em janela seria |
 | Retention e Recovery | 12% | 78% | politica, restore e baseline prontos, aceite institucional pendente |
 | Owners e SLAs operacionais | 10% | 82% | matriz pronta, faltam aprovacoes institucionais formais |
-| Cadeia de custodia e evidencias | 13% | 88% | trilha forte tecnicamente, ainda falta institucionalizacao recorrente |
+| Cadeia de custodia e evidencias | 13% | 91% | trilha forte DD/SoF agora cobre sign-off, selagem, revogacao, supersedencia e governanca; falta institucionalizacao recorrente |
 | Janela seria e sign-off recorrente | 10% | 80% | runbooks, dossier e templates prontos, repetibilidade real ainda pendente |
-| DD/SoF manual review estruturado | 5% | 68% | estado honesto, mas ainda manual e pouco formalizado |
+| DD/SoF manual review estruturado | 5% | 76% | painel e cadeia de custodia forte estao prontos, mas a operacao segue humana e sem provider institucional definitivo |
 | ROS/COAF e operacao regulada | 5% | 86% | fluxo funcional e auditado, submissao continua manual por desenho |
 
 Resultado ponderado:
 
-- `77,8%`
+- `78,55%`
 
 Leitura oficial arredondada:
 
-- `78%`
+- `79%`
 
 ## Matriz Executiva por Iniciativa
 
 | Bloco | Peso | Nota Atual | Justificativa resumida |
 | --- | ---: | ---: | --- |
-| Plataforma base e arquitetura | 18% | 94% | runtime, stack, RLS, servicos centrais e boundaries consolidados |
-| Compliance core implementado | 18% | 90% | `sanctions`, `preventive_blocks`, `counterparties`, `ROS/COAF`, `evidence_trail` e a base de `work-items` implementados |
-| Testes, CI/CD e guardrails | 10% | 94% | smoke, E2E, preflights, gates e runners ja institucionalizados |
-| Observabilidade e operacao | 8% | 89% | monitoring, alerting, exports e runbooks maduros |
-| Frontend operacional | 6% | 93% | todos 7 cockpits com paineis de historico consolidados, i18n tri-locale e fila compartilhada sincronizada |
+| Plataforma base e arquitetura | 18% | 95% | runtime, stack, RLS, servicos centrais e boundaries consolidados, agora com cadeia de custodia forte mais madura |
+| Compliance core implementado | 18% | 91% | `sanctions`, `preventive_blocks`, `counterparties`, `ROS/COAF`, `evidence_trail`, `work-items` e a trilha forte DD/SoF estao coerentes |
+| Testes, CI/CD e guardrails | 10% | 95% | smoke, E2E, preflights, gates e runners ficaram mais completos com a cobertura focal da governanca de custodia |
+| Observabilidade e operacao | 8% | 90% | monitoring, alerting, exports, runbooks e bundles operacionais maduros, agora com RCA cross-domain leve conectando `alerts`, `monitoring` e artefatos executivos sem mudar a baseline por si só |
+| Frontend operacional | 6% | 94% | todos 7 cockpits com paineis de historico consolidados, i18n tri-locale, fila compartilhada sincronizada e navegacao `audit <-> evidence` |
 | `P0-01` OIDC + MFA federado serio | 10% | 78% | desenho pronto, falta homologacao formal recorrente |
 | `P0-02` AML/KYT live | 12% | 72% | guardrail pronto, falta provider real homologado |
 | `P0-03` Feed UE tokenizado real | 7% | 70% | runner/checker prontos, falta ativacao real |
 | `P1-01` Retention/recovery formal | 5% | 78% | baseline publicada, aceite institucional pendente |
 | `P1-02` Janela seria recorrente + owners/SLA | 4% | 80% | rito pronto, falta recorrencia com aceite |
-| `P1-03` DD/SoF manual review estruturado | 2% | 75% | painel estruturado com 4 campos, metadata persistence e historico rastreado em Sprint 6 |
+| `P1-03` DD/SoF manual review estruturado | 2% | 84% | painel estruturado, metadata persistida, historico rastreado e cadeia de custodia forte com governanca pos-selagem ja entregues |
 
 Resultado ponderado:
 
-- `87%`
+- `88%`
+
+## Regra de Leitura por Taxonomia
+
+- `P0` mede os blocos que movem KPI imediatamente e destravam a subida legitima para `90%+`
+- `P1` mede a institucionalizacao minima para sustentar o salto para `90%+`
+- `P2` mede sustentacao pos-90, reducao de debito operacional e preparacao do caminho para `95%`
+- leituras historicas de sprint ou IDs antigos devem ser tratadas apenas como referencia documental, nunca como namespace prioritario atual
 
 ## Regra de Atualizacao Semanal
 
@@ -142,6 +149,7 @@ O scorecard deve ser revisado junto com:
 4. sempre registrar o motivo quando uma nota subir ou cair
 5. rever pesos apenas quando a estrategia do projeto mudar materialmente
 6. aplicar a regra de promocao por evidencia formalizada em [ADR-010](./adrs/ADR-010-promocao-de-maturidade-baseada-em-evidencia.md)
+7. melhorias de rastreabilidade operacional, como RCA cross-domain em `alerts`/`monitoring`/exports/governanca, podem endurecer comentario executivo e reduzir risco percebido, mas nao sobem nota sem uso recorrente e evidencia revisada no ciclo
 
 ### Regra de Promocao
 
@@ -153,6 +161,12 @@ Em caso de duvida sobre subida de score, vale a regra:
 - aprovacao explicita por ultimo
 
 Sem esses quatro elementos, a baseline oficial nao deve subir.
+
+Regra complementar para `P0-04`:
+
+- tentativa parcial de `P0-02` ou `P0-03` pode justificar melhoria localizada de leitura regulatoria quando houver artefato revisavel e risco melhor delimitado
+- a travessia oficial de `89% -> 90%+` continua exigindo prova combinada de `P0-02` e `P0-03`, preferencialmente consolidada por `P0-04`
+- da mesma forma, `P2-03` pode endurecer leitura operacional e reduzir ambiguidade de incidentes, mas nao altera a baseline executiva sem artefato recorrente, war room exercitado e uso real do resumo RCA no ciclo
 
 ### Heuristica Recomendada por Status
 
@@ -188,7 +202,7 @@ Durante a governanca semanal:
   - MFA federado em trilho serio
   - sign-off institucional de retention/recovery e owners
   - repetibilidade operacional com evidencias recorrentes
-  - expansao da fila compartilhada para todos os cockpits regulatorios
+  - endurecimento institucional final da selagem DD/SoF
 
 ## Metas de Evolucao
 
@@ -198,26 +212,29 @@ Prioridades mais eficientes:
 
 1. fechar `P0-02`
 2. fechar `P0-03`
-3. avancar `P0-01`
-4. formalizar `P1-01` e `P1-02`
+3. consolidar `P0-04` apenas quando `P0-02` e `P0-03` convergirem na mesma trilha revisavel
+4. avancar `P0-01`
+5. converter `RUN-STG-01` em execucao auditavel via `P0-05`
+6. formalizar `P0-06` e sincronizar a narrativa em `P0-07`
 
 ### Para chegar a `95%` consolidado
 
 Sera necessario:
 
 - providers reais homologados
+- primeira janela seria material (`P0-05`) fechada com artefatos coerentes
+- retention/recovery com aceite institucional (`P0-06` / `P1-01`)
+- owners e SLAs formalmente aceitos com rito recorrente (`P1-02`)
 - janelas serias recorrentes com dossier aceito
-- owners e SLAs formalmente aceitos
-- retention/recovery com aceite institucional
 - cadeia de custodia operacionalmente exercitada de forma recorrente
 
 ## Decisao Recomendada
 
 Usar oficialmente:
 
-- `91%` como leitura de construcao tecnica
-- `78%` como leitura de prontidao regulatoria
-- `87%` como percentual total consolidado do projeto
+- `92%` como leitura de construcao tecnica
+- `79%` como leitura de prontidao regulatoria
+- `88%` como percentual total consolidado do projeto
 
 ## Suposicoes
 

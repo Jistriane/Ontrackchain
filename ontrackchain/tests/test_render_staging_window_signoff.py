@@ -25,7 +25,15 @@ def _load_module(module_name: str, relative_path: str):
 MODULE = _load_module("render_staging_window_signoff", "scripts/render_staging_window_signoff.py")
 
 
-def _write_payload(target: Path, *, overall_status: str = "ok") -> None:
+def _write_payload(
+    target: Path,
+    *,
+    overall_status: str = "ok",
+    compliance_enabled: bool = True,
+    eu_enabled: bool = False,
+    compliance_status: str = "ok",
+    eu_status: str = "skipped",
+) -> None:
     payload = {
         "kind": "staging_window_preparation",
         "status": overall_status,
@@ -46,6 +54,12 @@ def _write_payload(target: Path, *, overall_status: str = "ok") -> None:
             "payload": {
                 "steps": {
                     "oidc_preflight": {"status": "ok"},
+                    "oidc_readiness_bundle": {
+                        "status": "ok",
+                        "readiness_status": "ready",
+                        "readiness_blockers": ["provider MFA/OIDC ainda nao esta homologado para trilho serio"],
+                        "next_action": "Substituir placeholders por provider serio homologado e rerodar o bundle com insumos reais.",
+                    },
                     "external_preflight": {"status": "ok" if overall_status == "ok" else "failed"},
                     "homologation": {
                         "status": "ok" if overall_status == "ok" else "failed",
@@ -54,6 +68,25 @@ def _write_payload(target: Path, *, overall_status: str = "ok") -> None:
                     "regulatory_readiness_bundle": {
                         "status": "ok" if overall_status == "ok" else "failed",
                         "output_file": "artifacts/staging/checks/stg-2026-07-06-a-regulatory-readiness-bundle.json",
+                        "readiness": {
+                            "compliance_runtime": {
+                                "readiness_status": "ready_for_validation" if compliance_enabled else "ready"
+                            },
+                            "eu_window": {
+                                "readiness_status": "ready_for_validation" if eu_enabled else "ready"
+                            },
+                            "regulatory_bundle": {
+                                "readiness_status": (
+                                    "ready_for_validation"
+                                    if compliance_enabled and eu_enabled
+                                    else "ready"
+                                )
+                            },
+                        },
+                        "compliance_runtime_enabled": compliance_enabled,
+                        "eu_window_enabled": eu_enabled,
+                        "compliance_provider_runtime_status": compliance_status,
+                        "eu_sanctions_window_status": eu_status,
                     },
                     "release_dossier": {
                         "status": "ok" if overall_status == "ok" else "failed",
@@ -92,13 +125,22 @@ class RenderStagingWindowSignoffTests(unittest.TestCase):
             content = output_file.read_text(encoding="utf-8")
 
         self.assertEqual(model["decision"], "pending_manual_approval")
+        self.assertEqual(model["regulatory_scope_label"], "P0-02")
         self.assertIn("run url: `https://github.com/example/actions/runs/123`", content)
         self.assertIn("artifact: `serious-staging-window-stg-2026-07-06-a`", content)
+        self.assertIn("escopo regulatorio da tentativa: `P0-02`", content)
         self.assertIn("overall status: `ok`", content)
         self.assertIn("preflight status: `ok`", content)
+        self.assertIn("auth/OIDC readiness: `ready`", content)
+        self.assertIn("auth/OIDC technical gate: `ok`", content)
+        self.assertIn("bloqueios OIDC readiness: `provider MFA/OIDC ainda nao esta homologado para trilho serio`", content)
         self.assertIn("dossier: `artifacts/staging/dossiers/staging_release_dossier_stg-2026-07-06-a.json`", content)
         self.assertIn("regulatory-readiness-bundle: `artifacts/staging/checks/stg-2026-07-06-a-regulatory-readiness-bundle.json`", content)
         self.assertIn("AML/KYT runtime gate: `ok`", content)
+        self.assertIn("AML/KYT runtime readiness: `ready_for_validation`", content)
+        self.assertIn("feed UE tokenizado: `skipped`", content)
+        self.assertIn("feed UE readiness: `ready`", content)
+        self.assertIn("bundle regulatorio (`P0-04`) readiness: `ready`", content)
         self.assertIn("## Regras de Atualizacao", content)
 
     def test_main_marks_failed_payload_as_blocked(self) -> None:
@@ -131,6 +173,36 @@ class RenderStagingWindowSignoffTests(unittest.TestCase):
         self.assertEqual(result["decision"], "blocked")
         self.assertIn("decisao: `blocked`", content)
         self.assertIn("overall status: `failed`", content)
+
+    def test_render_signoff_markdown_with_combined_regulatory_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            base = Path(tmp_dir)
+            payload_file = base / "prepare-staging-window-output.json"
+            _write_payload(
+                payload_file,
+                overall_status="ok",
+                compliance_enabled=True,
+                eu_enabled=True,
+                compliance_status="ok",
+                eu_status="ok",
+            )
+
+            payload = MODULE.load_json_file(payload_file)
+            model = MODULE.build_signoff_model(
+                payload=payload,
+                payload_file=payload_file,
+                run_url="pending",
+                run_name=None,
+                workflow_name="Staging Serious Window",
+            )
+            content = MODULE.render_signoff_markdown(model)
+
+        self.assertEqual(model["regulatory_scope_label"], "P0-02/P0-03")
+        self.assertEqual(model["p0_04_bundle_readiness"], "ready_for_validation")
+        self.assertIn("escopo regulatorio da tentativa: `P0-02/P0-03`", content)
+        self.assertIn("feed UE tokenizado: `ok`", content)
+        self.assertIn("feed UE readiness: `ready_for_validation`", content)
+        self.assertIn("bundle regulatorio (`P0-04`) readiness: `ready_for_validation`", content)
 
     def test_main_can_write_versioned_governance_copy(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

@@ -1,7 +1,10 @@
 import { authenticateRequest, jsonResponse } from "../../operations/_shared";
 import {
+  buildEvidenceManualPackageAuditMetadata,
   buildEvidenceManualPackageDocument,
+  buildEvidenceManualPackageManifest,
   buildManualReviewPackageFilename,
+  finalizeEvidenceManualPackageDocument,
   type EvidenceManualPackagePayload
 } from "../../../../lib/evidence-manual-package";
 
@@ -56,13 +59,67 @@ export async function POST(request: Request) {
   }
 
   const evidenceBundle = (await bundleRes.json().catch(() => null)) as Record<string, unknown> | null;
-  const packageDocument = buildEvidenceManualPackageDocument(payload, evidenceBundle);
+  const generatedAt = new Date().toISOString();
+  const filename = buildManualReviewPackageFilename(payload.action, payload.scope_id);
+  const packageDocument = buildEvidenceManualPackageDocument(payload, evidenceBundle, generatedAt);
+  const manifest = await buildEvidenceManualPackageManifest({
+    payload,
+    evidenceBundle,
+    generatedAt,
+    exportRequestId: requestId,
+    filename
+  });
+  const manualPackageAuditMetadata = buildEvidenceManualPackageAuditMetadata({
+    payload,
+    manifest,
+    filename
+  });
+  const auditRes = await fetch(`${baseUrl}/api/v1/audit/manual-package-export`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${auth.token}`,
+      "X-Request-Id": requestId,
+      "X-Role": auth.role,
+      ...(auth.orgId ? { "X-Org-Id": auth.orgId } : {}),
+      ...(auth.userId ? { "X-User-Id": auth.userId } : {}),
+      ...(auth.linkedUserId ? { "X-Linked-User-Id": auth.linkedUserId } : {}),
+      ...(auth.mfaMode ? { "X-MFA-Mode": auth.mfaMode } : {}),
+      ...(auth.mfaProviderHomologated ? { "X-MFA-Provider-Homologated": auth.mfaProviderHomologated } : {}),
+      ...(auth.twoFactor ? { "X-2FA": auth.twoFactor } : {}),
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      request_id: payload.evidence_request.request_id ?? payload.scope.request_id ?? null,
+      report_id: payload.evidence_request.report_id ?? payload.scope.report_id ?? null,
+      metadata: manualPackageAuditMetadata
+    }),
+    cache: "no-store"
+  });
 
-  return new Response(JSON.stringify(packageDocument, null, 2), {
+  if (!auditRes.ok) {
+    return new Response(await auditRes.arrayBuffer(), {
+      status: auditRes.status,
+      headers: { "content-type": auditRes.headers.get("content-type") ?? "application/json" }
+    });
+  }
+
+  const auditLog = (await auditRes.json().catch(() => null)) as {
+    action: string;
+    resource_type: string;
+    resource_id: string | null;
+    request_id: string | null;
+    report_id: string | null;
+    created_at: string;
+    metadata: Record<string, unknown>;
+  } | null;
+  const finalizedDocument = finalizeEvidenceManualPackageDocument(packageDocument, manifest, auditLog);
+
+  return new Response(JSON.stringify(finalizedDocument, null, 2), {
     status: 200,
     headers: {
       "content-type": "application/json",
-      "content-disposition": `attachment; filename="${buildManualReviewPackageFilename(payload.action, payload.scope_id)}"`
+      "content-disposition": `attachment; filename="${filename}"`,
+      "x-ontrack-manual-package-sha256": manifest.payload_sha256
     }
   });
 }

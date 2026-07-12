@@ -1,12 +1,17 @@
 "use client";
 
-import { Message, Panel } from "./ui";
+import { Message, Panel, Pill } from "./ui";
 import type { TimelineLabels } from "../app/lib/work-item-timeline-labels";
 import type { WorkCommentResponse, WorkItemTimelineResponse } from "../app/lib/work-item-timeline";
 
 type WorkItemTimelinePanelProps<TItem> = {
   state: "empty_selection" | "local_only" | "ready";
   summary: string | null;
+  contextBadges?: Array<{
+    label: string;
+    tone?: "success" | "warning" | "danger";
+  }>;
+  localOnlyHint?: string | null;
   labels: TimelineLabels;
   timelineError: string | null;
   timelineData: WorkItemTimelineResponse<TItem> | null;
@@ -25,6 +30,8 @@ type WorkItemTimelinePanelProps<TItem> = {
 export function WorkItemTimelinePanel<TItem>({
   state,
   summary,
+  contextBadges,
+  localOnlyHint,
   labels,
   timelineError,
   timelineData,
@@ -60,12 +67,38 @@ export function WorkItemTimelinePanel<TItem>({
       {state === "empty_selection" ? (
         <Message data-testid="work-item-timeline-empty-selection">{labels.emptySelection}</Message>
       ) : state === "local_only" ? (
-        <Message data-testid="work-item-timeline-local-only">{labels.emptyLocal}</Message>
+        <div className="otc-stack">
+          {summary ? (
+            <div className="otc-message otc-panel-summary" data-testid="work-item-timeline-summary">
+              {summary}
+            </div>
+          ) : null}
+          {contextBadges?.length ? (
+            <div className="otc-controls otc-controls--spaced">
+              {contextBadges.map((badge) => (
+                <Pill key={`${badge.label}-${badge.tone ?? "success"}`} tone={badge.tone}>
+                  {badge.label}
+                </Pill>
+              ))}
+            </div>
+          ) : null}
+          <Message data-testid="work-item-timeline-local-only">{labels.emptyLocal}</Message>
+          {localOnlyHint ? <Message>{localOnlyHint}</Message> : null}
+        </div>
       ) : (
         <div className="otc-stack" data-testid="work-item-timeline-panel">
           {summary ? (
             <div className="otc-message otc-panel-summary" data-testid="work-item-timeline-summary">
               {summary}
+            </div>
+          ) : null}
+          {contextBadges?.length ? (
+            <div className="otc-controls otc-controls--spaced">
+              {contextBadges.map((badge) => (
+                <Pill key={`${badge.label}-${badge.tone ?? "success"}`} tone={badge.tone}>
+                  {badge.label}
+                </Pill>
+              ))}
             </div>
           ) : null}
           {timelineError ? (

@@ -125,4 +125,4 @@
 - classificacao: `parcial`
 - resumo executivo: o `Dia 3` esta pronto como trilha de homologacao do feed UE, mas permanece bloqueado ate a confirmacao da URL tokenizada e da execucao real do runner
 - owner do primeiro passo do `Dia 4`: `a definir apos fechamento real do Dia 3`
-- artefato relacionado: [Runbook de Execucao do Dia 3 da Sprint 1](../../sprint-1-day-3-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-1-day-3-execution-runbook.md`

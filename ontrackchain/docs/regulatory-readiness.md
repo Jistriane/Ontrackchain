@@ -8,14 +8,15 @@ Consolidar o estado atual do Ontrackchain frente a um contexto de operacao regul
 
 Leituras oficiais:
 
-- `78%` de prontidao para operacao regulada forte
-- `91%` de construcao tecnica como plataforma funcional
-- `87%` de construcao total consolidada conforme o [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
+- `79%` de prontidao para operacao regulada forte
+- `92%` de construcao tecnica como plataforma funcional
+- `88%` de construcao total consolidada conforme o [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
 
 Referencias canonicas da baseline atual:
 
-- [Atualizacao de KPI 2026-07-01](./governance-weekly/archive/weekly/2026-07-01-kpi-scorecard-update.md)
-- [Governanca Semanal 2026-07-01](./governance-weekly/archive/weekly/2026-07-01-weekly-governance.md)
+- [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
+- [Avaliacao de Maturidade do Projeto](./project-maturity-assessment.md)
+- [Resumo Executivo de Readiness](./project-executive-readiness-brief.md)
 
 Interpretacao:
 
@@ -31,7 +32,7 @@ Interpretacao:
 | Bloqueio preventivo | coberto | `preventive_blocks` + evidencia + audit log | refinamento de operacao/manual review |
 | Onboarding regulado de contraparte | coberto | `counterparties` + `counterparty_history` | documentar artefatos de manual review complementares |
 | ROS/COAF | coberto | `ros_records` + `reports` + `evidence_trail` | submissao continua manual por desenho |
-| Fila operacional compartilhada | coberto parcialmente | `regulatory_work_items` + `events/comments` + integracao em `sanctions` e `alerts` | expandir para os demais cockpits e expor timeline/comentarios na UI |
+| Fila operacional compartilhada | coberto | `regulatory_work_items` + `regulatory_work_events/comments` + integracao multi-cockpit com paineis de historico e timeline | aprofundar actions customizadas por owner, escalacao e handoff operacional |
 | Auth forte | coberto parcialmente | OIDC + MFA federado previsto | homologacao formal fora do contexto local |
 | Billing auditavel | coberto | `credit_ledger` + `audit_logs` | reconciliacao financeira mais rica |
 | Cadeia de custodia | coberto parcialmente | `evidence_trail`, manifestos, dossier | sign-off formal e classificacao de evidencias |
@@ -90,12 +91,15 @@ Interpretacao:
 ### 3. Cadeia formal de custodia
 
 - artefatos, hashes e manifestos existem
-- faltam classificacao formal de sensibilidade e sign-off institucional recorrente
+- a trilha forte de selagem DD/SoF ja entrega sign-off institucional por papel, `finalize`, `revoke`, `supersede`, leitura canônica por `package_sha256` e preset de governanca no `audit`
+- faltam classificacao formal de sensibilidade recorrente, homologacao do provider institucional definitivo e trust bundle institucional versionado
+- contrato HTTP canônico documentado em `./api-contracts.md`
+- arquitetura complementar documentada em `./evidence-manual-package-strong-sealing-architecture.md`
 
-### 4. Expansao da fila compartilhada
+### 4. Profundidade operacional da fila compartilhada
 
-- a camada multiusuario ja existe, mas ainda nao cobre `blocks`, `reports`, `counterparties`, `evidence` e `ros-coaf`
-- timeline e comentarios ainda nao estao expostos nas UIs regulatorias que ja usam `work-items`
+- a camada multiusuario ja cobre os cockpits regulatorios principais
+- o gap residual saiu de "cobertura de cockpit" e foi para "actions mais profundas", como escalacao, handoff mais rico e governanca por owner
 
 ### 5. Manual review estruturado
 

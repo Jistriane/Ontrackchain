@@ -8,7 +8,7 @@ Explicar qual documento usar em cada momento do ciclo semanal, evitando duplicac
 
 Se a pergunta for:
 
-- "qual e o estado geral e a estrategia?" -> usar o plano consolidado
+- "qual e o estado geral e a estrategia?" -> usar o plano consolidado vivo
 - "como conduzir a reuniao?" -> usar o roteiro de facilitacao
 - "o que preencher rapidamente no encontro?" -> usar a versao operacional da semana
 - "onde registrar a leitura completa da semana?" -> usar o rascunho completo ou o registro fechado
@@ -20,7 +20,7 @@ Se a pergunta for:
 
 Usar:
 
-- [Plano Consolidado de Continuidade e Execucao](../../history/CONTINUATION_EXECUTION_PLAN_2026_07.md)
+- [Plano Consolidado ate 95%](../../project-construction-plan-to-95-percent.md)
 
 Quando usar:
 
@@ -95,7 +95,7 @@ Quando usar:
 
 ## Fluxo Recomendado de Uso
 
-1. abrir o [Plano Consolidado de Continuidade e Execucao](../../history/CONTINUATION_EXECUTION_PLAN_2026_07.md)
+1. abrir o [Plano Consolidado ate 95%](../../project-construction-plan-to-95-percent.md)
 2. conduzir a reuniao com o [Roteiro de Facilitacao](./WEEKLY_GOVERNANCE_FACILITATION_SCRIPT.md)
 3. preencher a versao operacional da semana
 4. sincronizar o rascunho completo

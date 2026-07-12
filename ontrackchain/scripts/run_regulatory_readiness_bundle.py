@@ -7,6 +7,7 @@ import io
 import json
 import os
 import sys
+import uuid
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
 from pathlib import Path
@@ -118,6 +119,8 @@ def build_step(
     output_file: Path | None = None,
     errors: list[str] | None = None,
     reason: str | None = None,
+    request_id: str | None = None,
+    correlation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "enabled": enabled,
@@ -131,7 +134,124 @@ def build_step(
         payload["errors"] = errors
     if reason is not None:
         payload["reason"] = reason
+    if request_id is not None:
+        payload["request_id"] = request_id
+    if correlation is not None:
+        payload["correlation"] = correlation
     return payload
+
+
+def build_track_readiness(
+    *,
+    enabled: bool,
+    step_name: str,
+    step_payload: dict[str, Any],
+) -> dict[str, Any]:
+    step_status = str(step_payload.get("status") or "skipped")
+    step_errors = [str(error) for error in (step_payload.get("errors") or []) if str(error).strip()]
+    step_reason = str(step_payload.get("reason") or "").strip()
+    correlation = step_payload.get("correlation") or {}
+    correlation_blockers: list[str] = []
+
+    if enabled and step_status == "ok":
+        request_id = str(step_payload.get("request_id") or "").strip()
+        if not request_id:
+            correlation_blockers.append(f"{step_name}: request_id obrigatorio ausente para trilha auditavel")
+        if step_name == "compliance_provider_runtime":
+            if correlation.get("provider_converges_live") is not True:
+                correlation_blockers.append(
+                    f"{step_name}: correlacao estruturada do provider nao confirma convergencia live"
+                )
+        if step_name == "eu_sanctions_window":
+            if correlation.get("eu_window_converges_ready") is not True:
+                correlation_blockers.append(
+                    f"{step_name}: correlacao estruturada da janela UE nao confirma convergencia pronta para validacao"
+                )
+
+    if not enabled:
+        return {
+            "readiness_status": "ready",
+            "blockers": [],
+            "next_action": f"Habilitar a trilha `{step_name}` com insumo real e rerodar o bundle regulatorio.",
+        }
+    if correlation_blockers:
+        return {
+            "readiness_status": "blocked",
+            "blockers": correlation_blockers,
+            "next_action": f"Corrigir a correlacao auditavel de `{step_name}` antes de promover o bundle regulatorio.",
+        }
+    if step_status == "ok":
+        return {
+            "readiness_status": "ready_for_validation",
+            "blockers": [],
+            "next_action": f"Revisar o artefato de `{step_name}` e anexar o bundle regulatorio a governanca semanal.",
+        }
+    blockers = step_errors or (
+        [f"{step_name}: {step_reason}"] if step_reason else [f"{step_name}: status={step_status}"]
+    )
+    return {
+        "readiness_status": "blocked",
+        "blockers": blockers,
+        "next_action": f"Corrigir a trilha `{step_name}` e rerodar o bundle regulatorio com insumos reais.",
+    }
+
+
+def build_bundle_readiness(payload: dict[str, Any]) -> dict[str, Any]:
+    scope = payload.get("scope") or {}
+    steps = payload.get("steps") or {}
+    compliance_enabled = bool(scope.get("compliance_runtime_enabled"))
+    eu_enabled = bool(scope.get("eu_window_enabled"))
+    compliance_track = build_track_readiness(
+        enabled=compliance_enabled,
+        step_name="compliance_provider_runtime",
+        step_payload=(steps.get("compliance_provider_runtime") or {}),
+    )
+    eu_track = build_track_readiness(
+        enabled=eu_enabled,
+        step_name="eu_sanctions_window",
+        step_payload=(steps.get("eu_sanctions_window") or {}),
+    )
+
+    if payload.get("status") == "failed":
+        bundle_status = "blocked"
+        bundle_blockers = [str(error) for error in (payload.get("errors") or []) if str(error).strip()]
+        bundle_next_action = "Corrigir as trilhas regulatórias bloqueadas e rerodar o bundle antes de promover a janela."
+    else:
+        track_blockers = [
+            *[str(error) for error in (compliance_track.get("blockers") or []) if str(error).strip()],
+            *[str(error) for error in (eu_track.get("blockers") or []) if str(error).strip()],
+        ]
+        both_in_scope = compliance_enabled and eu_enabled
+        both_ready_for_validation = (
+            compliance_track.get("readiness_status") == "ready_for_validation"
+            and eu_track.get("readiness_status") == "ready_for_validation"
+        )
+
+        if track_blockers:
+            bundle_status = "blocked"
+            bundle_blockers = track_blockers
+            bundle_next_action = "Corrigir correlacao ou falhas das trilhas regulatórias antes de promover o bundle oficial."
+        elif both_in_scope and both_ready_for_validation:
+            bundle_status = "ready_for_validation"
+            bundle_blockers = []
+            bundle_next_action = "Anexar o bundle regulatorio ao dossier/governanca e executar revisao formal das evidencias."
+        else:
+            bundle_status = "ready"
+            bundle_blockers = []
+            if not both_in_scope:
+                bundle_next_action = "Executar a mesma janela com P0-02 e P0-03 simultaneamente para gerar o bundle regulatorio oficial."
+            else:
+                bundle_next_action = "Completar a trilha regulatoria remanescente e rerodar o bundle oficial antes da promocao."
+
+    return {
+        "compliance_runtime": compliance_track,
+        "eu_window": eu_track,
+        "regulatory_bundle": {
+            "readiness_status": bundle_status,
+            "blockers": bundle_blockers,
+            "next_action": bundle_next_action,
+        },
+    }
 
 
 def run_bundle(
@@ -181,14 +301,21 @@ def run_bundle(
             enabled=False,
             reason="out_of_scope",
         )
+        payload["readiness"] = build_bundle_readiness(payload)
         return 0, payload
 
     if include_compliance_runtime:
+        compliance_request_id = env_values.get(
+            "ONTRACKCHAIN_REGULATORY_COMPLIANCE_REQUEST_ID",
+            f"{window_id}-compliance-{uuid.uuid4().hex[:8]}",
+        )
         runtime_output_file = build_output_file(
             window_id, "compliance-provider-runtime", checks_dir
         )
         argv = [
             "check_compliance_provider_runtime.py",
+            "--request-id",
+            compliance_request_id,
         ]
         if internal_base_url:
             argv.extend(["--internal-base-url", internal_base_url])
@@ -208,6 +335,8 @@ def run_bundle(
             exit_code=runtime_exit_code,
             output_file=runtime_output_file,
             errors=runtime_payload.get("errors", []),
+            request_id=str(runtime_payload.get("request_id") or compliance_request_id),
+            correlation=runtime_payload.get("correlation", {}),
         )
         if runtime_exit_code != 0:
             payload["errors"].append("compliance_provider_runtime: falhou")
@@ -219,6 +348,10 @@ def run_bundle(
         )
 
     if include_eu_window:
+        eu_request_id = env_values.get(
+            "ONTRACKCHAIN_REGULATORY_EU_REQUEST_ID",
+            f"{window_id}-eu-{uuid.uuid4().hex[:8]}",
+        )
         eu_output_file = build_output_file(window_id, "eu-sanctions-window", checks_dir)
         eu_exit_code, eu_payload = run_module_main(
             "scripts/run_eu_sanctions_window.py",
@@ -230,6 +363,8 @@ def run_bundle(
                 str(private_env_file),
                 "--checks-dir",
                 str(checks_dir),
+                "--request-id",
+                eu_request_id,
             ],
             f"regulatory_bundle_eu_window_{window_id}",
         )
@@ -240,6 +375,8 @@ def run_bundle(
             exit_code=eu_exit_code,
             output_file=eu_output_file,
             errors=eu_payload.get("errors", []),
+            request_id=str(eu_payload.get("request_id") or eu_request_id),
+            correlation=eu_payload.get("correlation", {}),
         )
         if eu_exit_code != 0:
             payload["errors"].append("eu_sanctions_window: falhou")
@@ -251,6 +388,13 @@ def run_bundle(
         )
 
     payload["status"] = "ok" if not payload["errors"] else "failed"
+    payload["readiness"] = build_bundle_readiness(payload)
+    if ((payload.get("readiness") or {}).get("regulatory_bundle") or {}).get("readiness_status") == "blocked":
+        for blocker in (((payload.get("readiness") or {}).get("regulatory_bundle") or {}).get("blockers") or []):
+            blocker_text = str(blocker).strip()
+            if blocker_text:
+                payload["errors"].append(f"regulatory_bundle_readiness: {blocker_text}")
+        payload["status"] = "failed"
     return (0 if payload["status"] == "ok" else 1), payload
 
 

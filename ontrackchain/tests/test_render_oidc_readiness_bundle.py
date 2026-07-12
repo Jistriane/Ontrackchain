@@ -33,6 +33,11 @@ class RenderOidcReadinessBundleTests(unittest.TestCase):
             "window_id": "stg-2026-07-03-oidc",
             "generated_at": "2026-07-03T12:00:00+00:00",
             "status": "ok",
+            "readiness": {
+                "readiness_status": "ready_for_validation",
+                "blockers": [],
+                "next_action": "Anexar bundle ao war room/sign-off e executar validacao formal com fluxo critico OIDC.",
+            },
             "scope": {
                 "mfa_external_provider_homologated": "true",
                 "expected_oidc_provider": "keycloak",
@@ -56,7 +61,9 @@ class RenderOidcReadinessBundleTests(unittest.TestCase):
         rendered = MODULE.render_markdown(model)
 
         self.assertEqual(model["status"], "ok")
+        self.assertEqual(model["readiness_status"], "ready_for_validation")
         self.assertIn("OIDC Readiness Bundle - stg-2026-07-03-oidc", rendered)
+        self.assertIn("status de readiness: `ready_for_validation`", rendered)
         self.assertIn("smoke_auth_oidc_mode", rendered)
 
     def test_main_writes_markdown_and_json_status(self) -> None:
@@ -70,6 +77,11 @@ class RenderOidcReadinessBundleTests(unittest.TestCase):
                         "window_id": "stg-2026-07-03-oidc",
                         "generated_at": "2026-07-03T12:00:00+00:00",
                         "status": "failed",
+                        "readiness": {
+                            "readiness_status": "blocked",
+                            "blockers": ["smoke_auth_oidc_mode ainda nao esta verde"],
+                            "next_action": "Corrigir preflight/smoke OIDC e rerodar o bundle antes de qualquer promocao.",
+                        },
                         "scope": {
                             "mfa_external_provider_homologated": "false",
                             "expected_oidc_provider": "keycloak",
@@ -112,7 +124,9 @@ class RenderOidcReadinessBundleTests(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             payload = json.loads(stdout.getvalue().strip() or stderr.getvalue().strip())
             self.assertEqual(payload["status"], "ok")
+            self.assertEqual(payload["readiness_status"], "blocked")
             self.assertTrue(output_file.exists())
+            self.assertIn("Bloqueadores de Readiness", output_file.read_text(encoding="utf-8"))
             self.assertIn("auth_config mismatch", output_file.read_text(encoding="utf-8"))
 
 

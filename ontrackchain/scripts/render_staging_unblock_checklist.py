@@ -76,12 +76,23 @@ def build_domain_map(snapshot: dict[str, Any]) -> dict[str, dict[str, list[str]]
     return grouped
 
 
+def regulatory_summary(snapshot: dict[str, Any]) -> dict[str, str]:
+    regulatory = snapshot.get("regulatory") or {}
+    return {
+        "scope_label": str(regulatory.get("scope_label") or "none"),
+        "validation_scope": ",".join(regulatory.get("validation_scope") or []) or "none",
+        "p0_04_bundle_readiness": str(regulatory.get("p0_04_bundle_readiness") or "unknown"),
+        "promotion_note": str(regulatory.get("promotion_note") or "indisponivel"),
+    }
+
+
 def render_markdown(window_id: str, snapshot_file: Path, snapshot: dict[str, Any]) -> str:
     blockers = snapshot.get("blockers") or {}
     generated_at = str(snapshot.get("generated_at") or "unknown")
     status = str(snapshot.get("overall_status") or "unknown")
     unresolved_count = int(blockers.get("unresolved_placeholders_count") or 0)
     handoff_count = int(blockers.get("missing_handoff_fields_count") or 0)
+    regulatory = regulatory_summary(snapshot)
 
     grouped = build_domain_map(snapshot)
 
@@ -95,6 +106,10 @@ def render_markdown(window_id: str, snapshot_file: Path, snapshot: dict[str, Any
         f"- status geral: `{status}`",
         f"- placeholders pendentes: `{unresolved_count}`",
         f"- handoff pendente: `{handoff_count}`",
+        f"- escopo regulatorio da tentativa: `{regulatory['scope_label']}`",
+        f"- scope validado no gate final: `{regulatory['validation_scope']}`",
+        f"- `P0-04` readiness: `{regulatory['p0_04_bundle_readiness']}`",
+        f"- leitura regulatoria: {regulatory['promotion_note']}",
         "",
         "## Sequencia Segura (Sem Expor Segredos)",
         "",
@@ -119,6 +134,11 @@ def render_markdown(window_id: str, snapshot_file: Path, snapshot: dict[str, Any
                 "- placeholders:",
             ]
         )
+        if domain == "Compliance/AML":
+            lines.append(
+                f"- contexto regulatorio: escopo atual `{regulatory['scope_label']}` "
+                f"com `P0-04={regulatory['p0_04_bundle_readiness']}`"
+            )
 
         if domain_placeholders:
             for name in domain_placeholders:
@@ -150,6 +170,8 @@ def render_markdown(window_id: str, snapshot_file: Path, snapshot: dict[str, Any
             "- `validate_serious_window_artifact`: `ok`",
             "- placeholders pendentes: `0`",
             "- handoff pendente: `0`",
+            "- se o escopo regulatorio for parcial, nao marcar `P0-04` como fechado",
+            "- so considerar promocao oficial de `P0-04` quando `P0-02` e `P0-03` convergirem na mesma trilha revisavel",
         ]
     )
 

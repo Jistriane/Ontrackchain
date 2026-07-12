@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useI18n } from "../../components/i18n-provider";
 import { buildCaseAuditHref, buildCaseEvidenceHref } from "../lib/operational-context";
 import { AppShell, Message, Pill } from "../../components/ui";
+import type { MessageKey } from "../lib/i18n";
 import { DlqRemediationPanel } from "./dlq-remediation-panel";
 import { InvestigationOperationsPanel } from "./investigation-operations-panel";
 import { PlatformAlertTriagePanel } from "./platform-alert-triage-panel";
@@ -21,6 +22,7 @@ export default function MonitoringPage() {
     metricsText,
     refreshMetricsPreview: refreshPlatformMetricsPreview,
     platformOperationalAlerts,
+    platformAlertTrackedWorkItems,
     platformAlertStatusFilter,
     platformAlertTriageFilter,
     platformAlertServiceFilter,
@@ -106,6 +108,15 @@ export default function MonitoringPage() {
     return severity ?? t("common.notAvailable");
   }
 
+  function translatePlatformQueueStatus(status: string) {
+    const normalized = status.toLowerCase();
+    return t(`monitoring.platform.queueStatus.${normalized}` as MessageKey);
+  }
+
+  function translatePlatformContainmentStatus(status: string) {
+    return t(`alerts.workspace.rca.containment.${status}` as MessageKey);
+  }
+
   async function refreshMetricsPreview() {
     setError(null);
     await refreshPlatformMetricsPreview();
@@ -155,6 +166,7 @@ export default function MonitoringPage() {
         acknowledgeFilteredPlatformAlerts={acknowledgeFilteredPlatformAlerts}
         acknowledgeSelectedPlatformAlerts={acknowledgeSelectedPlatformAlerts}
         platformOperationalAlerts={platformOperationalAlerts}
+        platformAlertTrackedWorkItems={platformAlertTrackedWorkItems}
         acknowledgingPlatformAlertsBatch={acknowledgingPlatformAlertsBatch}
         selectedPlatformAlertIds={selectedPlatformAlertIds}
         platformAlertExportFormat={platformAlertExportFormat}
@@ -174,6 +186,8 @@ export default function MonitoringPage() {
         translatePlatformSeverity={translatePlatformSeverity}
         translatePlatformStatus={translatePlatformStatus}
         translatePlatformTriage={translatePlatformTriage}
+        translatePlatformQueueStatus={translatePlatformQueueStatus}
+        translatePlatformContainmentStatus={translatePlatformContainmentStatus}
         acknowledgingPlatformAlertId={acknowledgingPlatformAlertId}
         acknowledgePlatformAlert={acknowledgePlatformAlert}
         handlePlatformAlertStatusFilterChange={handlePlatformAlertStatusFilterChange}

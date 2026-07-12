@@ -1,5 +1,7 @@
 # Governança Semanal — 2026-07-02
 
+> Registro historico arquivado. Este arquivo preserva o snapshot semanal e o contexto operacional da epoca, mas a leitura viva atual deve partir dos scorecards, boards e ciclos mais recentes.
+
 ## Leitura do Ciclo
 
 - Baseline técnica: `91%`

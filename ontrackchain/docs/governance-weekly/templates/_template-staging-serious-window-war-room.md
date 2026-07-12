@@ -8,7 +8,7 @@
 - environment_name:
 - facilitador:
 - objetivo da janela:
-- baseline canônica: `91% / 78% / 87%`
+- baseline canônica: `92% / 79% / 88%`
 
 ## Leitura de Go/No-Go
 

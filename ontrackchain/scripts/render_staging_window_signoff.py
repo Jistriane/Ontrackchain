@@ -47,6 +47,15 @@ def format_inline_value(value: Any, *, default: str = "pending") -> str:
     return str(value)
 
 
+def derive_regulatory_scope_label(regulatory_bundle: dict[str, Any]) -> str:
+    scope_items: list[str] = []
+    if regulatory_bundle.get("compliance_runtime_enabled") is True:
+        scope_items.append("P0-02")
+    if regulatory_bundle.get("eu_window_enabled") is True:
+        scope_items.append("P0-03")
+    return "/".join(scope_items) if scope_items else "none"
+
+
 def build_decision(overall_status: str) -> str:
     if overall_status == "failed":
         return "blocked"
@@ -81,6 +90,9 @@ def build_signoff_model(
     release_dossier = run_steps.get("release_dossier") or {}
     homologation = run_steps.get("homologation") or {}
     regulatory_bundle = run_steps.get("regulatory_readiness_bundle") or {}
+    oidc_bundle = run_steps.get("oidc_readiness_bundle") or {}
+    regulatory_readiness = regulatory_bundle.get("readiness") or {}
+    regulatory_scope_label = derive_regulatory_scope_label(regulatory_bundle)
 
     model = {
         "window_id": window_id,
@@ -100,18 +112,37 @@ def build_signoff_model(
         "homologation_path": homologation.get("artifact_file") or "pending",
         "regulatory_bundle_path": regulatory_bundle.get("output_file") or "pending",
         "payload_json_path": str(payload_file),
-        "auth_oidc_status": safe_get_step_status(run_steps, "oidc_preflight", default=preflight_status),
+        "regulatory_scope_label": regulatory_scope_label,
+        "regulatory_scope_is_combined": "true" if regulatory_scope_label == "P0-02/P0-03" else "false",
+        "auth_oidc_status": format_inline_value(oidc_bundle.get("readiness_status"), default=safe_get_step_status(run_steps, "oidc_preflight", default=preflight_status)),
+        "auth_oidc_technical_status": safe_get_step_status(run_steps, "oidc_preflight", default=preflight_status),
+        "auth_oidc_readiness_blockers": oidc_bundle.get("readiness_blockers") or [],
+        "auth_oidc_next_action": format_inline_value(oidc_bundle.get("next_action")),
         "mfa_status": (
             "homologated_expected"
             if str(summary.get("mfa_external_provider_homologated") or "").lower() == "true"
             else "baseline_only"
         ),
         "compliance_status": safe_get_step_status(run_steps, "external_preflight", default=preflight_status),
-        "aml_kyt_runtime_status": safe_get_step_status(
-            run_steps, "regulatory_readiness_bundle", default=run_status
+        "aml_kyt_runtime_status": format_inline_value(
+            regulatory_bundle.get("compliance_provider_runtime_status"),
+            default=safe_get_step_status(run_steps, "regulatory_readiness_bundle", default=run_status),
         ),
-        "eu_feed_status": safe_get_step_status(
-            run_steps, "regulatory_readiness_bundle", default=run_status
+        "aml_kyt_runtime_readiness": format_inline_value(
+            ((regulatory_readiness.get("compliance_runtime") or {}).get("readiness_status")),
+            default="not_in_scope" if regulatory_scope_label == "P0-03" else safe_get_step_status(run_steps, "regulatory_readiness_bundle", default=run_status),
+        ),
+        "eu_feed_status": format_inline_value(
+            regulatory_bundle.get("eu_sanctions_window_status"),
+            default=safe_get_step_status(run_steps, "regulatory_readiness_bundle", default=run_status),
+        ),
+        "eu_feed_readiness": format_inline_value(
+            ((regulatory_readiness.get("eu_window") or {}).get("readiness_status")),
+            default="not_in_scope" if regulatory_scope_label == "P0-02" else safe_get_step_status(run_steps, "regulatory_readiness_bundle", default=run_status),
+        ),
+        "p0_04_bundle_readiness": format_inline_value(
+            ((regulatory_readiness.get("regulatory_bundle") or {}).get("readiness_status")),
+            default=safe_get_step_status(run_steps, "regulatory_readiness_bundle", default=run_status),
         ),
         "investigation_rpc_status": safe_get_step_status(run_steps, "external_preflight", default=preflight_status),
         "reports_evidence_status": safe_get_step_status(run_steps, "release_dossier", default=run_status),
@@ -136,6 +167,7 @@ def render_signoff_markdown(model: dict[str, Any]) -> str:
         f"- window_id: `{model['window_id']}`",
         f"- mode: `{format_inline_value(model['mode'])}`",
         f"- environment_name: `{format_inline_value(model['environment_name'])}`",
+        f"- escopo regulatorio da tentativa: `{format_inline_value(model['regulatory_scope_label'])}`",
         f"- artifact: `{format_inline_value(model['artifact_name'])}`",
         "",
         "## Status Consolidado",
@@ -156,11 +188,15 @@ def render_signoff_markdown(model: dict[str, Any]) -> str:
         "",
         "## Gates Revisados",
         "",
-        f"- auth/OIDC: `{format_inline_value(model['auth_oidc_status'])}`",
+        f"- auth/OIDC readiness: `{format_inline_value(model['auth_oidc_status'])}`",
+        f"- auth/OIDC technical gate: `{format_inline_value(model['auth_oidc_technical_status'])}`",
         f"- MFA/2FA: `{format_inline_value(model['mfa_status'])}`",
         f"- compliance: `{format_inline_value(model['compliance_status'])}`",
         f"- AML/KYT runtime gate: `{format_inline_value(model['aml_kyt_runtime_status'])}`",
+        f"- AML/KYT runtime readiness: `{format_inline_value(model['aml_kyt_runtime_readiness'])}`",
         f"- feed UE tokenizado: `{format_inline_value(model['eu_feed_status'])}`",
+        f"- feed UE readiness: `{format_inline_value(model['eu_feed_readiness'])}`",
+        f"- bundle regulatorio (`P0-04`) readiness: `{format_inline_value(model['p0_04_bundle_readiness'])}`",
         f"- investigation/RPC: `{format_inline_value(model['investigation_rpc_status'])}`",
         f"- reports e evidencias: `{format_inline_value(model['reports_evidence_status'])}`",
         f"- CI/CD: `{format_inline_value(model['ci_cd_status'])}`",
@@ -168,6 +204,8 @@ def render_signoff_markdown(model: dict[str, Any]) -> str:
         "",
         "## Excecoes ou Bloqueios",
         "",
+        f"- bloqueios OIDC readiness: `{format_inline_value('; '.join(model['auth_oidc_readiness_blockers']) if model['auth_oidc_readiness_blockers'] else 'none_declared')}`",
+        f"- proximo passo OIDC: `{format_inline_value(model['auth_oidc_next_action'])}`",
         "- bloqueios externos: `none_declared`",
         "- excecoes aceitas: `none_declared`",
         "- risco residual: `pending_human_review`",
@@ -190,6 +228,7 @@ def render_signoff_markdown(model: dict[str, Any]) -> str:
         "- substituir `run url` pelo link real do GitHub Actions",
         "- manter o nome do artifact exatamente como publicado",
         "- mudar a decisao para `approved` somente se `overall`, `validation`, `preflight` e `run` forem `ok`",
+        "- conferir se o escopo regulatorio da tentativa esta coerente com a promotabilidade de `P0-04` antes de aprovar o sign-off",
         "- se houver falha, registrar explicitamente se o bloqueio ocorreu em `validation`, `preflight` ou `run`",
     ]
     return "\n".join(lines) + "\n"

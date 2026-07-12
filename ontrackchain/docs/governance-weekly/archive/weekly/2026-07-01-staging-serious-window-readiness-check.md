@@ -1,5 +1,7 @@
 # Readiness Check da Janela Seria — 2026-07-01
 
+> Check historico arquivado. Este arquivo registra uma pre-validacao especifica daquela data e nao deve ser lido como readiness operacional atual da janela seria.
+
 ## Objetivo
 
 Registrar o resultado da pre-validacao segura executada sobre `.env.staging.private` antes do disparo real da janela seria, sem expor secrets.

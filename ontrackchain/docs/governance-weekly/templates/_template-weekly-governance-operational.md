@@ -13,7 +13,7 @@ Usar este template quando a necessidade principal for:
 Para registro completo, complementar com:
 
 - [Template de Governança Semanal Completa](./_template-weekly-governance.md)
-- [Plano Consolidado de Continuidade e Execucao](../../history/CONTINUATION_EXECUTION_PLAN_2026_07.md)
+- [Plano Consolidado ate 95%](../../project-construction-plan-to-95-percent.md)
 
 ## Baseline de Referencia
 

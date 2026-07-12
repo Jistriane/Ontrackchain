@@ -4,7 +4,6 @@ WORKDIR /app
 
 COPY apps/investigation-api/pyproject.toml /app/pyproject.toml
 COPY apps/investigation-api/src /app/src
-COPY apps/investigation-api/fixtures /app/fixtures
 COPY packages/agents /tmp/ontrackchain-agents
 
 RUN pip install --no-cache-dir --upgrade pip \

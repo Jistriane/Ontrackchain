@@ -976,6 +976,22 @@ def _serialize_operational_alert_rows_csv(rows: list[dict]) -> str:
             "description",
             "labels_json",
             "annotations_json",
+            "work_item_id",
+            "work_item_queue_status",
+            "work_item_priority",
+            "work_item_owner_user_id",
+            "work_item_due_at",
+            "work_item_sla_breached",
+            "work_item_last_activity_at",
+            "rca_domain",
+            "rca_containment_status",
+            "rca_incident_commander",
+            "rca_affected_domains_json",
+            "rca_impact_summary",
+            "rca_suspected_root_cause",
+            "rca_confirmed_root_cause",
+            "rca_corrective_actions_json",
+            "rca_evidence_refs_json",
         ]
     )
     for row in rows:
@@ -1000,9 +1016,96 @@ def _serialize_operational_alert_rows_csv(rows: list[dict]) -> str:
                 row.get("annotations", {}).get("description"),
                 json.dumps(row["labels"], separators=(",", ":"), ensure_ascii=False),
                 json.dumps(row["annotations"], separators=(",", ":"), ensure_ascii=False),
+                row.get("work_item_id"),
+                row.get("work_item_queue_status"),
+                row.get("work_item_priority"),
+                row.get("work_item_owner_user_id"),
+                row.get("work_item_due_at"),
+                row.get("work_item_sla_breached"),
+                row.get("work_item_last_activity_at"),
+                row.get("rca_domain"),
+                row.get("rca_containment_status"),
+                row.get("rca_incident_commander"),
+                json.dumps(row.get("rca_affected_domains") or [], separators=(",", ":"), ensure_ascii=False),
+                row.get("rca_impact_summary"),
+                row.get("rca_suspected_root_cause"),
+                row.get("rca_confirmed_root_cause"),
+                json.dumps(row.get("rca_corrective_actions") or [], separators=(",", ":"), ensure_ascii=False),
+                json.dumps(row.get("rca_evidence_refs") or [], separators=(",", ":"), ensure_ascii=False),
             ]
         )
     return buffer.getvalue()
+
+
+def _enrich_operational_alert_export_rows_with_work_items(
+    *,
+    cur,
+    organization_id: str,
+    rows: list[dict],
+) -> list[dict]:
+    if not rows:
+        return rows
+
+    resource_ids = [str(row["id"]) for row in rows]
+    cur.execute(
+        """
+        SELECT
+          resource_id,
+          id AS work_item_id,
+          queue_status,
+          priority,
+          owner_user_id,
+          due_at,
+          sla_breached,
+          last_activity_at,
+          metadata
+        FROM regulatory_work_items
+        WHERE organization_id = %s
+          AND resource_type = 'operational_alert'
+          AND resource_id = ANY(%s::uuid[])
+        """,
+        (organization_id, resource_ids),
+    )
+    work_item_rows = cur.fetchall()
+    work_items_by_resource_id = {str(row["resource_id"]): row for row in work_item_rows}
+    enriched_rows: list[dict] = []
+    for row in rows:
+        enriched_row = dict(row)
+        work_item = work_items_by_resource_id.get(str(row["id"]))
+        metadata = work_item.get("metadata") if work_item else None
+        metadata = metadata if isinstance(metadata, dict) else {}
+        affected_domains = metadata.get("affected_domains")
+        corrective_actions = metadata.get("corrective_actions")
+        evidence_refs = metadata.get("evidence_refs")
+
+        enriched_row["work_item_id"] = str(work_item["work_item_id"]) if work_item and work_item.get("work_item_id") else None
+        enriched_row["work_item_queue_status"] = work_item.get("queue_status") if work_item else None
+        enriched_row["work_item_priority"] = work_item.get("priority") if work_item else None
+        enriched_row["work_item_owner_user_id"] = (
+            str(work_item["owner_user_id"]) if work_item and work_item.get("owner_user_id") else None
+        )
+        enriched_row["work_item_due_at"] = work_item["due_at"].isoformat() if work_item and work_item.get("due_at") else None
+        enriched_row["work_item_sla_breached"] = bool(work_item.get("sla_breached")) if work_item else None
+        enriched_row["work_item_last_activity_at"] = (
+            work_item["last_activity_at"].isoformat() if work_item and work_item.get("last_activity_at") else None
+        )
+        enriched_row["rca_domain"] = metadata.get("domain")
+        enriched_row["rca_containment_status"] = metadata.get("containment_status")
+        enriched_row["rca_incident_commander"] = metadata.get("incident_commander")
+        enriched_row["rca_affected_domains"] = (
+            [str(value) for value in affected_domains if isinstance(value, str)] if isinstance(affected_domains, list) else []
+        )
+        enriched_row["rca_impact_summary"] = metadata.get("impact_summary")
+        enriched_row["rca_suspected_root_cause"] = metadata.get("suspected_root_cause")
+        enriched_row["rca_confirmed_root_cause"] = metadata.get("confirmed_root_cause")
+        enriched_row["rca_corrective_actions"] = (
+            [str(value) for value in corrective_actions if isinstance(value, str)] if isinstance(corrective_actions, list) else []
+        )
+        enriched_row["rca_evidence_refs"] = (
+            [str(value) for value in evidence_refs if isinstance(value, str)] if isinstance(evidence_refs, list) else []
+        )
+        enriched_rows.append(enriched_row)
+    return enriched_rows
 
 
 class EstimateMonitoringRequest(BaseModel):
@@ -1357,6 +1460,11 @@ async def export_operational_alerts(
             query += " ORDER BY last_received_at DESC, id DESC"
             cur.execute(query, params)
             rows = cur.fetchall()
+            rows = _enrich_operational_alert_export_rows_with_work_items(
+                cur=cur,
+                organization_id=org_id,
+                rows=rows,
+            )
             _record_audit_log(
                 cur,
                 organization_id=org_id,

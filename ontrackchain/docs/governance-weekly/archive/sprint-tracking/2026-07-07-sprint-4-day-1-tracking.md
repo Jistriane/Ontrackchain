@@ -94,4 +94,4 @@
 - classificacao: `parcial`
 - resumo executivo: o risco alvo esta bem mapeado, mas ainda precisa da reclassificacao final para destravar a baseline oficial
 - owner do primeiro passo do proximo marco: `Arquitetura/Governanca`
-- artefato relacionado: [Runbook de Execucao do Dia 1 da Sprint 4](../../sprint-4-day-1-execution-runbook.md)
+- artefato relacionado (legado, alvo removido da trilha viva): `sprint-4-day-1-execution-runbook.md`
