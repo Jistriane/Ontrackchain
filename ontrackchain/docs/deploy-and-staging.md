@@ -49,15 +49,15 @@ O projeto esta organizado para deploy baseado em containers, com `docker compose
 
 ## Render Atual
 
-O blueprint padrao atualmente versionado na raiz tecnica do repositório passou a ser o recorte `frontend-only demo`, sem segredos e sem backend real.
+O blueprint padrao atualmente versionado na raiz tecnica do repositório passou a ser o recorte `frontend standalone showcase`, sem segredos e sem backend real.
 
 Isso significa que o deploy mais barato e menos arriscado no Render:
 
 - sobe apenas o frontend `Next.js`
 - mantém `healthCheckPath=/api/healthz`
-- ativa `FRONTEND_STANDALONE_DEMO_MODE=true`
-- bloqueia login real, deep links operacionais e APIs internas sem backend
-- mantém `APP_ENV=staging`, `AUTH_MODE=oidc` e `DEV_AUTH_ENABLED=false`
+- ativa `FRONTEND_STANDALONE_SHOWCASE_MODE=true`
+- libera a navegação do frontend completo com dados seeded e interações locais
+- mantém `APP_ENV=staging` e `AUTH_MODE=oidc` apenas como contrato visual do shell
 
 Esse recorte existe para publicar uma vitrine honesta do frontend sem exigir preenchimento manual de `sync: false` nem dependências privadas.
 
@@ -71,7 +71,7 @@ Use [Blueprint Render para Staging Full-Stack](render-staging-blueprint.md) quan
 
 Nao trate esse deploy sozinho como evidência suficiente de staging sério, readiness regulatório ou aceite institucional; continue exigindo `preflight`, bundles, evidências e `go/no-go`.
 
-Quando a necessidade for apenas publicar uma vitrine do frontend sem backend real e sem segredos, use o recorte padrao em [Blueprint Render - Frontend-Only Demo](render-frontend-only-demo.md). Ele nao substitui staging funcional.
+Quando a necessidade for apenas publicar uma vitrine navegável do frontend sem backend real e sem segredos, use o recorte padrao em [Blueprint Render - Frontend Standalone Showcase](render-frontend-only-demo.md). Ele nao substitui staging funcional.
 
 ## Ambientes Recomendados
 

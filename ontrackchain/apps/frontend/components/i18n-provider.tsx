@@ -10,7 +10,7 @@ type I18nContextValue = {
   setLocale: (locale: Locale) => void;
   t: (key: MessageKey, values?: Record<string, string | number>) => string;
   locales: readonly Locale[];
-  frontendStandaloneDemoMode: boolean;
+  frontendStandaloneShowcaseMode: boolean;
   effectiveAuthMode: AuthMode;
 };
 
@@ -18,12 +18,12 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 
 export function I18nProvider({
   initialLocale = DEFAULT_LOCALE,
-  frontendStandaloneDemoMode = false,
+  frontendStandaloneShowcaseMode = false,
   effectiveAuthMode = "dev",
   children
 }: {
   initialLocale?: Locale;
-  frontendStandaloneDemoMode?: boolean;
+  frontendStandaloneShowcaseMode?: boolean;
   effectiveAuthMode?: AuthMode;
   children: ReactNode;
 }) {
@@ -43,10 +43,10 @@ export function I18nProvider({
       setLocale,
       t: (key, values) => translate(locale, key, values),
       locales: SUPPORTED_LOCALES,
-      frontendStandaloneDemoMode,
+      frontendStandaloneShowcaseMode,
       effectiveAuthMode
     };
-  }, [effectiveAuthMode, frontendStandaloneDemoMode, locale, router]);
+  }, [effectiveAuthMode, frontendStandaloneShowcaseMode, locale, router]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }

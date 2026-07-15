@@ -9,7 +9,7 @@ import { AuthShell, Message } from "../../components/ui";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { t, frontendStandaloneDemoMode, effectiveAuthMode } = useI18n();
+  const { t, frontendStandaloneShowcaseMode, effectiveAuthMode } = useI18n();
   const [authMode, setAuthMode] = useState<"dev" | "oidc">(effectiveAuthMode);
   const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
   const [email, setEmail] = useState("");
@@ -18,10 +18,10 @@ export default function LoginPage() {
   const [totp, setTotp] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const standaloneDemoMode = frontendStandaloneDemoMode;
+  const standaloneShowcaseMode = frontendStandaloneShowcaseMode;
 
   useEffect(() => {
-    if (standaloneDemoMode) {
+    if (standaloneShowcaseMode) {
       return;
     }
     let active = true;
@@ -42,12 +42,12 @@ export default function LoginPage() {
     return () => {
       active = false;
     };
-  }, [standaloneDemoMode]);
+  }, [standaloneShowcaseMode]);
 
   async function onLogin() {
     setError(null);
-    if (standaloneDemoMode) {
-      setError(t("login.demoUnavailable" as MessageKey));
+    if (standaloneShowcaseMode) {
+      router.push("/dashboard");
       return;
     }
     setIsSubmitting(true);
@@ -141,7 +141,7 @@ export default function LoginPage() {
           {t("login.devBlocked", { appEnv: authConfig.app_env ?? "unknown" })}
         </Message>
       ) : null}
-      {standaloneDemoMode ? <Message>{t("login.demoNotice" as MessageKey)}</Message> : null}
+      {standaloneShowcaseMode ? <Message>{t("login.demoNotice" as MessageKey)}</Message> : null}
 
       <div className="otc-stack">
         {authMode !== "oidc" ? (
@@ -169,9 +169,9 @@ export default function LoginPage() {
           type="button"
           data-testid="login-btn"
           onClick={onLogin}
-          disabled={standaloneDemoMode || isSubmitting || (authMode !== "oidc" && (!email.trim() || !password))}
+          disabled={isSubmitting || (!standaloneShowcaseMode && authMode !== "oidc" && (!email.trim() || !password))}
         >
-          {standaloneDemoMode ? t("login.demoButton" as MessageKey) : authMode === "oidc" ? t("login.enterKeycloak") : t("login.enter")}
+          {standaloneShowcaseMode ? t("login.demoButton" as MessageKey) : authMode === "oidc" ? t("login.enterKeycloak") : t("login.enter")}
         </button>
         {error ? <Message tone="error">{error}</Message> : null}
       </div>

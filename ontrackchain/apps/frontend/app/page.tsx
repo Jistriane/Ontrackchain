@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
-import { isConfiguredDevAuthButDisabled, isFrontendStandaloneDemoMode, resolveEffectiveAuthMode } from "./lib/auth-runtime";
+import { isConfiguredDevAuthButDisabled, isFrontendStandaloneShowcaseMode, resolveEffectiveAuthMode } from "./lib/auth-runtime";
+import { STANDALONE_SHOWCASE_HOME_CATALOGS } from "./lib/standalone-showcase";
 import { AppShell, CodeBlock, MetricCard, MetricGrid, ModuleCard, ModuleGrid, Panel, Pill } from "../components/ui";
 import { LOCALE_COOKIE_NAME, normalizeLocale, translate, type MessageKey } from "./lib/i18n";
 
@@ -94,10 +95,12 @@ export default async function Home() {
   const t = (key: MessageKey, values?: Record<string, string | number>) => translate(locale, key, values);
   const authMode = resolveEffectiveAuthMode();
   const devAuthDisabled = isConfiguredDevAuthButDisabled();
-  const standaloneDemoMode = isFrontendStandaloneDemoMode();
+  const standaloneShowcaseMode = isFrontendStandaloneShowcaseMode();
   const sessionToken = cookieStore.get("otc_token")?.value?.trim() ?? "";
-  const authenticated = sessionToken.length > 0;
-  const sessionBundle = authenticated && !standaloneDemoMode
+  const authenticated = standaloneShowcaseMode || sessionToken.length > 0;
+  const sessionBundle = standaloneShowcaseMode
+    ? STANDALONE_SHOWCASE_HOME_CATALOGS
+    : authenticated
     ? await fetchDashboardBundle(sessionToken)
     : {
         reportTypes: null,
@@ -105,9 +108,13 @@ export default async function Home() {
         monitoringOperations: null
       };
 
-  const availableReports = sessionBundle.reportTypes?.types.filter((item) => item.available) ?? [];
-  const availableCompliance = sessionBundle.complianceOperations?.operations.filter((item) => item.available) ?? [];
-  const availableMonitoring = sessionBundle.monitoringOperations?.operations.filter((item) => item.available) ?? [];
+  const reportCatalog = sessionBundle.reportTypes as ReportTypeCatalogResponse | null;
+  const complianceCatalog = sessionBundle.complianceOperations as OperationCatalogResponse | null;
+  const monitoringCatalog = sessionBundle.monitoringOperations as OperationCatalogResponse | null;
+
+  const availableReports = reportCatalog?.types.filter((item: CatalogItem) => item.available) ?? [];
+  const availableCompliance = complianceCatalog?.operations.filter((item: CatalogItem) => item.available) ?? [];
+  const availableMonitoring = monitoringCatalog?.operations.filter((item: CatalogItem) => item.available) ?? [];
   const availableOperationCount = availableCompliance.length + availableMonitoring.length;
 
   return (
@@ -115,9 +122,9 @@ export default async function Home() {
       title={t("home.title")}
       subtitle={t("home.subtitle")}
       activePath="/dashboard"
-      actions={standaloneDemoMode ? <Pill tone="warning">{t("home.demo.badge" as MessageKey)}</Pill> : <a href="/dashboard" className="otc-link-button">{t("home.openDashboard")}</a>}
+      actions={standaloneShowcaseMode ? <Pill tone="warning">{t("home.demo.badge" as MessageKey)}</Pill> : <a href="/dashboard" className="otc-link-button">{t("home.openDashboard")}</a>}
     >
-      {standaloneDemoMode ? (
+      {standaloneShowcaseMode ? (
         <Panel title={t("home.demo.title" as MessageKey)} description={t("home.demo.description" as MessageKey)}>
           <div className="otc-message">{t("home.demo.notice" as MessageKey)}</div>
         </Panel>
@@ -135,10 +142,10 @@ export default async function Home() {
 
       <Panel title={t("home.summary.title")} description={t("home.summary.description")}>
         <ModuleGrid>
-          <ModuleCard href={standaloneDemoMode ? undefined : "/dashboard"} title={t("home.summary.panel")} description={t("home.summary.panelDesc")} badge={<Pill>{standaloneDemoMode ? t("home.demo.badge" as MessageKey) : t("dashboard.modules.active")}</Pill>} />
-          <ModuleCard href={standaloneDemoMode ? undefined : "/investigate"} title={t("home.summary.investigations")} description={t("home.summary.investigationsDesc")} badge={<Pill>{standaloneDemoMode ? t("home.demo.badge" as MessageKey) : t("dashboard.modules.active")}</Pill>} />
-          <ModuleCard href={standaloneDemoMode ? undefined : "/monitoring"} title={t("home.summary.monitoring")} description={t("home.summary.monitoringDesc")} badge={<Pill>{standaloneDemoMode ? t("home.demo.badge" as MessageKey) : t("dashboard.modules.active")}</Pill>} />
-          <ModuleCard href={standaloneDemoMode ? undefined : "/audit"} title={t("home.summary.audit")} description={t("home.summary.auditDesc")} badge={<Pill>{standaloneDemoMode ? t("home.demo.badge" as MessageKey) : t("dashboard.modules.active")}</Pill>} />
+          <ModuleCard href="/dashboard" title={t("home.summary.panel")} description={t("home.summary.panelDesc")} badge={<Pill>{standaloneShowcaseMode ? t("home.demo.badge" as MessageKey) : t("dashboard.modules.active")}</Pill>} />
+          <ModuleCard href="/investigate" title={t("home.summary.investigations")} description={t("home.summary.investigationsDesc")} badge={<Pill>{standaloneShowcaseMode ? t("home.demo.badge" as MessageKey) : t("dashboard.modules.active")}</Pill>} />
+          <ModuleCard href="/monitoring" title={t("home.summary.monitoring")} description={t("home.summary.monitoringDesc")} badge={<Pill>{standaloneShowcaseMode ? t("home.demo.badge" as MessageKey) : t("dashboard.modules.active")}</Pill>} />
+          <ModuleCard href="/audit" title={t("home.summary.audit")} description={t("home.summary.auditDesc")} badge={<Pill>{standaloneShowcaseMode ? t("home.demo.badge" as MessageKey) : t("dashboard.modules.active")}</Pill>} />
         </ModuleGrid>
       </Panel>
 
@@ -149,7 +156,7 @@ export default async function Home() {
       {!authenticated ? (
         <Panel title={t("home.authNotice.title")} description={t("home.authNotice.description")}>
           <div className="otc-message">
-            {standaloneDemoMode ? t("home.demo.authBlocked" as MessageKey) : devAuthDisabled ? t("home.authNotice.devBlocked") : t("home.authNotice.loginRequired")}
+            {standaloneShowcaseMode ? t("home.demo.authBlocked" as MessageKey) : devAuthDisabled ? t("home.authNotice.devBlocked") : t("home.authNotice.loginRequired")}
           </div>
         </Panel>
       ) : null}

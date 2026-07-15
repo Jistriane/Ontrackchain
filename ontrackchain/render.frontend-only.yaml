@@ -6,7 +6,7 @@ previews:
 services:
   - type: web
     runtime: docker
-    name: ontrackchain-frontend-demo-staging
+    name: ontrackchain-frontend-showcase-staging
     plan: starter
     dockerContext: ./apps/frontend
     dockerfilePath: ./apps/frontend/Dockerfile
@@ -16,19 +16,15 @@ services:
         value: staging
       - key: AUTH_MODE
         value: oidc
-      - key: FRONTEND_STANDALONE_DEMO_MODE
+      - key: FRONTEND_STANDALONE_SHOWCASE_MODE
         value: "true"
-      - key: DEV_AUTH_ENABLED
-        value: "false"
       - key: NEXT_PUBLIC_APP_ENV
         value: staging
       - key: NEXT_PUBLIC_AUTH_MODE
         value: oidc
-      - key: NEXT_PUBLIC_DEV_AUTH_ENABLED
-        value: "false"
-      - key: NEXT_PUBLIC_FRONTEND_STANDALONE_DEMO_MODE
+      - key: NEXT_PUBLIC_FRONTEND_STANDALONE_SHOWCASE_MODE
         value: "true"
       - key: NEXT_PUBLIC_FRONTEND_URL
-        value: "https://ontrackchain-frontend-demo-staging.onrender.com"
+        value: "https://ontrackchain-frontend-showcase-staging.onrender.com"
       - key: NEXT_PUBLIC_APP_URL
-        value: "https://ontrackchain-frontend-demo-staging.onrender.com"
+        value: "https://ontrackchain-frontend-showcase-staging.onrender.com"

@@ -1,4 +1,5 @@
 export type AuthMode = "dev" | "oidc";
+export type FrontendDeploymentModel = "render-full-stack-staging" | "render-frontend-only-demo" | "render-frontend-standalone-showcase";
 
 function parseBoolean(value: string | undefined): boolean | null {
   if (!value) {
@@ -63,4 +64,29 @@ export function isFrontendStandaloneDemoMode(env: NodeJS.ProcessEnv = process.en
       env.NEXT_PUBLIC_FRONTEND_DEMO_MODE
   );
   return configured === true;
+}
+
+export function isFrontendStandaloneShowcaseMode(env: NodeJS.ProcessEnv = process.env): boolean {
+  const configured = parseBoolean(
+    env.FRONTEND_STANDALONE_SHOWCASE_MODE ??
+      env.NEXT_PUBLIC_FRONTEND_STANDALONE_SHOWCASE_MODE ??
+      env.FRONTEND_STANDALONE_DEMO_MODE ??
+      env.NEXT_PUBLIC_FRONTEND_STANDALONE_DEMO_MODE ??
+      env.NEXT_PUBLIC_FRONTEND_DEMO_MODE
+  );
+  return configured === true;
+}
+
+export function isFrontendStandaloneRuntime(env: NodeJS.ProcessEnv = process.env): boolean {
+  return isFrontendStandaloneShowcaseMode(env) || isFrontendStandaloneDemoMode(env);
+}
+
+export function resolveFrontendDeploymentModel(env: NodeJS.ProcessEnv = process.env): FrontendDeploymentModel {
+  if (isFrontendStandaloneShowcaseMode(env)) {
+    return "render-frontend-standalone-showcase";
+  }
+  if (isFrontendStandaloneDemoMode(env)) {
+    return "render-frontend-only-demo";
+  }
+  return "render-full-stack-staging";
 }

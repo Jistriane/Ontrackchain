@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isFrontendStandaloneDemoMode } from "../../lib/auth-runtime";
+import { isFrontendStandaloneShowcaseMode, resolveFrontendDeploymentModel } from "../../lib/auth-runtime";
 
 const REQUIRED_FRONTEND_RENDER_ENV_KEYS = [
   "APP_ENV",
@@ -12,17 +12,17 @@ const REQUIRED_FRONTEND_RENDER_ENV_KEYS = [
   "NEXT_PUBLIC_API_BASE_URL"
 ] as const;
 
-const REQUIRED_FRONTEND_DEMO_ENV_KEYS = [
+const REQUIRED_FRONTEND_SHOWCASE_ENV_KEYS = [
   "APP_ENV",
   "AUTH_MODE",
   "NEXT_PUBLIC_APP_ENV",
   "NEXT_PUBLIC_AUTH_MODE",
-  "NEXT_PUBLIC_FRONTEND_STANDALONE_DEMO_MODE"
+  "NEXT_PUBLIC_FRONTEND_STANDALONE_SHOWCASE_MODE"
 ] as const;
 
 export async function GET() {
-  const standaloneDemoMode = isFrontendStandaloneDemoMode();
-  const requiredKeys = standaloneDemoMode ? REQUIRED_FRONTEND_DEMO_ENV_KEYS : REQUIRED_FRONTEND_RENDER_ENV_KEYS;
+  const standaloneShowcaseMode = isFrontendStandaloneShowcaseMode();
+  const requiredKeys = standaloneShowcaseMode ? REQUIRED_FRONTEND_SHOWCASE_ENV_KEYS : REQUIRED_FRONTEND_RENDER_ENV_KEYS;
   const missing = requiredKeys.filter((key) => {
     const value = process.env[key];
     return typeof value !== "string" || value.trim().length === 0;
@@ -35,11 +35,11 @@ export async function GET() {
       status: missing.length === 0 ? "ok" : "degraded",
       service: "frontend",
       runtime: "nextjs-app-router",
-      deploymentModel: standaloneDemoMode ? "render-frontend-only-demo" : "render-full-stack-staging",
+      deploymentModel: resolveFrontendDeploymentModel(),
       checks: {
         requiredEnv: missing.length === 0 ? "ok" : "missing"
       },
-      standaloneDemoMode,
+      standaloneShowcaseMode,
       missingEnvKeys: missing
     },
     { status }

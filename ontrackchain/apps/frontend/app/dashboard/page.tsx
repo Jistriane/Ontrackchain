@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 import { AppShell, MetricCard, MetricGrid, ModuleCard, ModuleGrid, Panel, Pill } from "../../components/ui";
 import { DashboardQuickActions } from "./dashboard-quick-actions";
 import { canManageFederatedIdentity } from "../lib/authz";
+import { isFrontendStandaloneShowcaseMode } from "../lib/auth-runtime";
 import { formatDateTime } from "../lib/date-format";
 import { LOCALE_COOKIE_NAME, normalizeLocale, translate, type MessageKey } from "../lib/i18n";
+import { STANDALONE_SHOWCASE_AUTH_CONTEXT, STANDALONE_SHOWCASE_DASHBOARD } from "../lib/standalone-showcase";
 import {
   buildOperationalContextLinks,
   type OperationalContext,
@@ -150,46 +152,72 @@ export default async function DashboardPage() {
   const twofa = cookieStore.get("otc_2fa")?.value;
   const locale = normalizeLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
   const t = (key: MessageKey) => translate(locale, key);
+  const standaloneShowcaseMode = isFrontendStandaloneShowcaseMode();
   const hasAcceptedSecondFactor =
     twofa === "ok" || twofa === "managed_externally" || twofa === "managed_externally_homologated";
 
-  if (!token || !hasAcceptedSecondFactor) {
+  if (!standaloneShowcaseMode && (!token || !hasAcceptedSecondFactor)) {
     redirect("/login");
   }
 
   const requestId = crypto.randomUUID();
   const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const headers = { Authorization: `Bearer ${token}`, "X-Request-Id": requestId };
-  const dashboardRole = await validateDashboardRole(token, requestId);
+  const dashboardRole = standaloneShowcaseMode ? STANDALONE_SHOWCASE_AUTH_CONTEXT.role : await validateDashboardRole(token!, requestId);
   const showTeamModule = canManageFederatedIdentity(dashboardRole);
+  let watchlistsCount: number | null = null;
+  let creditsAvailable: number | null = null;
+  let creditsReserved: number | null = null;
+  let creditsUsedTotal: number | null = null;
+  let orgActive: number | null = null;
+  let orgLimit: number | null = null;
+  let queuedCount: number | null = null;
+  let processingCount: number | null = null;
+  let firingPendingAlertsTotal: number | null = null;
+  let recentCases: OperationsSnapshot["recent_cases"] = [];
+  let operationsAvailable = standaloneShowcaseMode;
 
-  const [watchlistsRes, billingRes, operationsRes, platformAlertsRes] = await Promise.all([
-    fetchJson<Watchlist[]>(`${baseUrl}/api/v1/monitoring/watchlists`, { method: "GET", headers, cache: "no-store" }),
-    fetchJson<BillingBalanceResponse>(`${baseUrl}/api/v1/billing/balance`, { method: "GET", headers, cache: "no-store" }),
-    fetchJson<OperationsSnapshot>(`${baseUrl}/api/v1/investigation/admin/operations`, { method: "GET", headers, cache: "no-store" }),
-    fetchJson<PlatformOperationalAlertsSnapshot>(
-      `${baseUrl}/api/v1/monitoring/operational-alerts?status=firing&triage_status=pending&limit=1`,
-      { method: "GET", headers, cache: "no-store" }
-    )
-  ]);
+  if (standaloneShowcaseMode) {
+    watchlistsCount = STANDALONE_SHOWCASE_DASHBOARD.watchlistsCount;
+    creditsAvailable = STANDALONE_SHOWCASE_DASHBOARD.creditsAvailable;
+    creditsReserved = STANDALONE_SHOWCASE_DASHBOARD.creditsReserved;
+    creditsUsedTotal = STANDALONE_SHOWCASE_DASHBOARD.creditsUsedTotal;
+    orgActive = STANDALONE_SHOWCASE_DASHBOARD.orgActive;
+    orgLimit = STANDALONE_SHOWCASE_DASHBOARD.orgLimit;
+    queuedCount = STANDALONE_SHOWCASE_DASHBOARD.queuedCount;
+    processingCount = STANDALONE_SHOWCASE_DASHBOARD.processingCount;
+    firingPendingAlertsTotal = STANDALONE_SHOWCASE_DASHBOARD.firingPendingAlertsTotal;
+    recentCases = [...STANDALONE_SHOWCASE_DASHBOARD.recentCases];
+  } else {
+    const [watchlistsRes, billingRes, operationsRes, platformAlertsRes] = await Promise.all([
+      fetchJson<Watchlist[]>(`${baseUrl}/api/v1/monitoring/watchlists`, { method: "GET", headers, cache: "no-store" }),
+      fetchJson<BillingBalanceResponse>(`${baseUrl}/api/v1/billing/balance`, { method: "GET", headers, cache: "no-store" }),
+      fetchJson<OperationsSnapshot>(`${baseUrl}/api/v1/investigation/admin/operations`, { method: "GET", headers, cache: "no-store" }),
+      fetchJson<PlatformOperationalAlertsSnapshot>(
+        `${baseUrl}/api/v1/monitoring/operational-alerts?status=firing&triage_status=pending&limit=1`,
+        { method: "GET", headers, cache: "no-store" }
+      )
+    ]);
 
-  const watchlistsCount = watchlistsRes.ok ? watchlistsRes.data.length : null;
-  const creditsAvailable = billingRes.ok ? billingRes.data.credits_available : null;
-  const creditsReserved = billingRes.ok ? billingRes.data.credits_reserved : null;
-  const creditsUsedTotal = billingRes.ok ? billingRes.data.credits_used_total : null;
-  const orgActive = operationsRes.ok ? operationsRes.data.concurrency.org_active : null;
-  const orgLimit = operationsRes.ok ? operationsRes.data.concurrency.org_limit : null;
-  const queuedCount = operationsRes.ok ? operationsRes.data.states.queued : null;
-  const processingCount = operationsRes.ok ? operationsRes.data.states.processing : null;
-  const firingPendingAlertsTotal = platformAlertsRes.ok ? platformAlertsRes.data.total_count : null;
-  const recentCases = operationsRes.ok ? operationsRes.data.recent_cases.slice(0, 10) : [];
+    watchlistsCount = watchlistsRes.ok ? watchlistsRes.data.length : null;
+    creditsAvailable = billingRes.ok ? billingRes.data.credits_available : null;
+    creditsReserved = billingRes.ok ? billingRes.data.credits_reserved : null;
+    creditsUsedTotal = billingRes.ok ? billingRes.data.credits_used_total : null;
+    orgActive = operationsRes.ok ? operationsRes.data.concurrency.org_active : null;
+    orgLimit = operationsRes.ok ? operationsRes.data.concurrency.org_limit : null;
+    queuedCount = operationsRes.ok ? operationsRes.data.states.queued : null;
+    processingCount = operationsRes.ok ? operationsRes.data.states.processing : null;
+    firingPendingAlertsTotal = platformAlertsRes.ok ? platformAlertsRes.data.total_count : null;
+    recentCases = operationsRes.ok ? operationsRes.data.recent_cases.slice(0, 10) : [];
+    operationsAvailable = operationsRes.ok;
+  }
 
   return (
     <AppShell
       title={t("dashboard.title")}
       subtitle={t("dashboard.subtitle")}
       activePath="/dashboard"
-      actions={<div data-testid="user-menu" className="otc-ghost-pill">{t("dashboard.sessionActive")}</div>}
+      actions={<div data-testid="user-menu" className="otc-ghost-pill">{standaloneShowcaseMode ? "Standalone Showcase" : t("dashboard.sessionActive")}</div>}
     >
       <MetricGrid>
         <MetricCard
@@ -289,7 +317,7 @@ export default async function DashboardPage() {
             ) : (
               <tr>
                 <td colSpan={8} className="otc-muted">
-                  {operationsRes.ok ? t("dashboard.cases.empty") : t("dashboard.cases.unavailable")}
+                  {operationsAvailable ? t("dashboard.cases.empty") : t("dashboard.cases.unavailable")}
                 </td>
               </tr>
             )}

@@ -17,7 +17,7 @@ Resumo tecnico:
 
 - baseline oficial: `93%` tecnico, `79%` regulatorio/operacional, `89%` consolidado
 - a baseline viva esta em `docs/README.md`, `docs/project-kpi-scorecard.md` e `docs/project-maturity-assessment.md`
-- o blueprint padrao hospedado passou a ser `frontend-only demo`; o staging real ficou isolado em `render.full-stack.yaml`
+- o blueprint padrao hospedado passou a ser `frontend standalone showcase`; o staging real ficou isolado em `render.full-stack.yaml`
 - o principal gap nao e mais scaffold, e sim homologacao externa real com prova revisavel
 - a arvore tecnica separa claramente fonte viva, evidencia de ciclo e historico frio
 
