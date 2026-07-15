@@ -1,3 +1,6 @@
+import type { WorkCommentResponse, WorkEventResponse, WorkItemTimelineResponse } from "./work-item-timeline";
+import type { ReportWorkItemMetadata, WorkItemListResponse, WorkItemResponse } from "./work-items";
+
 export const STANDALONE_SHOWCASE_AUTH_CONTEXT = {
   authenticated: true,
   org_id: "showcase-org",
@@ -242,6 +245,99 @@ export const STANDALONE_SHOWCASE_REPORT_HISTORY = [
   }
 ] as const;
 
+const STANDALONE_SHOWCASE_WORK_ITEM_SEEDS: WorkItemResponse<ReportWorkItemMetadata>[] = [
+  {
+    id: "6f0d6a9d-76c4-57d2-8f41-41272e7b0a11",
+    module: "reports",
+    resource_type: "formal_report_case",
+    resource_id: "case-showcase-001",
+    case_id: "case-showcase-001",
+    report_external_id: "rep-showcase-001",
+    owner_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    assigned_by_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    queue_status: "READY",
+    priority: "high",
+    due_at: "2026-07-16T18:00:00Z",
+    sla_breached: false,
+    title: "Formal report case • case-showcase-001",
+    note: "Caso seeded para showcase compartilhado de relatórios.",
+    metadata: {
+      case_id: "case-showcase-001",
+      owner_label: "showcase-user",
+      owner_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      workspace_status: "ready",
+      local_workspace_status: "ready",
+      target_address: "0x6b175474e89094c44da98b954eedeac495271d0f",
+      target_chain: "ethereum",
+      report_type: "technical_basic",
+      report_id: "rep-showcase-001",
+      note: "Caso seeded para showcase compartilhado de relatórios."
+    },
+    created_at: "2026-07-15T19:05:00Z",
+    updated_at: "2026-07-15T19:20:00Z",
+    last_activity_at: "2026-07-15T19:20:00Z"
+  }
+];
+
+const STANDALONE_SHOWCASE_TIMELINE_EVENT_SEEDS: Record<string, WorkEventResponse[]> = {
+  "6f0d6a9d-76c4-57d2-8f41-41272e7b0a11": [
+    {
+      id: "evt-showcase-reports-001",
+      event_type: "WORK_ITEM_CREATED",
+      from_status: null,
+      to_status: "UNDER_REVIEW",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      payload: { source: "standalone_showcase_seed" },
+      created_at: "2026-07-15T19:05:00Z"
+    },
+    {
+      id: "evt-showcase-reports-002",
+      event_type: "WORK_ITEM_STATUS_CHANGED",
+      from_status: "UNDER_REVIEW",
+      to_status: "READY",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      payload: { workspace_status: "ready" },
+      created_at: "2026-07-15T19:20:00Z"
+    }
+  ]
+};
+
+const STANDALONE_SHOWCASE_TIMELINE_COMMENT_SEEDS: Record<string, WorkCommentResponse[]> = {
+  "6f0d6a9d-76c4-57d2-8f41-41272e7b0a11": [
+    {
+      id: "cmt-showcase-reports-001",
+      comment_type: "note",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      body: "Work item compartilhado seeded para demonstrar timeline e comentários persistidos localmente.",
+      created_at: "2026-07-15T19:10:00Z"
+    },
+    {
+      id: "cmt-showcase-reports-002",
+      comment_type: "handoff",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      body: "Handoff demonstrativo para revisão jurídica do dossiê formal.",
+      created_at: "2026-07-15T19:18:00Z"
+    }
+  ]
+};
+
+let standaloneShowcaseWorkItemsStore = STANDALONE_SHOWCASE_WORK_ITEM_SEEDS.map((item) => ({
+  ...item,
+  metadata: { ...item.metadata }
+}));
+let standaloneShowcaseTimelineEventsStore = Object.fromEntries(
+  Object.entries(STANDALONE_SHOWCASE_TIMELINE_EVENT_SEEDS).map(([workItemId, events]) => [
+    workItemId,
+    events.map((event) => ({ ...event, payload: { ...event.payload } }))
+  ])
+) as Record<string, WorkEventResponse[]>;
+let standaloneShowcaseTimelineCommentsStore = Object.fromEntries(
+  Object.entries(STANDALONE_SHOWCASE_TIMELINE_COMMENT_SEEDS).map(([workItemId, comments]) => [
+    workItemId,
+    comments.map((comment) => ({ ...comment }))
+  ])
+) as Record<string, WorkCommentResponse[]>;
+
 export function buildStandaloneShowcaseQuote(input: {
   address: string;
   chains?: string[];
@@ -279,4 +375,170 @@ export function resolveStandaloneShowcaseCase(caseId: string) {
 
 export function resolveStandaloneShowcaseReport(reportId: string) {
   return STANDALONE_SHOWCASE_REPORT_HISTORY.find((item) => item.report_id === reportId) ?? null;
+}
+
+function cloneStandaloneWorkItem(item: WorkItemResponse<ReportWorkItemMetadata>): WorkItemResponse<ReportWorkItemMetadata> {
+  return {
+    ...item,
+    metadata: { ...item.metadata }
+  };
+}
+
+function ensureStandaloneWorkItemCollections(workItemId: string) {
+  if (!standaloneShowcaseTimelineEventsStore[workItemId]) {
+    standaloneShowcaseTimelineEventsStore[workItemId] = [];
+  }
+  if (!standaloneShowcaseTimelineCommentsStore[workItemId]) {
+    standaloneShowcaseTimelineCommentsStore[workItemId] = [];
+  }
+}
+
+export function listStandaloneShowcaseWorkItems(filters: {
+  module?: string | null;
+  resourceType?: string | null;
+  reportExternalId?: string | null;
+  limit?: number | null;
+}): WorkItemListResponse<ReportWorkItemMetadata> {
+  const filtered = standaloneShowcaseWorkItemsStore.filter((item) => {
+    if (filters.module && item.module !== filters.module) return false;
+    if (filters.resourceType && item.resource_type !== filters.resourceType) return false;
+    if (filters.reportExternalId && item.report_external_id !== filters.reportExternalId) return false;
+    return true;
+  });
+  const limit = typeof filters.limit === "number" && filters.limit > 0 ? filters.limit : 100;
+  const data = filtered
+    .slice()
+    .sort((left, right) => right.last_activity_at.localeCompare(left.last_activity_at))
+    .slice(0, limit)
+    .map(cloneStandaloneWorkItem);
+  return {
+    data,
+    page: 1,
+    limit,
+    total: filtered.length,
+    has_more: filtered.length > limit
+  };
+}
+
+export function getStandaloneShowcaseWorkItem(workItemId: string) {
+  const workItem = standaloneShowcaseWorkItemsStore.find((item) => item.id === workItemId) ?? null;
+  return workItem ? cloneStandaloneWorkItem(workItem) : null;
+}
+
+export function upsertStandaloneShowcaseWorkItem(
+  payload: Partial<WorkItemResponse<ReportWorkItemMetadata>> & {
+    module?: "reports";
+    resource_type?: "formal_report_case";
+    resource_id?: string;
+    case_id?: string | null;
+    report_external_id?: string | null;
+    priority: "critical" | "high" | "normal";
+    queue_status: WorkItemResponse["queue_status"];
+    due_at: string | null;
+    title: string;
+    note: string | null;
+    metadata: ReportWorkItemMetadata;
+  },
+  workItemId?: string
+) {
+  const now = new Date().toISOString();
+  const existingIndex = workItemId ? standaloneShowcaseWorkItemsStore.findIndex((item) => item.id === workItemId) : -1;
+  const existing = existingIndex >= 0 ? standaloneShowcaseWorkItemsStore[existingIndex] : null;
+  const resolvedId = existing?.id ?? workItemId ?? crypto.randomUUID();
+  const nextItem: WorkItemResponse<ReportWorkItemMetadata> = {
+    id: resolvedId,
+    module: "reports",
+    resource_type: "formal_report_case",
+    resource_id: payload.resource_id ?? payload.case_id ?? existing?.resource_id ?? resolvedId,
+    case_id: payload.case_id ?? existing?.case_id ?? null,
+    report_external_id: payload.report_external_id ?? existing?.report_external_id ?? null,
+    owner_user_id: payload.owner_user_id ?? existing?.owner_user_id ?? STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    assigned_by_user_id: existing?.assigned_by_user_id ?? STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    queue_status: payload.queue_status,
+    priority: payload.priority,
+    due_at: payload.due_at,
+    sla_breached: payload.sla_breached ?? existing?.sla_breached ?? false,
+    title: payload.title,
+    note: payload.note,
+    metadata: { ...payload.metadata },
+    created_at: existing?.created_at ?? now,
+    updated_at: now,
+    last_activity_at: now
+  };
+
+  if (existingIndex >= 0) {
+    standaloneShowcaseWorkItemsStore[existingIndex] = nextItem;
+  } else {
+    standaloneShowcaseWorkItemsStore = [nextItem, ...standaloneShowcaseWorkItemsStore];
+  }
+
+  ensureStandaloneWorkItemCollections(resolvedId);
+  standaloneShowcaseTimelineEventsStore[resolvedId] = [
+    ...standaloneShowcaseTimelineEventsStore[resolvedId],
+    {
+      id: crypto.randomUUID(),
+      event_type: existing ? "WORK_ITEM_UPDATED" : "WORK_ITEM_CREATED",
+      from_status: existing?.queue_status ?? null,
+      to_status: nextItem.queue_status,
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      payload: {
+        workspace_status: nextItem.metadata.workspace_status ?? null,
+        report_id: nextItem.report_external_id ?? null
+      },
+      created_at: now
+    }
+  ];
+
+  return cloneStandaloneWorkItem(nextItem);
+}
+
+export function getStandaloneShowcaseWorkItemTimeline(
+  workItemId: string
+): WorkItemTimelineResponse<WorkItemResponse<ReportWorkItemMetadata>> | null {
+  const item = getStandaloneShowcaseWorkItem(workItemId);
+  if (!item) {
+    return null;
+  }
+  ensureStandaloneWorkItemCollections(workItemId);
+  return {
+    item,
+    events: standaloneShowcaseTimelineEventsStore[workItemId].map((event) => ({ ...event, payload: { ...event.payload } })),
+    comments: standaloneShowcaseTimelineCommentsStore[workItemId].map((comment) => ({ ...comment }))
+  };
+}
+
+export function createStandaloneShowcaseWorkItemComment(
+  workItemId: string,
+  payload: Pick<WorkCommentResponse, "comment_type" | "body">
+) {
+  const item = getStandaloneShowcaseWorkItem(workItemId);
+  if (!item) {
+    return null;
+  }
+  ensureStandaloneWorkItemCollections(workItemId);
+  const now = new Date().toISOString();
+  const comment: WorkCommentResponse = {
+    id: crypto.randomUUID(),
+    comment_type: payload.comment_type,
+    actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    body: payload.body.trim(),
+    created_at: now
+  };
+  standaloneShowcaseTimelineCommentsStore[workItemId] = [...standaloneShowcaseTimelineCommentsStore[workItemId], comment];
+  standaloneShowcaseTimelineEventsStore[workItemId] = [
+    ...standaloneShowcaseTimelineEventsStore[workItemId],
+    {
+      id: crypto.randomUUID(),
+      event_type: "COMMENT_ADDED",
+      from_status: null,
+      to_status: null,
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      payload: { comment_type: payload.comment_type },
+      created_at: now
+    }
+  ];
+  standaloneShowcaseWorkItemsStore = standaloneShowcaseWorkItemsStore.map((entry) =>
+    entry.id === workItemId ? { ...entry, updated_at: now, last_activity_at: now, metadata: { ...entry.metadata } } : entry
+  );
+  return { ...comment };
 }

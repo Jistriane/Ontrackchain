@@ -531,7 +531,7 @@ export default function ReportsPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { locale, t } = useI18n();
+  const { locale, t, frontendStandaloneShowcaseMode } = useI18n();
   const tr = (key: MessageKey, values?: Record<string, string | number>) => t(key, values);
 
   const [loadingCatalog, setLoadingCatalog] = useState(false);
@@ -1514,7 +1514,7 @@ export default function ReportsPage() {
   }
 
   async function syncWorkspaceRecord(record: ReportWorkspaceRecord, nextStatus?: WorkspaceStatus) {
-    if (!isUuidLike(record.caseId)) {
+    if (!frontendStandaloneShowcaseMode && !isUuidLike(record.caseId)) {
       throw new Error(tr("reports.workspace.errorSyncMissingCaseId" as MessageKey));
     }
 
