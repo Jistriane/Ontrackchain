@@ -9,11 +9,20 @@ type I18nContextValue = {
   setLocale: (locale: Locale) => void;
   t: (key: MessageKey, values?: Record<string, string | number>) => string;
   locales: readonly Locale[];
+  frontendStandaloneDemoMode: boolean;
 };
 
 const I18nContext = createContext<I18nContextValue | null>(null);
 
-export function I18nProvider({ initialLocale = DEFAULT_LOCALE, children }: { initialLocale?: Locale; children: ReactNode }) {
+export function I18nProvider({
+  initialLocale = DEFAULT_LOCALE,
+  frontendStandaloneDemoMode = false,
+  children
+}: {
+  initialLocale?: Locale;
+  frontendStandaloneDemoMode?: boolean;
+  children: ReactNode;
+}) {
   const router = useRouter();
   const [locale, setLocaleState] = useState<Locale>(normalizeLocale(initialLocale));
 
@@ -29,9 +38,10 @@ export function I18nProvider({ initialLocale = DEFAULT_LOCALE, children }: { ini
       locale,
       setLocale,
       t: (key, values) => translate(locale, key, values),
-      locales: SUPPORTED_LOCALES
+      locales: SUPPORTED_LOCALES,
+      frontendStandaloneDemoMode
     };
-  }, [locale, router]);
+  }, [frontendStandaloneDemoMode, locale, router]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }

@@ -223,9 +223,6 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const ROLE_GATED_NAV_ITEMS = new Set(["/billing", "/counterparties", "/alerts", "/team"]);
-const STANDALONE_DEMO_MODE =
-  process.env.NEXT_PUBLIC_FRONTEND_STANDALONE_DEMO_MODE === "true" ||
-  process.env.NEXT_PUBLIC_FRONTEND_DEMO_MODE === "true";
 
 function joinClasses(...parts: Array<string | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -281,7 +278,7 @@ function BrandLockup({
 }
 
 export function AppShell({ title, subtitle, activePath, eyebrow, actions, children }: AppShellProps) {
-  const { locale, setLocale, t, locales } = useI18n();
+  const { locale, setLocale, t, locales, frontendStandaloneDemoMode } = useI18n();
   const resolvedEyebrow = eyebrow ?? t("app.eyebrow");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [authRole, setAuthRole] = useState<string | null | undefined>(undefined);
@@ -319,7 +316,7 @@ export function AppShell({ title, subtitle, activePath, eyebrow, actions, childr
 
   const visibleNavItems = useMemo(
     () =>
-      (STANDALONE_DEMO_MODE ? [] : NAV_ITEMS).filter((item) => {
+      (frontendStandaloneDemoMode ? [] : NAV_ITEMS).filter((item) => {
         if (authRole === undefined) {
           return !ROLE_GATED_NAV_ITEMS.has(item.href);
         }
@@ -337,7 +334,7 @@ export function AppShell({ title, subtitle, activePath, eyebrow, actions, childr
         }
         return true;
       }),
-    [authRole]
+    [authRole, frontendStandaloneDemoMode]
   );
 
   return (
@@ -361,9 +358,7 @@ export function AppShell({ title, subtitle, activePath, eyebrow, actions, childr
                 ))}
               </select>
             </label>
-            <a href="/login" className="otc-topbar__logout">
-              {t("topbar.logout")}
-            </a>
+            {frontendStandaloneDemoMode ? <span className="otc-ghost-pill">Demo</span> : <a href="/login" className="otc-topbar__logout">{t("topbar.logout")}</a>}
           </div>
         </header>
 
@@ -406,7 +401,7 @@ export function AppShell({ title, subtitle, activePath, eyebrow, actions, childr
             <div className={joinClasses("otc-sidebar__footer", sidebarCollapsed ? "otc-sidebar__footer--collapsed" : undefined)}>
               <span className="otc-status-pill">{t("topbar.online")}</span>
               <span className={joinClasses("otc-ghost-pill", sidebarCollapsed ? "otc-ghost-pill--compact" : undefined)}>
-                {STANDALONE_DEMO_MODE ? "Demo" : t("topbar.systemUser")}
+                {frontendStandaloneDemoMode ? "Demo" : t("topbar.systemUser")}
               </span>
             </div>
           </aside>

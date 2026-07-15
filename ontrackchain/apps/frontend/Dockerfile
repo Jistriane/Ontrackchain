@@ -16,6 +16,7 @@ FROM deps AS source
 COPY tsconfig.json /app/tsconfig.json
 COPY next-env.d.ts /app/next-env.d.ts
 COPY global.d.ts /app/global.d.ts
+COPY middleware.ts /app/middleware.ts
 COPY app /app/app
 COPY components /app/components
 COPY public /app/public

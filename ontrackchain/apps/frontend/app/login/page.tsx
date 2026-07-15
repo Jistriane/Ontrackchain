@@ -3,14 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuthConfig, createOidcAuthorizationUrl } from "../lib/oidc";
-import { isFrontendStandaloneDemoMode } from "../lib/auth-runtime";
 import type { MessageKey } from "../lib/i18n";
 import { useI18n } from "../../components/i18n-provider";
 import { AuthShell, Message } from "../../components/ui";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, frontendStandaloneDemoMode } = useI18n();
   const [authMode, setAuthMode] = useState<"dev" | "oidc">(process.env.NEXT_PUBLIC_AUTH_MODE === "oidc" ? "oidc" : "dev");
   const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
   const [email, setEmail] = useState("");
@@ -19,7 +18,7 @@ export default function LoginPage() {
   const [totp, setTotp] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const standaloneDemoMode = isFrontendStandaloneDemoMode();
+  const standaloneDemoMode = frontendStandaloneDemoMode;
 
   useEffect(() => {
     if (standaloneDemoMode) {
