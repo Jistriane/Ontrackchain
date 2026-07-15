@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Documentar o blueprint do Render atualmente versionado na raiz tecnica do repositório, agora restaurado como `staging full-stack` minimo viavel para validar:
+Documentar o blueprint dedicado de `staging full-stack` no Render, isolado do fluxo padrao `frontend-only`, para validar:
 
 - `OIDC + MFA` em trilho mais próximo do real
 - banco persistente gerenciado
@@ -10,7 +10,7 @@ Documentar o blueprint do Render atualmente versionado na raiz tecnica do reposi
 - `ROS/COAF` com `report-api` real
 - observabilidade com `Prometheus`, `Alertmanager` e `Grafana`
 
-O arquivo canônico consumido pelo Render continua na raiz técnica deste diretório Git em [render.yaml](../render.yaml).
+O arquivo canônico consumido pelo Render para este recorte agora fica em [render.full-stack.yaml](../render.full-stack.yaml).
 
 ## Papel Canonico
 
@@ -272,7 +272,7 @@ Depois de preencher cada grupo, valide no painel e no runtime:
 
 ## Fluxo Recomendado
 
-1. subir o blueprint a partir de `render.yaml` na raiz tecnica do repositório;
+1. subir o blueprint a partir de `render.full-stack.yaml` na raiz tecnica do repositório;
 2. preencher no painel do Render os segredos obrigatorios do primeiro `sync`;
 3. aguardar a convergencia inicial do `gateway`, `Keycloak`, `auth-service`, `frontend`, `Postgres`, `Key Value`, `Prometheus`, `Alertmanager` e `Grafana`;
 4. validar `https://ontrackchain-gateway-staging.onrender.com/login`;
@@ -299,7 +299,7 @@ Use este bloco durante a execucao real no painel do Render.
 
 ### Antes de clicar em `Sync`
 
-1. abrir o blueprint da raiz técnica do repositório e confirmar que o arquivo usado e [render.yaml](../render.yaml)
+1. abrir o blueprint da raiz técnica do repositório e confirmar que o arquivo usado e [render.full-stack.yaml](../render.full-stack.yaml)
 2. confirmar que o objetivo desta rodada e apenas o primeiro `sync` do runtime hospedado
 3. separar previamente os 7 segredos minimos:
    - `KEYCLOAK_ADMIN_PASSWORD`

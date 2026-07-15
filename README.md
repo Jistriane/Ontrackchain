@@ -56,7 +56,7 @@ flowchart TD
 - operacao multiusuario compartilhada por `regulatory_work_items`, timeline e comentarios estruturados
 - cockpit frontend tri-locale com workspaces convergidos e contratos visuais endurecidos
 - RCA cross-domain leve consolidada entre `alerts`, `/monitoring`, export operacional e governanca
-- blueprint atual do Render restaurado para `staging full-stack`, aproximando o ambiente publico da topologia real
+- blueprint padrao do Render promovido para `frontend-only demo`, com o `staging full-stack` isolado em arquivo dedicado
 
 ### O que ja foi consolidado
 

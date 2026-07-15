@@ -16,6 +16,8 @@ services:
         value: staging
       - key: AUTH_MODE
         value: oidc
+      - key: FRONTEND_STANDALONE_DEMO_MODE
+        value: "true"
       - key: DEV_AUTH_ENABLED
         value: "false"
       - key: NEXT_PUBLIC_APP_ENV

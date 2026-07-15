@@ -2,9 +2,10 @@
 
 ## Objetivo
 
-Descrever o blueprint dedicado para publicar apenas o frontend no Render, sem backend real e sem preenchimento manual de segredos.
+Descrever o blueprint padrao para publicar apenas o frontend no Render, sem backend real e sem preenchimento manual de segredos.
 
-O arquivo canônico deste recorte fica em [render.frontend-only.yaml](../render.frontend-only.yaml).
+O arquivo canônico consumido pelo Render para este recorte agora fica em [render.yaml](../render.yaml).
+O arquivo [render.frontend-only.yaml](../render.frontend-only.yaml) permanece como alias explicito de compatibilidade.
 
 ## Papel Canonico
 
@@ -66,7 +67,7 @@ Trade-offs aceitos:
 
 ## Fluxo Recomendado
 
-1. abrir o blueprint [render.frontend-only.yaml](../render.frontend-only.yaml)
+1. abrir o blueprint [render.yaml](../render.yaml)
 2. criar o serviço `ontrackchain-frontend-demo-staging`
 3. executar o `sync` sem preencher segredos
 4. validar `https://ontrackchain-frontend-demo-staging.onrender.com/api/healthz`
@@ -84,6 +85,7 @@ Considere este recorte pronto apenas se:
 
 ## Relacao com o Blueprint Full-Stack
 
-- `render.frontend-only.yaml` serve para vitrine sem segredos
-- `render.yaml` continua sendo a fonte canônica para staging real do produto
+- `render.yaml` e o blueprint padrao para vitrine sem segredos
+- `render.frontend-only.yaml` permanece como alias explicito deste mesmo recorte
+- `render.full-stack.yaml` passa a ser a fonte canônica para staging real do produto
 - nao promova este recorte como se fosse prova de integracao, seguranca ou readiness

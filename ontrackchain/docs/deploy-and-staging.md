@@ -49,20 +49,19 @@ O projeto esta organizado para deploy baseado em containers, com `docker compose
 
 ## Render Atual
 
-O blueprint do Render atualmente versionado na raiz tecnica do repositório voltou ao modo `staging full-stack`.
+O blueprint padrao atualmente versionado na raiz tecnica do repositório passou a ser o recorte `frontend-only demo`, sem segredos e sem backend real.
 
-Isso significa que o deploy alvo no Render:
+Isso significa que o deploy mais barato e menos arriscado no Render:
 
-- sobe `gateway` publico com `Traefik`
-- provisiona `Keycloak` para `OIDC`
-- expõe `auth-service` para `/auth/config`, `/validate` e bootstrap idempotente do banco
-- sobe `public-api`, `investigation-api`, `compliance-api`, `monitoring-api` e `report-api` como serviços privados
-- sobe `investigation-worker` e `compliance-worker`
-- provisiona `Postgres` gerenciado e `Key Value` compativel com Redis
-- inclui `Prometheus`, `Alertmanager` e `Grafana`
+- sobe apenas o frontend `Next.js`
+- mantém `healthCheckPath=/api/healthz`
+- ativa `FRONTEND_STANDALONE_DEMO_MODE=true`
+- bloqueia login real, deep links operacionais e APIs internas sem backend
 - mantém `APP_ENV=staging`, `AUTH_MODE=oidc` e `DEV_AUTH_ENABLED=false`
 
-Esse recorte existe para validar o runtime real do produto antes da janela séria completa, sem ainda tratá-lo como produção.
+Esse recorte existe para publicar uma vitrine honesta do frontend sem exigir preenchimento manual de `sync: false` nem dependências privadas.
+
+Quando o objetivo for validar o runtime real do produto, use o blueprint dedicado [render.full-stack.yaml](../render.full-stack.yaml), descrito em [Blueprint Render para Staging Full-Stack](render-staging-blueprint.md).
 
 Use [Blueprint Render para Staging Full-Stack](render-staging-blueprint.md) quando o objetivo for:
 
@@ -72,7 +71,7 @@ Use [Blueprint Render para Staging Full-Stack](render-staging-blueprint.md) quan
 
 Nao trate esse deploy sozinho como evidência suficiente de staging sério, readiness regulatório ou aceite institucional; continue exigindo `preflight`, bundles, evidências e `go/no-go`.
 
-Quando a necessidade for apenas publicar uma vitrine do frontend sem backend real e sem segredos, use o recorte deliberadamente limitado em [Blueprint Render - Frontend-Only Demo](render-frontend-only-demo.md). Ele nao substitui staging funcional.
+Quando a necessidade for apenas publicar uma vitrine do frontend sem backend real e sem segredos, use o recorte padrao em [Blueprint Render - Frontend-Only Demo](render-frontend-only-demo.md). Ele nao substitui staging funcional.
 
 ## Ambientes Recomendados
 
@@ -105,7 +104,7 @@ Quando a necessidade for apenas publicar uma vitrine do frontend sem backend rea
 - `scripts/smoke_runtime.py` verde
 - Playwright critical/compliance verde
 - checklist de seguranca basico atendido
-- `render.yaml` sincronizado com a topologia `full-stack`
+- `render.full-stack.yaml` sincronizado com a topologia `full-stack`
 - segredos `sync: false` preenchidos manualmente no painel do Render
 
 Para o preenchimento manual no painel, siga a ordem por servico documentada em [render-staging-blueprint.md](render-staging-blueprint.md), distinguindo o primeiro `sync` dos segredos de providers reais.

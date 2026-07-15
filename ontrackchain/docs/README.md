@@ -13,7 +13,7 @@ Centralizar a documentacao viva do Ontrackchain em um unico indice, reduzindo dr
 - `P2-03` consolidado com RCA cross-domain leve
 - `P2-05` segue em execucao incremental, com enforcement fino ja expandido por `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties` e navegacao global sensivel
 - Playwright institucionalizado por classes: `stack real leve`, `browser-mocked`, `ssr-mocked`, `dev-auth` e `oidc-critical`
-- o blueprint atual do Render voltou ao modo `staging full-stack`, com gateway, auth, Keycloak, banco, workers e observabilidade
+- o blueprint padrao do Render passou a ser o recorte `frontend-only demo`, enquanto o `full-stack` ficou isolado em arquivo dedicado
 
 ## Precedencia Documental
 
@@ -59,8 +59,8 @@ Regras objetivas:
 
 - [Operacao Local](./operations.md): bootstrap local, troubleshooting e comandos do dia a dia
 - [Deploy e Staging](./deploy-and-staging.md): fonte canonica do fluxo tecnico `prepare -> validate -> preflight -> run`
-- [Blueprint Render para Staging Full-Stack](./render-staging-blueprint.md): fonte canonica da topologia hospedada e do preenchimento manual `sync: false` no Render
-- [Blueprint Render - Frontend-Only Demo](./render-frontend-only-demo.md): opcao deliberadamente limitada para publicar apenas o frontend no Render sem segredos e sem backend real
+- [Blueprint Render - Frontend-Only Demo](./render-frontend-only-demo.md): blueprint padrao para publicar apenas o frontend no Render sem segredos e sem backend real
+- [Blueprint Render para Staging Full-Stack](./render-staging-blueprint.md): fonte canonica da topologia hospedada em `render.full-stack.yaml` e do preenchimento manual `sync: false` no Render
 - [GitHub Environment para Staging Serio](./github-environment-staging-serious.md): fonte canonica do workflow manual, approvals e secret multi-linha da janela seria
 - [Template Keycloak OIDC](./keycloak-oidc-template.md): referencia de configuracao inicial do IdP, util para alinhamento com `environment-variables.md`
 - [Variaveis de Ambiente](./environment-variables.md): baseline por servico e overrides

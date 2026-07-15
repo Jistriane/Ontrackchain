@@ -26,11 +26,11 @@ Complementa:
 - `facilitador`: `preencher`
 - `bridge`: `preencher`
 - `run_url`: `preencher`
-- `render_blueprint_file`: `render.yaml`
+- `render_blueprint_file`: `render.full-stack.yaml`
 
 ## Checklist de Prontidao
 
-- [ ] blueprint aberto a partir de `ontrackchain/render.yaml`
+- [ ] blueprint aberto a partir de `ontrackchain/render.full-stack.yaml`
 - [ ] objetivo desta rodada limitado ao `staging full-stack` com URLs `onrender.com`
 - [ ] `ontrackchain-gateway-staging` definido como unico ponto publico principal da aplicacao
 - [ ] `ontrackchain-frontend-staging` configurado como `pserv`
