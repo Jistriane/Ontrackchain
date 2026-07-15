@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Concentrar saidas geradas automaticamente ou semi-automaticamente pela janela seria e pelos paines de governanca.
+Concentrar saidas geradas automaticamente ou semi-automaticamente pela janela seria e pelos paineis de governanca.
 
 Use esta pasta para:
 
@@ -14,7 +14,7 @@ Use esta pasta para:
 
 Regra operacional:
 
-- esta pasta guarda saidas geradas do refresh e dos paines automatizados
+- esta pasta guarda saidas geradas do refresh e dos paineis automatizados
 - artefatos humanos do ciclo ativo permanecem em `docs/governance-weekly/cycles/<data>/`
 - artefatos executivos derivados do payload consolidado, como `sign-off` e `decision packet`, sao publicados no ciclo datado, nao aqui
 

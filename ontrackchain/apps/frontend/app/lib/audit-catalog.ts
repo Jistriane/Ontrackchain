@@ -12,6 +12,8 @@ export const AUDIT_ACTION_VALUES = [
   "coaf_report_rejected",
   "coaf_report_submitted_manual",
   "coaf_regulatory_dossier_downloaded",
+  "team_external_identity_linked",
+  "team_external_identity_unlinked",
   "evidence_manual_review_package_exported",
   "evidence_manual_review_package_signoff_requested",
   "evidence_manual_review_package_signoff_recorded",
@@ -31,6 +33,7 @@ export const AUDIT_RESOURCE_TYPE_VALUES = [
   "operational_alerts",
   "audit_log",
   "ros_record",
+  "team_user",
   "evidence_package_seal"
 ] as const;
 

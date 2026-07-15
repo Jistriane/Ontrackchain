@@ -1,5 +1,52 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
+import { expectDownloadLikeResponse } from "./download-helpers";
+
+type AuditMetadata = {
+  [key: string]: unknown;
+};
+
+type AuditLogRow<TMetadata extends AuditMetadata = AuditMetadata> = {
+  id: string;
+  user_id: string;
+  action: string;
+  resource_type: string;
+  resource_id: string;
+  request_id: string;
+  report_id: string | null;
+  file_hash_sha256: string | null;
+  metadata: TMetadata;
+  created_at: string;
+};
+
+type ManualPackageMfaViolationMetadata = AuditMetadata & {
+  request_id?: string;
+  report_id?: string;
+  seal_id?: string;
+  scope_id?: string;
+  package_sha256?: string;
+  manual_review_action?: string;
+  auth_role?: string;
+  asserted_signer_role?: string;
+  mfa_mode?: string;
+  two_factor_status?: string;
+  mfa_provider_homologated?: boolean;
+  detail?: string;
+};
+
+type ManualPackageExportMetadata = AuditMetadata & {
+  request_id?: string;
+  report_id?: string;
+  scope_id?: string;
+  filename?: string;
+  package_sha256?: string;
+  manual_review_action?: string;
+  workspace_status?: string;
+  case_id?: string;
+};
+
+type ManualPackageMfaAuditRow = AuditLogRow<ManualPackageMfaViolationMetadata | ManualPackageExportMetadata>;
+
 async function seedFrontendAuth(page: Page, options?: { role?: string }) {
   const role = options?.role ?? "AUDITOR";
   await page.context().addCookies([
@@ -109,6 +156,28 @@ test.describe("audit labels", () => {
           created_at: "2026-07-07T12:15:00.000Z"
         },
         {
+          id: "audit-log-identity-01",
+          user_id: "linked-user-e2e",
+          action: "team_external_identity_linked",
+          resource_type: "team_user",
+          resource_id: "team-member-audit-01",
+          request_id: "req-team-identity-01",
+          report_id: null,
+          file_hash_sha256: null,
+          metadata: {
+            member_id: "team-member-audit-01",
+            provider: "keycloak",
+            external_subject: "kc-user-01",
+            email_snapshot: "ops@ontrackchain.local",
+            role_snapshot: "ADMIN",
+            actor_user_id: "user-e2e",
+            linked_user_id: "linked-user-e2e",
+            auth_method: "jwt",
+            tenant_role: "ADMIN"
+          },
+          created_at: "2026-07-07T12:14:00.000Z"
+        },
+        {
           id: "audit-log-05",
           user_id: "user-e2e",
           action: "evidence_manual_review_package_sealed",
@@ -180,11 +249,20 @@ test.describe("audit labels", () => {
     await expect(
       page.locator('[data-testid="audit-filter-action"] option[value="evidence_manual_review_package_seal_superseded"]')
     ).toHaveText("Selo institucional do pacote supersedido (evidence_manual_review_package_seal_superseded)");
+    await expect(
+      page.locator('[data-testid="audit-filter-action"] option[value="team_external_identity_linked"]')
+    ).toHaveText("Identidade federada vinculada ao usuário local (team_external_identity_linked)");
+    await expect(
+      page.locator('[data-testid="audit-filter-action"] option[value="team_external_identity_unlinked"]')
+    ).toHaveText("Identidade federada desvinculada do usuário local (team_external_identity_unlinked)");
     await expect(page.locator('[data-testid="audit-filter-resource-type"] option[value="report"]')).toHaveText(
       "Relatório (report)"
     );
     await expect(page.locator('[data-testid="audit-filter-resource-type"] option[value="ros_record"]')).toHaveText(
       "ROS/COAF (ros_record)"
+    );
+    await expect(page.locator('[data-testid="audit-filter-resource-type"] option[value="team_user"]')).toHaveText(
+      "Usuário do tenant (team_user)"
     );
     await expect(page.locator('[data-testid="audit-filter-resource-type"] option[value="audit_log"]')).toHaveText(
       "Log de auditoria (audit_log)"
@@ -206,6 +284,115 @@ test.describe("audit labels", () => {
       "Relatório gerado (report_generated)"
     );
     await expect(page.locator('[data-testid="audit-details-panel"]')).toContainText("Relatório (report)");
+  });
+
+  test("ativa preset de identidade federada e expõe contexto auditável com retorno ao Team", async ({ page }) => {
+    await seedFrontendAuth(page, { role: "ADMIN" });
+
+    await page.route("**/api/app/audit/logs?**", async (route: Route) => {
+      const url = new URL(route.request().url());
+      const rows = [
+        {
+          id: "audit-log-fed-01",
+          user_id: "linked-user-e2e",
+          action: "team_external_identity_unlinked",
+          resource_type: "team_user",
+          resource_id: "team-member-fed-01",
+          request_id: "req-fed-01",
+          report_id: null,
+          file_hash_sha256: null,
+          metadata: {
+            member_id: "team-member-fed-01",
+            provider: "keycloak",
+            external_subject: "kc-user-fed-01",
+            actor_user_id: "user-e2e",
+            linked_user_id: "linked-user-e2e",
+            external_user_id: "oidc-sub-fed-actor",
+            auth_method: "jwt",
+            tenant_role: "ADMIN"
+          },
+          created_at: "2026-07-07T12:25:00.000Z"
+        },
+        {
+          id: "audit-log-fed-02",
+          user_id: "linked-user-e2e",
+          action: "team_external_identity_linked",
+          resource_type: "team_user",
+          resource_id: "team-member-fed-01",
+          request_id: "req-fed-00",
+          report_id: null,
+          file_hash_sha256: null,
+          metadata: {
+            member_id: "team-member-fed-01",
+            provider: "keycloak",
+            external_subject: "kc-user-fed-00",
+            email_snapshot: "admin@ontrackchain.local",
+            role_snapshot: "ADMIN",
+            actor_user_id: "user-e2e",
+            linked_user_id: "linked-user-e2e",
+            auth_method: "jwt",
+            tenant_role: "ADMIN"
+          },
+          created_at: "2026-07-07T12:20:00.000Z"
+        }
+      ].filter((row) => {
+        const action = url.searchParams.get("action");
+        const resourceType = url.searchParams.get("resource_type");
+        const resourceId = url.searchParams.get("resource_id");
+        return (!action || row.action === action) && (!resourceType || row.resource_type === resourceType) && (!resourceId || row.resource_id === resourceId);
+      });
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: rows,
+          page: 1,
+          count: rows.length,
+          limit: 200,
+          total: rows.length,
+          total_pages: 1,
+          has_more: false
+        })
+      });
+    });
+
+    await page.goto("/audit?preset=identity-federated&resource_id=team-member-fed-01");
+
+    await expect(page.getByTestId("audit-federated-identity-preset-notice")).toContainText(
+      "Preset ativo: trilha auditada de identidade federada para team-member-fed-01."
+    );
+    await expect(page.getByText("Eventos federados", { exact: true })).toBeVisible();
+    await expect(page.getByText("Vínculos persistidos", { exact: true })).toBeVisible();
+    await expect(page.getByText("Desvínculos persistidos", { exact: true })).toBeVisible();
+    await expect(page.getByText("Membros afetados", { exact: true })).toBeVisible();
+    await expect(page.getByText("Último provider", { exact: true })).toBeVisible();
+    await expect(page.getByText("Último external_subject", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("audit-federated-identity-open-team")).toHaveAttribute(
+      "href",
+      "/team?member_id=team-member-fed-01"
+    );
+    await expect(page.locator('[data-testid="audit-filter-resource-type"]')).toHaveValue("team_user");
+    await expect(page.locator('[data-testid="audit-filter-resource-id"]')).toHaveValue("team-member-fed-01");
+
+    const federatedRow = page.locator('[data-testid="audit-row"]').first();
+    await expect(federatedRow).toContainText("Identidade federada desvinculada do usuário local (team_external_identity_unlinked)");
+    await expect(federatedRow).toContainText("Usuário do tenant (team_user)");
+    await federatedRow.click();
+
+    const detail = page.getByTestId("audit-federated-identity-detail-context");
+    await expect(detail).toContainText("Contexto auditável da identidade federada");
+    await expect(detail).toContainText("Provider: keycloak");
+    await expect(detail).toContainText("External subject: kc-user-fed-01");
+    await expect(detail).toContainText("Actor user ID: user-e2e");
+    await expect(detail).toContainText("Linked user ID: linked-user-e2e");
+    await expect(detail).toContainText("External user ID: oidc-sub-fed-actor");
+    await expect(detail).toContainText("Método de autenticação: jwt");
+    await expect(detail).toContainText("Papel do tenant: ADMIN");
+    await expect(page.getByTestId("audit-federated-identity-detail-open-team")).toHaveAttribute(
+      "href",
+      "/team?member_id=team-member-fed-01"
+    );
   });
 
   test("renderiza contexto auditavel do pacote manual com hash principal do manifesto", async ({ page }) => {
@@ -1136,24 +1323,12 @@ test.describe("audit labels", () => {
     await seedFrontendAuth(page);
 
     await page.route("**/api/app/audit/logs?**", async (route: Route) => {
-      type AuditRow = {
-        id: string;
-        user_id: string;
-        action: string;
-        resource_type: string;
-        resource_id: string;
-        request_id: string;
-        report_id: string;
-        file_hash_sha256: string | null;
-        metadata: Record<string, unknown>;
-        created_at: string;
-      };
       const url = new URL(route.request().url());
       const requestId = url.searchParams.get("request_id");
       const resourceId = url.searchParams.get("resource_id");
       const action = url.searchParams.get("action");
 
-      const mfaRows: AuditRow[] = [
+      const mfaRows: ManualPackageMfaAuditRow[] = [
         {
           id: "audit-log-mfa-01",
           user_id: "user-e2e",
@@ -1230,7 +1405,7 @@ test.describe("audit labels", () => {
         created_at: "2026-07-07T12:30:00.000Z"
         }
       ];
-      const exportRows: AuditRow[] = [
+      const exportRows: ManualPackageMfaAuditRow[] = [
         {
           id: "audit-log-mfa-export-01",
           user_id: "user-e2e",
@@ -1275,7 +1450,7 @@ test.describe("audit labels", () => {
         }
       ];
 
-      let data: AuditRow[] = mfaRows;
+      let data: ManualPackageMfaAuditRow[] = mfaRows;
       if (requestId && !action) {
         data = [...exportRows, ...mfaRows.filter((row) => row.request_id === requestId)];
       } else if (requestId || resourceId) {
@@ -1364,20 +1539,7 @@ test.describe("audit labels", () => {
   test("monitoring navega para o preset MFA do audit e preserva o drill-down da familia", async ({ page }) => {
     await seedFrontendAuth(page, { role: "ADMIN" });
 
-    type AuditRow = {
-      id: string;
-      user_id: string;
-      action: string;
-      resource_type: string;
-      resource_id: string;
-      request_id: string;
-      report_id: string;
-      file_hash_sha256: string | null;
-      metadata: Record<string, unknown>;
-      created_at: string;
-    };
-
-    const mfaRows: AuditRow[] = [
+    const mfaRows: ManualPackageMfaAuditRow[] = [
       {
         id: "audit-log-monitoring-mfa-01",
         user_id: "user-e2e",
@@ -1404,7 +1566,7 @@ test.describe("audit labels", () => {
         created_at: "2026-07-07T12:22:00.000Z"
       }
     ];
-    const exportRows: AuditRow[] = [
+    const exportRows: ManualPackageMfaAuditRow[] = [
       {
         id: "audit-log-monitoring-mfa-export-01",
         user_id: "user-e2e",
@@ -1542,7 +1704,7 @@ test.describe("audit labels", () => {
       const resourceId = url.searchParams.get("resource_id");
       const action = url.searchParams.get("action");
 
-      let data: AuditRow[] = mfaRows;
+      let data: ManualPackageMfaAuditRow[] = mfaRows;
       if (requestId && !action) {
         data = [...exportRows, ...mfaRows.filter((row) => row.request_id === requestId)];
       } else if (requestId || resourceId) {
@@ -1628,21 +1790,8 @@ test.describe("audit labels", () => {
   test("desempata familias MFA por criticidade quando o volume e igual", async ({ page }) => {
     await seedFrontendAuth(page);
 
-    type AuditRow = {
-      id: string;
-      user_id: string;
-      action: string;
-      resource_type: string;
-      resource_id: string;
-      request_id: string;
-      report_id: string;
-      file_hash_sha256: string | null;
-      metadata: Record<string, unknown>;
-      created_at: string;
-    };
-
     await page.route("**/api/app/audit/logs?**", async (route: Route) => {
-      const mfaRows: AuditRow[] = [
+      const mfaRows: ManualPackageMfaAuditRow[] = [
         {
           id: "audit-log-mfa-tie-01",
           user_id: "user-e2e",
@@ -1763,21 +1912,8 @@ test.describe("audit labels", () => {
   test("classifica familia MFA residual como outros tipos", async ({ page }) => {
     await seedFrontendAuth(page);
 
-    type AuditRow = {
-      id: string;
-      user_id: string;
-      action: string;
-      resource_type: string;
-      resource_id: string;
-      request_id: string;
-      report_id: string;
-      file_hash_sha256: string | null;
-      metadata: Record<string, unknown>;
-      created_at: string;
-    };
-
     await page.route("**/api/app/audit/logs?**", async (route: Route) => {
-      const rows: AuditRow[] = [
+      const rows: ManualPackageMfaAuditRow[] = [
         {
           id: "audit-log-mfa-residual-01",
           user_id: "user-e2e",
@@ -1903,9 +2039,89 @@ test.describe("audit labels", () => {
     await expect(page.locator('[data-testid="audit-details-panel"]')).toContainText("rep-audit-ros-01");
     await expect(page.getByTestId("audit-export-ros-dossier")).toBeVisible();
 
-    const dossierDownload = page.waitForEvent("download");
-    await page.getByTestId("audit-export-ros-dossier").click();
-    const download = await dossierDownload;
-    expect(download.suggestedFilename()).toContain("ontrackchain-ros-coaf-regulatory-dossier-99999999-9999-4999-8999-999999999999.json");
+    await expectDownloadLikeResponse(
+      page,
+      {
+        urlPart: "/api/app/reports/ros-coaf/",
+        expectedFilename: "ontrackchain-ros-coaf-regulatory-dossier-99999999-9999-4999-8999-999999999999.json"
+      },
+      async () => {
+        await page.getByTestId("audit-export-ros-dossier").click();
+      }
+    );
+  });
+
+  test("bloqueia export do dossie ROS/COAF na auditoria quando falta linked_user_id persistido", async ({ page }) => {
+    await seedFrontendAuth(page);
+
+    await page.unroute("**/api/app/auth/context");
+    await page.route("**/api/app/auth/context", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-e2e",
+          user_id: "user-e2e",
+          linked_user_id: null,
+          role: "AUDITOR",
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/audit/logs?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "audit-ros-dossier-02",
+              organization_id: "org-e2e",
+              request_id: "req-audit-ros-02",
+              action: "coaf_regulatory_dossier_downloaded",
+              resource_type: "ros_record",
+              resource_id: "99999999-9999-4999-8999-999999999999",
+              report_id: "rep-audit-ros-02",
+              actor_user_id: "user-e2e",
+              created_at: "2026-07-07T12:00:00.000Z",
+              metadata: {
+                filename: "ontrackchain-ros-coaf-regulatory-dossier-99999999-9999-4999-8999-999999999999.json",
+                dossier_sha256: "d".repeat(64),
+                report_id: "rep-audit-ros-02",
+                ros_id: "99999999-9999-4999-8999-999999999999"
+              }
+            }
+          ],
+          page: 1,
+          limit: 50,
+          total: 1,
+          total_pages: 1,
+          has_more: false
+        })
+      });
+    });
+
+    await page.route("**/api/app/reports/rep-audit-ros-02/ros-coaf-ref", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          report_id: "rep-audit-ros-02",
+          ros_id: "99999999-9999-4999-8999-999999999999"
+        })
+      });
+    });
+
+    await page.goto("/audit");
+    await page.locator('[data-testid="audit-row"]').first().click();
+
+    await expect(page.getByTestId("audit-export-ros-dossier")).toBeDisabled();
+    await expect(page.getByTestId("audit-export-ros-dossier-prereq-block")).toContainText(
+      "ROS/COAF exige um usuário federado vinculado ao tenant atual."
+    );
   });
 });

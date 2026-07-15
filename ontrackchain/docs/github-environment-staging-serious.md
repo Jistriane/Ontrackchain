@@ -16,10 +16,26 @@ Este documento complementa:
 - [Checklist Pré-Produção](pre-production-checklist.md)
 - [Governanca Semanal](./governance-weekly/README.md)
 
+## Papel Canonico
+
+Este documento e a fonte primaria para:
+
+- configuracao do `GitHub Environment` da janela seria
+- reviewers, approvals e disciplina operacional do disparo manual
+- formato e geracao do secret `STAGING_WINDOW_PRIVATE_ENV`
+- contrato do workflow `Staging Serious Window`
+
+Nao use este documento para:
+
+- substituir o fluxo tecnico da janela: use [Deploy e Staging](deploy-and-staging.md)
+- decidir `go/no-go`: use [Gates de Release para Staging Serio](project-release-gates.md)
+- descrever a topologia hospedada e os segredos `sync: false` do Render: use [Blueprint Render para Staging Full-Stack](render-staging-blueprint.md)
+
 ## Workflow Alvo
 
 Workflow canônico:
 
+- neste workspace, o arquivo do workflow fica no repositório agregador pai em `../.github/workflows/`
 - [staging-serious-window.yml](../../.github/workflows/staging-serious-window.yml)
 
 Nome do workflow no GitHub Actions:
@@ -64,7 +80,7 @@ Esse secret deve conter o conteúdo completo do arquivo `.env.staging.private`, 
 
 ## Formato do Secret
 
-O valor deve ser salvo no GitHub exatamente como seria escrito no arquivo:
+Use o conteudo final do `.env.staging.private` como fonte da verdade. O bloco abaixo e um recorte representativo das chaves mais sensiveis e das integracoes que costumam bloquear a janela:
 
 ```env
 APP_ENV=staging
@@ -87,12 +103,17 @@ KEYCLOAK_ADMIN_PASSWORD=__REAL_SECRET__
 KEYCLOAK_B2B_CLIENT_SECRET=__REAL_SECRET__
 MFA_TOTP_SECRET=__REAL_SECRET__
 MFA_EXTERNAL_PROVIDER_HOMOLOGATED=false
+ALERTMANAGER_WEBHOOK_BEARER_TOKEN=__REAL_SECRET__
 COMPLIANCE_TRM_ENABLED=true
 COMPLIANCE_TRM_SCREENING_URL=https://provider.example/screening
 COMPLIANCE_TRM_API_KEY=__REAL_SECRET__
+OPENSANCTIONS_API_KEY=__REAL_SECRET__
+COMPLIANCE_EU_SANCTIONS_SOURCE_URL=https://example.com/eu-sanctions.xml?token=__REAL_SECRET__
 INVESTIGATION_RPC_ENABLED=true
-INVESTIGATION_RPC_PRIMARY_URL=https://rpc-primary.example
+# manter vazio quando ONTRACKCHAIN_EXPECT_RPC_MODE=fallback_only
+INVESTIGATION_RPC_PRIMARY_URL=
 INVESTIGATION_RPC_FALLBACK_URL=https://rpc-fallback.example
+GRAFANA_ADMIN_PASSWORD=__REAL_SECRET__
 ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=live
 ONTRACKCHAIN_EXPECT_RPC_MODE=fallback_only
 ```
@@ -104,6 +125,8 @@ Regras:
 - não incluir `export`
 - não deixar placeholders `__FILL_*__`
 - só manter `ONTRACKCHAIN_HOMOLOGATION_OIDC_TOKEN` como placeholder quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=false`
+- quando `ONTRACKCHAIN_EXPECT_RPC_MODE=fallback_only`, manter `INVESTIGATION_RPC_PRIMARY_URL` vazio e preencher apenas `INVESTIGATION_RPC_FALLBACK_URL`
+- incluir tambem as demais chaves presentes em [`.env.staging.example`](../.env.staging.example), mesmo quando nao aparecam no recorte acima
 
 ## Como Gerar o Conteúdo do Secret
 
@@ -129,6 +152,8 @@ python scripts/prepare_staging_window.py \
 
 1. copiar o conteúdo final do `.env.staging.private`
 1. colar esse conteúdo em `STAGING_WINDOW_PRIVATE_ENV`
+
+Para a trilha de `Render full-stack`, alinhe em paralelo os segredos `sync: false` do painel com [render-staging-blueprint.md](render-staging-blueprint.md). O `GitHub Environment` governa a janela séria via workflow; o painel do Render governa o runtime hospedado.
 
 ## Primeiro Disparo Recomendado
 

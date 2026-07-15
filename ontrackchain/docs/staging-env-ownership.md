@@ -28,6 +28,19 @@ Nao use este documento como fonte primaria para:
 - use o indice do ciclo ativo em [Governanca Semanal](./governance-weekly/README.md) para tracking e decisao corrente
 - preencher rapidamente contatos, canais e bridges da janela corrente: use a `run sheet` datada e a `bridge quick-fill` do ciclo ativo
 
+## Papel Especifico
+
+Este documento nao redefine a taxonomia geral de ownership do projeto.
+
+Ele especializa, para a janela de staging, a taxonomia canonica publicada em [Owners e SLAs Operacionais](./operational-ownership-and-slas.md), cobrindo apenas:
+
+- `placeholder/grupo -> owner da janela`
+- apoio e sign-off no escopo do `.env.staging.private`
+- `Data` e `Status` humanos do handoff
+- bloqueios que impedem `prepare`, `preflight` ou `run` da janela
+
+Se houver conflito entre este arquivo e a taxonomia de dominios do documento canonico de ownership operacional, corrigir este arquivo e nao o contrario, exceto quando a mudanca for estrutural para todo o projeto.
+
 ## Regra Geral
 
 - nenhum placeholder `__FILL_*__` pode permanecer no arquivo privado antes do `check_staging_env_placeholders.py`
@@ -44,6 +57,7 @@ Nao use este documento como fonte primaria para:
 | `__FILL_STAGING_POSTGRES_PASSWORD__` | `Platform/DBA` | `Security` | secret provisionado no vault ou canal controlado |
 | `__FILL_STAGING_KEYCLOAK_ADMIN_PASSWORD__` | `Backend/Auth` | `Security` | credencial admin nao-dev validada e armazenada com controle |
 | `__FILL_STAGING_KEYCLOAK_B2B_CLIENT_SECRET__` | `Backend/Auth` | `Security` | client secret do IdP registrado e testado |
+| `__FILL_STAGING_KEYCLOAK_ADMIN_CLIENT_SECRET__` | `Backend/Auth` | `Security` | secret do client tecnico usado pelo `auth-service` para consultar a Admin API do Keycloak |
 | `__FILL_STAGING_JWT_HS256_SECRET__` | `Backend/Auth` | `Security` | secret HS256 nao-dev com rotacao planejada |
 | `__FILL_STAGING_MFA_TOTP_SECRET__` | `Backend/Auth` | `Security` | secret TOTP nao-dev ou decisao formal de desuso no ambiente |
 | `__FILL_STAGING_HOMOLOGATION_OIDC_TOKEN__` | `Backend/Auth` | `Security` | token OIDC administrativo temporario e controlado para evidenciar `legal_report` homologado |
@@ -52,6 +66,7 @@ Nao use este documento como fonte primaria para:
 | `__FILL_STAGING_ALERTMANAGER_WEBHOOK_BEARER_TOKEN__` | `Platform/SRE` | `Security` | token configurado entre `Alertmanager` e `monitoring-api` |
 | `__FILL_STAGING_TRM_SCREENING_URL__` | `Compliance/Backend` | `Security` | URL oficial do provider AML/KYT homologada para a janela |
 | `__FILL_STAGING_TRM_API_KEY__` | `Compliance/Backend` | `Security` | API key do provider com trilha de provisionamento |
+| `__FILL_STAGING_OPENSANCTIONS_API_KEY__` | `Compliance/Backend` | `Security` | API key do OpenSanctions validada para sync enriquecido das listas |
 | `__FILL_STAGING_COMPLIANCE_EU_SANCTIONS_SOURCE_URL__` | `Compliance/Backend` | `Security` | URL XML tokenizada da lista da UE obtida no portal oficial e validada para a janela |
 | `__FILL_STAGING_GRAFANA_ADMIN_PASSWORD__` | `Platform/SRE` | `Security` | senha admin nao-dev armazenada em secret manager |
 
@@ -61,15 +76,16 @@ Nao use este documento como fonte primaria para:
 
 - `KEYCLOAK_ADMIN_PASSWORD`
 - `KEYCLOAK_B2B_CLIENT_SECRET`
+- `KEYCLOAK_ADMIN_CLIENT_SECRET`
 - `JWT_HS256_SECRET`
 - `MFA_TOTP_SECRET`
 - `ONTRACKCHAIN_HOMOLOGATION_OIDC_TOKEN`
 
-Owner principal:
+Owner principal herdado da taxonomia canonica:
 
 - `Backend/Auth`
 
-Sign-off recomendado:
+Sign-off recomendado na janela:
 
 - `Security`
 
@@ -77,28 +93,37 @@ Sign-off recomendado:
 
 - `COMPLIANCE_TRM_SCREENING_URL`
 - `COMPLIANCE_TRM_API_KEY`
+- `OPENSANCTIONS_API_KEY`
 - `COMPLIANCE_EU_SANCTIONS_SOURCE_URL`
 
-Owner principal:
+Owner principal herdado da taxonomia canonica:
 
 - `Compliance/Backend`
 
-Sign-off recomendado:
+Sign-off recomendado na janela:
 
 - `Security`
 
+Observacao:
+
+- `OPENSANCTIONS_API_KEY` passa a ser obrigatoria quando o escopo incluir o worker de sancoes com enriquecimento via OpenSanctions ou quando o blueprint `full-stack` do Render for usado como baseline serio de compliance
+
 ### Investigation/RPC
 
-- `INVESTIGATION_RPC_PRIMARY_URL`
+- `INVESTIGATION_RPC_PRIMARY_URL` quando `ONTRACKCHAIN_EXPECT_RPC_MODE=live`
 - `INVESTIGATION_RPC_FALLBACK_URL`
 
-Owner principal:
+Owner principal herdado da taxonomia canonica:
 
 - `Backend Core`
 
-Sign-off recomendado:
+Sign-off recomendado na janela:
 
 - `Platform/DBA`
+
+Observacao:
+
+- quando a janela for aprovada em modo `fallback_only`, o owner de `Backend Core` deve preencher apenas `INVESTIGATION_RPC_FALLBACK_URL` e manter `INVESTIGATION_RPC_PRIMARY_URL` vazio
 
 ### Platform/Operations
 
@@ -106,11 +131,11 @@ Sign-off recomendado:
 - `ALERTMANAGER_WEBHOOK_BEARER_TOKEN`
 - `GRAFANA_ADMIN_PASSWORD`
 
-Owner principal:
+Owner principal herdado da taxonomia canonica:
 
 - `Platform/SRE` ou `Platform/DBA` conforme o item
 
-Sign-off recomendado:
+Sign-off recomendado na janela:
 
 - `Security`
 
@@ -184,6 +209,6 @@ Scaffold controlado atual:
 | Grupo | Owner | Data | Status | Observacoes |
 | --- | --- | --- | --- | --- |
 | Auth/OIDC | `Backend/Auth` | `pending` | `pending` | preencher secrets, claims finais e token OIDC de homologacao quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true` |
-| Compliance/AML | `Compliance/Backend` | `pending` | `pending` | confirmar URL, credencial TRM e, se necessario, a URL XML tokenizada da UE para a janela |
+| Compliance/AML | `Compliance/Backend` | `pending` | `pending` | confirmar URL, credencial TRM, `OPENSANCTIONS_API_KEY` e, se necessario, a URL XML tokenizada da UE para a janela |
 | Investigation/RPC | `Backend Core` | `pending` | `pending` | confirmar primario/fallback e limites |
 | Platform/Operations | `Platform/SRE` | `pending` | `pending` | confirmar senha DB, Grafana e webhook |

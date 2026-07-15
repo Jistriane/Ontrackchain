@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "../../components/i18n-provider";
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
+import { canOperateInvestigation } from "../lib/authz";
+import { resolveApiErrorMessage } from "../lib/api-error-catalog";
 import type { MessageKey } from "../lib/i18n";
 
 type ReportTypeItem = {
@@ -11,6 +13,10 @@ type ReportTypeItem = {
   label: string;
   available: boolean;
   cost_credits: number;
+};
+
+type AuthContext = {
+  role: string | null;
 };
 
 export default function InvestigatePage() {
@@ -23,6 +29,7 @@ export default function InvestigatePage() {
   const [catalog, setCatalog] = useState<ReportTypeItem[]>([]);
   const [quote, setQuote] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [authContext, setAuthContext] = useState<AuthContext | null | undefined>(undefined);
 
   useEffect(() => {
     fetch("/api/app/report-types?include_unavailable=true&include_deprecated=false", { cache: "no-store" })
@@ -51,6 +58,24 @@ export default function InvestigatePage() {
   }, [t]);
 
   useEffect(() => {
+    fetch("/api/app/auth/context", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("auth_context_unavailable");
+        }
+        return response.json();
+      })
+      .then((data) => {
+        setAuthContext({
+          role: typeof data?.role === "string" ? data.role : null
+        });
+      })
+      .catch(() => {
+        setAuthContext(null);
+      });
+  }, []);
+
+  useEffect(() => {
     const nextReportType = searchParams.get("report_type");
     const nextChain = searchParams.get("chain");
     const nextAddress = searchParams.get("address");
@@ -69,6 +94,10 @@ export default function InvestigatePage() {
 
   async function onEstimate() {
     setError(null);
+    if (!canOperateInvestigation(authContext?.role)) {
+      setError(t("apiErrors.investigationOperationalRoleRequired" as MessageKey));
+      return;
+    }
     if (!catalog.length || !reportType.trim()) {
       setError(t("investigate.errorLoadReportCatalog"));
       return;
@@ -90,7 +119,7 @@ export default function InvestigatePage() {
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) {
-      setError(t("investigate.errorEstimate"));
+      setError(resolveApiErrorMessage(t, data, t("investigate.errorEstimate")));
       return;
     }
     setQuote(data);
@@ -98,6 +127,10 @@ export default function InvestigatePage() {
 
   async function onStart() {
     setError(null);
+    if (!canOperateInvestigation(authContext?.role)) {
+      setError(t("apiErrors.investigationOperationalRoleRequired" as MessageKey));
+      return;
+    }
     if (!quote?.quote_id) {
       setError(t("investigate.errorQuoteMissing"));
       return;
@@ -109,7 +142,7 @@ export default function InvestigatePage() {
     });
     const data = await res.json().catch(() => null);
     if (!res.ok && res.status !== 202) {
-      setError(t("investigate.errorStart"));
+      setError(resolveApiErrorMessage(t, data, t("investigate.errorStart")));
       return;
     }
     if (data?.case_id) {
@@ -176,14 +209,20 @@ export default function InvestigatePage() {
           </label>
         </div>
         <div className="otc-controls" style={{ marginTop: 16 }}>
-          <button
-            className="otc-button otc-button--accent"
-            data-testid="start-investigation-btn"
-            onClick={onEstimate}
-            disabled={!catalog.length || !reportType.trim()}
-          >
-            {t("investigate.form.generateQuote")}
-          </button>
+          {canOperateInvestigation(authContext?.role) ? (
+            <button
+              className="otc-button otc-button--accent"
+              data-testid="start-investigation-btn"
+              onClick={onEstimate}
+              disabled={!catalog.length || !reportType.trim()}
+            >
+              {t("investigate.form.generateQuote")}
+            </button>
+          ) : (
+            <Message data-testid="investigate-generate-quote-restricted">
+              {t("investigate.form.roleRestricted" as MessageKey)}
+            </Message>
+          )}
         </div>
         {error ? <div style={{ marginTop: 14 }}><Message tone="error">{error}</Message></div> : null}
       </Panel>
@@ -197,9 +236,15 @@ export default function InvestigatePage() {
                 {String(quote.total_credits)}
               </div>
             </div>
-            <button type="button" className="otc-button" data-testid="confirm-investigation-btn" onClick={onStart}>
-              {t("investigate.quote.confirm")}
-            </button>
+            {canOperateInvestigation(authContext?.role) ? (
+              <button type="button" className="otc-button" data-testid="confirm-investigation-btn" onClick={onStart}>
+                {t("investigate.quote.confirm")}
+              </button>
+            ) : (
+              <Message data-testid="investigate-confirm-restricted">
+                {t("investigate.quote.roleRestricted" as MessageKey)}
+              </Message>
+            )}
           </div>
           <div style={{ marginTop: 16 }}>
             <div data-testid="quote-preview">

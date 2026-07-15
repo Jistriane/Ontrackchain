@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
+import { AppShell, CodeBlock, ConfirmDialog, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
 import { useI18n } from "../../components/i18n-provider";
 import { formatDateTime as formatDate } from "../lib/date-format";
 import { buildAlertRcaSummary, normalizeAlertContainmentStatus, type AlertRcaContainmentStatus } from "../lib/alert-rca";
 import type { MessageKey } from "../lib/i18n";
+import { canManageMonitoringAdmin, canReadMonitoringAdmin } from "../lib/authz";
 import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
 import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel";
@@ -21,6 +22,13 @@ import {
 } from "../lib/operational-context";
 import { useWorkItemTimeline } from "../lib/use-work-item-timeline";
 import {
+  buildPlatformAlertSelectionScope,
+  clearPersistedPlatformAlertSelection,
+  readPersistedPlatformAlertSelection,
+  writePersistedPlatformAlertSelection,
+  type PlatformAlertFilterState
+} from "../lib/monitoring-platform-alerts";
+import {
   type AlertsWorkItemMetadata,
   type CreateWorkItemRequest,
   type PatchWorkItemRequest,
@@ -33,8 +41,6 @@ import {
   type WorkItemResponse,
   withCanonicalWorkItemMetadata
 } from "../lib/work-items";
-
-const PLATFORM_ALERT_SELECTION_STORAGE_KEY = "monitoring-platform-alert-selection";
 
 type PlatformOperationalAlertsSnapshot = {
   generated_at: string;
@@ -80,6 +86,15 @@ type PlatformOperationalAlertFilterOptions = {
 type PlatformAlertExportFormat = "csv" | "json";
 type AlertsWorkItemResponse = WorkItemResponse<AlertsWorkItemMetadata>;
 type AlertsWorkItemListResponse = WorkItemListResponse<AlertsWorkItemMetadata>;
+type PlatformAlertConfirmDialogState =
+  | {
+      kind: "filtered";
+    }
+  | {
+      kind: "selected";
+      selectedIds: string[];
+    }
+  | null;
 type AlertRcaForm = {
   queueStatus: WorkItemQueueStatus;
   domain: string;
@@ -253,11 +268,13 @@ export default function AlertsPage() {
   const [platformAlertSelectionScope, setPlatformAlertSelectionScope] = useState<string | null>(null);
   const [platformAlertSelectionHydrated, setPlatformAlertSelectionHydrated] = useState(false);
   const [platformAlertFilterOptions, setPlatformAlertFilterOptions] = useState<PlatformOperationalAlertFilterOptions | null>(null);
+  const [platformAlertConfirmDialogState, setPlatformAlertConfirmDialogState] = useState<PlatformAlertConfirmDialogState>(null);
   const [platformAlertWorkItems, setPlatformAlertWorkItems] = useState<Record<string, AlertsWorkItemResponse>>({});
   const [trackingPlatformAlertId, setTrackingPlatformAlertId] = useState<string | null>(null);
   const [rcaForm, setRcaForm] = useState<AlertRcaForm>(DEFAULT_ALERT_RCA_FORM);
   const [rcaSaving, setRcaSaving] = useState(false);
   const [authContext, setAuthContext] = useState<AuthContext | null>(null);
+  const [authResolved, setAuthResolved] = useState(false);
   const [timelineAlertId, setTimelineAlertId] = useState<string | null>(null);
   const {
     timelineLoading,
@@ -277,6 +294,8 @@ export default function AlertsPage() {
   });
   const [error, setError] = useState<string | null>(null);
   const platformAlertsRequestIdRef = useRef(0);
+  const canReadPlatformAdmin = authResolved ? canReadMonitoringAdmin(authContext?.role) : null;
+  const canManagePlatformAdmin = authResolved ? canManageMonitoringAdmin(authContext?.role) : null;
 
   const platformAlertPage = platformAlertCursorHistory.length + 1;
   const platformAlertTotalPages = platformOperationalAlerts
@@ -298,16 +317,29 @@ export default function AlertsPage() {
     return buildDynamicFilterValues(platformAlertReceiverFilter, platformAlertFilterOptions?.receivers);
   }, [platformAlertFilterOptions?.receivers, platformAlertReceiverFilter]);
   const trackedPlatformAlertCount = useMemo(() => Object.keys(platformAlertWorkItems).length, [platformAlertWorkItems]);
-
-  function buildPlatformAlertSelectionScope(
-    status = platformAlertStatusFilter,
-    triageStatus = platformAlertTriageFilter,
-    service = platformAlertServiceFilter,
-    receiver = platformAlertReceiverFilter,
-    severity = platformAlertSeverityFilter
-  ) {
-    return JSON.stringify({ status, triageStatus, service, receiver, severity });
-  }
+  const platformAlertConfirmDialog = platformAlertConfirmDialogState
+    ? {
+        title: tr("monitoring.platform.confirmTitle" as MessageKey),
+        description:
+          platformAlertConfirmDialogState.kind === "filtered"
+            ? tr("monitoring.platform.confirmFiltered" as MessageKey)
+            : tr("monitoring.platform.confirmSelected" as MessageKey, {
+                count: platformAlertConfirmDialogState.selectedIds.length
+              }),
+        confirmLabel:
+          platformAlertConfirmDialogState.kind === "filtered"
+            ? tr("monitoring.platform.ackFiltered" as MessageKey)
+            : tr("monitoring.platform.ackSelected" as MessageKey, {
+                count: platformAlertConfirmDialogState.selectedIds.length
+              }),
+        cancelLabel: tr("common.cancel" as MessageKey),
+        tone: "default" as const,
+        testId:
+          platformAlertConfirmDialogState.kind === "filtered"
+            ? "platform-alert-confirm-dialog-filtered"
+            : "platform-alert-confirm-dialog-selected"
+      }
+    : null;
 
   function filtersFromSearchParams() {
     return {
@@ -319,39 +351,44 @@ export default function AlertsPage() {
     };
   }
 
-  function clearPersistedPlatformAlertSelection() {
+  function currentPlatformAlertFilters(): PlatformAlertFilterState {
+    return {
+      status: platformAlertStatusFilter,
+      triageStatus: platformAlertTriageFilter,
+      service: platformAlertServiceFilter,
+      receiver: platformAlertReceiverFilter,
+      severity: platformAlertSeverityFilter
+    };
+  }
+
+  function clearPlatformAlertSelectionPersistence() {
     if (typeof window === "undefined") {
       return;
     }
-    window.sessionStorage.removeItem(PLATFORM_ALERT_SELECTION_STORAGE_KEY);
+    clearPersistedPlatformAlertSelection(window.sessionStorage);
   }
 
   function persistPlatformAlertSelection(scope: string | null, selectedIds: string[]) {
     if (typeof window === "undefined") {
       return;
     }
-    window.sessionStorage.setItem(
-      PLATFORM_ALERT_SELECTION_STORAGE_KEY,
-      JSON.stringify({
-        saved_at: new Date().toISOString(),
-        scope,
-        selected_ids: selectedIds
-      })
-    );
+    writePersistedPlatformAlertSelection(window.sessionStorage, {
+      ...currentPlatformAlertFilters(),
+      cursor: platformAlertCursor,
+      cursorHistory: platformAlertCursorHistory,
+      selectedIds,
+      selectionScope: scope
+    });
   }
 
   function hydratePersistedPlatformAlertSelection(scope: string | null) {
     if (typeof window === "undefined") {
       return;
     }
-    const raw = window.sessionStorage.getItem(PLATFORM_ALERT_SELECTION_STORAGE_KEY);
-    if (!raw) {
-      return;
-    }
     try {
-      const parsed = JSON.parse(raw) as { scope?: string; selected_ids?: unknown };
-      if (parsed.scope && parsed.scope === scope && Array.isArray(parsed.selected_ids)) {
-        setSelectedPlatformAlertIds(parsed.selected_ids.filter((entry) => typeof entry === "string") as string[]);
+      const parsed = readPersistedPlatformAlertSelection(window.sessionStorage);
+      if (parsed?.selectionScope && parsed.selectionScope === scope) {
+        setSelectedPlatformAlertIds(parsed.selectedIds);
       }
     } catch {
       return;
@@ -400,6 +437,9 @@ export default function AlertsPage() {
   }
 
   async function loadPlatformOperationalAlertFilterOptions() {
+    if (canReadPlatformAdmin !== true) {
+      return;
+    }
     const res = await fetch("/api/app/monitoring/operational-alert-filter-options", { cache: "no-store" });
     const data = await res.json().catch(() => null);
     if (!res.ok) {
@@ -410,6 +450,9 @@ export default function AlertsPage() {
   }
 
   async function loadPlatformAlertWorkItems() {
+    if (canReadPlatformAdmin !== true) {
+      return;
+    }
     const res = await fetch(
       `/api/app/operations/work-items?module=alerts&resource_type=operational_alert&limit=${WORK_ITEMS_LIMIT}`,
       { cache: "no-store" }
@@ -435,6 +478,9 @@ export default function AlertsPage() {
     severity = platformAlertSeverityFilter,
     cursor = platformAlertCursor
   ) {
+    if (canReadPlatformAdmin !== true) {
+      return;
+    }
     const params = new URLSearchParams();
     if (status !== "all") {
       params.set("status", status);
@@ -469,7 +515,7 @@ export default function AlertsPage() {
     }
     setPlatformOperationalAlerts(data as PlatformOperationalAlertsSnapshot);
     await loadPlatformAlertWorkItems();
-    const nextScope = buildPlatformAlertSelectionScope(status, triageStatus, service, receiver, severity);
+    const nextScope = buildPlatformAlertSelectionScope({ status, triageStatus, service, receiver, severity });
     setPlatformAlertSelectionScope((currentScope) => {
       if (currentScope && currentScope !== nextScope) {
         setSelectedPlatformAlertIds([]);
@@ -479,6 +525,9 @@ export default function AlertsPage() {
   }
 
   async function refreshPlatformOperationalAlerts() {
+    if (canReadPlatformAdmin !== true) {
+      return;
+    }
     setPlatformAlertMessage(null);
     setError(null);
     setPlatformAlertCursor(null);
@@ -494,6 +543,9 @@ export default function AlertsPage() {
   }
 
   async function handlePlatformAlertStatusFilterChange(value: string) {
+    if (canReadPlatformAdmin !== true) {
+      return;
+    }
     setPlatformAlertStatusFilter(value);
     setPlatformAlertCursor(null);
     setPlatformAlertCursorHistory([]);
@@ -501,6 +553,9 @@ export default function AlertsPage() {
   }
 
   async function handlePlatformAlertTriageFilterChange(value: string) {
+    if (canReadPlatformAdmin !== true) {
+      return;
+    }
     setPlatformAlertTriageFilter(value);
     setPlatformAlertCursor(null);
     setPlatformAlertCursorHistory([]);
@@ -508,6 +563,9 @@ export default function AlertsPage() {
   }
 
   async function handlePlatformAlertServiceFilterChange(value: string) {
+    if (canReadPlatformAdmin !== true) {
+      return;
+    }
     setPlatformAlertServiceFilter(value);
     setPlatformAlertCursor(null);
     setPlatformAlertCursorHistory([]);
@@ -515,6 +573,9 @@ export default function AlertsPage() {
   }
 
   async function handlePlatformAlertReceiverFilterChange(value: string) {
+    if (canReadPlatformAdmin !== true) {
+      return;
+    }
     setPlatformAlertReceiverFilter(value);
     setPlatformAlertCursor(null);
     setPlatformAlertCursorHistory([]);
@@ -522,6 +583,9 @@ export default function AlertsPage() {
   }
 
   async function handlePlatformAlertSeverityFilterChange(value: string) {
+    if (canReadPlatformAdmin !== true) {
+      return;
+    }
     setPlatformAlertSeverityFilter(value);
     setPlatformAlertCursor(null);
     setPlatformAlertCursorHistory([]);
@@ -547,7 +611,10 @@ export default function AlertsPage() {
   }
 
   async function acknowledgePlatformAlert(eventId: string) {
-    if (!eventId) {
+    if (!eventId || canManagePlatformAdmin !== true) {
+      if (canManagePlatformAdmin === false) {
+        setError(t("monitoring.platform.mutationRestricted" as MessageKey));
+      }
       return;
     }
     const trackedWorkItem = platformAlertWorkItems[eventId];
@@ -580,89 +647,146 @@ export default function AlertsPage() {
     await refreshPlatformOperationalAlerts();
   }
 
-  async function acknowledgeFilteredPlatformAlerts() {
+  async function performAcknowledgeFilteredPlatformAlerts() {
+    if (canManagePlatformAdmin !== true) {
+      if (canManagePlatformAdmin === false) {
+        setError(t("monitoring.platform.mutationRestricted" as MessageKey));
+      }
+      return;
+    }
     if (!platformOperationalAlerts?.total_count) {
       return;
     }
-    const confirmed = window.confirm(t("monitoring.platform.confirmFiltered"));
-    if (!confirmed) {
-      return;
-    }
+
     setAcknowledgingPlatformAlertsBatch(true);
     setError(null);
     setPlatformAlertMessage(null);
-    const res = await fetch("/api/app/monitoring/operational-alerts/acknowledge-batch", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        note: "ack_batch_from_alerts_ui",
-        triaged_by: "admin_ui",
-        status: platformAlertStatusFilter === "all" ? null : platformAlertStatusFilter,
-        triage_status: platformAlertTriageFilter === "all" ? null : platformAlertTriageFilter,
-        service: platformAlertServiceFilter === "all" ? null : platformAlertServiceFilter,
-        receiver: platformAlertReceiverFilter === "all" ? null : platformAlertReceiverFilter,
-        severity: platformAlertSeverityFilter === "all" ? null : platformAlertSeverityFilter
-      }),
-      cache: "no-store"
-    });
-    if (!res.ok) {
+    try {
+      const res = await fetch("/api/app/monitoring/operational-alerts/acknowledge-batch", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          note: "ack_batch_from_alerts_ui",
+          triaged_by: "admin_ui",
+          status: platformAlertStatusFilter === "all" ? null : platformAlertStatusFilter,
+          triage_status: platformAlertTriageFilter === "all" ? null : platformAlertTriageFilter,
+          service: platformAlertServiceFilter === "all" ? null : platformAlertServiceFilter,
+          receiver: platformAlertReceiverFilter === "all" ? null : platformAlertReceiverFilter,
+          severity: platformAlertSeverityFilter === "all" ? null : platformAlertSeverityFilter
+        }),
+        cache: "no-store"
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(resolveApiErrorMessage(t, data, t("monitoring.errors.ackPlatformAlertsBatch")));
+        return;
+      }
       const data = await res.json().catch(() => null);
-      setError(resolveApiErrorMessage(t, data, t("monitoring.errors.ackPlatformAlertsBatch")));
+      const updatedCount = typeof data?.updated_count === "number" ? data.updated_count : 0;
+      setPlatformAlertMessage(
+        updatedCount ? t("monitoring.platform.messageAckBatchDone", { count: updatedCount }) : t("monitoring.platform.messageAckBatchEmpty")
+      );
+      clearPlatformAlertSelectionPersistence();
+      setSelectedPlatformAlertIds([]);
+      await refreshPlatformOperationalAlerts();
+    } catch {
+      setError(t("monitoring.errors.ackPlatformAlertsBatch"));
+    } finally {
       setAcknowledgingPlatformAlertsBatch(false);
-      return;
     }
-    const data = await res.json().catch(() => null);
-    const updatedCount = typeof data?.updated_count === "number" ? data.updated_count : 0;
-    setPlatformAlertMessage(
-      updatedCount ? t("monitoring.platform.messageAckBatchDone", { count: updatedCount }) : t("monitoring.platform.messageAckBatchEmpty")
-    );
-    setAcknowledgingPlatformAlertsBatch(false);
-    clearPersistedPlatformAlertSelection();
-    setSelectedPlatformAlertIds([]);
-    await refreshPlatformOperationalAlerts();
   }
 
-  async function acknowledgeSelectedPlatformAlerts() {
+  async function performAcknowledgeSelectedPlatformAlerts(selectedIds: string[]) {
+    if (canManagePlatformAdmin !== true) {
+      if (canManagePlatformAdmin === false) {
+        setError(t("monitoring.platform.mutationRestricted" as MessageKey));
+      }
+      return;
+    }
+    if (!selectedIds.length) {
+      return;
+    }
+
+    setAcknowledgingPlatformAlertsBatch(true);
+    setError(null);
+    setPlatformAlertMessage(null);
+    try {
+      const res = await fetch("/api/app/monitoring/operational-alerts/acknowledge-batch", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ids: selectedIds,
+          note: "ack_selected_from_alerts_ui",
+          triaged_by: "admin_ui",
+          status: platformAlertStatusFilter === "all" ? null : platformAlertStatusFilter,
+          triage_status: platformAlertTriageFilter === "all" ? null : platformAlertTriageFilter,
+          service: platformAlertServiceFilter === "all" ? null : platformAlertServiceFilter,
+          receiver: platformAlertReceiverFilter === "all" ? null : platformAlertReceiverFilter,
+          severity: platformAlertSeverityFilter === "all" ? null : platformAlertSeverityFilter
+        }),
+        cache: "no-store"
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(resolveApiErrorMessage(t, data, t("monitoring.errors.ackPlatformAlertsSelected")));
+        return;
+      }
+      const data = await res.json().catch(() => null);
+      const updatedCount = typeof data?.updated_count === "number" ? data.updated_count : 0;
+      setPlatformAlertMessage(
+        updatedCount ? t("monitoring.platform.messageAckSelectedDone", { count: updatedCount }) : t("monitoring.platform.messageAckSelectedEmpty")
+      );
+      clearPlatformAlertSelectionPersistence();
+      setSelectedPlatformAlertIds([]);
+      await refreshPlatformOperationalAlerts();
+    } catch {
+      setError(t("monitoring.errors.ackPlatformAlertsSelected"));
+    } finally {
+      setAcknowledgingPlatformAlertsBatch(false);
+    }
+  }
+
+  function acknowledgeFilteredPlatformAlerts() {
+    if (!platformOperationalAlerts?.total_count) {
+      return;
+    }
+
+    setPlatformAlertConfirmDialogState({ kind: "filtered" });
+  }
+
+  function acknowledgeSelectedPlatformAlerts() {
     if (!selectedPlatformAlertIds.length) {
       return;
     }
-    const confirmed = window.confirm(t("monitoring.platform.confirmSelected", { count: selectedPlatformAlertIds.length }));
-    if (!confirmed) {
-      return;
-    }
-    setAcknowledgingPlatformAlertsBatch(true);
-    setError(null);
-    setPlatformAlertMessage(null);
-    const res = await fetch("/api/app/monitoring/operational-alerts/acknowledge-batch", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        ids: selectedPlatformAlertIds,
-        note: "ack_selected_from_alerts_ui",
-        triaged_by: "admin_ui",
-        status: platformAlertStatusFilter === "all" ? null : platformAlertStatusFilter,
-        triage_status: platformAlertTriageFilter === "all" ? null : platformAlertTriageFilter,
-        service: platformAlertServiceFilter === "all" ? null : platformAlertServiceFilter,
-        receiver: platformAlertReceiverFilter === "all" ? null : platformAlertReceiverFilter,
-        severity: platformAlertSeverityFilter === "all" ? null : platformAlertSeverityFilter
-      }),
-      cache: "no-store"
+
+    setPlatformAlertConfirmDialogState({
+      kind: "selected",
+      selectedIds: [...selectedPlatformAlertIds]
     });
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(resolveApiErrorMessage(t, data, t("monitoring.errors.ackPlatformAlertsSelected")));
-      setAcknowledgingPlatformAlertsBatch(false);
+  }
+
+  function cancelPlatformAlertConfirmation() {
+    if (acknowledgingPlatformAlertsBatch) {
       return;
     }
-    const data = await res.json().catch(() => null);
-    const updatedCount = typeof data?.updated_count === "number" ? data.updated_count : 0;
-    setPlatformAlertMessage(
-      updatedCount ? t("monitoring.platform.messageAckSelectedDone", { count: updatedCount }) : t("monitoring.platform.messageAckSelectedEmpty")
-    );
-    setAcknowledgingPlatformAlertsBatch(false);
-    clearPersistedPlatformAlertSelection();
-    setSelectedPlatformAlertIds([]);
-    await refreshPlatformOperationalAlerts();
+
+    setPlatformAlertConfirmDialogState(null);
+  }
+
+  async function confirmPlatformAlertConfirmation() {
+    if (!platformAlertConfirmDialogState) {
+      return;
+    }
+
+    const pendingConfirmation = platformAlertConfirmDialogState;
+    setPlatformAlertConfirmDialogState(null);
+
+    if (pendingConfirmation.kind === "filtered") {
+      await performAcknowledgeFilteredPlatformAlerts();
+      return;
+    }
+
+    await performAcknowledgeSelectedPlatformAlerts(pendingConfirmation.selectedIds);
   }
 
   function resolveDownloadFilename(contentDisposition: string | null, fallbackName: string) {
@@ -674,6 +798,12 @@ export default function AlertsPage() {
   }
 
   async function exportPlatformAlerts(scope: "filtered" | "selected") {
+    if (canManagePlatformAdmin !== true) {
+      if (canManagePlatformAdmin === false) {
+        setError(t("monitoring.platform.mutationRestricted" as MessageKey));
+      }
+      return;
+    }
     if (scope === "selected" && !selectedPlatformAlertIds.length) {
       setError(t("monitoring.platform.selectAtLeastOne"));
       return;
@@ -726,6 +856,9 @@ export default function AlertsPage() {
       metadataOverrides?: Partial<AlertsWorkItemMetadata>;
     }
   ) {
+    if (canManagePlatformAdmin !== true) {
+      throw new Error(t("monitoring.platform.mutationRestricted" as MessageKey));
+    }
     const existing = platformAlertWorkItems[entry.id];
     const context = inferAlertOperationalContext(entry);
     const ownerUserId = resolveOwnerUserId({
@@ -861,20 +994,40 @@ export default function AlertsPage() {
   }
 
   useEffect(() => {
-    loadPlatformOperationalAlertFilterOptions().catch(() => undefined);
-
     fetchAuthContext()
       .then((data) => {
-        if (data) {
-          setAuthContext(data);
-        }
+        setAuthContext(data);
       })
       .catch(() => {
         // Keep owner_user_id optional when auth context is unavailable.
-      });
+        setAuthContext(null);
+      })
+      .finally(() => setAuthResolved(true));
   }, []);
 
   useEffect(() => {
+    if (!authResolved) {
+      return;
+    }
+    if (canReadPlatformAdmin !== true) {
+      setPlatformOperationalAlerts(null);
+      setPlatformAlertFilterOptions(null);
+      setPlatformAlertWorkItems({});
+      setSelectedPlatformAlertIds([]);
+      setPlatformAlertMessage(null);
+      setTimelineAlertId(null);
+      return;
+    }
+    loadPlatformOperationalAlertFilterOptions().catch(() => undefined);
+  }, [authResolved, canReadPlatformAdmin]);
+
+  useEffect(() => {
+    if (!authResolved) {
+      return;
+    }
+    if (canReadPlatformAdmin !== true) {
+      return;
+    }
     const next = filtersFromSearchParams();
     setPlatformAlertStatusFilter(next.status);
     setPlatformAlertTriageFilter(next.triageStatus);
@@ -886,10 +1039,13 @@ export default function AlertsPage() {
     setError(null);
     setPlatformAlertMessage(null);
     loadPlatformOperationalAlerts(next.status, next.triageStatus, next.service, next.receiver, next.severity, null).catch(() => undefined);
-  }, [searchParams]);
+  }, [authResolved, canReadPlatformAdmin, searchParams]);
 
   useEffect(() => {
     if (platformAlertSelectionHydrated) {
+      return;
+    }
+    if (!platformAlertSelectionScope) {
       return;
     }
     hydratePersistedPlatformAlertSelection(platformAlertSelectionScope);
@@ -1022,6 +1178,10 @@ export default function AlertsPage() {
       </MetricGrid>
 
       <Panel title={t("monitoring.platform.title")}>
+        {canReadPlatformAdmin === false ? (
+          <Message data-testid="platform-alert-read-restricted">{t("monitoring.platform.readRestricted" as MessageKey)}</Message>
+        ) : (
+          <>
         <div className="otc-controls">
           <select
             aria-label={t("monitoring.platform.filters.statusAria")}
@@ -1088,54 +1248,60 @@ export default function AlertsPage() {
           <button type="button" data-testid="platform-alerts-refresh-btn" onClick={refreshPlatformOperationalAlerts} className="otc-button otc-button--ghost">
             {t("monitoring.platform.refresh")}
           </button>
-          <button
-            type="button"
-            data-testid="platform-alerts-ack-batch-btn"
-            onClick={acknowledgeFilteredPlatformAlerts}
-            disabled={acknowledgingPlatformAlertsBatch || !platformOperationalAlerts?.total_count || platformAlertTriageFilter === "acknowledged"}
-            className="otc-button"
-          >
-            {acknowledgingPlatformAlertsBatch ? t("monitoring.platform.ackFilteredLoading") : t("monitoring.platform.ackFiltered")}
-          </button>
-          <button
-            type="button"
-            data-testid="platform-alerts-ack-selected-btn"
-            onClick={acknowledgeSelectedPlatformAlerts}
-            disabled={acknowledgingPlatformAlertsBatch || !selectedPlatformAlertIds.length}
-            className="otc-button"
-          >
-            {acknowledgingPlatformAlertsBatch ? t("monitoring.platform.ackSelectedLoading") : t("monitoring.platform.ackSelected", { count: selectedPlatformAlertIds.length })}
-          </button>
-          <select
-            aria-label={t("monitoring.platform.filters.exportFormatAria")}
-            data-testid="platform-alert-export-format"
-            value={platformAlertExportFormat}
-            onChange={(event) => setPlatformAlertExportFormat(event.target.value as PlatformAlertExportFormat)}
-            className="otc-select"
-          >
-            <option value="csv">CSV</option>
-            <option value="json">JSON</option>
-          </select>
-          <button
-            type="button"
-            data-testid="platform-alerts-export-filtered-btn"
-            onClick={() => exportPlatformAlerts("filtered")}
-            disabled={!!exportingPlatformAlerts || !platformOperationalAlerts?.total_count}
-            className="otc-button otc-button--ghost"
-          >
-            {exportingPlatformAlerts === "filtered" ? t("monitoring.platform.exportFilteredLoading") : t("monitoring.platform.exportFiltered")}
-          </button>
-          <button
-            type="button"
-            data-testid="platform-alerts-export-selected-btn"
-            onClick={() => exportPlatformAlerts("selected")}
-            disabled={!!exportingPlatformAlerts || !selectedPlatformAlertIds.length}
-            className="otc-button otc-button--ghost"
-          >
-            {exportingPlatformAlerts === "selected"
-              ? t("monitoring.platform.exportSelectedLoading")
-              : t("monitoring.platform.exportSelected", { count: selectedPlatformAlertIds.length })}
-          </button>
+          {canManagePlatformAdmin ? (
+            <>
+              <button
+                type="button"
+                data-testid="platform-alerts-ack-batch-btn"
+                onClick={acknowledgeFilteredPlatformAlerts}
+                disabled={acknowledgingPlatformAlertsBatch || !platformOperationalAlerts?.total_count || platformAlertTriageFilter === "acknowledged"}
+                className="otc-button"
+              >
+                {acknowledgingPlatformAlertsBatch ? t("monitoring.platform.ackFilteredLoading") : t("monitoring.platform.ackFiltered")}
+              </button>
+              <button
+                type="button"
+                data-testid="platform-alerts-ack-selected-btn"
+                onClick={acknowledgeSelectedPlatformAlerts}
+                disabled={acknowledgingPlatformAlertsBatch || !selectedPlatformAlertIds.length}
+                className="otc-button"
+              >
+                {acknowledgingPlatformAlertsBatch ? t("monitoring.platform.ackSelectedLoading") : t("monitoring.platform.ackSelected", { count: selectedPlatformAlertIds.length })}
+              </button>
+              <select
+                aria-label={t("monitoring.platform.filters.exportFormatAria")}
+                data-testid="platform-alert-export-format"
+                value={platformAlertExportFormat}
+                onChange={(event) => setPlatformAlertExportFormat(event.target.value as PlatformAlertExportFormat)}
+                className="otc-select"
+              >
+                <option value="csv">CSV</option>
+                <option value="json">JSON</option>
+              </select>
+              <button
+                type="button"
+                data-testid="platform-alerts-export-filtered-btn"
+                onClick={() => exportPlatformAlerts("filtered")}
+                disabled={!!exportingPlatformAlerts || !platformOperationalAlerts?.total_count}
+                className="otc-button otc-button--ghost"
+              >
+                {exportingPlatformAlerts === "filtered" ? t("monitoring.platform.exportFilteredLoading") : t("monitoring.platform.exportFiltered")}
+              </button>
+              <button
+                type="button"
+                data-testid="platform-alerts-export-selected-btn"
+                onClick={() => exportPlatformAlerts("selected")}
+                disabled={!!exportingPlatformAlerts || !selectedPlatformAlertIds.length}
+                className="otc-button otc-button--ghost"
+              >
+                {exportingPlatformAlerts === "selected"
+                  ? t("monitoring.platform.exportSelectedLoading")
+                  : t("monitoring.platform.exportSelected", { count: selectedPlatformAlertIds.length })}
+              </button>
+            </>
+          ) : canManagePlatformAdmin === false ? (
+            <Message data-testid="platform-alert-mutation-restricted">{t("monitoring.platform.mutationRestricted" as MessageKey)}</Message>
+          ) : null}
           <span data-testid="platform-alerts-summary" className="otc-monitoring-meta">
             {platformOperationalAlerts
               ? t("monitoring.platform.summary", {
@@ -1182,6 +1348,7 @@ export default function AlertsPage() {
         {platformOperationalAlerts ? (
           platformOperationalAlerts.data.length ? (
             <div className="otc-monitoring-grid otc-monitoring-banner">
+              {canManagePlatformAdmin ? (
               <label data-testid="platform-alert-select-all-label" className="otc-monitoring-checkbox-row">
                 <input
                   type="checkbox"
@@ -1193,6 +1360,7 @@ export default function AlertsPage() {
                 />
                 {t("monitoring.platform.selectAll")}
               </label>
+              ) : null}
               {platformOperationalAlerts.data.map((entry) => (
                 (() => {
                   const context = inferAlertOperationalContext(entry);
@@ -1222,6 +1390,7 @@ export default function AlertsPage() {
                     >
                       <div className="otc-monitoring-row">
                         <div className="otc-monitoring-inline">
+                          {canManagePlatformAdmin ? (
                           <input
                             type="checkbox"
                             data-testid={`platform-alert-select-${entry.id}`}
@@ -1230,6 +1399,7 @@ export default function AlertsPage() {
                             disabled={entry.triage_status !== "pending" || acknowledgingPlatformAlertsBatch}
                             onChange={() => togglePlatformAlertSelection(entry.id)}
                           />
+                          ) : null}
                           <strong>{entry.alertname}</strong>
                         </div>
                         <span data-testid={`platform-alert-state-${entry.id}`}>
@@ -1309,28 +1479,32 @@ export default function AlertsPage() {
                             )}
                           </a>
                         ))}
-                        <button
-                          type="button"
-                          data-testid={`platform-alert-track-btn-${entry.id}`}
-                          onClick={() => trackPlatformAlert(entry)}
-                          disabled={trackingPlatformAlertId === entry.id}
-                          className="otc-button otc-button--ghost"
-                        >
-                          {trackingPlatformAlertId === entry.id
-                            ? t("monitoring.platform.trackWorkItemLoading" as MessageKey)
-                            : trackedWorkItem
-                              ? t("monitoring.platform.syncWorkItem" as MessageKey)
-                              : t("monitoring.platform.trackWorkItem" as MessageKey)}
-                        </button>
-                        <button
-                          type="button"
-                          data-testid={`platform-alert-ack-btn-${entry.id}`}
-                          onClick={() => acknowledgePlatformAlert(entry.id)}
-                          disabled={entry.triage_status === "acknowledged" || acknowledgingPlatformAlertId === entry.id}
-                          className="otc-button"
-                        >
-                          {acknowledgingPlatformAlertId === entry.id ? t("monitoring.platform.ackLoading") : t("monitoring.platform.ack")}
-                        </button>
+                        {canManagePlatformAdmin ? (
+                          <>
+                            <button
+                              type="button"
+                              data-testid={`platform-alert-track-btn-${entry.id}`}
+                              onClick={() => trackPlatformAlert(entry)}
+                              disabled={trackingPlatformAlertId === entry.id}
+                              className="otc-button otc-button--ghost"
+                            >
+                              {trackingPlatformAlertId === entry.id
+                                ? t("monitoring.platform.trackWorkItemLoading" as MessageKey)
+                                : trackedWorkItem
+                                  ? t("monitoring.platform.syncWorkItem" as MessageKey)
+                                  : t("monitoring.platform.trackWorkItem" as MessageKey)}
+                            </button>
+                            <button
+                              type="button"
+                              data-testid={`platform-alert-ack-btn-${entry.id}`}
+                              onClick={() => acknowledgePlatformAlert(entry.id)}
+                              disabled={entry.triage_status === "acknowledged" || acknowledgingPlatformAlertId === entry.id}
+                              className="otc-button"
+                            >
+                              {acknowledgingPlatformAlertId === entry.id ? t("monitoring.platform.ackLoading") : t("monitoring.platform.ack")}
+                            </button>
+                          </>
+                        ) : null}
                       </div>
                       {trackedWorkItem ? (
                         <button
@@ -1359,10 +1533,16 @@ export default function AlertsPage() {
             <Message>{t("monitoring.platform.loading")}</Message>
           </div>
         )}
+          </>
+        )}
       </Panel>
 
       <Panel title={tr("alerts.workspace.rca.title" as MessageKey)} description={tr("alerts.workspace.rca.description" as MessageKey)}>
-        {!timelineAlertId ? (
+        {canReadPlatformAdmin === false ? (
+          <div data-testid="platform-alert-rca-read-restricted">
+            <Message>{t("monitoring.platform.readRestricted" as MessageKey)}</Message>
+          </div>
+        ) : !timelineAlertId ? (
           <div data-testid="platform-alert-rca-empty-selection">
             <Message>{tr("alerts.workspace.rca.emptySelection" as MessageKey)}</Message>
           </div>
@@ -1501,19 +1681,23 @@ export default function AlertsPage() {
                 onChange={(event) => updateRcaForm("evidenceRefs", event.target.value)}
               />
             </label>
-            <div className="otc-controls">
-              <button
-                type="button"
-                className="otc-button"
-                data-testid="platform-alert-rca-save"
-                onClick={() => {
-                  void saveAlertRca();
-                }}
-                disabled={rcaSaving}
-              >
-                {rcaSaving ? tr("alerts.workspace.rca.saving" as MessageKey) : tr("alerts.workspace.rca.save" as MessageKey)}
-              </button>
-            </div>
+            {canManagePlatformAdmin ? (
+              <div className="otc-controls">
+                <button
+                  type="button"
+                  className="otc-button"
+                  data-testid="platform-alert-rca-save"
+                  onClick={() => {
+                    void saveAlertRca();
+                  }}
+                  disabled={rcaSaving}
+                >
+                  {rcaSaving ? tr("alerts.workspace.rca.saving" as MessageKey) : tr("alerts.workspace.rca.save" as MessageKey)}
+                </button>
+              </div>
+            ) : (
+              <Message data-testid="platform-alert-rca-mutation-restricted">{t("monitoring.platform.mutationRestricted" as MessageKey)}</Message>
+            )}
           </div>
         )}
       </Panel>
@@ -1610,6 +1794,23 @@ export default function AlertsPage() {
             </tbody>
           </table>
         </Panel>
+      ) : null}
+
+      {platformAlertConfirmDialog ? (
+        <ConfirmDialog
+          open
+          title={platformAlertConfirmDialog.title}
+          description={platformAlertConfirmDialog.description}
+          confirmLabel={platformAlertConfirmDialog.confirmLabel}
+          cancelLabel={platformAlertConfirmDialog.cancelLabel}
+          onCancel={cancelPlatformAlertConfirmation}
+          onConfirm={() => {
+            confirmPlatformAlertConfirmation().catch(() => undefined);
+          }}
+          tone={platformAlertConfirmDialog.tone}
+          busy={acknowledgingPlatformAlertsBatch}
+          testId={platformAlertConfirmDialog.testId}
+        />
       ) : null}
     </AppShell>
   );

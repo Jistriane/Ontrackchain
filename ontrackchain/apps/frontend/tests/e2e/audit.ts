@@ -1,18 +1,32 @@
 import { expect, type Page } from "@playwright/test";
 
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | JsonObject | JsonValue[];
+type JsonObject = {
+  [key: string]: JsonValue;
+};
+
+type AuditMetadata = JsonObject & {
+  request_id?: string;
+};
+
 export type AuditEntry = {
   action?: string;
   request_id?: string;
   user_id?: string | null;
   resource_type?: string | null;
-  metadata?: Record<string, any>;
-  [key: string]: any;
+  metadata?: AuditMetadata;
+  [key: string]: unknown;
 };
 
 type AuditQuery = {
   limit?: number;
   action?: string;
   requestId?: string;
+};
+
+type AuditLogsResponse = {
+  data?: AuditEntry[];
 };
 
 function buildAuditLogsUrl(query: AuditQuery = {}) {
@@ -27,14 +41,14 @@ function buildAuditLogsUrl(query: AuditQuery = {}) {
 export async function getAuditLogs(page: Page, query: AuditQuery = {}) {
   const res = await page.request.get(buildAuditLogsUrl(query));
   expect(res.status()).toBe(200);
-  const body = (await res.json()) as { data?: AuditEntry[] };
-  return body.data ?? [];
+  const body = (await res.json()) as AuditLogsResponse;
+  return normalizeAuditEntries(body.data ?? []);
 }
 
 export function normalizeAuditEntries(entries: AuditEntry[]) {
   return entries.map((entry) => ({
     ...entry,
-    request_id: entry.metadata?.request_id ?? entry.request_id
+    request_id: typeof entry.metadata?.request_id === "string" ? entry.metadata.request_id : entry.request_id
   }));
 }
 
@@ -47,7 +61,8 @@ export function findAuditEntriesByRequestId(entries: AuditEntry[], requestId: st
 }
 
 export async function getAuditEntriesByRequestId(page: Page, requestId: string, action: string, limit = 20) {
-  return getAuditLogs(page, { requestId, action, limit });
+  const entries = await getAuditLogs(page, { requestId, action, limit });
+  return findAuditEntriesByRequestId(entries, requestId, action);
 }
 
 export async function waitForAuditEntriesByRequestId(

@@ -184,7 +184,8 @@ def build_packet_model(
             "python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md",
             "python scripts/preflight_oidc_serious_env.py",
             "python scripts/preflight_external_integrations.py",
-            "python scripts/homologation_external_evidence.py --mode both --rpc-expected-mode fallback_only",
+            "python scripts/homologation_external_evidence.py --mode both "
+            f"--rpc-expected-mode {expected_modes.get('ONTRACKCHAIN_EXPECT_RPC_MODE', 'fallback_only')}",
         ],
     }
 

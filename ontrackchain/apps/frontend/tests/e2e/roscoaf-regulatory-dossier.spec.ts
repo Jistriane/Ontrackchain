@@ -1,5 +1,7 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
+import { expectDownloadLikeResponse } from "./download-helpers";
+
 async function seedRosCoafPage(page: Page, role = "COMPLIANCE_OFFICER") {
   const rosId = "33333333-3333-4333-8333-333333333333";
   const caseId = "33333333-3333-4333-8333-333333333334";
@@ -270,10 +272,16 @@ test.describe("ros-coaf regulatory dossier", () => {
       `/audit?action=coaf_regulatory_dossier_downloaded&resource_type=ros_record&resource_id=${rosId}&report_id=${reportId}`
     );
 
-    const dossierExport = page.waitForEvent("download");
-    await page.getByTestId("roscoaf-detail-export-dossier").click();
-    const download = await dossierExport;
-    expect(download.suggestedFilename()).toContain(`ontrackchain-ros-coaf-regulatory-dossier-${rosId}.json`);
+    await expectDownloadLikeResponse(
+      page,
+      {
+        urlPart: "/api/app/reports/ros-coaf/",
+        expectedFilename: `ontrackchain-ros-coaf-regulatory-dossier-${rosId}.json`
+      },
+      async () => {
+        await page.getByTestId("roscoaf-detail-export-dossier").click();
+      }
+    );
   });
 
   test("segrega aprovacao e submissao manual por role no frontend", async ({ page }) => {
@@ -310,5 +318,46 @@ test.describe("ros-coaf regulatory dossier", () => {
     await expect(page.getByTestId("roscoaf-approve-btn")).toBeVisible();
     await expect(page.getByTestId("roscoaf-submitted-btn")).toBeVisible();
     await expect(page.getByTestId("roscoaf-submitted-access-denied")).toHaveCount(0);
+  });
+
+  test("bloqueia cedo a trilha sensível quando falta linked_user_id persistido", async ({ page }) => {
+    const { rosId } = await seedRosCoafPage(page, "COMPLIANCE_OFFICER");
+
+    await page.unroute("**/api/app/auth/context");
+    await page.route("**/api/app/auth/context", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-e2e",
+          user_id: "user-e2e",
+          linked_user_id: null,
+          role: "COMPLIANCE_OFFICER",
+          plan: "professional",
+          auth_method: "oidc",
+          mfa_mode: "external_provider",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.goto(`/ros-coaf?ros_id=${encodeURIComponent(rosId)}`);
+
+    await expect(page.getByTestId("roscoaf-auth-readiness")).toContainText(
+      "A sessão atual ainda não atende todos os pré-requisitos"
+    );
+    await expect(page.getByTestId("roscoaf-auth-linked-user-required")).toContainText(
+      "ROS/COAF exige um usuário federado vinculado ao tenant atual."
+    );
+    await expect(page.getByTestId("roscoaf-generate-prereq-block")).toContainText("A geração do draft foi bloqueada");
+    await expect(page.getByTestId("roscoaf-approve-prereq-block")).toContainText("A aprovação ou rejeição foi bloqueada");
+    await expect(page.getByTestId("roscoaf-submitted-prereq-block")).toContainText("A submissão manual foi bloqueada");
+    await expect(page.getByTestId("roscoaf-detail-export-dossier-prereq-block")).toContainText(
+      "ROS/COAF exige um usuário federado vinculado ao tenant atual."
+    );
+    await expect(page.getByTestId("roscoaf-generate-btn")).toBeDisabled();
+    await expect(page.getByTestId("roscoaf-approve-btn")).toBeDisabled();
+    await expect(page.getByTestId("roscoaf-submitted-btn")).toBeDisabled();
+    await expect(page.getByTestId("roscoaf-detail-export-dossier")).toBeDisabled();
   });
 });

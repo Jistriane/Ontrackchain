@@ -30,6 +30,11 @@ O que prova hoje:
 
 ### 2. Playwright E2E
 
+Guia operacional complementar da malha local:
+
+- [Run Sheet Operacional da Malha E2E Local](./governance-weekly/guides/E2E_LOCAL_MESH_RUN_SHEET.md)
+- [Guia Tecnico Local da Suite E2E](../apps/frontend/tests/e2e/README.md)
+
 Suites relevantes:
 
 - `tests/e2e/critical-path.spec.ts`
@@ -58,7 +63,7 @@ Comandos focados uteis:
 - `npm run test:e2e:ssr-mocked` para suites que exigem backend SSR mockado e frontend iniciado com `INTERNAL_API_BASE_URL` apontando para o mock
 - `npm run test:e2e:alerts-dashboard-context`
 - `npm run test:e2e:alerts-dashboard-context:mocked` para subir mock SSR do `dashboard`, iniciar o frontend com `INTERNAL_API_BASE_URL` apontando para o mock e executar o spec combinado de links contextuais sem depender de terminais manuais
-- `npm run test:e2e:oidc-critical` permanece como comando canonico agregado para o rito serio de OIDC, agora com preflight explicito de prontidao antes da execucao
+- `npm run test:e2e:oidc-critical` permanece como comando canonico agregado para o rito serio de OIDC, agora com preflight explicito de prontidao antes da execucao e com suporte a execucao institucionalizada dentro do bundle OIDC da janela seria
 
 Classificacao operacional atual:
 
@@ -83,7 +88,7 @@ Classificacao operacional atual:
 Coberturas importantes:
 
 - `tests/test_sanctions_sync_worker.py`
-- `tests/test_worker_source_url_overrides.py`
+- `apps/compliance-api/tests/test_worker_source_url_overrides.py`
 - `tests/test_preflight_guards.py`
 - `tests/test_check_sanctions_sync_status.py`
 - `tests/test_check_compliance_provider_runtime.py`
@@ -145,6 +150,10 @@ O que valida:
 
 ## Trilha de Auditoria
 
+Guia operacional complementar para a trilha federada em `staging`:
+
+- [Validacao em Staging - Diretorio Federado](federated-directory-staging-validation.md)
+
 ### `audit_logs`
 
 Eventos principais observados:
@@ -162,6 +171,10 @@ Eventos principais observados:
 - `report_downloaded`
 - `operational_alerts_exported`
 - `authorization_denied`
+- `team_federated_directory_searched`
+- `team_federated_directory_suggestion_validated`
+- `team_external_identity_linked`
+- `team_external_identity_unlinked`
 
 ### `evidence_trail`
 

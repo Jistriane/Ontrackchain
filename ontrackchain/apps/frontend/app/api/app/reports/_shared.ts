@@ -71,7 +71,7 @@ function buildProxyHeaders(auth: ReportAuthContext, options: Pick<ProxyRequestOp
 }
 
 export async function proxyReportJsonRequest(auth: ReportAuthContext, options: ProxyRequestOptions) {
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
+  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const res = await fetch(`${baseUrl}${options.path}`, {
     method: options.method,
     headers: buildProxyHeaders(auth, options),
@@ -83,7 +83,7 @@ export async function proxyReportJsonRequest(auth: ReportAuthContext, options: P
 }
 
 export async function proxyReportBinaryRequest(auth: ReportAuthContext, options: ProxyRequestOptions) {
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
+  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const res = await fetch(`${baseUrl}${options.path}`, {
     method: options.method,
     headers: buildProxyHeaders(auth, options),

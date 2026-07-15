@@ -17,6 +17,12 @@ Use esta matriz junto com:
 - [Playbook de Incidente Cross-Domain e RCA](cross-domain-incident-rca-playbook.md)
 - [Gates de Release para Staging Serio](project-release-gates.md)
 
+Precedencia de leitura:
+
+- [Owners e SLAs Operacionais](operational-ownership-and-slas.md) define a taxonomia canonica de dominios, owners e backups
+- [Ownership do `.env.staging`](staging-env-ownership.md) especializa essa taxonomia para placeholders, handoff e bloqueios da janela corrente
+- esta matriz usa ambas para coordenar a execucao viva do war room
+
 ## Quando Usar
 
 Usar este documento quando houver:

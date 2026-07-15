@@ -3,18 +3,21 @@ import binascii
 import hashlib
 import hmac
 import json
+import logging
 import struct
 import time
+import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 from uuid import UUID
 
 import jwt
 import redis.asyncio as aioredis
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
@@ -51,9 +54,18 @@ class Settings(BaseSettings):
     # Redis — blocklist Stage 1 (pre-screening preventivo)
     redis_host: str = "redis"
     redis_port: int = 6379
+    keycloak_admin_base_url: Optional[str] = None
+    keycloak_admin_realm: str = "ontrackchain"
+    keycloak_admin_client_id: Optional[str] = None
+    keycloak_admin_client_secret: Optional[str] = None
+    keycloak_admin_timeout_seconds: float = 5.0
+    keycloak_admin_search_limit: int = 20
+    keycloak_admin_org_attribute: str = "organization_id"
+    keycloak_admin_role_attribute: str = "otk_role"
 
 
 settings = Settings()
+logger = logging.getLogger(__name__)
 
 TEAM_USER_ALLOWED_ROLES = {
     "ADMIN",
@@ -67,6 +79,14 @@ TEAM_USER_ALLOWED_ROLES = {
 }
 TEAM_USER_ALLOWED_STATUSES = {"active", "invited", "disabled"}
 TEAM_USER_WRITE_ALLOWED_ROLES = {"ADMIN"}
+TEAM_USER_CREATE_ALLOWED_ROLES = {"ADMIN"}
+TEAM_USER_UPDATE_ALLOWED_ROLES = {"ADMIN"}
+TEAM_USER_DISABLE_ALLOWED_ROLES = {"ADMIN"}
+TEAM_FEDERATED_IDENTITY_READ_ALLOWED_ROLES = {"ADMIN"}
+TEAM_FEDERATED_IDENTITY_LINK_ALLOWED_ROLES = {"ADMIN"}
+TEAM_FEDERATED_IDENTITY_UNLINK_ALLOWED_ROLES = {"ADMIN"}
+TEAM_FEDERATED_DIRECTORY_SEARCH_ALLOWED_ROLES = {"ADMIN"}
+TEAM_FEDERATED_DIRECTORY_SUGGESTION_ALLOWED_ROLES = {"ADMIN"}
 
 app = FastAPI(title="OnTrackChain Auth Service")
 
@@ -100,6 +120,19 @@ class TeamUserListResponse(BaseModel):
     data: list[TeamUserRecord]
 
 
+class TeamExternalIdentityRecord(BaseModel):
+    provider: str
+    external_subject: str
+    email_snapshot: Optional[str] = None
+    role_snapshot: Optional[str] = None
+    created_at: str
+    last_seen_at: Optional[str] = None
+
+
+class TeamExternalIdentityListResponse(BaseModel):
+    data: list[TeamExternalIdentityRecord]
+
+
 class CreateTeamUserRequest(BaseModel):
     name: str = ""
     email: str
@@ -114,6 +147,164 @@ class UpdateTeamUserRequest(BaseModel):
     role: Optional[str] = None
     status: Optional[str] = None
     note: Optional[str] = None
+
+
+class LinkExternalIdentityRequest(BaseModel):
+    provider: str = "keycloak"
+    external_subject: str
+    email_snapshot: Optional[str] = None
+    role_snapshot: Optional[str] = None
+
+
+class UnlinkExternalIdentityRequest(BaseModel):
+    provider: str
+    external_subject: str
+
+
+class FederatedDirectoryUserRecord(BaseModel):
+    provider: str
+    external_subject: str
+    email: Optional[str] = None
+    username: Optional[str] = None
+    organization_id: Optional[str] = None
+    role_snapshot: Optional[str] = None
+    enabled: bool = True
+    match_status: str
+    linked_user_id: Optional[str] = None
+    linked_user_email: Optional[str] = None
+    role_validation_status: str
+    warnings: list[str] = Field(default_factory=list)
+
+
+class FederatedDirectoryUserListResponse(BaseModel):
+    data: list[FederatedDirectoryUserRecord]
+
+
+class ValidateFederatedDirectorySuggestionRequest(BaseModel):
+    member_id: str
+    provider: str = "keycloak"
+    external_subject: str
+
+
+class ValidateFederatedDirectorySuggestionResponse(BaseModel):
+    can_link: bool
+    match_reason: str
+    org_match: bool
+    email_match: bool
+    provider: str
+    external_subject: str
+    candidate_email: Optional[str] = None
+    candidate_username: Optional[str] = None
+    candidate_org: Optional[str] = None
+    role_snapshot: Optional[str] = None
+    role_validation_status: str
+    linked_user_id: Optional[str] = None
+    linked_user_email: Optional[str] = None
+    warnings: list[str] = Field(default_factory=list)
+
+
+class KeycloakDirectoryClient:
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        realm: str,
+        client_id: str,
+        client_secret: str,
+        timeout_seconds: float,
+    ) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.realm = realm.strip()
+        self.client_id = client_id.strip()
+        self.client_secret = client_secret
+        self.timeout_seconds = timeout_seconds
+        self._access_token: Optional[str] = None
+        self._access_token_expires_at: float = 0.0
+
+    def search_users(self, *, query: str, limit: int) -> list[dict]:
+        params = {"search": query, "max": str(limit), "briefRepresentation": "false"}
+        response = self._request_json(
+            method="GET",
+            path=f"/admin/realms/{urllib.parse.quote(self.realm, safe='')}/users",
+            query=params,
+            authorized=True,
+        )
+        return response if isinstance(response, list) else []
+
+    def get_user(self, *, external_subject: str) -> dict:
+        response = self._request_json(
+            method="GET",
+            path=(
+                f"/admin/realms/{urllib.parse.quote(self.realm, safe='')}/users/"
+                f"{urllib.parse.quote(external_subject, safe='')}"
+            ),
+            authorized=True,
+        )
+        return response if isinstance(response, dict) else {}
+
+    def _get_access_token(self) -> str:
+        now = time.time()
+        if self._access_token and now < self._access_token_expires_at:
+            return self._access_token
+
+        payload = urllib.parse.urlencode(
+            {
+                "grant_type": "client_credentials",
+                "client_id": self.client_id,
+                "client_secret": self.client_secret,
+            }
+        ).encode("utf-8")
+        response = self._request_json(
+            method="POST",
+            path=f"/realms/{urllib.parse.quote(self.realm, safe='')}/protocol/openid-connect/token",
+            body=payload,
+            content_type="application/x-www-form-urlencoded",
+            authorized=False,
+        )
+        if not isinstance(response, dict) or not response.get("access_token"):
+            raise HTTPException(status_code=503, detail="federated_directory_unavailable")
+
+        self._access_token = str(response["access_token"])
+        expires_in = int(response.get("expires_in") or 60)
+        self._access_token_expires_at = now + max(expires_in - 10, 5)
+        return self._access_token
+
+    def _request_json(
+        self,
+        *,
+        method: str,
+        path: str,
+        query: Optional[dict[str, str]] = None,
+        body: Optional[bytes] = None,
+        content_type: str = "application/json",
+        authorized: bool,
+    ) -> Any:
+        url = f"{self.base_url}{path}"
+        if query:
+            url = f"{url}?{urllib.parse.urlencode(query)}"
+
+        headers: dict[str, str] = {"accept": "application/json"}
+        if body is not None:
+            headers["content-type"] = content_type
+        if authorized:
+            headers["authorization"] = f"Bearer {self._get_access_token()}"
+
+        request = urllib.request.Request(url, data=body, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+                charset = response.headers.get_content_charset() or "utf-8"
+                payload = response.read().decode(charset).strip()
+                return json.loads(payload) if payload else {}
+        except urllib.error.HTTPError as exc:
+            if exc.code in {401, 403}:
+                raise HTTPException(status_code=503, detail="federated_directory_forbidden") from exc
+            if exc.code == 404:
+                raise HTTPException(status_code=404, detail="federated_directory_candidate_not_found") from exc
+            raise HTTPException(status_code=503, detail="federated_directory_unavailable") from exc
+        except urllib.error.URLError as exc:
+            raise HTTPException(status_code=503, detail="federated_directory_unavailable") from exc
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=503, detail="federated_directory_unavailable") from exc
 
 
 def _dsn() -> str:
@@ -380,9 +571,193 @@ def _normalize_team_user_email(raw_email: Optional[str]) -> str:
     return normalized_email
 
 
+def _normalize_identity_provider(raw_provider: Optional[str]) -> str:
+    normalized_provider = str(raw_provider or "").strip().lower()
+    if not normalized_provider:
+        raise HTTPException(status_code=422, detail="team_external_identity_provider_required")
+    if any(char.isspace() for char in normalized_provider):
+        raise HTTPException(status_code=422, detail="team_external_identity_provider_invalid")
+    return normalized_provider
+
+
+def _normalize_external_subject(raw_subject: Optional[str]) -> str:
+    normalized_subject = str(raw_subject or "").strip()
+    if not normalized_subject:
+        raise HTTPException(status_code=422, detail="team_external_identity_subject_required")
+    return normalized_subject
+
+
+def _normalize_optional_snapshot(raw_value: Optional[str]) -> Optional[str]:
+    normalized_value = str(raw_value or "").strip()
+    return normalized_value or None
+
+
+def _normalize_federated_directory_query(raw_query: Optional[str]) -> str:
+    normalized_query = str(raw_query or "").strip()
+    if len(normalized_query) < 2:
+        raise HTTPException(status_code=422, detail="federated_directory_query_required")
+    return normalized_query
+
+
+def _normalize_federated_directory_limit(raw_limit: Optional[int]) -> int:
+    try:
+        normalized_limit = int(raw_limit or settings.keycloak_admin_search_limit)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="federated_directory_limit_invalid") from None
+    if normalized_limit < 1 or normalized_limit > 50:
+        raise HTTPException(status_code=422, detail="federated_directory_limit_invalid")
+    return normalized_limit
+
+
+def _normalize_keycloak_attribute_value(raw_value: Any) -> Optional[str]:
+    if isinstance(raw_value, list):
+        raw_value = raw_value[0] if raw_value else None
+    normalized_value = str(raw_value or "").strip()
+    return normalized_value or None
+
+
+def _keycloak_admin_required(value: Optional[str], setting_name: str) -> str:
+    if value and str(value).strip():
+        return str(value).strip()
+    raise HTTPException(status_code=503, detail=f"missing_{setting_name}")
+
+
+def _keycloak_admin_base_url() -> str:
+    if settings.keycloak_admin_base_url and settings.keycloak_admin_base_url.strip():
+        return settings.keycloak_admin_base_url.strip().rstrip("/")
+    issuer = settings.oidc_issuer_url
+    if issuer and issuer.strip():
+        parsed = urllib.parse.urlparse(issuer.strip())
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}"
+    raise HTTPException(status_code=503, detail="missing_keycloak_admin_base_url")
+
+
+def _keycloak_admin_realm() -> str:
+    return _keycloak_admin_required(settings.keycloak_admin_realm, "keycloak_admin_realm")
+
+
+def _keycloak_admin_client_id() -> str:
+    return _keycloak_admin_required(settings.keycloak_admin_client_id, "keycloak_admin_client_id")
+
+
+def _keycloak_admin_client_secret() -> str:
+    return _keycloak_admin_required(settings.keycloak_admin_client_secret, "keycloak_admin_client_secret")
+
+
+def _keycloak_admin_timeout_seconds() -> float:
+    timeout_seconds = float(settings.keycloak_admin_timeout_seconds or 5.0)
+    if timeout_seconds <= 0:
+        raise HTTPException(status_code=500, detail="invalid_keycloak_admin_timeout_seconds")
+    return timeout_seconds
+
+
+def _keycloak_admin_org_attribute() -> str:
+    return _keycloak_admin_required(settings.keycloak_admin_org_attribute, "keycloak_admin_org_attribute")
+
+
+def _keycloak_admin_role_attribute() -> str:
+    return _keycloak_admin_required(settings.keycloak_admin_role_attribute, "keycloak_admin_role_attribute")
+
+
+@lru_cache(maxsize=1)
+def _get_keycloak_directory_client() -> KeycloakDirectoryClient:
+    return KeycloakDirectoryClient(
+        base_url=_keycloak_admin_base_url(),
+        realm=_keycloak_admin_realm(),
+        client_id=_keycloak_admin_client_id(),
+        client_secret=_keycloak_admin_client_secret(),
+        timeout_seconds=_keycloak_admin_timeout_seconds(),
+    )
+
+
+def _resolve_persisted_user_id(cur, user_id: Optional[str]) -> Optional[str]:
+    if not user_id:
+        return None
+    try:
+        candidate_user_id = str(UUID(str(user_id)))
+    except (TypeError, ValueError):
+        return None
+
+    cur.execute("SELECT 1 FROM users WHERE id = %s", (candidate_user_id,))
+    return candidate_user_id if cur.fetchone() else None
+
+
+def _record_audit_log(
+    cur,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    action: str,
+    resource_type: str,
+    resource_id: Optional[str],
+    metadata: dict,
+) -> None:
+    normalized_metadata = dict(metadata)
+    persisted_user_id = _resolve_persisted_user_id(cur, user_id)
+    persisted_resource_id: Optional[str] = None
+
+    if user_id and not persisted_user_id:
+        normalized_metadata.setdefault("external_user_id", str(user_id))
+
+    if resource_id:
+        try:
+            persisted_resource_id = str(UUID(str(resource_id)))
+        except (TypeError, ValueError):
+            normalized_metadata.setdefault("resource_reference_id", str(resource_id))
+
+    cur.execute(
+        """
+        INSERT INTO audit_logs (organization_id, user_id, action, resource_type, resource_id, metadata)
+        VALUES (%s, %s, %s, %s, %s, %s::jsonb)
+        """,
+        (organization_id, persisted_user_id, action, resource_type, persisted_resource_id, json.dumps(normalized_metadata)),
+    )
+
+
 def _require_team_user_write_role(auth: dict) -> None:
     if str(auth.get("role") or "").upper() not in TEAM_USER_WRITE_ALLOWED_ROLES:
         raise HTTPException(status_code=403, detail="team_user_write_role_required")
+
+
+def _require_team_user_create_role(auth: dict) -> None:
+    if str(auth.get("role") or "").upper() not in TEAM_USER_CREATE_ALLOWED_ROLES:
+        raise HTTPException(status_code=403, detail="team_user_create_role_required")
+
+
+def _require_team_user_update_role(auth: dict) -> None:
+    if str(auth.get("role") or "").upper() not in TEAM_USER_UPDATE_ALLOWED_ROLES:
+        raise HTTPException(status_code=403, detail="team_user_update_role_required")
+
+
+def _require_team_user_disable_role(auth: dict) -> None:
+    if str(auth.get("role") or "").upper() not in TEAM_USER_DISABLE_ALLOWED_ROLES:
+        raise HTTPException(status_code=403, detail="team_user_disable_role_required")
+
+
+def _require_team_federated_identity_read_role(auth: dict) -> None:
+    if str(auth.get("role") or "").upper() not in TEAM_FEDERATED_IDENTITY_READ_ALLOWED_ROLES:
+        raise HTTPException(status_code=403, detail="team_federated_identity_read_role_required")
+
+
+def _require_team_federated_identity_link_role(auth: dict) -> None:
+    if str(auth.get("role") or "").upper() not in TEAM_FEDERATED_IDENTITY_LINK_ALLOWED_ROLES:
+        raise HTTPException(status_code=403, detail="team_federated_identity_link_role_required")
+
+
+def _require_team_federated_identity_unlink_role(auth: dict) -> None:
+    if str(auth.get("role") or "").upper() not in TEAM_FEDERATED_IDENTITY_UNLINK_ALLOWED_ROLES:
+        raise HTTPException(status_code=403, detail="team_federated_identity_unlink_role_required")
+
+
+def _require_team_federated_directory_search_role(auth: dict) -> None:
+    if str(auth.get("role") or "").upper() not in TEAM_FEDERATED_DIRECTORY_SEARCH_ALLOWED_ROLES:
+        raise HTTPException(status_code=403, detail="team_federated_directory_search_role_required")
+
+
+def _require_team_federated_directory_suggestion_role(auth: dict) -> None:
+    if str(auth.get("role") or "").upper() not in TEAM_FEDERATED_DIRECTORY_SUGGESTION_ALLOWED_ROLES:
+        raise HTTPException(status_code=403, detail="team_federated_directory_suggestion_role_required")
 
 
 def _serialize_team_user_row(row: dict) -> TeamUserRecord:
@@ -406,6 +781,224 @@ def _serialize_team_user_row(row: dict) -> TeamUserRecord:
             else (str(last_identity_seen_at) if last_identity_seen_at else None)
         ),
     )
+
+
+def _serialize_external_identity_row(row: dict) -> TeamExternalIdentityRecord:
+    created_at = row.get("created_at")
+    last_seen_at = row.get("last_seen_at")
+
+    return TeamExternalIdentityRecord(
+        provider=str(row.get("provider") or ""),
+        external_subject=str(row.get("external_subject") or ""),
+        email_snapshot=str(row.get("email_snapshot")) if row.get("email_snapshot") else None,
+        role_snapshot=str(row.get("role_snapshot")) if row.get("role_snapshot") else None,
+        created_at=created_at.astimezone(timezone.utc).isoformat() if isinstance(created_at, datetime) else str(created_at or ""),
+        last_seen_at=(
+            last_seen_at.astimezone(timezone.utc).isoformat()
+            if isinstance(last_seen_at, datetime)
+            else (str(last_seen_at) if last_seen_at else None)
+        ),
+    )
+
+
+def _fetch_team_user_with_identity_summary(cur, organization_id: str, member_id: str) -> Optional[dict]:
+    cur.execute(
+        """
+        SELECT
+          u.id,
+          u.display_name,
+          u.email,
+          u.role,
+          u.status,
+          u.note,
+          u.created_at,
+          u.updated_at,
+          COUNT(ei.id)::int AS linked_identity_count,
+          MAX(ei.last_seen_at) AS last_identity_seen_at
+        FROM users u
+        LEFT JOIN external_identities ei
+          ON ei.user_id = u.id
+         AND ei.organization_id = u.organization_id
+        WHERE u.organization_id = %s
+          AND u.id = %s
+        GROUP BY u.id, u.display_name, u.email, u.role, u.status, u.note, u.created_at, u.updated_at
+        """,
+        (organization_id, member_id),
+    )
+    return cur.fetchone()
+
+
+def _fetch_team_user_external_identities(cur, organization_id: str, member_id: str) -> list[dict]:
+    cur.execute(
+        """
+        SELECT
+          provider,
+          external_subject,
+          email_snapshot,
+          role_snapshot,
+          created_at,
+          last_seen_at
+        FROM external_identities
+        WHERE organization_id = %s
+          AND user_id = %s
+        ORDER BY last_seen_at DESC NULLS LAST, created_at DESC, external_subject ASC
+        """,
+        (organization_id, member_id),
+    )
+    return cur.fetchall() or []
+
+
+def _fetch_team_user_by_email(cur, organization_id: str, email: str) -> Optional[dict]:
+    cur.execute(
+        """
+        SELECT id, display_name, email, role, status
+        FROM users
+        WHERE organization_id = %s
+          AND lower(email) = %s
+        LIMIT 1
+        """,
+        (organization_id, email.strip().lower()),
+    )
+    return cur.fetchone()
+
+
+def _fetch_external_identity_link_summary(cur, organization_id: str, provider: str, external_subject: str) -> Optional[dict]:
+    cur.execute(
+        """
+        SELECT ei.user_id, u.email
+        FROM external_identities ei
+        LEFT JOIN users u
+          ON u.id = ei.user_id
+         AND u.organization_id = ei.organization_id
+        WHERE ei.organization_id = %s
+          AND ei.provider = %s
+          AND ei.external_subject = %s
+        LIMIT 1
+        """,
+        (organization_id, provider, external_subject),
+    )
+    return cur.fetchone()
+
+
+def _normalize_federated_directory_candidate(raw_candidate: dict, provider: str) -> dict:
+    raw_attributes = raw_candidate.get("attributes")
+    attributes: dict[str, Any] = raw_attributes if isinstance(raw_attributes, dict) else {}
+    org_attribute_name = _keycloak_admin_org_attribute()
+    role_attribute_name = _keycloak_admin_role_attribute()
+    organization_id = _normalize_keycloak_attribute_value(
+        attributes.get(org_attribute_name) or attributes.get("org") or attributes.get("organization_id")
+    )
+    raw_role = _normalize_keycloak_attribute_value(
+        attributes.get(role_attribute_name) or attributes.get("otk_role") or raw_candidate.get(role_attribute_name)
+    )
+    if not raw_role:
+        raw_role = _normalize_keycloak_attribute_value(raw_candidate.get("realmRoles"))
+    role_snapshot = _canonicalize_role(raw_role) if raw_role else None
+    email = _normalize_optional_snapshot(str(raw_candidate.get("email") or "").lower())
+
+    return {
+        "provider": provider,
+        "external_subject": _normalize_external_subject(str(raw_candidate.get("id") or "")),
+        "email": email,
+        "username": _normalize_optional_snapshot(raw_candidate.get("username")),
+        "organization_id": organization_id,
+        "role_snapshot": role_snapshot,
+        "enabled": bool(raw_candidate.get("enabled", True)),
+    }
+
+
+def _resolve_federated_directory_role_validation_status(
+    candidate_role_snapshot: Optional[str],
+    *,
+    expected_role: Optional[str] = None,
+) -> tuple[Optional[str], str]:
+    normalized_role_snapshot = _normalize_optional_snapshot(candidate_role_snapshot)
+    if not normalized_role_snapshot:
+        return None, "missing"
+
+    canonical_role = _canonicalize_role(normalized_role_snapshot)
+    if canonical_role not in TEAM_USER_ALLOWED_ROLES:
+        return canonical_role, "unknown"
+    if expected_role and canonical_role != _canonicalize_role(expected_role):
+        return canonical_role, "mismatch"
+    return canonical_role, "valid"
+
+
+def _evaluate_federated_directory_suggestion(
+    *,
+    tenant_org_id: str,
+    member_id: str,
+    member_email: str,
+    member_role: str,
+    candidate_org_id: Optional[str],
+    candidate_email: Optional[str],
+    candidate_role_snapshot: Optional[str],
+    linked_user_id: Optional[str],
+) -> dict[str, Any]:
+    warnings: list[str] = []
+    normalized_candidate_email = _normalize_optional_snapshot(str(candidate_email or "").lower())
+    normalized_member_email = _normalize_team_user_email(member_email)
+    normalized_role_snapshot, role_validation_status = _resolve_federated_directory_role_validation_status(
+        candidate_role_snapshot,
+        expected_role=member_role,
+    )
+    org_match = bool(candidate_org_id) and candidate_org_id == tenant_org_id
+    email_match = bool(normalized_candidate_email) and normalized_candidate_email == normalized_member_email
+
+    if not candidate_org_id:
+        warnings.append("candidate_org_missing")
+    elif not org_match:
+        warnings.append("candidate_org_mismatch")
+
+    if not normalized_candidate_email:
+        warnings.append("candidate_email_missing")
+    elif not email_match:
+        warnings.append("candidate_email_mismatch")
+
+    if role_validation_status == "missing":
+        warnings.append("candidate_role_missing")
+    elif role_validation_status == "unknown":
+        warnings.append("candidate_role_unknown")
+    elif role_validation_status == "mismatch":
+        warnings.append("candidate_role_mismatch")
+
+    if linked_user_id and linked_user_id != member_id:
+        warnings.append("candidate_already_linked")
+        return {
+            "can_link": False,
+            "match_reason": "already_linked",
+            "org_match": org_match,
+            "email_match": email_match,
+            "role_snapshot": normalized_role_snapshot,
+            "role_validation_status": role_validation_status,
+            "warnings": warnings,
+        }
+
+    if not org_match:
+        match_reason = "org_mismatch"
+        can_link = False
+    elif not email_match:
+        match_reason = "email_mismatch"
+        can_link = False
+    elif role_validation_status in {"missing", "unknown", "mismatch"}:
+        match_reason = f"role_{role_validation_status}"
+        can_link = False
+    else:
+        match_reason = "ready"
+        can_link = True
+
+    if linked_user_id == member_id:
+        warnings.append("candidate_already_linked_to_member")
+
+    return {
+        "can_link": can_link,
+        "match_reason": match_reason,
+        "org_match": org_match,
+        "email_match": email_match,
+        "role_snapshot": normalized_role_snapshot,
+        "role_validation_status": role_validation_status,
+        "warnings": warnings,
+    }
 
 
 @lru_cache(maxsize=1)
@@ -789,7 +1382,7 @@ async def create_team_user(
     auth: dict = Depends(_require_auth),
     pool: ConnectionPool = Depends(get_pool),
 ) -> TeamUserRecord:
-    _require_team_user_write_role(auth)
+    _require_team_user_create_role(auth)
     organization_id = str(auth["org_id"])
     normalized_email = _normalize_team_user_email(body.email)
     normalized_role = _normalize_team_user_role(body.role)
@@ -859,7 +1452,10 @@ async def update_team_user(
     auth: dict = Depends(_require_auth),
     pool: ConnectionPool = Depends(get_pool),
 ) -> TeamUserRecord:
-    _require_team_user_write_role(auth)
+    if body.status is not None and str(body.status).strip().lower() == "disabled":
+        _require_team_user_disable_role(auth)
+    else:
+        _require_team_user_update_role(auth)
     organization_id = str(auth["org_id"])
     try:
         normalized_member_id = str(UUID(member_id))
@@ -946,3 +1542,406 @@ async def update_team_user(
     if not row:
         raise HTTPException(status_code=500, detail="team_user_update_failed")
     return _serialize_team_user_row(row)
+
+
+@app.post("/api/v1/team/users/{member_id}/external-identities", response_model=TeamUserRecord)
+async def link_team_user_external_identity(
+    member_id: str,
+    body: LinkExternalIdentityRequest,
+    request: Request,
+    auth: dict = Depends(_require_auth),
+    pool: ConnectionPool = Depends(get_pool),
+) -> TeamUserRecord:
+    _require_team_federated_identity_link_role(auth)
+    organization_id = str(auth["org_id"])
+    try:
+        normalized_member_id = str(UUID(member_id))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid_team_user_id") from None
+
+    normalized_provider = _normalize_identity_provider(body.provider)
+    normalized_external_subject = _normalize_external_subject(body.external_subject)
+    normalized_email_snapshot = _normalize_optional_snapshot(body.email_snapshot)
+    normalized_role_snapshot = (
+        _canonicalize_role(body.role_snapshot)
+        if _normalize_optional_snapshot(body.role_snapshot)
+        else None
+    )
+
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            current_row = _fetch_team_user_with_identity_summary(cur, organization_id, normalized_member_id)
+            if not current_row:
+                raise HTTPException(status_code=404, detail="team_user_not_found")
+
+            cur.execute(
+                """
+                SELECT user_id
+                FROM external_identities
+                WHERE organization_id = %s
+                  AND provider = %s
+                  AND external_subject = %s
+                """,
+                (organization_id, normalized_provider, normalized_external_subject),
+            )
+            existing_identity = cur.fetchone()
+            existing_user_id = existing_identity.get("user_id") if existing_identity else None
+            if existing_user_id and str(existing_user_id) != normalized_member_id:
+                raise HTTPException(status_code=409, detail="team_external_identity_already_linked")
+
+            cur.execute(
+                """
+                INSERT INTO external_identities (
+                  organization_id,
+                  provider,
+                  external_subject,
+                  user_id,
+                  email_snapshot,
+                  role_snapshot,
+                  last_seen_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, NULL)
+                ON CONFLICT (provider, external_subject, organization_id)
+                DO UPDATE SET
+                  user_id = EXCLUDED.user_id,
+                  email_snapshot = COALESCE(EXCLUDED.email_snapshot, external_identities.email_snapshot),
+                  role_snapshot = COALESCE(EXCLUDED.role_snapshot, external_identities.role_snapshot)
+                """,
+                (
+                    organization_id,
+                    normalized_provider,
+                    normalized_external_subject,
+                    normalized_member_id,
+                    normalized_email_snapshot,
+                    normalized_role_snapshot,
+                ),
+            )
+
+            _record_audit_log(
+                cur,
+                organization_id=organization_id,
+                user_id=str(auth.get("linked_user_id") or auth.get("user_id") or ""),
+                action="team_external_identity_linked",
+                resource_type="team_user",
+                resource_id=normalized_member_id,
+                metadata={
+                    "request_id": request.headers.get("x-request-id"),
+                    "actor_user_id": str(auth.get("user_id") or ""),
+                    "linked_user_id": str(auth.get("linked_user_id") or ""),
+                    "member_id": normalized_member_id,
+                    "provider": normalized_provider,
+                    "external_subject": normalized_external_subject,
+                    "email_snapshot": normalized_email_snapshot,
+                    "role_snapshot": normalized_role_snapshot,
+                    "auth_method": str(auth.get("auth_method") or ""),
+                    "tenant_role": str(auth.get("role") or ""),
+                },
+            )
+
+            row = _fetch_team_user_with_identity_summary(cur, organization_id, normalized_member_id)
+        conn.commit()
+
+    if not row:
+        raise HTTPException(status_code=500, detail="team_external_identity_link_failed")
+    logger.info(
+        "team_external_identity_linked org_id=%s actor_user_id=%s linked_user_id=%s member_id=%s provider=%s external_subject=%s",
+        organization_id,
+        str(auth.get("user_id") or ""),
+        str(auth.get("linked_user_id") or ""),
+        normalized_member_id,
+        normalized_provider,
+        normalized_external_subject,
+    )
+    return _serialize_team_user_row(row)
+
+
+@app.get("/api/v1/team/users/{member_id}/external-identities", response_model=TeamExternalIdentityListResponse)
+async def list_team_user_external_identities(
+    member_id: str,
+    auth: dict = Depends(_require_auth),
+    pool: ConnectionPool = Depends(get_pool),
+) -> TeamExternalIdentityListResponse:
+    _require_team_federated_identity_read_role(auth)
+    organization_id = str(auth["org_id"])
+    try:
+        normalized_member_id = str(UUID(member_id))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid_team_user_id") from None
+
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            current_row = _fetch_team_user_with_identity_summary(cur, organization_id, normalized_member_id)
+            if not current_row:
+                raise HTTPException(status_code=404, detail="team_user_not_found")
+            rows = _fetch_team_user_external_identities(cur, organization_id, normalized_member_id)
+
+    return TeamExternalIdentityListResponse(data=[_serialize_external_identity_row(row) for row in rows])
+
+
+@app.delete("/api/v1/team/users/{member_id}/external-identities", response_model=TeamUserRecord)
+async def unlink_team_user_external_identity(
+    member_id: str,
+    body: UnlinkExternalIdentityRequest,
+    request: Request,
+    auth: dict = Depends(_require_auth),
+    pool: ConnectionPool = Depends(get_pool),
+) -> TeamUserRecord:
+    _require_team_federated_identity_unlink_role(auth)
+    organization_id = str(auth["org_id"])
+    try:
+        normalized_member_id = str(UUID(member_id))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid_team_user_id") from None
+
+    normalized_provider = _normalize_identity_provider(body.provider)
+    normalized_external_subject = _normalize_external_subject(body.external_subject)
+
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            current_row = _fetch_team_user_with_identity_summary(cur, organization_id, normalized_member_id)
+            if not current_row:
+                raise HTTPException(status_code=404, detail="team_user_not_found")
+
+            cur.execute(
+                """
+                DELETE FROM external_identities
+                WHERE organization_id = %s
+                  AND user_id = %s
+                  AND provider = %s
+                  AND external_subject = %s
+                RETURNING provider, external_subject
+                """,
+                (organization_id, normalized_member_id, normalized_provider, normalized_external_subject),
+            )
+            deleted_row = cur.fetchone()
+            if not deleted_row:
+                raise HTTPException(status_code=404, detail="team_external_identity_not_found")
+
+            _record_audit_log(
+                cur,
+                organization_id=organization_id,
+                user_id=str(auth.get("linked_user_id") or auth.get("user_id") or ""),
+                action="team_external_identity_unlinked",
+                resource_type="team_user",
+                resource_id=normalized_member_id,
+                metadata={
+                    "request_id": request.headers.get("x-request-id"),
+                    "actor_user_id": str(auth.get("user_id") or ""),
+                    "linked_user_id": str(auth.get("linked_user_id") or ""),
+                    "member_id": normalized_member_id,
+                    "provider": normalized_provider,
+                    "external_subject": normalized_external_subject,
+                    "auth_method": str(auth.get("auth_method") or ""),
+                    "tenant_role": str(auth.get("role") or ""),
+                },
+            )
+
+            row = _fetch_team_user_with_identity_summary(cur, organization_id, normalized_member_id)
+        conn.commit()
+
+    if not row:
+        raise HTTPException(status_code=500, detail="team_external_identity_unlink_failed")
+    logger.info(
+        "team_external_identity_unlinked org_id=%s actor_user_id=%s linked_user_id=%s member_id=%s provider=%s external_subject=%s",
+        organization_id,
+        str(auth.get("user_id") or ""),
+        str(auth.get("linked_user_id") or ""),
+        normalized_member_id,
+        normalized_provider,
+        normalized_external_subject,
+    )
+    return _serialize_team_user_row(row)
+
+
+@app.get("/api/v1/team/federated-directory/users", response_model=FederatedDirectoryUserListResponse)
+async def list_federated_directory_users(
+    request: Request,
+    query: str,
+    limit: int = 20,
+    auth: dict = Depends(_require_auth),
+    pool: ConnectionPool = Depends(get_pool),
+) -> FederatedDirectoryUserListResponse:
+    _require_team_federated_directory_search_role(auth)
+    organization_id = str(auth["org_id"])
+    normalized_query = _normalize_federated_directory_query(query)
+    normalized_limit = _normalize_federated_directory_limit(limit)
+    provider = "keycloak"
+    client = _get_keycloak_directory_client()
+    raw_candidates = client.search_users(query=normalized_query, limit=normalized_limit)
+    results: list[FederatedDirectoryUserRecord] = []
+
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            for raw_candidate in raw_candidates:
+                candidate = _normalize_federated_directory_candidate(raw_candidate, provider)
+                link_row = _fetch_external_identity_link_summary(
+                    cur,
+                    organization_id,
+                    provider,
+                    candidate["external_subject"],
+                )
+                linked_user_id = str(link_row.get("user_id")) if link_row and link_row.get("user_id") else None
+                linked_user_email = str(link_row.get("email")) if link_row and link_row.get("email") else None
+                local_email_user = (
+                    _fetch_team_user_by_email(cur, organization_id, candidate["email"])
+                    if candidate.get("email") and candidate.get("organization_id") == organization_id
+                    else None
+                )
+                _, role_validation_status = _resolve_federated_directory_role_validation_status(candidate.get("role_snapshot"))
+                warnings: list[str] = []
+
+                if not candidate.get("organization_id"):
+                    warnings.append("candidate_org_missing")
+                elif candidate["organization_id"] != organization_id:
+                    warnings.append("candidate_org_mismatch")
+
+                if not candidate.get("email"):
+                    warnings.append("candidate_email_missing")
+
+                if role_validation_status == "missing":
+                    warnings.append("candidate_role_missing")
+                elif role_validation_status == "unknown":
+                    warnings.append("candidate_role_unknown")
+
+                if linked_user_id:
+                    match_status = "linked"
+                elif local_email_user:
+                    match_status = "suggested"
+                elif candidate.get("organization_id") == organization_id:
+                    match_status = "org_match_only"
+                else:
+                    match_status = "org_mismatch"
+
+                results.append(
+                    FederatedDirectoryUserRecord(
+                        provider=provider,
+                        external_subject=candidate["external_subject"],
+                        email=candidate.get("email"),
+                        username=candidate.get("username"),
+                        organization_id=candidate.get("organization_id"),
+                        role_snapshot=candidate.get("role_snapshot"),
+                        enabled=bool(candidate.get("enabled")),
+                        match_status=match_status,
+                        linked_user_id=linked_user_id,
+                        linked_user_email=linked_user_email,
+                        role_validation_status=role_validation_status,
+                        warnings=warnings,
+                    )
+                )
+
+            _record_audit_log(
+                cur,
+                organization_id=organization_id,
+                user_id=str(auth.get("linked_user_id") or auth.get("user_id") or ""),
+                action="team_federated_directory_searched",
+                resource_type="team_federated_directory",
+                resource_id=None,
+                metadata={
+                    "request_id": request.headers.get("x-request-id"),
+                    "actor_user_id": str(auth.get("user_id") or ""),
+                    "linked_user_id": str(auth.get("linked_user_id") or ""),
+                    "query": normalized_query,
+                    "provider": provider,
+                    "result_count": len(results),
+                    "auth_method": str(auth.get("auth_method") or ""),
+                    "tenant_role": str(auth.get("role") or ""),
+                },
+            )
+        conn.commit()
+
+    return FederatedDirectoryUserListResponse(data=results)
+
+
+@app.post(
+    "/api/v1/team/federated-directory/suggestions",
+    response_model=ValidateFederatedDirectorySuggestionResponse,
+)
+async def validate_federated_directory_suggestion(
+    body: ValidateFederatedDirectorySuggestionRequest,
+    request: Request,
+    auth: dict = Depends(_require_auth),
+    pool: ConnectionPool = Depends(get_pool),
+) -> ValidateFederatedDirectorySuggestionResponse:
+    _require_team_federated_directory_suggestion_role(auth)
+    organization_id = str(auth["org_id"])
+    normalized_provider = _normalize_identity_provider(body.provider)
+    if normalized_provider != "keycloak":
+        raise HTTPException(status_code=422, detail="team_external_identity_provider_invalid")
+
+    try:
+        normalized_member_id = str(UUID(body.member_id))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid_team_user_id") from None
+
+    normalized_external_subject = _normalize_external_subject(body.external_subject)
+    client = _get_keycloak_directory_client()
+    raw_candidate = client.get_user(external_subject=normalized_external_subject)
+    candidate = _normalize_federated_directory_candidate(raw_candidate, normalized_provider)
+
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            member_row = _fetch_team_user_with_identity_summary(cur, organization_id, normalized_member_id)
+            if not member_row:
+                raise HTTPException(status_code=404, detail="team_user_not_found")
+
+            link_row = _fetch_external_identity_link_summary(
+                cur,
+                organization_id,
+                normalized_provider,
+                candidate["external_subject"],
+            )
+            linked_user_id = str(link_row.get("user_id")) if link_row and link_row.get("user_id") else None
+            linked_user_email = str(link_row.get("email")) if link_row and link_row.get("email") else None
+            evaluation = _evaluate_federated_directory_suggestion(
+                tenant_org_id=organization_id,
+                member_id=normalized_member_id,
+                member_email=str(member_row.get("email") or ""),
+                member_role=str(member_row.get("role") or "ANALYST"),
+                candidate_org_id=candidate.get("organization_id"),
+                candidate_email=candidate.get("email"),
+                candidate_role_snapshot=candidate.get("role_snapshot"),
+                linked_user_id=linked_user_id,
+            )
+
+            _record_audit_log(
+                cur,
+                organization_id=organization_id,
+                user_id=str(auth.get("linked_user_id") or auth.get("user_id") or ""),
+                action="team_federated_directory_suggestion_validated",
+                resource_type="team_user",
+                resource_id=normalized_member_id,
+                metadata={
+                    "request_id": request.headers.get("x-request-id"),
+                    "actor_user_id": str(auth.get("user_id") or ""),
+                    "linked_user_id": str(auth.get("linked_user_id") or ""),
+                    "member_id": normalized_member_id,
+                    "provider": normalized_provider,
+                    "external_subject": candidate["external_subject"],
+                    "candidate_email": candidate.get("email"),
+                    "candidate_org": candidate.get("organization_id"),
+                    "role_snapshot": evaluation["role_snapshot"],
+                    "role_validation_status": evaluation["role_validation_status"],
+                    "match_reason": evaluation["match_reason"],
+                    "warnings": evaluation["warnings"],
+                    "auth_method": str(auth.get("auth_method") or ""),
+                    "tenant_role": str(auth.get("role") or ""),
+                },
+            )
+        conn.commit()
+
+    return ValidateFederatedDirectorySuggestionResponse(
+        can_link=bool(evaluation["can_link"]),
+        match_reason=str(evaluation["match_reason"]),
+        org_match=bool(evaluation["org_match"]),
+        email_match=bool(evaluation["email_match"]),
+        provider=normalized_provider,
+        external_subject=candidate["external_subject"],
+        candidate_email=candidate.get("email"),
+        candidate_username=candidate.get("username"),
+        candidate_org=candidate.get("organization_id"),
+        role_snapshot=evaluation["role_snapshot"],
+        role_validation_status=str(evaluation["role_validation_status"]),
+        linked_user_id=linked_user_id,
+        linked_user_email=linked_user_email,
+        warnings=list(evaluation["warnings"]),
+    )

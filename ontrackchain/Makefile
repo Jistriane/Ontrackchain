@@ -1,6 +1,7 @@
-.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle run-regulatory-readiness-bundle-local render-regulatory-readiness-bundle run-oidc-readiness-bundle run-oidc-readiness-bundle-local render-oidc-readiness-bundle validate-serious-window-artifact validate-serious-window-artifact-local render-staging-war-room-action-plan build-operational-alerts-rca-summary run-staging-window-status-snapshot-local render-staging-window-status-snapshot render-staging-window-status-snapshot-delta render-staging-governance-dashboard render-staging-unblock-checklist render-staging-comms-summary render-staging-executive-bullet render-staging-governance-consolidated-json notify-slack-governance evaluate-governance-gate track-governance-history render-governance-gate-history-dashboard update-governance-metrics refresh-staging-war-room-governance-local apply-regulatory-work-items-migration apply-regulatory-work-items-contract-guardrails-migration check-work-items-contracts validate-work-items-runtime-local smoke-work-items-ownership-backend alert-pagerduty-governance-blocks generate-environment-promotion-policy generate-compliance-report generate-compliance-reports-all evaluate-auto-promotion-readiness check-workflow-hygiene
+.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle run-regulatory-readiness-bundle-local render-regulatory-readiness-bundle run-oidc-readiness-bundle run-oidc-readiness-bundle-local render-oidc-readiness-bundle validate-serious-window-artifact validate-serious-window-artifact-local render-staging-war-room-action-plan build-operational-alerts-rca-summary run-staging-window-status-snapshot-local render-staging-window-status-snapshot render-staging-window-status-snapshot-delta render-staging-governance-dashboard render-staging-unblock-checklist render-staging-comms-summary render-staging-executive-bullet render-staging-governance-consolidated-json notify-slack-governance evaluate-governance-gate track-governance-history render-governance-gate-history-dashboard update-governance-metrics refresh-staging-war-room-governance-local apply-regulatory-work-items-migration apply-regulatory-work-items-contract-guardrails-migration check-work-items-contracts validate-work-items-runtime-local smoke-work-items-ownership-backend alert-pagerduty-governance-blocks generate-environment-promotion-policy generate-compliance-report generate-compliance-reports-all evaluate-auto-promotion-readiness check-workflow-hygiene prune-governance-weekly-archive prune-governance-weekly-archive-dry-run
 
-PYTHON ?= python
+PYTHON ?= python3
+GOVERNANCE_WEEKLY_ARCHIVE_RETENTION_DAYS ?= 90
 WINDOW_ID ?= stg-2026-07-06-a
 MODE ?= baseline
 ENVIRONMENT_NAME ?= staging-serious
@@ -73,10 +74,13 @@ help:
 	@echo "  make apply-regulatory-work-items-migration"
 	@echo "  make apply-regulatory-work-items-contract-guardrails-migration"
 	@echo "  make apply-evidence-package-seals-migration"
+	@echo "  make apply-team-users-directory-migration"
 	@echo "  make check-work-items-contracts"
 	@echo "  make validate-work-items-runtime-local"
 	@echo "  make smoke-work-items-ownership-backend"
 	@echo "  make check-workflow-hygiene"
+	@echo "  make prune-governance-weekly-archive [GOVERNANCE_WEEKLY_ARCHIVE_RETENTION_DAYS=90]"
+	@echo "  make prune-governance-weekly-archive-dry-run [GOVERNANCE_WEEKLY_ARCHIVE_RETENTION_DAYS=90]"
 
 help-serious-window:
 	@echo "Rito da janela seria:"
@@ -505,6 +509,10 @@ apply-evidence-package-seals-migration:
 	@cat infra/postgres/migrations/0015_evidence_package_seals.sql | \
 		docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U ontrackchain -d ontrackchain
 
+apply-team-users-directory-migration:
+	@cat infra/postgres/migrations/0016_team_users_directory.sql | \
+		docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U ontrackchain -d ontrackchain
+
 check-work-items-contracts:
 	@python3 scripts/run_work_item_contract_suite.py
 
@@ -559,3 +567,12 @@ evaluate-auto-promotion-readiness:
 check-workflow-hygiene:
 	@$(PYTHON) -m unittest tests.test_check_workflow_hygiene
 	@$(PYTHON) scripts/check_workflow_hygiene.py
+
+prune-governance-weekly-archive:
+	@$(PYTHON) scripts/prune_governance_weekly_archive.py \
+		--days "$(GOVERNANCE_WEEKLY_ARCHIVE_RETENTION_DAYS)"
+
+prune-governance-weekly-archive-dry-run:
+	@$(PYTHON) scripts/prune_governance_weekly_archive.py \
+		--days "$(GOVERNANCE_WEEKLY_ARCHIVE_RETENTION_DAYS)" \
+		--dry-run

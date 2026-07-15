@@ -70,7 +70,32 @@ logger = logging.getLogger("compliance_api")
 SUPPORTED_CHAINS = {"ethereum", "polygon", "bsc", "arbitrum", "base", "bitcoin"}
 QUOTE_TTL_MINUTES = 15
 CALCULATION_VERSION = "v1.0"
-COMPLIANCE_WRITE_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
+COMPLIANCE_ESTIMATE_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
+COMPLIANCE_START_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
+COMPLIANCE_CASE_REPORT_ALLOWED_ROLES = {"ADMIN", "ANALYST"}
+COUNTERPARTY_READ_ALLOWED_ROLES = {
+    "ADMIN",
+    "ANALYST",
+    "COMPLIANCE_OFFICER",
+    "OTK_COMPLIANCE_OFFICER",
+    "REVIEWER",
+    "OTK_REVIEWER",
+}
+COUNTERPARTY_CREATE_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
+KYC_WALLET_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
+RISK_CHECK_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
+DUE_DILIGENCE_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
+SOURCE_OF_FUNDS_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
+SANCTIONS_CHECK_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
+BLOCK_EVALUATE_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
+BLOCK_LIFT_ALLOWED_ROLES = {"ADMIN", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
+COUNTERPARTY_REVIEW_ALLOWED_ROLES = {
+    "ADMIN",
+    "COMPLIANCE_OFFICER",
+    "OTK_COMPLIANCE_OFFICER",
+    "REVIEWER",
+    "OTK_REVIEWER",
+}
 
 COMPLIANCE_OPERATION_ALIASES = {
     "kyc": "kyc_wallet",
@@ -272,7 +297,7 @@ def _require_role_with_audit(
     return role
 
 
-def _require_compliance_write_role(
+def _require_compliance_start_role(
     pool: ConnectionPool,
     *,
     organization_id: str,
@@ -280,7 +305,6 @@ def _require_compliance_write_role(
     external_user_id: Optional[str],
     request_id: str,
     x_role: Optional[str],
-    resource_type: str,
     resource_id: Optional[str | UUID],
     endpoint: str,
     method: str,
@@ -292,9 +316,345 @@ def _require_compliance_write_role(
         external_user_id=external_user_id,
         request_id=request_id,
         x_role=x_role,
-        allowed_roles=COMPLIANCE_WRITE_ALLOWED_ROLES,
-        detail="compliance_write_role_required",
-        resource_type=resource_type,
+        allowed_roles=COMPLIANCE_START_ALLOWED_ROLES,
+        detail="compliance_start_role_required",
+        resource_type="compliance_case_start",
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _require_compliance_estimate_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=COMPLIANCE_ESTIMATE_ALLOWED_ROLES,
+        detail="compliance_estimate_role_required",
+        resource_type="compliance_quote",
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _require_compliance_case_report_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=COMPLIANCE_CASE_REPORT_ALLOWED_ROLES,
+        detail="compliance_case_report_role_required",
+        resource_type="compliance_case_report",
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _require_counterparty_create_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=COUNTERPARTY_CREATE_ALLOWED_ROLES,
+        detail="counterparty_create_role_required",
+        resource_type="counterparty_creation",
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _require_counterparty_read_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=COUNTERPARTY_READ_ALLOWED_ROLES,
+        detail="counterparty_read_role_required",
+        resource_type="counterparty_read",
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _require_kyc_wallet_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=KYC_WALLET_ALLOWED_ROLES,
+        detail="kyc_wallet_role_required",
+        resource_type="compliance_screening",
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _require_risk_check_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=RISK_CHECK_ALLOWED_ROLES,
+        detail="risk_check_role_required",
+        resource_type="compliance_screening",
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _require_due_diligence_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=DUE_DILIGENCE_ALLOWED_ROLES,
+        detail="due_diligence_role_required",
+        resource_type="compliance_screening",
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _require_source_of_funds_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=SOURCE_OF_FUNDS_ALLOWED_ROLES,
+        detail="source_of_funds_role_required",
+        resource_type="compliance_screening",
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _require_sanctions_check_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=SANCTIONS_CHECK_ALLOWED_ROLES,
+        detail="sanctions_check_role_required",
+        resource_type="sanctions_screening",
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _require_counterparty_review_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=COUNTERPARTY_REVIEW_ALLOWED_ROLES,
+        detail="counterparty_review_role_required",
+        resource_type="counterparty_review",
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _require_block_evaluate_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=BLOCK_EVALUATE_ALLOWED_ROLES,
+        detail="block_evaluate_role_required",
+        resource_type="preventive_block_evaluation",
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _require_block_lift_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=BLOCK_LIFT_ALLOWED_ROLES,
+        detail="block_lift_role_required",
+        resource_type="preventive_block_lift",
         resource_id=resource_id,
         endpoint=endpoint,
         method=method,
@@ -1408,11 +1768,28 @@ async def estimate_compliance(
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
     x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
     x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
     x_plan: Annotated[Optional[str], Header(alias="X-Plan")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> EstimateComplianceResponse:
     org_id = _require_org_id(x_org_id)
     plan = normalize_plan(x_plan or "professional")
-    effective_user_id, _ = _resolve_actor_ids(external_user_id=x_user_id, linked_user_id=x_linked_user_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_compliance_estimate_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_id=None,
+        endpoint="/api/v1/compliance/estimate",
+        method="POST",
+    )
     chain = _validate_chain(body.chain)
     quote_payload = _build_compliance_quote_payload(
         address=body.address,
@@ -1479,14 +1856,13 @@ async def start_compliance(
         external_user_id=x_user_id,
         linked_user_id=x_linked_user_id,
     )
-    _require_compliance_write_role(
+    _require_compliance_start_role(
         pool,
         organization_id=org_id,
         user_id=effective_user_id,
         external_user_id=external_actor_user_id,
         request_id=request_id,
         x_role=x_role,
-        resource_type="case",
         resource_id=None,
         endpoint="/api/v1/compliance/start",
         method="POST",
@@ -1804,6 +2180,17 @@ async def generate_compliance_report(
         external_user_id=x_user_id,
         linked_user_id=x_linked_user_id,
     )
+    _require_compliance_case_report_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_id=case_id,
+        endpoint="/api/v1/compliance/cases/{case_id}/report",
+        method="POST",
+    )
     with pool.connection() as conn:
         _apply_rls_context(conn, org_id)
         with conn.cursor() as cur:
@@ -1842,6 +2229,16 @@ async def generate_compliance_report(
                   content_type, file_hash, onchain_hash, is_coaf_ready, created_at
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                ON CONFLICT (external_report_id)
+                DO UPDATE SET
+                  case_id = EXCLUDED.case_id,
+                  organization_id = EXCLUDED.organization_id,
+                  report_type_requested = EXCLUDED.report_type_requested,
+                  report_type = EXCLUDED.report_type,
+                  content_type = EXCLUDED.content_type,
+                  file_hash = EXCLUDED.file_hash,
+                  onchain_hash = EXCLUDED.onchain_hash,
+                  is_coaf_ready = EXCLUDED.is_coaf_ready
                 RETURNING id
                 """,
                 (
@@ -1894,9 +2291,26 @@ async def kyc_wallet(
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
     x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
     x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
     x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> KycWalletResponse:
+    org_id = _require_org_id(x_org_id)
     request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_kyc_wallet_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_id=body.address,
+        endpoint="/api/v1/compliance/kyc-wallet",
+        method="POST",
+    )
     normalized_chain = _validate_chain(body.chain)
     provider_outcome = screen_address(
         provider_name=settings.compliance_risk_provider,
@@ -1925,9 +2339,9 @@ async def kyc_wallet(
     )
     _record_optional_compliance_audit(
         pool=pool,
-        org_id=x_org_id,
-        user_id=x_user_id,
-        linked_user_id=x_linked_user_id,
+        org_id=org_id,
+        user_id=effective_user_id,
+        linked_user_id=external_actor_user_id,
         request_id=request_id,
         action="compliance_kyc_wallet_checked",
         resource_type="address",
@@ -1940,6 +2354,7 @@ async def kyc_wallet(
             "capability_status": response.capability_status,
             "risk_score": response.risk_score,
             "recommendation": response.recommendation,
+            "external_user_id": external_actor_user_id,
         },
     )
     return response
@@ -1952,6 +2367,7 @@ async def risk_check(
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
     x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
     x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
     x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> RiskCheckResponse:
     org_id = _require_org_id(x_org_id)
@@ -1959,6 +2375,17 @@ async def risk_check(
     effective_user_id, external_actor_user_id = _resolve_actor_ids(
         external_user_id=x_user_id,
         linked_user_id=x_linked_user_id,
+    )
+    _require_risk_check_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_id=body.address,
+        endpoint="/api/v1/compliance/risk-check",
+        method="POST",
     )
     normalized_chain = _validate_chain(body.chain)
     provider_outcome = screen_address(
@@ -2024,9 +2451,26 @@ async def due_diligence(
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
     x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
     x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
     x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> DueDiligenceResponse:
+    org_id = _require_org_id(x_org_id)
     request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_due_diligence_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_id=body.address,
+        endpoint="/api/v1/compliance/due-diligence",
+        method="POST",
+    )
     normalized_chain = _validate_chain(body.chain)
     capability = _build_operation_capability("due_diligence")
     response = DueDiligenceResponse(
@@ -2043,9 +2487,9 @@ async def due_diligence(
     )
     _record_optional_compliance_audit(
         pool=pool,
-        org_id=x_org_id,
-        user_id=x_user_id,
-        linked_user_id=x_linked_user_id,
+        org_id=org_id,
+        user_id=effective_user_id,
+        linked_user_id=external_actor_user_id,
         request_id=request_id,
         action="compliance_due_diligence_checked",
         resource_type="address",
@@ -2058,6 +2502,7 @@ async def due_diligence(
             "capability_status": response.capability_status,
             "delivery_mode": capability["delivery_mode"],
             "counterparty_context_present": bool(body.counterparty_context.strip()),
+            "external_user_id": external_actor_user_id,
         },
     )
     return response
@@ -2070,9 +2515,26 @@ async def source_of_funds(
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
     x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
     x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
     x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> SourceOfFundsResponse:
+    org_id = _require_org_id(x_org_id)
     request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_source_of_funds_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_id=body.address,
+        endpoint="/api/v1/compliance/source-of-funds",
+        method="POST",
+    )
     normalized_chain = _validate_chain(body.chain)
     capability = _build_operation_capability("source_of_funds")
     response = SourceOfFundsResponse(
@@ -2092,9 +2554,9 @@ async def source_of_funds(
     )
     _record_optional_compliance_audit(
         pool=pool,
-        org_id=x_org_id,
-        user_id=x_user_id,
-        linked_user_id=x_linked_user_id,
+        org_id=org_id,
+        user_id=effective_user_id,
+        linked_user_id=external_actor_user_id,
         request_id=request_id,
         action="compliance_source_of_funds_checked",
         resource_type="address",
@@ -2108,6 +2570,7 @@ async def source_of_funds(
             "delivery_mode": capability["delivery_mode"],
             "amount": body.amount,
             "purpose": body.purpose,
+            "external_user_id": external_actor_user_id,
         },
     )
     return response
@@ -2122,9 +2585,26 @@ async def sanctions_check(
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
     x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
     x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
     x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> SanctionsCheckResponse:
+    org_id = _require_org_id(x_org_id)
     request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_sanctions_check_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_id=address,
+        endpoint="/api/v1/compliance/sanctions-check/{address}",
+        method="GET",
+    )
     normalized_chain = _validate_chain(chain)
     resolved_lists = [s.strip() for s in lists.split(",") if s.strip()]
     capability = _build_operation_capability("sanctions_check")
@@ -2150,9 +2630,9 @@ async def sanctions_check(
     )
     _record_optional_compliance_audit(
         pool=pool,
-        org_id=x_org_id,
-        user_id=x_user_id,
-        linked_user_id=x_linked_user_id,
+        org_id=org_id,
+        user_id=effective_user_id,
+        linked_user_id=external_actor_user_id,
         request_id=request_id,
         action="compliance_sanctions_checked",
         resource_type="address",
@@ -2167,6 +2647,7 @@ async def sanctions_check(
             "lists": resolved_lists,
             "matched_lists": response.matched_lists,
             "screening_duration_ms": screening.screening_duration_ms,
+            "external_user_id": external_actor_user_id,
         },
     )
     _record_optional_compliance_evidence(
@@ -2204,14 +2685,13 @@ async def evaluate_block(
         external_user_id=x_user_id,
         linked_user_id=x_linked_user_id,
     )
-    _require_compliance_write_role(
+    _require_block_evaluate_role(
         pool,
         organization_id=org_id,
         user_id=effective_user_id,
         external_user_id=external_actor_user_id,
         request_id=request_id,
         x_role=x_role,
-        resource_type="preventive_block",
         resource_id=None,
         endpoint="/api/v1/compliance/blocks/evaluate",
         method="POST",
@@ -2394,14 +2874,13 @@ async def lift_block(
     )
     if not effective_user_id:
         raise HTTPException(status_code=401, detail="missing_user_context")
-    _require_compliance_write_role(
+    _require_block_lift_role(
         pool,
         organization_id=org_id,
         user_id=effective_user_id,
         external_user_id=external_actor_user_id,
         request_id=request_id,
         x_role=x_role,
-        resource_type="preventive_block",
         resource_id=block_id,
         endpoint="/api/v1/compliance/blocks/{block_id}/lift",
         method="POST",
@@ -2498,14 +2977,13 @@ async def create_counterparty(
     )
     if not effective_user_id:
         raise HTTPException(status_code=401, detail="missing_user_context")
-    _require_compliance_write_role(
+    _require_counterparty_create_role(
         pool,
         organization_id=org_id,
         user_id=effective_user_id,
         external_user_id=external_actor_user_id,
         request_id=request_id,
         x_role=x_role,
-        resource_type="counterparty",
         resource_id=None,
         endpoint="/api/v1/compliance/counterparties",
         method="POST",
@@ -2657,8 +3135,28 @@ async def list_counterparties(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> CounterpartyListResponse:
     org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_counterparty_read_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_id=None,
+        endpoint="/api/v1/compliance/counterparties",
+        method="GET",
+    )
     items: list[CounterpartyListItem] = []
     total = 0
     with pool.connection() as conn:
@@ -2740,14 +3238,13 @@ async def update_counterparty_review(
     )
     if not effective_user_id:
         raise HTTPException(status_code=401, detail="missing_user_context")
-    _require_compliance_write_role(
+    _require_counterparty_review_role(
         pool,
         organization_id=org_id,
         user_id=effective_user_id,
         external_user_id=external_actor_user_id,
         request_id=request_id,
         x_role=x_role,
-        resource_type="counterparty",
         resource_id=counterparty_id,
         endpoint="/api/v1/compliance/counterparties/{counterparty_id}/review",
         method="PATCH",

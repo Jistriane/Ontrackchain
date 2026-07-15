@@ -13,6 +13,19 @@ export type AuthConfigResponse = {
   };
 };
 
+type OidcTokenResponse = {
+  access_token?: string;
+};
+
+export type JwtClaims = {
+  sub: string;
+  org?: string;
+  org_id?: string;
+  email?: string;
+  otk_role?: string;
+  [key: string]: unknown;
+};
+
 export const OIDC_LOGIN_STATE_KEY = "otc_oidc_login_state";
 export const OIDC_CALLBACK_MESSAGE_KEY = "otc_oidc_callback_message";
 export const INVALID_CLAIMS_MESSAGE =
@@ -111,6 +124,57 @@ function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readOptionalString(value: unknown) {
+  return typeof value === "string" ? value : undefined;
+}
+
+function readOptionalBoolean(value: unknown) {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function parseAuthConfigResponse(payload: unknown): AuthConfigResponse {
+  if (!isJsonObject(payload)) {
+    return {};
+  }
+
+  const mfa = isJsonObject(payload.mfa)
+    ? {
+        provider_homologated: readOptionalBoolean(payload.mfa.provider_homologated)
+      }
+    : undefined;
+
+  const oidc = isJsonObject(payload.oidc)
+    ? {
+        authorization_url: readOptionalString(payload.oidc.authorization_url) ?? null,
+        client_id: readOptionalString(payload.oidc.client_id) ?? null,
+        token_url: readOptionalString(payload.oidc.token_url) ?? null
+      }
+    : undefined;
+
+  return {
+    auth_mode: payload.auth_mode === "dev" || payload.auth_mode === "oidc" ? payload.auth_mode : undefined,
+    effective_auth_mode:
+      payload.effective_auth_mode === "dev" || payload.effective_auth_mode === "oidc"
+        ? payload.effective_auth_mode
+        : undefined,
+    mfa,
+    oidc
+  };
+}
+
+function parseOidcTokenResponse(payload: unknown): OidcTokenResponse | null {
+  if (!isJsonObject(payload)) {
+    return null;
+  }
+  return {
+    access_token: readOptionalString(payload.access_token)
+  };
+}
+
 export function escapedHost(url: string) {
   return escapeRegex(new URL(url).host);
 }
@@ -118,7 +182,7 @@ export function escapedHost(url: string) {
 export async function readAuthConfig(request: APIRequestContext) {
   const configRes = await request.get("/auth/config");
   expect(configRes.status()).toBe(200);
-  return (await configRes.json()) as AuthConfigResponse;
+  return parseAuthConfigResponse(await configRes.json().catch(() => null));
 }
 
 function resolveServerSideTokenUrl(publicTokenUrl: string): { url: string; hostHeader?: string } {
@@ -179,7 +243,7 @@ async function tryOidcPasswordGrantToken(
     return null;
   }
 
-  const payload = (await response.json().catch(() => null)) as { access_token?: string } | null;
+  const payload = parseOidcTokenResponse(await response.json().catch(() => null));
   return payload?.access_token?.trim() || null;
 }
 
@@ -321,13 +385,25 @@ export async function readSessionToken(page: Page): Promise<string> {
   return token!;
 }
 
-export function decodeJwtPayload(token: string) {
+export function decodeJwtPayload(token: string): JwtClaims {
   const payload = token.split(".")[1];
   expect(payload).toBeTruthy();
-  return JSON.parse(Buffer.from(payload!, "base64url").toString("utf8")) as {
-    sub: string;
-    org?: string;
-    email?: string;
-    otk_role?: string;
+  const rawPayload = JSON.parse(Buffer.from(payload!, "base64url").toString("utf8")) as unknown;
+  expect(isJsonObject(rawPayload)).toBeTruthy();
+  if (!isJsonObject(rawPayload)) {
+    throw new Error("JWT payload is not a JSON object.");
+  }
+  const decoded: JwtClaims = {
+    ...rawPayload,
+    sub: readOptionalString(rawPayload.sub) ?? ""
   };
+  expect(decoded.sub).toBeTruthy();
+  decoded.org = readOptionalString(rawPayload.org);
+  decoded.org_id = readOptionalString(rawPayload.org_id);
+  decoded.email = readOptionalString(rawPayload.email);
+  decoded.otk_role = readOptionalString(rawPayload.otk_role);
+  if (!decoded.org && decoded.org_id) {
+    decoded.org = decoded.org_id;
+  }
+  return decoded;
 }

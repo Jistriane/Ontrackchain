@@ -12,9 +12,9 @@ Este documento existe para evitar que o percentual global do projeto vire percep
 
 ## Leituras Oficiais Atuais
 
-- `92%` de construcao tecnica
+- `93%` de construcao tecnica
 - `79%` de prontidao regulatoria/operacional
-- `88%` de maturidade consolidada
+- `89%` de maturidade consolidada
 
 ## Como Ler o Scorecard
 
@@ -52,12 +52,12 @@ KPI Total = (Construcao Tecnica x 0,70) + (Prontidao Regulatoria x 0,30)
 Aplicacao atual:
 
 ```text
-(92 x 0,70) + (79 x 0,30) = 88,1
+(93 x 0,70) + (79 x 0,30) = 88,8
 ```
 
 Leitura executiva oficial:
 
-- `88%`
+- `89%`
 
 ## Matriz Tecnica
 
@@ -65,22 +65,22 @@ Leitura executiva oficial:
 | --- | ---: | ---: | --- |
 | Arquitetura e Runtime | 13% | 94% | stack coerente, compose operacional, boundaries claros e migrations reguladas |
 | Auth e Identidade | 8% | 88% | trilho serio desenhado, runtime bom, homologacao externa ainda pendente |
-| Investigation + Billing | 9% | 90% | worker real, fallback, trilha financeira operacional e superfícies administrativas endurecidas em `billing/balance` e `billing/reconciliation` |
-| Compliance Core | 18% | 91% | sancoes locais, bloqueios, contrapartes, ROS/COAF, `work-items` multiusuario e metadata canônica padronizada entre frontend/backend/contrato |
-| Monitoring Operacional | 8% | 92% | backlog global, triagem, export auditado, RCA cross-domain leve derivada de `work-items` e surface operacional coerente com preset de governanca |
+| Investigation + Billing | 9% | 91% | worker real, fallback, trilha financeira operacional, cockpit desacoplado de `team/users` e superfícies administrativas endurecidas em `billing/balance` e `billing/reconciliation` |
+| Compliance Core | 18% | 92% | sancoes locais, bloqueios, contrapartes, ROS/COAF, `work-items` multiusuario e enforcement fino ampliado para `estimate`, `start`, `report`, `counterparties`, `due-diligence` e `source-of-funds` |
+| Monitoring Operacional | 8% | 93% | backlog global, triagem, export auditado, RCA cross-domain leve derivada de `work-items` e alinhamento preventivo entre `/monitoring` e `/alerts` |
 | Reports e Evidencias | 12% | 95% | `evidence_trail`, hashes, bundles, ROS auditado e selagem institucional forte DD/SoF integrados ponta a ponta |
-| Frontend Operacional | 6% | 94% | todos 7 cockpits usam fila compartilhada, paineis de historico consolidados, i18n tri-locale e deep-links operacionais entre `audit` e `evidence` |
-| Observabilidade e Alerting | 7% | 89% | boa cobertura e bundles operacionais mais consistentes; alertas agora carregam trilha leve de RCA entre `alerts`, `/monitoring`, export administrativo e governanca, mas ainda faltam sinais de seguranca mais fortes e recorrencia real |
+| Frontend Operacional | 6% | 95% | cockpits principais com RBAC preventivo mais coerente, paineis de historico consolidados, i18n tri-locale e deep-links operacionais entre `audit`, `evidence`, `reports` e `cases` |
+| Observabilidade e Alerting | 7% | 90% | boa cobertura e bundles operacionais mais consistentes; `alerts` e `/monitoring` agora compartilham contratos visuais e recortes preventivos de leitura/mutacao mais estaveis |
 | Testes e CI/CD | 11% | 95% | smoke, E2E, preflights, runners e checks ficaram mais fortes com a ampliacao da cobertura focal de custodia e governanca |
-| Seguranca e Governanca Tecnica | 8% | 88% | RBAC, quorum, `finalize`, `revoke` e `supersede` fortaleceram a trilha; `P2-05` ja endurece `REVIEWER` e `BILLING_ADMIN`, mas faltam provider institucional definitivo e recorrencia formal |
+| Seguranca e Governanca Tecnica | 8% | 90% | RBAC, quorum, `finalize`, `revoke` e `supersede` fortaleceram a trilha; `P2-05` agora endurece gates semanticos, negacao auditada e UX preventiva em dominios reais, embora ainda faltem provider institucional definitivo e recorrencia formal |
 
 Resultado ponderado:
 
-- `91,86%`
+- `92,50%`
 
 Leitura oficial arredondada:
 
-- `92%`
+- `93%`
 
 ## Matriz Regulatoria
 
@@ -122,7 +122,7 @@ Leitura oficial arredondada:
 
 Resultado ponderado:
 
-- `88%`
+- `89%`
 
 ## Regra de Leitura por Taxonomia
 

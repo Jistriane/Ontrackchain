@@ -577,6 +577,10 @@ function summarizeShortHash(value: string) {
   return normalized.length > 16 ? `${normalized.slice(0, 16)}...` : normalized;
 }
 
+function isEnabledAuthFlag(value: string | null | undefined) {
+  return value?.trim().toLowerCase() === "true";
+}
+
 export default function RosCoafPage() {
   const { locale, t } = useI18n();
   const searchParams = useSearchParams();
@@ -923,8 +927,17 @@ export default function RosCoafPage() {
   const [officialDetail, setOfficialDetail] = useState<RosCoafDetailResponse | null>(null);
 
   const canApproveDecision = approved || rejectionReason.trim().length > 0;
+  const canGenerateRole = canSubmitRosCoaf(authContext?.role);
   const canApproveRole = canReviewRosCoaf(authContext?.role);
   const canSubmitRole = canSubmitRosCoaf(authContext?.role);
+  const hasLinkedUser = Boolean(authContext?.linked_user_id?.trim());
+  const usesExternalProviderMfa = authContext?.mfa_mode?.trim() === "external_provider";
+  const hasHomologatedProvider = isEnabledAuthFlag(authContext?.mfa_provider_homologated);
+  const hasSensitiveActionSession = hasLinkedUser && usesExternalProviderMfa && hasHomologatedProvider;
+  const generateActionBlocked = canGenerateRole && !hasSensitiveActionSession;
+  const approveActionBlocked = canApproveRole && !hasSensitiveActionSession;
+  const submitActionBlocked = canSubmitRole && !hasSensitiveActionSession;
+  const dossierExportBlocked = !hasLinkedUser;
   const draftDownloadUrl = useMemo(() => {
     if (!draft?.report_id || !draft?.created_at) return null;
     return buildReportDownloadUrl(draft.report_id, draft.created_at, caseId);
@@ -1320,6 +1333,10 @@ export default function RosCoafPage() {
     if (!officialDetail) {
       return;
     }
+    if (dossierExportBlocked) {
+      setError(tr("apiErrors.linkedUserRequiredForCoafReport" as MessageKey));
+      return;
+    }
 
     setExportingRegulatoryDossier(true);
     setError(null);
@@ -1546,65 +1563,104 @@ export default function RosCoafPage() {
 
       <Panel title={tr("rosCoaf.auth.title" as MessageKey)} description={tr("rosCoaf.auth.description" as MessageKey)}>
         <Message>{tr("rosCoaf.auth.notice" as MessageKey)}</Message>
+        <Message
+          tone={hasSensitiveActionSession ? "success" : "error"}
+          data-testid="roscoaf-auth-readiness"
+        >
+          {hasSensitiveActionSession
+            ? tr("rosCoaf.auth.ready" as MessageKey)
+            : tr("rosCoaf.auth.blocked" as MessageKey)}
+        </Message>
+        {!hasLinkedUser ? (
+          <Message tone="error" data-testid="roscoaf-auth-linked-user-required">
+            {tr("apiErrors.linkedUserRequiredForCoafReport" as MessageKey)}{" "}
+            <a className="otc-link-button" href="/team">
+              {tr("rosCoaf.auth.openTeam" as MessageKey)}
+            </a>
+          </Message>
+        ) : null}
+        {!usesExternalProviderMfa || !hasHomologatedProvider ? (
+          <Message tone="error" data-testid="roscoaf-auth-mfa-required">
+            {!usesExternalProviderMfa
+              ? tr("apiErrors.coafRequiresExternalMfa" as MessageKey)
+              : tr("apiErrors.coafRequiresHomologatedProvider" as MessageKey)}
+          </Message>
+        ) : null}
       </Panel>
 
       <Panel title={tr("rosCoaf.generate.title" as MessageKey)} description={tr("rosCoaf.generate.description" as MessageKey)}>
-        <form className="otc-stack" onSubmit={onGenerate}>
-          <div className="otc-grid otc-grid--counterparty-form">
-            <label className="otc-field">
-              {tr("rosCoaf.generate.rosId" as MessageKey)}
-              <input className="otc-input" data-testid="roscoaf-ros-id" value={rosId} onChange={(event) => setRosId(event.target.value)} required />
-            </label>
-            <label className="otc-field">
-              {tr("rosCoaf.generate.caseId" as MessageKey)}
-              <input className="otc-input" value={caseId} onChange={(event) => setCaseId(event.target.value)} />
-            </label>
-            <label className="otc-field">
-              {tr("rosCoaf.generate.owner" as MessageKey)}
-              <input className="otc-input" value={owner} onChange={(event) => setOwner(event.target.value)} />
-            </label>
-            <label className="otc-field">
-              {tr("rosCoaf.generate.priority" as MessageKey)}
-              <select className="otc-select" value={priority} onChange={(event) => setPriority(event.target.value as WorkspacePriority)}>
-                <option value="critical">{tr("rosCoaf.priority.critical" as MessageKey)}</option>
-                <option value="high">{tr("rosCoaf.priority.high" as MessageKey)}</option>
-                <option value="normal">{tr("rosCoaf.priority.normal" as MessageKey)}</option>
-              </select>
-            </label>
-            <label className="otc-field">
-              {tr("rosCoaf.generate.localDeadline" as MessageKey)}
-              <input className="otc-input" type="datetime-local" value={localDeadline} onChange={(event) => setLocalDeadline(event.target.value)} />
-            </label>
-          </div>
-          <div className="otc-controls">
-            <button className="otc-button otc-button--accent" type="submit" data-testid="roscoaf-generate-btn" disabled={generating || syncingWorkspace}>
-              {generating ? tr("rosCoaf.generate.submitting" as MessageKey) : tr("rosCoaf.generate.submit" as MessageKey)}
-            </button>
-            {draftDownloadUrl ? (
-              <a className="otc-link-button" href={draftDownloadUrl}>
-                {tr("rosCoaf.generate.downloadDraft" as MessageKey)}
-              </a>
+        {canGenerateRole ? (
+          <form className="otc-stack" onSubmit={onGenerate}>
+            {generateActionBlocked ? (
+              <Message tone="error" data-testid="roscoaf-generate-prereq-block">
+                {tr("rosCoaf.auth.generateBlocked" as MessageKey)}
+              </Message>
             ) : null}
-            {draft
-              ? buildRosContextLinks(
-                  buildRosOperationalContext({
-                    caseId,
-                    reportId: draft.report_id,
-                    rosId: draft.ros_id
-                  }),
-                  {
-                    case: "rosCoaf.generate.openCase",
-                    audit: "rosCoaf.generate.openAudit",
-                    evidence: "rosCoaf.generate.openEvidence"
-                  }
-                ).map((link: OperationalContextLink & { labelKey: MessageKey }) => (
-                  <a key={`generate-${link.testIdSuffix}`} className="otc-link-button" href={link.href}>
-                    {tr(link.labelKey)}
-                  </a>
-                ))
-              : null}
-          </div>
-        </form>
+            <div className="otc-grid otc-grid--counterparty-form">
+              <label className="otc-field">
+                {tr("rosCoaf.generate.rosId" as MessageKey)}
+                <input className="otc-input" data-testid="roscoaf-ros-id" value={rosId} onChange={(event) => setRosId(event.target.value)} required />
+              </label>
+              <label className="otc-field">
+                {tr("rosCoaf.generate.caseId" as MessageKey)}
+                <input className="otc-input" value={caseId} onChange={(event) => setCaseId(event.target.value)} />
+              </label>
+              <label className="otc-field">
+                {tr("rosCoaf.generate.owner" as MessageKey)}
+                <input className="otc-input" value={owner} onChange={(event) => setOwner(event.target.value)} />
+              </label>
+              <label className="otc-field">
+                {tr("rosCoaf.generate.priority" as MessageKey)}
+                <select className="otc-select" value={priority} onChange={(event) => setPriority(event.target.value as WorkspacePriority)}>
+                  <option value="critical">{tr("rosCoaf.priority.critical" as MessageKey)}</option>
+                  <option value="high">{tr("rosCoaf.priority.high" as MessageKey)}</option>
+                  <option value="normal">{tr("rosCoaf.priority.normal" as MessageKey)}</option>
+                </select>
+              </label>
+              <label className="otc-field">
+                {tr("rosCoaf.generate.localDeadline" as MessageKey)}
+                <input className="otc-input" type="datetime-local" value={localDeadline} onChange={(event) => setLocalDeadline(event.target.value)} />
+              </label>
+            </div>
+            <div className="otc-controls">
+              <button
+                className="otc-button otc-button--accent"
+                type="submit"
+                data-testid="roscoaf-generate-btn"
+                disabled={generating || syncingWorkspace || generateActionBlocked}
+              >
+                {generating ? tr("rosCoaf.generate.submitting" as MessageKey) : tr("rosCoaf.generate.submit" as MessageKey)}
+              </button>
+              {draftDownloadUrl ? (
+                <a className="otc-link-button" href={draftDownloadUrl}>
+                  {tr("rosCoaf.generate.downloadDraft" as MessageKey)}
+                </a>
+              ) : null}
+              {draft
+                ? buildRosContextLinks(
+                    buildRosOperationalContext({
+                      caseId,
+                      reportId: draft.report_id,
+                      rosId: draft.ros_id
+                    }),
+                    {
+                      case: "rosCoaf.generate.openCase",
+                      audit: "rosCoaf.generate.openAudit",
+                      evidence: "rosCoaf.generate.openEvidence"
+                    }
+                  ).map((link: OperationalContextLink & { labelKey: MessageKey }) => (
+                    <a key={`generate-${link.testIdSuffix}`} className="otc-link-button" href={link.href}>
+                      {tr(link.labelKey)}
+                    </a>
+                  ))
+                : null}
+            </div>
+          </form>
+        ) : (
+          <Message tone="error" data-testid="roscoaf-generate-access-denied">
+            {tr("apiErrors.coafRequiresComplianceOfficer" as MessageKey)}
+          </Message>
+        )}
       </Panel>
 
       <Panel title={tr("rosCoaf.workspace.title" as MessageKey)} description={tr("rosCoaf.workspace.description" as MessageKey)}>
@@ -1763,7 +1819,7 @@ export default function RosCoafPage() {
                 onClick={() => {
                   void downloadRegulatoryDossier();
                 }}
-                disabled={exportingRegulatoryDossier}
+                disabled={exportingRegulatoryDossier || dossierExportBlocked}
                 data-testid="roscoaf-detail-export-dossier"
               >
                 {exportingRegulatoryDossier
@@ -1788,6 +1844,11 @@ export default function RosCoafPage() {
                 </a>
               ))}
             </div>
+            {dossierExportBlocked ? (
+              <Message tone="error" data-testid="roscoaf-detail-export-dossier-prereq-block">
+                {tr("apiErrors.linkedUserRequiredForCoafReport" as MessageKey)}
+              </Message>
+            ) : null}
             {renderOfficialDetailTable(officialDetail)}
             {unifiedRegulatoryTimeline.length ? (
               renderRegulatoryTimelinePanel(unifiedRegulatoryTimeline)
@@ -1843,6 +1904,11 @@ export default function RosCoafPage() {
       <Panel title={tr("rosCoaf.approve.title" as MessageKey)} description={tr("rosCoaf.approve.description" as MessageKey)}>
         {canApproveRole ? (
           <form className="otc-stack" onSubmit={onApprove}>
+            {approveActionBlocked ? (
+              <Message tone="error" data-testid="roscoaf-approve-prereq-block">
+                {tr("rosCoaf.auth.reviewBlocked" as MessageKey)}
+              </Message>
+            ) : null}
             <div className="otc-grid otc-grid--counterparty-form">
               <label className="otc-field">
                 {tr("rosCoaf.approve.rosId" as MessageKey)}
@@ -1867,7 +1933,7 @@ export default function RosCoafPage() {
                 className="otc-button otc-button--accent"
                 type="submit"
                 data-testid="roscoaf-approve-btn"
-                disabled={approving || syncingWorkspace || !canApproveDecision}
+                disabled={approving || syncingWorkspace || !canApproveDecision || approveActionBlocked}
               >
                 {approving ? tr("rosCoaf.approve.submitting" as MessageKey) : tr("rosCoaf.approve.submit" as MessageKey)}
               </button>
@@ -1899,6 +1965,11 @@ export default function RosCoafPage() {
       <Panel title={tr("rosCoaf.submitted.title" as MessageKey)} description={tr("rosCoaf.submitted.description" as MessageKey)}>
         {canSubmitRole ? (
           <form className="otc-stack" onSubmit={onSubmitted}>
+            {submitActionBlocked ? (
+              <Message tone="error" data-testid="roscoaf-submitted-prereq-block">
+                {tr("rosCoaf.auth.submitBlocked" as MessageKey)}
+              </Message>
+            ) : null}
             <div className="otc-grid otc-grid--counterparty-form">
               <label className="otc-field">
                 {tr("rosCoaf.submitted.rosId" as MessageKey)}
@@ -1918,7 +1989,7 @@ export default function RosCoafPage() {
                 className="otc-button otc-button--accent"
                 type="submit"
                 data-testid="roscoaf-submitted-btn"
-                disabled={submitting || syncingWorkspace}
+                disabled={submitting || syncingWorkspace || submitActionBlocked}
               >
                 {submitting ? tr("rosCoaf.submitted.submitting" as MessageKey) : tr("rosCoaf.submitted.submit" as MessageKey)}
               </button>

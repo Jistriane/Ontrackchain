@@ -91,6 +91,7 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 
 ## 8. Operacao e Deploy
 
+- nota de workspace: os workflows citados abaixo vivem no repositório agregador pai em `../.github/workflows/`
 - [ ] staging tecnico foi validado
 - [ ] staging regulatorio foi validado
 - [ ] workflow manual [staging-serious-window.yml](../../.github/workflows/staging-serious-window.yml) foi executado para a janela alvo

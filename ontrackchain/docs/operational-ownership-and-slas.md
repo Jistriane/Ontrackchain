@@ -13,12 +13,28 @@ Use este documento para:
 - consultar ownership nominal por dominio e backups operacionais
 - alinhar tempos-base de resposta por severidade
 - entender qual trilha deve assumir incidente, recovery ou escalacao
+- servir como taxonomia canonica de dominios operacionais (`Gateway/Frontend`, `Auth/OIDC`, `Investigation/Billing`, `Compliance/AML`, `Monitoring/Alerting`, `Reports/Evidencias`, `Banco/Recovery`)
 
 Nao use este documento como fonte primaria para:
 
 - preencher owners reais, datas e status da janela corrente: use [Ownership do `.env.staging`](./staging-env-ownership.md)
 - coordenar o war room vivo e dependencias em tempo real: use [Matriz de Execucao por Owner para Janela Seria](./staging-serious-window-war-room-matrix.md)
 - decidir promocao formal da janela: use [Gates de Release para Staging Serio](./project-release-gates.md)
+
+## Papel Canonico
+
+Este documento e a fonte primaria para:
+
+- `dominio -> owner primario`
+- `dominio -> backup`
+- `dominio -> escopo operacional`
+- `severidade -> SLA base`
+
+Documentos de staging, war room e janelas serias devem herdar esta taxonomia e apenas especializar:
+
+- placeholders e secrets da janela
+- `date/status` humanos do ciclo
+- dependencias temporais do war room
 
 ## Matriz de Owners
 

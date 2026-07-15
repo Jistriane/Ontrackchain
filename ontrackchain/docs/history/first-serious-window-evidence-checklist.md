@@ -1,6 +1,6 @@
 # Checklist de Evidência Mínima da Primeira Janela Séria
 
-> Documento de apoio historico. Para a versao canônica da execucao integrada e dos criterios de reconciliacao, use `../governance-weekly/guides/SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md`.
+> Documento de apoio historico. Para a versao canonica da execucao integrada e dos criterios de reconciliacao, use [Pacote Final de Execucao da Janela Seria Integrada](../governance-weekly/guides/SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md).
 
 ## Objetivo
 

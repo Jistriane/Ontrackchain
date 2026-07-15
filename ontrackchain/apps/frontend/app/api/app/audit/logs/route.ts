@@ -31,8 +31,9 @@ export async function GET(request: Request) {
   });
 
   if (res.status === 401 || res.status === 403) {
-    return new Response(JSON.stringify(EMPTY_AUDIT_LOGS_RESPONSE), {
-      status: 200,
+    const body = await res.text();
+    return new Response(body || JSON.stringify({ detail: "privileged_read_role_required" }), {
+      status: res.status,
       headers: { "content-type": "application/json" }
     });
   }

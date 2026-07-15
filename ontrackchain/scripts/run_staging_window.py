@@ -99,6 +99,10 @@ def step_payload(*, status: str, **extra: Any) -> dict[str, Any]:
     return payload
 
 
+def is_truthy(value: str | None) -> bool:
+    return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def build_window_packet_path(window_id: str, packet_path: str | None) -> Path:
     if packet_path:
         return Path(packet_path)
@@ -300,6 +304,13 @@ def run_window(
         "yes",
         "on",
     }
+    include_oidc_playwright_critical = is_truthy(os.getenv("ONTRACKCHAIN_INCLUDE_OIDC_PLAYWRIGHT_CRITICAL"))
+    require_oidc_playwright_critical = is_truthy(os.getenv("ONTRACKCHAIN_REQUIRE_OIDC_PLAYWRIGHT_CRITICAL"))
+    oidc_playwright_base_url = (
+        os.getenv("ONTRACKCHAIN_OIDC_PLAYWRIGHT_BASE_URL", "").strip()
+        or env_values.get("ONTRACKCHAIN_BASE_URL", "").strip()
+        or env_values.get("NEXT_PUBLIC_API_BASE_URL", "").strip()
+    )
 
     with temporary_environ(env_values):
         oidc_exit_code, oidc_payload = run_module_main(
@@ -343,18 +354,26 @@ def run_window(
         payload["status"] = "failed"
         return 1, payload
 
+    oidc_bundle_argv = [
+        "run_oidc_readiness_bundle.py",
+        "--window-id",
+        window_id,
+        "--private-env-file",
+        str(private_env_file),
+        "--checks-dir",
+        str(checks_dir),
+    ]
+    if include_oidc_playwright_critical:
+        oidc_bundle_argv.append("--include-playwright-critical")
+    if require_oidc_playwright_critical:
+        oidc_bundle_argv.append("--require-playwright-critical")
+    if oidc_playwright_base_url:
+        oidc_bundle_argv.extend(["--playwright-base-url", oidc_playwright_base_url])
+
     with temporary_environ(env_values):
         oidc_bundle_exit_code, oidc_bundle_payload = run_module_main(
             "scripts/run_oidc_readiness_bundle.py",
-            [
-                "run_oidc_readiness_bundle.py",
-                "--window-id",
-                window_id,
-                "--private-env-file",
-                str(private_env_file),
-                "--checks-dir",
-                str(checks_dir),
-            ],
+            oidc_bundle_argv,
             "oidc_readiness_bundle_window",
         )
     write_json_file(oidc_bundle_output_file, oidc_bundle_payload)
@@ -387,6 +406,10 @@ def run_window(
         readiness_status=((oidc_bundle_payload.get("readiness") or {}).get("readiness_status") or "pending"),
         readiness_blockers=((oidc_bundle_payload.get("readiness") or {}).get("blockers") or []),
         next_action=((oidc_bundle_payload.get("readiness") or {}).get("next_action") or "pending"),
+        playwright_critical_status=(
+            (((oidc_bundle_payload.get("steps") or {}).get("oidc_playwright_critical") or {}).get("status"))
+            or "skipped"
+        ),
     )
     if oidc_bundle_summary_error is not None:
         payload["steps"]["oidc_readiness_bundle"]["summary_error"] = oidc_bundle_summary_error

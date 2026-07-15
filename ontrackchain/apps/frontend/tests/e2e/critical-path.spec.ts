@@ -5,8 +5,14 @@ import fs from "fs";
 import { loginWithOidc, readAuthConfig } from "./oidc";
 
 const API_KEY = process.env.ONTRACKCHAIN_API_KEY || "otc_live_demo_key";
+const OIDC_ADMIN_USER = process.env.ONTRACKCHAIN_OIDC_ADMIN_USER || "jibso@ontrackchain.com";
+const OIDC_ADMIN_PASSWORD = process.env.ONTRACKCHAIN_OIDC_ADMIN_PASSWORD || "JIBSOPass123!";
 const OIDC_ANALYST_USER = process.env.ONTRACKCHAIN_OIDC_ANALYST_USER || "analyst@ontrackchain.com";
 const OIDC_ANALYST_PASSWORD = process.env.ONTRACKCHAIN_OIDC_ANALYST_PASSWORD || "AnalystPass123!";
+
+type QuoteResponse = {
+  quote_id: string;
+};
 
 async function loginAsAnalyst(page: Page, request: APIRequestContext, baseURL: string | undefined) {
   const config = await readAuthConfig(request);
@@ -31,6 +37,18 @@ async function loginAsAnalyst(page: Page, request: APIRequestContext, baseURL: s
 
   const loginButtonVisible = await page.getByTestId("login-btn").isVisible().catch(() => false);
   expect(loginButtonVisible).toBeFalsy();
+}
+
+async function loginAsAdmin(page: Page, request: APIRequestContext, baseURL: string | undefined) {
+  const config = await readAuthConfig(request);
+  test.skip(config.effective_auth_mode !== "oidc", "Fluxo OIDC habilitado apenas quando o ambiente estiver em AUTH_MODE=oidc.");
+
+  await loginWithOidc(page, request, baseURL, {
+    username: OIDC_ADMIN_USER,
+    password: OIDC_ADMIN_PASSWORD
+  });
+
+  await expect(page).toHaveURL(/\/dashboard$/);
 }
 
 async function sha256File(path: string) {
@@ -115,7 +133,13 @@ test("relatório PDF pode ser baixado após geração", async ({ page, request, 
 });
 
 test("créditos são debitados corretamente após investigação", async ({ page, request, baseURL }) => {
-  await loginAsAnalyst(page, request, baseURL);
+  const config = await readAuthConfig(request);
+  test.skip(config.effective_auth_mode !== "oidc", "Fluxo OIDC habilitado apenas quando o ambiente estiver em AUTH_MODE=oidc.");
+
+  await loginWithOidc(page, request, baseURL, {
+    username: OIDC_ADMIN_USER,
+    password: OIDC_ADMIN_PASSWORD
+  });
 
   await page.goto("/billing");
   const initialCredits = await readNumericText(page.locator('[data-testid="credits-balance"]'));
@@ -147,14 +171,14 @@ test("alerta de monitoramento aparece na UI", async ({ page, request, baseURL })
     }
   });
   expect(estimate.status()).toBe(200);
-  const estimateBody = (await estimate.json()) as { quote_id: string };
+  const estimateBody = (await estimate.json()) as QuoteResponse;
   const start = await request.post("/api/v1/monitoring/start", {
     headers: { "X-API-Key": API_KEY, "content-type": "application/json" },
     data: { quote_id: estimateBody.quote_id, confirmed: true }
   });
   expect(start.status()).toBe(200);
 
-  await loginAsAnalyst(page, request, baseURL);
+  await loginAsAdmin(page, request, baseURL);
   await page.goto("/monitoring");
 
   await expect(page.locator('[data-testid="watchlist-item"]')).toBeVisible();
@@ -163,4 +187,12 @@ test("alerta de monitoramento aparece na UI", async ({ page, request, baseURL })
   await expect(page.locator('[data-testid="alert-badge"]')).toBeVisible({ timeout: 10_000 });
   await page.click('[data-testid="alert-badge"]');
   await expect(page.locator('[data-testid="alert-details-panel"]')).toBeVisible();
+});
+
+test("analyst nao recebe CTA de trigger-alert em monitoring", async ({ page, request, baseURL }) => {
+  await loginAsAnalyst(page, request, baseURL);
+  await page.goto("/monitoring");
+
+  await expect(page.locator('[data-testid="watchlist-item"]')).toBeVisible();
+  await expect(page.locator('[data-testid="trigger-alert-btn"]')).toHaveCount(0);
 });

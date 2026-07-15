@@ -7,7 +7,7 @@ Aggregates gate decision records and generates metrics/trends.
 Usage:
   python3 track_governance_history.py \
     --history-dir artifacts/deployment-history/ \
-    --output-file docs/governance-weekly/gate-history-metrics.json \
+    --output-file docs/governance-weekly/generated/gates/gate-history-metrics.json \
     --generate-report
 """
 
@@ -193,7 +193,7 @@ def main():
     )
     parser.add_argument('--history-dir', default='artifacts/deployment-history',
                         help='Directory containing gate decision files')
-    parser.add_argument('--output-file', default='docs/governance-weekly/gate-history-metrics.json',
+    parser.add_argument('--output-file', default='docs/governance-weekly/generated/gates/gate-history-metrics.json',
                         help='Output file for metrics JSON')
     parser.add_argument('--generate-report', action='store_true',
                         help='Also generate markdown report')

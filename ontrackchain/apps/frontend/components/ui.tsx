@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState, type HTMLAttributes, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type HTMLAttributes, type ReactNode } from "react";
 import Image from "next/image";
-import { canReadBilling } from "../app/lib/authz";
+import { canManageFederatedIdentity, canReadBilling, canReadCounterparty, canReadMonitoringAdmin } from "../app/lib/authz";
 import type { Locale, MessageKey } from "../app/lib/i18n";
 import { fetchAuthContext } from "../app/lib/ownership";
 import { useI18n } from "./i18n-provider";
@@ -43,6 +43,20 @@ type ModuleCardProps = {
   footer?: ReactNode;
   badge?: ReactNode;
   href?: string;
+  testId?: string;
+};
+
+type ConfirmDialogProps = {
+  open: boolean;
+  title: string;
+  description: ReactNode;
+  confirmLabel: string;
+  cancelLabel: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  busy?: boolean;
+  tone?: "default" | "danger";
+  testId?: string;
 };
 
 function NavIcon({ children }: { children: ReactNode }) {
@@ -208,6 +222,8 @@ const NAV_ITEMS: NavItem[] = [
   }
 ];
 
+const ROLE_GATED_NAV_ITEMS = new Set(["/billing", "/counterparties", "/alerts", "/team"]);
+
 function joinClasses(...parts: Array<string | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
@@ -301,13 +317,22 @@ export function AppShell({ title, subtitle, activePath, eyebrow, actions, childr
   const visibleNavItems = useMemo(
     () =>
       NAV_ITEMS.filter((item) => {
-        if (item.href !== "/billing") {
-          return true;
-        }
         if (authRole === undefined) {
-          return false;
+          return !ROLE_GATED_NAV_ITEMS.has(item.href);
         }
-        return canReadBilling(authRole);
+        if (item.href === "/billing") {
+          return canReadBilling(authRole);
+        }
+        if (item.href === "/counterparties") {
+          return canReadCounterparty(authRole);
+        }
+        if (item.href === "/alerts") {
+          return canReadMonitoringAdmin(authRole);
+        }
+        if (item.href === "/team") {
+          return canManageFederatedIdentity(authRole);
+        }
+        return true;
       }),
     [authRole]
   );
@@ -467,7 +492,7 @@ export function ModuleGrid({ children }: { children: ReactNode }) {
   return <div className="otc-module-grid">{children}</div>;
 }
 
-export function ModuleCard({ title, description, footer, badge, href }: ModuleCardProps) {
+export function ModuleCard({ title, description, footer, badge, href, testId }: ModuleCardProps) {
   const content = (
     <div className="otc-card otc-module-card">
       <div className="otc-module-card__title">
@@ -483,7 +508,11 @@ export function ModuleCard({ title, description, footer, badge, href }: ModuleCa
     return content;
   }
 
-  return <a href={href}>{content}</a>;
+  return (
+    <a href={href} data-testid={testId}>
+      {content}
+    </a>
+  );
 }
 
 export function CodeBlock({ children }: { children: ReactNode }) {
@@ -516,4 +545,84 @@ export function Message({
 
 export function Pill({ children, tone = "success" }: { children: ReactNode; tone?: "success" | "warning" | "danger" }) {
   return <span className={joinClasses("otc-pill", tone === "warning" ? "otc-pill--warning" : undefined, tone === "danger" ? "otc-pill--danger" : undefined)}>{children}</span>;
+}
+
+export function ConfirmDialog({
+  open,
+  title,
+  description,
+  confirmLabel,
+  cancelLabel,
+  onConfirm,
+  onCancel,
+  busy = false,
+  tone = "default",
+  testId
+}: ConfirmDialogProps) {
+  const titleId = useId();
+  const descriptionId = useId();
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !busy) {
+        onCancel();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [busy, onCancel, open]);
+
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div
+      className="otc-dialog-backdrop"
+      data-testid={testId}
+      onClick={(event) => {
+        if (event.target === event.currentTarget && !busy) {
+          onCancel();
+        }
+      }}
+    >
+      <div className="otc-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId}>
+        <div className="otc-dialog__body">
+          <h2 className="otc-dialog__title" id={titleId}>
+            {title}
+          </h2>
+          <div className="otc-dialog__description" id={descriptionId}>
+            {description}
+          </div>
+        </div>
+        <div className="otc-dialog__actions">
+          <button
+            className="otc-button otc-button--ghost"
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            data-testid={testId ? `${testId}-cancel` : undefined}
+          >
+            {cancelLabel}
+          </button>
+          <button
+            className={joinClasses("otc-button", tone === "danger" ? "otc-button--danger" : "otc-button--accent")}
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            data-testid={testId ? `${testId}-confirm` : undefined}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }

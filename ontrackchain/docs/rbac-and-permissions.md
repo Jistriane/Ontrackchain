@@ -144,6 +144,7 @@ Objetivo:
 - quando o principal autenticado vem do `OIDC` sem correspondencia na tabela local `users`, a trilha persiste `external_user_id` no `metadata` e grava `user_id = null` para nao quebrar o `FK`
 - o mesmo principio de compatibilidade agora vale para criacao de `cases` e `quotes`: o runtime nao falha por `FK` quando o principal vem do IdP sem espelho local
 - quando `X-Linked-User-Id` esta presente, os fluxos core de `investigation`, `monitoring` e `compliance` passam a preferir esse identificador para persistencia relacional, preservando o principal externo em `metadata.external_user_id`
+- o mesmo padrao agora cobre a trilha administrativa de `users + external_identities`: `team_external_identity_linked` e `team_external_identity_unlinked` usam `linked_user_id` como ator preferencial em `audit_logs` e mantem o principal externo em `metadata.external_user_id` quando nao houver usuario local persistido correspondente
 - a decisao arquitetural alvo para evoluir esse ponto foi registrada em [ADR-006](adrs/ADR-006-identidade-federada-e-users-locais.md)
 
 ### 2. Legal Report
@@ -230,12 +231,12 @@ Do que de uma matriz RBAC fina por papel.
 | Recurso/Acao | Auth Necessaria | Papel | Status | Condicoes Extras |
 | --- | --- | --- | --- | --- |
 | Catalogos protegidos | JWT ou API Key | qualquer autenticado | `enforced_by_context` | plano e filtros aplicam |
-| `investigation/estimate` | JWT ou API Key | qualquer autenticado | `enforced_by_context` | contexto valido |
-| `investigation/start` | JWT ou API Key | qualquer autenticado | `enforced_by_context` | `quote` valida + plan lock |
+| `investigation/estimate` | JWT ou API Key | `ADMIN`, `ANALYST` e alias legado `OTK_ANALYST` | `investigation_operational_role_required` | contexto valido |
+| `investigation/start` | JWT ou API Key | `ADMIN`, `ANALYST` e alias legado `OTK_ANALYST` | `investigation_operational_role_required` | `quote` valida + plan lock |
 | `billing/balance` | JWT ou API Key | `ADMIN`, `BILLING_ADMIN` e alias legado `OTK_BILLING_ADMIN` | `partial_rbac_enforced` | leitura de saldo financeiro + negacao auditada |
 | `billing/reconciliation` | JWT ou API Key | `ADMIN`, `BILLING_ADMIN` e alias legado `OTK_BILLING_ADMIN` | `partial_rbac_enforced` | snapshot reconciliavel de `quotes` + `credit_ledger` com negacao auditada |
 | `monitoring` core (`watchlists`, `alerts`, `start`, `estimate`) | JWT ou API Key | qualquer autenticado | `enforced_by_context` | contexto valido |
-| `compliance/*` | JWT ou API Key | contexto misto; mutacoes criticas com `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` e alias legado `OTK_COMPLIANCE_OFFICER` | `partial_rbac_enforced` | escrita prioritaria endurecida em `start`, `blocks/evaluate`, `blocks/*/lift`, `counterparties` e `counterparties/*/review` |
+| `compliance/*` | JWT ou API Key | contexto misto; mutacoes criticas com `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` e alias legado `OTK_COMPLIANCE_OFFICER` | `partial_rbac_enforced` | `estimate`, `start`, `kyc-wallet`, `risk-check`, `due-diligence`, `source-of-funds`, `counterparties`, `sanctions-check`, `blocks/evaluate`, `blocks/*/lift` e `counterparties/*/review` agora seguem gates formais dedicados |
 | `monitoring/admin/operational-alerts` | contexto autenticado via gateway | `ADMIN` ou `AUDITOR` | `rbac_enforced` | leitura privilegiada + negacao auditada |
 | `monitoring/admin/operational-alerts/filter-options` | contexto autenticado via gateway | `ADMIN` ou `AUDITOR` | `rbac_enforced` | leitura privilegiada + negacao auditada |
 | `monitoring/admin/operational-alerts/export` | contexto autenticado via gateway | `ADMIN` | `rbac_enforced` | export sensivel + auditoria |
@@ -244,11 +245,28 @@ Do que de uma matriz RBAC fina por papel.
 | `investigation/admin/dlq/*` mutacoes | contexto autenticado via gateway | `ADMIN` | `rbac_enforced` | requeue e resolucao manual |
 | `audit/logs` | contexto autenticado via gateway | `ADMIN` ou `AUDITOR` | `rbac_enforced` | acesso restrito de leitura |
 | `report generate` | JWT ou API Key | `ADMIN` ou `ANALYST` | `partial_rbac_enforced` | negacao auditada na geracao basica |
-| `reports` leitura/listagem e `ROS/COAF` leitura | JWT ou API Key | `ADMIN`, `AUDITOR`, `ANALYST`, `VIEWER` | `partial_rbac_enforced` | negacao auditada em listagem, detalhe, dossie e downloads nao-juridicos |
+| `compliance/cases/{case_id}/report` | JWT ou API Key | `ADMIN` ou `ANALYST` | `partial_rbac_enforced` | espelha o gate de `report generate` no ponto de entrada do `compliance-api`, com negacao auditada dedicada |
+| `compliance/estimate` | JWT ou API Key | `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` e alias legado `OTK_COMPLIANCE_OFFICER` | `compliance_estimate_role_required` | quote operacional alinhado ao mesmo trilho humano de `compliance/start`, com negacao auditada dedicada |
+| `compliance/counterparties` | JWT ou API Key | leitura operacional: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `REVIEWER` e aliases legados `OTK_COMPLIANCE_OFFICER`, `OTK_REVIEWER`; onboarding segue `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `OTK_COMPLIANCE_OFFICER` | `partial_rbac_enforced` | listagem operacional agora usa gate dedicado `counterparty_read_role_required`; onboarding segue `counterparty_create_role_required` e o frontend oculta formulario/listagem/workspace conforme o recorte |
+| `compliance/kyc-wallet` | JWT ou API Key | `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` e alias legado `OTK_COMPLIANCE_OFFICER` | `partial_rbac_enforced` | screening AML/KYT com negacao auditada dedicada `kyc_wallet_role_required` |
+| `compliance/risk-check` | JWT ou API Key | `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` e alias legado `OTK_COMPLIANCE_OFFICER` | `partial_rbac_enforced` | score de risco com negacao auditada dedicada `risk_check_role_required` |
+| `compliance/due-diligence` | JWT ou API Key | `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` e alias legado `OTK_COMPLIANCE_OFFICER` | `partial_rbac_enforced` | screening manual assistido com negacao auditada dedicada `due_diligence_role_required` |
+| `compliance/source-of-funds` | JWT ou API Key | `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` e alias legado `OTK_COMPLIANCE_OFFICER` | `partial_rbac_enforced` | analise de origem de fundos com negacao auditada dedicada `source_of_funds_role_required` |
+| `compliance/sanctions-check/{address}` | JWT ou API Key | `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` e alias legado `OTK_COMPLIANCE_OFFICER` | `partial_rbac_enforced` | screening operacional com negacao auditada dedicada e cockpit ocultando `sanctions-check` para roles fora do recorte |
+| `reports` leitura/listagem e `ROS/COAF` leitura | JWT ou API Key | `ADMIN`, `AUDITOR`, `ANALYST`, `VIEWER` | `partial_rbac_enforced` | negacao auditada em listagem, referencia `ros-coaf` e dossie regulatorio; `VIEWER` permanece no trilho de catalogo/metadado |
+| `report detail` leitura operacional (`GET /reports/{report_id}`) | JWT ou API Key | `ADMIN`, `AUDITOR`, `ANALYST` | `rbac_enforced` | leitura detalhada agora usa gate semantico dedicado (`report_detail_role_required`) com BFF e UX degradando o painel para `VIEWER` |
+| `reports/formal-dossier` export (`POST`) | JWT ou API Key | `ADMIN`, `AUDITOR` | `rbac_enforced` | endpoint composto no App Router com gate semantico dedicado (`report_formal_dossier_role_required`) e policy alinhada ao export sensivel |
 | `reports/ros-coaf` aprovacao formal (`/approve`) | JWT ou API Key | `ADMIN`, `COMPLIANCE_OFFICER`, `LEGAL_REVIEWER`, `REVIEWER` e aliases legados `OTK_*` correspondentes | `partial_rbac_enforced` | gate formal de revisao com MFA externo homologado + negacao auditada |
 | `reports/ros-coaf` submissao manual (`/submitted`) | JWT ou API Key | `ADMIN`, `COMPLIANCE_OFFICER` e alias legado `OTK_COMPLIANCE_OFFICER` | `partial_rbac_enforced` | segregacao entre revisao formal e submissao efetiva ao COAF |
-| `report download` comum | JWT ou API Key | `ADMIN`, `AUDITOR`, `ANALYST`, `VIEWER` | `partial_rbac_enforced` | query params corretos + negacao auditada |
+| `report download` comum | JWT ou API Key | `ADMIN`, `AUDITOR`, `ANALYST` | `rbac_enforced` | download do artefato agora usa gate semantico dedicado (`report_download_role_required`) no `report-api`, com BFF e UX ocultando o CTA para `VIEWER` |
 | `legal_report download` | JWT | `ADMIN` | `rbac_enforced` | `X-2FA=ok` |
+| `team/users` criacao administrativa (`POST`) | JWT ou API Key | `ADMIN` | `rbac_enforced` | a criacao local de usuario agora usa gate semantico dedicado (`team_user_create_role_required`) com `detail` preservado pelo App Router |
+| `team/users/{member_id}` edicao administrativa (`PATCH`) | JWT ou API Key | `ADMIN` | `rbac_enforced` | a edicao local agora usa gate semantico dedicado (`team_user_update_role_required`) com `detail` preservado pelo App Router |
+| `team/users/{member_id}` desativacao administrativa (`PATCH status=disabled`) | JWT ou API Key | `ADMIN` | `rbac_enforced` | a desativacao local agora usa gate semantico dedicado (`team_user_disable_role_required`) com `detail` preservado pelo App Router |
+| `team/users/{member_id}/external-identities` leitura detalhada (`GET`) | JWT ou API Key | `ADMIN` | `rbac_enforced` | a leitura administrativa dos vínculos persistidos agora usa gate semantico dedicado (`team_federated_identity_read_role_required`) com `detail` preservado pelo App Router |
+| `team/users/{member_id}/external-identities` mutacao manual (`POST`, `DELETE`) | JWT ou API Key | `ADMIN` | `rbac_enforced` | `link` e `unlink` agora usam gates semanticos dedicados (`team_federated_identity_link_role_required` e `team_federated_identity_unlink_role_required`) com `detail` preservado pelo App Router |
+| `team/federated-directory/users` busca assistida (`GET`) | JWT ou API Key | `ADMIN` | `rbac_enforced` | a busca no IdP agora usa gate semantico dedicado (`team_federated_directory_search_role_required`) com `detail` preservado pelo App Router |
+| `team/federated-directory/suggestions` validacao assistida (`POST`) | JWT ou API Key | `ADMIN` | `rbac_enforced` | a validacao tardia da sugestao federada agora usa gate semantico dedicado (`team_federated_directory_suggestion_role_required`) com `detail` preservado pelo App Router |
 | `evidence/manual-package` leitura (`seal` e `by-digest`) | JWT ou API Key | `ADMIN`, `AUDITOR`, `COMPLIANCE_OFFICER`, `LEGAL_REVIEWER`, `REVIEWER` | `partial_rbac_enforced` | leitura institucional + negacao auditada |
 | `evidence/manual-package` `signoffs` | JWT ou API Key | `ADMIN`, `COMPLIANCE_OFFICER`, `LEGAL_REVIEWER`, `REVIEWER` | `partial_rbac_enforced` | vinculo obrigatorio entre `X-Role` e `signer_role` |
 | `evidence/manual-package` `signoff-requests/finalize/revoke/supersede` | JWT ou API Key | `ADMIN` | `rbac_enforced` | `AUDITOR` permanece somente leitura |
@@ -265,15 +283,27 @@ Do que de uma matriz RBAC fina por papel.
 | `monitoring` mutacao/export administrativo | Sim | Nao | Nao | Nao | Nao | `rbac_enforced` |
 | `audit/logs` leitura privilegiada | Sim | Sim | Nao | Nao | Nao | `rbac_enforced` |
 | `report generate` | Sim | Nao | Sim | Nao | Nao | `partial_rbac_enforced` + negacao auditada |
-| `reports` leitura/listagem e `ROS/COAF` leitura | Sim | Sim | Sim | Nao | Sim | `partial_rbac_enforced` + negacao auditada |
+| `compliance/cases/{case_id}/report` | Sim | Nao | Sim | Nao | Nao | `ADMIN` e `ANALYST`; `COMPLIANCE_OFFICER` nao gera o relatório por esta superfície enquanto o `report-api` mantiver a mesma política |
+| `compliance/counterparties` onboarding regulado | Sim | Nao | Sim | Nao | Nao | `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` e alias `OTK_COMPLIANCE_OFFICER`; `VIEWER` nao recebe o formulario no cockpit |
+| `reports` leitura/listagem e `ROS/COAF` leitura | Sim | Sim | Sim | Nao | Sim | `partial_rbac_enforced` + negacao auditada; `VIEWER` permanece somente no trilho de catalogo/metadado |
+| `report` detail read | Sim | Nao | Sim | Nao | Sim | `rbac_enforced`; `VIEWER` perde acesso ao detalhe operacional rico e recebe negacao auditada dedicada |
 | `billing/balance` | Sim | Nao | Nao | Nao | Nao | `BILLING_ADMIN` e alias legado podem ler saldo financeiro; roles fora do dominio recebem negacao auditada |
 | `billing/reconciliation` | Sim | Nao | Nao | Nao | Nao | `BILLING_ADMIN` e alias legado podem ler o snapshot reconciliavel de saldo, quotes e `credit_ledger`; roles fora do dominio recebem negacao auditada |
+| `team` criacao/edicao/desativacao local de usuario | Sim | Nao | Nao | Nao | Nao | `ADMIN` opera `create/update/disable`; roles fora do recorte recebem negacao auditada semantica no backend e mensagem humanizada no cockpit |
+| `team` leitura detalhada de vínculos federados persistidos | Sim | Nao | Nao | Nao | Nao | `ADMIN` lê o detalhe administrativo de `external-identities`; roles fora do recorte recebem negacao auditada semantica e mensagem humanizada no cockpit |
+| `team` vínculo/desvínculo manual de identidade federada | Sim | Nao | Nao | Nao | Nao | `ADMIN` opera `link/unlink`; roles fora do recorte nao recebem o formulario manual nem o CTA de desvinculação no cockpit |
+| `team` diretório federado assistido (`search` + `suggestion validate`) | Sim | Nao | Nao | Nao | Nao | `ADMIN` executa busca assistida e validacao tardia no IdP; roles fora do recorte nao recebem busca utilizavel no cockpit |
 | `reports/ros-coaf` aprovacao formal (`/approve`) | Sim | Nao | Nao | Nao | Nao | `COMPLIANCE_OFFICER`, `LEGAL_REVIEWER` e `REVIEWER` aprovam/rejeitam com MFA externo homologado; aliases `OTK_*` equivalentes continuam aceitos |
 | `reports/ros-coaf` submissao manual (`/submitted`) | Sim | Nao | Nao | Nao | Nao | permanece restrita a `COMPLIANCE_OFFICER` e alias legado para preservar segregacao regulatoria |
-| `report` download comum | Sim | Sim | Sim | Nao | Sim | `partial_rbac_enforced` + negacao auditada |
+| `report` download comum | Sim | Nao | Sim | Nao | Sim | `rbac_enforced`; `VIEWER` perde acesso ao artefato baixável e recebe negacao auditada dedicada |
 | `report` download de `legal_report` | Sim | Nao | Nao | Nao | Nao | `rbac_enforced` + `JWT` + `2FA` |
 | `compliance` leitura core | Sim | Sim | Sim | Sim | Sim | leitura principal ainda guiada por contexto + `RLS` |
-| `compliance` mutacao core prioritaria (`start`, `blocks/evaluate`, `blocks/*/lift`, `counterparties`, `counterparties/*/review`) | Sim | Nao | Sim | Nao | Nao | `partial_rbac_enforced` + negacao auditada; `COMPLIANCE_OFFICER` e alias legado tambem autorizados |
+| `compliance` mutacao core prioritaria (`counterparties`) | Sim | Nao | Sim | Nao | Nao | `partial_rbac_enforced` + negacao auditada; `COMPLIANCE_OFFICER` e alias legado tambem autorizados |
+| `compliance/estimate` quote operacional | Sim | Nao | Sim | Nao | Nao | mesmo recorte de `compliance/start`; `VIEWER` e perfis fora do trilho humano recebem `compliance_estimate_role_required` com auditoria |
+| `compliance/start` abertura operacional de case | Sim | Nao | Sim | Nao | Nao | `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` e alias `OTK_COMPLIANCE_OFFICER`; negacao auditada com `compliance_start_role_required` |
+| `blocks/evaluate` triagem preventiva operacional | Sim | Nao | Sim | Nao | Nao | `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` e alias `OTK_COMPLIANCE_OFFICER`; frontend oculta a superficie para roles fora do recorte |
+| `blocks/*/lift` desbloqueio regulatorio | Sim | Nao | Nao | Nao | Nao | `ADMIN`, `COMPLIANCE_OFFICER` e alias `OTK_COMPLIANCE_OFFICER`; `ANALYST` nao executa lift |
+| `counterparties/*/review` revisao formal de DD/SoF | Sim | Nao | Nao | Nao | Nao | `ADMIN`, `COMPLIANCE_OFFICER`, `REVIEWER` e aliases `OTK_*` correspondentes; `ANALYST` nao revisa formalmente |
 | `evidence/manual-package` leitura institucional | Sim | Sim | Nao | Nao | Nao | `COMPLIANCE_OFFICER`, `LEGAL_REVIEWER` e `REVIEWER` tambem leem para signoff dirigido |
 | `evidence/manual-package` `signoffs` | Sim | Nao | Nao | Nao | Nao | `COMPLIANCE_OFFICER -> compliance_owner`, `LEGAL_REVIEWER -> legal_owner_optional`, `REVIEWER -> legal_owner_optional` |
 | `evidence/manual-package` `finalize/revoke/supersede/signoff-request` | Sim | Nao | Nao | Nao | Nao | `rbac_enforced`; `AUDITOR` saiu da mutacao |
@@ -292,7 +322,42 @@ Observacao importante:
 - `compliance-api` agora persiste `authorization_denied` na primeira fatia de mutacoes sensiveis do dominio
 - `report-api` agora persiste `authorization_denied` na leitura sensivel de `reports` e `ROS/COAF`, inclusive dossie regulatorio e download nao-juridico
 - `investigation-api` agora aplica `BILLING_ADMIN` tambem em `billing/reconciliation`, protegendo o snapshot reconciliavel de saldo, quotes e `credit_ledger`
+- `investigation-api` agora expõe `billing/reconciliation/export` sob o mesmo gate `ADMIN|BILLING_ADMIN|OTK_BILLING_ADMIN`, preservando `content-disposition` e negacao auditada por papel no backend
+- `monitoring-api` agora trata `monitoring/test/trigger-alert` como superficie de QA/admin (`ADMIN|TESTER|OTK_TESTER`), com `authorization_denied` auditado para roles fora desse recorte
+- `investigation-api` agora trata `investigation/estimate` e `investigation/start` como superficies operacionais humanas (`ADMIN|ANALYST|OTK_ANALYST`), com `authorization_denied` auditado para roles fora desse recorte
+- o cockpit `monitoring` agora degrada os paineis administrativos de `monitoring` e `investigation` para leitura privilegiada `ADMIN/AUDITOR`, ocultando mutacoes/exportacoes de incidentes globais e DLQ fora de `ADMIN` para evitar negacao tardia na UI
+- `compliance-api` agora trata `compliance/estimate` e `compliance/start` como um unico trilho operacional humano (`ADMIN|ANALYST|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`), com `authorization_denied` auditado e `detail` dedicado ja na fase de quote
+- `compliance-api` agora trata `compliance/start` como superficie operacional humana (`ADMIN|ANALYST|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`), separada do write generico e com `authorization_denied` auditado por `compliance_start_role_required`
+- `compliance-api` agora trata `compliance/cases/{case_id}/report` como superficie operacional de emissão (`ADMIN|ANALYST`), espelhando explicitamente o gate já aplicado no `report-api` e registrando `compliance_case_report_role_required` no ponto de entrada
+- `compliance-api` agora separa a leitura operacional de `compliance/counterparties` (`ADMIN|ANALYST|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER|REVIEWER|OTK_REVIEWER`) do onboarding (`ADMIN|ANALYST|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`), com `counterparty_read_role_required` para a carteira/workspace e `counterparty_create_role_required` para escrita
+- `compliance-api` agora trata `compliance/kyc-wallet` como superficie operacional de screening AML/KYT (`ADMIN|ANALYST|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`), com negacao auditada dedicada `kyc_wallet_role_required`
+- `compliance-api` agora trata `compliance/risk-check` como superficie operacional de score AML/KYT (`ADMIN|ANALYST|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`), com negacao auditada dedicada `risk_check_role_required`
+- `compliance-api` agora trata `compliance/due-diligence` como superficie operacional de investigação manual assistida (`ADMIN|ANALYST|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`), com negacao auditada dedicada `due_diligence_role_required`
+- `compliance-api` agora trata `compliance/source-of-funds` como superficie operacional de análise de origem (`ADMIN|ANALYST|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`), com negacao auditada dedicada `source_of_funds_role_required`
+- `compliance-api` agora trata `compliance/sanctions-check/{address}` como superficie operacional de screening (`ADMIN|ANALYST|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`), com negacao auditada dedicada `sanctions_check_role_required` e preservacao do `detail` pelo App Router
+- `compliance-api` agora trata `counterparties/*/review` como superficie formal de revisao (`ADMIN|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER|REVIEWER|OTK_REVIEWER`), separada do write operacional generico de `counterparties`
+- `compliance-api` agora trata `blocks/*/lift` como superficie operacional regulatoria (`ADMIN|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`), separada do `blocks/evaluate` que continua operacional
+- `auth-service` agora trata `team/users/{member_id}/external-identities` `POST` e `DELETE` como superficies administrativas distintas, retornando `team_federated_identity_link_role_required` e `team_federated_identity_unlink_role_required` em vez do gate generico de escrita de `team`
+- `auth-service` agora trata `team/federated-directory/users` e `team/federated-directory/suggestions` como superficies administrativas distintas, retornando `team_federated_directory_search_role_required` e `team_federated_directory_suggestion_role_required` em vez do gate generico de escrita de `team`
+- `auth-service` agora trata `team/users` `POST` e `team/users/{member_id}` `PATCH` como superficies administrativas distintas para criacao, edicao e desativacao local, retornando `team_user_create_role_required`, `team_user_update_role_required` e `team_user_disable_role_required` em vez do gate generico de escrita de `team`
+- `auth-service` agora trata `team/users/{member_id}/external-identities` `GET` como superficie administrativa distinta, retornando `team_federated_identity_read_role_required` em vez do gate generico de escrita de `team`
+- o App Router de `reports/formal-dossier` agora trata a exportacao do dossie formal como superficie composta distinta, retornando `report_formal_dossier_role_required` em vez de depender apenas do gate herdado de `audit/evidence-export`
+- `report-api` agora trata `GET /api/v1/reports/{report_id}/download` como superficie distinta de `list/get report`, retornando `report_download_role_required` e removendo `VIEWER` do artefato baixável comum
+- `report-api` agora trata `GET /api/v1/reports/{report_id}` como superficie distinta da listagem/catalogo, retornando `report_detail_role_required` e removendo `VIEWER` do detalhe operacional rico
 - o frontend agora degrada a UX de `billing` na navegacao lateral, nos quick actions do `/dashboard` e no acesso direto a `/billing`, escondendo CTAs e bloqueando o dashboard financeiro para roles sem permissao
+- o frontend agora exibe o CTA de export financeiro apenas quando a role efetiva pode ler `billing`, mantendo o download do snapshot no mesmo trilho de autorizacao da reconciliacao
+- o frontend agora oculta o deep-link de billing em `/team` quando a role efetiva nao pode ler o dominio financeiro
+- o frontend agora remove a projeção lateral de `team/users` de `/billing`, mantendo o cockpit financeiro desacoplado do roster administrativo e delegando onboarding/status/identidade federada ao cockpit `/team`
+- o frontend agora oculta o CTA de `trigger-alert` em `/monitoring` para roles que nao pertencem ao recorte de QA/admin
+- o frontend agora oculta a superficie de DD/SoF formal em `/counterparties` para roles fora do recorte regulatorio de revisao
+- o frontend agora oculta a superficie de `block lift` em `/blocks` para roles fora do recorte regulatorio operacional
+- o frontend agora oculta o vínculo manual e a desvinculação de identidade federada em `/team` para roles fora de `ADMIN`, mantendo mensagem explicita de restricao e o `detail` canonico do backend no trilho de erro
+- o frontend agora humaniza negacoes tardias do diretório federado assistido em `/team`, traduzindo `team_federated_directory_search_role_required` e `team_federated_directory_suggestion_role_required` sem expor o `error code` cru ao operador
+- o frontend agora humaniza negacoes tardias de criacao, edicao e desativacao de usuarios em `/team`, traduzindo `team_user_create_role_required`, `team_user_update_role_required` e `team_user_disable_role_required` sem expor o `error code` cru ao operador
+- o frontend agora humaniza a negacao tardia da leitura detalhada de vínculos persistidos em `/team`, traduzindo `team_federated_identity_read_role_required` sem expor o `error code` cru ao operador
+- o frontend agora humaniza a negacao tardia da exportacao do dossie formal em `/reports`, traduzindo `report_formal_dossier_role_required` sem expor o `error code` cru ao operador
+- o frontend agora oculta o CTA de download comum em `/reports` para roles fora de `ADMIN`, `AUDITOR` e `ANALYST`, mantendo mensagem explicita de restricao e `detail` canônico `report_download_role_required` no trilho de erro
+- o frontend agora degrada o painel de detalhe em `/reports` para roles fora de `ADMIN`, `AUDITOR` e `ANALYST`, ocultando o metadado rico e exibindo mensagem explicita de restricao com `detail` canônico `report_detail_role_required`
 - o frontend agora degrada a UX de `ROS/COAF` entre aprovacao formal e submissao manual, ocultando a superficie de submissao para `REVIEWER`/`LEGAL_REVIEWER` e exibindo mensagem explicita de segregacao quando a role nao pode operar aquela etapa
 - no fluxo `OIDC`, a trilha de negacao agora preserva o `sub` externo em `metadata.external_user_id` quando nao ha usuario local correspondente
 - no fluxo `OIDC`, novos `cases` core preservam `metadata.external_user_id`; `quotes` passam a gravar `user_id = null` quando o principal nao existe em `users`
@@ -351,12 +416,13 @@ Definir uma matriz de permissoes por dominio:
   - investigation/compliance/monitoring operacionais
 - `TESTER`
   - apenas ambientes de QA e fluxos de validacao, sem privilegio administrativo por default
+  - pode operar o `trigger-alert` sintetico de `monitoring` quando o ambiente expuser endpoints de teste
 - `VIEWER`
   - leitura segura e restrita, sem mutacao operacional
 - `REVIEWER`
   - revisao/aprovacao de reports
 - `BILLING_ADMIN`
-  - saldo e conciliacao financeira; export financeiro permanece como proxima superficie natural
+  - saldo, conciliacao financeira e export financeiro do snapshot reconciliavel
 - `AUDITOR`
   - leitura ampliada de trilhas sem capacidade operacional
 

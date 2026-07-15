@@ -7,12 +7,12 @@ import { AppShell, Message, MetricCard, MetricGrid, Panel, Pill } from "../../co
 import { formatDateTime as formatDate } from "../lib/date-format";
 import { useI18n } from "../../components/i18n-provider";
 import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel";
+import { canCreateCounterparty, canReadCounterparty, canReviewCounterparty } from "../lib/authz";
 import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
 import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
 import { useWorkItemTimeline } from "../lib/use-work-item-timeline";
 import {
-  loadWorkspaceRecords,
   saveWorkspaceRecords,
   sortByLastActionAtDesc,
   toApiDueAt,
@@ -325,44 +325,6 @@ function riskTone(level: number): "success" | "warning" | "danger" {
   return "success";
 }
 
-function loadWorkspace(): CounterpartyWorkspaceRecord[] {
-  return loadWorkspaceRecords<CounterpartyWorkspaceRecord>(STORAGE_KEY, (record) => {
-    const counterpartyId = typeof record.counterpartyId === "string" ? record.counterpartyId : "";
-    const source: WorkspaceSource = record.source === "server" ? "server" : "local";
-    return {
-      workItemId: typeof record.workItemId === "string" ? record.workItemId : undefined,
-      source,
-      counterpartyId,
-      legalName: typeof record.legalName === "string" ? record.legalName : "",
-      counterpartyType: typeof record.counterpartyType === "string" ? record.counterpartyType : "",
-      documentType: typeof record.documentType === "string" ? record.documentType : "",
-      documentNumber: typeof record.documentNumber === "string" ? record.documentNumber : "",
-      walletChain: typeof record.walletChain === "string" ? record.walletChain : "",
-      walletAddress: typeof record.walletAddress === "string" ? record.walletAddress : "",
-      walletLabel: typeof record.walletLabel === "string" ? record.walletLabel : "",
-      riskLevel: typeof record.riskLevel === "number" ? record.riskLevel : 0,
-      kycStatus: typeof record.kycStatus === "string" ? record.kycStatus : "",
-      sanctionsCleared: record.sanctionsCleared === true,
-      isPep: record.isPep === true,
-      enhancedDdRequired: record.enhancedDdRequired === true,
-      nextReviewDate: typeof record.nextReviewDate === "string" ? record.nextReviewDate : "",
-      status: typeof record.status === "string" ? record.status : "",
-      createdAt: typeof record.createdAt === "string" ? record.createdAt : "",
-      caseId: typeof record.caseId === "string" ? record.caseId : "",
-      owner: typeof record.owner === "string" ? record.owner : "",
-      priority: record.priority === "critical" || record.priority === "high" || record.priority === "normal" ? record.priority : "normal",
-      localDeadline: typeof record.localDeadline === "string" ? record.localDeadline : "",
-      workspaceStatus: normalizeWorkspaceStatus(record.workspaceStatus),
-      note: typeof record.note === "string" ? record.note : "",
-      ddReviewStatus: normalizeDdReviewStatus(record.ddReviewStatus),
-      ddReviewNote: typeof record.ddReviewNote === "string" ? record.ddReviewNote : "",
-      sofDescription: typeof record.sofDescription === "string" ? record.sofDescription : "",
-      sofDocumentRef: typeof record.sofDocumentRef === "string" ? record.sofDocumentRef : "",
-      lastActionAt: typeof record.lastActionAt === "string" ? record.lastActionAt : ""
-    };
-  });
-}
-
 function saveWorkspace(records: CounterpartyWorkspaceRecord[]) {
   saveWorkspaceRecords(STORAGE_KEY, records);
 }
@@ -562,6 +524,7 @@ export default function CounterpartiesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [syncingWorkspace, setSyncingWorkspace] = useState(false);
   const [authContext, setAuthContext] = useState<AuthContext | null>(null);
+  const [authResolved, setAuthResolved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [form, setForm] = useState<CounterpartyFormState>(DEFAULT_FORM);
@@ -571,6 +534,9 @@ export default function CounterpartiesPage() {
   const [workspaceSearch, setWorkspaceSearch] = useState("");
   const [workspaceNoteId, setWorkspaceNoteId] = useState<string>("");
   const [timelineCounterpartyId, setTimelineCounterpartyId] = useState<string>("");
+  const canReadCounterpartyData = authResolved ? canReadCounterparty(authContext?.role) : null;
+  const canCreateCounterpartyRecord = canCreateCounterparty(authContext?.role);
+  const canEditCounterpartyReview = canReviewCounterparty(authContext?.role);
   const {
     timelineLoading,
     timelineError,
@@ -642,6 +608,10 @@ export default function CounterpartiesPage() {
     : [];
 
   async function loadOperationalWorkspace(localRecords: CounterpartyWorkspaceRecord[]) {
+    if (canReadCounterpartyData !== true) {
+      setWorkspaceRecords(localRecords);
+      return;
+    }
     const res = await fetch(
       `/api/app/operations/work-items?module=counterparties&resource_type=counterparty&limit=${WORKSPACE_PAGE_LIMIT}`,
       { cache: "no-store" }
@@ -659,6 +629,11 @@ export default function CounterpartiesPage() {
   }
 
   async function loadCounterparties(nextOffset = offset) {
+    if (canReadCounterpartyData !== true) {
+      setItems([]);
+      setTotal(0);
+      return;
+    }
     setLoading(true);
     setError(null);
     const res = await fetch(`/api/app/compliance/counterparties?limit=${DEFAULT_LIMIT}&offset=${nextOffset}`, { cache: "no-store" });
@@ -682,30 +657,43 @@ export default function CounterpartiesPage() {
   }
 
   useEffect(() => {
+    fetchAuthContext()
+      .then((data) => {
+        setAuthContext(data ?? null);
+      })
+      .catch(() => {
+        setAuthContext(null);
+      })
+      .finally(() => setAuthResolved(true));
+  }, []);
+
+  useEffect(() => {
+    if (!authResolved) {
+      return;
+    }
+    if (canReadCounterpartyData !== true) {
+      setItems([]);
+      setTotal(0);
+      setWorkspaceRecords([]);
+      setLoading(false);
+      return;
+    }
     loadCounterparties(0).catch(() => {
       setError(tr("counterparties.errorLoad" as MessageKey));
       setLoading(false);
     });
-  }, [t]);
+  }, [authResolved, canReadCounterpartyData, t]);
 
   useEffect(() => {
-    const localRecords: CounterpartyWorkspaceRecord[] = [];
-    setWorkspaceRecords(localRecords);
-    loadOperationalWorkspace(localRecords).catch(() => {
-      setWorkspaceRecords(localRecords);
+    if (!authResolved) {
+      return;
+    }
+    setWorkspaceRecords([]);
+    loadOperationalWorkspace([]).catch(() => {
+      setWorkspaceRecords([]);
       setError(tr("counterparties.workspace.errorSync" as MessageKey));
     });
-
-    fetchAuthContext()
-      .then((data) => {
-        if (data) {
-          setAuthContext(data);
-        }
-      })
-      .catch(() => {
-        // Keep owner_user_id optional when auth context is unavailable.
-      });
-  }, []);
+  }, [authResolved, canReadCounterpartyData, t]);
 
   useEffect(() => {
     const counterpartyId = searchParams.get("counterparty_id");
@@ -928,6 +916,9 @@ export default function CounterpartiesPage() {
     if (!isUuidLike(record.counterpartyId)) {
       throw new Error(tr("counterparties.workspace.errorSyncMissingCounterpartyId" as MessageKey));
     }
+    if (!canEditCounterpartyReview) {
+      throw new Error(tr("apiErrors.counterpartyReviewRoleRequired" as MessageKey));
+    }
 
     const res = await fetch(`/api/app/compliance/counterparties/${encodeURIComponent(record.counterpartyId)}/review`, {
       method: "PATCH",
@@ -1087,6 +1078,11 @@ export default function CounterpartiesPage() {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canCreateCounterpartyRecord) {
+      setError(tr("apiErrors.counterpartyCreateRoleRequired" as MessageKey));
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     setNotice(null);
@@ -1193,6 +1189,7 @@ export default function CounterpartiesPage() {
       </MetricGrid>
 
       <Panel title={tr("counterparties.form.title" as MessageKey)} description={tr("counterparties.form.description" as MessageKey)}>
+        {canCreateCounterpartyRecord ? (
         <form className="otc-stack" onSubmit={onSubmit}>
           <div className="otc-grid otc-grid--counterparty-form">
             <label className="otc-field">
@@ -1295,13 +1292,20 @@ export default function CounterpartiesPage() {
           {error ? <Message tone="error">{error}</Message> : null}
           {notice ? <Message tone="success">{notice}</Message> : null}
         </form>
+        ) : (
+          <Message>{tr("counterparties.form.restricted" as MessageKey)}</Message>
+        )}
       </Panel>
 
       <Panel title={tr("counterparties.workspace.title" as MessageKey)} description={tr("counterparties.workspace.description" as MessageKey)}>
-        {localWorkspaceCount > 0 && serverWorkspaceCount === 0 ? (
+        {canReadCounterpartyData === false ? (
+          <Message data-testid="counterparties-workspace-read-restricted">
+            {tr("counterparties.workspace.restricted" as MessageKey)}
+          </Message>
+        ) : localWorkspaceCount > 0 && serverWorkspaceCount === 0 ? (
           <Message>{tr("counterparties.workspace.mode.localOnly" as MessageKey, { count: localWorkspaceCount })}</Message>
         ) : null}
-        {hasMixedWorkspaceSources ? (
+        {canReadCounterpartyData !== false && hasMixedWorkspaceSources ? (
           <Message>
             {tr("counterparties.workspace.mode.mixed" as MessageKey, {
               server: serverWorkspaceCount,
@@ -1309,6 +1313,7 @@ export default function CounterpartiesPage() {
             })}
           </Message>
         ) : null}
+        {canReadCounterpartyData !== false ? (
         <div className="otc-controls">
           <label className="otc-field">
             {tr("counterparties.workspace.filterStatus" as MessageKey)}
@@ -1324,8 +1329,9 @@ export default function CounterpartiesPage() {
             <input className="otc-input" value={workspaceSearch} onChange={(event) => setWorkspaceSearch(event.target.value)} />
           </label>
         </div>
+        ) : null}
 
-        {workspaceRecords.filter((record) => {
+        {canReadCounterpartyData === false ? null : workspaceRecords.filter((record) => {
           const matchesStatus = workspaceFilter === "all" ? true : record.workspaceStatus === workspaceFilter;
           const search = workspaceSearch.trim().toLowerCase();
           const matchesSearch =
@@ -1515,7 +1521,7 @@ export default function CounterpartiesPage() {
           <Message>{tr("counterparties.workspace.empty" as MessageKey)}</Message>
         )}
 
-        {workspaceRecords.length ? (
+        {canReadCounterpartyData !== false && workspaceRecords.length ? (
           <div className="otc-grid otc-grid--counterparty-form">
             <label className="otc-field">
               {tr("counterparties.workspace.noteFor" as MessageKey)}
@@ -1546,8 +1552,8 @@ export default function CounterpartiesPage() {
           </div>
         ) : null}
 
-        {workspaceRecords.length ? (
-          <div className="otc-stack">
+        {canReadCounterpartyData !== false && workspaceRecords.length && canEditCounterpartyReview ? (
+          <div className="otc-stack" data-testid="counterparty-dd-review-panel">
             <strong>{tr("counterparties.workspace.ddReview.title" as MessageKey)}</strong>
             <p className="otc-muted">{tr("counterparties.workspace.ddReview.description" as MessageKey)}</p>
             <label className="otc-field">
@@ -1621,9 +1627,11 @@ export default function CounterpartiesPage() {
               );
             })()}
           </div>
+        ) : canReadCounterpartyData !== false && workspaceRecords.length ? (
+          <Message>{tr("counterparties.workspace.ddReview.restricted" as MessageKey)}</Message>
         ) : null}
 
-        <WorkItemTimelinePanel
+        {canReadCounterpartyData === false ? null : <WorkItemTimelinePanel
           state={!selectedTimelineRecord ? "empty_selection" : !selectedTimelineRecord.workItemId ? "local_only" : "ready"}
           summary={
             selectedTimelineRecord
@@ -1655,7 +1663,7 @@ export default function CounterpartiesPage() {
           }
           formatDate={(value) => formatDate(value, locale)}
           formatEventLabel={formatTimelineEvent}
-        />
+        />}
       </Panel>
 
       <Panel
@@ -1669,10 +1677,14 @@ export default function CounterpartiesPage() {
           </div>
         }
       >
-        <div className="otc-message otc-panel-summary">
+        {canReadCounterpartyData === false ? (
+          <Message data-testid="counterparties-list-read-restricted">
+            {tr("counterparties.list.restricted" as MessageKey)}
+          </Message>
+        ) : <div className="otc-message otc-panel-summary">
           {tr("counterparties.list.total" as MessageKey, { total, page: currentPage, pages: totalPages })}
-        </div>
-        <table className="otc-table otc-table--spaced">
+        </div>}
+        {canReadCounterpartyData === false ? null : <table className="otc-table otc-table--spaced">
           <thead>
             <tr>
               <th>{tr("counterparties.list.legalName" as MessageKey)}</th>
@@ -1753,15 +1765,15 @@ export default function CounterpartiesPage() {
               </tr>
             )}
           </tbody>
-        </table>
-        <div className="otc-controls otc-controls--spaced">
+        </table>}
+        {canReadCounterpartyData === false ? null : <div className="otc-controls otc-controls--spaced">
           <button className="otc-button" type="button" onClick={() => loadCounterparties(Math.max(0, offset - DEFAULT_LIMIT))} disabled={loading || offset === 0}>
             {tr("counterparties.list.previous" as MessageKey)}
           </button>
           <button className="otc-button" type="button" onClick={() => loadCounterparties(offset + DEFAULT_LIMIT)} disabled={loading || offset + DEFAULT_LIMIT >= total}>
             {tr("counterparties.list.next" as MessageKey)}
           </button>
-        </div>
+        </div>}
       </Panel>
     </AppShell>
   );

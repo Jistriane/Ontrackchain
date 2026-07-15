@@ -106,6 +106,7 @@ Servicos que usam:
 | `COMPLIANCE_TRM_API_KEY_PREFIX` | `Bearer ` | prefixo aplicado antes da credencial no header |
 | `COMPLIANCE_TRM_TIMEOUT_MS` | `1500` | timeout por tentativa do provider AML/KYT |
 | `COMPLIANCE_TRM_MAX_RETRIES` | `1` | numero maximo de retries no adapter de `risk-check` |
+| `OPENSANCTIONS_API_KEY` | vazio | credencial usada pelo worker para enriquecimento e sincronizacao de listas via OpenSanctions |
 | `COMPLIANCE_OFAC_SDN_SOURCE_URL` | vazio | override opcional do `source_url` persistido em `sanctions_lists_meta` para o feed OFAC/SDN; o worker aplica o valor antes do sync |
 | `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` | vazio | override opcional do `source_url` persistido em `sanctions_lists_meta` para o feed EU; use para URLs XML tokenizadas obtidas no portal oficial |
 | `REPORT_INTERNAL_METRICS_ENABLED` | `true` | habilita endpoint interno agregado de report para scraping do Prometheus |
@@ -243,6 +244,14 @@ Variaveis observadas em [main.py](../apps/auth-service/src/auth_service/main.py)
 - `OIDC_ORG_CLAIM`
 - `OIDC_PLAN_CLAIM`
 - `OIDC_ROLE_CLAIM`
+- `KEYCLOAK_ADMIN_BASE_URL`
+- `KEYCLOAK_ADMIN_REALM`
+- `KEYCLOAK_ADMIN_CLIENT_ID`
+- `KEYCLOAK_ADMIN_CLIENT_SECRET`
+- `KEYCLOAK_ADMIN_TIMEOUT_SECONDS`
+- `KEYCLOAK_ADMIN_SEARCH_LIMIT`
+- `KEYCLOAK_ADMIN_ORG_ATTRIBUTE`
+- `KEYCLOAK_ADMIN_ROLE_ATTRIBUTE`
 - `POSTGRES_HOST`
 - `POSTGRES_PORT`
 - `POSTGRES_USER`
@@ -283,7 +292,7 @@ Variaveis observadas em [main.py](../apps/compliance-api/src/compliance_api/main
 Observacao:
 
 - `REPORT_API_BASE_URL` tem default `http://report-api:8004`
-- o worker de compliance tambem observa `COMPLIANCE_OFAC_SDN_SOURCE_URL` e `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` para sobrescrever o `source_url` persistido antes da sincronizacao das listas
+- o worker de compliance tambem observa `OPENSANCTIONS_API_KEY`, `COMPLIANCE_OFAC_SDN_SOURCE_URL` e `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` para enriquecimento e para sobrescrever o `source_url` persistido antes da sincronizacao das listas
 
 ### Monitoring API
 
@@ -342,6 +351,7 @@ Variaveis observadas em [main.py](../apps/report-api/src/report_api/main.py):
 - preferir `AUTH_MODE=oidc`
 - selecionar `OIDC_PROVIDER` antes de sobrescrever claims manualmente
 - preencher issuer, JWKS/authorization endpoint e claims do provedor real quando necessario
+- preencher `OPENSANCTIONS_API_KEY` quando o escopo serio exigir enriquecimento de sancoes e o worker estiver ativo no `full-stack`
 - quando o feed publico da UE responder com `403`, preencher `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` com a URL XML tokenizada obtida em `https://webgate.ec.europa.eu/fsd/fsf#!/files`
 
 Presets atuais:

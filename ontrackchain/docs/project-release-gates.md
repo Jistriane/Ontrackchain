@@ -12,6 +12,20 @@ Use este documento para responder:
 - quais gates sao obrigatorios, condicionais ou bloqueadores inaceitaveis?
 - qual e a leitura executiva de `go/no-go` dada a baseline oficial?
 
+## Papel Canonico
+
+Este documento e a fonte primaria para:
+
+- decisao de `go/no-go` da janela
+- classificacao entre gate obrigatorio, condicional e bloqueador
+- leitura executiva de promocao versus excecao
+
+Nao use este documento como:
+
+- runbook de comandos: use [Deploy e Staging](deploy-and-staging.md)
+- contrato do workflow manual do GitHub Actions: use [GitHub Environment para Staging Serio](github-environment-staging-serious.md)
+- descricao da topologia hospedada no Render: use [Blueprint Render para Staging Full-Stack](render-staging-blueprint.md)
+
 Nao use este documento como runbook de execucao:
 
 - deploy tecnico e comandos completos: [Deploy e Staging](deploy-and-staging.md)
@@ -28,9 +42,9 @@ Uma promocao para staging serio so deve acontecer quando:
 
 Baseline canônica de referencia:
 
-- `92%` de construcao tecnica
+- `93%` de construcao tecnica
 - `79%` de prontidao regulatoria
-- `88%` de construcao total consolidada
+- `89%` de construcao total consolidada
 - [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
 - [Avaliacao de Maturidade do Projeto](./project-maturity-assessment.md)
 - [Resumo Executivo de Readiness](./project-executive-readiness-brief.md)
@@ -156,4 +170,4 @@ No estado atual, os gates mais provaveis de continuar bloqueando uma janela regu
 
 Regra executiva:
 
-- manter esta leitura alinhada a baseline `92% / 79% / 88%` ate nova evidencia material publicada na governanca semanal
+- manter esta leitura alinhada a baseline `93% / 79% / 89%` ate nova evidencia material publicada na governanca semanal

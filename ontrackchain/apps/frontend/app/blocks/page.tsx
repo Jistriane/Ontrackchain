@@ -8,6 +8,7 @@ import { formatDateTime as formatDate } from "../lib/date-format";
 import { useI18n } from "../../components/i18n-provider";
 import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel";
 import type { MessageKey } from "../lib/i18n";
+import { canEvaluateBlock, canLiftBlock } from "../lib/authz";
 import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
 import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
@@ -415,6 +416,8 @@ export default function BlocksPage() {
   const [authContext, setAuthContext] = useState<AuthContext | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const canExecuteBlockEvaluate = canEvaluateBlock(authContext?.role);
+  const canExecuteBlockLift = canLiftBlock(authContext?.role);
 
   const [workspaceRecords, setWorkspaceRecords] = useState<BlockWorkspaceRecord[]>([]);
   const [workspaceFilter, setWorkspaceFilter] = useState("all");
@@ -714,6 +717,11 @@ export default function BlocksPage() {
   }
 
   async function runEvaluate(nextForm: EvaluateFormState) {
+    if (!canExecuteBlockEvaluate) {
+      setError(tr("apiErrors.blockEvaluateRoleRequired" as MessageKey));
+      return;
+    }
+
     setError(null);
     setNotice(null);
     setLiftResult(null);
@@ -787,6 +795,10 @@ export default function BlocksPage() {
       setError(tr("blocks.errorMissingBlockId" as MessageKey));
       return;
     }
+    if (!canExecuteBlockLift) {
+      setError(tr("apiErrors.blockLiftRoleRequired" as MessageKey));
+      return;
+    }
 
     setError(null);
     setNotice(null);
@@ -858,79 +870,83 @@ export default function BlocksPage() {
       </MetricGrid>
 
       <Panel title={tr("blocks.form.title" as MessageKey)} description={tr("blocks.form.description" as MessageKey)}>
-        <form className="otc-stack" onSubmit={onEvaluate}>
-          <div className="otc-grid otc-grid--counterparty-form">
-            <label className="otc-field">
-              {tr("blocks.form.address" as MessageKey)}
-              <input className="otc-input" data-testid="blocks-address" value={form.address} onChange={(event) => updateForm("address", event.target.value)} required />
-            </label>
-            <label className="otc-field">
-              {tr("blocks.form.chain" as MessageKey)}
-              <select className="otc-select" data-testid="blocks-chain" value={form.chain} onChange={(event) => updateForm("chain", event.target.value)}>
-                <option value="ethereum">Ethereum</option>
-                <option value="polygon">Polygon</option>
-                <option value="bsc">BSC</option>
-                <option value="arbitrum">Arbitrum</option>
-                <option value="base">Base</option>
-                <option value="bitcoin">Bitcoin</option>
-              </select>
-            </label>
-            <label className="otc-field">
-              {tr("blocks.form.caseId" as MessageKey)}
-              <input
-                className="otc-input"
-                data-testid="blocks-case-id"
-                value={form.caseId}
-                onChange={(event) => updateForm("caseId", event.target.value)}
-              />
-            </label>
-            <label className="otc-field">
-              {tr("blocks.form.owner" as MessageKey)}
-              <input className="otc-input" value={form.owner} onChange={(event) => updateForm("owner", event.target.value)} />
-            </label>
-            <label className="otc-field">
-              {tr("blocks.form.priority" as MessageKey)}
-              <select className="otc-select" value={form.priority} onChange={(event) => updateForm("priority", event.target.value as BlockWorkspacePriority)}>
-                <option value="critical">{tr("blocks.priority.critical" as MessageKey)}</option>
-                <option value="high">{tr("blocks.priority.high" as MessageKey)}</option>
-                <option value="normal">{tr("blocks.priority.normal" as MessageKey)}</option>
-              </select>
-            </label>
-            <label className="otc-field">
-              {tr("blocks.form.localDeadline" as MessageKey)}
-              <input className="otc-input" type="datetime-local" value={form.localDeadline} onChange={(event) => updateForm("localDeadline", event.target.value)} />
-            </label>
-            <label className="otc-field">
-              {tr("blocks.form.entityName" as MessageKey)}
-              <input className="otc-input" value={form.entityName} onChange={(event) => updateForm("entityName", event.target.value)} />
-            </label>
-            <label className="otc-field">
-              {tr("blocks.form.entityDocument" as MessageKey)}
-              <input className="otc-input" value={form.entityDocument} onChange={(event) => updateForm("entityDocument", event.target.value)} />
-            </label>
-          </div>
+        {canExecuteBlockEvaluate ? (
+          <form className="otc-stack" onSubmit={onEvaluate}>
+            <div className="otc-grid otc-grid--counterparty-form">
+              <label className="otc-field">
+                {tr("blocks.form.address" as MessageKey)}
+                <input className="otc-input" data-testid="blocks-address" value={form.address} onChange={(event) => updateForm("address", event.target.value)} required />
+              </label>
+              <label className="otc-field">
+                {tr("blocks.form.chain" as MessageKey)}
+                <select className="otc-select" data-testid="blocks-chain" value={form.chain} onChange={(event) => updateForm("chain", event.target.value)}>
+                  <option value="ethereum">Ethereum</option>
+                  <option value="polygon">Polygon</option>
+                  <option value="bsc">BSC</option>
+                  <option value="arbitrum">Arbitrum</option>
+                  <option value="base">Base</option>
+                  <option value="bitcoin">Bitcoin</option>
+                </select>
+              </label>
+              <label className="otc-field">
+                {tr("blocks.form.caseId" as MessageKey)}
+                <input
+                  className="otc-input"
+                  data-testid="blocks-case-id"
+                  value={form.caseId}
+                  onChange={(event) => updateForm("caseId", event.target.value)}
+                />
+              </label>
+              <label className="otc-field">
+                {tr("blocks.form.owner" as MessageKey)}
+                <input className="otc-input" value={form.owner} onChange={(event) => updateForm("owner", event.target.value)} />
+              </label>
+              <label className="otc-field">
+                {tr("blocks.form.priority" as MessageKey)}
+                <select className="otc-select" value={form.priority} onChange={(event) => updateForm("priority", event.target.value as BlockWorkspacePriority)}>
+                  <option value="critical">{tr("blocks.priority.critical" as MessageKey)}</option>
+                  <option value="high">{tr("blocks.priority.high" as MessageKey)}</option>
+                  <option value="normal">{tr("blocks.priority.normal" as MessageKey)}</option>
+                </select>
+              </label>
+              <label className="otc-field">
+                {tr("blocks.form.localDeadline" as MessageKey)}
+                <input className="otc-input" type="datetime-local" value={form.localDeadline} onChange={(event) => updateForm("localDeadline", event.target.value)} />
+              </label>
+              <label className="otc-field">
+                {tr("blocks.form.entityName" as MessageKey)}
+                <input className="otc-input" value={form.entityName} onChange={(event) => updateForm("entityName", event.target.value)} />
+              </label>
+              <label className="otc-field">
+                {tr("blocks.form.entityDocument" as MessageKey)}
+                <input className="otc-input" value={form.entityDocument} onChange={(event) => updateForm("entityDocument", event.target.value)} />
+              </label>
+            </div>
 
-          <div className="otc-controls">
-            <button className="otc-button otc-button--accent" type="submit" data-testid="blocks-evaluate-btn" disabled={evaluating}>
-              {evaluating ? tr("blocks.form.submitting" as MessageKey) : tr("blocks.form.submit" as MessageKey)}
-            </button>
-            <button
-              className="otc-button"
-              type="button"
-              onClick={() => {
-                setForm(DEFAULT_FORM);
-                setLiftReason("");
-              }}
-              disabled={evaluating}
-            >
-              {tr("blocks.form.reset" as MessageKey)}
-            </button>
-          </div>
+            <div className="otc-controls">
+              <button className="otc-button otc-button--accent" type="submit" data-testid="blocks-evaluate-btn" disabled={evaluating}>
+                {evaluating ? tr("blocks.form.submitting" as MessageKey) : tr("blocks.form.submit" as MessageKey)}
+              </button>
+              <button
+                className="otc-button"
+                type="button"
+                onClick={() => {
+                  setForm(DEFAULT_FORM);
+                  setLiftReason("");
+                }}
+                disabled={evaluating}
+              >
+                {tr("blocks.form.reset" as MessageKey)}
+              </button>
+            </div>
 
-          <Message>{tr("blocks.mfaNotice" as MessageKey)}</Message>
-          {error ? <Message tone="error">{error}</Message> : null}
-          {notice ? <Message tone="success">{notice}</Message> : null}
-        </form>
+            <Message>{tr("blocks.mfaNotice" as MessageKey)}</Message>
+            {error ? <Message tone="error">{error}</Message> : null}
+            {notice ? <Message tone="success">{notice}</Message> : null}
+          </form>
+        ) : (
+          <Message>{tr("blocks.form.restricted" as MessageKey)}</Message>
+        )}
       </Panel>
 
       <Panel title={tr("blocks.workspace.title" as MessageKey)} description={tr("blocks.workspace.description" as MessageKey)}>
@@ -1138,9 +1154,9 @@ export default function BlocksPage() {
               ) : null}
             </div>
 
-            {result.block_id ? (
+            {result.block_id && canExecuteBlockLift ? (
               <Panel title={tr("blocks.lift.title" as MessageKey)} description={tr("blocks.lift.description" as MessageKey)}>
-                <div className="otc-stack">
+                <div data-testid="blocks-lift-panel" className="otc-stack">
                   <label className="otc-field">
                     {tr("blocks.lift.reason" as MessageKey)}
                     <textarea className="otc-textarea" rows={3} value={liftReason} onChange={(event) => setLiftReason(event.target.value)} />
@@ -1174,6 +1190,8 @@ export default function BlocksPage() {
                   ) : null}
                 </div>
               </Panel>
+            ) : result.block_id ? (
+              <Message>{tr("blocks.lift.restricted" as MessageKey)}</Message>
             ) : null}
 
             <details className="otc-panel">

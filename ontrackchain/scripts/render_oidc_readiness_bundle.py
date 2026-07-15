@@ -28,6 +28,7 @@ def build_model(payload: dict[str, Any], bundle_file: Path) -> dict[str, Any]:
     steps = payload.get("steps") or {}
     preflight = steps.get("oidc_preflight") or {}
     smoke = steps.get("smoke_auth_oidc_mode") or {}
+    playwright = steps.get("oidc_playwright_critical") or {}
     readiness = payload.get("readiness") or {}
     return {
         "window_id": format_value(payload.get("window_id"), "unknown-window"),
@@ -51,6 +52,9 @@ def build_model(payload: dict[str, Any], bundle_file: Path) -> dict[str, Any]:
         "smoke_status": format_value(smoke.get("status"), "skipped"),
         "smoke_output_file": format_value(smoke.get("output_file")),
         "smoke_errors": smoke.get("errors") or [],
+        "playwright_status": format_value(playwright.get("status"), "skipped"),
+        "playwright_output_file": format_value(playwright.get("output_file")),
+        "playwright_errors": playwright.get("errors") or [],
         "errors": payload.get("errors") or [],
     }
 
@@ -75,6 +79,7 @@ def render_markdown(model: dict[str, Any]) -> str:
         "| --- | --- | --- |",
         f"| oidc_preflight | `{model['preflight_status']}` | `{model['preflight_output_file']}` |",
         f"| smoke_auth_oidc_mode | `{model['smoke_status']}` | `{model['smoke_output_file']}` |",
+        f"| oidc_playwright_critical | `{model['playwright_status']}` | `{model['playwright_output_file']}` |",
         "",
         "## Bloqueios",
         "",
@@ -106,6 +111,13 @@ def render_markdown(model: dict[str, Any]) -> str:
     else:
         lines.append("- `none`")
 
+    lines.extend(["", "### oidc_playwright_critical", ""])
+    if model["playwright_errors"]:
+        for error in model["playwright_errors"]:
+            lines.append(f"- `{error}`")
+    else:
+        lines.append("- `none`")
+
     lines.extend(
         [
             "",
@@ -113,7 +125,7 @@ def render_markdown(model: dict[str, Any]) -> str:
             "",
             f"- {model['next_action']}",
             "- anexar este markdown ao war room e ao sign-off quando a janela incluir P0-01",
-            "- manter o Playwright critico como gate complementar fora deste bundle",
+            "- usar o artefato `oidc_playwright_critical` como evidencia primaria de navegador real quando o gate estiver habilitado",
         ]
     )
     return "\n".join(lines) + "\n"

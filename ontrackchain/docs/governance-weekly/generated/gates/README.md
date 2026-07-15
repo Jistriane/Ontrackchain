@@ -15,3 +15,13 @@ Use esta pasta para:
 - [Dashboard de Historico de Gate](./gate-history-dashboard.md)
 - [Metricas de Gate em Markdown](./gate-history-metrics.md)
 - [Metricas de Gate em JSON](./gate-history-metrics.json)
+
+## Nota Operacional
+
+Este namespace continua ativo no baseline atual.
+
+- `make track-governance-history` gera `gate-history-metrics.json`
+- `make render-governance-gate-history-dashboard` gera `gate-history-dashboard.md`
+- `make update-governance-metrics` atualiza o conjunto completo
+
+Por isso, estes arquivos nao devem ser deletados nesta rodada; o ajuste correto foi alinhar scripts e documentacao ao caminho real em `docs/governance-weekly/generated/gates/`.

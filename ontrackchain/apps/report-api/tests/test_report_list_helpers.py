@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "packages" / "agents" / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "packages" / "shared" / "src"))
 
-from report_api.main import _normalize_reports_pagination, _serialize_report_list_row
+from report_api.main import _build_report_platform_alerts, _normalize_reports_pagination, _serialize_report_list_row
 from report_api.main import _normalize_report_filter_datetime
 
 
@@ -66,6 +66,42 @@ class ReportListHelpersTests(unittest.TestCase):
         self.assertEqual(item.file_hash_sha256, "a" * 64)
         self.assertTrue(item.has_download_audit)
         self.assertTrue(item.created_at.endswith("+00:00"))
+
+    def test_build_report_platform_alerts_returns_expected_alert_catalog(self) -> None:
+        snapshot = {
+            "catalog": {"report_types_total": 2},
+            "reports": {
+                "total": 10,
+                "last_24h": 3,
+                "legal_last_24h": 1,
+                "coaf_last_24h": 2,
+                "pending_onchain_total": 4,
+                "without_download_total": 5,
+            },
+            "downloads": {
+                "last_24h": 6,
+                "legal_last_24h": 2,
+                "legal_2fa_ok_last_24h": 1,
+                "legal_without_2fa_last_24h": 1,
+                "jwt_last_24h": 6,
+                "orgs_with_downloads_last_24h": 2,
+            },
+            "generated_at": "2026-07-13T00:00:00+00:00",
+        }
+
+        alerts = _build_report_platform_alerts(snapshot)
+
+        self.assertIsInstance(alerts, list)
+        self.assertEqual(len(alerts), 4)
+        self.assertEqual(
+            [alert["code"] for alert in alerts],
+            [
+                "report_download_volume",
+                "report_pending_onchain_backlog",
+                "report_legal_download_security_violation",
+                "report_persisted_without_download_backlog",
+            ],
+        )
 
 
 if __name__ == "__main__":

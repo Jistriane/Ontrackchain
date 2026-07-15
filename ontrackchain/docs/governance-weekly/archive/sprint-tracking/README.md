@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Agrupar os acompanhamentos diarios das sprints antigas preservados apenas para referencia historica.
+Preservar uma referencia historica agregada das sprints antigas, sem manter acompanhamentos diarios como trilha navegavel ativa.
 
 ## Faixas Disponiveis
 
@@ -11,13 +11,17 @@ Agrupar os acompanhamentos diarios das sprints antigas preservados apenas para r
 - Sprint 3: dias 1 a 5 em `2026-07-06`
 - Sprint 4: dias 1 a 5 em `2026-07-07`
 
+## Status
+
+- os arquivos diarios foram removidos para reduzir ruido e falso drift na navegacao
+- este README permanece como ponte historica para referenciar o contexto das sprints
+- a politica de retencao de `archive/` e aplicada por automacao e nao deve reintroduzir arquivos diarios nesta pasta
+
 ## Observacao
 
-Varios documentos desta pasta referenciam runbooks antigos que ja nao estao presentes na trilha viva atual. Esses links sao preservados apenas como contexto historico e nao devem ser tratados como caminho operacional ativo.
+Historicamente, os acompanhamentos diarios desta pasta referenciavam runbooks antigos que ja nao estao presentes na trilha viva atual. Esses links devem ser lidos apenas como contexto historico e nao como caminho operacional ativo.
 
 Em especial, referencias no formato `../../sprint-<n>-day-<m>-execution-runbook.md` representam a trilha de execucao usada durante o acompanhamento diario original da sprint. Esses runbooks nao existem mais na estrutura canonica atual e sua ausencia nao indica erro operacional da documentacao viva.
-
-Nos arquivos individuais desta pasta, esses alvos legados foram normalizados como texto explicito de contexto historico, evitando a aparencia de link ativo quebrado.
 
 ## Leitura Correta dos Links Legados
 

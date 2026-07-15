@@ -1,7 +1,67 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
+import { type PersistedPlatformAlertSelectionState } from "../../app/lib/monitoring-platform-alerts";
+import { LINKED_USER_ID, psqlExec, sqlLiteral } from "./federated-identity";
+import { generateTotpCode } from "./totp";
+
+type WorkItemUpdateMetadata = {
+  domain?: string;
+  affected_domains?: string[];
+  incident_commander?: string;
+  containment_status?: string;
+  runbook_ref?: string;
+  impact_summary?: string;
+  suspected_root_cause?: string;
+  confirmed_root_cause?: string;
+  corrective_actions?: string[];
+  evidence_refs?: string[];
+  [key: string]: unknown;
+};
+
+type WorkItemUpdatePayload = {
+  queue_status?: string;
+  note?: string | null;
+  metadata?: WorkItemUpdateMetadata;
+};
+
+type WorkItemCommentPayload = {
+  comment_type?: string;
+  body?: string;
+};
+
+type WorkItemCommentRecord = {
+  id: string;
+  work_item_id: string;
+  author_user_id: string;
+  comment_type: string;
+  body: string;
+  created_at: string;
+};
+
+type TrackedAlertWorkItem = {
+  id: string;
+  resource_id: string;
+  queue_status: string;
+  priority: string;
+  due_at: string | null;
+  note: string | null;
+  metadata: WorkItemUpdateMetadata;
+  last_activity_at: string;
+  updated_at: string;
+};
+
+type LegacyPersistedPlatformAlertSelectionState = PersistedPlatformAlertSelectionState & {
+  selected_ids?: string[];
+  scope?: string;
+  saved_at?: string;
+};
+
+type DevSessionStartResponse = {
+  require2fa?: boolean;
+};
+
 async function seedFrontendAuth(page: Page, options?: { role?: string }) {
-  const role = options?.role ?? "ANALYST";
+  const role = options?.role ?? "ADMIN";
   await page.context().addCookies([
     {
       name: "otc_token",
@@ -38,6 +98,36 @@ async function seedFrontendAuth(page: Page, options?: { role?: string }) {
         mfa_provider_homologated: "true"
       })
     });
+  });
+}
+
+async function loginAsDevRole(page: Page, role: "ADMIN" | "ANALYST") {
+  const session = await page.request.post("/api/session/start", {
+    headers: { "content-type": "application/json" },
+    data: { plan: "professional", role }
+  });
+  expect(session.status()).toBe(200);
+  const sessionBody = (await session.json()) as DevSessionStartResponse;
+  expect(sessionBody.require2fa).toBeTruthy();
+
+  const verify = await page.request.post("/api/session/verify-2fa", {
+    headers: { "content-type": "application/json" },
+    data: { code: generateTotpCode() }
+  });
+  expect(verify.status()).toBe(200);
+}
+
+async function readPersistedPlatformAlertSelection(page: Page) {
+  return page.evaluate(() => {
+    const raw = window.sessionStorage.getItem("monitoring-platform-alert-selection");
+    return raw ? (JSON.parse(raw) as PersistedPlatformAlertSelectionState) : null;
+  });
+}
+
+async function readPersistedPlatformAlertSelectionRaw(page: Page) {
+  return page.evaluate(() => {
+    const raw = window.sessionStorage.getItem("monitoring-platform-alert-selection");
+    return raw ? (JSON.parse(raw) as LegacyPersistedPlatformAlertSelectionState) : null;
   });
 }
 
@@ -171,20 +261,11 @@ test.describe("alerts and dashboard context links", () => {
     const reportId = "rep-alert-rca-01";
     const address = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const workItemId = "work-item-alert-e2e-rca";
-    let savedPayload: Record<string, unknown> | null = null;
-    let savedCommentPayload: Record<string, unknown> | null = null;
-    let comments: Array<Record<string, unknown>> = [];
-    let workItem: {
-      id: string;
-      resource_id: string;
-      queue_status: string;
-      priority: string;
-      due_at: string | null;
-      note: string | null;
-      metadata: Record<string, unknown>;
-      last_activity_at: string;
-      updated_at: string;
-    } = {
+    let savedPayload: WorkItemUpdatePayload | null = null;
+    let savedCommentPayload: WorkItemCommentPayload | null = null;
+    let savedCommentBody = "";
+    let comments: WorkItemCommentRecord[] = [];
+    let workItem: TrackedAlertWorkItem = {
       id: workItemId,
       resource_id: "alert-e2e-rca-01",
       queue_status: "UNDER_REVIEW",
@@ -285,13 +366,13 @@ test.describe("alerts and dashboard context links", () => {
         return;
       }
 
-      const payload = (route.request().postDataJSON() ?? {}) as Record<string, unknown>;
+      const payload = (route.request().postDataJSON() ?? {}) as WorkItemUpdatePayload;
       savedPayload = payload;
       workItem = {
         ...workItem,
         queue_status: String(payload.queue_status ?? workItem.queue_status),
-        note: typeof payload.note === "string" || payload.note === null ? (payload.note as string | null) : workItem.note,
-        metadata: typeof payload.metadata === "object" && payload.metadata ? (payload.metadata as Record<string, unknown>) : workItem.metadata,
+        note: typeof payload.note === "string" || payload.note === null ? payload.note : workItem.note,
+        metadata: payload.metadata ?? workItem.metadata,
         updated_at: "2026-07-06T12:10:00.000Z",
         last_activity_at: "2026-07-06T12:10:00.000Z"
       };
@@ -316,8 +397,9 @@ test.describe("alerts and dashboard context links", () => {
     });
 
     await page.route(`**/api/app/operations/work-items/${workItemId}/comments`, async (route: Route) => {
-      const payload = (route.request().postDataJSON() ?? {}) as Record<string, unknown>;
+      const payload = (route.request().postDataJSON() ?? {}) as WorkItemCommentPayload;
       savedCommentPayload = payload;
+      savedCommentBody = typeof payload.body === "string" ? payload.body : "";
       comments = [
         {
           id: "comment-alert-rca-01",
@@ -380,11 +462,115 @@ test.describe("alerts and dashboard context links", () => {
     expect(savedCommentPayload).toMatchObject({
       comment_type: "decision"
     });
-    const autoCommentBody =
-      savedCommentPayload && typeof savedCommentPayload["body"] === "string" ? savedCommentPayload["body"] : "";
-    expect(autoCommentBody).toContain("RCA atualizada automaticamente");
-    expect(autoCommentBody).toContain("Status da fila: pronto");
-    expect(autoCommentBody).toContain("Causa confirmada: Retry insuficiente no receiver.");
+    expect(savedCommentBody).toContain("RCA atualizada automaticamente");
+    expect(savedCommentBody).toContain("Status da fila: pronto");
+    expect(savedCommentBody).toContain("Causa confirmada: Retry insuficiente no receiver.");
+  });
+
+  test("alerts persiste selecao manual no contrato canonico e reidrata no reload", async ({ page }: { page: Page }) => {
+    await seedFrontendAuth(page);
+
+    await page.route("**/api/app/monitoring/operational-alert-filter-options", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          services: ["aml-monitor"],
+          receivers: ["slack"],
+          generated_at: "2026-07-06T12:00:00.000Z"
+        })
+      });
+    });
+
+    await page.route("**/api/app/operations/work-items?module=alerts**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] })
+      });
+    });
+
+    await page.route("**/api/app/monitoring/operational-alerts?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          generated_at: "2026-07-06T12:00:00.000Z",
+          receiver_filter: null,
+          service_filter: null,
+          severity_filter: null,
+          status_filter: null,
+          triage_status_filter: null,
+          cursor: null,
+          limit: 20,
+          count: 1,
+          total_count: 1,
+          has_more: false,
+          next_cursor: null,
+          data: [
+            {
+              id: "alert-persist-e2e-01",
+              receiver: "slack",
+              status: "firing",
+              triage_status: "pending",
+              alertname: "Alert Persist E2E",
+              service: "aml-monitor",
+              severity: "warning",
+              fingerprint: "fp-alert-persist-e2e-01",
+              labels: {},
+              annotations: {
+                summary: "Resumo do alerta persistido",
+                description: "Descricao do alerta persistido"
+              },
+              first_received_at: "2026-07-06T12:00:00.000Z",
+              last_received_at: "2026-07-06T12:05:00.000Z",
+              delivery_count: 2,
+              resolved_at: null,
+              triaged_at: null,
+              triaged_by: null,
+              triage_note: null
+            }
+          ]
+        })
+      });
+    });
+
+    await page.goto("/alerts");
+    await page.evaluate(() => window.sessionStorage.clear());
+    await page.reload();
+    await expect(page.getByTestId("platform-alerts-summary")).toContainText("selecionados: 0");
+
+    await page.click('[data-testid="platform-alert-select-alert-persist-e2e-01"]');
+    await expect(page.getByTestId("platform-alerts-summary")).toContainText("selecionados: 1");
+    await expect(page.getByTestId("platform-alerts-ack-selected-btn")).toContainText("Reconhecer selecionados (1)");
+
+    await expect.poll(() => readPersistedPlatformAlertSelection(page)).toMatchObject({
+      status: "all",
+      triageStatus: "all",
+      service: "all",
+      receiver: "all",
+      severity: "all",
+      cursor: null,
+      cursorHistory: [],
+      selectionScope: JSON.stringify({
+        status: "all",
+        triageStatus: "all",
+        service: "all",
+        receiver: "all",
+        severity: "all"
+      }),
+      selectedIds: ["alert-persist-e2e-01"]
+    });
+
+    const persisted = (await readPersistedPlatformAlertSelectionRaw(page)) as LegacyPersistedPlatformAlertSelectionState;
+    expect(persisted.selected_ids).toBeUndefined();
+    expect(persisted.scope).toBeUndefined();
+    expect(persisted.saved_at).toBeUndefined();
+
+    await page.reload();
+    await expect(page.getByTestId("platform-alert-select-alert-persist-e2e-01")).toBeChecked();
+    await expect(page.getByTestId("platform-alerts-summary")).toContainText("selecionados: 1");
+    await expect(page.getByTestId("platform-alerts-ack-selected-btn")).toContainText("Reconhecer selecionados (1)");
   });
 
   test("monitoring exibe resumo read-only de RCA para alerta rastreado", async ({ page }: { page: Page }) => {
@@ -568,46 +754,93 @@ test.describe("alerts and dashboard context links", () => {
   test("dashboard deriva links contextuais na tabela de casos recentes", async ({ page }: { page: Page }) => {
     const caseId = "66666666-6666-4666-8666-666666666666";
     const address = "0xdddddddddddddddddddddddddddddddddddddddd";
+    try {
+      psqlExec(`
+        DELETE FROM agent_runs WHERE case_id = ${sqlLiteral(caseId)};
+        DELETE FROM cases WHERE id = ${sqlLiteral(caseId)};
 
-    await seedFrontendAuth(page);
-    await page.goto("/dashboard");
+        INSERT INTO cases (
+          id,
+          organization_id,
+          user_id,
+          title,
+          case_type,
+          status,
+          target_address,
+          target_chain,
+          credits_estimated,
+          credits_used,
+          created_at,
+          completed_at,
+          metadata
+        )
+        VALUES (
+          ${sqlLiteral(caseId)},
+          '00000000-0000-0000-0000-000000000001',
+          ${sqlLiteral(LINKED_USER_ID)},
+          'Dashboard Recent Case',
+          'investigation',
+          'completed',
+          ${sqlLiteral(address)},
+          'ethereum',
+          1.5,
+          1.5,
+          '2099-07-06T12:00:00.000Z'::timestamptz,
+          '2099-07-06T12:10:00.000Z'::timestamptz,
+          ${sqlLiteral(JSON.stringify({ report_type_canonical: "coaf_ready_report", charged_cost: 1.5 }))}::jsonb
+        );
+      `);
 
-    await expect(page.getByTestId(`dashboard-case-row-${caseId}`)).toContainText(caseId);
-    await expect(page.getByTestId(`dashboard-case-status-${caseId}`)).toContainText("completed");
-    await expect(page.getByTestId(`dashboard-case-created-at-${caseId}`)).not.toContainText("2026-07-06T12:00:00.000Z");
-    await expect(page.getByTestId(`dashboard-case-completed-at-${caseId}`)).not.toContainText("2026-07-06T12:10:00.000Z");
-    await expect(page.locator(`a[href="/cases/${caseId}"]`)).toBeVisible();
-    await expect(
-      page.locator(`a[href="/audit?resource_type=case&resource_id=${caseId}&request_id=${caseId}"]`)
-    ).toBeVisible();
-    await expect(
-      page.locator(`a[href="/evidence?domain=all&resource_type=case&resource_id=${caseId}&request_id=${caseId}"]`)
-    ).toBeVisible();
-    await expect(
-      page.locator(`a[href="/reports?case_id=${caseId}&report_type=coaf_ready_report"]`)
-    ).toBeVisible();
-    await expect(
-      page.locator(
-        `a[href="/sanctions?address=${encodeURIComponent(address)}&chain=ethereum&autostart=1&case_id=${caseId}"]`
-      )
-    ).toBeVisible();
-    await expect(
-      page.locator(
-        `a[href="/blocks?address=${encodeURIComponent(address)}&chain=ethereum&autostart=1&case_id=${caseId}"]`
-      )
-    ).toBeVisible();
+      await loginAsDevRole(page, "ADMIN");
+      await page.goto("/dashboard");
+
+      await expect(page.getByTestId(`dashboard-case-row-${caseId}`)).toContainText(caseId);
+      await expect(page.getByTestId(`dashboard-case-status-${caseId}`)).toContainText("completed");
+      await expect(page.getByTestId(`dashboard-case-created-at-${caseId}`)).not.toContainText("2026-07-06T12:00:00.000Z");
+      await expect(page.getByTestId(`dashboard-case-completed-at-${caseId}`)).not.toContainText("2026-07-06T12:10:00.000Z");
+      await expect(page.locator(`a[href="/cases/${caseId}"]`)).toBeVisible();
+      await expect(
+        page.locator(`a[href="/audit?resource_type=case&resource_id=${caseId}&request_id=${caseId}"]`)
+      ).toBeVisible();
+      await expect(
+        page.locator(`a[href="/evidence?domain=all&resource_type=case&resource_id=${caseId}&request_id=${caseId}"]`)
+      ).toBeVisible();
+      await expect(
+        page.locator(`a[href="/reports?case_id=${caseId}&report_type=coaf_ready_report"]`)
+      ).toBeVisible();
+      await expect(
+        page.locator(
+          `a[href="/sanctions?address=${encodeURIComponent(address)}&chain=ethereum&autostart=1&case_id=${caseId}"]`
+        )
+      ).toBeVisible();
+      await expect(
+        page.locator(
+          `a[href="/blocks?address=${encodeURIComponent(address)}&chain=ethereum&autostart=1&case_id=${caseId}"]`
+        )
+      ).toBeVisible();
+    } finally {
+      psqlExec(`
+        DELETE FROM agent_runs WHERE case_id = ${sqlLiteral(caseId)};
+        DELETE FROM cases WHERE id = ${sqlLiteral(caseId)};
+      `);
+    }
   });
 
-  test("dashboard esconde CTA de billing para role sem permissao e exibe para billing admin", async ({ page }: { page: Page }) => {
-    await seedFrontendAuth(page, { role: "ANALYST" });
+  test("dashboard esconde handoffs administrativos para analyst e exibe para admin", async ({ page }: { page: Page }) => {
+    await loginAsDevRole(page, "ANALYST");
     await page.goto("/dashboard");
     await expect(page.getByTestId("dashboard-quick-action-billing")).toHaveCount(0);
+    await expect(page.getByTestId("dashboard-quick-action-team")).toHaveCount(0);
+    await expect(page.getByTestId("dashboard-module-team")).toHaveCount(0);
     await expect(page.locator('aside a[href="/billing"]')).toHaveCount(0);
+    await expect(page.locator('aside a[href="/team"]')).toHaveCount(0);
 
-    await page.unroute("**/api/app/auth/context");
-    await seedFrontendAuth(page, { role: "BILLING_ADMIN" });
+    await loginAsDevRole(page, "ADMIN");
     await page.goto("/dashboard");
     await expect(page.getByTestId("dashboard-quick-action-billing")).toBeVisible();
+    await expect(page.getByTestId("dashboard-quick-action-team")).toBeVisible();
+    await expect(page.getByTestId("dashboard-module-team")).toBeVisible();
     await expect(page.locator('aside a[href="/billing"]')).toHaveCount(1);
+    await expect(page.locator('aside a[href="/team"]')).toHaveCount(1);
   });
 });

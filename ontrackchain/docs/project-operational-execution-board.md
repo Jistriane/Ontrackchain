@@ -4,6 +4,18 @@
 
 Consolidar a fila operacional diaria do projeto sem drift de taxonomia, usando o mesmo namespace `P0/P1/P2` do board estrategico, dos artefatos de governanca e das trilhas tecnicas realmente executadas no repositorio.
 
+## Papel Canonico
+
+Este board e a fonte canonica unica para:
+
+- status corrente por item `P0/P1/P2`
+- owner sugerido ou owner em execucao
+- evidencia exigida
+- criterio de fechamento
+- fila diaria e kanban do ciclo
+
+Nao use este arquivo para redefinir ordem estrategica de ataque. Para a leitura macro do que vem antes do que, use o [Board de Prioridades do Projeto](./project-priority-board.md).
+
 Este documento deve ser lido em conjunto com:
 
 - [Board de Prioridades do Projeto](./project-priority-board.md)
@@ -11,13 +23,13 @@ Este documento deve ser lido em conjunto com:
 - [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
 - [Registro de Riscos do Projeto](./project-risk-register.md)
 - [Governanca Semanal](./governance-weekly/README.md)
-- [Checklist Operacional para 95%](./EXECUTION_CHECKLIST_TO_95_PERCENT.md)
+- [Plano Consolidado ate 95%](./project-construction-plan-to-95-percent.md)
 
 ## Baseline Atual
 
-- `92%` de construcao tecnica
+- `93%` de construcao tecnica
 - `79%` de prontidao regulatoria
-- `88%` de maturidade consolidada
+- `89%` de maturidade consolidada
 
 ## Regras Operacionais
 

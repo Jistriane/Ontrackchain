@@ -28,9 +28,9 @@ Leitura recomendada por nivel:
 
 Leitura executiva oficial:
 
-- `92%` de construcao tecnica
+- `93%` de construcao tecnica
 - `79%` de prontidao regulatoria/operacional
-- `88%` de maturidade consolidada
+- `89%` de maturidade consolidada
 
 Interpretacao honesta:
 
@@ -57,10 +57,10 @@ Interpretacao honesta:
 
 - `P1-01` concluiu a padronizacao de metadata dos `work-items`, reduzindo drift entre cockpit, backend e contrato de API
 - `P2-03` saiu de desenho abstrato para trilha canônica leve: playbook indexado, RCA persistida no `work-item` do alerta, leitura read-only em `/monitoring`, export administrativo enriquecido e resumo opcional para snapshot/comms executivos
-- `P2-05` entrou em trilho real de enforcement fino: `REVIEWER` e `BILLING_ADMIN` ja operam em superficies concretas, incluindo `manual-package`, `ROS/COAF`, `billing/balance`, `billing/reconciliation` e a degradação coerente de CTAs e do acesso direto ao dashboard financeiro no frontend
+- `P2-05` entrou em trilho real de enforcement fino: alem de `REVIEWER` e `BILLING_ADMIN`, o projeto agora endurece `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties` e a navegação global com negacao auditada e UX preventiva coerente
 - a segregacao regulatoria de `ROS/COAF` agora tambem aparece de forma explicita na UX: `REVIEWER` segue aprovando/rejeitando, mas nao recebe a superficie de submissao manual reservada a `COMPLIANCE_OFFICER`
 - isso reduz ambiguidade entre triagem tecnica e narrativa executiva, porque a causa raiz deixa de ficar implícita ou dispersa entre UI, comentário e export
-- este avanço melhora qualidade operacional e auditabilidade, mas ainda nao altera a baseline oficial `92/79/88` por si só
+- essa frente elevou a construcao tecnica e a coerencia operacional da plataforma, levando a baseline oficial para `93/79/89`, sem alterar por si so os bloqueadores regulatorios externos
 - o ganho executivo formal so deve ocorrer quando houver uso recorrente em janela real, com resumo RCA materializado e revisão humana coerente com o rito semanal
 
 ## O Que Ainda Impede `95%`
@@ -117,7 +117,7 @@ Decisao formal relacionada:
 
 ## Resultado Esperado
 
-Se `P0-02`, `P0-03`, `P0-04`, `P0-01` e `P0-05` forem fechados com evidencia real, o projeto entra na faixa plausivel de `93%+` consolidado e abre a reta final legitima para `95%`. Antes disso, tentativas parciais servem para endurecer a trilha executiva, nao para antecipar o fechamento oficial.
+Se `P0-02`, `P0-03`, `P0-04`, `P0-01` e `P0-05` forem fechados com evidencia real, o projeto entra na faixa plausivel de `94%+` consolidado e abre a reta final legitima para `95%`. Antes disso, tentativas parciais servem para endurecer a trilha executiva, nao para antecipar o fechamento oficial.
 
 ## Quando Usar Este Documento
 

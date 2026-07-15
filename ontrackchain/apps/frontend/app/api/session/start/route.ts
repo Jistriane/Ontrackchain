@@ -89,7 +89,7 @@ function resolveServerSideTokenUrl(publicTokenUrl: string): string {
 }
 
 export async function POST(request: Request) {
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
+  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const authBaseUrl = process.env.INTERNAL_AUTH_BASE_URL ?? "http://auth-service:9000";
   const authMode = resolveEffectiveAuthMode();
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();

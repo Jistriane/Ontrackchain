@@ -5,6 +5,13 @@ import { useI18n } from "../../../components/i18n-provider";
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../../components/ui";
 import { resolveApiErrorMessage } from "../../lib/api-error-catalog";
 import type { MessageKey } from "../../lib/i18n";
+import {
+  canDownloadLegalReport,
+  canDownloadReportArtifact,
+  canExportSensitiveEvidence,
+  canWriteReport
+} from "../../lib/authz";
+import { fetchAuthContext, type AuthContext } from "../../lib/ownership";
 
 type ReportState = {
   report_id: string;
@@ -37,6 +44,8 @@ export default function CasePage({ params }: { params: { id: string } }) {
   const [exportingEvidence, setExportingEvidence] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [authContext, setAuthContext] = useState<AuthContext | null>(null);
+  const [authResolved, setAuthResolved] = useState(false);
 
   function resolveReportTypeLabel(value: string) {
     const normalized = value.trim();
@@ -106,8 +115,35 @@ export default function CasePage({ params }: { params: { id: string } }) {
     }).toString();
     return `/api/app/reports/download?${query}`;
   }, [caseId, report]);
+  const canGenerateReport = authResolved ? canWriteReport(authContext?.role) : null;
+  const canExportEvidenceBundle = authResolved ? canExportSensitiveEvidence(authContext?.role) : null;
+  const generatedReportRequiresStrongAuth = report?.report_type === "legal_report";
+  const canDownloadGeneratedReport =
+    authResolved && report
+      ? generatedReportRequiresStrongAuth
+        ? canDownloadLegalReport({
+            role: authContext?.role,
+            authMethod: authContext?.auth_method,
+            mfaMode: authContext?.mfa_mode,
+            mfaProviderHomologated: authContext?.mfa_provider_homologated,
+            twoFactor: authContext?.two_factor
+          })
+        : canDownloadReportArtifact(authContext?.role)
+      : null;
+
+  useEffect(() => {
+    fetchAuthContext()
+      .then((data) => setAuthContext(data))
+      .catch(() => setAuthContext(null))
+      .finally(() => setAuthResolved(true));
+  }, []);
 
   async function onGenerateReport() {
+    if (canGenerateReport === false) {
+      setError(tr("cases.report.generateRestricted" as MessageKey));
+      setNotice(null);
+      return;
+    }
     setError(null);
     setNotice(null);
     setGenerating(true);
@@ -128,6 +164,11 @@ export default function CasePage({ params }: { params: { id: string } }) {
   }
 
   async function onExportEvidence() {
+    if (canExportEvidenceBundle === false) {
+      setError(tr("cases.ops.exportRestricted" as MessageKey));
+      setNotice(null);
+      return;
+    }
     setExportingEvidence(true);
     setError(null);
     setNotice(null);
@@ -149,12 +190,8 @@ export default function CasePage({ params }: { params: { id: string } }) {
         })
       });
       if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(
-          data?.error
-            ? resolveApiErrorMessage(t, data.error, tr("cases.errorExportEvidence" as MessageKey))
-            : tr("cases.errorExportEvidence" as MessageKey)
-        );
+        const data = await res.json().catch(() => null);
+        throw new Error(resolveApiErrorMessage(t, data, tr("cases.errorExportEvidence" as MessageKey)));
       }
 
       const blob = await res.blob();
@@ -198,9 +235,19 @@ export default function CasePage({ params }: { params: { id: string } }) {
           <a className="otc-button otc-button--ghost" href={`/evidence?domain=reports&resource_type=case&resource_id=${encodeURIComponent(caseId)}&report_id=${encodeURIComponent(report?.report_id ?? "")}`}>
             {tr("cases.ops.openEvidence" as MessageKey)}
           </a>
-          <button type="button" className="otc-button otc-button--ghost" onClick={onExportEvidence} disabled={exportingEvidence}>
-            {exportingEvidence ? tr("cases.ops.exportingEvidence" as MessageKey) : tr("cases.ops.exportEvidence" as MessageKey)}
-          </button>
+          {canExportEvidenceBundle ? (
+            <button
+              type="button"
+              className="otc-button otc-button--ghost"
+              data-testid="case-export-evidence-btn"
+              onClick={onExportEvidence}
+              disabled={exportingEvidence}
+            >
+              {exportingEvidence ? tr("cases.ops.exportingEvidence" as MessageKey) : tr("cases.ops.exportEvidence" as MessageKey)}
+            </button>
+          ) : canExportEvidenceBundle === false ? (
+            <Message data-testid="case-export-evidence-restricted">{tr("cases.ops.exportRestricted" as MessageKey)}</Message>
+          ) : null}
         </div>
         {notice ? <Message tone="success">{notice}</Message> : null}
         {error ? <Message tone="error">{error}</Message> : null}
@@ -222,9 +269,19 @@ export default function CasePage({ params }: { params: { id: string } }) {
               )}
             </select>
           </label>
-          <button type="button" className="otc-button otc-button--accent" data-testid="download-report-btn" onClick={onGenerateReport} disabled={generating}>
-            {generating ? tr("cases.report.generating" as MessageKey) : t("cases.report.generate")}
-          </button>
+          {canGenerateReport ? (
+            <button
+              type="button"
+              className="otc-button otc-button--accent"
+              data-testid="download-report-btn"
+              onClick={onGenerateReport}
+              disabled={generating}
+            >
+              {generating ? tr("cases.report.generating" as MessageKey) : t("cases.report.generate")}
+            </button>
+          ) : canGenerateReport === false ? (
+            <Message data-testid="case-report-generate-restricted">{tr("cases.report.generateRestricted" as MessageKey)}</Message>
+          ) : null}
         </div>
 
         {report ? (
@@ -233,9 +290,13 @@ export default function CasePage({ params }: { params: { id: string } }) {
             <div data-testid="stored-report-hash">{report.file_hash_sha256}</div>
             {downloadUrl ? (
               <div className="otc-controls">
-                <a className="otc-link-button" data-testid="download-link" href={downloadUrl} download>
-                  {t("cases.report.download")}
-                </a>
+                {canDownloadGeneratedReport ? (
+                  <a className="otc-link-button" data-testid="download-link" href={downloadUrl} download>
+                    {t("cases.report.download")}
+                  </a>
+                ) : canDownloadGeneratedReport === false ? (
+                  <Message data-testid="case-report-download-restricted">{tr("cases.report.downloadRestricted" as MessageKey)}</Message>
+                ) : null}
                 <a className="otc-link-button" href={`/reports?history_report_id=${encodeURIComponent(report.report_id)}`}>
                   {t("dashboard.cases.openReports")}
                 </a>

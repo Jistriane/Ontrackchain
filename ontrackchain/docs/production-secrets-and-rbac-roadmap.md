@@ -155,6 +155,7 @@ Fatia incremental ja endurecida em `billing`:
 
 - `GET /api/v1/billing/balance` protegido para `ADMIN|BILLING_ADMIN|OTK_BILLING_ADMIN`
 - `GET /api/v1/billing/reconciliation` protegido para `ADMIN|BILLING_ADMIN|OTK_BILLING_ADMIN`, expondo saldo consolidado, backlog de `quotes` e movimentos recentes de `credit_ledger`
+- `GET /api/v1/billing/reconciliation/export` protegido para `ADMIN|BILLING_ADMIN|OTK_BILLING_ADMIN`, exportando o snapshot reconciliavel atual em JSON auditavel
 
 ## Estrategia de Implementacao
 

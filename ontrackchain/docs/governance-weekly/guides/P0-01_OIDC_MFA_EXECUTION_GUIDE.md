@@ -13,7 +13,7 @@ Concentrar em um unico artefato o rito minimo para mover `P0-01` de `blocked` pa
 ## Fontes Canonicas
 
 - [Deploy e Staging](../../deploy-and-staging.md)
-- [Checklist de Evidência Mínima da Primeira Janela Séria](../../history/first-serious-window-evidence-checklist.md)
+- [Checklist de Evidência Mínima da Primeira Janela Séria](../../history/first-serious-window-evidence-checklist.md) - apoio historico complementar; a execucao viva de `P0-01` segue este guia e o run sheet dedicado
 - [Project Release Gates](../../project-release-gates.md)
 - [Project Operational Execution Board](../../project-operational-execution-board.md)
 - [Staging Env Ownership](../../staging-env-ownership.md)

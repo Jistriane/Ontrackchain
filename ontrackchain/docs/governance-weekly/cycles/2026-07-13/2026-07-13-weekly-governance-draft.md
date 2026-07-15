@@ -8,9 +8,9 @@ Este documento deve ser convertido em registro semanal final apenas quando houve
 
 ## Leitura do Ciclo
 
-- baseline tecnica esperada de referencia: `92%`
+- baseline tecnica esperada de referencia: `93%`
 - baseline regulatoria esperada de referencia: `79%`
-- baseline consolidada esperada de referencia: `88%`
+- baseline consolidada esperada de referencia: `89%`
 - foco da semana: decidir se houve prova material suficiente para mover algum `P0`, fechar `RUN-STG-01` ou manter a baseline oficialmente sem recalibracao
 
 ## Contexto da Revisao
@@ -22,7 +22,7 @@ Este documento deve ser convertido em registro semanal final apenas quando houve
   - `window_id`: `stg-2026-07-13-a`
   - artefatos vivos do ciclo: `war room`, `tracking`, `run sheet`, `bridge quick-fill`, `sign-off` e `decision packet`
 - criterio macro:
-  - manter `92% / 79% / 88%` se nao houver artefato novo revisavel
+  - manter `93% / 79% / 89%` se nao houver artefato novo revisavel
   - recalibrar apenas se houver checker/bundle/dossie/sign-off com valor operacional real
 
 ## Perguntas-Chave do Encontro
@@ -51,15 +51,15 @@ Este documento deve ser convertido em registro semanal final apenas quando houve
 
 | Frente | Owner primario | Evidencia minima obrigatoria | Estado que pode mover | Efeito executivo esperado |
 | --- | --- | --- | --- | --- |
-| `P0-02` `AML/KYT live` | `Compliance/AML` | `check-compliance-provider-runtime` verde com credencial real + JSON persistido + revisao em governanca | `ready_for_validation` | habilita discutir saida de `88%` para `89%` se a prova for revisavel |
-| `P0-03` feed UE real | `Compliance/Backend` | URL tokenizada valida + `eu-sanctions-preflight.json` + `eu-sanctions-sync.json` + `check_sanctions_sync_status.py` coerente | `ready_for_validation` | habilita discutir saida de `88%` para `89%` se a prova for revisavel |
+| `P0-02` `AML/KYT live` | `Compliance/AML` | `check-compliance-provider-runtime` verde com credencial real + JSON persistido + revisao em governanca | `ready_for_validation` | habilita discutir saida de `89%` para `90%` se a prova for revisavel |
+| `P0-03` feed UE real | `Compliance/Backend` | URL tokenizada valida + `eu-sanctions-preflight.json` + `eu-sanctions-sync.json` + `check_sanctions_sync_status.py` coerente | `ready_for_validation` | habilita discutir saida de `89%` para `90%` se a prova for revisavel |
 | `P0-01` `OIDC + MFA` serio | `Security/Auth` | `preflight_oidc_serious_env.py` verde + `smoke_auth_oidc_mode.py` verde + bundle OIDC + Playwright critico verde com provider real | `ready_for_validation` | reduz risco critico, mas sozinho nao justifica nova baseline sem o fechamento regulatorio correspondente |
 | `P0-04` bundle regulatorio oficial | `Platform/SRE` | `<window>-regulatory-readiness-bundle.json/.md` consolidando `P0-02` e `P0-03` sem erro residual nao classificado; tentativa parcial pode fortalecer dossier e correlacao, mas nao fecha o item | `done` | habilita discutir travessia legitima para `90%+` |
 | `RUN-STG-01` primeira janela seria | `Platform/SRE + Governanca` | artifact oficial + packet + dossier + war room + sign-off formal | `done` | habilita recalibracao executiva mais forte e reduz dependencia de narrativa |
 
 Regras sinteticas:
 
-- uma unica prova isolada de `P0-02` ou `P0-03` pode sustentar debate de `89%`, mas nao de `90%+`
+- uma unica prova isolada de `P0-02` ou `P0-03` pode sustentar debate de `90%`, mas nao de `90%+`
 - `90%+` exige prova combinada e revisavel de readiness regulatoria, preferencialmente fechando `P0-04`
 - `P0-01` reduz risco institucional, mas deve ser lido como multiplicador de confianca, nao como gatilho unico de score
 - tentativa parcial deve ser registrada como progresso operacional honesto, sem reclassificar `P0-04` como concluido
@@ -68,17 +68,17 @@ Regras sinteticas:
 
 ### Cenario A - Sem evidencia material nova
 
-- construcao tecnica: `92%`
+- construcao tecnica: `93%`
 - prontidao regulatoria: `79%`
-- KPI total consolidado: `88%`
+- KPI total consolidado: `89%`
 - houve recalibracao material?: `nao`
 
 ### Cenario B - Avanco real em `P0-02` e/ou `P0-03`
 
-- construcao tecnica: `92-93%`
+- construcao tecnica: `93-94%`
 - prontidao regulatoria: `82-84%`
-- KPI total consolidado: `89-90%`, usando a borda superior apenas se houver convergencia revisavel entre as duas trilhas
-- houve recalibracao material?: `sim`, se houver artefato revisavel; tentativa isolada tende a sustentar `89%`, nao o fechamento oficial de `90%+`
+- KPI total consolidado: `90-91%`, usando a borda superior apenas se houver convergencia revisavel entre as duas trilhas
+- houve recalibracao material?: `sim`, se houver artefato revisavel; tentativa isolada tende a sustentar `90%`, nao o fechamento oficial de `90%+`
 
 ### Cenario C - Fechamento de `RUN-STG-01` com dossie aceito
 
@@ -99,7 +99,7 @@ Regras sinteticas:
   - se houver checker + bundle consolidado revisado na mesma trilha de `P0-03`: `done`
   - se nao houver credencial real: manter `ready`
 - impacto minimo no KPI:
-  - isoladamente, pode sustentar debate de `89%` quando a prova for revisavel
+  - isoladamente, pode sustentar debate de `90%` quando a prova for revisavel
   - combinado com `P0-03` e `P0-04`, pode sustentar discussao de `90%+`
 
 ### `P0-03` feed UE real
@@ -112,7 +112,7 @@ Regras sinteticas:
   - se houver bundle regulatorio final revisado na mesma trilha de `P0-02`: `done`
   - se nao houver URL valida: manter `ready`
 - impacto minimo no KPI:
-  - isoladamente, pode sustentar debate de `89%` quando a prova for revisavel
+  - isoladamente, pode sustentar debate de `90%` quando a prova for revisavel
   - combinado com `P0-02` e `P0-04`, pode sustentar discussao de `90%+`
 
 ### `P0-01` `OIDC + MFA` serio
@@ -186,7 +186,7 @@ Regras sinteticas:
 ### Posicao Base Esperada na Ausencia de Novas Evidencias
 
 - decisao executiva: `manter baseline`
-- KPI oficial: `92% / 79% / 88%`
+- KPI oficial: `93% / 79% / 89%`
 - leitura da janela: `dress_rehearsal_controlado` com `pending_no_go` operacional mantido
 - proximo melhor candidato a avanço: `P0-02` ou `P0-03`, dependendo da primeira credencial externa valida disponivel
 - principal escalacao da semana: `P0-01`, por depender de provider OIDC serio e aceite institucional

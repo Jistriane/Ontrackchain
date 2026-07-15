@@ -217,8 +217,88 @@ class ReportRbacTests(unittest.TestCase):
         self.assertEqual(log_entry["resource_type"], "report")
         self.assertIsNone(log_entry["resource_id"])
         self.assertEqual(log_entry["metadata"]["request_id"], "req-report-generate-viewer")
+
+    def test_download_report_rejects_viewer_and_records_denial(self) -> None:
+        state, pool = self._build_state()
+        report_id = main._compute_report_id("case-1", "technical")
+        state["reports"] = [
+            {
+                "case_id": "case-1",
+                "external_report_id": report_id,
+                "report_type": "technical",
+                "report_type_requested": "technical",
+                "content_type": "application/pdf",
+                "created_at": "2026-07-15T10:00:00Z",
+                "metadata": {},
+            }
+        ]
+
+        with self.assertRaises(main.HTTPException) as ctx:
+            asyncio.run(
+                main.download_report(
+                    report_id=report_id,
+                    case_id="case-1",
+                    report_type="technical",
+                    created_at="2026-07-15T10:00:00Z",
+                    pool=pool,
+                    x_org_id="org-1",
+                    x_user_id="11111111-1111-1111-1111-111111111111",
+                    x_role="VIEWER",
+                    x_request_id="req-report-download-viewer",
+                )
+            )
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, "report_download_role_required")
+        self.assertEqual(pool._connection.commit_calls, 1)
+        self.assertEqual(len(state["audit_logs"]), 1)
+        log_entry = state["audit_logs"][0]
+        self.assertEqual(log_entry["action"], "authorization_denied")
+        self.assertEqual(log_entry["resource_type"], "report")
+        self.assertEqual(log_entry["metadata"]["request_id"], "req-report-download-viewer")
+        self.assertEqual(log_entry["metadata"]["effective_role"], "VIEWER")
         self.assertEqual(log_entry["metadata"]["effective_role"], "VIEWER")
         self.assertEqual(log_entry["metadata"]["resource_reference_id"], "case-1")
+
+    def test_get_report_rejects_viewer_and_records_denial(self) -> None:
+        state, pool = self._build_state()
+        report_id = main._compute_report_id("case-1", "technical")
+        state["reports"] = [
+            {
+                "case_id": "case-1",
+                "external_report_id": report_id,
+                "report_type": "technical",
+                "report_type_requested": "technical",
+                "content_type": "application/pdf",
+                "file_hash": "f" * 64,
+                "onchain_hash": None,
+                "created_at": "2026-07-15T10:00:00Z",
+                "metadata": {},
+            }
+        ]
+
+        with self.assertRaises(main.HTTPException) as ctx:
+            asyncio.run(
+                main.get_report(
+                    report_id=report_id,
+                    pool=pool,
+                    x_org_id="org-1",
+                    x_user_id="11111111-1111-1111-1111-111111111111",
+                    x_role="VIEWER",
+                    x_request_id="req-report-detail-viewer",
+                )
+            )
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, "report_detail_role_required")
+        self.assertEqual(pool._connection.commit_calls, 1)
+        self.assertEqual(len(state["audit_logs"]), 1)
+        log_entry = state["audit_logs"][0]
+        self.assertEqual(log_entry["action"], "authorization_denied")
+        self.assertEqual(log_entry["resource_type"], "report")
+        self.assertEqual(log_entry["metadata"]["request_id"], "req-report-detail-viewer")
+        self.assertEqual(log_entry["metadata"]["effective_role"], "VIEWER")
+        self.assertEqual(log_entry["metadata"]["resource_reference_id"], report_id)
 
     def test_generate_report_allows_analyst(self) -> None:
         state, pool = self._build_state()
@@ -345,6 +425,27 @@ class ReportRbacTests(unittest.TestCase):
         self.assertEqual(log_entry["resource_id"], "ros-3")
         self.assertEqual(log_entry["metadata"]["effective_role"], "REVIEWER")
         self.assertEqual(log_entry["metadata"]["detail"], "coaf_report_submission_role_required")
+
+    def test_require_persisted_actor_user_id_accepts_linked_uuid_present_in_users(self) -> None:
+        state, _pool = self._build_state()
+        cursor = _FakeAuditCursor(state)
+
+        persisted_user_id = main._require_persisted_actor_user_id(
+            cursor,
+            "11111111-1111-1111-1111-111111111111",
+        )
+
+        self.assertEqual(persisted_user_id, "11111111-1111-1111-1111-111111111111")
+
+    def test_require_persisted_actor_user_id_rejects_non_persisted_actor(self) -> None:
+        state, _pool = self._build_state()
+        cursor = _FakeAuditCursor(state)
+
+        with self.assertRaises(main.HTTPException) as ctx:
+            main._require_persisted_actor_user_id(cursor, "external-actor-without-link")
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, "linked_user_required_for_coaf_report")
 
 
 if __name__ == "__main__":

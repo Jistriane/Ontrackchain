@@ -13,7 +13,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ count
   const { counterpartyId } = await context.params;
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const body = await request.text();
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
+  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const authBaseUrl = process.env.INTERNAL_AUTH_BASE_URL ?? "http://auth-service:9000";
   const validateRes = await fetch(`${authBaseUrl}/validate`, {
     method: "GET",
@@ -44,5 +44,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ count
     cache: "no-store"
   });
 
-  return jsonResponse(await res.text(), res.status);
+  const responseBody = await res.text();
+  return jsonResponse(responseBody || JSON.stringify({ detail: "counterparty_review_role_required" }), res.status);
 }

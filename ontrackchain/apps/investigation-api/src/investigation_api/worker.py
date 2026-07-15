@@ -35,6 +35,7 @@ class WorkerSettings(BaseSettings):
     redis_host: str = "redis"
     redis_port: int = 6379
     investigation_internal_base_url: str = "http://investigation-api:8001"
+    investigation_internal_worker_token: str = "investigation-local-token"
     investigation_worker_processing_seconds: float = 2.0
     investigation_worker_local_concurrency: int = 8
     investigation_worker_base_backoff_seconds: int = 5
@@ -332,7 +333,11 @@ class InvestigationWorker:
             "POST",
             f"{worker_settings.investigation_internal_base_url}/api/v1/investigation/{claimed.case_id}/internal/complete",
             data={"credits_used": claimed.credits_estimated},
-            headers={"X-Org-Id": claimed.org_id, "X-Request-Id": request_id},
+            headers={
+                "X-Org-Id": claimed.org_id,
+                "X-Request-Id": request_id,
+                "X-Internal-Token": worker_settings.investigation_internal_worker_token,
+            },
         )
         if status not in {200, 409}:
             raise RuntimeError(f"internal_complete_failed:{status}:{body}")
@@ -439,7 +444,11 @@ class InvestigationWorker:
             "POST",
             f"{worker_settings.investigation_internal_base_url}/api/v1/investigation/{claimed.case_id}/internal/fail",
             data={"reason": error_message},
-            headers={"X-Org-Id": claimed.org_id, "X-Request-Id": request_id},
+            headers={
+                "X-Org-Id": claimed.org_id,
+                "X-Request-Id": request_id,
+                "X-Internal-Token": worker_settings.investigation_internal_worker_token,
+            },
         )
         if status not in {200, 409}:
             raise RuntimeError(f"internal_fail_failed:{status}:{body}")

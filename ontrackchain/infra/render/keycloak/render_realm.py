@@ -18,15 +18,21 @@ def _required_env(name: str) -> str:
 
 
 def _user_password_overrides() -> dict[str, str]:
-    return {
-        "system@ontrackchain.com": _required_env("KEYCLOAK_SYSTEM_USER_PASSWORD"),
-        "kmd@ontrackchain.com": _required_env("KEYCLOAK_KMD_TESTER_PASSWORD"),
-        "jibso@ontrackchain.com": _required_env("KEYCLOAK_JIBSO_ADMIN_PASSWORD"),
-        "auditor@ontrackchain.com": _required_env("KEYCLOAK_AUDITOR_PASSWORD"),
-        "analyst@ontrackchain.com": _required_env("KEYCLOAK_ANALYST_PASSWORD"),
-        "viewer@ontrackchain.com": _required_env("KEYCLOAK_VIEWER_PASSWORD"),
-        "sem-org@ontrackchain.com": _required_env("KEYCLOAK_SEM_ORG_PASSWORD"),
+    env_by_username = {
+        "system@ontrackchain.com": "KEYCLOAK_SYSTEM_USER_PASSWORD",
+        "kmd@ontrackchain.com": "KEYCLOAK_KMD_TESTER_PASSWORD",
+        "jibso@ontrackchain.com": "KEYCLOAK_JIBSO_ADMIN_PASSWORD",
+        "auditor@ontrackchain.com": "KEYCLOAK_AUDITOR_PASSWORD",
+        "analyst@ontrackchain.com": "KEYCLOAK_ANALYST_PASSWORD",
+        "viewer@ontrackchain.com": "KEYCLOAK_VIEWER_PASSWORD",
+        "sem-org@ontrackchain.com": "KEYCLOAK_SEM_ORG_PASSWORD",
     }
+    overrides: dict[str, str] = {}
+    for username, env_name in env_by_username.items():
+        value = os.getenv(env_name, "").strip()
+        if value:
+            overrides[username] = value
+    return overrides
 
 
 def main() -> None:

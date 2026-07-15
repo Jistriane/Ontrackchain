@@ -12,6 +12,7 @@ type WatchlistAlertsPanelProps = {
   setSelectedAlert: (alert: Alert | null) => void;
   refreshAlerts: () => void;
   triggerAlert: () => void;
+  canTriggerTestAlert: boolean;
 };
 
 export function WatchlistAlertsPanel({
@@ -21,7 +22,8 @@ export function WatchlistAlertsPanel({
   selectedAlert,
   setSelectedAlert,
   refreshAlerts,
-  triggerAlert
+  triggerAlert,
+  canTriggerTestAlert
 }: WatchlistAlertsPanelProps) {
   return (
     <>
@@ -40,9 +42,11 @@ export function WatchlistAlertsPanel({
           <button type="button" onClick={refreshAlerts} className="otc-button otc-button--ghost">
             {t("monitoring.actions.refresh")}
           </button>
-          <button type="button" data-testid="trigger-alert-btn" onClick={triggerAlert} className="otc-button otc-button--accent">
-            {t("monitoring.actions.triggerAlert")}
-          </button>
+          {canTriggerTestAlert ? (
+            <button type="button" data-testid="trigger-alert-btn" onClick={triggerAlert} className="otc-button otc-button--accent">
+              {t("monitoring.actions.triggerAlert")}
+            </button>
+          ) : null}
         </div>
 
         {alerts.length ? (

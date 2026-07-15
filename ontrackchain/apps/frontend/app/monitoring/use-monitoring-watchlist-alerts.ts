@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { resolveApiErrorMessage } from "../lib/api-error-catalog";
 import type { MessageKey } from "../lib/i18n";
 import {
   fetchMonitoringAlerts,
@@ -14,9 +15,10 @@ type Translator = (key: MessageKey, values?: Record<string, string | number>) =>
 type UseMonitoringWatchlistAlertsArgs = {
   t: Translator;
   setError: (value: string | null) => void;
+  canTriggerTestAlert: boolean;
 };
 
-export function useMonitoringWatchlistAlerts({ t, setError }: UseMonitoringWatchlistAlertsArgs) {
+export function useMonitoringWatchlistAlerts({ t, setError, canTriggerTestAlert }: UseMonitoringWatchlistAlertsArgs) {
   const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
@@ -51,12 +53,21 @@ export function useMonitoringWatchlistAlerts({ t, setError }: UseMonitoringWatch
   }
 
   async function triggerAlert() {
+    if (!canTriggerTestAlert) {
+      setError(t("apiErrors.monitoringTestTriggerRoleRequired"));
+      return;
+    }
     const watchlist = watchlists[0];
     if (!watchlist) {
       setError(t("monitoring.errors.noWatchlist"));
       return;
     }
-    const watchlistItem = watchlistItems[0];
+    const resolvedWatchlistItems =
+      watchlistItems.length > 0 ? watchlistItems : await fetchMonitoringWatchlistItems(watchlist.id).catch(() => []);
+    if (!watchlistItems.length && resolvedWatchlistItems.length) {
+      setWatchlistItems(resolvedWatchlistItems);
+    }
+    const watchlistItem = resolvedWatchlistItems[0];
     if (!watchlistItem) {
       setError(t("monitoring.errors.noWatchlistItems"));
       return;
@@ -76,7 +87,8 @@ export function useMonitoringWatchlistAlerts({ t, setError }: UseMonitoringWatch
     });
 
     if (!response.ok) {
-      setError(t("monitoring.errors.triggerAlert"));
+      const payload = (await response.json().catch(() => null)) as unknown;
+      setError(resolveApiErrorMessage(t, payload, t("monitoring.errors.triggerAlert")));
       return;
     }
 

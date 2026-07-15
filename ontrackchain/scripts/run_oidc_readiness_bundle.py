@@ -136,19 +136,25 @@ def build_readiness_summary(payload: dict[str, Any]) -> dict[str, Any]:
     steps = payload.get("steps") or {}
     preflight = steps.get("oidc_preflight") or {}
     smoke = steps.get("smoke_auth_oidc_mode") or {}
+    playwright = steps.get("oidc_playwright_critical") or {}
     scope = payload.get("scope") or {}
+    require_playwright_critical = scope.get("require_playwright_critical") is True
 
     blockers: list[str] = []
     if preflight.get("status") != "ok":
         blockers.append("preflight_oidc_serious_env ainda nao esta verde")
     if smoke.get("status") != "ok":
         blockers.append("smoke_auth_oidc_mode ainda nao esta verde")
+    if require_playwright_critical and playwright.get("status") != "ok":
+        blockers.append("oidc_playwright_critical ainda nao esta verde")
 
     mfa_homologated = str(scope.get("mfa_external_provider_homologated", "false")).strip().lower() == "true"
     if not mfa_homologated:
         blockers.append("provider MFA/OIDC ainda nao esta homologado para trilho serio")
 
-    if preflight.get("status") != "ok" or smoke.get("status") != "ok":
+    if preflight.get("status") != "ok" or smoke.get("status") != "ok" or (
+        require_playwright_critical and playwright.get("status") != "ok"
+    ):
         readiness_status = "blocked"
         next_action = "Corrigir preflight/smoke OIDC e rerodar o bundle antes de qualquer promocao."
     elif not mfa_homologated:
@@ -171,6 +177,10 @@ def run_bundle(
     private_env_file: Path,
     checks_dir: Path,
     base_url: str,
+    include_playwright_critical: bool,
+    require_playwright_critical: bool,
+    playwright_base_url: str,
+    frontend_dir: Path,
     expected_oidc_provider: str,
     expected_mfa_provider_homologated: str | None,
     expected_org_claim: str,
@@ -207,6 +217,8 @@ def run_bundle(
         "scope": {
             "mfa_external_provider_homologated": env_values.get("MFA_EXTERNAL_PROVIDER_HOMOLOGATED", "false"),
             "expected_oidc_provider": expected_oidc_provider,
+            "include_playwright_critical": include_playwright_critical,
+            "require_playwright_critical": require_playwright_critical,
         },
         "steps": {},
     }
@@ -247,6 +259,43 @@ def run_bundle(
     if smoke_exit_code != 0:
         payload["errors"].append("smoke_auth_oidc_mode: falhou")
 
+    if include_playwright_critical:
+        effective_playwright_base_url = (
+            playwright_base_url.strip()
+            or base_url.strip()
+            or env_values.get("ONTRACKCHAIN_BASE_URL", "").strip()
+            or env_values.get("NEXT_PUBLIC_API_BASE_URL", "").strip()
+        )
+        playwright_output_file = build_output_file(window_id, "oidc-playwright-critical", checks_dir)
+        with temporary_environ(env_values):
+            playwright_exit_code, playwright_payload = run_module_capture(
+                "scripts/run_oidc_playwright_critical.py",
+                [
+                    "run_oidc_playwright_critical.py",
+                    "--base-url",
+                    effective_playwright_base_url,
+                    "--frontend-dir",
+                    str(frontend_dir),
+                ],
+                f"oidc_playwright_critical_{window_id}",
+            )
+        write_json_file(playwright_output_file, playwright_payload)
+        payload["steps"]["oidc_playwright_critical"] = build_step(
+            status=playwright_payload.get("status", "failed"),
+            enabled=True,
+            exit_code=playwright_exit_code,
+            output_file=playwright_output_file,
+            errors=playwright_payload.get("errors", []),
+        )
+        if playwright_exit_code != 0 and require_playwright_critical:
+            payload["errors"].append("oidc_playwright_critical: falhou")
+    else:
+        payload["steps"]["oidc_playwright_critical"] = build_step(
+            status="skipped",
+            enabled=False,
+            errors=[],
+        )
+
     payload["status"] = "ok" if not payload["errors"] else "failed"
     payload["readiness"] = build_readiness_summary(payload)
     return (0 if payload["status"] == "ok" else 1), payload
@@ -260,6 +309,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--private-env-file", default=str(DEFAULT_PRIVATE_ENV_FILE))
     parser.add_argument("--checks-dir", default=str(DEFAULT_CHECKS_DIR))
     parser.add_argument("--base-url", default="")
+    parser.add_argument("--include-playwright-critical", action="store_true")
+    parser.add_argument("--require-playwright-critical", action="store_true")
+    parser.add_argument("--playwright-base-url", default="")
+    parser.add_argument("--frontend-dir", default=str(REPO_ROOT / "apps" / "frontend"))
     parser.add_argument("--expected-oidc-provider", default="keycloak")
     parser.add_argument("--expected-mfa-provider-homologated")
     parser.add_argument("--expected-org-claim", default="")
@@ -275,6 +328,10 @@ def main() -> int:
         private_env_file=Path(args.private_env_file),
         checks_dir=Path(args.checks_dir),
         base_url=args.base_url.strip(),
+        include_playwright_critical=args.include_playwright_critical,
+        require_playwright_critical=args.require_playwright_critical,
+        playwright_base_url=args.playwright_base_url.strip(),
+        frontend_dir=Path(args.frontend_dir),
         expected_oidc_provider=args.expected_oidc_provider.strip(),
         expected_mfa_provider_homologated=(
             args.expected_mfa_provider_homologated.strip()

@@ -1,4 +1,5 @@
 import { authenticateReportRequest, jsonResponse } from "../_shared";
+import { canExportSensitiveEvidence } from "../../../../lib/authz";
 import {
   buildReportFormalDossierFilename,
   deriveReportFormalDossierSummary,
@@ -28,6 +29,9 @@ export async function POST(request: Request) {
   if (auth instanceof Response) {
     return auth;
   }
+  if (!canExportSensitiveEvidence(auth.role)) {
+    return jsonResponse(JSON.stringify({ detail: "report_formal_dossier_role_required" }), 403);
+  }
 
   const payload = (await request.json().catch(() => null)) as ReportFormalDossierRequest | null;
   if (!payload?.report?.report_id || !payload.report.case_id) {
@@ -35,7 +39,7 @@ export async function POST(request: Request) {
   }
 
   const runtimeEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
-  const baseUrl = runtimeEnv?.INTERNAL_API_BASE_URL ?? runtimeEnv?.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
+  const baseUrl = runtimeEnv?.INTERNAL_API_BASE_URL ?? runtimeEnv?.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const evidenceRes = await fetch(`${baseUrl}/api/v1/audit/evidence-export`, {
     method: "POST",
     headers: {

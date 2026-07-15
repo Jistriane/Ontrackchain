@@ -1,9 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "../../components/i18n-provider";
 import { buildCaseAuditHref, buildCaseEvidenceHref } from "../lib/operational-context";
-import { AppShell, Message, Pill } from "../../components/ui";
+import {
+  canManageInvestigationAdmin,
+  canManageMonitoringAdmin,
+  canReadInvestigationAdmin,
+  canReadMonitoringAdmin,
+  canTriggerMonitoringTestAlert
+} from "../lib/authz";
+import { fetchAuthContext, type AuthContext } from "../lib/ownership";
+import { AppShell, ConfirmDialog, Message, Pill } from "../../components/ui";
 import type { MessageKey } from "../lib/i18n";
 import { DlqRemediationPanel } from "./dlq-remediation-panel";
 import { InvestigationOperationsPanel } from "./investigation-operations-panel";
@@ -16,8 +24,15 @@ import { WatchlistAlertsPanel } from "./watchlist-alerts-panel";
 export default function MonitoringPage() {
   const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
+  const [authContext, setAuthContext] = useState<AuthContext | null>(null);
+  const [authResolved, setAuthResolved] = useState(false);
+  const canTriggerTestAlert = authResolved ? canTriggerMonitoringTestAlert(authContext?.role) : false;
+  const canReadPlatformAdmin = authResolved ? canReadMonitoringAdmin(authContext?.role) : null;
+  const canManagePlatformAdmin = authResolved ? canManageMonitoringAdmin(authContext?.role) : null;
+  const canReadInvestigationAdminSurface = authResolved ? canReadInvestigationAdmin(authContext?.role) : null;
+  const canManageInvestigationAdminSurface = authResolved ? canManageInvestigationAdmin(authContext?.role) : null;
   const { watchlists, alerts, selectedAlert, setSelectedAlert, refreshAlerts, triggerAlert } =
-    useMonitoringWatchlistAlerts({ t, setError });
+    useMonitoringWatchlistAlerts({ t, setError, canTriggerTestAlert });
   const {
     metricsText,
     refreshMetricsPreview: refreshPlatformMetricsPreview,
@@ -42,12 +57,15 @@ export default function MonitoringPage() {
     platformAlertTotalPages,
     selectablePlatformAlertIds,
     allSelectablePlatformAlertsSelected,
+    platformAlertConfirmDialog,
     refreshPlatformOperationalAlerts,
     goToNextPlatformAlertsPage,
     goToPreviousPlatformAlertsPage,
     acknowledgePlatformAlert,
     acknowledgeFilteredPlatformAlerts,
     acknowledgeSelectedPlatformAlerts,
+    cancelPlatformAlertConfirmation,
+    confirmPlatformAlertConfirmation,
     togglePlatformAlertSelection,
     toggleAllSelectablePlatformAlerts,
     exportPlatformAlerts,
@@ -56,7 +74,7 @@ export default function MonitoringPage() {
     handlePlatformAlertServiceFilterChange,
     handlePlatformAlertReceiverFilterChange,
     handlePlatformAlertSeverityFilterChange
-  } = useMonitoringPlatformAlerts({ t, setError });
+  } = useMonitoringPlatformAlerts({ t, setError, canReadPlatformAlerts: canReadPlatformAdmin, canManagePlatformAlerts: canManagePlatformAdmin });
   const {
     operations,
     operationalAlerts,
@@ -73,7 +91,20 @@ export default function MonitoringPage() {
     refreshDlq,
     requeueDlqCase,
     resolveDlqCase
-  } = useMonitoringOperations({ t, setError, refreshMetricsPreview: refreshPlatformMetricsPreview });
+  } = useMonitoringOperations({
+    t,
+    setError,
+    refreshMetricsPreview: refreshPlatformMetricsPreview,
+    canReadInvestigationAdmin: canReadInvestigationAdminSurface,
+    canManageInvestigationAdmin: canManageInvestigationAdminSurface
+  });
+
+  useEffect(() => {
+    fetchAuthContext()
+      .then((context) => setAuthContext(context))
+      .catch(() => setAuthContext(null))
+      .finally(() => setAuthResolved(true));
+  }, []);
 
   function translatePlatformStatus(status: string) {
     if (status === "firing") {
@@ -139,10 +170,12 @@ export default function MonitoringPage() {
         setSelectedAlert={setSelectedAlert}
         refreshAlerts={refreshAlerts}
         triggerAlert={triggerAlert}
+        canTriggerTestAlert={canTriggerTestAlert}
       />
 
       <InvestigationOperationsPanel
         t={t}
+        canReadInvestigationAdmin={canReadInvestigationAdminSurface}
         operations={operations}
         refreshOperations={refreshOperations}
         caseAuditHref={buildCaseAuditHref}
@@ -155,6 +188,8 @@ export default function MonitoringPage() {
 
       <PlatformAlertTriagePanel
         t={t}
+        canReadPlatformAdmin={canReadPlatformAdmin}
+        canManagePlatformAdmin={canManagePlatformAdmin}
         platformAlertStatusFilter={platformAlertStatusFilter}
         platformAlertTriageFilter={platformAlertTriageFilter}
         platformAlertServiceFilter={platformAlertServiceFilter}
@@ -199,6 +234,8 @@ export default function MonitoringPage() {
 
       <DlqRemediationPanel
         t={t}
+        canReadInvestigationAdmin={canReadInvestigationAdminSurface}
+        canManageInvestigationAdmin={canManageInvestigationAdminSurface}
         dlqFilterState={dlqFilterState}
         setDlqFilterState={setDlqFilterState}
         dlqFilterChain={dlqFilterChain}
@@ -213,6 +250,23 @@ export default function MonitoringPage() {
         requeueingCaseId={requeueingCaseId}
         resolvingCaseId={resolvingCaseId}
       />
+
+      {platformAlertConfirmDialog ? (
+        <ConfirmDialog
+          open
+          title={platformAlertConfirmDialog.title}
+          description={platformAlertConfirmDialog.description}
+          confirmLabel={platformAlertConfirmDialog.confirmLabel}
+          cancelLabel={platformAlertConfirmDialog.cancelLabel}
+          onCancel={cancelPlatformAlertConfirmation}
+          onConfirm={() => {
+            confirmPlatformAlertConfirmation().catch(() => undefined);
+          }}
+          tone={platformAlertConfirmDialog.tone}
+          busy={acknowledgingPlatformAlertsBatch}
+          testId={platformAlertConfirmDialog.testId}
+        />
+      ) : null}
     </AppShell>
   );
 }

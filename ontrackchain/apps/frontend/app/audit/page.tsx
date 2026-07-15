@@ -27,6 +27,9 @@ import {
 import { resolveHashContext } from "../lib/hash-context";
 import type { MessageKey } from "../lib/i18n";
 type AuditFilters = AuditLogQueryFilters;
+type AuditAuthContext = {
+  linked_user_id?: string | null;
+};
 
 type AuditDossierContext = {
   reportId: string;
@@ -74,12 +77,37 @@ type AuditHashContext = {
   artifactTypeLabel: string;
 };
 
+type AuditFederatedIdentityContext = {
+  eventActionLabel: string;
+  memberId: string;
+  provider: string;
+  externalSubject: string;
+  emailSnapshot: string;
+  roleSnapshot: string;
+  actorUserId: string;
+  linkedUserId: string;
+  externalUserId: string;
+  authMethod: string;
+  tenantRole: string;
+  requestId: string;
+  teamHref: string;
+};
+
 type DossierAuditMetrics = {
   totalDownloads: number;
   uniqueRosCount: number;
   latestHash: string;
   latestFilename: string;
   latestReportId: string;
+};
+
+type FederatedIdentityAuditMetrics = {
+  totalEvents: number;
+  totalLinks: number;
+  totalUnlinks: number;
+  uniqueMembers: number;
+  latestProvider: string;
+  latestExternalSubject: string;
 };
 
 type ManualPackageAuditMetrics = {
@@ -193,6 +221,9 @@ export default function AuditPage() {
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportingRosCoafDossier, setExportingRosCoafDossier] = useState(false);
+  const [authContext, setAuthContext] = useState<AuditAuthContext | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
@@ -219,6 +250,8 @@ export default function AuditPage() {
       return match[1];
     }
   }
+
+  const hasLinkedUser = Boolean(authContext?.linked_user_id?.trim());
 
   function summarizeDossierHash(hash: string | null) {
     const normalized = hash?.trim() ?? "";
@@ -535,6 +568,67 @@ export default function AuditPage() {
     );
   }
 
+  function renderFederatedIdentityDetailContext(context: AuditFederatedIdentityContext) {
+    return (
+      <div className="otc-stack otc-controls--spaced" data-testid="audit-federated-identity-detail-context">
+        <strong>{t("audit.details.federatedIdentityContextTitle" as MessageKey)}</strong>
+        <div>
+          <strong>{t("audit.details.federatedIdentityStage" as MessageKey)}:</strong> {context.eventActionLabel}
+        </div>
+        <div>
+          <strong>{t("audit.details.federatedIdentityMemberId" as MessageKey)}:</strong>{" "}
+          <span className="otc-mono">{context.memberId || t("audit.notAvailable")}</span>
+        </div>
+        <div>
+          <strong>{t("audit.details.federatedIdentityProvider" as MessageKey)}:</strong> {context.provider || t("audit.notAvailable")}
+        </div>
+        <div>
+          <strong>{t("audit.details.federatedIdentityExternalSubject" as MessageKey)}:</strong>{" "}
+          <span className="otc-mono">{context.externalSubject || t("audit.notAvailable")}</span>
+        </div>
+        <div>
+          <strong>{t("audit.details.federatedIdentityEmailSnapshot" as MessageKey)}:</strong>{" "}
+          {context.emailSnapshot || t("audit.notAvailable")}
+        </div>
+        <div>
+          <strong>{t("audit.details.federatedIdentityRoleSnapshot" as MessageKey)}:</strong>{" "}
+          {context.roleSnapshot || t("audit.notAvailable")}
+        </div>
+        <div>
+          <strong>{t("audit.details.federatedIdentityActorUserId" as MessageKey)}:</strong>{" "}
+          <span className="otc-mono">{context.actorUserId || t("audit.notAvailable")}</span>
+        </div>
+        <div>
+          <strong>{t("audit.details.federatedIdentityLinkedUserId" as MessageKey)}:</strong>{" "}
+          <span className="otc-mono">{context.linkedUserId || t("audit.notAvailable")}</span>
+        </div>
+        <div>
+          <strong>{t("audit.details.federatedIdentityExternalUserId" as MessageKey)}:</strong>{" "}
+          <span className="otc-mono">{context.externalUserId || t("audit.notAvailable")}</span>
+        </div>
+        <div>
+          <strong>{t("audit.details.federatedIdentityAuthMethod" as MessageKey)}:</strong> {context.authMethod || t("audit.notAvailable")}
+        </div>
+        <div>
+          <strong>{t("audit.details.federatedIdentityTenantRole" as MessageKey)}:</strong> {context.tenantRole || t("audit.notAvailable")}
+        </div>
+        <div>
+          <strong>{t("audit.details.federatedIdentityRequestId" as MessageKey)}:</strong>{" "}
+          <span className="otc-mono">{context.requestId || t("audit.notAvailable")}</span>
+        </div>
+        <div className="otc-controls">
+          <a
+            className="otc-button otc-button--ghost"
+            href={context.teamHref}
+            data-testid="audit-federated-identity-detail-open-team"
+          >
+            {t("audit.details.openFederatedIdentityTeam" as MessageKey)}
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   function resolveAuditActionLabel(value: string) {
     if (!value.trim()) {
       return t("audit.notAvailable");
@@ -711,6 +805,18 @@ export default function AuditPage() {
     };
   }
 
+  function resolveFederatedIdentityPresetFilters(nextFilters: AuditFilters): AuditFilters {
+    if (activePreset !== "identity-federated") {
+      return nextFilters;
+    }
+
+    return {
+      ...nextFilters,
+      resourceType: nextFilters.resourceType.trim() || "team_user",
+      limit: "200"
+    };
+  }
+
   function resolveManualPackageMfaPresetFilters(nextFilters: AuditFilters): AuditFilters {
     if (activePreset !== "manual-package-mfa") {
       return nextFilters;
@@ -792,6 +898,7 @@ export default function AuditPage() {
       }
 
       let effectiveFilters = nextFilters;
+      effectiveFilters = resolveFederatedIdentityPresetFilters(effectiveFilters);
       effectiveFilters = resolveManualPackageMfaPresetFilters(effectiveFilters);
       if (governancePresetSelected) {
         effectiveFilters = await resolveGovernancePresetFilters(nextFilters);
@@ -837,11 +944,16 @@ export default function AuditPage() {
     };
   }, [activeGovernanceSealId, activePreset, searchParams, t]);
 
+  useEffect(() => {
+    loadAuthContext().catch(() => undefined);
+  }, [t]);
+
   const activeFilterCount = useMemo(() => {
     return [filters.requestId, filters.action, filters.resourceType, filters.reportId, filters.resourceId].filter((value) => value.trim()).length;
   }, [filters]);
   const dossierAuditPresetActive =
     filters.action === "coaf_regulatory_dossier_downloaded" && filters.resourceType === "ros_record";
+  const federatedIdentityPresetActive = activePreset === "identity-federated" && filters.resourceType === "team_user";
   const manualPackageGovernancePresetActive = activePreset === "governanca" && Boolean(filters.requestId.trim());
   const manualPackageMfaPresetActive =
     activePreset === "manual-package-mfa" &&
@@ -916,6 +1028,25 @@ export default function AuditPage() {
       latestHash,
       latestFilename,
       latestReportId
+    };
+  }, [logs]);
+  const federatedIdentityAuditMetrics: FederatedIdentityAuditMetrics = useMemo(() => {
+    const rows = logs.filter(
+      (entry) =>
+        entry.resource_type === "team_user" &&
+        (entry.action === "team_external_identity_linked" || entry.action === "team_external_identity_unlinked")
+    );
+    const uniqueMembers = new Set(
+      rows.map((entry) => entry.resource_id?.trim() ?? "").filter((value): value is string => Boolean(value))
+    );
+    const latestRow = rows[0] ?? null;
+    return {
+      totalEvents: rows.length,
+      totalLinks: rows.filter((entry) => entry.action === "team_external_identity_linked").length,
+      totalUnlinks: rows.filter((entry) => entry.action === "team_external_identity_unlinked").length,
+      uniqueMembers: uniqueMembers.size,
+      latestProvider: readMetadataString(latestRow?.metadata, "provider"),
+      latestExternalSubject: readMetadataString(latestRow?.metadata, "external_subject")
     };
   }, [logs]);
   const manualPackageAuditMetrics: ManualPackageAuditMetrics = useMemo(() => {
@@ -1375,6 +1506,34 @@ export default function AuditPage() {
       rosId
     };
   }, [selectedContextForLinks?.rosId, selectedLog]);
+  const selectedFederatedIdentityContext: AuditFederatedIdentityContext | null = useMemo(() => {
+    if (
+      !selectedLog ||
+      (selectedLog.action !== "team_external_identity_linked" && selectedLog.action !== "team_external_identity_unlinked")
+    ) {
+      return null;
+    }
+
+    const memberId =
+      selectedLog.resource_id?.trim() ||
+      readMetadataString(selectedLog.metadata, "member_id") ||
+      readMetadataString(selectedLog.metadata, "resource_reference_id");
+    return {
+      eventActionLabel: formatAuditActionValue(selectedLog.action),
+      memberId,
+      provider: readMetadataString(selectedLog.metadata, "provider"),
+      externalSubject: readMetadataString(selectedLog.metadata, "external_subject"),
+      emailSnapshot: readMetadataString(selectedLog.metadata, "email_snapshot"),
+      roleSnapshot: readMetadataString(selectedLog.metadata, "role_snapshot"),
+      actorUserId: readMetadataString(selectedLog.metadata, "actor_user_id"),
+      linkedUserId: readMetadataString(selectedLog.metadata, "linked_user_id"),
+      externalUserId: readMetadataString(selectedLog.metadata, "external_user_id"),
+      authMethod: readMetadataString(selectedLog.metadata, "auth_method"),
+      tenantRole: readMetadataString(selectedLog.metadata, "tenant_role"),
+      requestId: selectedLog.request_id?.trim() || readMetadataString(selectedLog.metadata, "request_id"),
+      teamHref: `/team${memberId ? `?member_id=${encodeURIComponent(memberId)}` : ""}`
+    };
+  }, [selectedLog, t]);
   const selectedManualPackageContext: AuditManualPackageContext | null = useMemo(() => {
     if (!selectedLog || !MANUAL_PACKAGE_CONTEXT_ACTIONS.has(selectedLog.action)) {
       return null;
@@ -1543,6 +1702,10 @@ export default function AuditPage() {
     if (!normalizedRosId) {
       return;
     }
+    if (!hasLinkedUser) {
+      setError(t("apiErrors.linkedUserRequiredForCoafReport" as MessageKey));
+      return;
+    }
 
     setExportingRosCoafDossier(true);
     setError(null);
@@ -1582,6 +1745,25 @@ export default function AuditPage() {
 
   function updateFilter<K extends keyof AuditFilters>(key: K, value: AuditFilters[K]) {
     setFilters((current) => ({ ...current, [key]: value }));
+  }
+
+  async function loadAuthContext() {
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      const res = await fetch("/api/app/auth/context", { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as AuditAuthContext | { error?: string; detail?: unknown } | null;
+      if (!res.ok) {
+        setAuthError(resolveApiErrorMessage(t, data, t("team.errors.loadAuthContext" as MessageKey)));
+        setAuthLoading(false);
+        return;
+      }
+      setAuthContext(data as AuditAuthContext);
+      setAuthLoading(false);
+    } catch (authContextError) {
+      setAuthError(authContextError instanceof Error ? authContextError.message : t("team.errors.loadAuthContext" as MessageKey));
+      setAuthLoading(false);
+    }
   }
 
   async function onSearch() {
@@ -1768,6 +1950,26 @@ export default function AuditPage() {
           </div>
         </Message>
       ) : null}
+      {federatedIdentityPresetActive ? (
+        <Message>
+          <div className="otc-stack">
+            <div className="otc-controls otc-controls--spaced">
+              <span data-testid="audit-federated-identity-preset-notice">
+                {t("audit.presets.federatedIdentity", {
+                  memberId: filters.resourceId.trim() || t("audit.notAvailable")
+                })}
+              </span>
+              <a
+                className="otc-link-button"
+                href={`/team${filters.resourceId.trim() ? `?member_id=${encodeURIComponent(filters.resourceId.trim())}` : ""}`}
+                data-testid="audit-federated-identity-open-team"
+              >
+                {t("audit.presets.openTeamDirectory" as MessageKey)}
+              </a>
+            </div>
+          </div>
+        </Message>
+      ) : null}
       {manualPackageGovernancePresetActive ? (
         <Message>
           <div className="otc-stack">
@@ -1871,6 +2073,40 @@ export default function AuditPage() {
             label={t("audit.presets.metrics.latestFilename")}
             value={loading ? "..." : dossierAuditMetrics.latestFilename || t("audit.notAvailable")}
             meta={t("audit.presets.metrics.latestFilenameMeta")}
+          />
+        </MetricGrid>
+      ) : null}
+      {federatedIdentityPresetActive ? (
+        <MetricGrid>
+          <MetricCard
+            label={t("audit.presets.metrics.federatedIdentityTotalEvents" as MessageKey)}
+            value={loading ? "..." : federatedIdentityAuditMetrics.totalEvents}
+            meta={t("audit.presets.metrics.federatedIdentityTotalEventsMeta" as MessageKey)}
+          />
+          <MetricCard
+            label={t("audit.presets.metrics.federatedIdentityTotalLinks" as MessageKey)}
+            value={loading ? "..." : federatedIdentityAuditMetrics.totalLinks}
+            meta={t("audit.presets.metrics.federatedIdentityTotalLinksMeta" as MessageKey)}
+          />
+          <MetricCard
+            label={t("audit.presets.metrics.federatedIdentityTotalUnlinks" as MessageKey)}
+            value={loading ? "..." : federatedIdentityAuditMetrics.totalUnlinks}
+            meta={t("audit.presets.metrics.federatedIdentityTotalUnlinksMeta" as MessageKey)}
+          />
+          <MetricCard
+            label={t("audit.presets.metrics.federatedIdentityUniqueMembers" as MessageKey)}
+            value={loading ? "..." : federatedIdentityAuditMetrics.uniqueMembers}
+            meta={t("audit.presets.metrics.federatedIdentityUniqueMembersMeta" as MessageKey)}
+          />
+          <MetricCard
+            label={t("audit.presets.metrics.federatedIdentityLatestProvider" as MessageKey)}
+            value={loading ? "..." : federatedIdentityAuditMetrics.latestProvider || t("audit.notAvailable")}
+            meta={t("audit.presets.metrics.federatedIdentityLatestProviderMeta" as MessageKey)}
+          />
+          <MetricCard
+            label={t("audit.presets.metrics.federatedIdentityLatestSubject" as MessageKey)}
+            value={loading ? "..." : federatedIdentityAuditMetrics.latestExternalSubject || t("audit.notAvailable")}
+            meta={t("audit.presets.metrics.federatedIdentityLatestSubjectMeta" as MessageKey)}
           />
         </MetricGrid>
       ) : null}
@@ -2195,6 +2431,7 @@ export default function AuditPage() {
               <div><strong>{t("audit.details.rosId")}:</strong> {selectedContextForLinks?.rosId || t("audit.notAvailable")}</div>
               {selectedHashContext ? renderHashContext(selectedHashContext) : null}
               {selectedDossierContext ? renderDossierDetailContext(selectedDossierContext) : null}
+              {selectedFederatedIdentityContext ? renderFederatedIdentityDetailContext(selectedFederatedIdentityContext) : null}
               {selectedManualPackageContext ? renderManualPackageDetailContext(selectedManualPackageContext) : null}
               <div className="otc-audit-pill">
                 <Pill>{formatAuditResourceTypeValue(selectedLog.resource_type)}</Pill>
@@ -2211,7 +2448,7 @@ export default function AuditPage() {
                       type="button"
                       className="otc-button otc-button--ghost"
                       onClick={() => void onExportRosCoafRegulatoryDossier(selectedContextForLinks.rosId!)}
-                      disabled={exportingRosCoafDossier}
+                      disabled={exportingRosCoafDossier || authLoading || !hasLinkedUser}
                       data-testid="audit-export-ros-dossier"
                     >
                       {exportingRosCoafDossier
@@ -2225,6 +2462,18 @@ export default function AuditPage() {
                     </a>
                   ))}
                 </div>
+              ) : null}
+              {!authLoading && authError ? (
+                <Message tone="error">
+                  <span data-testid="audit-auth-error">{authError}</span>
+                </Message>
+              ) : null}
+              {!authLoading && selectedContextForLinks?.rosId && !hasLinkedUser ? (
+                <Message tone="error">
+                  <span data-testid="audit-export-ros-dossier-prereq-block">
+                    {t("apiErrors.linkedUserRequiredForCoafReport" as MessageKey)}
+                  </span>
+                </Message>
               ) : null}
               <CodeBlock>
                 <span data-testid="audit-metadata">{JSON.stringify(selectedLog.metadata, null, 2)}</span>

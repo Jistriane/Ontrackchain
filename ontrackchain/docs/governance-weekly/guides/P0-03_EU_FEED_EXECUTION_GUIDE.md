@@ -16,7 +16,7 @@ Concentrar em um unico artefato o rito minimo para mover `P0-03` de `ready` para
 - [Project Release Gates](../../project-release-gates.md)
 - [Project Operational Execution Board](../../project-operational-execution-board.md)
 - [Staging Env Ownership](../../staging-env-ownership.md)
-- [Execution Checklist to 95 Percent](../../EXECUTION_CHECKLIST_TO_95_PERCENT.md)
+- [Plano Consolidado ate 95%](../../project-construction-plan-to-95-percent.md)
 
 ## Artefato Complementar
 

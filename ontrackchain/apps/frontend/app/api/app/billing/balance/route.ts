@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   }
 
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
+  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const res = await fetch(`${baseUrl}/api/v1/billing/balance`, {
     method: "GET",
     headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId },
@@ -24,8 +24,9 @@ export async function GET(request: Request) {
   });
 
   if (res.status === 401 || res.status === 403) {
-    return new Response(JSON.stringify(EMPTY_BILLING_BALANCE_RESPONSE), {
-      status: 200,
+    const body = await res.text();
+    return new Response(body || JSON.stringify({ detail: "billing_balance_role_required" }), {
+      status: res.status,
       headers: { "content-type": "application/json" }
     });
   }

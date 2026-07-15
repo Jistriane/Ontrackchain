@@ -34,7 +34,8 @@ def _write_env_file(target: Path) -> None:
                 "JWT_HS256_SECRET=__FILL_STAGING_JWT_HS256_SECRET__",
                 "MFA_TOTP_SECRET=__FILL_STAGING_MFA_TOTP_SECRET__",
                 "COMPLIANCE_TRM_API_KEY=__FILL_STAGING_TRM_API_KEY__",
-                "INVESTIGATION_RPC_PRIMARY_URL=__FILL_STAGING_RPC_PRIMARY_URL__",
+                "INVESTIGATION_RPC_PRIMARY_URL=",
+                "INVESTIGATION_RPC_FALLBACK_URL=__FILL_STAGING_RPC_FALLBACK_URL__",
                 "ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=live",
                 "ONTRACKCHAIN_EXPECT_RPC_MODE=fallback_only",
                 "",
@@ -59,7 +60,7 @@ def _write_ownership_file(target: Path) -> None:
                 "| `__FILL_STAGING_JWT_HS256_SECRET__` | `Security` | `Backend/Auth` | secret JWT rotacionado |",
                 "| `__FILL_STAGING_MFA_TOTP_SECRET__` | `Security` | `Backend/Auth` | segredo MFA emitido |",
                 "| `__FILL_STAGING_TRM_API_KEY__` | `Compliance/Backend` | `Security` | API key homologada |",
-                "| `__FILL_STAGING_RPC_PRIMARY_URL__` | `Backend Core` | `Platform/DBA` | RPC primario validado |",
+                "| `__FILL_STAGING_RPC_FALLBACK_URL__` | `Backend Core` | `Platform/DBA` | RPC fallback validado para janela fallback_only |",
                 "",
                 "## Registro de Handoff",
                 "",
@@ -103,7 +104,7 @@ def _write_private_env_file(target: Path, *, unresolved_jwt: bool = False) -> No
                 "OIDC_PLAN_CLAIM=plan",
                 "OIDC_ROLE_CLAIM=otk_role",
                 "INVESTIGATION_RPC_ENABLED=true",
-                "INVESTIGATION_RPC_PRIMARY_URL=https://rpc-primary.example",
+                "INVESTIGATION_RPC_PRIMARY_URL=",
                 "INVESTIGATION_RPC_FALLBACK_URL=https://rpc-fallback.example",
                 "INVESTIGATION_RPC_TIMEOUT_MS=1500",
                 "INVESTIGATION_RPC_MAX_RETRIES=1",
@@ -162,6 +163,7 @@ class RunStagingWindowTests(unittest.TestCase):
                         "steps": {
                             "oidc_preflight": {"status": "ok"},
                             "smoke_auth_oidc_mode": {"status": "ok"},
+                            "oidc_playwright_critical": {"status": "ok"},
                         },
                         "errors": [],
                     }
@@ -272,6 +274,7 @@ class RunStagingWindowTests(unittest.TestCase):
             self.assertEqual(payload["steps"]["external_preflight"]["status"], "ok")
             self.assertEqual(payload["steps"]["oidc_readiness_bundle"]["status"], "ok")
             self.assertEqual(payload["steps"]["oidc_readiness_bundle"]["readiness_status"], "ready")
+            self.assertEqual(payload["steps"]["oidc_readiness_bundle"]["playwright_critical_status"], "ok")
             self.assertEqual(payload["steps"]["regulatory_readiness_bundle"]["status"], "ok")
             self.assertEqual(
                 payload["steps"]["regulatory_readiness_bundle"]["readiness"]["compliance_runtime"]["readiness_status"],
@@ -354,6 +357,134 @@ class RunStagingWindowTests(unittest.TestCase):
             self.assertEqual(payload["steps"]["external_preflight"]["status"], "skipped")
             self.assertEqual(payload["steps"]["homologation"]["status"], "skipped")
             self.assertEqual(payload["steps"]["release_dossier"]["status"], "skipped")
+
+    def test_run_window_passes_playwright_flags_to_oidc_bundle_when_enabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            base = Path(tmp_dir)
+            env_file = base / ".env.staging.example"
+            private_env_file = base / ".env.staging.private"
+            ownership_file = base / "staging-env-ownership.md"
+            checks_dir = base / "artifacts" / "checks"
+            packet_file = base / "artifacts" / "window-packet.md"
+
+            _write_env_file(env_file)
+            _write_private_env_file(private_env_file)
+            _write_ownership_file(ownership_file)
+
+            captured_oidc_bundle_argv: list[str] = []
+
+            def fake_run_module_main(relative_path: str, argv: list[str], module_name: str):
+                nonlocal captured_oidc_bundle_argv
+                if relative_path.endswith("preflight_oidc_serious_env.py"):
+                    return 0, {"status": "ok", "errors": []}
+                if relative_path.endswith("preflight_external_integrations.py"):
+                    return 0, {"status": "ok", "errors": []}
+                if relative_path.endswith("run_oidc_readiness_bundle.py"):
+                    captured_oidc_bundle_argv = argv[:]
+                    return 0, {
+                        "kind": "oidc_readiness_bundle",
+                        "status": "ok",
+                        "readiness": {
+                            "readiness_status": "ready_for_validation",
+                            "blockers": [],
+                            "next_action": "ok",
+                        },
+                        "scope": {
+                            "mfa_external_provider_homologated": "false",
+                            "expected_oidc_provider": "keycloak",
+                        },
+                        "steps": {
+                            "oidc_preflight": {"status": "ok"},
+                            "smoke_auth_oidc_mode": {"status": "ok"},
+                            "oidc_playwright_critical": {"status": "ok"},
+                        },
+                        "errors": [],
+                    }
+                if relative_path.endswith("run_regulatory_readiness_bundle.py"):
+                    return 0, {
+                        "kind": "regulatory_readiness_bundle",
+                        "status": "ok",
+                        "readiness": {
+                            "compliance_runtime": {
+                                "readiness_status": "ready_for_validation",
+                                "blockers": [],
+                                "next_action": "ok",
+                            },
+                            "eu_window": {
+                                "readiness_status": "skipped",
+                                "blockers": [],
+                                "next_action": "ok",
+                            },
+                            "regulatory_bundle": {
+                                "readiness_status": "ready_for_validation",
+                                "blockers": [],
+                                "next_action": "ok",
+                            },
+                        },
+                        "scope": {"compliance_runtime_enabled": False, "eu_window_enabled": False},
+                        "steps": {
+                            "compliance_provider_runtime": {
+                                "status": "skipped",
+                                "request_id": "pending",
+                                "correlation": {},
+                            },
+                            "eu_sanctions_window": {
+                                "status": "skipped",
+                                "request_id": "pending",
+                                "correlation": {},
+                            },
+                        },
+                        "errors": [],
+                    }
+                if relative_path.endswith("homologation_external_evidence.py"):
+                    output_dir = Path(argv[argv.index("--output-dir") + 1])
+                    output_dir.mkdir(parents=True, exist_ok=True)
+                    artifact_file = output_dir / "artifact.json"
+                    manifest_file = output_dir / "artifact.json.manifest.json"
+                    artifact_file.write_text("{}\n", encoding="utf-8")
+                    manifest_file.write_text("{}\n", encoding="utf-8")
+                    return 0, {
+                        "status": "ok",
+                        "artifact_file": str(artifact_file),
+                        "manifest_file": str(manifest_file),
+                        "runs": {},
+                        "errors": [],
+                    }
+                raise AssertionError(f"Chamado inesperado: {relative_path}")
+
+            def fake_run_final_artifact_validation(**kwargs):
+                return 0, {"status": "ok", "scope": kwargs["expected_scope"], "errors": []}
+
+            with (
+                patch.dict(
+                    MODULE.os.environ,
+                    {
+                        "ONTRACKCHAIN_INCLUDE_OIDC_PLAYWRIGHT_CRITICAL": "true",
+                        "ONTRACKCHAIN_REQUIRE_OIDC_PLAYWRIGHT_CRITICAL": "true",
+                    },
+                    clear=False,
+                ),
+                patch.object(MODULE, "run_module_main", side_effect=fake_run_module_main),
+                patch.object(MODULE, "run_final_artifact_validation", side_effect=fake_run_final_artifact_validation),
+            ):
+                exit_code, payload = MODULE.run_window(
+                    window_id="stg-2026-06-29-a",
+                    env_file=env_file,
+                    private_env_file=private_env_file,
+                    ownership_file=ownership_file,
+                    checks_dir=checks_dir,
+                    window_packet_file=packet_file,
+                    homologation_mode="both",
+                    rpc_expected_mode=None,
+                    homologation_output_dir=base / "artifacts" / "homologation",
+                    dossier_output_dir=base / "artifacts" / "dossiers",
+                    generated_at="2026-06-29T12:00:00+00:00",
+                )
+
+            self.assertEqual(payload["steps"]["oidc_readiness_bundle"]["playwright_critical_status"], "ok")
+            self.assertIn("--include-playwright-critical", captured_oidc_bundle_argv)
+            self.assertIn("--require-playwright-critical", captured_oidc_bundle_argv)
+            self.assertIn("--playwright-base-url", captured_oidc_bundle_argv)
 
     def test_run_window_skips_homologation_when_preflight_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

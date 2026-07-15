@@ -8,6 +8,7 @@ Documentar o pipeline atual de validacao automatizada e o processo recomendado d
 
 Workflows canônicos:
 
+- neste workspace, os workflows vivem no repositório agregador pai em `../.github/workflows/`
 - [e2e-tests.yml](../../.github/workflows/e2e-tests.yml)
 - [quality-gates.yml](../../.github/workflows/quality-gates.yml)
 - [staging-serious-window.yml](../../.github/workflows/staging-serious-window.yml)

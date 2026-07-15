@@ -9,8 +9,8 @@ Consolidar o estado atual do Ontrackchain frente a um contexto de operacao regul
 Leituras oficiais:
 
 - `79%` de prontidao para operacao regulada forte
-- `92%` de construcao tecnica como plataforma funcional
-- `88%` de construcao total consolidada conforme o [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
+- `93%` de construcao tecnica como plataforma funcional
+- `89%` de construcao total consolidada conforme o [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
 
 Referencias canonicas da baseline atual:
 

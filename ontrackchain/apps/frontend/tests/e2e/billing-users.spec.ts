@@ -15,10 +15,8 @@ async function seedFrontendAuth(page: Page) {
 }
 
 test.describe("billing users table", () => {
-  test("renderiza status amigavel e updated_at normalizado para usuários reais", async ({ page }) => {
-    const memberId = "billing-member-e2e-01";
-    const memberEmail = "compliance.billing@ontrackchain.local";
-
+  test("mantem o cockpit financeiro sem projetar roster lateral de team", async ({ page }) => {
+    let teamUsersCalled = false;
     await seedFrontendAuth(page);
 
     await page.route("**/api/app/billing/balance", async (route: Route) => {
@@ -75,6 +73,17 @@ test.describe("billing users table", () => {
       });
     });
 
+    await page.route("**/api/app/billing/reconciliation/export?limit=25", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: {
+          "content-disposition": 'attachment; filename="billing-export.json"'
+        },
+        body: JSON.stringify({ exported: true })
+      });
+    });
+
     await page.route("**/api/app/auth/context", async (route: Route) => {
       await route.fulfill({
         status: 200,
@@ -93,23 +102,11 @@ test.describe("billing users table", () => {
     });
 
     await page.route("**/api/app/team/users", async (route: Route) => {
+      teamUsersCalled = true;
       await route.fulfill({
-        status: 200,
+        status: 500,
         contentType: "application/json",
-        body: JSON.stringify({
-          data: [
-            {
-              member_id: memberId,
-              name: "Billing Compliance",
-              email: memberEmail,
-              role: "COMPLIANCE_OFFICER",
-              status: "invited",
-              note: "seed",
-              created_at: "2026-07-06T12:00:00.000Z",
-              updated_at: "2026-07-06T12:10:00.000Z"
-            }
-          ]
-        })
+        body: JSON.stringify({ detail: "unexpected_team_users_fetch" })
       });
     });
 
@@ -130,16 +127,24 @@ test.describe("billing users table", () => {
       });
     });
 
-    await page.goto(`/billing?team_status=invited&team_q=${encodeURIComponent("compliance.billing")}`);
+    await page.goto("/billing");
 
     await expect(page.locator('aside a[href="/billing"]')).toHaveCount(1);
-    await expect(page.getByTestId(`billing-user-row-${memberId}`)).toContainText(memberEmail);
-    await expect(page.getByTestId(`billing-user-status-${memberId}`)).toContainText("convidado");
-    await expect(page.getByTestId(`billing-user-updated-${memberId}`)).not.toContainText("2026-07-06T12:10:00.000Z");
+    await expect(page.getByText("Gestão de equipe")).toBeVisible();
+    await expect(
+      page.getByText(
+        "O cockpit financeiro não projeta mais o roster real do tenant. Use `Team` para onboarding, status, identidades federadas e operações administrativas de membros."
+      )
+    ).toBeVisible();
     await expect(page.getByTestId("billing-reconciliation-open-total")).toHaveText("6");
     await expect(page.getByTestId("billing-ledger-action-CONFIRMED")).toContainText("7.5");
     await expect(page.getByTestId("billing-ledger-row-ledger-1")).toContainText("req-1");
-    await expect(page.locator(`a[href*="/team?member_id=${memberId}"]`)).toBeVisible();
+    await expect(page.getByTestId("billing-export-link")).toHaveAttribute("href", "/api/app/billing/reconciliation/export?limit=25");
+    await expect(page.getByTestId("billing-open-team-action")).toBeVisible();
+    await expect(page.getByTestId("billing-team-handoff-link")).toBeVisible();
+    await expect(page.locator('a[href="/team?filter_status=invited"]')).toBeVisible();
+    expect(teamUsersCalled).toBeFalsy();
+    await expect(page.getByTestId("billing-user-row-billing-member-e2e-01")).toHaveCount(0);
   });
 
   test("exibe erro amigavel quando billing exige role financeira", async ({ page }) => {
@@ -195,14 +200,6 @@ test.describe("billing users table", () => {
       });
     });
 
-    await page.route("**/api/app/team/users", async (route: Route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ data: [] })
-      });
-    });
-
     await page.goto("/billing");
 
     await expect(page.locator('aside a[href="/billing"]')).toHaveCount(0);
@@ -211,6 +208,7 @@ test.describe("billing users table", () => {
     );
     await expect(page.getByTestId("credits-balance")).toHaveCount(0);
     await expect(page.getByTestId("billing-reconciliation-open-total")).toHaveCount(0);
+    await expect(page.getByTestId("billing-export-link")).toHaveCount(0);
     await expect(page.getByTestId("billing-user-row-billing-member-e2e-01")).toHaveCount(0);
   });
 });

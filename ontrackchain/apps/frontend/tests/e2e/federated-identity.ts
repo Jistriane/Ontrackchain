@@ -1,9 +1,21 @@
 import { execFileSync } from "node:child_process";
-import path from "node:path";
+import { resolve } from "node:path";
 
 export const LINKED_USER_ID = "00000000-0000-0000-0000-000000000002";
 
-const REPO_ROOT = path.resolve(process.cwd(), "../..");
+const WORKSPACE_ROOT = resolve(__dirname, "../../../..");
+
+function runPostgresPsql(script: string) {
+  return execFileSync(
+    "docker",
+    ["compose", "exec", "-T", "postgres", "psql", "-U", "ontrackchain", "-d", "ontrackchain", "-At", "-F", "|"],
+    {
+      cwd: WORKSPACE_ROOT,
+      input: script,
+      encoding: "utf8"
+    }
+  );
+}
 
 export type ExternalIdentitySnapshot = {
   hadPreviousIdentity: boolean;
@@ -13,15 +25,7 @@ export type ExternalIdentitySnapshot = {
 };
 
 export function psqlExec(script: string) {
-  return execFileSync(
-    "docker",
-    ["compose", "exec", "-T", "postgres", "psql", "-U", "ontrackchain", "-d", "ontrackchain", "-At", "-F", "|"],
-    {
-      cwd: REPO_ROOT,
-      input: script,
-      encoding: "utf8"
-    }
-  );
+  return runPostgresPsql(script);
 }
 
 export function sqlLiteral(value: string) {

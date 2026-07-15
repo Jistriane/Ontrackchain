@@ -2,7 +2,7 @@
 
 **Data base:** 2026-07-03
 
-> Aviso de classificacao: este tracker e datado e deve ser lido como apoio historico de ciclo. Para a trilha viva de owners, prioridades e evidencias, use primeiro o [Board Operacional Unico](../project-operational-execution-board.md), o [Checklist Operacional para 95%](../EXECUTION_CHECKLIST_TO_95_PERCENT.md) e os registros ativos em [governance-weekly/README.md](../governance-weekly/README.md).
+> Aviso de classificacao: este tracker e datado e deve ser lido como apoio historico de ciclo. Para a trilha viva de owners, prioridades e evidencias, use primeiro o [Board Operacional Unico](../project-operational-execution-board.md), o [Plano Consolidado ate 95%](../project-construction-plan-to-95-percent.md) e os registros ativos em [governance-weekly/README.md](../governance-weekly/README.md).
 
 ## Objetivo
 
@@ -10,7 +10,7 @@ Oferecer uma planilha operacional simples para acompanhamento semanal dos owners
 
 Use este documento junto com:
 
-- [Checklist Operacional para 95%](../EXECUTION_CHECKLIST_TO_95_PERCENT.md)
+- [Plano Consolidado ate 95%](../project-construction-plan-to-95-percent.md)
 - [Board Operacional Unico ate 90%+](../project-operational-execution-board.md)
 - [Governança Semanal 2026-07-03](../governance-weekly/archive/weekly/2026-07-03-weekly-governance.md)
 

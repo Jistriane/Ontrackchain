@@ -11,7 +11,7 @@ Descrever como promover o scaffold atual para um ambiente de staging controlado,
 
 Este documento cobre o processo tecnico. Ele nao substitui automacao futura de CI/CD nem procedimento formal de change management.
 
-Para execucao controlada via GitHub Actions, use tambem o workflow manual [staging-serious-window.yml](../../.github/workflows/staging-serious-window.yml), que materializa `.env.staging.private` a partir de um `GitHub Environment` aprovado e executa o gate unico `prepare -> validate -> preflight -> run`. A configuracao do environment e do secret multi-linha esta detalhada em [GitHub Environment para Staging Sério](github-environment-staging-serious.md).
+Para execucao controlada via GitHub Actions, use tambem o workflow manual [staging-serious-window.yml](../../.github/workflows/staging-serious-window.yml), que neste workspace fica no repositório agregador pai em `../.github/workflows/`. Ele materializa `.env.staging.private` a partir de um `GitHub Environment` aprovado, instala dependencias do frontend/Playwright e executa o gate unico `prepare -> validate -> preflight -> run`, agora com o `oidc-critical` integrado ao bundle OIDC quando o runner estiver habilitado. A configuracao do environment e do secret multi-linha esta detalhada em [GitHub Environment para Staging Sério](github-environment-staging-serious.md).
 
 ## Escopo Canonico
 
@@ -21,11 +21,27 @@ Use este documento para:
 - executar a cadeia tecnica de `prepare -> validate -> preflight -> run`
 - entender os comandos, artefatos e criterios tecnicos do rito consolidado
 
+## Papel Canonico
+
+Este documento e a fonte primaria para:
+
+- fluxo tecnico da janela de staging
+- comandos de `prepare -> validate -> preflight -> run`
+- artefatos tecnicos esperados antes e depois da execucao
+- ordem operacional do rito consolidado
+
+Nao use este documento para substituir:
+
+- a decisao executiva de `go/no-go`: use [Gates de Release para Staging Serio](project-release-gates.md)
+- o contrato operacional do workflow manual e do secret multi-linha: use [GitHub Environment para Staging Serio](github-environment-staging-serious.md)
+- a topologia hospedada e os segredos `sync: false` do runtime Render: use [Blueprint Render para Staging Full-Stack](render-staging-blueprint.md)
+
 Use os documentos abaixo quando o foco nao for deploy tecnico:
 
 - [Governanca Semanal](./governance-weekly/README.md): tracking e sign-off por ciclo
 - [Gates de Release para Staging Serio](project-release-gates.md): decidir `go/no-go` formal
-- [Blueprint Render para Frontend-Only](render-staging-blueprint.md): recorte atual do deploy no Render sem dependencias de backend real
+- [GitHub Environment para Staging Serio](github-environment-staging-serious.md): contrato operacional do workflow manual da janela
+- [Blueprint Render para Staging Full-Stack](render-staging-blueprint.md): estado atual do deploy no Render, alinhado ao runtime real do produto
 
 ## Estrategia Atual
 
@@ -33,24 +49,28 @@ O projeto esta organizado para deploy baseado em containers, com `docker compose
 
 ## Render Atual
 
-O blueprint do Render atualmente versionado na raiz do repositório esta reduzido para `frontend-only`.
+O blueprint do Render atualmente versionado na raiz tecnica do repositório voltou ao modo `staging full-stack`.
 
-Isso significa que o deploy ativo no Render:
+Isso significa que o deploy alvo no Render:
 
-- sobe apenas o `frontend` como serviço `web`
-- usa `APP_ENV=test`
-- mantém `AUTH_MODE=dev` e `DEV_AUTH_ENABLED=true`
-- não provisiona `auth-service`, Keycloak, APIs privadas, Postgres, Redis, workers ou observabilidade
+- sobe `gateway` publico com `Traefik`
+- provisiona `Keycloak` para `OIDC`
+- expõe `auth-service` para `/auth/config`, `/validate` e bootstrap idempotente do banco
+- sobe `public-api`, `investigation-api`, `compliance-api`, `monitoring-api` e `report-api` como serviços privados
+- sobe `investigation-worker` e `compliance-worker`
+- provisiona `Postgres` gerenciado e `Key Value` compativel com Redis
+- inclui `Prometheus`, `Alertmanager` e `Grafana`
+- mantém `APP_ENV=staging`, `AUTH_MODE=oidc` e `DEV_AUTH_ENABLED=false`
 
-Esse recorte existe para destravar a publicação da interface enquanto os segredos e provedores externos reais ainda não estão disponíveis.
+Esse recorte existe para validar o runtime real do produto antes da janela séria completa, sem ainda tratá-lo como produção.
 
-Use [Blueprint Render para Frontend-Only](render-staging-blueprint.md) quando o objetivo for:
+Use [Blueprint Render para Staging Full-Stack](render-staging-blueprint.md) quando o objetivo for:
 
-- preview visual
-- validação de shell
-- smoke básico de UI
+- validar `OIDC`, `MFA`, banco e APIs no mesmo ambiente
+- executar smoke e `Playwright` contra o gateway real
+- provar `ROS/COAF`, `work-items`, `counterparties`, `blocks` e observabilidade com backend real
 
-Não use esse deploy como evidência de staging sério, readiness regulatório ou validação OIDC real.
+Nao trate esse deploy sozinho como evidência suficiente de staging sério, readiness regulatório ou aceite institucional; continue exigindo `preflight`, bundles, evidências e `go/no-go`.
 
 ## Ambientes Recomendados
 
@@ -67,8 +87,8 @@ Não use esse deploy como evidência de staging sério, readiness regulatório o
 - banco persistente proprio
 - secrets separados
 - smoke e E2E executados apos deploy
-- idealmente com auth mais proxima do real
-- no corte tecnico atual, o smoke pos-deploy consolidado ainda usa um perfil `dev-compatible` para validar emissao de token e `TOTP` local sem mascarar o gate `OIDC`
+- auth real em `AUTH_MODE=oidc`, com `auth-service` e `Keycloak`
+- `MFA_EXTERNAL_PROVIDER_HOMOLOGATED` pode permanecer `false` enquanto a homologacao externa nao estiver fechada, sem descaracterizar o gate de `OIDC`
 
 ### Production
 
@@ -83,6 +103,19 @@ Não use esse deploy como evidência de staging sério, readiness regulatório o
 - `scripts/smoke_runtime.py` verde
 - Playwright critical/compliance verde
 - checklist de seguranca basico atendido
+- `render.yaml` sincronizado com a topologia `full-stack`
+- segredos `sync: false` preenchidos manualmente no painel do Render
+
+Para o preenchimento manual no painel, siga a ordem por servico documentada em [render-staging-blueprint.md](render-staging-blueprint.md), distinguindo o primeiro `sync` dos segredos de providers reais.
+
+## Trilhas Criticas de Prova
+
+Use as trilhas abaixo para provar que o staging esta coerente com a arquitetura real:
+
+- `OIDC + MFA`: valida `gateway`, `Keycloak`, `auth-service` e headers internos
+- `ROS/COAF`: valida `report-api`, `X-Linked-User-Id`, ator persistido e trilha auditavel
+- `monitoring`: valida webhook do `Alertmanager`, dashboards e export operacional
+- `compliance`: valida screening, `counterparties`, `preventive_blocks` e fila compartilhada
 
 ## Fluxo Recomendado de Deploy
 
@@ -139,6 +172,14 @@ docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/pos
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0008_add_external_identities.sql
 ```
 
+Continue a reconciliacao com as migrations incrementais posteriores ja documentadas em [operations.md](operations.md), com atencao especial para:
+
+- `0014_regulatory_work_items_contract_guardrails.sql`
+- `0015_evidence_package_seals.sql`
+- `0016_team_users_directory.sql`
+
+Mesmo com bootstrap idempotente no `auth-service`, trate bancos ja provisionados como alvo de reconciliacao deliberada antes da janela.
+
 ### 3. Subir servicos
 
 ```bash
@@ -172,12 +213,25 @@ OIDC_ORG_CLAIM=org \
 OIDC_PLAN_CLAIM=plan \
 OIDC_ROLE_CLAIM=otk_role \
 MFA_EXTERNAL_PROVIDER_HOMOLOGATED=false \
+KEYCLOAK_ADMIN_BASE_URL=https://auth.staging.ontrackchain.com \
+KEYCLOAK_ADMIN_REALM=ontrackchain \
+KEYCLOAK_ADMIN_CLIENT_ID=ontrackchain-b2b \
+KEYCLOAK_ADMIN_CLIENT_SECRET=*** \
+KEYCLOAK_ADMIN_TIMEOUT_SECONDS=5 \
+KEYCLOAK_ADMIN_SEARCH_LIMIT=20 \
+KEYCLOAK_ADMIN_ORG_ATTRIBUTE=organization_id \
+KEYCLOAK_ADMIN_ROLE_ATTRIBUTE=otk_role \
 JWT_HS256_SECRET=*** \
 MFA_TOTP_SECRET=*** \
 KEYCLOAK_ADMIN_PASSWORD=*** \
 KEYCLOAK_B2B_CLIENT_SECRET=*** \
 python3 scripts/preflight_oidc_serious_env.py
 ```
+
+Nota operacional do diretório federado:
+
+- neste corte, `KEYCLOAK_ADMIN_CLIENT_ID` aponta para `ontrackchain-b2b`
+- `KEYCLOAK_ADMIN_CLIENT_SECRET` pode espelhar `KEYCLOAK_B2B_CLIENT_SECRET` apenas como medida transitória, até existir um client dedicado com privilégio minimo de leitura
 
 ### 6. Rodar validacoes pos-deploy
 
@@ -191,6 +245,17 @@ ONTRACKCHAIN_EXPECTED_DEV_AUTH_ENABLED=false \
 python3 scripts/smoke_auth_oidc_mode.py
 ```
 
+### 6.1. Validar a base de identidade antes de `ROS/COAF`
+
+Antes de usar a trilha regulatoria, confirme:
+
+- `/auth/config` responde pelo `auth-service`
+- `/validate` aceita token `OIDC` valido
+- o ator federado resolve `X-Linked-User-Id`
+- a migration `0016_team_users_directory.sql` foi aplicada no banco persistente
+
+Sem isso, trate qualquer falha de `ROS/COAF` como problema de identidade persistida, nao como bug isolado do cockpit.
+
 ### 7. Rodar E2E pos-deploy
 
 ```bash
@@ -202,7 +267,22 @@ npm run test:e2e
 
 O gate `npm run test:e2e:oidc-critical` agora executa preflight explicito de `baseURL`, `/auth/config` e runtime OIDC antes das suites federadas. Se ele falhar cedo, trate como indisponibilidade/configuracao do ambiente serio antes de analisar regressao de UI.
 
+No workflow oficial `staging-serious-window.yml`, esse gate passa a ser executado dentro do bundle OIDC e gera o artefato `oidc-playwright-critical` junto com os JSONs de preflight e smoke.
+
 Use `npm run test:e2e:dev-auth` apenas fora deste rito, quando a intencao for regressao local do scaffold em `AUTH_MODE=dev`.
+
+### 7.1. Validacao focal de `ROS/COAF`
+
+Use `ROS/COAF` como trilha de prova do staging serio porque ela atravessa autenticacao, autorizacao, usuario vinculado, `report-api` e trilha auditavel.
+
+Checklist minimo:
+
+- listar ou abrir `/ros-coaf` sem erro de sessao
+- gerar dossie via `report-api`
+- confirmar que o runtime propaga `X-Org-Id`, `X-User-Id`, `X-Linked-User-Id`, `X-Role`, `X-2FA` e `X-MFA-Mode`
+- garantir que a aprovacao formal continua exigindo MFA forte
+- confirmar que submissao manual permanece segregada para o papel correto
+- validar que os eventos aparecem em `audit_logs` e/ou `evidence_trail`
 
 ### 8. Publicar evidencia de validacao
 
@@ -425,6 +505,8 @@ python3 scripts/smoke_auth_oidc_mode.py
 - audit logs acessiveis por `ADMIN`
 - UI `/audit` responde com os filtros administrativos esperados
 - `legal_report` continua exigindo `JWT + ADMIN + 2FA`
+- `ROS/COAF` resolve ator persistido sem `linked_user_required_for_coaf_report`
+- `ROS/COAF` consegue gerar dossie e manter segregacao entre aprovacao e submissao manual
 - Prometheus com target `investigation-api` healthy e regras carregadas
 - Prometheus com target `monitoring-api` healthy e regras carregadas
 - Prometheus com target `compliance-api` healthy e regras carregadas

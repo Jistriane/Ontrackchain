@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     investigation_manual_seal_key_id: str = "manual-package-local-hs256"
     investigation_manual_seal_certificate_bundle_ref: str = "local-hs256-trust-bundle"
     investigation_manual_seal_issuer: str = "ontrackchain-investigation-api"
+    investigation_internal_worker_token: str = "investigation-local-token"
 
 
 settings = Settings()
@@ -371,6 +372,66 @@ def _require_admin_role(x_role: Optional[str]) -> str:
 
 def _require_privileged_read_role(x_role: Optional[str]) -> str:
     return _require_role(x_role, allowed_roles={"ADMIN", "AUDITOR"}, detail="privileged_read_role_required")
+
+
+def _require_internal_worker_token_with_audit(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    request_id: str,
+    token: Optional[str],
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> None:
+    expected = settings.investigation_internal_worker_token
+    if not expected:
+        raise HTTPException(status_code=500, detail="internal_worker_token_not_configured")
+    if token != expected:
+        _record_authorization_denial(
+            pool,
+            organization_id=organization_id,
+            user_id=None,
+            external_user_id=None,
+            request_id=request_id,
+            effective_role="INTERNAL_WORKER_TOKEN",
+            allowed_roles={"INTERNAL_WORKER_TOKEN"},
+            detail="invalid_internal_token",
+            resource_type="internal_worker",
+            resource_id=resource_id,
+            endpoint=endpoint,
+            method=method,
+        )
+        raise HTTPException(status_code=401, detail="invalid_internal_token")
+
+
+def _require_investigation_operational_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_type: str,
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles={"ADMIN", "ANALYST", "OTK_ANALYST"},
+        detail="investigation_operational_role_required",
+        resource_type=resource_type,
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
 
 
 def _normalize_chain(chain: str) -> str:
@@ -1104,6 +1165,8 @@ def _require_billing_read_role(
     resource_id: Optional[str | UUID],
     endpoint: str,
     method: str,
+    detail: str = "billing_balance_role_required",
+    resource_type: str = "billing_balance",
 ) -> str:
     return _require_role_with_audit(
         pool,
@@ -1113,8 +1176,8 @@ def _require_billing_read_role(
         request_id=request_id,
         x_role=x_role,
         allowed_roles=BILLING_READ_ALLOWED_ROLES,
-        detail="billing_balance_role_required",
-        resource_type="billing_balance",
+        detail=detail,
+        resource_type=resource_type,
         resource_id=resource_id,
         endpoint=endpoint,
         method=method,
@@ -1654,6 +1717,11 @@ def _serialize_report_row(row: dict) -> dict:
 def _format_evidence_export_filename(export_format: str) -> str:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     return f"ontrackchain-evidence-bundle-{timestamp}.{export_format}"
+
+
+def _format_billing_reconciliation_export_filename(export_format: str) -> str:
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return f"ontrackchain-billing-reconciliation-{timestamp}.{export_format}"
 
 
 def _serialize_worker_case_row(row: dict) -> dict:
@@ -2668,11 +2736,26 @@ async def estimate_investigation(
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
     x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
     x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
     x_plan: Annotated[Optional[str], Header(alias="X-Plan")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> EstimateInvestigationResponse:
     org_id = _require_org_id(x_org_id)
     plan = _normalize_plan(x_plan or "professional")
-    effective_user_id, _ = _resolve_actor_ids(external_user_id=x_user_id, linked_user_id=x_linked_user_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(external_user_id=x_user_id, linked_user_id=x_linked_user_id)
+    _require_investigation_operational_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_type="investigation_quote",
+        resource_id=None,
+        endpoint="/api/v1/investigation/estimate",
+        method="POST",
+    )
 
     chains = [_validate_chain(c) for c in body.chains]
     if not chains:
@@ -2746,6 +2829,18 @@ async def start_investigation(
     effective_user_id, external_actor_user_id = _resolve_actor_ids(
         external_user_id=x_user_id,
         linked_user_id=x_linked_user_id,
+    )
+    _require_investigation_operational_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_type="investigation_case",
+        resource_id=body.quote_id,
+        endpoint="/api/v1/investigation/start",
+        method="POST",
     )
     now = datetime.now(timezone.utc)
     warnings: list[dict] = []
@@ -3285,6 +3380,8 @@ async def billing_reconciliation(
         external_user_id=external_actor_user_id,
         request_id=request_id,
         x_role=x_role,
+        detail="billing_reconciliation_role_required",
+        resource_type="billing_reconciliation",
         resource_id=org_id,
         endpoint="/api/v1/billing/reconciliation",
         method="GET",
@@ -3293,6 +3390,48 @@ async def billing_reconciliation(
         _apply_rls_context(conn, org_id)
         with conn.cursor() as cur:
             return _fetch_billing_reconciliation_snapshot(cur, org_id=org_id, limit=limit)
+
+
+@app.get("/api/v1/billing/reconciliation/export")
+async def billing_reconciliation_export(
+    limit: int = Query(default=25, ge=1, le=100),
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> Response:
+    org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_billing_read_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        detail="billing_export_role_required",
+        resource_type="billing_export",
+        resource_id=org_id,
+        endpoint="/api/v1/billing/reconciliation/export",
+        method="GET",
+    )
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            snapshot = _fetch_billing_reconciliation_snapshot(cur, org_id=org_id, limit=limit)
+    payload = json.dumps(snapshot, ensure_ascii=False, separators=(",", ":"))
+    filename = _format_billing_reconciliation_export_filename("json")
+    return Response(
+        content=payload,
+        media_type="application/json; charset=utf-8",
+        headers={"content-disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.get("/api/v1/investigation/admin/operations")
@@ -4925,9 +5064,19 @@ async def complete_case(
     pool: ConnectionPool = Depends(get_pool),
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
     x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+    x_internal_token: Annotated[Optional[str], Header(alias="X-Internal-Token")] = None,
 ) -> dict:
     org_id = _require_org_id(x_org_id)
     request_id = x_request_id or str(uuid.uuid4())
+    _require_internal_worker_token_with_audit(
+        pool,
+        organization_id=org_id,
+        request_id=request_id,
+        token=x_internal_token,
+        resource_id=case_id,
+        endpoint="/api/v1/investigation/{case_id}/internal/complete",
+        method="POST",
+    )
     with pool.connection() as conn:
         _apply_rls_context(conn, org_id)
         with conn.cursor() as cur:
@@ -5109,9 +5258,19 @@ async def fail_case(
     pool: ConnectionPool = Depends(get_pool),
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
     x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+    x_internal_token: Annotated[Optional[str], Header(alias="X-Internal-Token")] = None,
 ) -> dict:
     org_id = _require_org_id(x_org_id)
     request_id = x_request_id or str(uuid.uuid4())
+    _require_internal_worker_token_with_audit(
+        pool,
+        organization_id=org_id,
+        request_id=request_id,
+        token=x_internal_token,
+        resource_id=case_id,
+        endpoint="/api/v1/investigation/{case_id}/internal/fail",
+        method="POST",
+    )
     with pool.connection() as conn:
         _apply_rls_context(conn, org_id)
         with conn.cursor() as cur:
@@ -5213,13 +5372,46 @@ async def delete_case(
     case_id: UUID,
     pool: ConnectionPool = Depends(get_pool),
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> dict:
     org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_role_with_audit(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles={"ADMIN"},
+        detail="admin_required",
+        resource_type="case_admin",
+        resource_id=case_id,
+        endpoint="/api/v1/investigation/{case_id}",
+        method="DELETE",
+    )
     with pool.connection() as conn:
         _apply_rls_context(conn, org_id)
         with conn.cursor() as cur:
             cur.execute("DELETE FROM cases WHERE id = %s", (case_id,))
             deleted = cur.rowcount
+            if deleted:
+                _record_audit_log(
+                    cur,
+                    organization_id=org_id,
+                    user_id=effective_user_id,
+                    action="case_deleted",
+                    resource_type="case",
+                    resource_id=case_id,
+                    metadata={"request_id": request_id, "case_type": "investigation"},
+                )
             conn.commit()
 
     if deleted == 0:

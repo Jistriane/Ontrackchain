@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../../components/i18n-provider";
-import { canReadBilling } from "../lib/authz";
+import { canManageFederatedIdentity, canReadBilling } from "../lib/authz";
 import { fetchAuthContext, type AuthContext } from "../lib/ownership";
 
 export function DashboardQuickActions() {
@@ -35,6 +35,12 @@ export function DashboardQuickActions() {
     }
     return canReadBilling(authContext?.role);
   }, [authContext]);
+  const showTeamLink = useMemo(() => {
+    if (authContext === undefined) {
+      return false;
+    }
+    return canManageFederatedIdentity(authContext?.role);
+  }, [authContext]);
 
   return (
     <div className="otc-controls">
@@ -55,9 +61,11 @@ export function DashboardQuickActions() {
           {t("dashboard.quickActions.openBilling")}
         </a>
       ) : null}
-      <a className="otc-link-button" href="/team">
-        {t("dashboard.quickActions.openTeam")}
-      </a>
+      {showTeamLink ? (
+        <a className="otc-link-button" href="/team" data-testid="dashboard-quick-action-team">
+          {t("dashboard.quickActions.openTeam")}
+        </a>
+      ) : null}
     </div>
   );
 }

@@ -59,6 +59,10 @@ class RunOidcReadinessBundleTests(unittest.TestCase):
                     private_env_file=private_env_file,
                     checks_dir=checks_dir,
                     base_url="http://localhost:8080",
+                    include_playwright_critical=False,
+                    require_playwright_critical=False,
+                    playwright_base_url="",
+                    frontend_dir=Path(temp_dir),
                     expected_oidc_provider="keycloak",
                     expected_mfa_provider_homologated="true",
                     expected_org_claim="org_id",
@@ -72,6 +76,7 @@ class RunOidcReadinessBundleTests(unittest.TestCase):
             self.assertEqual(payload["readiness"]["blockers"], [])
             self.assertEqual(payload["steps"]["oidc_preflight"]["status"], "ok")
             self.assertEqual(payload["steps"]["smoke_auth_oidc_mode"]["status"], "ok")
+            self.assertEqual(payload["steps"]["oidc_playwright_critical"]["status"], "skipped")
             self.assertTrue((checks_dir / "stg-2026-07-03-oidc-oidc-preflight.json").exists())
             self.assertTrue((checks_dir / "stg-2026-07-03-oidc-oidc-smoke-auth.json").exists())
 
@@ -103,6 +108,10 @@ class RunOidcReadinessBundleTests(unittest.TestCase):
                     private_env_file=private_env_file,
                     checks_dir=checks_dir,
                     base_url="http://localhost:8080",
+                    include_playwright_critical=False,
+                    require_playwright_critical=False,
+                    playwright_base_url="",
+                    frontend_dir=Path(temp_dir),
                     expected_oidc_provider="keycloak",
                     expected_mfa_provider_homologated="false",
                     expected_org_claim="org_id",
@@ -143,6 +152,10 @@ class RunOidcReadinessBundleTests(unittest.TestCase):
                     private_env_file=private_env_file,
                     checks_dir=checks_dir,
                     base_url="http://localhost:8080",
+                    include_playwright_critical=False,
+                    require_playwright_critical=False,
+                    playwright_base_url="",
+                    frontend_dir=Path(temp_dir),
                     expected_oidc_provider="keycloak",
                     expected_mfa_provider_homologated="true",
                     expected_org_claim="org_id",
@@ -154,6 +167,53 @@ class RunOidcReadinessBundleTests(unittest.TestCase):
             self.assertEqual(payload["status"], "failed")
             self.assertEqual(payload["readiness"]["readiness_status"], "blocked")
             self.assertIn("preflight_oidc_serious_env ainda nao esta verde", payload["readiness"]["blockers"])
+
+    def test_run_bundle_requires_playwright_when_enabled(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            private_env_file = Path(temp_dir) / ".env.staging.private"
+            private_env_file.write_text(
+                "\n".join(
+                    [
+                        "MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true",
+                        "OIDC_ORG_CLAIM=org_id",
+                        "OIDC_PLAN_CLAIM=plan",
+                        "OIDC_ROLE_CLAIM=roles",
+                        "NEXT_PUBLIC_API_BASE_URL=https://app.staging.example.com",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            checks_dir = Path(temp_dir) / "checks"
+
+            side_effects = [
+                (0, {"status": "ok", "errors": []}),
+                (0, {"status": "ok", "errors": [], "auth_config": {}}),
+                (1, {"status": "failed", "errors": ["oidc critical falhou"]}),
+            ]
+
+            with patch.object(MODULE, "run_module_capture", side_effect=side_effects):
+                exit_code, payload = MODULE.run_bundle(
+                    window_id="stg-2026-07-03-oidc",
+                    private_env_file=private_env_file,
+                    checks_dir=checks_dir,
+                    base_url="https://app.staging.example.com",
+                    include_playwright_critical=True,
+                    require_playwright_critical=True,
+                    playwright_base_url="https://app.staging.example.com",
+                    frontend_dir=Path(temp_dir),
+                    expected_oidc_provider="keycloak",
+                    expected_mfa_provider_homologated="true",
+                    expected_org_claim="org_id",
+                    expected_plan_claim="plan",
+                    expected_role_claim="roles",
+                )
+
+            self.assertEqual(exit_code, 1)
+            self.assertEqual(payload["status"], "failed")
+            self.assertEqual(payload["steps"]["oidc_playwright_critical"]["status"], "failed")
+            self.assertIn("oidc_playwright_critical ainda nao esta verde", payload["readiness"]["blockers"])
+            self.assertTrue((checks_dir / "stg-2026-07-03-oidc-oidc-playwright-critical.json").exists())
 
     def test_run_module_capture_wraps_plain_text_failures(self) -> None:
         module_file = Path(tempfile.gettempdir()) / "fake_smoke_auth_module_for_ontrackchain.py"
@@ -198,6 +258,10 @@ class RunOidcReadinessBundleTests(unittest.TestCase):
                         "private_env_file": "/tmp/.env.staging.private",
                         "checks_dir": "/tmp/checks",
                         "base_url": "",
+                        "include_playwright_critical": False,
+                        "require_playwright_critical": False,
+                        "playwright_base_url": "",
+                        "frontend_dir": "/tmp/frontend",
                         "expected_oidc_provider": "keycloak",
                         "expected_mfa_provider_homologated": None,
                         "expected_org_claim": "",

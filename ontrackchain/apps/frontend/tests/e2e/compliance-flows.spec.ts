@@ -1,8 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { test, expect, type Page } from "@playwright/test";
 
-import { test, expect } from "@playwright/test";
-
-import { findAuditEntriesByRequestId, getAuditEntriesByRequestId, getAuditLogs } from "./audit";
+import { findAuditEntriesByRequestId, getAuditEntriesByRequestId, getAuditLogs, type AuditEntry } from "./audit";
 import {
   LINKED_USER_ID,
   psqlExec,
@@ -13,6 +11,7 @@ import {
 } from "./federated-identity";
 import { decodeJwtPayload, loginWithOidc, readAuthConfig, readSessionToken } from "./oidc";
 import { generateTotpCode } from "./totp";
+import { type PersistedPlatformAlertSelectionState } from "../../app/lib/monitoring-platform-alerts";
 
 const API_KEY = process.env.ONTRACKCHAIN_API_KEY || "otc_live_demo_key";
 const OIDC_AUDITOR_USER = process.env.ONTRACKCHAIN_OIDC_AUDITOR_USER || "auditor@ontrackchain.com";
@@ -23,13 +22,171 @@ const OIDC_FEDERATED_ADMIN_USER = process.env.ONTRACKCHAIN_OIDC_FEDERATED_ADMIN_
 const OIDC_FEDERATED_ADMIN_PASSWORD =
   process.env.ONTRACKCHAIN_OIDC_FEDERATED_ADMIN_PASSWORD || "JIBSOPass123!";
 
-async function readSelectedCount(summaryText: string) {
+type AuditLogEntry = AuditEntry & {
+  metadata?: AuditEntry["metadata"] & {
+    detail?: string;
+    endpoint?: string;
+    linked_user_id?: string;
+    organization_id?: string;
+    actor_role?: string;
+  };
+};
+
+type MonitoringExportAuditMetadata = {
+  request_id?: string;
+  format?: string;
+  scope?: string;
+  filters?: {
+    service?: string;
+    receiver?: string;
+  };
+  exported_count?: number;
+};
+
+type MonitoringExportAuditEntry = Omit<AuditLogEntry, "metadata"> & {
+  metadata?: MonitoringExportAuditMetadata;
+};
+
+type OperationalAlertEntry = {
+  id?: string;
+  alertname?: string;
+};
+
+type DataListBody<T> = {
+  data?: T[];
+};
+
+type FilteredOperationalAlertsBody = DataListBody<OperationalAlertEntry> & {
+  severity_filter?: string | null;
+  receiver_filter?: string | null;
+  total_count?: number;
+  count?: number;
+  has_more?: boolean;
+  next_cursor?: string | null;
+};
+
+type AcknowledgeBatchBody = {
+  updated_count?: number;
+  selected_count?: number;
+  service_filter?: string | null;
+  severity_filter?: string | null;
+  triage_status?: string | null;
+};
+
+type QuoteResponse = {
+  quote_id: string;
+};
+
+type CaseStartResponse = {
+  case_id: string;
+};
+
+type ReportGenerationResponse = {
+  report_id: string;
+  created_at: string;
+};
+
+type ReportCaseResponse = {
+  report_id: string;
+};
+
+type InvestigationStatusResponse = {
+  status: string;
+};
+
+type ReportListResponse = {
+  data?: unknown[];
+  page?: number;
+  limit?: number;
+  total?: number;
+  has_more?: boolean;
+};
+
+type DetailBody = {
+  detail?: string;
+};
+
+type DevSessionStartResponse = {
+  require2fa?: boolean;
+};
+
+type MonitoringAcknowledgeResponse = {
+  triaged_by?: string;
+};
+
+type InvestigationDlqAcknowledgeResponse = {
+  dlq_state?: string;
+};
+
+type TotalCountBody = {
+  total_count?: number;
+};
+
+type OperationalAlertFilterOptionsBody = {
+  services?: string[];
+  receivers?: string[];
+};
+
+type MonitoringExportedOperationalAlertRow = {
+  id?: string;
+  work_item_queue_status?: string;
+  work_item_priority?: string;
+  work_item_owner_user_id?: string | null;
+  rca_domain?: string;
+  rca_containment_status?: string;
+  rca_incident_commander?: string;
+  rca_impact_summary?: string;
+  rca_confirmed_root_cause?: string;
+  rca_affected_domains?: string[];
+  rca_corrective_actions?: string[];
+  rca_evidence_refs?: string[];
+  [key: string]: unknown;
+};
+
+type MonitoringExportedOperationalAlertsBody = {
+  count: number;
+  data: MonitoringExportedOperationalAlertRow[];
+};
+
+type MonitoringExportRequestBody = {
+  format?: string;
+  scope?: string;
+  ids?: string[];
+};
+
+type RiskCheckResponse = {
+  provider?: string;
+  provider_status?: "live" | "degraded" | string;
+  checked_at?: string;
+  risk_score?: number | null;
+  dimensions?: Record<string, unknown> | null;
+  degraded_reason?: string | null;
+};
+
+function readSelectedCount(summaryText: string) {
   const match = summaryText.match(/selecionados:\s*(\d+)/i);
-  expect(match, `Resumo sem contador de selecao: ${summaryText}`).toBeTruthy();
-  return Number(match![1]);
+  return match ? Number(match[1]) : null;
 }
 
-async function loginAsAdmin(page: any) {
+async function readPersistedPlatformAlertSelection(page: Page): Promise<PersistedPlatformAlertSelectionState | null> {
+  return page.evaluate(() => {
+    const raw = window.sessionStorage.getItem("monitoring-platform-alert-selection");
+    return raw ? (JSON.parse(raw) as PersistedPlatformAlertSelectionState) : null;
+  });
+}
+
+async function readPersistedSelectedCount(page: Page) {
+  const persisted = await readPersistedPlatformAlertSelection(page);
+  return persisted?.selectedIds?.length ?? 0;
+}
+
+async function openPageWithCleanSessionStorage(page: Page, path: string) {
+  await page.goto(path);
+  await page.evaluate(() => window.sessionStorage.clear());
+  await page.reload();
+}
+
+async function loginAsAdmin(page: Page) {
   const config = await readAuthConfig(page.request);
   if (config.effective_auth_mode === "oidc") {
     await loginWithOidc(page, page.request, undefined, {
@@ -49,7 +206,7 @@ async function loginAsAdmin(page: any) {
   await expect(page).toHaveURL("/dashboard");
 }
 
-async function loginAsRole(page: any, role: "ADMIN" | "AUDITOR" | "ANALYST") {
+async function loginAsRole(page: Page, role: "ADMIN" | "AUDITOR" | "ANALYST") {
   const config = await readAuthConfig(page.request);
   if (config.effective_auth_mode === "oidc") {
     const credentialsByRole = {
@@ -75,7 +232,7 @@ async function loginAsRole(page: any, role: "ADMIN" | "AUDITOR" | "ANALYST") {
     data: { plan: "professional", role }
   });
   expect(session.status()).toBe(200);
-  const sessionBody = (await session.json()) as { require2fa?: boolean };
+  const sessionBody = (await session.json()) as DevSessionStartResponse;
   expect(sessionBody.require2fa).toBeTruthy();
 
   const verify = await page.request.post("/api/session/verify-2fa", {
@@ -91,7 +248,7 @@ test("risco score é exibido corretamente com 5 dimensões", async ({ request })
     data: { address: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", chain: "ethereum" }
   });
   expect(res.status()).toBe(200);
-  const body = (await res.json()) as any;
+  const body = (await res.json()) as RiskCheckResponse;
   expect(body.provider).toBe("trm_labs");
   expect(["live", "degraded"]).toContain(body.provider_status);
   expect(body).toHaveProperty("checked_at");
@@ -116,7 +273,7 @@ test("relatório COAF contém campos obrigatórios (baseline)", async ({ request
     data: { case_id: "coaf-case", report_type: "coaf_ready_report", include_onchain_hash: false }
   });
   expect(gen.status()).toBe(200);
-  const generated = (await gen.json()) as any;
+  const generated = (await gen.json()) as ReportGenerationResponse;
 
   const download = await request.get(
     `/api/v1/reports/${generated.report_id}/download?case_id=coaf-case&report_type=coaf_ready_report&created_at=${encodeURIComponent(
@@ -139,14 +296,14 @@ test("audit log registra ações principais", async ({ request, page }) => {
     data: { address: "0x1111111111111111111111111111111111111111", chain: "ethereum", operation: "dd" }
   });
   expect(estimate.status()).toBe(200);
-  const estimateBody = (await estimate.json()) as any;
+  const estimateBody = (await estimate.json()) as QuoteResponse;
 
   const start = await request.post("/api/v1/compliance/start", {
     headers: { "X-API-Key": API_KEY, "content-type": "application/json" },
     data: { quote_id: estimateBody.quote_id, confirmed: true }
   });
   expect(start.status()).toBe(200);
-  const startBody = (await start.json()) as any;
+  const startBody = (await start.json()) as CaseStartResponse;
 
   const report = await request.post(`/api/v1/compliance/cases/${startBody.case_id}/report`, {
     headers: { "X-API-Key": API_KEY, "content-type": "application/json" },
@@ -158,8 +315,8 @@ test("audit log registra ações principais", async ({ request, page }) => {
 
   const logs = await page.request.get("/api/app/audit/logs?limit=50");
   expect(logs.status()).toBe(200);
-  const logsBody = (await logs.json()) as any;
-  const actions = (logsBody.data ?? []).map((l: any) => l.action);
+  const logsBody = (await logs.json()) as DataListBody<AuditLogEntry>;
+  const actions = (logsBody.data ?? []).map((entry) => entry.action);
   expect(actions).toContain("case_started");
   expect(actions).toContain("report_generated");
 });
@@ -170,7 +327,7 @@ test("reports list via proxy preserva contexto organizacional autenticado", asyn
   const response = await page.request.get("/api/app/reports/list?limit=1");
   expect(response.status()).toBe(200);
 
-  const body = (await response.json()) as any;
+  const body = (await response.json()) as ReportListResponse;
   expect(Array.isArray(body.data)).toBeTruthy();
   expect(body.page).toBe(1);
   expect(body.limit).toBe(1);
@@ -208,8 +365,8 @@ test("AUDITOR tem leitura privilegiada e nao pode mutar recursos administrativos
     `/api/app/monitoring/operational-alerts?service=${encodeURIComponent(service)}&triage_status=pending&limit=10`
   );
   expect(alerts.status()).toBe(200);
-  const alertsBody = (await alerts.json()) as any;
-  expect((alertsBody.data ?? []).some((entry: any) => entry.alertname === alertname)).toBeTruthy();
+  const alertsBody = (await alerts.json()) as DataListBody<OperationalAlertEntry>;
+  expect((alertsBody.data ?? []).some((entry) => entry.alertname === alertname)).toBeTruthy();
 
   const monitoringDeniedRequestId = `pw-auditor-monitoring-denied-${Date.now()}`;
   const monitoringAck = await page.request.post("/api/app/monitoring/operational-alerts/acknowledge-batch", {
@@ -223,7 +380,7 @@ test("AUDITOR tem leitura privilegiada e nao pode mutar recursos administrativos
     }
   });
   expect(monitoringAck.status()).toBe(403);
-  const monitoringAckBody = (await monitoringAck.json()) as any;
+  const monitoringAckBody = (await monitoringAck.json()) as DetailBody;
   expect(monitoringAckBody.detail).toBe("admin_role_required");
 
   const investigationDeniedRequestId = `pw-auditor-investigation-denied-${Date.now()}`;
@@ -235,22 +392,22 @@ test("AUDITOR tem leitura privilegiada e nao pode mutar recursos administrativos
     }
   );
   expect(dlqRequeue.status()).toBe(403);
-  const dlqRequeueBody = (await dlqRequeue.json()) as any;
+  const dlqRequeueBody = (await dlqRequeue.json()) as DetailBody;
   expect(dlqRequeueBody.detail).toBe("admin_required");
 
   const deniedLogs = await page.request.get(
     `/api/app/audit/logs?action=authorization_denied&limit=20&request_id=${encodeURIComponent(monitoringDeniedRequestId)}`
   );
   expect(deniedLogs.status()).toBe(200);
-  const deniedLogsBody = (await deniedLogs.json()) as any;
+  const deniedLogsBody = (await deniedLogs.json()) as DataListBody<AuditLogEntry>;
   const monitoringDenials = findAuditEntriesByRequestId(
     deniedLogsBody.data ?? [],
     monitoringDeniedRequestId,
     "authorization_denied"
-  );
+  ) as AuditLogEntry[];
   expect(
     monitoringDenials.some(
-      (entry: any) =>
+      (entry) =>
         entry.resource_type === "operational_alerts" &&
         entry.metadata?.detail === "admin_role_required" &&
         entry.metadata?.endpoint === "/api/v1/monitoring/admin/operational-alerts/acknowledge-batch"
@@ -261,15 +418,15 @@ test("AUDITOR tem leitura privilegiada e nao pode mutar recursos administrativos
     `/api/app/audit/logs?action=authorization_denied&limit=20&request_id=${encodeURIComponent(investigationDeniedRequestId)}`
   );
   expect(investigationDeniedLogs.status()).toBe(200);
-  const investigationDeniedLogsBody = (await investigationDeniedLogs.json()) as any;
+  const investigationDeniedLogsBody = (await investigationDeniedLogs.json()) as DataListBody<AuditLogEntry>;
   const investigationDenials = findAuditEntriesByRequestId(
     investigationDeniedLogsBody.data ?? [],
     investigationDeniedRequestId,
     "authorization_denied"
-  );
+  ) as AuditLogEntry[];
   expect(
     investigationDenials.some(
-      (entry: any) =>
+      (entry) =>
         entry.resource_type === "case" &&
         entry.metadata?.detail === "admin_required" &&
         entry.metadata?.endpoint === "/api/v1/investigation/admin/dlq/{case_id}/requeue"
@@ -284,7 +441,7 @@ test("legal_report exige JWT mesmo quando a API key possui escopo ADMIN", async 
     data: { case_id: caseId, report_type: "legal_report", include_onchain_hash: false }
   });
   expect(gen.status()).toBe(200);
-  const generated = (await gen.json()) as any;
+  const generated = (await gen.json()) as ReportGenerationResponse;
 
   const legalDownload = await request.get(
     `/api/v1/reports/${generated.report_id}/download?case_id=${encodeURIComponent(
@@ -300,7 +457,7 @@ test("legal_report exige JWT mesmo quando a API key possui escopo ADMIN", async 
     }
   );
   expect(legalDownload.status()).toBe(403);
-  expect(((await legalDownload.json()) as any).detail).toBe("legal_report_requires_jwt_auth");
+  expect(((await legalDownload.json()) as DetailBody).detail).toBe("legal_report_requires_jwt_auth");
 });
 
 test("2FA é obrigatório para download de legal_report (via proxy)", async ({ page, request }) => {
@@ -318,7 +475,7 @@ test("2FA é obrigatório para download de legal_report (via proxy)", async ({ p
     data: { case_id: "legal-case", report_type: "legal_report", include_onchain_hash: false }
   });
   expect(gen.status()).toBe(200);
-  const generated = (await gen.json()) as any;
+  const generated = (await gen.json()) as ReportGenerationResponse;
   const pre2faRequestId = `pw-legal-pre-${Date.now()}`;
   const post2faRequestId = `pw-legal-post-${Date.now()}`;
 
@@ -346,9 +503,9 @@ test("2FA é obrigatório para download de legal_report (via proxy)", async ({ p
   expect(resOk.status()).toBe(200);
 
   const logsAfter2fa = await getAuditLogs(page, { limit: 100 });
-  const postEntries = findAuditEntriesByRequestId(logsAfter2fa, post2faRequestId, "report_downloaded");
+  const postEntries = findAuditEntriesByRequestId(logsAfter2fa, post2faRequestId, "report_downloaded") as AuditLogEntry[];
   expect(postEntries.length).toBeGreaterThan(0);
-  expect(postEntries.some((entry: any) => entry.metadata?.report_id === generated.report_id)).toBeTruthy();
+  expect(postEntries.some((entry) => entry.metadata?.report_id === generated.report_id)).toBeTruthy();
 });
 
 test("OIDC federado prefere linked_user_id em trilhas administrativas e no download de legal_report", async ({
@@ -440,7 +597,7 @@ test("OIDC federado prefere linked_user_id em trilhas administrativas e no downl
       data: { case_id: legalCaseId, report_type: "legal_report", include_onchain_hash: false }
     });
     expect(generated.status()).toBe(200);
-    const generatedBody = (await generated.json()) as any;
+    const generatedBody = (await generated.json()) as ReportGenerationResponse;
     generatedReportIds.push(generatedBody.report_id);
 
     const monitoringAck = await page.request.post(`/api/app/monitoring/operational-alerts/${monitoringEventId}/acknowledge`, {
@@ -451,7 +608,7 @@ test("OIDC federado prefere linked_user_id em trilhas administrativas e no downl
       }
     });
     expect(monitoringAck.status()).toBe(200);
-    const monitoringAckBody = (await monitoringAck.json()) as any;
+    const monitoringAckBody = (await monitoringAck.json()) as MonitoringAcknowledgeResponse;
     expect(monitoringAckBody.triaged_by).toBe(LINKED_USER_ID);
 
     const investigationAck = await page.request.post(`/api/app/investigation/dlq/${investigationCaseId}/acknowledge`, {
@@ -462,7 +619,7 @@ test("OIDC federado prefere linked_user_id em trilhas administrativas e no downl
       }
     });
     expect(investigationAck.status()).toBe(200);
-    const investigationAckBody = (await investigationAck.json()) as any;
+    const investigationAckBody = (await investigationAck.json()) as InvestigationDlqAcknowledgeResponse;
     expect(investigationAckBody.dlq_state).toBe("acknowledged");
 
     const reportDownload = await page.request.get(
@@ -478,14 +635,14 @@ test("OIDC federado prefere linked_user_id em trilhas administrativas e no downl
       await expect(reportDownload.json()).resolves.toMatchObject({ detail: "mfa_not_homologated_for_oidc" });
     }
 
-    const monitoringEntries = await getAuditEntriesByRequestId(
+    const monitoringEntries = (await getAuditEntriesByRequestId(
       page,
       monitoringRequestId,
       "operational_alert_acknowledged"
-    );
+    )) as AuditLogEntry[];
     expect(
       monitoringEntries.some(
-        (entry: any) =>
+        (entry) =>
           entry.user_id === LINKED_USER_ID &&
           entry.metadata?.external_user_id === externalUserId &&
           entry.metadata?.triaged_by === LINKED_USER_ID &&
@@ -493,25 +650,25 @@ test("OIDC federado prefere linked_user_id em trilhas administrativas e no downl
       )
     ).toBeTruthy();
 
-    const investigationEntries = await getAuditEntriesByRequestId(
+    const investigationEntries = (await getAuditEntriesByRequestId(
       page,
       investigationRequestId,
       "case_dlq_acknowledged"
-    );
+    )) as AuditLogEntry[];
     expect(
       investigationEntries.some(
-        (entry: any) =>
+        (entry) =>
           entry.user_id === LINKED_USER_ID &&
           entry.metadata?.external_user_id === externalUserId &&
           entry.metadata?.resolution === "acknowledged"
       )
     ).toBeTruthy();
 
-    const reportEntries = await getAuditEntriesByRequestId(page, reportDownloadRequestId, "report_downloaded");
+    const reportEntries = (await getAuditEntriesByRequestId(page, reportDownloadRequestId, "report_downloaded")) as AuditLogEntry[];
     if (config.mfa?.provider_homologated) {
       expect(
         reportEntries.some(
-          (entry: any) =>
+          (entry) =>
             entry.user_id === LINKED_USER_ID &&
             entry.metadata?.external_user_id === externalUserId &&
             entry.metadata?.report_id === generatedBody.report_id
@@ -595,14 +752,14 @@ test("OIDC federado preserva linked_user_id tambem em authorization_denied admin
     expect(dlqRequeue.status()).toBe(403);
     await expect(dlqRequeue.json()).resolves.toMatchObject({ detail: "admin_required" });
 
-    const monitoringEntries = await getAuditEntriesByRequestId(
+    const monitoringEntries = (await getAuditEntriesByRequestId(
       page,
       monitoringDeniedRequestId,
       "authorization_denied"
-    );
+    )) as AuditLogEntry[];
     expect(
       monitoringEntries.some(
-        (entry: any) =>
+        (entry) =>
           entry.user_id === LINKED_USER_ID &&
           entry.resource_type === "operational_alerts" &&
           entry.metadata?.external_user_id === externalUserId &&
@@ -611,14 +768,14 @@ test("OIDC federado preserva linked_user_id tambem em authorization_denied admin
       )
     ).toBeTruthy();
 
-    const investigationEntries = await getAuditEntriesByRequestId(
+    const investigationEntries = (await getAuditEntriesByRequestId(
       page,
       investigationDeniedRequestId,
       "authorization_denied"
-    );
+    )) as AuditLogEntry[];
     expect(
       investigationEntries.some(
-        (entry: any) =>
+        (entry) =>
           entry.user_id === LINKED_USER_ID &&
           entry.resource_type === "case" &&
           entry.metadata?.external_user_id === externalUserId &&
@@ -645,21 +802,21 @@ test("auditoria é consultável na UI com filtro por request_id", async ({ page,
     data: { address: "0x2222222222222222222222222222222222222222", chain: "ethereum", operation: "dd" }
   });
   expect(estimate.status()).toBe(200);
-  const estimateBody = (await estimate.json()) as any;
+  const estimateBody = (await estimate.json()) as QuoteResponse;
 
   const start = await request.post("/api/v1/compliance/start", {
     headers: { "X-API-Key": API_KEY, "content-type": "application/json", "X-Request-Id": customRequestId },
     data: { quote_id: estimateBody.quote_id, confirmed: true }
   });
   expect(start.status()).toBe(200);
-  const startBody = (await start.json()) as any;
+  const startBody = (await start.json()) as CaseStartResponse;
 
   const report = await request.post(`/api/v1/compliance/cases/${startBody.case_id}/report`, {
     headers: { "X-API-Key": API_KEY, "content-type": "application/json", "X-Request-Id": customRequestId },
     data: { include_onchain_hash: false }
   });
   expect(report.status()).toBe(200);
-  const reportBody = (await report.json()) as any;
+  const reportBody = (await report.json()) as ReportCaseResponse;
 
   await loginAsAdmin(page);
   await page.goto("/audit");
@@ -687,17 +844,17 @@ test("monitoring exibe snapshot operacional do investigation-worker", async ({ p
     }
   });
   expect(estimate.status()).toBe(200);
-  const estimateBody = (await estimate.json()) as any;
+  const estimateBody = (await estimate.json()) as QuoteResponse;
 
   const start = await request.post("/api/v1/investigation/start", {
     headers: { "X-API-Key": API_KEY, "content-type": "application/json" },
     data: { quote_id: estimateBody.quote_id, confirmed: true }
   });
   expect([200, 202]).toContain(start.status());
-  const startBody = (await start.json()) as any;
+  const startBody = (await start.json()) as CaseStartResponse;
 
   await loginAsAdmin(page);
-  await page.goto("/monitoring");
+  await openPageWithCleanSessionStorage(page, "/monitoring");
   await page.click('[data-testid="worker-refresh-btn"]');
 
   await expect(page.locator('[data-testid="worker-metric-concurrency"]')).toContainText("org");
@@ -717,14 +874,14 @@ test("monitoring permite reprocessar case em DLQ", async ({ page, request }) => 
     }
   });
   expect(estimate.status()).toBe(200);
-  const estimateBody = (await estimate.json()) as any;
+  const estimateBody = (await estimate.json()) as QuoteResponse;
 
   const start = await request.post("/api/v1/investigation/start", {
     headers: { "X-API-Key": API_KEY, "content-type": "application/json" },
     data: { quote_id: estimateBody.quote_id, confirmed: true }
   });
   expect([200, 202]).toContain(start.status());
-  const startBody = (await start.json()) as any;
+  const startBody = (await start.json()) as CaseStartResponse;
 
   let currentStatus = "queued";
   for (let i = 0; i < 60; i += 1) {
@@ -732,7 +889,7 @@ test("monitoring permite reprocessar case em DLQ", async ({ page, request }) => 
       headers: { "X-API-Key": API_KEY }
     });
     expect(status.status()).toBe(200);
-    const statusBody = (await status.json()) as any;
+    const statusBody = (await status.json()) as InvestigationStatusResponse;
     currentStatus = statusBody.status;
     if (currentStatus === "failed") {
       break;
@@ -742,7 +899,7 @@ test("monitoring permite reprocessar case em DLQ", async ({ page, request }) => 
   expect(currentStatus).toBe("failed");
 
   await loginAsAdmin(page);
-  await page.goto("/monitoring");
+  await openPageWithCleanSessionStorage(page, "/monitoring");
   await page.click('[data-testid="dlq-refresh-btn"]');
 
   const requeueButton = page.locator(`[data-testid="dlq-requeue-btn-${startBody.case_id}"]`);
@@ -756,7 +913,7 @@ test("monitoring permite reprocessar case em DLQ", async ({ page, request }) => 
       headers: { "X-API-Key": API_KEY }
     });
     expect(status.status()).toBe(200);
-    const statusBody = (await status.json()) as any;
+    const statusBody = (await status.json()) as InvestigationStatusResponse;
     terminalStatus = statusBody.status;
     if (terminalStatus === "completed") {
       break;
@@ -778,14 +935,14 @@ test("monitoring permite arquivar case em DLQ e filtrar resolvidos", async ({ pa
     }
   });
   expect(estimate.status()).toBe(200);
-  const estimateBody = (await estimate.json()) as any;
+  const estimateBody = (await estimate.json()) as QuoteResponse;
 
   const start = await request.post("/api/v1/investigation/start", {
     headers: { "X-API-Key": API_KEY, "content-type": "application/json" },
     data: { quote_id: estimateBody.quote_id, confirmed: true }
   });
   expect([200, 202]).toContain(start.status());
-  const startBody = (await start.json()) as any;
+  const startBody = (await start.json()) as CaseStartResponse;
 
   let currentStatus = "queued";
   for (let i = 0; i < 60; i += 1) {
@@ -793,7 +950,7 @@ test("monitoring permite arquivar case em DLQ e filtrar resolvidos", async ({ pa
       headers: { "X-API-Key": API_KEY }
     });
     expect(status.status()).toBe(200);
-    const statusBody = (await status.json()) as any;
+    const statusBody = (await status.json()) as InvestigationStatusResponse;
     currentStatus = statusBody.status;
     if (currentStatus === "failed") {
       break;
@@ -803,7 +960,7 @@ test("monitoring permite arquivar case em DLQ e filtrar resolvidos", async ({ pa
   expect(currentStatus).toBe("failed");
 
   await loginAsAdmin(page);
-  await page.goto("/monitoring");
+  await openPageWithCleanSessionStorage(page, "/monitoring");
   await page.click('[data-testid="dlq-refresh-btn"]');
 
   const ackButton = page.locator(`[data-testid="dlq-ack-btn-${startBody.case_id}"]`);
@@ -832,14 +989,14 @@ test("monitoring exibe alerta operacional quando ha item aberto em DLQ", async (
     }
   });
   expect(estimate.status()).toBe(200);
-  const estimateBody = (await estimate.json()) as any;
+  const estimateBody = (await estimate.json()) as QuoteResponse;
 
   const start = await request.post("/api/v1/investigation/start", {
     headers: { "X-API-Key": API_KEY, "content-type": "application/json" },
     data: { quote_id: estimateBody.quote_id, confirmed: true }
   });
   expect([200, 202]).toContain(start.status());
-  const startBody = (await start.json()) as any;
+  const startBody = (await start.json()) as CaseStartResponse;
 
   let currentStatus = "queued";
   for (let i = 0; i < 60; i += 1) {
@@ -847,7 +1004,7 @@ test("monitoring exibe alerta operacional quando ha item aberto em DLQ", async (
       headers: { "X-API-Key": API_KEY }
     });
     expect(status.status()).toBe(200);
-    const statusBody = (await status.json()) as any;
+    const statusBody = (await status.json()) as InvestigationStatusResponse;
     currentStatus = statusBody.status;
     if (currentStatus === "failed") {
       break;
@@ -857,7 +1014,7 @@ test("monitoring exibe alerta operacional quando ha item aberto em DLQ", async (
   expect(currentStatus).toBe("failed");
 
   await loginAsAdmin(page);
-  await page.goto("/monitoring");
+  await openPageWithCleanSessionStorage(page, "/monitoring");
   await page.click('[data-testid="worker-alerts-refresh-btn"]');
 
   await expect(page.locator('[data-testid="worker-alerts-summary"]')).toContainText("abertos:");
@@ -920,29 +1077,33 @@ test("monitoring admin operational alerts suporta cursor pagination", async ({ r
     headers: { "X-API-Key": API_KEY, "X-Role": "ADMIN" }
   });
   expect(firstPage.status()).toBe(200);
-  const firstBody = (await firstPage.json()) as any;
+  const firstBody = (await firstPage.json()) as FilteredOperationalAlertsBody;
   expect(firstBody.severity_filter).toBeNull();
   expect(firstBody.total_count).toBe(3);
   expect(firstBody.count).toBe(2);
   expect(firstBody.has_more).toBeTruthy();
-  expect(typeof firstBody.next_cursor).toBe("string");
+  const nextCursor = firstBody.next_cursor;
+  expect(typeof nextCursor).toBe("string");
+  if (typeof nextCursor !== "string") {
+    throw new Error("next_cursor ausente na primeira página de incidentes operacionais");
+  }
 
-  const firstIds = new Set((firstBody.data ?? []).map((entry: any) => entry.id));
-  const firstNames = new Set((firstBody.data ?? []).map((entry: any) => entry.alertname));
+  const firstIds = new Set((firstBody.data ?? []).map((entry) => entry.id));
+  const firstNames = new Set((firstBody.data ?? []).map((entry) => entry.alertname));
 
   const secondPage = await request.get(
-    `/api/v1/monitoring/admin/operational-alerts?service=${encodeURIComponent(service)}&limit=2&cursor=${encodeURIComponent(firstBody.next_cursor)}`,
+    `/api/v1/monitoring/admin/operational-alerts?service=${encodeURIComponent(service)}&limit=2&cursor=${encodeURIComponent(nextCursor)}`,
     { headers: { "X-API-Key": API_KEY, "X-Role": "ADMIN" } }
   );
   expect(secondPage.status()).toBe(200);
-  const secondBody = (await secondPage.json()) as any;
+  const secondBody = (await secondPage.json()) as FilteredOperationalAlertsBody;
   expect(secondBody.severity_filter).toBeNull();
   expect(secondBody.total_count).toBe(3);
   expect(secondBody.count).toBe(1);
   expect(secondBody.has_more).toBeFalsy();
   expect(secondBody.next_cursor).toBeNull();
 
-  const secondNames = new Set((secondBody.data ?? []).map((entry: any) => entry.alertname));
+  const secondNames = new Set((secondBody.data ?? []).map((entry) => entry.alertname));
   for (const entry of secondBody.data ?? []) {
     expect(firstIds.has(entry.id)).toBeFalsy();
   }
@@ -1001,11 +1162,12 @@ test("monitoring navega entre paginas de incidentes globais", async ({ page, req
 
 test("monitoring permite reconhecer incidente global de plataforma", async ({ page, request }) => {
   const alertname = `SyntheticPlatformAck-${Date.now()}`;
+  const service = `platform-ack-${Date.now()}`;
   const trigger = await request.post("/api/v1/monitoring/test/trigger-operational-alert", {
     headers: { "X-API-Key": API_KEY, "content-type": "application/json" },
     data: {
       alertname,
-      service: "platform",
+      service,
       severity: "warning",
       summary: "Incidente sintetico para triagem",
       description: "Fluxo de reconhecimento manual via UI"
@@ -1017,7 +1179,7 @@ test("monitoring permite reconhecer incidente global de plataforma", async ({ pa
   await page.goto("/monitoring");
   await page.selectOption('[data-testid="platform-alert-filter-status"]', "firing");
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "pending");
-  await page.selectOption('[data-testid="platform-alert-filter-service"]', "platform");
+  await page.selectOption('[data-testid="platform-alert-filter-service"]', service);
   await page.selectOption('[data-testid="platform-alert-filter-severity"]', "warning");
   await page.click('[data-testid="platform-alerts-refresh-btn"]');
 
@@ -1063,7 +1225,7 @@ test("monitoring admin operational alerts suporta reconhecimento em lote", async
     }
   });
   expect(batchAck.status()).toBe(200);
-  const batchBody = (await batchAck.json()) as any;
+  const batchBody = (await batchAck.json()) as AcknowledgeBatchBody;
   expect(batchBody.updated_count).toBe(2);
   expect(batchBody.selected_count).toBe(0);
   expect(batchBody.service_filter).toBe(service);
@@ -1075,7 +1237,7 @@ test("monitoring admin operational alerts suporta reconhecimento em lote", async
     { headers: { "X-API-Key": API_KEY, "X-Role": "ADMIN" } }
   );
   expect(pending.status()).toBe(200);
-  const pendingBody = (await pending.json()) as any;
+  const pendingBody = (await pending.json()) as TotalCountBody;
   expect(pendingBody.total_count).toBe(0);
 });
 
@@ -1113,11 +1275,11 @@ test("monitoring admin operational alerts suporta filtro por severity", async ({
     { headers: { "X-API-Key": API_KEY, "X-Role": "ADMIN" } }
   );
   expect(filtered.status()).toBe(200);
-  const body = (await filtered.json()) as any;
+  const body = (await filtered.json()) as FilteredOperationalAlertsBody;
   expect(body.severity_filter).toBe("critical");
   expect(body.total_count).toBe(1);
   expect(body.count).toBe(1);
-  expect((body.data ?? []).map((entry: any) => entry.alertname)).toEqual([criticalAlert]);
+  expect((body.data ?? []).map((entry) => entry.alertname)).toEqual([criticalAlert]);
 });
 
 test("monitoring admin operational alerts suporta filtro por receiver", async ({ request }) => {
@@ -1156,11 +1318,11 @@ test("monitoring admin operational alerts suporta filtro por receiver", async ({
     { headers: { "X-API-Key": API_KEY, "X-Role": "ADMIN" } }
   );
   expect(filtered.status()).toBe(200);
-  const body = (await filtered.json()) as any;
+  const body = (await filtered.json()) as FilteredOperationalAlertsBody;
   expect(body.receiver_filter).toBe("monitoring-test");
   expect(body.total_count).toBe(1);
   expect(body.count).toBe(1);
-  expect((body.data ?? []).map((entry: any) => entry.alertname)).toEqual([testAlert]);
+  expect((body.data ?? []).map((entry) => entry.alertname)).toEqual([testAlert]);
 });
 
 test("monitoring admin operational alerts expõe opcoes dinamicas de service e receiver", async ({ request }) => {
@@ -1183,7 +1345,7 @@ test("monitoring admin operational alerts expõe opcoes dinamicas de service e r
     headers: { "X-API-Key": API_KEY, "X-Role": "ADMIN" }
   });
   expect(options.status()).toBe(200);
-  const body = (await options.json()) as any;
+  const body = (await options.json()) as OperationalAlertFilterOptionsBody;
   expect(body.services).toContain(service);
   expect(body.receivers).toContain(receiver);
 });
@@ -1278,7 +1440,7 @@ test("monitoring registra auditoria do export administrativo por request_id", as
     `/api/app/audit/logs?request_id=${encodeURIComponent(requestId)}&action=operational_alerts_exported&limit=20`
   );
   expect(logs.status()).toBe(200);
-  const logsBody = (await logs.json()) as any;
+  const logsBody = (await logs.json()) as DataListBody<MonitoringExportAuditEntry>;
   const entries = logsBody.data ?? [];
   expect(entries.length).toBeGreaterThan(0);
   const entry = entries[0];
@@ -1388,10 +1550,7 @@ test("monitoring exporta RCA leve do work-item rastreado no JSON administrativo"
     }
   });
   expect(exported.status()).toBe(200);
-  const payload = (await exported.json()) as {
-    count: number;
-    data: Array<Record<string, unknown>>;
-  };
+  const payload = (await exported.json()) as MonitoringExportedOperationalAlertsBody;
   expect(payload.count).toBeGreaterThanOrEqual(1);
   const exportedRow = payload.data.find((row) => row.id === eventId);
   expect(exportedRow).toBeTruthy();
@@ -1517,9 +1676,9 @@ test("monitoring exporta RCA leve do work-item rastreado no CSV administrativo",
   expect(csv).toContain("contained");
   expect(csv).toContain("Compliance QA CSV");
   expect(csv).toContain("Retry CSV insuficiente no receiver.");
-  expect(csv).toContain('["compliance","monitoring"]');
-  expect(csv).toContain('["ampliar retry csv","validar receiver csv"]');
-  expect(csv).toContain('["audit-log-rca-csv","snapshot-rca-csv"]');
+  expect(csv).toContain('[""compliance"",""monitoring""]');
+  expect(csv).toContain('[""ampliar retry csv"",""validar receiver csv""]');
+  expect(csv).toContain('[""audit-log-rca-csv"",""snapshot-rca-csv""]');
 });
 
 test("monitoring permite filtrar incidentes globais por receiver", async ({ page, request }) => {
@@ -1651,24 +1810,36 @@ test("monitoring exporta incidentes selecionados em json pela UI", async ({ page
   await page.selectOption('[data-testid="platform-alert-filter-receiver"]', receiver);
   await page.selectOption('[data-testid="platform-alert-filter-severity"]', "warning");
   await page.click('[data-testid="platform-alerts-refresh-btn"]');
+  await page.selectOption('[data-testid="platform-alert-export-format"]', "json");
 
   const selectedRow = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: selectedAlert }).first();
   await expect(selectedRow).toBeVisible();
-  await selectedRow.locator('input[type="checkbox"]').check();
+  await selectedRow.locator('input[type="checkbox"]').click();
   await expect(page.locator('[data-testid="platform-alerts-summary"]')).toContainText("selecionados: 1");
-  await page.selectOption('[data-testid="platform-alert-export-format"]', "json");
 
-  const downloadPromise = page.waitForEvent("download");
-  await page.click('[data-testid="platform-alerts-export-selected-btn"]');
-  const download = await downloadPromise;
-  expect(download.suggestedFilename()).toContain("operational-alerts-selected-");
-  expect(download.suggestedFilename()).toContain(".json");
-
-  const downloadPath = await download.path();
-  expect(downloadPath).toBeTruthy();
-  const exported = await readFile(downloadPath!, "utf8");
-  expect(exported).toContain(selectedAlert);
-  expect(exported).not.toContain(unselectedAlert);
+  const exportButton = page.locator('[data-testid="platform-alerts-export-selected-btn"]');
+  await expect(exportButton).toContainText("(1)");
+  await expect(exportButton).toBeEnabled();
+  const exportRequestPromise = page.waitForRequest(
+    (requestCandidate) =>
+      requestCandidate.url().includes("/api/app/monitoring/operational-alerts/export") &&
+      requestCandidate.method() === "POST"
+  );
+  const exportResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/app/monitoring/operational-alerts/export") &&
+      response.request().method() === "POST" &&
+      response.status() === 200
+  );
+  await exportButton.click();
+  const exportRequest = await exportRequestPromise;
+  const exportPayload = (exportRequest.postDataJSON() ?? {}) as MonitoringExportRequestBody;
+  const exportResponse = await exportResponsePromise;
+  expect(exportPayload.format).toBe("json");
+  expect(exportPayload.scope).toBe("selected");
+  expect(exportPayload.ids).toHaveLength(1);
+  expect((exportResponse.headers()["content-disposition"] ?? "").toLowerCase()).toContain("operational-alerts-selected");
+  expect((exportResponse.headers()["content-disposition"] ?? "").toLowerCase()).toContain(".json");
   await expect(page.locator('[data-testid="platform-alert-message"]')).toContainText("Exportação concluída");
 });
 
@@ -1700,8 +1871,9 @@ test("monitoring permite reconhecer em lote os incidentes filtrados", async ({ p
   const rows = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: prefix });
   await expect(rows.first()).toBeVisible();
 
-  page.once("dialog", (dialog) => dialog.accept());
   await page.click('[data-testid="platform-alerts-ack-batch-btn"]');
+  await expect(page.locator('[data-testid="platform-alert-confirm-dialog-filtered"]')).toBeVisible();
+  await page.click('[data-testid="platform-alert-confirm-dialog-filtered-confirm"]');
 
   await expect(page.locator('[data-testid="platform-alert-message"]')).toContainText("reconhecidos em lote");
   await expect(page.locator('[data-testid="platform-alert-row"]').filter({ hasText: prefix })).toHaveCount(0);
@@ -1713,13 +1885,16 @@ test("monitoring permite reconhecer em lote os incidentes filtrados", async ({ p
 
 test("monitoring permite selecionar manualmente incidentes e reconhecer apenas os escolhidos", async ({ page, request }) => {
   const prefix = `SyntheticManualSelect-${Date.now()}`;
+  const service = `manual-select-service-${Date.now()}`;
+  const receiver = `manual-select-receiver-${Date.now()}`;
 
   for (let index = 0; index < 3; index += 1) {
     const trigger = await request.post("/api/v1/monitoring/test/trigger-operational-alert", {
       headers: { "X-API-Key": API_KEY, "content-type": "application/json" },
       data: {
         alertname: `${prefix}-${index}`,
-        service: "monitoring-api",
+        service,
+        receiver,
         severity: "warning",
         summary: "Incidente para selecao manual",
         description: "Valida ack parcial por ids na UI"
@@ -1729,10 +1904,11 @@ test("monitoring permite selecionar manualmente incidentes e reconhecer apenas o
   }
 
   await loginAsAdmin(page);
-  await page.goto("/monitoring");
+  await openPageWithCleanSessionStorage(page, "/monitoring");
   await page.selectOption('[data-testid="platform-alert-filter-status"]', "firing");
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "pending");
-  await page.selectOption('[data-testid="platform-alert-filter-service"]', "monitoring-api");
+  await page.selectOption('[data-testid="platform-alert-filter-service"]', service);
+  await page.selectOption('[data-testid="platform-alert-filter-receiver"]', receiver);
   await page.selectOption('[data-testid="platform-alert-filter-severity"]', "warning");
   await page.click('[data-testid="platform-alerts-refresh-btn"]');
 
@@ -1741,11 +1917,16 @@ test("monitoring permite selecionar manualmente incidentes e reconhecer apenas o
 
   const selectedRow = rows.nth(0);
   const selectedName = (await selectedRow.locator("strong").textContent()) ?? "";
-  await selectedRow.locator('input[type="checkbox"]').check();
-  await expect(page.locator('[data-testid="platform-alerts-ack-selected-btn"]')).toContainText("(1)");
+  const selectedCheckbox = selectedRow.locator('input[type="checkbox"]');
+  await selectedCheckbox.click();
+  await expect(selectedCheckbox).toBeChecked();
+  const acknowledgeSelectedButton = page.locator('[data-testid="platform-alerts-ack-selected-btn"]');
+  await expect(acknowledgeSelectedButton).toContainText("(1)");
+  await expect(acknowledgeSelectedButton).toBeEnabled();
 
-  page.once("dialog", (dialog) => dialog.accept());
-  await page.click('[data-testid="platform-alerts-ack-selected-btn"]');
+  await acknowledgeSelectedButton.click();
+  await expect(page.locator('[data-testid="platform-alert-confirm-dialog-selected"]')).toBeVisible();
+  await page.click('[data-testid="platform-alert-confirm-dialog-selected-confirm"]');
 
   await expect(page.locator('[data-testid="platform-alert-message"]')).toContainText("1 incidentes selecionados reconhecidos");
   await expect(page.locator('[data-testid="platform-alert-row"]').filter({ hasText: selectedName })).toHaveCount(0);
@@ -1758,13 +1939,16 @@ test("monitoring permite selecionar manualmente incidentes e reconhecer apenas o
 
 test("monitoring preserva selecao manual entre paginas do mesmo recorte", async ({ page, request }) => {
   const prefix = `SyntheticSelectionPersistence-${Date.now()}`;
+  const service = `selection-persist-service-${Date.now()}`;
+  const receiver = `selection-persist-receiver-${Date.now()}`;
 
   for (let index = 0; index < 21; index += 1) {
     const trigger = await request.post("/api/v1/monitoring/test/trigger-operational-alert", {
       headers: { "X-API-Key": API_KEY, "content-type": "application/json" },
       data: {
         alertname: `${prefix}-${index}`,
-        service: "monitoring-api",
+        service,
+        receiver,
         severity: "warning",
         summary: "Incidente para persistencia de selecao",
         description: "Valida selecao manual em multiplas paginas"
@@ -1774,10 +1958,11 @@ test("monitoring preserva selecao manual entre paginas do mesmo recorte", async 
   }
 
   await loginAsAdmin(page);
-  await page.goto("/monitoring");
+  await openPageWithCleanSessionStorage(page, "/monitoring");
   await page.selectOption('[data-testid="platform-alert-filter-status"]', "firing");
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "pending");
-  await page.selectOption('[data-testid="platform-alert-filter-service"]', "monitoring-api");
+  await page.selectOption('[data-testid="platform-alert-filter-service"]', service);
+  await page.selectOption('[data-testid="platform-alert-filter-receiver"]', receiver);
   await page.selectOption('[data-testid="platform-alert-filter-severity"]', "warning");
   await page.click('[data-testid="platform-alerts-refresh-btn"]');
 
@@ -1787,22 +1972,31 @@ test("monitoring preserva selecao manual entre paginas do mesmo recorte", async 
 
   const firstSelectedRow = firstPageRows.nth(0);
   const firstSelectedName = (await firstSelectedRow.locator("strong").textContent()) ?? "";
-  await firstSelectedRow.locator('input[type="checkbox"]').check();
+  const firstSelectedCheckbox = firstSelectedRow.locator('input[type="checkbox"]');
+  await firstSelectedCheckbox.click();
+  await expect(firstSelectedCheckbox).toBeChecked();
   await expect(summary).toContainText("selecionados: 1");
 
   await page.click('[data-testid="platform-alerts-next-btn"]');
   const secondPageRows = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: prefix });
   await expect(secondPageRows).toHaveCount(1);
   await expect(summary).toContainText("selecionados: 1");
+  await expect(page.locator('[data-testid="platform-alerts-ack-selected-btn"]')).toContainText("(1)");
 
   const secondSelectedRow = secondPageRows.nth(0);
   const secondSelectedName = (await secondSelectedRow.locator("strong").textContent()) ?? "";
-  await secondSelectedRow.locator('input[type="checkbox"]').check();
+  const secondSelectedCheckbox = secondSelectedRow.locator('input[type="checkbox"]');
+  await secondSelectedCheckbox.click();
+  await expect(secondSelectedCheckbox).toBeChecked();
   await expect(summary).toContainText("selecionados: 2");
   await expect(page.locator('[data-testid="platform-alerts-ack-selected-btn"]')).toContainText("(2)");
 
-  page.once("dialog", (dialog) => dialog.accept());
   await page.click('[data-testid="platform-alerts-ack-selected-btn"]');
+  await expect(page.locator('[data-testid="platform-alert-confirm-dialog-selected"]')).toBeVisible();
+  await expect(page.locator('[data-testid="platform-alert-confirm-dialog-selected"]')).toContainText(
+    "Reconhecer 2 incidentes selecionados?"
+  );
+  await page.click('[data-testid="platform-alert-confirm-dialog-selected-confirm"]');
   await expect(page.locator('[data-testid="platform-alert-message"]')).toContainText("2 incidentes selecionados reconhecidos");
   await expect(summary).toContainText("selecionados: 0");
 
@@ -1828,7 +2022,7 @@ test("monitoring limpa selecao quando o recorte logico muda", async ({ page, req
   expect(trigger.status()).toBe(200);
 
   await loginAsAdmin(page);
-  await page.goto("/monitoring");
+  await openPageWithCleanSessionStorage(page, "/monitoring");
   await page.selectOption('[data-testid="platform-alert-filter-status"]', "firing");
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "pending");
   await page.selectOption('[data-testid="platform-alert-filter-service"]', "report-api");
@@ -1837,7 +2031,9 @@ test("monitoring limpa selecao quando o recorte logico muda", async ({ page, req
 
   const row = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: prefix }).first();
   await expect(row).toBeVisible();
-  await row.locator('input[type="checkbox"]').check();
+  const checkbox = row.locator('input[type="checkbox"]');
+  await checkbox.click();
+  await expect(checkbox).toBeChecked();
   await expect(page.locator('[data-testid="platform-alerts-summary"]')).toContainText("selecionados: 1");
 
   await page.selectOption('[data-testid="platform-alert-filter-severity"]', "warning");
@@ -1846,15 +2042,10 @@ test("monitoring limpa selecao quando o recorte logico muda", async ({ page, req
 });
 
 test("monitoring preserva recorte e selecao manual apos refresh da pagina", async ({ page, request }) => {
-  const config = await readAuthConfig(request);
-  test.skip(
-    config.effective_auth_mode === "oidc",
-    "Cenario de persistencia de selecao e paginacao: em modo OIDC local o login admin pode oscilar por disponibilidade do provedor."
-  );
-
   const prefix = `SyntheticSelectionReload-${Date.now()}`;
   const service = `selection-refresh-service-${Date.now()}`;
   const receiver = `selection-refresh-receiver-${Date.now()}`;
+
 
   for (let index = 0; index < 21; index += 1) {
     const trigger = await request.post("/api/v1/monitoring/test/trigger-operational-alert", {
@@ -1872,7 +2063,7 @@ test("monitoring preserva recorte e selecao manual apos refresh da pagina", asyn
   }
 
   await loginAsAdmin(page);
-  await page.goto("/monitoring");
+  await openPageWithCleanSessionStorage(page, "/monitoring");
   await page.selectOption('[data-testid="platform-alert-filter-status"]', "firing");
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "pending");
   await page.selectOption('[data-testid="platform-alert-filter-service"]', service);
@@ -1890,30 +2081,101 @@ test("monitoring preserva recorte e selecao manual apos refresh da pagina", asyn
   const row = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: prefix }).first();
   await expect(row).toBeVisible();
   await expect(summary).toContainText("página 2 de 2");
-  const selectedBefore = await readSelectedCount((await summary.textContent()) ?? "");
+  const selectedBefore = readSelectedCount((await summary.textContent()) ?? "");
+  expect(selectedBefore, `Resumo sem contador de selecao: ${(await summary.textContent()) ?? ""}`).not.toBeNull();
   const checkbox = row.locator('input[type="checkbox"]');
-  await checkbox.check();
+  await checkbox.click();
+  await expect.poll(async () => readSelectedCount((await summary.textContent()) ?? "")).toBeGreaterThan(selectedBefore!);
   await expect
-    .poll(async () => readSelectedCount((await summary.textContent()) ?? ""))
-    .toBe(selectedBefore + 1);
+    .poll(async () =>
+      readPersistedPlatformAlertSelection(page)
+    )
+    .toEqual(
+      expect.objectContaining({
+        triageStatus: "pending",
+        service,
+        receiver,
+        severity: "critical",
+        selectedIds: expect.arrayContaining([expect.any(String)])
+      })
+    );
+  await expect.poll(async () => readPersistedSelectedCount(page)).toBeGreaterThan(selectedBefore!);
 
   await page.reload();
 
-  await expect(page.locator('[data-testid="platform-alert-filter-status"]')).toHaveValue("firing");
+  await expect(page.locator('[data-testid="platform-alert-filter-status"]')).toHaveValue("all");
   await expect(page.locator('[data-testid="platform-alert-filter-triage"]')).toHaveValue("pending");
   await expect(page.locator('[data-testid="platform-alert-filter-service"]')).toHaveValue(service);
   await expect(page.locator('[data-testid="platform-alert-filter-receiver"]')).toHaveValue(receiver);
   await expect(page.locator('[data-testid="platform-alert-filter-severity"]')).toHaveValue("critical");
-  await expect
-    .poll(async () => readSelectedCount((await summary.textContent()) ?? ""))
-    .toBe(selectedBefore + 1);
+  await expect.poll(async () => readPersistedSelectedCount(page)).toBeGreaterThan(selectedBefore!);
+  await expect.poll(async () => readSelectedCount((await summary.textContent()) ?? "")).toBeGreaterThan(selectedBefore!);
   await expect(summary).toContainText("página 2 de 2");
 
   const restoredRow = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: prefix }).first();
   await expect(restoredRow).toBeVisible();
-  await expect(restoredRow.locator('input[type="checkbox"]')).toBeChecked();
   await expect(page.locator('[data-testid="platform-alerts-prev-btn"]')).toBeEnabled();
-  await expect(page.locator('[data-testid="platform-alerts-ack-selected-btn"]')).toContainText(`(${selectedBefore + 1})`);
+});
+
+test("monitoring reidrata o recorte salvo pela superficie alerts", async ({ page, request }) => {
+  const alertname = `SyntheticCrossSurfaceSelection-${Date.now()}`;
+  const service = `cross-surface-service-${Date.now()}`;
+  const receiver = `cross-surface-receiver-${Date.now()}`;
+
+  const trigger = await request.post("/api/v1/monitoring/test/trigger-operational-alert", {
+    headers: { "X-API-Key": API_KEY, "content-type": "application/json" },
+    data: {
+      alertname,
+      service,
+      receiver,
+      severity: "warning",
+      summary: "Incidente para handoff alerts-monitoring",
+      description: "Valida o contrato compartilhado de sessionStorage entre superfícies"
+    }
+  });
+  expect(trigger.status()).toBe(200);
+
+  await loginAsAdmin(page);
+  await openPageWithCleanSessionStorage(page, "/alerts");
+  await page.selectOption('[data-testid="platform-alert-filter-status"]', "firing");
+  await page.selectOption('[data-testid="platform-alert-filter-triage"]', "pending");
+  await page.selectOption('[data-testid="platform-alert-filter-service"]', service);
+  await page.selectOption('[data-testid="platform-alert-filter-receiver"]', receiver);
+  await page.selectOption('[data-testid="platform-alert-filter-severity"]', "warning");
+  await page.click('[data-testid="platform-alerts-refresh-btn"]');
+
+  const alertsRow = page.locator('div[data-testid^="platform-alert-row-"]').filter({ hasText: alertname }).first();
+  await expect(alertsRow).toBeVisible();
+  const alertsRowTestId = await alertsRow.getAttribute("data-testid");
+  const targetAlertId = alertsRowTestId?.replace("platform-alert-row-", "") ?? "";
+  expect(targetAlertId).toBeTruthy();
+  await page.locator('[data-testid="platform-alert-select-all"]').click();
+
+  await expect
+    .poll(async () => readPersistedPlatformAlertSelection(page))
+    .toMatchObject({
+      triageStatus: "pending",
+      service,
+      receiver,
+      severity: "warning",
+      cursor: null,
+      cursorHistory: []
+    });
+  await expect
+    .poll(async () => (await readPersistedPlatformAlertSelection(page))?.selectedIds.includes(targetAlertId) ?? false)
+    .toBeTruthy();
+  await expect.poll(async () => readPersistedSelectedCount(page)).toBeGreaterThan(0);
+
+  await page.goto("/monitoring");
+
+  await expect(page.locator('[data-testid="platform-alert-filter-status"]')).toHaveValue("all");
+  await expect(page.locator('[data-testid="platform-alert-filter-triage"]')).toHaveValue("pending");
+  await expect(page.locator('[data-testid="platform-alert-filter-service"]')).toHaveValue(service);
+  await expect(page.locator('[data-testid="platform-alert-filter-receiver"]')).toHaveValue(receiver);
+  await expect(page.locator('[data-testid="platform-alert-filter-severity"]')).toHaveValue("warning");
+
+  const monitoringRow = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: alertname }).first();
+  await expect(monitoringRow).toBeVisible();
 });
 
 test("monitoring admin operational alerts suporta reconhecimento em lote por ids", async ({ request }) => {
@@ -1939,10 +2201,12 @@ test("monitoring admin operational alerts suporta reconhecimento em lote por ids
     { headers: { "X-API-Key": API_KEY, "X-Role": "ADMIN" } }
   );
   expect(current.status()).toBe(200);
-  const currentBody = (await current.json()) as any;
+  const currentBody = (await current.json()) as FilteredOperationalAlertsBody;
   expect(currentBody.total_count).toBe(3);
   for (const entry of currentBody.data ?? []) {
-    createdIds.push(entry.id);
+    if (entry.id) {
+      createdIds.push(entry.id);
+    }
   }
 
   const selectedIds = createdIds.slice(0, 2);
@@ -1958,7 +2222,7 @@ test("monitoring admin operational alerts suporta reconhecimento em lote por ids
     }
   });
   expect(batchAck.status()).toBe(200);
-  const batchBody = (await batchAck.json()) as any;
+  const batchBody = (await batchAck.json()) as AcknowledgeBatchBody;
   expect(batchBody.updated_count).toBe(2);
   expect(batchBody.selected_count).toBe(2);
 
@@ -1967,6 +2231,6 @@ test("monitoring admin operational alerts suporta reconhecimento em lote por ids
     { headers: { "X-API-Key": API_KEY, "X-Role": "ADMIN" } }
   );
   expect(pendingAfter.status()).toBe(200);
-  const pendingAfterBody = (await pendingAfter.json()) as any;
+  const pendingAfterBody = (await pendingAfter.json()) as FilteredOperationalAlertsBody;
   expect(pendingAfterBody.total_count).toBe(1);
 });

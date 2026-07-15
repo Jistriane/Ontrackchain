@@ -7,7 +7,7 @@ for audit and regulatory purposes.
 
 Usage:
   python3 generate_compliance_report.py \
-    --metrics-file docs/governance-weekly/gate-history-metrics.json \
+    --metrics-file docs/governance-weekly/generated/gates/gate-history-metrics.json \
     --output-file docs/compliance-reports/compliance-report-2026-Q3.md \
     --period quarterly \
     --format markdown
@@ -273,7 +273,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Generate governance compliance report"
     )
-    parser.add_argument('--metrics-file', default='docs/governance-weekly/gate-history-metrics.json',
+    parser.add_argument('--metrics-file', default='docs/governance-weekly/generated/gates/gate-history-metrics.json',
                         help='Input metrics file')
     parser.add_argument('--output-file', default='docs/compliance-reports/compliance-report.md',
                         help='Output report file')

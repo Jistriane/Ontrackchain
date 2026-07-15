@@ -13,13 +13,15 @@ Entregar um roteiro unico, objetivo e operacional para conduzir uma janela seria
 ## Artefatos de Apoio
 
 - [Checklist de Fechamento Semanal da Governanca](./WEEKLY_GOVERNANCE_CLOSEOUT_CHECKLIST.md)
-- [Checklist de Evidência Mínima da Primeira Janela Séria](../../history/first-serious-window-evidence-checklist.md)
+- [Checklist de Evidência Mínima da Primeira Janela Séria](../../history/first-serious-window-evidence-checklist.md) - apoio historico complementar; a sequencia viva desta janela esta neste proprio pacote
 - [Checklist Executivo da Primeira Janela Combinada `P0-02 + P0-03`](./FIRST_COMBINED_SERIOUS_WINDOW_EXECUTIVE_CHECKLIST.md)
 - [Run Sheet Preenchivel da Primeira Janela Combinada](./FIRST_COMBINED_SERIOUS_WINDOW_RUN_SHEET.md)
 - [Workflow de Atualizacao Semanal da Governanca](./WEEKLY_GOVERNANCE_UPDATE_WORKFLOW.md)
 - [Guia `P0-01` OIDC + MFA serio](./P0-01_OIDC_MFA_EXECUTION_GUIDE.md)
 - [Guia `P0-02` AML/KYT live](./P0-02_AML_KYT_LIVE_EXECUTION_GUIDE.md)
 - [Guia `P0-03` Feed UE real](./P0-03_EU_FEED_EXECUTION_GUIDE.md)
+- [Validacao em Staging - Diretorio Federado](../../federated-directory-staging-validation.md)
+- [Run Sheet Operacional - Diretorio Federado em Staging](./FEDERATED_DIRECTORY_STAGING_RUN_SHEET.md)
 
 Este documento e a fonte canônica unica para a execucao integrada da janela seria. Evite duplicar a sequencia de comandos em outros guias da mesma pasta.
 

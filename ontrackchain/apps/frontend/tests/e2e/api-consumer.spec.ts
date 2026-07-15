@@ -2,10 +2,22 @@ import { test, expect } from "@playwright/test";
 
 const API_KEY = process.env.ONTRACKCHAIN_API_KEY || "otc_live_demo_key";
 
+type PublicWalletResponse = {
+  risk_score?: number | null;
+};
+
+type InvestigationQuoteResponse = {
+  quote_id: string;
+};
+
+type InvestigationStartResponse = {
+  case_id?: string;
+};
+
 test("public API retorna score sem autenticação", async ({ request }) => {
   const res = await request.get("/public/wallet/0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045?chain=ethereum");
   expect(res.status()).toBe(200);
-  const body = (await res.json()) as Record<string, unknown>;
+  const body = (await res.json()) as PublicWalletResponse;
   expect(body).toHaveProperty("risk_score");
 });
 
@@ -21,7 +33,7 @@ test("API key funciona para investigação", async ({ request }) => {
     }
   });
   expect(estimate.status()).toBe(200);
-  const estimateBody = (await estimate.json()) as { quote_id: string };
+  const estimateBody = (await estimate.json()) as InvestigationQuoteResponse;
   expect(estimateBody.quote_id).toBeTruthy();
 
   const start = await request.post("/api/v1/investigation/start", {
@@ -29,7 +41,7 @@ test("API key funciona para investigação", async ({ request }) => {
     data: { quote_id: estimateBody.quote_id, confirmed: true }
   });
   expect([200, 202]).toContain(start.status());
-  const startBody = (await start.json()) as Record<string, unknown>;
+  const startBody = (await start.json()) as InvestigationStartResponse;
   expect(startBody).toHaveProperty("case_id");
 });
 
@@ -44,4 +56,3 @@ test("API key funciona para monitoring e compliance", async ({ request }) => {
   });
   expect(complianceCatalog.status()).toBe(200);
 });
-

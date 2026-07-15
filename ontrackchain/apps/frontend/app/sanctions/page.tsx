@@ -10,6 +10,7 @@ import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel
 import type { MessageKey } from "../lib/i18n";
 import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
+import { canCheckSanctions } from "../lib/authz";
 import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
 import { formatTimelineEvent } from "../lib/work-item-timeline";
 import { useWorkItemTimeline } from "../lib/use-work-item-timeline";
@@ -430,6 +431,7 @@ export default function SanctionsPage() {
   });
 
   const isHit = Boolean(result?.hit);
+  const canExecuteSanctionsCheck = canCheckSanctions(authContext?.role);
   const matchedCount = result?.matched_lists?.length ?? 0;
   const currentWorkspaceId = result ? buildWorkspaceId(result) : null;
   const filteredWorkspaceRecords = useMemo(() => {
@@ -482,7 +484,7 @@ export default function SanctionsPage() {
   }
 
   useEffect(() => {
-    const localRecords: SanctionsWorkspaceRecord[] = [];
+    const localRecords = loadWorkspace();
     setWorkspaceRecords(localRecords);
     loadOperationalWorkspace(localRecords).catch(() => {
       setWorkspaceRecords(localRecords);
@@ -663,6 +665,10 @@ export default function SanctionsPage() {
     if (!result) {
       return;
     }
+    if (!canExecuteSanctionsCheck) {
+      setError(tr("apiErrors.sanctionsCheckRoleRequired" as MessageKey));
+      return;
+    }
 
     setError(null);
     setNotice(null);
@@ -683,6 +689,11 @@ export default function SanctionsPage() {
   }
 
   async function runSanctionsCheck(nextForm: SanctionsFormState) {
+    if (!canExecuteSanctionsCheck) {
+      setError(tr("apiErrors.sanctionsCheckRoleRequired" as MessageKey));
+      setNotice(null);
+      return;
+    }
     setError(null);
     setNotice(null);
     setLoading(true);
@@ -808,20 +819,26 @@ export default function SanctionsPage() {
           </div>
 
           <div className="otc-controls">
-            <button className="otc-button otc-button--accent" type="submit" data-testid="sanctions-check-btn" disabled={loading}>
-              {loading ? tr("sanctions.form.submitting" as MessageKey) : tr("sanctions.form.submit" as MessageKey)}
-            </button>
-            <button
-              className="otc-button"
-              type="button"
-              onClick={() => {
-                setForm(DEFAULT_FORM);
-                setTriageNote("");
-              }}
-              disabled={loading}
-            >
-              {tr("sanctions.form.reset" as MessageKey)}
-            </button>
+            {canExecuteSanctionsCheck ? (
+              <>
+                <button className="otc-button otc-button--accent" type="submit" data-testid="sanctions-check-btn" disabled={loading}>
+                  {loading ? tr("sanctions.form.submitting" as MessageKey) : tr("sanctions.form.submit" as MessageKey)}
+                </button>
+                <button
+                  className="otc-button"
+                  type="button"
+                  onClick={() => {
+                    setForm(DEFAULT_FORM);
+                    setTriageNote("");
+                  }}
+                  disabled={loading}
+                >
+                  {tr("sanctions.form.reset" as MessageKey)}
+                </button>
+              </>
+            ) : (
+              <Message data-testid="sanctions-check-restricted">{tr("sanctions.form.roleRestricted" as MessageKey)}</Message>
+            )}
           </div>
           {error ? <Message tone="error">{error}</Message> : null}
           {notice ? <Message tone="success">{notice}</Message> : null}
@@ -1051,15 +1068,21 @@ export default function SanctionsPage() {
               ) : null}
             </div>
             <div className="otc-controls">
-              <button type="button" className="otc-button otc-button--ghost" onClick={() => updateWorkspaceStatus("UNDER_REVIEW")}>
-                {tr("sanctions.triage.review" as MessageKey)}
-              </button>
-              <button type="button" className="otc-button otc-button--ghost" onClick={() => updateWorkspaceStatus("ESCALATED")} disabled={syncingWorkspace}>
-                {tr("sanctions.triage.escalate" as MessageKey)}
-              </button>
-              <button type="button" className="otc-button otc-button--ghost" onClick={() => updateWorkspaceStatus("CLOSED")} disabled={syncingWorkspace}>
-                {tr("sanctions.triage.clear" as MessageKey)}
-              </button>
+              {canExecuteSanctionsCheck ? (
+                <>
+                  <button type="button" className="otc-button otc-button--ghost" onClick={() => updateWorkspaceStatus("UNDER_REVIEW")}>
+                    {tr("sanctions.triage.review" as MessageKey)}
+                  </button>
+                  <button type="button" className="otc-button otc-button--ghost" onClick={() => updateWorkspaceStatus("ESCALATED")} disabled={syncingWorkspace}>
+                    {tr("sanctions.triage.escalate" as MessageKey)}
+                  </button>
+                  <button type="button" className="otc-button otc-button--ghost" onClick={() => updateWorkspaceStatus("CLOSED")} disabled={syncingWorkspace}>
+                    {tr("sanctions.triage.clear" as MessageKey)}
+                  </button>
+                </>
+              ) : (
+                <Message data-testid="sanctions-triage-restricted">{tr("sanctions.triage.roleRestricted" as MessageKey)}</Message>
+              )}
             </div>
 
             <details className="otc-panel">

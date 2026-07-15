@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 
+import { canDownloadReportArtifact } from "../../../../lib/authz";
 import { authenticateReportRequest, proxyReportBinaryRequest } from "../_shared";
 
 export async function GET(request: Request) {
@@ -30,6 +31,12 @@ export async function GET(request: Request) {
   const auth = await authenticateReportRequest(requestId);
   if (auth instanceof Response) {
     return auth;
+  }
+  if (reportType !== "legal_report" && !canDownloadReportArtifact(auth.role)) {
+    return new Response(JSON.stringify({ detail: "report_download_role_required" }), {
+      status: 403,
+      headers: { "content-type": "application/json" }
+    });
   }
 
   const query = url.searchParams;

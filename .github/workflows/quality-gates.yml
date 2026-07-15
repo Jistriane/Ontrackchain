@@ -48,9 +48,9 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run staging window, dossier, packet, ownership, handoff, dispatch readiness, dispatch packet, preflight and homologation regression tests
+      - name: Run staging window, readiness bundle, dossier, packet, ownership, handoff, dispatch readiness, dispatch packet, preflight and homologation regression tests
         working-directory: ontrackchain
-        run: python -m unittest tests.test_check_workflow_hygiene tests.test_check_staging_env_placeholders tests.test_check_staging_env_ownership_coverage tests.test_check_staging_env_handoff tests.test_check_serious_window_dispatch_readiness tests.test_render_serious_window_dispatch_packet tests.test_render_staging_private_env_templates tests.test_render_staging_window_packet tests.test_prepare_staging_window tests.test_render_staging_window_signoff tests.test_render_staging_window_weekly_governance tests.test_postprocess_staging_window_artifact tests.test_build_staging_release_dossier tests.test_run_staging_window tests.test_preflight_guards tests.test_homologation_external_evidence
+        run: python -m unittest tests.test_check_workflow_hygiene tests.test_check_staging_env_placeholders tests.test_check_staging_env_ownership_coverage tests.test_check_staging_env_handoff tests.test_check_serious_window_dispatch_readiness tests.test_render_serious_window_dispatch_packet tests.test_render_staging_private_env_templates tests.test_render_staging_window_packet tests.test_prepare_staging_window tests.test_render_staging_window_signoff tests.test_render_staging_window_weekly_governance tests.test_postprocess_staging_window_artifact tests.test_build_staging_release_dossier tests.test_run_staging_window tests.test_run_oidc_playwright_critical tests.test_run_oidc_readiness_bundle tests.test_render_oidc_readiness_bundle tests.test_run_regulatory_readiness_bundle tests.test_render_regulatory_readiness_bundle tests.test_preflight_guards tests.test_homologation_external_evidence
 
   serious-window-onboarding-smoke:
     runs-on: ubuntu-latest

@@ -7,6 +7,7 @@ export type AuthContext = {
   auth_method: string | null;
   mfa_mode: string | null;
   mfa_provider_homologated: string | null;
+  two_factor: string | null;
 };
 
 type ResolveOwnerUserIdInput = {

@@ -53,7 +53,7 @@ export async function authenticateRequest(requestId: string): Promise<AuthContex
 }
 
 export async function proxyOperationsRequest(auth: AuthContext, options: ProxyRequestOptions) {
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
+  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const res = await fetch(`${baseUrl}${options.path}`, {
     method: options.method,
     headers: {

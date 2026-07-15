@@ -54,6 +54,11 @@ class RenderOidcReadinessBundleTests(unittest.TestCase):
                     "output_file": "checks/oidc-smoke-auth.json",
                     "errors": [],
                 },
+                "oidc_playwright_critical": {
+                    "status": "ok",
+                    "output_file": "checks/oidc-playwright-critical.json",
+                    "errors": [],
+                },
             },
         }
 
@@ -65,6 +70,7 @@ class RenderOidcReadinessBundleTests(unittest.TestCase):
         self.assertIn("OIDC Readiness Bundle - stg-2026-07-03-oidc", rendered)
         self.assertIn("status de readiness: `ready_for_validation`", rendered)
         self.assertIn("smoke_auth_oidc_mode", rendered)
+        self.assertIn("oidc_playwright_critical", rendered)
 
     def test_main_writes_markdown_and_json_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -98,6 +104,11 @@ class RenderOidcReadinessBundleTests(unittest.TestCase):
                                 "output_file": "checks/b.json",
                                 "errors": ["auth_config mismatch"],
                             },
+                            "oidc_playwright_critical": {
+                                "status": "failed",
+                                "output_file": "checks/c.json",
+                                "errors": ["oidc critical falhou"],
+                            },
                         },
                     }
                 ),
@@ -128,6 +139,7 @@ class RenderOidcReadinessBundleTests(unittest.TestCase):
             self.assertTrue(output_file.exists())
             self.assertIn("Bloqueadores de Readiness", output_file.read_text(encoding="utf-8"))
             self.assertIn("auth_config mismatch", output_file.read_text(encoding="utf-8"))
+            self.assertIn("oidc critical falhou", output_file.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

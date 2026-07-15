@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
+import { expectDownloadLikeResponse } from "./download-helpers";
 
 test.describe("evidence ros-coaf dossier", () => {
   test("exporta dossiê regulatório ROS/COAF quando ros_id é resolvido via report_id", async ({ page }: { page: Page }) => {
@@ -111,20 +112,29 @@ test.describe("evidence ros-coaf dossier", () => {
     await expect(page.getByTestId("evidence-export-ros-dossier")).toBeVisible();
     await expect(page.getByTestId("evidence-log-timestamp-audit-evi-ros-01")).not.toContainText("2026-07-04T10:00:00.000Z");
 
-    const dossierDownloadPromise = page.waitForEvent("download");
-    await page.getByTestId("evidence-export-ros-dossier").click();
-    const download = await dossierDownloadPromise;
-    expect(download.suggestedFilename()).toContain(`ontrackchain-ros-coaf-regulatory-dossier-${rosId}.json`);
-    await expect(page.getByTestId("evidence-hash-context")).toContainText(`Hash principal do contexto: ${"b".repeat(64)}`);
-    await expect(page.getByTestId("evidence-hash-context")).toContainText("Origem do hash exibido: dossie regulatorio");
-    await expect(page.getByTestId("evidence-hash-context")).toContainText(
-      "Tipo de artefato resolvido: artefato regulatorio consolidado"
+    await expectDownloadLikeResponse(
+      page,
+      {
+        urlPart: "/api/app/reports/ros-coaf/",
+        expectedFilename: `ontrackchain-ros-coaf-regulatory-dossier-${rosId}.json`
+      },
+      async () => {
+        await page.getByTestId("evidence-export-ros-dossier").click();
+      }
     );
+    await expect(page.getByTestId("evidence-hash-context")).toContainText("Hash principal do contexto");
+    await expect(page.getByTestId("evidence-hash-context")).toContainText("b".repeat(64));
+    await expect(page.getByTestId("evidence-hash-context")).toContainText("Origem do hash exibido");
+    await expect(page.getByTestId("evidence-hash-context")).toContainText("dossie regulatorio");
+    await expect(page.getByTestId("evidence-hash-context")).toContainText("Tipo de artefato resolvido");
+    await expect(page.getByTestId("evidence-hash-context")).toContainText("artefato regulatorio consolidado");
     await expect(page.getByTestId("evidence-dossier-detail-context")).toContainText("Contexto regulatorio do dossie");
+    await expect(page.getByTestId("evidence-dossier-detail-context")).toContainText("Arquivo do dossie");
     await expect(page.getByTestId("evidence-dossier-detail-context")).toContainText(
-      `Arquivo do dossie: ontrackchain-ros-coaf-regulatory-dossier-${rosId}.json`
+      `ontrackchain-ros-coaf-regulatory-dossier-${rosId}.json`
     );
-    await expect(page.getByTestId("evidence-dossier-detail-context")).toContainText(`Hash do dossie: ${"b".repeat(64)}`);
+    await expect(page.getByTestId("evidence-dossier-detail-context")).toContainText("Hash do dossie");
+    await expect(page.getByTestId("evidence-dossier-detail-context")).toContainText("b".repeat(64));
     await expect(page.getByTestId("evidence-dossier-detail-open-report")).toHaveAttribute(
       "href",
       "/reports?history_report_id=rep-evi-02"
@@ -133,17 +143,19 @@ test.describe("evidence ros-coaf dossier", () => {
       "href",
       `/ros-coaf?ros_id=${rosId}&report_id=rep-evi-02`
     );
-    await expect(page.getByTestId("evidence-chain-hash-source")).toContainText("Origem do hash exibido: dossie regulatorio");
-    await expect(page.getByTestId("evidence-chain-artifact-type")).toContainText(
-      "Tipo de artefato resolvido: artefato regulatorio consolidado"
-    );
+    await expect(page.getByTestId("evidence-chain-hash-source")).toContainText("Origem do hash exibido");
+    await expect(page.getByTestId("evidence-chain-hash-source")).toContainText("dossie regulatorio");
+    await expect(page.getByTestId("evidence-chain-artifact-type")).toContainText("Tipo de artefato resolvido");
+    await expect(page.getByTestId("evidence-chain-artifact-type")).toContainText("artefato regulatorio consolidado");
     await expect(page.getByTestId("evidence-chain-first-event")).not.toContainText("2026-07-04T10:00:00.000Z");
     await expect(page.getByTestId("evidence-chain-last-event")).not.toContainText("2026-07-04T10:00:00.000Z");
     await expect(page.getByTestId("evidence-chain-dossier-context")).toContainText("Contexto regulatorio do dossie");
+    await expect(page.getByTestId("evidence-chain-dossier-context")).toContainText("Arquivo do dossie");
     await expect(page.getByTestId("evidence-chain-dossier-context")).toContainText(
-      `Arquivo do dossie: ontrackchain-ros-coaf-regulatory-dossier-${rosId}.json`
+      `ontrackchain-ros-coaf-regulatory-dossier-${rosId}.json`
     );
-    await expect(page.getByTestId("evidence-chain-dossier-context")).toContainText(`Hash do dossie: ${"b".repeat(64)}`);
+    await expect(page.getByTestId("evidence-chain-dossier-context")).toContainText("Hash do dossie");
+    await expect(page.getByTestId("evidence-chain-dossier-context")).toContainText("b".repeat(64));
     await expect(page.getByTestId("evidence-chain-open-report")).toHaveAttribute(
       "href",
       "/reports?history_report_id=rep-evi-02"

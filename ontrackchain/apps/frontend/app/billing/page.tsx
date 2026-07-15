@@ -1,7 +1,6 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "../../components/i18n-provider";
 import { AppShell, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
 import { canReadBilling } from "../lib/authz";
@@ -72,58 +71,15 @@ type OperationsSnapshot = {
   generated_at: string;
 };
 
-type TeamMemberRecord = {
-  member_id: string;
-  name: string;
-  email: string;
-  role: string;
-  status: string;
-  note: string;
-  created_at: string;
-  updated_at: string;
-};
-
-type TeamUsersResponse = {
-  data: TeamMemberRecord[];
-};
-
-function buildTeamMemberHref(member: TeamMemberRecord) {
-  const params = new URLSearchParams({
-    member_id: member.member_id,
-    email: member.email,
-    name: member.name,
-    role: member.role,
-    status: member.status,
-    note: member.note,
-    search: member.email,
-    filter_status: member.status
-  });
-  return `/team?${params.toString()}`;
-}
-
 export default function BillingPage() {
-  const searchParams = useSearchParams();
   const [balance, setBalance] = useState<BillingBalanceResponse | null>(null);
   const [reconciliation, setReconciliation] = useState<BillingReconciliationResponse | null>(null);
   const [authContext, setAuthContext] = useState<AuthContext | null | undefined>(undefined);
   const [operations, setOperations] = useState<OperationsSnapshot | null>(null);
-  const [teamRoster, setTeamRoster] = useState<TeamMemberRecord[]>([]);
-  const [teamFilterStatus, setTeamFilterStatus] = useState("all");
-  const [teamSearch, setTeamSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { locale, t } = useI18n();
   const tr = (key: MessageKey, values?: Record<string, string | number>) => t(key, values);
-
-  function formatBillingMemberStatus(status: string) {
-    return status === "active" || status === "invited" || status === "disabled"
-      ? t(`team.roster.status.${status}` as MessageKey)
-      : status;
-  }
-
-  function formatBillingMemberStatusTone(status: string) {
-    return status === "disabled" ? "danger" : status === "invited" ? "warning" : undefined;
-  }
 
   function formatBillingTimestamp(value: string) {
     const normalized = value.trim();
@@ -133,33 +89,15 @@ export default function BillingPage() {
     return formatDateTime(normalized, locale) ?? normalized;
   }
 
-  const filteredTeamRoster = useMemo(() => {
-    const query = teamSearch.trim().toLowerCase();
-    return teamRoster.filter((member) => {
-      const matchesStatus = teamFilterStatus === "all" ? true : member.status === teamFilterStatus;
-      const matchesSearch =
-        !query ||
-        member.name.toLowerCase().includes(query) ||
-        member.email.toLowerCase().includes(query) ||
-        member.role.toLowerCase().includes(query);
-      return matchesStatus && matchesSearch;
-    });
-  }, [teamFilterStatus, teamRoster, teamSearch]);
-
-  const activeTeamCount = useMemo(() => teamRoster.filter((member) => member.status === "active").length, [teamRoster]);
-  const invitedTeamCount = useMemo(() => teamRoster.filter((member) => member.status === "invited").length, [teamRoster]);
-  const disabledTeamCount = useMemo(() => teamRoster.filter((member) => member.status === "disabled").length, [teamRoster]);
-
   async function refresh() {
     setLoading(true);
     setError(null);
 
-    const [billingRes, reconciliationRes, authRes, opsRes, teamRes] = await Promise.all([
+    const [billingRes, reconciliationRes, authRes, opsRes] = await Promise.all([
       fetch("/api/app/billing/balance", { cache: "no-store" }),
       fetch("/api/app/billing/reconciliation?limit=5", { cache: "no-store" }),
       fetch("/api/app/auth/context", { cache: "no-store" }),
-      fetch("/api/app/investigation/operations", { cache: "no-store" }),
-      fetch("/api/app/team/users", { cache: "no-store" })
+      fetch("/api/app/investigation/operations", { cache: "no-store" })
     ]);
     let nextError: string | null = null;
 
@@ -195,16 +133,6 @@ export default function BillingPage() {
       setOperations(null);
     }
 
-    const teamData = (await teamRes.json().catch(() => null)) as TeamUsersResponse | { error?: string; detail?: unknown } | null;
-    if (teamRes.ok) {
-      setTeamRoster(Array.isArray((teamData as TeamUsersResponse | null)?.data) ? (teamData as TeamUsersResponse).data : []);
-    } else {
-      setTeamRoster([]);
-      if (!nextError) {
-        nextError = resolveApiErrorMessage(t, teamData, t("billing.errorLoad"));
-      }
-    }
-
     setError(nextError);
     setLoading(false);
   }
@@ -215,17 +143,6 @@ export default function BillingPage() {
       setLoading(false);
     });
   }, [t]);
-
-  useEffect(() => {
-    const nextTeamStatus = searchParams.get("team_status");
-    const nextTeamSearch = searchParams.get("team_q");
-    if (nextTeamStatus === "all" || nextTeamStatus === "active" || nextTeamStatus === "invited" || nextTeamStatus === "disabled") {
-      setTeamFilterStatus(nextTeamStatus);
-    }
-    if (nextTeamSearch !== null) {
-      setTeamSearch(nextTeamSearch);
-    }
-  }, [searchParams]);
 
   const billingAccessResolved = authContext !== undefined;
   const canReadBillingSurface = authContext ? canReadBilling(authContext.role) : true;
@@ -244,7 +161,7 @@ export default function BillingPage() {
               {loading ? t("billing.refreshLoading") : t("billing.refresh")}
             </button>
           ) : null}
-          <a className="otc-button otc-button--ghost" href="/team">
+          <a className="otc-button otc-button--ghost" href="/team" data-testid="billing-open-team-action">
             {t("billing.openTeam")}
           </a>
         </div>
@@ -270,13 +187,6 @@ export default function BillingPage() {
           meta={t("billing.stats.operationalLimitMeta")}
         />
         <MetricCard label={t("billing.stats.cycle")} value={t("billing.stats.cycleValue")} meta={t("billing.stats.cycleMeta")} />
-      </MetricGrid>
-
-      <MetricGrid>
-        <MetricCard label={tr("billing.teamStats.total" as MessageKey)} value={teamRoster.length} meta={tr("billing.teamStats.totalMeta" as MessageKey)} />
-        <MetricCard label={tr("billing.teamStats.active" as MessageKey)} value={activeTeamCount} meta={tr("billing.teamStats.activeMeta" as MessageKey)} accent />
-        <MetricCard label={tr("billing.teamStats.invited" as MessageKey)} value={invitedTeamCount} meta={tr("billing.teamStats.invitedMeta" as MessageKey)} />
-        <MetricCard label={tr("billing.teamStats.disabled" as MessageKey)} value={disabledTeamCount} meta={tr("billing.teamStats.disabledMeta" as MessageKey)} />
       </MetricGrid>
 
       <Panel title={tr("billing.auth.title" as MessageKey)} description={tr("billing.auth.description" as MessageKey)}>
@@ -316,6 +226,16 @@ export default function BillingPage() {
       </Panel>
 
       <Panel title={tr("billing.reconciliation.title" as MessageKey)} description={tr("billing.reconciliation.description" as MessageKey)}>
+        <div className="otc-controls otc-controls--spaced">
+          <a
+            className="otc-button otc-button--ghost"
+            href="/api/app/billing/reconciliation/export?limit=25"
+            data-testid="billing-export-link"
+          >
+            {tr("billing.reconciliation.export" as MessageKey)}
+          </a>
+          <Message>{tr("billing.reconciliation.exportDescription" as MessageKey)}</Message>
+        </div>
         {reconciliation ? (
           <>
             <div className="otc-kv">
@@ -432,61 +352,11 @@ export default function BillingPage() {
         </div>
       </Panel>
 
-      <Panel title={t("billing.users.title")} description={t("billing.users.description")}>
-        <div className="otc-controls">
-          <label className="otc-field">
-            {tr("billing.users.filters.status" as MessageKey)}
-            <select className="otc-select" value={teamFilterStatus} onChange={(event) => setTeamFilterStatus(event.target.value)}>
-              <option value="all">{tr("billing.users.filters.all" as MessageKey)}</option>
-              <option value="active">{t("team.roster.status.active")}</option>
-              <option value="invited">{t("team.roster.status.invited")}</option>
-              <option value="disabled">{t("team.roster.status.disabled")}</option>
-            </select>
-          </label>
-          <label className="otc-field">
-            {tr("billing.users.filters.search" as MessageKey)}
-            <input className="otc-input" value={teamSearch} onChange={(event) => setTeamSearch(event.target.value)} />
-          </label>
-        </div>
-        {filteredTeamRoster.length ? (
-          <table className="otc-table otc-table--spaced">
-            <thead>
-              <tr>
-                <th>{t("team.roster.table.name")}</th>
-                <th>{t("team.roster.table.email")}</th>
-                <th>{t("team.roster.table.role")}</th>
-                <th>{t("team.roster.table.status")}</th>
-                <th>{t("team.roster.table.updated")}</th>
-                <th>{tr("billing.users.actions" as MessageKey)}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTeamRoster.slice(0, 12).map((member) => (
-                <tr key={member.member_id} data-testid={`billing-user-row-${member.member_id}`}>
-                  <td><strong>{member.name || member.email}</strong></td>
-                  <td>{member.email}</td>
-                  <td>{member.role}</td>
-                  <td data-testid={`billing-user-status-${member.member_id}`}>
-                    <Pill tone={formatBillingMemberStatusTone(member.status)}>{formatBillingMemberStatus(member.status)}</Pill>
-                  </td>
-                  <td data-testid={`billing-user-updated-${member.member_id}`}>{formatBillingTimestamp(member.updated_at)}</td>
-                  <td>
-                    <div className="otc-controls">
-                      <a className="otc-button otc-button--ghost" href={buildTeamMemberHref(member)}>
-                        {tr("billing.users.openMember" as MessageKey)}
-                      </a>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <Message>{t("billing.users.empty")}</Message>
-        )}
+      <Panel title={tr("billing.teamSurface.title" as MessageKey)} description={tr("billing.teamSurface.description" as MessageKey)}>
+        <Message>{tr("billing.teamSurface.notice" as MessageKey)}</Message>
         <div className="otc-controls otc-controls--spaced">
-          <a className="otc-button otc-button--ghost" href="/team">
-            {t("billing.users.manage")}
+          <a className="otc-button otc-button--ghost" href="/team" data-testid="billing-team-handoff-link">
+            {t("billing.openTeam")}
           </a>
         </div>
       </Panel>

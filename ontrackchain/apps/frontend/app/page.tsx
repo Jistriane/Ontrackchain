@@ -43,7 +43,7 @@ type DashboardBundle = {
 };
 
 async function fetchAuthorizedJson<T>(path: string, token: string): Promise<T | null> {
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
+  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const res = await fetch(`${baseUrl}${path}`, {
     cache: "no-store",
     headers: {

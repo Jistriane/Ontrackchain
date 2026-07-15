@@ -35,7 +35,7 @@ jobs:
   run-serious-window:
     name: Run serious staging window
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     environment: ${{ inputs.environment_name }}
     defaults:
       run:
@@ -48,6 +48,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: ontrackchain/apps/frontend/package-lock.json
 
       - name: Validate workflow hygiene
         run: |
@@ -78,7 +85,18 @@ jobs:
           print(f"Materialized {target} with {line_count} logical lines.")
           PY
 
+      - name: Install frontend dependencies for OIDC critical
+        working-directory: ontrackchain/apps/frontend
+        run: npm ci
+
+      - name: Install Playwright browser for OIDC critical
+        working-directory: ontrackchain/apps/frontend
+        run: npx playwright install --with-deps chromium
+
       - name: Run one-click serious staging gate
+        env:
+          ONTRACKCHAIN_INCLUDE_OIDC_PLAYWRIGHT_CRITICAL: "true"
+          ONTRACKCHAIN_REQUIRE_OIDC_PLAYWRIGHT_CRITICAL: "true"
         run: |
           set -o pipefail
           python scripts/prepare_staging_window.py \
@@ -196,5 +214,7 @@ jobs:
             ontrackchain/artifacts/staging/templates
             ontrackchain/artifacts/staging/window-packet-${{ inputs.window_id }}.md
             ontrackchain/artifacts/homologation
+            ontrackchain/apps/frontend/playwright-report
+            ontrackchain/apps/frontend/test-results
           if-no-files-found: warn
           retention-days: 30

@@ -6,6 +6,7 @@ type Translator = (key: MessageKey, values?: Record<string, string | number>) =>
 
 type InvestigationOperationsPanelProps = {
   t: Translator;
+  canReadInvestigationAdmin: boolean | null;
   operations: OperationsSnapshot | null;
   refreshOperations: () => void;
   caseAuditHref: (caseId: string, reportId?: string | null) => string;
@@ -25,6 +26,7 @@ function hasWorkerSnapshotGeneratedAt(value: string | null | undefined) {
 
 export function InvestigationOperationsPanel({
   t,
+  canReadInvestigationAdmin,
   operations,
   refreshOperations,
   caseAuditHref,
@@ -37,6 +39,12 @@ export function InvestigationOperationsPanel({
   return (
     <>
       <Panel title={t("monitoring.worker.title")}>
+        {canReadInvestigationAdmin === false ? (
+          <Message data-testid="monitoring-worker-read-restricted">
+            {t("monitoring.worker.readRestricted" as MessageKey)}
+          </Message>
+        ) : (
+          <>
         <div className="otc-controls">
           <button type="button" data-testid="worker-refresh-btn" onClick={refreshOperations} className="otc-button otc-button--ghost">
             {t("monitoring.worker.refresh")}
@@ -147,9 +155,17 @@ export function InvestigationOperationsPanel({
             </div>
           </div>
         )}
+          </>
+        )}
       </Panel>
 
       <Panel title={t("monitoring.worker.operationalAlerts.title")}>
+        {canReadInvestigationAdmin === false ? (
+          <Message data-testid="monitoring-worker-alerts-read-restricted">
+            {t("monitoring.worker.readRestricted" as MessageKey)}
+          </Message>
+        ) : (
+          <>
         <div className="otc-controls">
           <button type="button" data-testid="worker-alerts-refresh-btn" onClick={refreshOperationalAlerts} className="otc-button otc-button--ghost">
             {t("monitoring.worker.refreshAlerts")}
@@ -225,6 +241,8 @@ export function InvestigationOperationsPanel({
             </div>
           )}
         </div>
+          </>
+        )}
       </Panel>
     </>
   );

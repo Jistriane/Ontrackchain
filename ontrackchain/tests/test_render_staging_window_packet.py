@@ -35,7 +35,8 @@ def _write_env_file(target: Path) -> None:
                 "POSTGRES_PASSWORD=__FILL_STAGING_POSTGRES_PASSWORD__",
                 "KEYCLOAK_ADMIN_PASSWORD=__FILL_STAGING_KEYCLOAK_ADMIN_PASSWORD__",
                 "COMPLIANCE_TRM_API_KEY=__FILL_STAGING_TRM_API_KEY__",
-                "INVESTIGATION_RPC_PRIMARY_URL=__FILL_STAGING_RPC_PRIMARY_URL__",
+                "INVESTIGATION_RPC_PRIMARY_URL=",
+                "INVESTIGATION_RPC_FALLBACK_URL=__FILL_STAGING_RPC_FALLBACK_URL__",
                 "ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=live",
                 "ONTRACKCHAIN_EXPECT_RPC_MODE=fallback_only",
                 "",
@@ -58,7 +59,7 @@ def _write_ownership_file(target: Path) -> None:
                 "| `__FILL_STAGING_POSTGRES_PASSWORD__` | `Platform/DBA` | `Security` | secret provisionado |",
                 "| `__FILL_STAGING_KEYCLOAK_ADMIN_PASSWORD__` | `Backend/Auth` | `Security` | credencial admin validada |",
                 "| `__FILL_STAGING_TRM_API_KEY__` | `Compliance/Backend` | `Security` | API key homologada |",
-                "| `__FILL_STAGING_RPC_PRIMARY_URL__` | `Backend Core` | `Platform/DBA` | RPC primario validado |",
+                "| `__FILL_STAGING_RPC_FALLBACK_URL__` | `Backend Core` | `Platform/DBA` | RPC fallback validado para janela fallback_only |",
                 "",
                 "## Registro de Handoff",
                 "",
@@ -97,7 +98,7 @@ class RenderStagingWindowPacketTests(unittest.TestCase):
         self.assertEqual(len(model["owners"]), 4)
         self.assertEqual(model["owners"][0]["owner"], "Backend Core")
         self.assertTrue(
-            any(item["variable"] == "INVESTIGATION_RPC_PRIMARY_URL" for item in model["owners"][0]["items"])
+            any(item["variable"] == "INVESTIGATION_RPC_FALLBACK_URL" for item in model["owners"][0]["items"])
         )
 
     def test_render_packet_markdown_contains_required_sections(self) -> None:

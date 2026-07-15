@@ -8,9 +8,9 @@ Consolidar os principais riscos tecnicos, operacionais e regulatorios do Ontrack
 
 Leituras oficiais:
 
-- `92%` de construcao tecnica
+- `93%` de construcao tecnica
 - `79%` de prontidao regulatoria
-- `88%` de construcao total consolidada conforme o [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
+- `89%` de construcao total consolidada conforme o [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
 
 Referencias canonicas da baseline atual:
 

@@ -10,7 +10,7 @@ Este documento funciona como a narrativa canonica e evolutiva da baseline. Ele d
 
 Use este documento para:
 
-- explicar o por que da baseline oficial `92% / 79% / 88%`
+- explicar o por que da baseline oficial `93% / 79% / 89%`
 - sustentar a leitura viva de maturidade tecnica e regulatoria do projeto
 - orientar discussoes de prioridade, risco residual e proximos degraus de maturidade
 - detalhar o racional por dominio por tras da maturidade atual
@@ -21,7 +21,7 @@ Nao use este documento como fonte primaria para:
 - calcular o KPI oficial da semana: use [Scorecard Oficial do Projeto](project-kpi-scorecard.md)
 - emitir parecer formal datado de `go/no-go`: use [Avaliacao Consolidada de Status do Projeto](./assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md)
 - decidir `go/no-go` de uma janela especifica: use [Gates de Release para Staging Serio](project-release-gates.md)
-- executar a janela, registrar owners ou conduzir war room: use os runbooks e checklists operacionais da trilha de staging serio
+- executar a janela, registrar owners ou conduzir war room: use [Deploy e Staging](deploy-and-staging.md), [GitHub Environment para Staging Serio](github-environment-staging-serious.md), [Matriz de Execucao por Owner para Janela Seria](staging-serious-window-war-room-matrix.md) e [Governanca Semanal](./governance-weekly/README.md)
 
 ## Papel na Trilha Documental
 
@@ -35,12 +35,9 @@ Leitura recomendada por nivel:
 
 Leituras oficiais recalibradas:
 
-- `92%` de construcao tecnica como plataforma funcional
+- `93%` de construcao tecnica como plataforma funcional
 - `79%` de prontidao para operacao regulada forte
-
-Formula canonica complementar:
-
-- `88%` de maturidade consolidada conforme [Scorecard Oficial do Projeto](project-kpi-scorecard.md)
+- `89%` de maturidade consolidada conforme [Scorecard Oficial do Projeto](project-kpi-scorecard.md)
 
 Interpretacao:
 
@@ -66,7 +63,7 @@ Mede o quanto o sistema ja esta construido como plataforma:
 
 Resultado atual:
 
-- `92%`
+- `93%`
 
 ### 2. Prontidao Regulatoria
 
@@ -87,14 +84,14 @@ Resultado atual:
 | --- | ---: | --- |
 | Arquitetura e Runtime | 94% | stack coerente, migrations reguladas e boundary claro |
 | Auth e Identidade | 88% | trilho serio desenhado, homologacao externa ainda pendente |
-| Investigation + Billing | 90% | worker real, fallback, trilha financeira operacional e surfaces administrativas endurecidas em `billing/balance` e `billing/reconciliation` |
-| Compliance Core | 91% | sancoes locais, bloqueios, contrapartes, ROS, fila compartilhada, metadata canônica de `work-items` e endurecimento DD/SoF ja implementados |
-| Monitoring Operacional | 92% | backlog global, triagem, export auditado, leitura read-only de RCA em `/monitoring` e preset de governanca operacional coerente com `alerts` |
+| Investigation + Billing | 91% | worker real, fallback, trilha financeira operacional, cockpit desacoplado da projeção lateral de `team/users` e superfícies administrativas mais coerentes |
+| Compliance Core | 92% | sancoes locais, bloqueios, contrapartes, ROS, fila compartilhada, metadata canônica de `work-items` e gates finos ampliados para `estimate`, `start`, `report`, `counterparties`, `due-diligence` e `source-of-funds` |
+| Monitoring Operacional | 93% | backlog global, triagem, export auditado, leitura read-only de RCA em `/monitoring` e alinhamento preventivo estabilizado com `alerts` |
 | Reports e Evidencias | 95% | hashes deterministas, `evidence_trail`, ROS auditado e selagem institucional forte DD/SoF ponta a ponta |
-| Frontend Operacional | 94% | `/audit` e `/monitoring` maduros; todos 7 cockpits sincronizam fila compartilhada, historico consolidado e deep-links operacionais relevantes |
-| Observabilidade e Alerting | 89% | cobertura boa, bundles e artefatos mais coerentes; `alerts` agora persiste RCA leve, escreve timeline automatica e reduz ambiguidade operacional, mas ainda faltam sinais de seguranca mais fortes e recorrencia real |
+| Frontend Operacional | 95% | `/audit`, `/monitoring`, `/alerts`, `/reports`, `/team` e `/cases/[id]` agora mostram recortes preventivos e handoffs mais coerentes, com fila compartilhada e deep-links operacionais relevantes |
+| Observabilidade e Alerting | 90% | cobertura boa, bundles e artefatos mais coerentes; `alerts` agora persiste RCA leve, escreve timeline automatica e compartilha contratos visuais e RBAC preventivo com `/monitoring` |
 | Testes e CI/CD | 95% | smoke, E2E e preflights bem institucionalizados, com ampliacao da cobertura de custodia e governanca |
-| Seguranca e Governanca | 88% | RBAC, quorum e governanca pos-selagem fortaleceram a base; `P2-05` ja endurece papeis reais, mas provider institucional definitivo e rotina seria ainda incompletos |
+| Seguranca e Governanca | 90% | RBAC, quorum e governanca pos-selagem fortaleceram a base; `P2-05` agora endurece papeis reais com gates semanticos, negacao auditada e UX preventiva mais consistente, embora provider institucional definitivo e rotina seria ainda incompletos |
 
 ## O Que Aumentou a Maturidade
 

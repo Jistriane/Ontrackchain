@@ -20,7 +20,7 @@ Nesse contexto, havia risco de inflar a leitura de maturidade com base em:
 - sucesso parcial sem reproducibilidade
 - narrativa executiva desconectada do artefato coletado
 
-Como o score oficial do projeto (`92% / 79% / 88%`) passou a orientar priorizacao executiva, a regua de promocao precisava deixar de ser implicita.
+Como o score oficial do projeto (`93% / 79% / 89%`) passou a orientar priorizacao executiva, a regua de promocao precisava deixar de ser implicita.
 
 ## Decisao
 

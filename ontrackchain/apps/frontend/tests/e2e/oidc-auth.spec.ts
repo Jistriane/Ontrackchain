@@ -23,6 +23,32 @@ const OIDC_VIEWER_USER = process.env.ONTRACKCHAIN_OIDC_VIEWER_USER || "viewer@on
 const OIDC_VIEWER_PASSWORD = process.env.ONTRACKCHAIN_OIDC_VIEWER_PASSWORD || "ViewerPass123!";
 const OIDC_INVALID_CLAIMS_USER = process.env.ONTRACKCHAIN_OIDC_INVALID_CLAIMS_USER || "sem-org@ontrackchain.com";
 const OIDC_INVALID_CLAIMS_PASSWORD = process.env.ONTRACKCHAIN_OIDC_INVALID_CLAIMS_PASSWORD || "SemOrgPass123!";
+
+type ReportGenerationResponse = {
+  report_id: string;
+  created_at: string;
+};
+
+type OperationalAlertEntry = {
+  alertname?: string;
+};
+
+type DataListBody<T> = {
+  data?: T[];
+};
+
+type QuoteResponse = {
+  quote_id: string;
+};
+
+type CaseStartResponse = {
+  case_id: string;
+};
+
+type DetailBody = {
+  detail?: string;
+};
+
 test("login OIDC com Keycloak fecha sessao e chega ao dashboard", async ({ page, request, baseURL }) => {
   const config = await readAuthConfig(request);
   test.skip(config.effective_auth_mode !== "oidc", "Fluxo OIDC habilitado apenas quando o ambiente estiver em AUTH_MODE=oidc.");
@@ -169,7 +195,7 @@ test("OIDC bloqueia ANALYST e VIEWER nas superficies administrativas e no legal_
     data: { case_id: caseId, report_type: "legal_report", include_onchain_hash: false }
   });
   expect(gen.status()).toBe(200);
-  const generated = (await gen.json()) as any;
+  const generated = (await gen.json()) as ReportGenerationResponse;
 
   const users = [
     { role: "ANALYST", username: OIDC_ANALYST_USER, password: OIDC_ANALYST_PASSWORD },
@@ -190,9 +216,33 @@ test("OIDC bloqueia ANALYST e VIEWER nas superficies administrativas e no legal_
     expect(investigationOperations.status(), `${user.role} nao deve ler investigation admin`).toBe(403);
     await expect(investigationOperations.json()).resolves.toMatchObject({ detail: "privileged_read_role_required" });
 
+    const investigationAlerts = await page.request.get("/api/app/investigation/alerts");
+    expect(investigationAlerts.status(), `${user.role} nao deve ler investigation alerts admin`).toBe(403);
+    await expect(investigationAlerts.json()).resolves.toMatchObject({ detail: "privileged_read_role_required" });
+
+    const investigationDlq = await page.request.get("/api/app/investigation/dlq?state=failed_permanent");
+    expect(investigationDlq.status(), `${user.role} nao deve ler investigation dlq admin`).toBe(403);
+    await expect(investigationDlq.json()).resolves.toMatchObject({ detail: "privileged_read_role_required" });
+
+    const investigationMetrics = await page.request.get("/api/app/investigation/metrics");
+    expect(investigationMetrics.status(), `${user.role} nao deve ler investigation metrics admin`).toBe(403);
+    await expect(investigationMetrics.json()).resolves.toMatchObject({ detail: "privileged_read_role_required" });
+
     const monitoringFilters = await page.request.get("/api/app/monitoring/operational-alert-filter-options");
     expect(monitoringFilters.status(), `${user.role} nao deve ler monitoring admin`).toBe(403);
     await expect(monitoringFilters.json()).resolves.toMatchObject({ detail: "monitoring_read_role_required" });
+
+    const monitoringOperationalAlerts = await page.request.get("/api/app/monitoring/operational-alerts?limit=10");
+    expect(monitoringOperationalAlerts.status(), `${user.role} nao deve ler monitoring operational alerts admin`).toBe(403);
+    await expect(monitoringOperationalAlerts.json()).resolves.toMatchObject({ detail: "monitoring_read_role_required" });
+
+    const billingBalance = await page.request.get("/api/app/billing/balance");
+    expect(billingBalance.status(), `${user.role} nao deve ler billing balance`).toBe(403);
+    await expect(billingBalance.json()).resolves.toMatchObject({ detail: "billing_balance_role_required" });
+
+    const billingReconciliation = await page.request.get("/api/app/billing/reconciliation?limit=5");
+    expect(billingReconciliation.status(), `${user.role} nao deve ler billing reconciliation`).toBe(403);
+    await expect(billingReconciliation.json()).resolves.toMatchObject({ detail: "billing_balance_role_required" });
 
     const legalDownload = await page.request.get(
       `/api/app/reports/download?report_id=${generated.report_id}&case_id=${encodeURIComponent(
@@ -200,7 +250,7 @@ test("OIDC bloqueia ANALYST e VIEWER nas superficies administrativas e no legal_
       )}&report_type=legal_report&created_at=${encodeURIComponent(generated.created_at)}`
     );
     expect(legalDownload.status(), `${user.role} nao deve baixar legal_report`).toBe(403);
-    const legalBody = (await legalDownload.json()) as { detail?: string };
+    const legalBody = (await legalDownload.json()) as DetailBody;
     expect(["legal_report_requires_admin_role", "mfa_not_homologated_for_oidc"]).toContain(legalBody.detail);
 
     await logoutOidcSession(page);
@@ -246,8 +296,8 @@ test("OIDC permite leitura privilegiada para AUDITOR e nega mutacoes administrat
     `/api/app/monitoring/operational-alerts?service=${encodeURIComponent(service)}&triage_status=pending&limit=10`
   );
   expect(alerts.status()).toBe(200);
-  const alertsBody = (await alerts.json()) as any;
-  expect((alertsBody.data ?? []).some((entry: any) => entry.alertname === alertname)).toBeTruthy();
+  const alertsBody = (await alerts.json()) as DataListBody<OperationalAlertEntry>;
+  expect((alertsBody.data ?? []).some((entry) => entry.alertname === alertname)).toBeTruthy();
 
   const monitoringDeniedRequestId = `pw-oidc-auditor-monitoring-denied-${Date.now()}`;
   const monitoringAck = await page.request.post("/api/app/monitoring/operational-alerts/acknowledge-batch", {
@@ -330,14 +380,14 @@ test("OIDC permite criar quotes e cases core sem user local espelhado", async ({
     }
   });
   expect(investigationEstimate.status()).toBe(200);
-  const investigationEstimateBody = (await investigationEstimate.json()) as any;
+  const investigationEstimateBody = (await investigationEstimate.json()) as QuoteResponse;
 
   const investigationStart = await page.request.post("/api/app/investigation/start", {
     headers: { "content-type": "application/json" },
     data: { quote_id: investigationEstimateBody.quote_id, confirmed: true }
   });
   expect([200, 202]).toContain(investigationStart.status());
-  const investigationStartBody = (await investigationStart.json()) as any;
+  const investigationStartBody = (await investigationStart.json()) as CaseStartResponse;
   expect(investigationStartBody.case_id).toBeTruthy();
 
   const monitoringEstimate = await page.request.post("/api/v1/monitoring/estimate", {
@@ -351,14 +401,14 @@ test("OIDC permite criar quotes e cases core sem user local espelhado", async ({
     }
   });
   expect(monitoringEstimate.status()).toBe(200);
-  const monitoringEstimateBody = (await monitoringEstimate.json()) as any;
+  const monitoringEstimateBody = (await monitoringEstimate.json()) as QuoteResponse;
 
   const monitoringStart = await page.request.post("/api/v1/monitoring/start", {
     headers: authHeaders,
     data: { quote_id: monitoringEstimateBody.quote_id, confirmed: true }
   });
   expect(monitoringStart.status()).toBe(200);
-  const monitoringStartBody = (await monitoringStart.json()) as any;
+  const monitoringStartBody = (await monitoringStart.json()) as CaseStartResponse;
   expect(monitoringStartBody.case_id).toBeTruthy();
 
   const complianceEstimate = await page.request.post("/api/v1/compliance/estimate", {
@@ -370,14 +420,14 @@ test("OIDC permite criar quotes e cases core sem user local espelhado", async ({
     }
   });
   expect(complianceEstimate.status()).toBe(200);
-  const complianceEstimateBody = (await complianceEstimate.json()) as any;
+  const complianceEstimateBody = (await complianceEstimate.json()) as QuoteResponse;
 
   const complianceStart = await page.request.post("/api/v1/compliance/start", {
     headers: authHeaders,
     data: { quote_id: complianceEstimateBody.quote_id, confirmed: true }
   });
   expect(complianceStart.status()).toBe(200);
-  const complianceStartBody = (await complianceStart.json()) as any;
+  const complianceStartBody = (await complianceStart.json()) as CaseStartResponse;
   expect(complianceStartBody.case_id).toBeTruthy();
 
   await logoutOidcSession(page);

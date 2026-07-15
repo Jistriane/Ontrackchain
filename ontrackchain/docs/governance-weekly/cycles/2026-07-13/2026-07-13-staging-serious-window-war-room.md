@@ -8,7 +8,7 @@
 - environment_name: `staging-serious`
 - facilitador: `Release Manager Tecnico`
 - objetivo da janela: executar a primeira tentativa combinada real de `P0-02 + P0-03` e converter a consolidacao `P0-04` em artefato revisavel
-- baseline canonica: `92% / 79% / 88%`
+- baseline canonica: `93% / 79% / 89%`
 - run sheet datada: [Run Sheet Datada `stg-2026-07-13-a`](./2026-07-13-first-combined-serious-window-run-sheet.md)
 - bridge quick-fill: [Bridge Quick-Fill `stg-2026-07-13-a`](./2026-07-13-staging-serious-window-bridge-quick-fill.md)
 - decision packet: [Go/No-Go Decision Packet `stg-2026-07-13-a`](./2026-07-13-staging-serious-window-go-no-go-decision-packet.md)

@@ -6,8 +6,8 @@ Visualizes historical gate decisions with trends, statistics, and recommendation
 
 Usage:
   python3 render_governance_gate_history_dashboard.py \
-    --metrics-file docs/governance-weekly/gate-history-metrics.json \
-    --output-file docs/governance-weekly/gate-history-dashboard.md \
+    --metrics-file docs/governance-weekly/generated/gates/gate-history-metrics.json \
+    --output-file docs/governance-weekly/generated/gates/gate-history-dashboard.md \
     --include-trending
 """
 
@@ -250,9 +250,9 @@ def main():
     parser = argparse.ArgumentParser(
         description="Generate governance gate history dashboard"
     )
-    parser.add_argument('--metrics-file', default='docs/governance-weekly/gate-history-metrics.json',
+    parser.add_argument('--metrics-file', default='docs/governance-weekly/generated/gates/gate-history-metrics.json',
                         help='Input metrics JSON file')
-    parser.add_argument('--output-file', default='docs/governance-weekly/gate-history-dashboard.md',
+    parser.add_argument('--output-file', default='docs/governance-weekly/generated/gates/gate-history-dashboard.md',
                         help='Output dashboard markdown file')
     parser.add_argument('--include-trending', action='store_true',
                         help='Include trending analysis')

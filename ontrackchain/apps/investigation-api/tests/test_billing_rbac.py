@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import importlib
 import importlib.util
 import json
@@ -7,6 +8,7 @@ import sys
 import unittest
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -143,6 +145,50 @@ class BillingRbacTests(unittest.TestCase):
         self.assertEqual(log_entry["resource_id"], "org-1")
         self.assertEqual(log_entry["metadata"]["effective_role"], "ANALYST")
         self.assertEqual(log_entry["metadata"]["detail"], "billing_balance_role_required")
+
+    def test_billing_reconciliation_export_returns_attachment_for_billing_admin(self) -> None:
+        _state, pool = self._build_state()
+        expected_payload = {
+            "generated_at": "2026-07-15T00:00:00+00:00",
+            "balance": {
+                "credits_available": 100.0,
+                "credits_reserved": 10.0,
+                "credits_used_total": 45.0,
+            },
+            "quotes": {
+                "investigation": {"open_total": 2, "expired_total": 1},
+                "compliance": {"open_total": 1, "expired_total": 0},
+                "monitoring": {"open_total": 3, "expired_total": 2},
+                "open_total": 6,
+                "expired_total": 3,
+            },
+            "ledger": {
+                "total_entries": 2,
+                "action_totals": [{"action": "CONFIRMED", "entry_count": 2, "amount_total": 7.5}],
+                "recent": [],
+            },
+        }
+
+        with (
+            patch.object(main, "_require_billing_read_role", return_value="BILLING_ADMIN"),
+            patch.object(main, "_apply_rls_context"),
+            patch.object(main, "_fetch_billing_reconciliation_snapshot", return_value=expected_payload),
+            patch.object(main, "_format_billing_reconciliation_export_filename", return_value="billing-export.json"),
+        ):
+            response = asyncio.run(
+                main.billing_reconciliation_export(
+                    limit=25,
+                    pool=pool,
+                    x_org_id="org-1",
+                    x_user_id="11111111-1111-1111-1111-111111111111",
+                    x_role="BILLING_ADMIN",
+                    x_request_id="req-billing-export-1",
+                )
+            )
+
+        self.assertEqual(response.headers["content-disposition"], 'attachment; filename="billing-export.json"')
+        self.assertEqual(response.media_type, "application/json; charset=utf-8")
+        self.assertEqual(json.loads(response.body.decode("utf-8")), expected_payload)
 
 
 if __name__ == "__main__":

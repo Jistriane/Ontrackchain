@@ -25,6 +25,33 @@ const RESET_SQL = `
   $$;
 `;
 
+type ComposeCommandOptions = {
+  input?: string;
+};
+
+function runDockerCompose(workspaceRoot: string, composeFile: string, args: string[], options: ComposeCommandOptions = {}) {
+  execFileSync("docker", ["compose", "-f", composeFile, ...args], {
+    cwd: workspaceRoot,
+    stdio: "pipe",
+    ...options
+  });
+}
+
+function readCommandStderr(error: unknown) {
+  if (typeof error !== "object" || error === null || !("stderr" in error)) {
+    return "";
+  }
+
+  const stderr = (error as { stderr?: unknown }).stderr;
+  if (typeof stderr === "string") {
+    return stderr;
+  }
+  if (stderr instanceof Buffer) {
+    return stderr.toString("utf8");
+  }
+  return "";
+}
+
 export default async function globalSetup() {
   if (process.env.ONTRACKCHAIN_E2E_RESET_STATE === "false") {
     return;
@@ -37,10 +64,7 @@ export default async function globalSetup() {
 
   if (process.env.ONTRACKCHAIN_E2E_RESET_RATE_LIMIT !== "false") {
     try {
-      execFileSync("docker", ["compose", "-f", composeFile, "restart", "traefik"], {
-        cwd: workspaceRoot,
-        stdio: "pipe"
-      });
+      runDockerCompose(workspaceRoot, composeFile, ["restart", "traefik"]);
     } catch (error) {
       if (process.env.CI === "true") {
         throw error;
@@ -49,12 +73,39 @@ export default async function globalSetup() {
     }
   }
 
+  if (process.env.ONTRACKCHAIN_E2E_ENSURE_FRONTEND !== "false") {
+    try {
+      runDockerCompose(workspaceRoot, composeFile, ["up", "-d", "frontend", "traefik"]);
+    } catch (error) {
+      if (process.env.CI === "true") {
+        throw error;
+      }
+      console.warn("[e2e global-setup] falha ao garantir frontend/traefik ativos; seguindo em frente.");
+    }
+  }
+
+  if (process.env.ONTRACKCHAIN_E2E_ENSURE_CORE_APIS !== "false") {
+    try {
+      runDockerCompose(workspaceRoot, composeFile, [
+        "up",
+        "-d",
+        "auth-service",
+        "compliance-api",
+        "report-api",
+        "investigation-api",
+        "monitoring-api"
+      ]);
+    } catch (error) {
+      if (process.env.CI === "true") {
+        throw error;
+      }
+      console.warn("[e2e global-setup] falha ao garantir APIs centrais ativas; seguindo em frente.");
+    }
+  }
+
   if (process.env.ONTRACKCHAIN_E2E_ENSURE_WORKERS !== "false") {
     try {
-      execFileSync("docker", ["compose", "-f", composeFile, "up", "-d", "investigation-worker"], {
-        cwd: workspaceRoot,
-        stdio: "pipe"
-      });
+      runDockerCompose(workspaceRoot, composeFile, ["up", "-d", "investigation-worker"]);
     } catch (error) {
       if (process.env.CI === "true") {
         throw error;
@@ -64,39 +115,26 @@ export default async function globalSetup() {
   }
 
   try {
-    execFileSync(
-      "docker",
-      [
-        "compose",
-        "-f",
-        composeFile,
-        "exec",
-        "-T",
-        "postgres",
-        "psql",
-        "-U",
-        "ontrackchain",
-        "-d",
-        "ontrackchain",
-        "-v",
-        "ON_ERROR_STOP=1",
-        "-c",
-        RESET_SQL
-      ],
-      {
-        cwd: workspaceRoot,
-        stdio: "pipe"
-      }
-    );
+    runDockerCompose(workspaceRoot, composeFile, [
+      "exec",
+      "-T",
+      "postgres",
+      "psql",
+      "-U",
+      "ontrackchain",
+      "-d",
+      "ontrackchain",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-c",
+      RESET_SQL
+    ]);
   } catch (error) {
     if (failOnResetError) {
       throw error;
     }
 
-    const details =
-      error instanceof Error && "stderr" in error && typeof (error as { stderr?: unknown }).stderr === "string"
-        ? (error as { stderr: string }).stderr
-        : "";
+    const details = readCommandStderr(error);
     console.warn(
       `[e2e global-setup] reset de estado no postgres falhou; seguindo sem reset (CI estrito desabilitado). ${details}`.trim()
     );

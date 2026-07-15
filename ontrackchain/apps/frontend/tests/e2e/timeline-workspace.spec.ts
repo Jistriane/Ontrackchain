@@ -18,6 +18,11 @@ type MutableTimelineState = {
   lastCommentPayload: { comment_type: string; body: string } | null;
 };
 
+type TimelineCommentPayload = {
+  comment_type?: string;
+  body?: string;
+};
+
 function buildTimelineState() {
   return {
     comments: [
@@ -79,7 +84,7 @@ async function registerTimelineRoutes(page: Page, fixture: TimelineFixture, stat
       return;
     }
 
-    const payload = (route.request().postDataJSON() ?? {}) as { comment_type?: string; body?: string };
+    const payload = (route.request().postDataJSON() ?? {}) as TimelineCommentPayload;
     state.lastCommentPayload = {
       comment_type: payload.comment_type ?? "",
       body: payload.body ?? ""

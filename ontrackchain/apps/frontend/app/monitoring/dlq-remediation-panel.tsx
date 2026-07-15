@@ -6,6 +6,8 @@ type Translator = (key: MessageKey, values?: Record<string, string | number>) =>
 
 type DlqRemediationPanelProps = {
   t: Translator;
+  canReadInvestigationAdmin: boolean | null;
+  canManageInvestigationAdmin: boolean | null;
   dlqFilterState: string;
   setDlqFilterState: (value: string) => void;
   dlqFilterChain: string;
@@ -27,6 +29,8 @@ function hasDlqSnapshotGeneratedAt(value: string | null | undefined) {
 
 export function DlqRemediationPanel({
   t,
+  canReadInvestigationAdmin,
+  canManageInvestigationAdmin,
   dlqFilterState,
   setDlqFilterState,
   dlqFilterChain,
@@ -43,6 +47,10 @@ export function DlqRemediationPanel({
 }: DlqRemediationPanelProps) {
   return (
     <Panel title={t("monitoring.dlq.title")}>
+      {canReadInvestigationAdmin === false ? (
+        <Message data-testid="dlq-read-restricted">{t("monitoring.dlq.readRestricted" as MessageKey)}</Message>
+      ) : (
+        <>
       <div className="otc-controls">
         <select
           aria-label={t("monitoring.dlq.filters.stateAria")}
@@ -82,6 +90,9 @@ export function DlqRemediationPanel({
           <span data-testid="dlq-credits-available" className="otc-monitoring-meta">
             {t("monitoring.dlq.creditsAvailable", { count: dlq.credits_available })}
           </span>
+        ) : null}
+        {canManageInvestigationAdmin === false ? (
+          <Message data-testid="dlq-mutation-restricted">{t("monitoring.dlq.mutationRestricted" as MessageKey)}</Message>
         ) : null}
       </div>
 
@@ -128,33 +139,37 @@ export function DlqRemediationPanel({
                   <a className="otc-button otc-button--ghost" href={caseEvidenceHref(entry.case_id, null)}>
                     {t("monitoring.dlq.openEvidence")}
                   </a>
-                  <button
-                    type="button"
-                    data-testid={`dlq-requeue-btn-${entry.case_id}`}
-                    onClick={() => requeueDlqCase(entry.case_id)}
-                    disabled={entry.dlq_state !== "failed_permanent" || !entry.can_requeue || requeueingCaseId === entry.case_id}
-                    className="otc-button"
-                  >
-                    {requeueingCaseId === entry.case_id ? t("monitoring.dlq.requeueLoading") : t("monitoring.dlq.requeue")}
-                  </button>
-                  <button
-                    type="button"
-                    data-testid={`dlq-ack-btn-${entry.case_id}`}
-                    onClick={() => resolveDlqCase(entry.case_id, "acknowledged")}
-                    disabled={entry.dlq_state !== "failed_permanent" || resolvingCaseId === entry.case_id}
-                    className="otc-button otc-button--ghost"
-                  >
-                    {resolvingCaseId === entry.case_id ? t("monitoring.dlq.archiveLoading") : t("monitoring.dlq.archive")}
-                  </button>
-                  <button
-                    type="button"
-                    data-testid={`dlq-discard-btn-${entry.case_id}`}
-                    onClick={() => resolveDlqCase(entry.case_id, "discarded")}
-                    disabled={entry.dlq_state !== "failed_permanent" || resolvingCaseId === entry.case_id}
-                    className="otc-button otc-button--ghost"
-                  >
-                    {resolvingCaseId === entry.case_id ? t("monitoring.dlq.discardLoading") : t("monitoring.dlq.discard")}
-                  </button>
+                  {canManageInvestigationAdmin ? (
+                    <>
+                      <button
+                        type="button"
+                        data-testid={`dlq-requeue-btn-${entry.case_id}`}
+                        onClick={() => requeueDlqCase(entry.case_id)}
+                        disabled={entry.dlq_state !== "failed_permanent" || !entry.can_requeue || requeueingCaseId === entry.case_id}
+                        className="otc-button"
+                      >
+                        {requeueingCaseId === entry.case_id ? t("monitoring.dlq.requeueLoading") : t("monitoring.dlq.requeue")}
+                      </button>
+                      <button
+                        type="button"
+                        data-testid={`dlq-ack-btn-${entry.case_id}`}
+                        onClick={() => resolveDlqCase(entry.case_id, "acknowledged")}
+                        disabled={entry.dlq_state !== "failed_permanent" || resolvingCaseId === entry.case_id}
+                        className="otc-button otc-button--ghost"
+                      >
+                        {resolvingCaseId === entry.case_id ? t("monitoring.dlq.archiveLoading") : t("monitoring.dlq.archive")}
+                      </button>
+                      <button
+                        type="button"
+                        data-testid={`dlq-discard-btn-${entry.case_id}`}
+                        onClick={() => resolveDlqCase(entry.case_id, "discarded")}
+                        disabled={entry.dlq_state !== "failed_permanent" || resolvingCaseId === entry.case_id}
+                        className="otc-button otc-button--ghost"
+                      >
+                        {resolvingCaseId === entry.case_id ? t("monitoring.dlq.discardLoading") : t("monitoring.dlq.discard")}
+                      </button>
+                    </>
+                  ) : null}
                 </div>
                 {!entry.can_requeue ? <div className="otc-monitoring-detail--subtle">{t("monitoring.dlq.insufficientCredits")}</div> : null}
               </div>
@@ -169,6 +184,8 @@ export function DlqRemediationPanel({
         <div data-testid="dlq-loading" className="otc-monitoring-banner">
           <Message>{t("monitoring.dlq.loading")}</Message>
         </div>
+      )}
+        </>
       )}
     </Panel>
   );

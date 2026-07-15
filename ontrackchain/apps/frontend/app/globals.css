@@ -729,6 +729,12 @@ code {
   background: rgba(14, 14, 14, 0.88);
 }
 
+.otc-button--danger {
+  background: linear-gradient(135deg, rgba(255, 107, 122, 0.92), rgba(186, 48, 67, 0.96));
+  border-color: rgba(255, 107, 122, 0.28);
+  color: #fff5f7;
+}
+
 .otc-button--stack-start {
   justify-content: flex-start;
   text-align: left;
@@ -813,6 +819,51 @@ code {
   border-color: rgba(0, 208, 132, 0.24);
   background: rgba(2, 44, 28, 0.46);
   color: #91f2c9;
+}
+
+.otc-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(2, 4, 10, 0.74);
+  backdrop-filter: blur(6px);
+}
+
+.otc-dialog {
+  width: min(100%, 520px);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, rgba(24, 27, 34, 0.98), rgba(11, 12, 17, 0.98));
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.otc-dialog__body {
+  padding: 20px 20px 12px;
+}
+
+.otc-dialog__title {
+  margin: 0;
+  font-size: 18px;
+  color: var(--otc-text-strong);
+}
+
+.otc-dialog__description {
+  margin-top: 10px;
+  color: var(--otc-text-soft);
+  line-height: 1.5;
+}
+
+.otc-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 0 20px 20px;
+  flex-wrap: wrap;
 }
 
 .otc-code {

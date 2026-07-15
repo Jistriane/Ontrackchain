@@ -1,5 +1,30 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
+type BlockEvaluationPayload = {
+  address?: string;
+  chain?: string;
+};
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readOptionalString(value: unknown) {
+  return typeof value === "string" ? value : undefined;
+}
+
+function parseBlockEvaluationPayload(route: Route): BlockEvaluationPayload {
+  const payload = route.request().postDataJSON() as unknown;
+  if (!isJsonObject(payload)) {
+    return {};
+  }
+
+  return {
+    address: readOptionalString(payload.address),
+    chain: readOptionalString(payload.chain)
+  };
+}
+
 async function seedFrontendAuth(page: Page) {
   await page.context().addCookies([
     {
@@ -188,7 +213,7 @@ test.describe("operational context links", () => {
     });
 
     await page.route("**/api/app/compliance/blocks/evaluate", async (route: Route) => {
-      const payload = route.request().postDataJSON() as Record<string, unknown>;
+      const payload = parseBlockEvaluationPayload(route);
       expect(payload.address).toBe(address);
       expect(payload.chain).toBe("ethereum");
 

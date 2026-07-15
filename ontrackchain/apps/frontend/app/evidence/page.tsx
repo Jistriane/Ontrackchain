@@ -25,6 +25,7 @@ import {
   getPendingRequiredManualPackageSignerRoles,
   type ManualPackageSeal
 } from "../lib/manual-package-seal";
+import { canExportSensitiveEvidence } from "../lib/authz";
 import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
 import { useWorkItemTimeline } from "../lib/use-work-item-timeline";
 import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
@@ -33,7 +34,6 @@ import type { MessageKey } from "../lib/i18n";
 import { formatTimelineEvent } from "../lib/work-item-timeline";
 import { resolveHashContext } from "../lib/hash-context";
 import {
-  loadWorkspaceRecords,
   saveWorkspaceRecords,
   sortByLastActionAtDesc,
   toApiDueAt,
@@ -314,31 +314,6 @@ function normalizeWorkspaceStatus(value: unknown): WorkspaceStatus | null {
     return value;
   }
   return null;
-}
-
-function loadWorkspace() {
-  return loadWorkspaceRecords<EvidenceWorkspaceRecord>(STORAGE_KEY, (record) => {
-    const eventId = typeof record.eventId === "string" ? record.eventId : "";
-    const source: WorkspaceSource = record.source === "server" ? "server" : "local";
-    return {
-      workItemId: typeof record.workItemId === "string" ? record.workItemId : undefined,
-      source,
-      eventId,
-      action: typeof record.action === "string" ? record.action : "",
-      resourceType: typeof record.resourceType === "string" ? record.resourceType : "",
-      resourceId: typeof record.resourceId === "string" ? record.resourceId : "",
-      caseId: typeof record.caseId === "string" ? record.caseId : "",
-      requestId: typeof record.requestId === "string" ? record.requestId : "",
-      reportId: typeof record.reportId === "string" ? record.reportId : "",
-      fileHash: typeof record.fileHash === "string" ? record.fileHash : "",
-      owner: typeof record.owner === "string" ? record.owner : "",
-      priority: record.priority === "critical" || record.priority === "high" || record.priority === "normal" ? record.priority : "normal",
-      localDeadline: typeof record.localDeadline === "string" ? record.localDeadline : "",
-      workspaceStatus: normalizeWorkspaceStatus(record.workspaceStatus) ?? "queued",
-      note: typeof record.note === "string" ? record.note : "",
-      lastActionAt: typeof record.lastActionAt === "string" ? record.lastActionAt : ""
-    };
-  });
 }
 
 function saveWorkspace(records: EvidenceWorkspaceRecord[]) {
@@ -793,6 +768,7 @@ export default function EvidenceTrailPage() {
   const [localDeadline, setLocalDeadline] = useState("");
   const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus>("queued");
   const [workspaceNote, setWorkspaceNote] = useState("");
+  const canExportEvidenceArtifacts = canExportSensitiveEvidence(authContext?.role);
   const [timelineEventId, setTimelineEventId] = useState("");
   const {
     timelineLoading,
@@ -1433,6 +1409,10 @@ export default function EvidenceTrailPage() {
     if (!selectedContext) {
       return;
     }
+    if (!canExportEvidenceArtifacts) {
+      setError(tr("evidenceTrail.exportsRestricted" as MessageKey));
+      return;
+    }
 
     setExportingSelectedChain(true);
     setError(null);
@@ -1465,6 +1445,10 @@ export default function EvidenceTrailPage() {
 
   async function onExportManualReviewPackage() {
     if (!selectedManualReview || !selectedManualPackageSummary || !selectedLog || !selectedContext || !selectedManualReviewAction) {
+      return;
+    }
+    if (!canExportEvidenceArtifacts) {
+      setError(tr("evidenceTrail.exportsRestricted" as MessageKey));
       return;
     }
 
@@ -3023,27 +3007,31 @@ export default function EvidenceTrailPage() {
                   <button type="button" className="otc-button" onClick={focusSelectedChain} data-testid="evidence-focus-chain">
                     {tr("evidenceTrail.chain.focus" as MessageKey)}
                   </button>
-                  <button
-                    type="button"
-                    className="otc-button otc-button--ghost"
-                    onClick={() => void onExportSelectedChain()}
-                    disabled={exportingSelectedChain}
-                    data-testid="evidence-export-selected-chain"
-                  >
-                    {exportingSelectedChain ? tr("evidenceTrail.chain.exportLoading" as MessageKey) : tr("evidenceTrail.chain.export" as MessageKey)}
-                  </button>
-                  {selectedManualPackageSummary ? (
-                    <button
-                      type="button"
-                      className="otc-button otc-button--ghost"
-                      onClick={() => void onExportManualReviewPackage()}
-                      disabled={exportingManualPackage}
-                      data-testid="evidence-export-manual-package"
-                    >
-                      {exportingManualPackage
-                        ? tr("evidenceTrail.manualPackage.exportLoading" as MessageKey)
-                        : tr("evidenceTrail.manualPackage.export" as MessageKey)}
-                    </button>
+                  {canExportEvidenceArtifacts ? (
+                    <>
+                      <button
+                        type="button"
+                        className="otc-button otc-button--ghost"
+                        onClick={() => void onExportSelectedChain()}
+                        disabled={exportingSelectedChain}
+                        data-testid="evidence-export-selected-chain"
+                      >
+                        {exportingSelectedChain ? tr("evidenceTrail.chain.exportLoading" as MessageKey) : tr("evidenceTrail.chain.export" as MessageKey)}
+                      </button>
+                      {selectedManualPackageSummary ? (
+                        <button
+                          type="button"
+                          className="otc-button otc-button--ghost"
+                          onClick={() => void onExportManualReviewPackage()}
+                          disabled={exportingManualPackage}
+                          data-testid="evidence-export-manual-package"
+                        >
+                          {exportingManualPackage
+                            ? tr("evidenceTrail.manualPackage.exportLoading" as MessageKey)
+                            : tr("evidenceTrail.manualPackage.export" as MessageKey)}
+                        </button>
+                      ) : null}
+                    </>
                   ) : null}
                   {linkedRosLoading ? (
                     <button type="button" className="otc-button otc-button--ghost" disabled>
@@ -3070,6 +3058,7 @@ export default function EvidenceTrailPage() {
                   ))}
                 </div>
               ) : null}
+              {selectedContext && !canExportEvidenceArtifacts ? <Message>{tr("evidenceTrail.exportsRestricted" as MessageKey)}</Message> : null}
               <CodeBlock>{JSON.stringify(selectedLog.metadata, null, 2)}</CodeBlock>
             </div>
           ) : (

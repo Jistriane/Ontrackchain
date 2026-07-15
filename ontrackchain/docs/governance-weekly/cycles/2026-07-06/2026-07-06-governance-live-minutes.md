@@ -79,9 +79,10 @@
 
 ## Ações Imediatas
 
+- nota editorial: na pipeline atual, o resumo curto de comunicacao pode aparecer como `*-comms-summary.md`; nesta janela historica, o papel equivalente ficou concentrado no `governance-dashboard` e no `war-room-action-plan`
+
 - atualizar pacote de governanca local em comando unico:
   - `make refresh-staging-war-room-governance-local WINDOW_ID=stg-2026-07-06-a`
-  - dashboard executivo: `docs/governance-weekly/generated/windows/stg-2026-07-06-a/stg-2026-07-06-a-governance-dashboard.md`
   - checklist de desbloqueio: `docs/governance-weekly/generated/windows/stg-2026-07-06-a/stg-2026-07-06-a-unblock-checklist.md`
   - resumo executivo curto: `docs/governance-weekly/generated/windows/stg-2026-07-06-a/stg-2026-07-06-a-governance-dashboard.md`
 - atualizar plano automatico por dominio:

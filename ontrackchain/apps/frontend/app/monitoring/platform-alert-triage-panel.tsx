@@ -11,6 +11,8 @@ type Translator = (key: MessageKey, values?: Record<string, string | number>) =>
 
 type PlatformAlertTriagePanelProps = {
   t: Translator;
+  canReadPlatformAdmin: boolean | null;
+  canManagePlatformAdmin: boolean | null;
   platformAlertStatusFilter: string;
   platformAlertTriageFilter: string;
   platformAlertServiceFilter: string;
@@ -55,6 +57,8 @@ type PlatformAlertTriagePanelProps = {
 
 export function PlatformAlertTriagePanel({
   t,
+  canReadPlatformAdmin,
+  canManagePlatformAdmin,
   platformAlertStatusFilter,
   platformAlertTriageFilter,
   platformAlertServiceFilter,
@@ -96,8 +100,14 @@ export function PlatformAlertTriagePanel({
   handlePlatformAlertReceiverFilterChange,
   handlePlatformAlertSeverityFilterChange
 }: PlatformAlertTriagePanelProps) {
+  const canSelectPlatformAlerts = canManagePlatformAdmin === true;
+
   return (
     <Panel title={t("monitoring.platform.title")}>
+      {canReadPlatformAdmin === false ? (
+        <Message data-testid="platform-alert-read-restricted">{t("monitoring.platform.readRestricted" as MessageKey)}</Message>
+      ) : (
+        <>
       <div className="otc-controls">
         <select
           aria-label={t("monitoring.platform.filters.statusAria")}
@@ -169,56 +179,64 @@ export function PlatformAlertTriagePanel({
         >
           {t("monitoring.platform.refresh")}
         </button>
-        <button
-          type="button"
-          data-testid="platform-alerts-ack-batch-btn"
-          onClick={acknowledgeFilteredPlatformAlerts}
-          disabled={acknowledgingPlatformAlertsBatch || !platformOperationalAlerts?.total_count || platformAlertTriageFilter === "acknowledged"}
-          className="otc-button"
-        >
-          {acknowledgingPlatformAlertsBatch ? t("monitoring.platform.ackFilteredLoading") : t("monitoring.platform.ackFiltered")}
-        </button>
-        <button
-          type="button"
-          data-testid="platform-alerts-ack-selected-btn"
-          onClick={acknowledgeSelectedPlatformAlerts}
-          disabled={acknowledgingPlatformAlertsBatch || !selectedPlatformAlertIds.length}
-          className="otc-button"
-        >
-          {acknowledgingPlatformAlertsBatch
-            ? t("monitoring.platform.ackSelectedLoading")
-            : t("monitoring.platform.ackSelected", { count: selectedPlatformAlertIds.length })}
-        </button>
-        <select
-          aria-label={t("monitoring.platform.filters.exportFormatAria")}
-          data-testid="platform-alert-export-format"
-          value={platformAlertExportFormat}
-          onChange={(event) => setPlatformAlertExportFormat(event.target.value as PlatformAlertExportFormat)}
-          className="otc-select"
-        >
-          <option value="csv">CSV</option>
-          <option value="json">JSON</option>
-        </select>
-        <button
-          type="button"
-          data-testid="platform-alerts-export-filtered-btn"
-          onClick={() => exportPlatformAlerts("filtered")}
-          disabled={!!exportingPlatformAlerts || !platformOperationalAlerts?.total_count}
-          className="otc-button otc-button--ghost"
-        >
-          {exportingPlatformAlerts === "filtered" ? t("monitoring.platform.exportFilteredLoading") : t("monitoring.platform.exportFiltered")}
-        </button>
-        <button
-          type="button"
-          data-testid="platform-alerts-export-selected-btn"
-          onClick={() => exportPlatformAlerts("selected")}
-          disabled={!!exportingPlatformAlerts || !selectedPlatformAlertIds.length}
-          className="otc-button otc-button--ghost"
-        >
-          {exportingPlatformAlerts === "selected"
-            ? t("monitoring.platform.exportSelectedLoading")
-            : t("monitoring.platform.exportSelected", { count: selectedPlatformAlertIds.length })}
-        </button>
+        {canManagePlatformAdmin ? (
+          <>
+            <button
+              type="button"
+              data-testid="platform-alerts-ack-batch-btn"
+              onClick={acknowledgeFilteredPlatformAlerts}
+              disabled={acknowledgingPlatformAlertsBatch || !platformOperationalAlerts?.total_count || platformAlertTriageFilter === "acknowledged"}
+              className="otc-button"
+            >
+              {acknowledgingPlatformAlertsBatch ? t("monitoring.platform.ackFilteredLoading") : t("monitoring.platform.ackFiltered")}
+            </button>
+            <button
+              type="button"
+              data-testid="platform-alerts-ack-selected-btn"
+              onClick={acknowledgeSelectedPlatformAlerts}
+              disabled={acknowledgingPlatformAlertsBatch || !selectedPlatformAlertIds.length}
+              className="otc-button"
+            >
+              {acknowledgingPlatformAlertsBatch
+                ? t("monitoring.platform.ackSelectedLoading")
+                : t("monitoring.platform.ackSelected", { count: selectedPlatformAlertIds.length })}
+            </button>
+            <select
+              aria-label={t("monitoring.platform.filters.exportFormatAria")}
+              data-testid="platform-alert-export-format"
+              value={platformAlertExportFormat}
+              onChange={(event) => setPlatformAlertExportFormat(event.target.value as PlatformAlertExportFormat)}
+              className="otc-select"
+            >
+              <option value="csv">CSV</option>
+              <option value="json">JSON</option>
+            </select>
+            <button
+              type="button"
+              data-testid="platform-alerts-export-filtered-btn"
+              onClick={() => exportPlatformAlerts("filtered")}
+              disabled={!!exportingPlatformAlerts || !platformOperationalAlerts?.total_count}
+              className="otc-button otc-button--ghost"
+            >
+              {exportingPlatformAlerts === "filtered" ? t("monitoring.platform.exportFilteredLoading") : t("monitoring.platform.exportFiltered")}
+            </button>
+            <button
+              type="button"
+              data-testid="platform-alerts-export-selected-btn"
+              onClick={() => exportPlatformAlerts("selected")}
+              disabled={!!exportingPlatformAlerts || !selectedPlatformAlertIds.length}
+              className="otc-button otc-button--ghost"
+            >
+              {exportingPlatformAlerts === "selected"
+                ? t("monitoring.platform.exportSelectedLoading")
+                : t("monitoring.platform.exportSelected", { count: selectedPlatformAlertIds.length })}
+            </button>
+          </>
+        ) : canManagePlatformAdmin === false ? (
+          <Message data-testid="platform-alert-mutation-restricted">
+            {t("monitoring.platform.mutationRestricted" as MessageKey)}
+          </Message>
+        ) : null}
         <span data-testid="platform-alerts-summary" className="otc-monitoring-meta">
           {platformOperationalAlerts
             ? t("monitoring.platform.summary", {
@@ -259,17 +277,19 @@ export function PlatformAlertTriagePanel({
       {platformOperationalAlerts ? (
         platformOperationalAlerts.data.length ? (
           <div className="otc-monitoring-grid otc-monitoring-banner">
-            <label data-testid="platform-alert-select-all-label" className="otc-monitoring-checkbox-row">
-              <input
-                type="checkbox"
-                data-testid="platform-alert-select-all"
-                aria-label={t("monitoring.platform.selectAllAria")}
-                checked={allSelectablePlatformAlertsSelected}
-                disabled={!selectablePlatformAlertIds.length || acknowledgingPlatformAlertsBatch}
-                onChange={toggleAllSelectablePlatformAlerts}
-              />
-              {t("monitoring.platform.selectAll")}
-            </label>
+            {canSelectPlatformAlerts ? (
+              <label data-testid="platform-alert-select-all-label" className="otc-monitoring-checkbox-row">
+                <input
+                  type="checkbox"
+                  data-testid="platform-alert-select-all"
+                  aria-label={t("monitoring.platform.selectAllAria")}
+                  checked={allSelectablePlatformAlertsSelected}
+                  disabled={!selectablePlatformAlertIds.length || acknowledgingPlatformAlertsBatch}
+                  onChange={toggleAllSelectablePlatformAlerts}
+                />
+                {t("monitoring.platform.selectAll")}
+              </label>
+            ) : null}
             {platformOperationalAlerts.data.map((entry) => (
               <div
                 key={entry.id}
@@ -283,14 +303,16 @@ export function PlatformAlertTriagePanel({
                     <>
                 <div className="otc-monitoring-row">
                   <div className="otc-monitoring-inline">
-                    <input
-                      type="checkbox"
-                      data-testid={`platform-alert-select-${entry.id}`}
-                      aria-label={t("monitoring.platform.selectOneAria", { name: entry.alertname })}
-                      checked={selectedPlatformAlertIds.includes(entry.id)}
-                      disabled={entry.triage_status !== "pending" || acknowledgingPlatformAlertsBatch}
-                      onChange={() => togglePlatformAlertSelection(entry.id)}
-                    />
+                    {canSelectPlatformAlerts ? (
+                      <input
+                        type="checkbox"
+                        data-testid={`platform-alert-select-${entry.id}`}
+                        aria-label={t("monitoring.platform.selectOneAria", { name: entry.alertname })}
+                        checked={selectedPlatformAlertIds.includes(entry.id)}
+                        disabled={entry.triage_status !== "pending" || acknowledgingPlatformAlertsBatch}
+                        onChange={() => togglePlatformAlertSelection(entry.id)}
+                      />
+                    ) : null}
                     <strong>{entry.alertname}</strong>
                   </div>
                   <span>
@@ -348,17 +370,19 @@ export function PlatformAlertTriagePanel({
                     <CodeBlock>{JSON.stringify(entry.labels, null, 2)}</CodeBlock>
                   </div>
                 </details>
-                <div className="otc-monitoring-actions">
-                  <button
-                    type="button"
-                    data-testid={`platform-alert-ack-btn-${entry.id}`}
-                    onClick={() => acknowledgePlatformAlert(entry.id)}
-                    disabled={entry.triage_status === "acknowledged" || acknowledgingPlatformAlertId === entry.id}
-                    className="otc-button"
-                  >
-                    {acknowledgingPlatformAlertId === entry.id ? t("monitoring.platform.ackLoading") : t("monitoring.platform.ack")}
-                  </button>
-                </div>
+                {canSelectPlatformAlerts ? (
+                  <div className="otc-monitoring-actions">
+                    <button
+                      type="button"
+                      data-testid={`platform-alert-ack-btn-${entry.id}`}
+                      onClick={() => acknowledgePlatformAlert(entry.id)}
+                      disabled={entry.triage_status === "acknowledged" || acknowledgingPlatformAlertId === entry.id}
+                      className="otc-button"
+                    >
+                      {acknowledgingPlatformAlertId === entry.id ? t("monitoring.platform.ackLoading") : t("monitoring.platform.ack")}
+                    </button>
+                  </div>
+                ) : null}
                     </>
                   );
                 })()}
@@ -374,6 +398,8 @@ export function PlatformAlertTriagePanel({
         <div data-testid="platform-alert-loading" className="otc-monitoring-banner">
           <Message>{t("monitoring.platform.loading")}</Message>
         </div>
+      )}
+        </>
       )}
     </Panel>
   );

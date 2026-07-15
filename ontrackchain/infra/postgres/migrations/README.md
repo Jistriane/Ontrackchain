@@ -171,6 +171,16 @@ Persistencia da selagem institucional forte para pacotes manuais DD/SoF.
 - trigger `update_evidence_package_seals_updated_at()` para `updated_at`
 - indices por correlacao de `request_id`, `package_sha256`, `seal_status` e `signed_at`
 
+### `0016_team_users_directory.sql` — Sprint 5 (2026-07-12)
+
+Endurece o diretorio multiusuario usado por `team`, `billing` e pelos fluxos que exigem
+resolucao consistente do ator persistido.
+
+- adiciona `display_name`, `status`, `note` e `updated_at` em `users`
+- aplica a constraint `users_status_check` com os estados `active`, `invited` e `disabled`
+- faz backfill idempotente dos novos campos a partir de `email` e `created_at`
+- alvo operacional no `Makefile`: `make apply-team-users-directory-migration`
+
 ## Aplicacao Local
 
 Rode as migrations em ordem:
@@ -191,6 +201,7 @@ docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/pos
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0013_regulatory_work_items.sql
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0014_regulatory_work_items_contract_guardrails.sql
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0015_evidence_package_seals.sql
+docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0016_team_users_directory.sql
 ```
 
 ## Validacao de Contrato dos Work-Items
@@ -210,6 +221,9 @@ make validate-work-items-runtime-local
 ```
 
 O alvo sobe `postgres`, `redis` e `compliance-api`, aplica a migration `0014` e executa o smoke backend de ownership/work-items.
+
+Se a validacao envolver `team`, `billing` ou resolucao de `linked_user_id` para atores persistidos,
+aplique tambem a `0016` antes do smoke funcional correspondente.
 
 ## Quando Usar
 

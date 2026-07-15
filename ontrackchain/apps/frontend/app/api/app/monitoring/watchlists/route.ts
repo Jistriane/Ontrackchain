@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   }
 
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
+  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const res = await fetch(`${baseUrl}/api/v1/monitoring/watchlists`, {
     method: "GET",
     headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId },

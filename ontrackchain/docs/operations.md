@@ -80,6 +80,9 @@ docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/pos
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0011_counterparties.sql
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0012_sanctions_cache_ros_records.sql
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0013_regulatory_work_items.sql
+docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0014_regulatory_work_items_contract_guardrails.sql
+docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0015_evidence_package_seals.sql
+docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0016_team_users_directory.sql
 ```
 
 ## Compliance e Sancoes
@@ -123,6 +126,8 @@ Validacao minima em ambiente com volume persistido:
 ```bash
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain \
   < infra/postgres/migrations/0013_regulatory_work_items.sql
+docker compose exec -T postgres psql -U ontrackchain -d ontrackchain \
+  < infra/postgres/migrations/0014_regulatory_work_items_contract_guardrails.sql
 ```
 
 Leitura operacional atual:
@@ -190,6 +195,7 @@ Verifique:
 - presenca de `X-Linked-User-Id`
 - mapeamento correto em `external_identities`
 - usuario federado resolvido para `users.id`
+- migration `0016_team_users_directory.sql` aplicada no volume atual quando o erro vier acompanhado de inconsistencias no roster `team/billing`
 
 ### 4. `block lift` falha com MFA
 
@@ -209,6 +215,7 @@ Verifique:
 Verifique:
 
 - se a migration `0013_regulatory_work_items.sql` foi aplicada no volume atual
+- se a migration `0014_regulatory_work_items_contract_guardrails.sql` foi aplicada quando houver metadata rejeitada ou erro de constraint
 - se o gateway/auth esta propagando `X-Org-Id`, `X-User-Id`, `X-Linked-User-Id`, `X-MFA-Mode` e `X-2FA`
 - se o `compliance-api` foi rebuildado apos a adicao de `operations.py`
 - se os proxies App Router em `apps/frontend/app/api/app/operations/work-items/*` estao respondendo sem `401`
@@ -224,5 +231,6 @@ Quando tocar compliance/regulatorio:
 - rodar `check_sanctions_sync_status.py` quando a mudanca envolver sync de sancoes
 - rodar `make check-compliance-provider-runtime` quando a mudanca envolver homologacao `AML/KYT live`
 - rodar `make run-eu-sanctions-window-local` quando a mudanca envolver a janela UE com artefatos persistidos
-- aplicar `0013_regulatory_work_items.sql` quando a mudanca envolver a fila operacional compartilhada
+- aplicar `0013` e `0014` quando a mudanca envolver a fila operacional compartilhada
+- aplicar `0016_team_users_directory.sql` quando a mudanca envolver `team`, `billing` ou trilhas que dependem de atores federados persistidos
 - revisar `audit_logs` e `evidence_trail` no fluxo alterado

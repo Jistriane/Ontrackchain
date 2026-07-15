@@ -29,11 +29,16 @@ export async function POST(request: Request) {
     return auth;
   }
 
-  return proxyTeamJsonRequest(auth, {
+  const response = await proxyTeamJsonRequest(auth, {
     method: "POST",
     path: "/api/v1/team/users",
     requestId,
     body: await request.text(),
     contentType: "application/json"
+  });
+  const body = await response.text();
+  return new Response(body || JSON.stringify({ detail: "team_user_create_role_required" }), {
+    status: response.status,
+    headers: { "content-type": "application/json" }
   });
 }

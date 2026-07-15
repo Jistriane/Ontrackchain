@@ -16,7 +16,7 @@ Use este documento em conjunto com:
 - [Resumo Executivo de Readiness](./project-executive-readiness-brief.md)
 - [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
 - [Board Operacional Unico ate 90%+](./project-operational-execution-board.md)
-- [Checklist Operacional para 95%](./EXECUTION_CHECKLIST_TO_95_PERCENT.md)
+- [Plano Consolidado ate 95%](./project-construction-plan-to-95-percent.md)
 - [ADR-010 - Promocao de Maturidade Baseada em Evidencia](./adrs/ADR-010-promocao-de-maturidade-baseada-em-evidencia.md)
 
 Nao use este documento para substituir os registros datados de uma semana real. Quando a execucao acontecer de fato, o resultado deve ser registrado em `docs/governance-weekly/`.

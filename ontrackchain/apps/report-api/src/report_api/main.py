@@ -70,6 +70,8 @@ REPORT_TYPES = {
 }
 
 REPORT_READ_ALLOWED_ROLES = {"ADMIN", "AUDITOR", "ANALYST", "VIEWER"}
+REPORT_DETAIL_ALLOWED_ROLES = {"ADMIN", "AUDITOR", "ANALYST"}
+REPORT_DOWNLOAD_ALLOWED_ROLES = {"ADMIN", "AUDITOR", "ANALYST"}
 REPORT_WRITE_ALLOWED_ROLES = {"ADMIN", "ANALYST"}
 
 
@@ -429,6 +431,18 @@ def _resolve_persisted_user_id(cur, effective_user_id: Optional[str]) -> Optiona
     return None
 
 
+def _require_persisted_actor_user_id(
+    cur,
+    effective_user_id: Optional[str],
+    *,
+    detail: str = "linked_user_required_for_coaf_report",
+) -> str:
+    persisted_user_id = _resolve_persisted_user_id(cur, effective_user_id)
+    if not persisted_user_id:
+        raise HTTPException(status_code=403, detail=detail)
+    return persisted_user_id
+
+
 def _build_pdf_bytes(*, case_id: str, report_type: str, created_at: str) -> bytes:
     extra_lines = ""
     if report_type == "coaf_ready_report":
@@ -601,6 +615,7 @@ def _upsert_report_record(
     content_type: str,
     file_hash_sha256: str,
     onchain_hash: Optional[str],
+    created_at: str,
     metadata: dict,
 ) -> None:
     cur.execute(
@@ -614,9 +629,10 @@ def _upsert_report_record(
             content_type,
             file_hash,
             onchain_hash,
+            created_at,
             metadata
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
         ON CONFLICT (external_report_id)
         DO UPDATE SET
             case_id = EXCLUDED.case_id,
@@ -625,6 +641,7 @@ def _upsert_report_record(
             content_type = EXCLUDED.content_type,
             file_hash = EXCLUDED.file_hash,
             onchain_hash = EXCLUDED.onchain_hash,
+            created_at = EXCLUDED.created_at,
             metadata = EXCLUDED.metadata
         """,
         (
@@ -636,6 +653,7 @@ def _upsert_report_record(
             content_type,
             file_hash_sha256,
             onchain_hash,
+            created_at,
             json.dumps(metadata),
         ),
     )
@@ -864,20 +882,6 @@ def _build_report_platform_alerts(snapshot: dict) -> list[dict]:
         message="O volume de downloads de relatorio nas ultimas 24 horas excedeu o limiar operacional.",
         recommended_action="Correlacionar picos com clientes, campanhas ou comportamento anomalo.",
     )
-
-
-def _normalize_report_case_reference(case_id: Optional[str]) -> tuple[Optional[str], Optional[str]]:
-    if case_id is None:
-        return None, None
-
-    normalized_case_id = str(case_id).strip()
-    if not normalized_case_id:
-        return None, None
-
-    try:
-        return str(UUID(normalized_case_id)), None
-    except ValueError:
-        return None, normalized_case_id
     append_alert(
         code="report_pending_onchain_backlog",
         severity="warning",
@@ -916,6 +920,20 @@ def _normalize_report_case_reference(case_id: Optional[str]) -> tuple[Optional[s
         recommended_action="Verificar abandono do fluxo de entrega ou clientes aguardando processamento manual.",
     )
     return alerts
+
+
+def _normalize_report_case_reference(case_id: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    if case_id is None:
+        return None, None
+
+    normalized_case_id = str(case_id).strip()
+    if not normalized_case_id:
+        return None, None
+
+    try:
+        return str(UUID(normalized_case_id)), None
+    except ValueError:
+        return None, normalized_case_id
 
 
 def _render_report_platform_prometheus_metrics(snapshot: dict, alerts: list[dict]) -> str:
@@ -1057,6 +1075,7 @@ async def generate_report(
                 content_type="application/pdf",
                 file_hash_sha256=file_hash,
                 onchain_hash=onchain_hash,
+                created_at=created_at,
                 metadata=metadata,
             )
             _record_audit_log(
@@ -1126,9 +1145,7 @@ async def generate_ros_coaf_report(
     with pool.connection() as conn:
         _apply_rls_context(conn, x_org_id)
         with conn.cursor() as cur:
-            persisted_user_id = _resolve_persisted_user_id(cur, effective_user_id)
-            if not persisted_user_id:
-                raise HTTPException(status_code=403, detail="linked_user_required_for_coaf_report")
+            persisted_user_id = _require_persisted_actor_user_id(cur, effective_user_id)
 
             cur.execute(
                 """
@@ -1172,6 +1189,7 @@ async def generate_ros_coaf_report(
                 content_type=draft.content_type,
                 file_hash_sha256=draft.file_hash_sha256,
                 onchain_hash=None,
+                created_at=draft.generated_at,
                 metadata={
                     "ros_id": str(ros["id"]),
                     "generated_at": draft.generated_at,
@@ -1418,6 +1436,7 @@ async def get_ros_coaf_report(
     with pool.connection() as conn:
         _apply_rls_context(conn, x_org_id)
         with conn.cursor() as cur:
+            persisted_user_id = _require_persisted_actor_user_id(cur, effective_user_id)
             cur.execute(
                 """
                 SELECT
@@ -1570,10 +1589,12 @@ async def get_ros_coaf_regulatory_dossier(
     work_item_row: Optional[dict] = None
     event_rows: list[dict] = []
     comment_rows: list[dict] = []
+    persisted_user_id: Optional[str] = None
 
     with pool.connection() as conn:
         _apply_rls_context(conn, x_org_id)
         with conn.cursor() as cur:
+            persisted_user_id = _require_persisted_actor_user_id(cur, effective_user_id)
             cur.execute(
                 """
                 SELECT
@@ -1862,7 +1883,7 @@ async def get_ros_coaf_regulatory_dossier(
             _record_audit_log(
                 cur,
                 organization_id=x_org_id,
-                user_id=effective_user_id,
+                user_id=persisted_user_id,
                 action="coaf_regulatory_dossier_downloaded",
                 resource_type="ros_record",
                 resource_id=ros_row["id"],
@@ -1929,9 +1950,7 @@ async def approve_ros_coaf_report(
     with pool.connection() as conn:
         _apply_rls_context(conn, x_org_id)
         with conn.cursor() as cur:
-            persisted_user_id = _resolve_persisted_user_id(cur, effective_user_id)
-            if not persisted_user_id:
-                raise HTTPException(status_code=403, detail="linked_user_required_for_coaf_report")
+            persisted_user_id = _require_persisted_actor_user_id(cur, effective_user_id)
 
             cur.execute(
                 """
@@ -2052,9 +2071,7 @@ async def mark_ros_coaf_submitted(
     with pool.connection() as conn:
         _apply_rls_context(conn, x_org_id)
         with conn.cursor() as cur:
-            persisted_user_id = _resolve_persisted_user_id(cur, effective_user_id)
-            if not persisted_user_id:
-                raise HTTPException(status_code=403, detail="linked_user_required_for_coaf_report")
+            persisted_user_id = _require_persisted_actor_user_id(cur, effective_user_id)
 
             cur.execute(
                 """
@@ -2295,8 +2312,8 @@ async def get_report(
         external_user_id=external_actor_user_id,
         request_id=x_request_id,
         x_role=x_role,
-        allowed_roles=REPORT_READ_ALLOWED_ROLES,
-        detail="report_read_role_required",
+        allowed_roles=REPORT_DETAIL_ALLOWED_ROLES,
+        detail="report_detail_role_required",
         resource_type="report",
         resource_id=normalized_report_id,
         endpoint="/api/v1/reports/{report_id}",
@@ -2508,8 +2525,8 @@ async def download_report(
             external_user_id=external_actor_user_id,
             request_id=x_request_id,
             x_role=x_role,
-            allowed_roles=REPORT_READ_ALLOWED_ROLES,
-            detail="report_read_role_required",
+            allowed_roles=REPORT_DOWNLOAD_ALLOWED_ROLES,
+            detail="report_download_role_required",
             resource_type="report",
             resource_id=report_id,
             endpoint="/api/v1/reports/{report_id}/download",

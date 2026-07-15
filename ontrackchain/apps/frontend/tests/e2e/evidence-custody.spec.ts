@@ -1,4 +1,260 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test, type Page, type Request, type Route } from "@playwright/test";
+
+import { expectDownloadLikeResponse, expectDownloadLikeResponseWithRequest } from "./download-helpers";
+
+type WorkItemPatchPayload = {
+  queue_status?: string;
+};
+
+type EvidenceExportPayload = {
+  request_id?: string;
+  report_id?: string | null;
+  resource_type?: string;
+  resource_id?: string;
+  include_reports?: boolean;
+};
+
+type ManualPackageEvidenceRequestPayload = {
+  request_id?: string;
+  report_id?: string | null;
+};
+
+type ManualPackageDossierPayload = {
+  package_type?: string;
+  signoff_mode?: string;
+};
+
+type ManualReviewPayload = {
+  counterparty_context?: string;
+  purpose?: string;
+  amount?: number;
+};
+
+type ManualPackageWorkspaceSummaryPayload = {
+  event_id?: string;
+};
+
+type ManualPackagePayload = {
+  action?: string;
+  scope_id?: string;
+  evidence_request?: ManualPackageEvidenceRequestPayload;
+  dossier?: ManualPackageDossierPayload;
+  manual_review?: ManualReviewPayload;
+  workspace_summary?: ManualPackageWorkspaceSummaryPayload;
+};
+
+type SignoffRequestPayload = {
+  request_id?: string;
+  scope_id?: string;
+  manual_review_action?: string;
+  package_sha256?: string;
+  signoff_mode?: string;
+};
+
+type SealSignoffPayload = {
+  signer_role?: string;
+  decision?: string;
+  signoff_method?: string;
+};
+
+type FinalizeSealPayload = {
+  metadata?: {
+    source?: string;
+    request_id?: string;
+    report_id?: string;
+    package_sha256?: string;
+  };
+};
+
+type TicketedPayload = {
+  ticket_ref?: string;
+  reason?: string;
+};
+
+type SupersedeSealPayload = TicketedPayload & {
+  superseded_by_seal_id?: string;
+};
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readOptionalString(value: unknown) {
+  return typeof value === "string" ? value : undefined;
+}
+
+function readNullableString(value: unknown) {
+  return typeof value === "string" || value === null ? value : undefined;
+}
+
+function readOptionalBoolean(value: unknown) {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function readOptionalNumber(value: unknown) {
+  return typeof value === "number" ? value : undefined;
+}
+
+function readOptionalObject(value: unknown) {
+  return isJsonObject(value) ? value : undefined;
+}
+
+function readRouteJsonObject(route: Route) {
+  const raw = route.request().postData();
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    const payload = JSON.parse(raw) as unknown;
+    return isJsonObject(payload) ? payload : {};
+  } catch {
+    return {};
+  }
+}
+
+function readRequestJsonObject(request: Request) {
+  const raw = request.postData();
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    const payload = JSON.parse(raw) as unknown;
+    return isJsonObject(payload) ? payload : {};
+  } catch {
+    return {};
+  }
+}
+
+function parseWorkItemPatchPayload(route: Route): WorkItemPatchPayload {
+  const payload = readRouteJsonObject(route);
+  return {
+    queue_status: readOptionalString(payload.queue_status)
+  };
+}
+
+function parseEvidenceExportPayload(route: Route): EvidenceExportPayload {
+  const payload = readRouteJsonObject(route);
+  return {
+    request_id: readOptionalString(payload.request_id),
+    report_id: readNullableString(payload.report_id),
+    resource_type: readOptionalString(payload.resource_type),
+    resource_id: readOptionalString(payload.resource_id),
+    include_reports: readOptionalBoolean(payload.include_reports)
+  };
+}
+
+function parseManualPackagePayloadFromRequest(request: Request): ManualPackagePayload {
+  const payload = readRequestJsonObject(request);
+  const evidenceRequest = readOptionalObject(payload.evidence_request);
+  const dossier = readOptionalObject(payload.dossier);
+  const manualReview = readOptionalObject(payload.manual_review);
+  const workspaceSummary = readOptionalObject(payload.workspace_summary);
+
+  return {
+    action: readOptionalString(payload.action),
+    scope_id: readOptionalString(payload.scope_id),
+    evidence_request: evidenceRequest
+      ? {
+          request_id: readOptionalString(evidenceRequest.request_id),
+          report_id: readNullableString(evidenceRequest.report_id)
+        }
+      : undefined,
+    dossier: dossier
+      ? {
+          package_type: readOptionalString(dossier.package_type),
+          signoff_mode: readOptionalString(dossier.signoff_mode)
+        }
+      : undefined,
+    manual_review: manualReview
+      ? {
+          counterparty_context: readOptionalString(manualReview.counterparty_context),
+          purpose: readOptionalString(manualReview.purpose),
+          amount: readOptionalNumber(manualReview.amount)
+        }
+      : undefined,
+    workspace_summary: workspaceSummary
+      ? {
+          event_id: readOptionalString(workspaceSummary.event_id)
+        }
+      : undefined
+  };
+}
+
+function parseSignoffRequestPayload(route: Route): SignoffRequestPayload {
+  const payload = readRouteJsonObject(route);
+  return {
+    request_id: readOptionalString(payload.request_id),
+    scope_id: readOptionalString(payload.scope_id),
+    manual_review_action: readOptionalString(payload.manual_review_action),
+    package_sha256: readOptionalString(payload.package_sha256),
+    signoff_mode: readOptionalString(payload.signoff_mode)
+  };
+}
+
+function parseSealSignoffPayload(route: Route): SealSignoffPayload {
+  const payload = readRouteJsonObject(route);
+  return {
+    signer_role: readOptionalString(payload.signer_role),
+    decision: readOptionalString(payload.decision),
+    signoff_method: readOptionalString(payload.signoff_method)
+  };
+}
+
+function parseFinalizeSealPayload(route: Route): FinalizeSealPayload {
+  const payload = readRouteJsonObject(route);
+  const metadata = readOptionalObject(payload.metadata);
+  return {
+    metadata: metadata
+      ? {
+          source: readOptionalString(metadata.source),
+          request_id: readOptionalString(metadata.request_id),
+          report_id: readOptionalString(metadata.report_id),
+          package_sha256: readOptionalString(metadata.package_sha256)
+        }
+      : undefined
+  };
+}
+
+function parseTicketedPayload(route: Route): TicketedPayload {
+  const payload = readRouteJsonObject(route);
+  return {
+    ticket_ref: readOptionalString(payload.ticket_ref),
+    reason: readOptionalString(payload.reason)
+  };
+}
+
+function parseSupersedeSealPayload(route: Route): SupersedeSealPayload {
+  const payload = readRouteJsonObject(route);
+  return {
+    superseded_by_seal_id: readOptionalString(payload.superseded_by_seal_id),
+    ticket_ref: readOptionalString(payload.ticket_ref),
+    reason: readOptionalString(payload.reason)
+  };
+}
+
+async function expectManualPackageExport(
+  page: Page,
+  options: {
+    expectedFilename: string;
+    assertPayload: (payload: ManualPackagePayload) => void;
+  },
+  trigger: () => Promise<void>
+) {
+  await expectDownloadLikeResponseWithRequest(
+    page,
+    {
+      urlPart: "/api/app/evidence/manual-package",
+      requestUrlPart: "/api/app/evidence/manual-package",
+      method: "POST",
+      expectedFilename: options.expectedFilename,
+      parseRequest: parseManualPackagePayloadFromRequest,
+      assertPayload: options.assertPayload
+    },
+    trigger
+  );
+}
 
 test.describe("evidence custody flow", () => {
   test("foca a cadeia correlacionada e exporta o bundle da seleção atual", async ({ page }: { page: Page }) => {
@@ -22,7 +278,7 @@ test.describe("evidence custody flow", () => {
           org_id: "org-e2e",
           user_id: "user-e2e",
           linked_user_id: "linked-e2e",
-          role: "ANALYST",
+          role: "AUDITOR",
           plan: "professional",
           auth_method: "jwt",
           mfa_mode: "totp",
@@ -146,7 +402,7 @@ test.describe("evidence custody flow", () => {
         return;
       }
       expect(route.request().method()).toBe("PATCH");
-      const payload = route.request().postDataJSON() as Record<string, unknown>;
+      const payload = parseWorkItemPatchPayload(route);
       expect(payload.queue_status).toBe("CLOSED");
 
       await route.fulfill({
@@ -227,7 +483,7 @@ test.describe("evidence custody flow", () => {
     });
 
     await page.route("**/api/app/audit/evidence-export", async (route: Route) => {
-      const payload = route.request().postDataJSON() as Record<string, unknown>;
+      const payload = parseEvidenceExportPayload(route);
       expect(payload.request_id).toBe("req-evi-01");
       expect(payload.report_id).toBe("rep-evi-02");
       expect(payload.resource_type).toBe("case");
@@ -267,10 +523,156 @@ test.describe("evidence custody flow", () => {
 
     await page.getByTestId("evidence-focus-chain").click();
 
-    const evidenceDownload = page.waitForEvent("download");
-    await page.getByTestId("evidence-export-selected-chain").click();
-    const download = await evidenceDownload;
-    expect(download.suggestedFilename()).toContain("ontrackchain-evidence-chain-rep-evi-02.json");
+    await expectDownloadLikeResponse(
+      page,
+      {
+        urlPart: "/api/app/audit/evidence-export",
+        method: "POST",
+        expectedFilename: "ontrackchain-evidence-chain-rep-evi-02.json"
+      },
+      async () => {
+        await page.getByTestId("evidence-export-selected-chain").click();
+      }
+    );
+  });
+
+  test("viewer nao recebe ctas de export sensivel da trilha de evidencias", async ({ page }: { page: Page }) => {
+    await page.context().addCookies([
+      {
+        name: "otc_token",
+        value: "pw-e2e-token",
+        domain: "localhost",
+        path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax"
+      }
+    ]);
+
+    await page.route("**/api/app/auth/context", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-e2e",
+          user_id: "user-e2e",
+          linked_user_id: "linked-e2e",
+          role: "VIEWER",
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/operations/work-items?module=evidence**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] })
+      });
+    });
+
+    await page.route("**/api/app/audit/logs?**", async (route: Route) => {
+      const url = new URL(route.request().url());
+      const requestId = url.searchParams.get("request_id");
+      const reportId = url.searchParams.get("report_id");
+      const resourceType = url.searchParams.get("resource_type");
+
+      const allRows = [
+        {
+          id: "audit-evi-01",
+          user_id: "user-e2e",
+          action: "report_generated",
+          resource_type: "case",
+          resource_id: "11111111-1111-4111-8111-111111111111",
+          request_id: "req-evi-01",
+          report_id: "rep-evi-02",
+          file_hash_sha256: "a".repeat(64),
+          created_at: "2026-07-04T10:00:00.000Z",
+          metadata: {
+            case_id: "11111111-1111-4111-8111-111111111111",
+            request_id: "req-evi-01",
+            report_id: "rep-evi-02",
+            file_hash_sha256: "a".repeat(64)
+          }
+        },
+        {
+          id: "audit-evi-02",
+          user_id: "user-e2e",
+          action: "report_downloaded",
+          resource_type: "report",
+          resource_id: "rep-evi-02",
+          request_id: "req-evi-01",
+          report_id: "rep-evi-02",
+          file_hash_sha256: "a".repeat(64),
+          created_at: "2026-07-04T10:05:00.000Z",
+          metadata: {
+            case_id: "11111111-1111-4111-8111-111111111111",
+            request_id: "req-evi-01",
+            report_id: "rep-evi-02",
+            file_hash_sha256: "a".repeat(64)
+          }
+        },
+        {
+          id: "audit-evi-03",
+          user_id: "user-e2e",
+          action: "evidence_bundle_exported",
+          resource_type: "case",
+          resource_id: "11111111-1111-4111-8111-111111111111",
+          request_id: "req-evi-01",
+          report_id: "rep-evi-02",
+          file_hash_sha256: null,
+          created_at: "2026-07-04T10:10:00.000Z",
+          metadata: {
+            case_id: "11111111-1111-4111-8111-111111111111",
+            request_id: "req-evi-01",
+            report_id: "rep-evi-02"
+          }
+        }
+      ];
+
+      const filtered = allRows.filter((row) => {
+        if (requestId && row.request_id !== requestId) {
+          return false;
+        }
+        if (reportId && row.report_id !== reportId) {
+          return false;
+        }
+        if (resourceType && row.resource_type !== resourceType) {
+          return false;
+        }
+        return true;
+      });
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: filtered,
+          page: 1,
+          count: filtered.length,
+          limit: 50,
+          total: filtered.length,
+          total_pages: 1,
+          has_more: false
+        })
+      });
+    });
+
+    await page.goto("/evidence?report_id=rep-evi-02");
+
+    await page.getByRole("button", { name: /^Relatório gerado \(report_generated\)/i }).click();
+    await page.getByTestId("evidence-focus-chain").click();
+
+    await expect(page.getByTestId("evidence-export-selected-chain")).toHaveCount(0);
+    await expect(page.getByTestId("evidence-export-manual-package")).toHaveCount(0);
+    await expect(
+      page.getByText(
+        "As exportações sensíveis da trilha de evidências estão ocultas nesta sessão porque a role atual não possui autorização privilegiada ADMIN/AUDITOR."
+      )
+    ).toBeVisible();
   });
 
   test("expõe handoff operacional do pacote manual com workspace correlacionado", async ({ page }: { page: Page }) => {
@@ -387,7 +789,7 @@ test.describe("evidence custody flow", () => {
     });
 
     await page.route("**/api/app/audit/evidence-export", async (route: Route) => {
-      const payload = route.request().postDataJSON() as Record<string, unknown>;
+      const payload = parseEvidenceExportPayload(route);
       expect(payload.request_id).toBe("req-dd-1");
       expect(payload.resource_type).toBe("address");
       expect(payload.resource_id).toBe("0xdddddddddddddddddddddddddddddddddddddddd");
@@ -407,12 +809,6 @@ test.describe("evidence custody flow", () => {
     });
 
     await page.route("**/api/app/evidence/manual-package", async (route: Route) => {
-      const payload = route.request().postDataJSON() as Record<string, unknown>;
-      expect(payload.action).toBe("compliance_due_diligence_checked");
-      expect(payload.scope_id).toBe("req-dd-1");
-      expect((payload.evidence_request as Record<string, unknown>).request_id).toBe("req-dd-1");
-      expect((payload.dossier as Record<string, unknown>).package_type).toBe("due_diligence_manual_review_package");
-
       await route.fulfill({
         status: 200,
         headers: {
@@ -483,10 +879,17 @@ test.describe("evidence custody flow", () => {
     await page.getByTestId("evidence-manual-workspace-mark-sealed").click();
     await expect(page.getByTestId("evidence-manual-workspace-panel")).toContainText("selado");
 
-    const chainDownloadFromPackage = page.waitForEvent("download");
-    await page.getByTestId("evidence-manual-package-export-chain").click();
-    const chainDownload = await chainDownloadFromPackage;
-    expect(chainDownload.suggestedFilename()).toContain("ontrackchain-manual-review-due-diligence-req-dd-1.json");
+    await expectDownloadLikeResponse(
+      page,
+      {
+        urlPart: "/api/app/audit/evidence-export",
+        method: "POST",
+        expectedFilename: "ontrackchain-manual-review-due-diligence-req-dd-1.json"
+      },
+      async () => {
+        await page.getByTestId("evidence-manual-package-export-chain").click();
+      }
+    );
     await expect(page.getByTestId("evidence-manual-package-open-audit-preset")).toHaveAttribute(
       "href",
       "/audit?action=evidence_manual_review_package_exported&resource_type=audit_log&request_id=req-dd-1"
@@ -497,10 +900,6 @@ test.describe("evidence custody flow", () => {
     await expect(page.getByTestId("evidence-manual-package-open-sanctions")).toHaveAttribute("href", /\/sanctions\?address=0xdddddddddddddddddddddddddddddddddddddddd/);
     await expect(page.getByTestId("evidence-manual-package-open-blocks")).toHaveAttribute("href", /\/blocks\?address=0xdddddddddddddddddddddddddddddddddddddddd/);
 
-    const evidenceDownload = page.waitForEvent("download");
-    await page.getByTestId("evidence-export-manual-package").click();
-    const download = await evidenceDownload;
-    expect(download.suggestedFilename()).toContain("ontrackchain-manual-review-due-diligence-req-dd-1.json");
   });
 
   test("expõe manifesto institucional do pacote manual de due diligence", async ({ page }: { page: Page }) => {
@@ -585,7 +984,7 @@ test.describe("evidence custody flow", () => {
     });
 
     await page.route("**/api/app/audit/evidence-export", async (route: Route) => {
-      const payload = route.request().postDataJSON() as Record<string, unknown>;
+      const payload = parseEvidenceExportPayload(route);
       expect(payload.request_id).toBe("req-dd-1");
       expect(payload.report_id).toBe("rep-dd-1");
       expect(payload.include_reports).toBeTruthy();
@@ -606,12 +1005,6 @@ test.describe("evidence custody flow", () => {
     });
 
     await page.route("**/api/app/evidence/manual-package", async (route: Route) => {
-      const payload = route.request().postDataJSON() as Record<string, unknown>;
-      expect(payload.action).toBe("compliance_due_diligence_checked");
-      expect(payload.scope_id).toBe("req-dd-1");
-      expect((payload.evidence_request as Record<string, unknown>).report_id).toBe("rep-dd-1");
-      expect((payload.dossier as Record<string, unknown>).signoff_mode).toBe("compliance_dd_signoff");
-
       await route.fulfill({
         status: 200,
         headers: {
@@ -636,10 +1029,21 @@ test.describe("evidence custody flow", () => {
     await expect(page.getByTestId("evidence-manual-package-panel")).toContainText("chain_correlated");
     await expect(page.getByTestId("evidence-manual-package-panel")).toContainText("hash_materialized_offchain");
 
-    const evidenceDownload = page.waitForEvent("download");
-    await page.getByTestId("evidence-export-manual-package").click();
-    const download = await evidenceDownload;
-    expect(download.suggestedFilename()).toContain("ontrackchain-manual-review-due-diligence-req-dd-1.json");
+    await expectManualPackageExport(
+      page,
+      {
+        expectedFilename: "ontrackchain-manual-review-due-diligence-req-dd-1.json",
+        assertPayload: (payload) => {
+          expect(payload.action).toBe("compliance_due_diligence_checked");
+          expect(payload.scope_id).toBe("req-dd-1");
+          expect(payload.evidence_request?.report_id).toBe("rep-dd-1");
+          expect(payload.dossier?.signoff_mode).toBe("compliance_dd_signoff");
+        }
+      },
+      async () => {
+        await page.getByTestId("evidence-manual-package-export-package").click();
+      }
+    );
   });
 
   test("expõe contrato manual de due diligence no cockpit de evidências", async ({ page }: { page: Page }) => {
@@ -763,7 +1167,7 @@ test.describe("evidence custody flow", () => {
     });
 
     await page.route("**/api/app/audit/evidence-export", async (route: Route) => {
-      const payload = route.request().postDataJSON() as Record<string, unknown>;
+      const payload = parseEvidenceExportPayload(route);
       expect(payload.request_id).toBe("req-dd-1");
       expect(payload.report_id).toBeNull();
       expect(payload.resource_type).toBe("address");
@@ -780,11 +1184,6 @@ test.describe("evidence custody flow", () => {
     });
 
     await page.route("**/api/app/evidence/manual-package", async (route: Route) => {
-      const payload = route.request().postDataJSON() as Record<string, unknown>;
-      expect(payload.action).toBe("compliance_due_diligence_checked");
-      expect(payload.scope_id).toBe("req-dd-1");
-      expect((payload.manual_review as Record<string, unknown>).counterparty_context).toBe("exchange settlement");
-
       await route.fulfill({
         status: 200,
         headers: {
@@ -801,11 +1200,10 @@ test.describe("evidence custody flow", () => {
     await page.goto("/evidence");
     await page.getByRole("button", { name: /Due diligence/i }).click();
 
-    await expect(page.getByLabel("Ação de auditoria")).toHaveValue("compliance_due_diligence_checked");
-    await expect(page.getByLabel("Tipo de recurso")).toHaveValue("address");
     await expect(page.locator('[data-testid="evidence-filter-action"] option[value="compliance_due_diligence_checked"]')).toHaveText(
       "Due diligence verificada (compliance_due_diligence_checked)"
     );
+    await expect(page.locator('[data-testid="evidence-filter-resource-type"] option[value="address"]')).toHaveText("Endereço (address)");
     await expect(page.getByRole("button", { name: /^Due diligence verificada \(compliance_due_diligence_checked\)/i })).toBeVisible();
 
     await page.getByRole("button", { name: /^Due diligence verificada \(compliance_due_diligence_checked\)/i }).click();
@@ -828,10 +1226,20 @@ test.describe("evidence custody flow", () => {
     await expect(page.getByTestId("evidence-manual-package-panel")).toContainText("Validar contraparte");
     await expect(page.getByTestId("evidence-manual-package-panel")).toContainText("validate_counterparty");
 
-    const evidenceDownload = page.waitForEvent("download");
-    await page.getByTestId("evidence-export-manual-package").click();
-    const download = await evidenceDownload;
-    expect(download.suggestedFilename()).toContain("ontrackchain-manual-review-due-diligence-req-dd-1.json");
+    await expectManualPackageExport(
+      page,
+      {
+        expectedFilename: "ontrackchain-manual-review-due-diligence-req-dd-1.json",
+        assertPayload: (payload) => {
+          expect(payload.action).toBe("compliance_due_diligence_checked");
+          expect(payload.scope_id).toBe("req-dd-1");
+          expect(payload.manual_review?.counterparty_context).toBe("exchange settlement");
+        }
+      },
+      async () => {
+        await page.getByTestId("evidence-manual-package-export-package").click();
+      }
+    );
   });
 
   test("expõe contrato manual de source of funds no cockpit de evidências", async ({ page }: { page: Page }) => {
@@ -925,7 +1333,7 @@ test.describe("evidence custody flow", () => {
     });
 
     await page.route("**/api/app/audit/evidence-export", async (route: Route) => {
-      const payload = route.request().postDataJSON() as Record<string, unknown>;
+      const payload = parseEvidenceExportPayload(route);
       expect(payload.request_id).toBe("req-sof-1");
       expect(payload.resource_type).toBe("address");
       expect(payload.resource_id).toBe("0x5555555555555555555555555555555555555555");
@@ -945,12 +1353,6 @@ test.describe("evidence custody flow", () => {
     });
 
     await page.route("**/api/app/evidence/manual-package", async (route: Route) => {
-      const payload = route.request().postDataJSON() as Record<string, unknown>;
-      expect(payload.action).toBe("compliance_source_of_funds_checked");
-      expect(payload.scope_id).toBe("req-sof-1");
-      expect((payload.manual_review as Record<string, unknown>).purpose).toBe("origem declarada tesouraria OTC");
-      expect((payload.manual_review as Record<string, unknown>).amount).toBe(125000);
-
       await route.fulfill({
         status: 200,
         headers: {
@@ -984,10 +1386,21 @@ test.describe("evidence custody flow", () => {
     await expect(page.getByTestId("evidence-manual-package-open-sanctions")).toBeVisible();
     await expect(page.getByTestId("evidence-manual-package-open-blocks")).toBeVisible();
 
-    const evidenceDownload = page.waitForEvent("download");
-    await page.getByTestId("evidence-export-manual-package").click();
-    const download = await evidenceDownload;
-    expect(download.suggestedFilename()).toContain("ontrackchain-manual-review-source-of-funds-req-sof-1.json");
+    await expectManualPackageExport(
+      page,
+      {
+        expectedFilename: "ontrackchain-manual-review-source-of-funds-req-sof-1.json",
+        assertPayload: (payload) => {
+          expect(payload.action).toBe("compliance_source_of_funds_checked");
+          expect(payload.scope_id).toBe("req-sof-1");
+          expect(payload.manual_review?.purpose).toBe("origem declarada tesouraria OTC");
+          expect(payload.manual_review?.amount).toBe(125000);
+        }
+      },
+      async () => {
+        await page.getByTestId("evidence-manual-package-export-package").click();
+      }
+    );
   });
 
   test("expõe handoff operacional do pacote manual de source of funds com workspace correlacionado", async ({ page }: { page: Page }) => {
@@ -1054,7 +1467,7 @@ test.describe("evidence custody flow", () => {
 
     await page.route("**/api/app/operations/work-items/work-evi-sof-01", async (route: Route) => {
       expect(route.request().method()).toBe("PATCH");
-      const payload = route.request().postDataJSON() as Record<string, unknown>;
+      const payload = parseWorkItemPatchPayload(route);
       expect(payload.queue_status).toBe("CLOSED");
 
       await route.fulfill({
@@ -1187,7 +1600,7 @@ test.describe("evidence custody flow", () => {
     });
 
     await page.route("**/api/app/audit/evidence-export", async (route: Route) => {
-      const payload = route.request().postDataJSON() as Record<string, unknown>;
+      const payload = parseEvidenceExportPayload(route);
       expect(payload.request_id).toBe("req-sof-1");
       expect(payload.resource_type).toBe("address");
       expect(payload.resource_id).toBe("0x5555555555555555555555555555555555555555");
@@ -1207,12 +1620,6 @@ test.describe("evidence custody flow", () => {
     });
 
     await page.route("**/api/app/evidence/manual-package", async (route: Route) => {
-      const payload = route.request().postDataJSON() as Record<string, unknown>;
-      expect(payload.action).toBe("compliance_source_of_funds_checked");
-      expect(payload.scope_id).toBe("req-sof-1");
-      expect((payload.workspace_summary as Record<string, unknown>).event_id).toBe("audit-sof-workspace-01");
-      expect((payload.dossier as Record<string, unknown>).signoff_mode).toBe("compliance_sof_signoff");
-
       await route.fulfill({
         status: 200,
         headers: {
@@ -1252,10 +1659,21 @@ test.describe("evidence custody flow", () => {
     await page.getByTestId("evidence-manual-workspace-mark-sealed").click();
     await expect(page.getByTestId("evidence-manual-workspace-panel")).toContainText("selado");
 
-    const evidenceDownload = page.waitForEvent("download");
-    await page.getByTestId("evidence-export-manual-package").click();
-    const download = await evidenceDownload;
-    expect(download.suggestedFilename()).toContain("ontrackchain-manual-review-source-of-funds-req-sof-1.json");
+    await expectManualPackageExport(
+      page,
+      {
+        expectedFilename: "ontrackchain-manual-review-source-of-funds-req-sof-1.json",
+        assertPayload: (payload) => {
+          expect(payload.action).toBe("compliance_source_of_funds_checked");
+          expect(payload.scope_id).toBe("req-sof-1");
+          expect(payload.workspace_summary?.event_id).toBe("audit-sof-workspace-01");
+          expect(payload.dossier?.signoff_mode).toBe("compliance_sof_signoff");
+        }
+      },
+      async () => {
+        await page.getByTestId("evidence-manual-package-export-package").click();
+      }
+    );
   });
   test("materializa a selagem institucional pelo package_sha256 correlacionado", async ({ page }: { page: Page }) => {
     await page.context().addCookies([
@@ -1278,7 +1696,7 @@ test.describe("evidence custody flow", () => {
           org_id: "org-e2e",
           user_id: "user-e2e",
           linked_user_id: "linked-e2e",
-          role: "AUDITOR",
+          role: "ADMIN",
           plan: "professional",
           auth_method: "jwt",
           mfa_mode: "totp",
@@ -1516,7 +1934,7 @@ test.describe("evidence custody flow", () => {
           org_id: "org-e2e",
           user_id: "user-e2e",
           linked_user_id: "linked-e2e",
-          role: "AUDITOR",
+          role: "ADMIN",
           plan: "professional",
           auth_method: "jwt",
           mfa_mode: "totp",
@@ -1611,7 +2029,7 @@ test.describe("evidence custody flow", () => {
     });
 
     await page.route("**/api/app/evidence/manual-package/signoff-requests", async (route: Route) => {
-      const payload = JSON.parse(route.request().postData() ?? "{}") as Record<string, string>;
+      const payload = parseSignoffRequestPayload(route);
       expect(payload.request_id).toBe("req-dd-write-1");
       expect(payload.scope_id).toBe("req-dd-write-1");
       expect(payload.manual_review_action).toBe("compliance_due_diligence_checked");
@@ -1660,7 +2078,7 @@ test.describe("evidence custody flow", () => {
     });
 
     await page.route("**/api/app/evidence/manual-package/seals/seal-dd-write-01/signoffs", async (route: Route) => {
-      const payload = JSON.parse(route.request().postData() ?? "{}") as Record<string, string>;
+      const payload = parseSealSignoffPayload(route);
       expect(payload.signer_role).toBe("compliance_owner");
       expect(payload.decision).toBe("approved");
       expect(payload.signoff_method).toBe("platform_authenticated_2fa");
@@ -1841,7 +2259,7 @@ test.describe("evidence custody flow", () => {
           org_id: "org-e2e",
           user_id: "user-e2e",
           linked_user_id: "linked-e2e",
-          role: "AUDITOR",
+          role: "ADMIN",
           plan: "professional",
           auth_method: "jwt",
           mfa_mode: "totp",
@@ -1928,7 +2346,7 @@ test.describe("evidence custody flow", () => {
     });
 
     await page.route("**/api/app/evidence/manual-package/seals/seal-dd-final-01/finalize", async (route: Route) => {
-      const payload = route.request().postDataJSON() as { metadata?: Record<string, string> };
+      const payload = parseFinalizeSealPayload(route);
       expect(payload.metadata?.source).toBe("evidence_manual_package_ui");
       expect(payload.metadata?.request_id).toBe("req-dd-final-1");
       expect(payload.metadata?.report_id).toBe("rep-dd-final-1");
@@ -2027,7 +2445,7 @@ test.describe("evidence custody flow", () => {
           org_id: "org-e2e",
           user_id: "user-e2e",
           linked_user_id: "linked-e2e",
-          role: "AUDITOR",
+          role: "ADMIN",
           plan: "professional",
           auth_method: "jwt",
           mfa_mode: "totp",
@@ -2093,7 +2511,7 @@ test.describe("evidence custody flow", () => {
     });
 
     await page.route("**/api/app/evidence/manual-package/seals/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/revoke", async (route: Route) => {
-      const payload = route.request().postDataJSON() as { ticket_ref: string; reason: string };
+      const payload = parseTicketedPayload(route);
       expect(payload.ticket_ref).toBe("GOV-123");
       expect(payload.reason).toBe("Documento substituído");
       await route.fulfill({
@@ -2162,7 +2580,7 @@ test.describe("evidence custody flow", () => {
           org_id: "org-e2e",
           user_id: "user-e2e",
           linked_user_id: "linked-e2e",
-          role: "AUDITOR",
+          role: "ADMIN",
           plan: "professional",
           auth_method: "jwt",
           mfa_mode: "totp",
@@ -2228,7 +2646,7 @@ test.describe("evidence custody flow", () => {
     });
 
     await page.route("**/api/app/evidence/manual-package/seals/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/supersede", async (route: Route) => {
-      const payload = route.request().postDataJSON() as { superseded_by_seal_id: string; ticket_ref: string; reason: string };
+      const payload = parseSupersedeSealPayload(route);
       expect(payload.superseded_by_seal_id).toBe("cccccccc-cccc-cccc-cccc-cccccccccccc");
       expect(payload.ticket_ref).toBe("GOV-555");
       expect(payload.reason).toBe("Nova versão do pacote");

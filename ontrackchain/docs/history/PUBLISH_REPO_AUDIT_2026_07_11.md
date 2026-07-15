@@ -58,6 +58,16 @@ Tratar `.publish_repo/` como:
 - **fora da governanca viva do projeto**
 - **nao elegivel a delecao automatica nesta rodada**
 
+## Atualizacao Posterior - 2026-07-15
+
+Com base em nova verificacao interna sem consumidores de build/script/governanca e aprovacao explicita para descontinuar qualquer uso externo/manual remanescente, o espelho `.publish_repo/` foi aposentado e removido em `2026-07-15`.
+
+Leitura historica final:
+
+- a decisao original de nao deletar automaticamente estava correta para a rodada de `2026-07-11`
+- a decisao posterior de aposentadoria controlada foi tomada apenas apos confirmacao explicita para encerrar compatibilidade restante
+- esta auditoria permanece como registro historico da transicao, e nao como instrucao vigente para manter o espelho
+
 ### Regra Pratica
 
 Enquanto nao houver prova adicional:

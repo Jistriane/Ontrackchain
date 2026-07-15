@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   }
 
   const runtimeEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
-  const baseUrl = runtimeEnv?.INTERNAL_API_BASE_URL ?? runtimeEnv?.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
+  const baseUrl = runtimeEnv?.INTERNAL_API_BASE_URL ?? runtimeEnv?.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const bundleRes = await fetch(`${baseUrl}/api/v1/audit/evidence-export`, {
     method: "POST",
     headers: {

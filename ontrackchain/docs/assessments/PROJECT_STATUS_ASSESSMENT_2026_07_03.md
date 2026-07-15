@@ -73,6 +73,7 @@ Leitura executiva resultante:
 
 ### Evidencias de runtime, testes e CI
 
+- nota de workspace: os workflows citados abaixo vivem no repositório agregador pai em `../.github/workflows/`
 - stack, modulos e boundaries descritos em [README](../README.md)
 - quality gates em [quality-gates.yml](../../../.github/workflows/quality-gates.yml)
 - smoke e E2E em [e2e-tests.yml](../../../.github/workflows/e2e-tests.yml)

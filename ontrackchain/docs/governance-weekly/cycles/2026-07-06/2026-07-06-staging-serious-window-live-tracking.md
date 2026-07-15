@@ -169,6 +169,10 @@
 
 ## Hand-off para Sign-Off
 
+Nota editorial:
+
+- na pipeline atual, o resumo curto de comunicacao pode ser materializado como `*-comms-summary.md`; nesta janela, o artefato equivalente permaneceu registrado como `*-war-room-action-plan.md`
+
 - war room: [War Room da Janela `stg-2026-07-06-a`](./2026-07-06-staging-serious-window-war-room.md)
 - sign-off: [Sign-Off da Janela `stg-2026-07-06-a`](./2026-07-06-staging-serious-window-signoff.md)
 - artefato OIDC esperado para `P0-01`: `artifacts/staging/checks/stg-2026-07-06-a-oidc-readiness-bundle.json` e `artifacts/staging/dossiers/stg-2026-07-06-a-oidc-readiness-bundle.md`

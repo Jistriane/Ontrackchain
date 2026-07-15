@@ -1,8 +1,22 @@
-# Checklist de Regressao Estatica do Frontend
+# Checklist Canonico de Regressao Estatica e Contratos Visuais do Frontend
 
 ## Objetivo
 
-Fornecer um checklist operacional curto e repetivel para validar mudancas em labels, datas, contexto regulatorio, pills semanticos e deep-links dos cockpits principais sem depender de execucao runtime arriscada durante a iteracao.
+Fornecer um checklist operacional curto e repetivel para validar mudancas em labels, datas, contexto regulatorio, pills semanticos, `data-testid` e deep-links dos cockpits principais sem depender de execucao runtime arriscada durante a iteracao.
+
+Este documento passa a ser a fonte canonica unica para:
+
+- regressao estatica de contratos visuais
+- gate curto de rollout seguro
+- criterio de `go/no-go` para mudancas visuais protegidas
+
+## Quando Usar
+
+- mudancas em cockpits listados em `./frontend-static-regression-traceability.md`
+- mudancas em `data-testid` usados por specs focais
+- mudancas em formatacao visual de datas, timestamps e hashes
+- mudancas em labels de i18n usadas como contrato operator-facing
+- mudancas em deep-links entre cockpits regulatorios, operacionais ou administrativos
 
 ## Pre-Flight
 
@@ -23,7 +37,20 @@ Fornecer um checklist operacional curto e repetivel para validar mudancas em lab
 - validar que labels user-facing usam i18n e nao string tecnica inline sem necessidade
 - validar que deep-links preservam o contexto operacional esperado (`case_id`, `report_id`, `ros_id`, `address`, `chain`)
 - validar que badges e pills mantem mapeamento consistente de label e tone
+- validar que a spec focal correspondente foi atualizada ou explicitamente revisada
 - validar que a documentacao foi sincronizada quando o contrato visual mudou
+
+## Gate de Rollout
+
+- [ ] identificar o cockpit e a spec canonica impactada
+- [ ] validar que os `data-testid` alterados continuam minimos e semanticamente orientados
+- [ ] validar que datas/timestamps protegidos nao regressaram para ISO cru
+- [ ] validar que labels semanticas continuam coerentes com `i18n.ts`
+- [ ] validar que deep-links preservam o contexto esperado (`case_id`, `report_id`, `ros_id`, `address`, `chain`)
+- [ ] validar que a spec focal correspondente foi atualizada ou explicitamente revisada
+- [ ] validar que `frontend-coverage-matrix.md` foi sincronizado
+- [ ] validar que `frontend-static-regression-traceability.md` foi sincronizado
+- [ ] validar que os diagnosticos dos arquivos tocados permanecem limpos
 
 ## Checklist por Dominio
 
@@ -45,15 +72,36 @@ Fornecer um checklist operacional curto e repetivel para validar mudancas em lab
 ### Administrativo
 
 - `team`: confirmar label de role, `status` e `updated_at`
-- `billing`: confirmar `status` amigavel, `updated_at` e deep-link para `team`
+- `billing`: confirmar reconciliacao, export e handoff para `team` sem projeção lateral de roster
 
 ## Documentacao Obrigatoria
 
 - atualizar `./frontend-coverage-matrix.md` se a superficie funcional/cobertura mudou
 - atualizar `./frontend-static-regression-traceability.md` se a spec canonica ou o contrato protegido mudou
 - refletir qualquer mudanca material no indice canonico `./README.md` quando a trilha de regressao estatica ganhar ou perder escopo oficial
-- atualizar `./frontend-visual-contract-rollout-checklist.md` se o gate de rollout do contrato visual mudou
 - atualizar `./evidence-manual-package-rollout-checklist.md` quando a mudanca tocar manifesto, export manual, navegação `evidence <-> audit` ou handoff DD/SoF
+
+## Evidencias Minimas
+
+- [ ] diff final revisado nos arquivos do cockpit
+- [ ] diff final revisado na spec focal
+- [ ] docs sincronizadas
+- [ ] diagnosticos limpos dos arquivos tocados
+
+## Go / No-Go
+
+### Go
+
+- [ ] contrato visual protegido continua coberto por spec
+- [ ] documentacao canonica foi sincronizada
+- [ ] nao ha diagnosticos introduzidos pela rodada
+
+### No-Go
+
+- [ ] spec focal quebrada ou desatualizada
+- [ ] `data-testid` removido sem reposicao equivalente
+- [ ] regressao de ISO cru em superficie visual
+- [ ] deep-link perdeu contexto necessario
 
 ## Encerramento Seguro
 

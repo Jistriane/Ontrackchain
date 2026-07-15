@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const query = url.search ? url.search : "";
 
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
+  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const res = await fetch(`${baseUrl}/api/v1/report-types${query}`, {
     method: "GET",
     headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId },

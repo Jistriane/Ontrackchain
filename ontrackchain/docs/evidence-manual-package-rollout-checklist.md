@@ -14,8 +14,8 @@ Definir um gate operacional curto para a trilha manual de `due_diligence` e `sou
 
 Use este checklist junto com:
 
-- `./frontend-static-regression-checklist.md`
-- `./frontend-visual-contract-rollout-checklist.md`
+- `./frontend-static-regression-checklist.md` (documento canonico)
+- `./frontend-visual-contract-rollout-checklist.md` (ponte legada de compatibilidade)
 - `./frontend-static-regression-traceability.md`
 - `./evidence-and-audit-matrix.md`
 

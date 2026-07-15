@@ -21,9 +21,17 @@ type UseMonitoringOperationsArgs = {
   t: Translator;
   setError: (message: string | null) => void;
   refreshMetricsPreview: () => Promise<void>;
+  canReadInvestigationAdmin: boolean | null;
+  canManageInvestigationAdmin: boolean | null;
 };
 
-export function useMonitoringOperations({ t, setError, refreshMetricsPreview }: UseMonitoringOperationsArgs) {
+export function useMonitoringOperations({
+  t,
+  setError,
+  refreshMetricsPreview,
+  canReadInvestigationAdmin,
+  canManageInvestigationAdmin
+}: UseMonitoringOperationsArgs) {
   const [operations, setOperations] = useState<OperationsSnapshot | null>(null);
   const [operationalAlerts, setOperationalAlerts] = useState<OperationalAlertsSnapshot | null>(null);
   const [dlq, setDlq] = useState<DlqSnapshot | null>(null);
@@ -61,27 +69,51 @@ export function useMonitoringOperations({ t, setError, refreshMetricsPreview }: 
   }
 
   useEffect(() => {
+    if (canReadInvestigationAdmin === null) {
+      return;
+    }
+    if (!canReadInvestigationAdmin) {
+      setOperations(null);
+      setOperationalAlerts(null);
+      setDlq(null);
+      setDlqMessage(null);
+      return;
+    }
+
     loadOperations().catch(() => setError(t("monitoring.errors.loadWorkerOperations")));
     loadOperationalAlerts().catch(() => setError(t("monitoring.errors.loadOperationalAlerts")));
     loadDlq().catch(() => setError(t("monitoring.errors.loadDlq")));
-  }, [t]);
+  }, [canReadInvestigationAdmin, t]);
 
   async function refreshOperations() {
+    if (!canReadInvestigationAdmin) {
+      return;
+    }
     setError(null);
     await loadOperations();
   }
 
   async function refreshOperationalAlerts() {
+    if (!canReadInvestigationAdmin) {
+      return;
+    }
     setError(null);
     await loadOperationalAlerts();
   }
 
   async function refreshDlq() {
+    if (!canReadInvestigationAdmin) {
+      return;
+    }
     setError(null);
     await loadDlq();
   }
 
   async function requeueDlqCase(caseId: string) {
+    if (!canManageInvestigationAdmin) {
+      setError(t("apiErrors.privilegedWriteRoleRequired" as MessageKey));
+      return;
+    }
     setError(null);
     setDlqMessage(null);
     setRequeueingCaseId(caseId);
@@ -105,6 +137,10 @@ export function useMonitoringOperations({ t, setError, refreshMetricsPreview }: 
   }
 
   async function resolveDlqCase(caseId: string, action: "acknowledged" | "discarded") {
+    if (!canManageInvestigationAdmin) {
+      setError(t("apiErrors.privilegedWriteRoleRequired" as MessageKey));
+      return;
+    }
     setError(null);
     setDlqMessage(null);
     setResolvingCaseId(caseId);

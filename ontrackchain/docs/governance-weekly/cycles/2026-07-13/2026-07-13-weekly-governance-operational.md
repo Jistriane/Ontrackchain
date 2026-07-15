@@ -12,14 +12,14 @@ Referencias de apoio:
 
 ## Baseline de Referencia
 
-- construcao tecnica: `92%`
+- construcao tecnica: `93%`
 - prontidao regulatoria: `79%`
-- KPI consolidado: `88%`
+- KPI consolidado: `89%`
 - houve evidencia nova material?: `nao`, salvo checker, bundle, dossie ou sign-off novo revisavel no proprio encontro
 
 ## Decisao Executiva Rapida
 
-- decisao da semana: `manter baseline`, salvo evidencia nova material apresentada no encontro
+- decisao da semana: `manter baseline oficial em 93/79/89`, salvo evidencia nova material apresentada no encontro
 - principal ganho: `artifact validation` da janela segue `ok` e a trilha documental/operacional continua consistente
 - principal bloqueio: janela `stg-2026-07-13-a` ainda depende de owners online, credencial AML/KYT real e URL tokenizada da UE
 - item mais proximo de fechamento: `P0-02`, se a credencial real do provider AML/KYT chegar com checker verde

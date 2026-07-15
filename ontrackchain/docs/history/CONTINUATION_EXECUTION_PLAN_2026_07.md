@@ -13,7 +13,7 @@ Este documento deve ser usado em conjunto com:
 - [Avaliacao Consolidada de Status do Projeto](../assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md)
 - [Scorecard Oficial do Projeto](../project-kpi-scorecard.md)
 - [Plano Tatico Sprint 7-9](./TACTICAL_ROADMAP_SPRINT_7_TO_95_PERCENT.md)
-- [Checklist Operacional para 95%](../EXECUTION_CHECKLIST_TO_95_PERCENT.md)
+- [Plano Consolidado ate 95%](../project-construction-plan-to-95-percent.md)
 - [Board Operacional Unico](../project-operational-execution-board.md)
 - [Owners e SLAs Operacionais](../operational-ownership-and-slas.md)
 - [Readiness Regulatorio](../regulatory-readiness.md)

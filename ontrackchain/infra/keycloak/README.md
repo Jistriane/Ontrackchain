@@ -106,6 +106,12 @@ OIDC_CLIENT_ID=ontrackchain-web
 OIDC_ORG_CLAIM=org
 OIDC_PLAN_CLAIM=plan
 OIDC_ROLE_CLAIM=otk_role
+KEYCLOAK_ADMIN_BASE_URL=http://auth.localhost:8080
+KEYCLOAK_ADMIN_REALM=ontrackchain
+KEYCLOAK_ADMIN_CLIENT_ID=ontrackchain-b2b
+KEYCLOAK_ADMIN_CLIENT_SECRET=change-me-b2b-secret
+KEYCLOAK_ADMIN_ORG_ATTRIBUTE=organization_id
+KEYCLOAK_ADMIN_ROLE_ATTRIBUTE=otk_role
 ```
 
 Depois, suba o stack normalmente:

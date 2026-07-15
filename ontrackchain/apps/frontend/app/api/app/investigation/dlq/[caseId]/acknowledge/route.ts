@@ -17,7 +17,7 @@ export async function POST(request: Request, context: RouteContext) {
 
   const { caseId } = await context.params;
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
+  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const payload = await request.text();
   const res = await fetch(`${baseUrl}/api/v1/investigation/admin/dlq/${caseId}/acknowledge`, {
     method: "POST",

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell, MetricCard, MetricGrid, ModuleCard, ModuleGrid, Panel, Pill } from "../../components/ui";
 import { DashboardQuickActions } from "./dashboard-quick-actions";
+import { canManageFederatedIdentity } from "../lib/authz";
 import { formatDateTime } from "../lib/date-format";
 import { LOCALE_COOKIE_NAME, normalizeLocale, translate, type MessageKey } from "../lib/i18n";
 import {
@@ -69,6 +70,19 @@ type OperationsSnapshot = {
 type PlatformOperationalAlertsSnapshot = {
   total_count: number;
 };
+
+async function validateDashboardRole(token: string, requestId: string): Promise<string | null> {
+  const authBaseUrl = process.env.INTERNAL_AUTH_BASE_URL ?? "http://auth-service:9000";
+  const validateRes = await fetch(`${authBaseUrl}/validate`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId },
+    cache: "no-store"
+  });
+  if (!validateRes.ok) {
+    return null;
+  }
+  return validateRes.headers.get("X-Role");
+}
 
 function buildDashboardOperationalContext(entry: OperationsSnapshot["recent_cases"][number]): OperationalContext {
   return {
@@ -144,8 +158,10 @@ export default async function DashboardPage() {
   }
 
   const requestId = crypto.randomUUID();
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
+  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const headers = { Authorization: `Bearer ${token}`, "X-Request-Id": requestId };
+  const dashboardRole = await validateDashboardRole(token, requestId);
+  const showTeamModule = canManageFederatedIdentity(dashboardRole);
 
   const [watchlistsRes, billingRes, operationsRes, platformAlertsRes] = await Promise.all([
     fetchJson<Watchlist[]>(`${baseUrl}/api/v1/monitoring/watchlists`, { method: "GET", headers, cache: "no-store" }),
@@ -346,13 +362,16 @@ export default async function DashboardPage() {
             badge={<Pill>{t("dashboard.modules.active")}</Pill>}
             footer={t("dashboard.modules.reports.footer")}
           />
-          <ModuleCard
-            href="/team"
-            title={t("dashboard.modules.team.title")}
-            description={t("dashboard.modules.team.description")}
-            badge={<Pill>{t("dashboard.modules.active")}</Pill>}
-            footer={t("dashboard.modules.team.footer")}
-          />
+          {showTeamModule ? (
+            <ModuleCard
+              href="/team"
+              testId="dashboard-module-team"
+              title={t("dashboard.modules.team.title")}
+              description={t("dashboard.modules.team.description")}
+              badge={<Pill>{t("dashboard.modules.active")}</Pill>}
+              footer={t("dashboard.modules.team.footer")}
+            />
+          ) : null}
         </ModuleGrid>
       </Panel>
     </AppShell>

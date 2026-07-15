@@ -20,15 +20,38 @@ export async function GET(request: Request) {
     return jsonResponse(JSON.stringify({ error: "missing_address" }), 422);
   }
 
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
+  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
+  const authBaseUrl = process.env.INTERNAL_AUTH_BASE_URL ?? "http://auth-service:9000";
+  const validateRes = await fetch(`${authBaseUrl}/validate`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId },
+    cache: "no-store"
+  });
+
+  if (!validateRes.ok) {
+    return jsonResponse(JSON.stringify({ error: "not_authenticated" }), 401);
+  }
+
+  const orgId = validateRes.headers.get("X-Org-Id");
+  const userId = validateRes.headers.get("X-User-Id");
+  const linkedUserId = validateRes.headers.get("X-Linked-User-Id");
+  const role = validateRes.headers.get("X-Role") ?? "VIEWER";
   const res = await fetch(
     `${baseUrl}/api/v1/compliance/sanctions-check/${encodeURIComponent(address)}?chain=${encodeURIComponent(chain)}&lists=${encodeURIComponent(lists)}`,
     {
       method: "GET",
-      headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "X-Request-Id": requestId,
+        "X-Role": role,
+        ...(orgId ? { "X-Org-Id": orgId } : {}),
+        ...(userId ? { "X-User-Id": userId } : {}),
+        ...(linkedUserId ? { "X-Linked-User-Id": linkedUserId } : {})
+      },
       cache: "no-store"
     }
   );
 
-  return jsonResponse(await res.text(), res.status);
+  const responseBody = await res.text();
+  return jsonResponse(responseBody || JSON.stringify({ detail: "sanctions_check_role_required" }), res.status);
 }

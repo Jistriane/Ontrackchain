@@ -10,7 +10,8 @@ const ANONYMOUS_AUTH_CONTEXT = {
   plan: null,
   auth_method: null,
   mfa_mode: null,
-  mfa_provider_homologated: null
+  mfa_provider_homologated: null,
+  two_factor: null
 } as const;
 
 export async function GET(request: Request) {
@@ -41,7 +42,8 @@ export async function GET(request: Request) {
       plan: validateRes.headers.get("X-Plan"),
       auth_method: validateRes.headers.get("X-Auth-Method"),
       mfa_mode: validateRes.headers.get("X-MFA-Mode"),
-      mfa_provider_homologated: validateRes.headers.get("X-MFA-Provider-Homologated")
+      mfa_provider_homologated: validateRes.headers.get("X-MFA-Provider-Homologated"),
+      two_factor: cookies().get("otc_2fa")?.value ?? validateRes.headers.get("X-2FA")
     },
     { status: 200 }
   );

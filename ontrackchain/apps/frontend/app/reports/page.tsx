@@ -42,6 +42,7 @@ import {
 } from "../lib/work-items";
 import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
 import { useWorkItemTimeline } from "../lib/use-work-item-timeline";
+import { canDownloadLegalReport, canDownloadReportArtifact, canExportSensitiveEvidence, canReadReportDetail } from "../lib/authz";
 import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { AppShell, CodeBlock, Message, MetricCard, MetricGrid, Panel, Pill } from "../../components/ui";
 import type { MessageKey } from "../lib/i18n";
@@ -572,6 +573,19 @@ export default function ReportsPage() {
   const [historyTotal, setHistoryTotal] = useState(0);
   const [historyHasMore, setHistoryHasMore] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const canExportSensitiveReportArtifacts = canExportSensitiveEvidence(authContext?.role);
+  const canReadSelectedReportDetail = canReadReportDetail(authContext?.role);
+  const selectedReportRequiresStrongAuth = selectedReportDetail?.report_type === "legal_report";
+  const canDownloadSelectedReport =
+    selectedReportRequiresStrongAuth
+      ? canDownloadLegalReport({
+          role: authContext?.role,
+          authMethod: authContext?.auth_method,
+          mfaMode: authContext?.mfa_mode,
+          mfaProviderHomologated: authContext?.mfa_provider_homologated,
+          twoFactor: authContext?.two_factor
+        })
+      : canDownloadReportArtifact(authContext?.role);
   const [owner, setOwner] = useState("");
   const [priority, setPriority] = useState<WorkspacePriority>("normal");
   const [localDeadline, setLocalDeadline] = useState("");
@@ -1089,12 +1103,18 @@ export default function ReportsPage() {
 
     setLoadingReportDetail(true);
     setError(null);
+    if (authContext && !canReadReportDetail(authContext.role)) {
+      setSelectedReportDetail(null);
+      setLoadingReportDetail(false);
+      setError(tr("reports.detail.readRestricted" as MessageKey));
+      return;
+    }
     try {
       const res = await fetch(`/api/app/reports/${encodeURIComponent(normalizedReportId)}`, { cache: "no-store" });
       const data = (await res.json().catch(() => null)) as ReportDetailResponse | { error?: string; detail?: unknown } | null;
       if (!res.ok) {
         setSelectedReportDetail(null);
-        setError(resolveApiErrorMessage(t, data, tr("reports.history.empty" as MessageKey)));
+        setError(resolveApiErrorMessage(t, data, tr("reports.detail.readRestricted" as MessageKey)));
         setLoadingReportDetail(false);
         return;
       }
@@ -1104,7 +1124,7 @@ export default function ReportsPage() {
       setLoadingReportDetail(false);
     } catch (err) {
       setSelectedReportDetail(null);
-      setError(err instanceof Error ? err.message : tr("reports.history.empty" as MessageKey));
+      setError(err instanceof Error ? err.message : tr("reports.detail.readRestricted" as MessageKey));
       setLoadingReportDetail(false);
     }
   }
@@ -1136,6 +1156,11 @@ export default function ReportsPage() {
   }
 
   async function exportEvidenceBundleForReport(report: ReportDetailResponse) {
+    if (!canExportSensitiveReportArtifacts) {
+      setError(tr("reports.detail.exportsRestricted" as MessageKey));
+      return;
+    }
+
     setExportingEvidenceBundle(true);
     setError(null);
     setNotice(null);
@@ -1162,6 +1187,11 @@ export default function ReportsPage() {
   }
 
   async function exportFormalDossierForReport(report: ReportDetailResponse) {
+    if (!canExportSensitiveReportArtifacts) {
+      setError(tr("reports.detail.exportsRestricted" as MessageKey));
+      return;
+    }
+
     setExportingFormalDossier(true);
     setError(null);
     setNotice(null);
@@ -1186,7 +1216,7 @@ export default function ReportsPage() {
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => null)) as { error?: string; detail?: unknown } | null;
-        throw new Error(resolveApiErrorMessage(t, data, tr("reports.history.empty" as MessageKey)));
+        throw new Error(resolveApiErrorMessage(t, data, tr("reports.detail.errorExportDossier" as MessageKey)));
       }
 
       const blob = await res.blob();
@@ -1361,6 +1391,18 @@ export default function ReportsPage() {
       setSelectedReportType(currentRecord.reportType);
     }
   }, [historyReportIdFilter, openCaseId, selectedReportWorkspaceRecord, workspace]);
+
+  useEffect(() => {
+    if (!historyReportIdFilter.trim()) {
+      return;
+    }
+    if (!authContext || canReadReportDetail(authContext.role)) {
+      return;
+    }
+    setSelectedReportDetail(null);
+    setLoadingReportDetail(false);
+    setError(tr("reports.detail.readRestricted" as MessageKey));
+  }, [authContext, historyReportIdFilter, tr]);
 
   useEffect(() => {
     const reportExternalId = selectedReportDetail?.report_id?.trim() || historyReportIdFilter.trim();
@@ -2237,7 +2279,11 @@ export default function ReportsPage() {
       >
         {!selectedReportDetail ? (
           <div data-testid="reports-detail-empty">
-            <Message>{tr("reports.detail.empty" as MessageKey)}</Message>
+            <Message>
+              {historyReportIdFilter.trim() && !canReadSelectedReportDetail
+                ? tr("reports.detail.readRestricted" as MessageKey)
+                : tr("reports.detail.empty" as MessageKey)}
+            </Message>
           </div>
         ) : (
           <>
@@ -2256,39 +2302,53 @@ export default function ReportsPage() {
                   {tr(link.labelKey)}
                 </a>
               ))}
-              <button
-                type="button"
-                className="otc-button otc-button--ghost"
-                onClick={() => {
-                  void exportEvidenceBundleForReport(selectedReportDetail);
-                }}
-                disabled={exportingEvidenceBundle}
-                data-testid="reports-detail-export-evidence"
-              >
-                {exportingEvidenceBundle
-                  ? tr("reports.detail.exportEvidenceLoading" as MessageKey)
-                  : tr("reports.detail.exportEvidence" as MessageKey)}
-              </button>
-              <button
-                type="button"
-                className="otc-button otc-button--ghost"
-                onClick={() => {
-                  void exportFormalDossierForReport(selectedReportDetail);
-                }}
-                disabled={exportingFormalDossier}
-                data-testid="reports-detail-export-dossier"
-              >
-                {exportingFormalDossier ? tr("reports.dossier.exportLoading" as MessageKey) : tr("reports.dossier.export" as MessageKey)}
-              </button>
-              <a
-                className="otc-button otc-button--ghost"
-                href={`/api/app/reports/download?report_id=${encodeURIComponent(selectedReportDetail.report_id)}&case_id=${encodeURIComponent(
-                  selectedReportDetail.case_id
-                )}&report_type=${encodeURIComponent(selectedReportDetail.report_type)}&created_at=${encodeURIComponent(selectedReportDetail.created_at)}`}
-              >
-                {tr("reports.detail.download" as MessageKey)}
-              </a>
+              {canExportSensitiveReportArtifacts ? (
+                <>
+                  <button
+                    type="button"
+                    className="otc-button otc-button--ghost"
+                    onClick={() => {
+                      void exportEvidenceBundleForReport(selectedReportDetail);
+                    }}
+                    disabled={exportingEvidenceBundle}
+                    data-testid="reports-detail-export-evidence"
+                  >
+                    {exportingEvidenceBundle
+                      ? tr("reports.detail.exportEvidenceLoading" as MessageKey)
+                      : tr("reports.detail.exportEvidence" as MessageKey)}
+                  </button>
+                  <button
+                    type="button"
+                    className="otc-button otc-button--ghost"
+                    onClick={() => {
+                      void exportFormalDossierForReport(selectedReportDetail);
+                    }}
+                    disabled={exportingFormalDossier}
+                    data-testid="reports-detail-export-dossier"
+                  >
+                    {exportingFormalDossier ? tr("reports.dossier.exportLoading" as MessageKey) : tr("reports.dossier.export" as MessageKey)}
+                  </button>
+                </>
+              ) : null}
+              {canDownloadSelectedReport ? (
+                <a
+                  className="otc-button otc-button--ghost"
+                  href={`/api/app/reports/download?report_id=${encodeURIComponent(selectedReportDetail.report_id)}&case_id=${encodeURIComponent(
+                    selectedReportDetail.case_id
+                  )}&report_type=${encodeURIComponent(selectedReportDetail.report_type)}&created_at=${encodeURIComponent(selectedReportDetail.created_at)}`}
+                  data-testid="reports-detail-download"
+                >
+                  {tr("reports.detail.download" as MessageKey)}
+                </a>
+              ) : null}
             </div>
+            {!canExportSensitiveReportArtifacts ? <Message>{tr("reports.detail.exportsRestricted" as MessageKey)}</Message> : null}
+            {!selectedReportRequiresStrongAuth && !canDownloadSelectedReport ? (
+              <Message>{tr("reports.detail.downloadRestricted" as MessageKey)}</Message>
+            ) : null}
+            {selectedReportRequiresStrongAuth && !canDownloadSelectedReport ? (
+              <Message>{tr("reports.detail.legalDownloadRestricted" as MessageKey)}</Message>
+            ) : null}
 
             <table className="otc-table otc-table--spaced" data-testid="reports-detail-table">
               <tbody>

@@ -18,7 +18,7 @@ export async function GET(request: Request, context: { params: Promise<{ watchli
   const url = new URL(request.url);
   const params = new URLSearchParams(url.search);
   const limit = params.get("limit")?.trim() || "20";
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
+  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
 
   const res = await fetch(`${baseUrl}/api/v1/monitoring/watchlists/${encodeURIComponent(watchlistId)}/items?limit=${encodeURIComponent(limit)}`, {
     method: "GET",

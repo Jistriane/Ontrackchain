@@ -202,6 +202,634 @@ class ComplianceRbacTests(unittest.TestCase):
         self.assertEqual(normalized_role, "OTK_COMPLIANCE_OFFICER")
         self.assertEqual(pool._connection.commit_calls, 0)
 
+    def test_compliance_estimate_role_accepts_analyst(self) -> None:
+        _state, pool = self._build_state()
+
+        normalized_role = main._require_compliance_estimate_role(
+            pool,
+            organization_id="org-1",
+            user_id="11111111-1111-1111-1111-111111111111",
+            external_user_id=None,
+            request_id="req-compliance-estimate-analyst",
+            x_role="ANALYST",
+            resource_id=None,
+            endpoint="/api/v1/compliance/estimate",
+            method="POST",
+        )
+
+        self.assertEqual(normalized_role, "ANALYST")
+        self.assertEqual(pool._connection.commit_calls, 0)
+
+    def test_compliance_estimate_role_rejects_viewer_and_records_denial(self) -> None:
+        state, pool = self._build_state()
+
+        with self.assertRaises(main.HTTPException) as ctx:
+            main._require_compliance_estimate_role(
+                pool,
+                organization_id="org-1",
+                user_id="11111111-1111-1111-1111-111111111111",
+                external_user_id=None,
+                request_id="req-compliance-estimate-viewer",
+                x_role="VIEWER",
+                resource_id=None,
+                endpoint="/api/v1/compliance/estimate",
+                method="POST",
+            )
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, "compliance_estimate_role_required")
+        self.assertEqual(pool._connection.commit_calls, 1)
+        self.assertEqual(len(state["audit_logs"]), 1)
+        log_entry = state["audit_logs"][0]
+        self.assertEqual(log_entry["action"], "authorization_denied")
+        self.assertEqual(log_entry["resource_type"], "compliance_quote")
+        self.assertEqual(log_entry["metadata"]["detail"], "compliance_estimate_role_required")
+        self.assertEqual(log_entry["metadata"]["endpoint"], "/api/v1/compliance/estimate")
+        self.assertEqual(
+            log_entry["metadata"]["allowed_roles"],
+            ["ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"],
+        )
+
+    def test_compliance_start_role_accepts_analyst(self) -> None:
+        _state, pool = self._build_state()
+
+        normalized_role = main._require_compliance_start_role(
+            pool,
+            organization_id="org-1",
+            user_id="11111111-1111-1111-1111-111111111111",
+            external_user_id=None,
+            request_id="req-compliance-start-analyst",
+            x_role="ANALYST",
+            resource_id=None,
+            endpoint="/api/v1/compliance/start",
+            method="POST",
+        )
+
+        self.assertEqual(normalized_role, "ANALYST")
+        self.assertEqual(pool._connection.commit_calls, 0)
+
+    def test_compliance_start_role_rejects_viewer_and_records_denial(self) -> None:
+        state, pool = self._build_state()
+
+        with self.assertRaises(main.HTTPException) as ctx:
+            main._require_compliance_start_role(
+                pool,
+                organization_id="org-1",
+                user_id="11111111-1111-1111-1111-111111111111",
+                external_user_id=None,
+                request_id="req-compliance-start-viewer",
+                x_role="VIEWER",
+                resource_id=None,
+                endpoint="/api/v1/compliance/start",
+                method="POST",
+            )
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, "compliance_start_role_required")
+        self.assertEqual(pool._connection.commit_calls, 1)
+        self.assertEqual(len(state["audit_logs"]), 1)
+        log_entry = state["audit_logs"][0]
+        self.assertEqual(log_entry["action"], "authorization_denied")
+        self.assertEqual(log_entry["resource_type"], "compliance_case_start")
+        self.assertEqual(log_entry["metadata"]["detail"], "compliance_start_role_required")
+        self.assertEqual(log_entry["metadata"]["endpoint"], "/api/v1/compliance/start")
+        self.assertEqual(
+            log_entry["metadata"]["allowed_roles"],
+            ["ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"],
+        )
+
+    def test_compliance_case_report_role_accepts_analyst(self) -> None:
+        _state, pool = self._build_state()
+
+        normalized_role = main._require_compliance_case_report_role(
+            pool,
+            organization_id="org-1",
+            user_id="11111111-1111-1111-1111-111111111111",
+            external_user_id=None,
+            request_id="req-compliance-report-analyst",
+            x_role="ANALYST",
+            resource_id="44444444-4444-4444-8444-444444444444",
+            endpoint="/api/v1/compliance/cases/{case_id}/report",
+            method="POST",
+        )
+
+        self.assertEqual(normalized_role, "ANALYST")
+        self.assertEqual(pool._connection.commit_calls, 0)
+
+    def test_compliance_case_report_role_rejects_compliance_officer_and_records_denial(self) -> None:
+        state, pool = self._build_state()
+
+        with self.assertRaises(main.HTTPException) as ctx:
+            main._require_compliance_case_report_role(
+                pool,
+                organization_id="org-1",
+                user_id="11111111-1111-1111-1111-111111111111",
+                external_user_id=None,
+                request_id="req-compliance-report-co",
+                x_role="COMPLIANCE_OFFICER",
+                resource_id="44444444-4444-4444-8444-444444444444",
+                endpoint="/api/v1/compliance/cases/{case_id}/report",
+                method="POST",
+            )
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, "compliance_case_report_role_required")
+        self.assertEqual(pool._connection.commit_calls, 1)
+        self.assertEqual(len(state["audit_logs"]), 1)
+        log_entry = state["audit_logs"][0]
+        self.assertEqual(log_entry["action"], "authorization_denied")
+        self.assertEqual(log_entry["resource_type"], "compliance_case_report")
+        self.assertEqual(log_entry["resource_id"], "44444444-4444-4444-8444-444444444444")
+        self.assertEqual(log_entry["metadata"]["detail"], "compliance_case_report_role_required")
+        self.assertEqual(log_entry["metadata"]["endpoint"], "/api/v1/compliance/cases/{case_id}/report")
+        self.assertEqual(log_entry["metadata"]["effective_role"], "COMPLIANCE_OFFICER")
+        self.assertEqual(log_entry["metadata"]["allowed_roles"], ["ADMIN", "ANALYST"])
+
+    def test_counterparty_read_role_accepts_reviewer(self) -> None:
+        _state, pool = self._build_state()
+
+        normalized_role = main._require_counterparty_read_role(
+            pool,
+            organization_id="org-1",
+            user_id="11111111-1111-1111-1111-111111111111",
+            external_user_id=None,
+            request_id="req-counterparty-read-reviewer",
+            x_role="REVIEWER",
+            resource_id=None,
+            endpoint="/api/v1/compliance/counterparties",
+            method="GET",
+        )
+
+        self.assertEqual(normalized_role, "REVIEWER")
+        self.assertEqual(pool._connection.commit_calls, 0)
+
+    def test_counterparty_read_role_rejects_viewer_and_records_denial(self) -> None:
+        state, pool = self._build_state()
+
+        with self.assertRaises(main.HTTPException) as ctx:
+            main._require_counterparty_read_role(
+                pool,
+                organization_id="org-1",
+                user_id="11111111-1111-1111-1111-111111111111",
+                external_user_id=None,
+                request_id="req-counterparty-read-viewer",
+                x_role="VIEWER",
+                resource_id=None,
+                endpoint="/api/v1/compliance/counterparties",
+                method="GET",
+            )
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, "counterparty_read_role_required")
+        self.assertEqual(pool._connection.commit_calls, 1)
+        self.assertEqual(len(state["audit_logs"]), 1)
+        log_entry = state["audit_logs"][0]
+        self.assertEqual(log_entry["action"], "authorization_denied")
+        self.assertEqual(log_entry["resource_type"], "counterparty_read")
+        self.assertEqual(log_entry["metadata"]["detail"], "counterparty_read_role_required")
+        self.assertEqual(log_entry["metadata"]["endpoint"], "/api/v1/compliance/counterparties")
+        self.assertEqual(
+            log_entry["metadata"]["allowed_roles"],
+            ["ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER", "OTK_REVIEWER", "REVIEWER"],
+        )
+
+    def test_counterparty_create_role_accepts_compliance_officer(self) -> None:
+        _state, pool = self._build_state()
+
+        normalized_role = main._require_counterparty_create_role(
+            pool,
+            organization_id="org-1",
+            user_id="11111111-1111-1111-1111-111111111111",
+            external_user_id=None,
+            request_id="req-counterparty-create-co",
+            x_role="COMPLIANCE_OFFICER",
+            resource_id=None,
+            endpoint="/api/v1/compliance/counterparties",
+            method="POST",
+        )
+
+        self.assertEqual(normalized_role, "COMPLIANCE_OFFICER")
+        self.assertEqual(pool._connection.commit_calls, 0)
+
+    def test_counterparty_create_role_rejects_viewer_and_records_denial(self) -> None:
+        state, pool = self._build_state()
+
+        with self.assertRaises(main.HTTPException) as ctx:
+            main._require_counterparty_create_role(
+                pool,
+                organization_id="org-1",
+                user_id="11111111-1111-1111-1111-111111111111",
+                external_user_id=None,
+                request_id="req-counterparty-create-viewer",
+                x_role="VIEWER",
+                resource_id=None,
+                endpoint="/api/v1/compliance/counterparties",
+                method="POST",
+            )
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, "counterparty_create_role_required")
+        self.assertEqual(pool._connection.commit_calls, 1)
+        self.assertEqual(len(state["audit_logs"]), 1)
+        log_entry = state["audit_logs"][0]
+        self.assertEqual(log_entry["action"], "authorization_denied")
+        self.assertEqual(log_entry["resource_type"], "counterparty_creation")
+        self.assertEqual(log_entry["metadata"]["detail"], "counterparty_create_role_required")
+        self.assertEqual(log_entry["metadata"]["endpoint"], "/api/v1/compliance/counterparties")
+        self.assertEqual(
+            log_entry["metadata"]["allowed_roles"],
+            ["ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"],
+        )
+
+    def test_sanctions_check_role_accepts_compliance_officer(self) -> None:
+        _state, pool = self._build_state()
+
+        normalized_role = main._require_sanctions_check_role(
+            pool,
+            organization_id="org-1",
+            user_id="11111111-1111-1111-1111-111111111111",
+            external_user_id=None,
+            request_id="req-sanctions-check-co",
+            x_role="COMPLIANCE_OFFICER",
+            resource_id="0xabc",
+            endpoint="/api/v1/compliance/sanctions-check/{address}",
+            method="GET",
+        )
+
+        self.assertEqual(normalized_role, "COMPLIANCE_OFFICER")
+        self.assertEqual(pool._connection.commit_calls, 0)
+
+    def test_sanctions_check_role_rejects_viewer_and_records_denial(self) -> None:
+        state, pool = self._build_state()
+
+        with self.assertRaises(main.HTTPException) as ctx:
+            main._require_sanctions_check_role(
+                pool,
+                organization_id="org-1",
+                user_id="11111111-1111-1111-1111-111111111111",
+                external_user_id=None,
+                request_id="req-sanctions-check-viewer",
+                x_role="VIEWER",
+                resource_id="0xabc",
+                endpoint="/api/v1/compliance/sanctions-check/{address}",
+                method="GET",
+            )
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, "sanctions_check_role_required")
+        self.assertEqual(pool._connection.commit_calls, 1)
+        self.assertEqual(len(state["audit_logs"]), 1)
+        log_entry = state["audit_logs"][0]
+        self.assertEqual(log_entry["action"], "authorization_denied")
+        self.assertEqual(log_entry["resource_type"], "sanctions_screening")
+        self.assertEqual(log_entry["resource_id"], "0xabc")
+        self.assertEqual(log_entry["metadata"]["detail"], "sanctions_check_role_required")
+        self.assertEqual(log_entry["metadata"]["endpoint"], "/api/v1/compliance/sanctions-check/{address}")
+        self.assertEqual(
+            log_entry["metadata"]["allowed_roles"],
+            ["ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"],
+        )
+
+    def test_kyc_wallet_role_accepts_analyst(self) -> None:
+        _state, pool = self._build_state()
+
+        normalized_role = main._require_kyc_wallet_role(
+            pool,
+            organization_id="org-1",
+            user_id="11111111-1111-1111-1111-111111111111",
+            external_user_id=None,
+            request_id="req-kyc-wallet-analyst",
+            x_role="ANALYST",
+            resource_id="0xabc",
+            endpoint="/api/v1/compliance/kyc-wallet",
+            method="POST",
+        )
+
+        self.assertEqual(normalized_role, "ANALYST")
+        self.assertEqual(pool._connection.commit_calls, 0)
+
+    def test_kyc_wallet_role_rejects_viewer_and_records_denial(self) -> None:
+        state, pool = self._build_state()
+
+        with self.assertRaises(main.HTTPException) as ctx:
+            main._require_kyc_wallet_role(
+                pool,
+                organization_id="org-1",
+                user_id="11111111-1111-1111-1111-111111111111",
+                external_user_id=None,
+                request_id="req-kyc-wallet-viewer",
+                x_role="VIEWER",
+                resource_id="0xabc",
+                endpoint="/api/v1/compliance/kyc-wallet",
+                method="POST",
+            )
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, "kyc_wallet_role_required")
+        self.assertEqual(pool._connection.commit_calls, 1)
+        self.assertEqual(len(state["audit_logs"]), 1)
+        log_entry = state["audit_logs"][0]
+        self.assertEqual(log_entry["action"], "authorization_denied")
+        self.assertEqual(log_entry["resource_type"], "compliance_screening")
+        self.assertEqual(log_entry["resource_id"], "0xabc")
+        self.assertEqual(log_entry["metadata"]["detail"], "kyc_wallet_role_required")
+        self.assertEqual(log_entry["metadata"]["endpoint"], "/api/v1/compliance/kyc-wallet")
+        self.assertEqual(
+            log_entry["metadata"]["allowed_roles"],
+            ["ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"],
+        )
+
+    def test_risk_check_role_accepts_compliance_officer(self) -> None:
+        _state, pool = self._build_state()
+
+        normalized_role = main._require_risk_check_role(
+            pool,
+            organization_id="org-1",
+            user_id="11111111-1111-1111-1111-111111111111",
+            external_user_id=None,
+            request_id="req-risk-check-co",
+            x_role="COMPLIANCE_OFFICER",
+            resource_id="0xabc",
+            endpoint="/api/v1/compliance/risk-check",
+            method="POST",
+        )
+
+        self.assertEqual(normalized_role, "COMPLIANCE_OFFICER")
+        self.assertEqual(pool._connection.commit_calls, 0)
+
+    def test_risk_check_role_rejects_viewer_and_records_denial(self) -> None:
+        state, pool = self._build_state()
+
+        with self.assertRaises(main.HTTPException) as ctx:
+            main._require_risk_check_role(
+                pool,
+                organization_id="org-1",
+                user_id="11111111-1111-1111-1111-111111111111",
+                external_user_id=None,
+                request_id="req-risk-check-viewer",
+                x_role="VIEWER",
+                resource_id="0xabc",
+                endpoint="/api/v1/compliance/risk-check",
+                method="POST",
+            )
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, "risk_check_role_required")
+        self.assertEqual(pool._connection.commit_calls, 1)
+        self.assertEqual(len(state["audit_logs"]), 1)
+        log_entry = state["audit_logs"][0]
+        self.assertEqual(log_entry["action"], "authorization_denied")
+        self.assertEqual(log_entry["resource_type"], "compliance_screening")
+        self.assertEqual(log_entry["resource_id"], "0xabc")
+        self.assertEqual(log_entry["metadata"]["detail"], "risk_check_role_required")
+        self.assertEqual(log_entry["metadata"]["endpoint"], "/api/v1/compliance/risk-check")
+        self.assertEqual(
+            log_entry["metadata"]["allowed_roles"],
+            ["ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"],
+        )
+
+    def test_due_diligence_role_accepts_compliance_officer(self) -> None:
+        _state, pool = self._build_state()
+
+        normalized_role = main._require_due_diligence_role(
+            pool,
+            organization_id="org-1",
+            user_id="11111111-1111-1111-1111-111111111111",
+            external_user_id=None,
+            request_id="req-due-diligence-co",
+            x_role="COMPLIANCE_OFFICER",
+            resource_id="0xabc",
+            endpoint="/api/v1/compliance/due-diligence",
+            method="POST",
+        )
+
+        self.assertEqual(normalized_role, "COMPLIANCE_OFFICER")
+        self.assertEqual(pool._connection.commit_calls, 0)
+
+    def test_due_diligence_role_rejects_viewer_and_records_denial(self) -> None:
+        state, pool = self._build_state()
+
+        with self.assertRaises(main.HTTPException) as ctx:
+            main._require_due_diligence_role(
+                pool,
+                organization_id="org-1",
+                user_id="11111111-1111-1111-1111-111111111111",
+                external_user_id=None,
+                request_id="req-due-diligence-viewer",
+                x_role="VIEWER",
+                resource_id="0xabc",
+                endpoint="/api/v1/compliance/due-diligence",
+                method="POST",
+            )
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, "due_diligence_role_required")
+        self.assertEqual(pool._connection.commit_calls, 1)
+        self.assertEqual(len(state["audit_logs"]), 1)
+        log_entry = state["audit_logs"][0]
+        self.assertEqual(log_entry["action"], "authorization_denied")
+        self.assertEqual(log_entry["resource_type"], "compliance_screening")
+        self.assertEqual(log_entry["resource_id"], "0xabc")
+        self.assertEqual(log_entry["metadata"]["detail"], "due_diligence_role_required")
+        self.assertEqual(log_entry["metadata"]["endpoint"], "/api/v1/compliance/due-diligence")
+        self.assertEqual(
+            log_entry["metadata"]["allowed_roles"],
+            ["ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"],
+        )
+
+    def test_source_of_funds_role_accepts_analyst(self) -> None:
+        _state, pool = self._build_state()
+
+        normalized_role = main._require_source_of_funds_role(
+            pool,
+            organization_id="org-1",
+            user_id="11111111-1111-1111-1111-111111111111",
+            external_user_id=None,
+            request_id="req-source-of-funds-analyst",
+            x_role="ANALYST",
+            resource_id="0xabc",
+            endpoint="/api/v1/compliance/source-of-funds",
+            method="POST",
+        )
+
+        self.assertEqual(normalized_role, "ANALYST")
+        self.assertEqual(pool._connection.commit_calls, 0)
+
+    def test_source_of_funds_role_rejects_viewer_and_records_denial(self) -> None:
+        state, pool = self._build_state()
+
+        with self.assertRaises(main.HTTPException) as ctx:
+            main._require_source_of_funds_role(
+                pool,
+                organization_id="org-1",
+                user_id="11111111-1111-1111-1111-111111111111",
+                external_user_id=None,
+                request_id="req-source-of-funds-viewer",
+                x_role="VIEWER",
+                resource_id="0xabc",
+                endpoint="/api/v1/compliance/source-of-funds",
+                method="POST",
+            )
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, "source_of_funds_role_required")
+        self.assertEqual(pool._connection.commit_calls, 1)
+        self.assertEqual(len(state["audit_logs"]), 1)
+        log_entry = state["audit_logs"][0]
+        self.assertEqual(log_entry["action"], "authorization_denied")
+        self.assertEqual(log_entry["resource_type"], "compliance_screening")
+        self.assertEqual(log_entry["resource_id"], "0xabc")
+        self.assertEqual(log_entry["metadata"]["detail"], "source_of_funds_role_required")
+        self.assertEqual(log_entry["metadata"]["endpoint"], "/api/v1/compliance/source-of-funds")
+        self.assertEqual(
+            log_entry["metadata"]["allowed_roles"],
+            ["ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"],
+        )
+
+    def test_block_evaluate_role_accepts_legacy_otk_compliance_officer(self) -> None:
+        _state, pool = self._build_state()
+
+        normalized_role = main._require_block_evaluate_role(
+            pool,
+            organization_id="org-1",
+            user_id="11111111-1111-1111-1111-111111111111",
+            external_user_id=None,
+            request_id="req-block-evaluate-legacy-co",
+            x_role="OTK_COMPLIANCE_OFFICER",
+            resource_id="block-eval-1",
+            endpoint="/api/v1/compliance/blocks/evaluate",
+            method="POST",
+        )
+
+        self.assertEqual(normalized_role, "OTK_COMPLIANCE_OFFICER")
+        self.assertEqual(pool._connection.commit_calls, 0)
+
+    def test_block_evaluate_role_rejects_viewer_and_records_denial(self) -> None:
+        state, pool = self._build_state()
+
+        with self.assertRaises(main.HTTPException) as ctx:
+            main._require_block_evaluate_role(
+                pool,
+                organization_id="org-1",
+                user_id="11111111-1111-1111-1111-111111111111",
+                external_user_id=None,
+                request_id="req-block-evaluate-viewer",
+                x_role="VIEWER",
+                resource_id="block-eval-1",
+                endpoint="/api/v1/compliance/blocks/evaluate",
+                method="POST",
+            )
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, "block_evaluate_role_required")
+        self.assertEqual(pool._connection.commit_calls, 1)
+        self.assertEqual(len(state["audit_logs"]), 1)
+        log_entry = state["audit_logs"][0]
+        self.assertEqual(log_entry["action"], "authorization_denied")
+        self.assertEqual(log_entry["resource_type"], "preventive_block_evaluation")
+        self.assertEqual(log_entry["resource_id"], "block-eval-1")
+        self.assertEqual(log_entry["metadata"]["detail"], "block_evaluate_role_required")
+        self.assertEqual(
+            log_entry["metadata"]["allowed_roles"],
+            ["ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"],
+        )
+
+    def test_block_lift_role_accepts_compliance_officer(self) -> None:
+        _state, pool = self._build_state()
+
+        normalized_role = main._require_block_lift_role(
+            pool,
+            organization_id="org-1",
+            user_id="11111111-1111-1111-1111-111111111111",
+            external_user_id=None,
+            request_id="req-block-lift-co",
+            x_role="COMPLIANCE_OFFICER",
+            resource_id="block-1",
+            endpoint="/api/v1/compliance/blocks/{block_id}/lift",
+            method="POST",
+        )
+
+        self.assertEqual(normalized_role, "COMPLIANCE_OFFICER")
+        self.assertEqual(pool._connection.commit_calls, 0)
+
+    def test_block_lift_role_rejects_analyst_and_records_denial(self) -> None:
+        state, pool = self._build_state()
+
+        with self.assertRaises(main.HTTPException) as ctx:
+            main._require_block_lift_role(
+                pool,
+                organization_id="org-1",
+                user_id="11111111-1111-1111-1111-111111111111",
+                external_user_id=None,
+                request_id="req-block-lift-analyst",
+                x_role="ANALYST",
+                resource_id="block-1",
+                endpoint="/api/v1/compliance/blocks/{block_id}/lift",
+                method="POST",
+            )
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, "block_lift_role_required")
+        self.assertEqual(pool._connection.commit_calls, 1)
+        self.assertEqual(len(state["audit_logs"]), 1)
+        log_entry = state["audit_logs"][0]
+        self.assertEqual(log_entry["action"], "authorization_denied")
+        self.assertEqual(log_entry["resource_type"], "preventive_block_lift")
+        self.assertEqual(log_entry["resource_id"], "block-1")
+        self.assertEqual(log_entry["metadata"]["detail"], "block_lift_role_required")
+        self.assertEqual(
+            log_entry["metadata"]["allowed_roles"],
+            ["ADMIN", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"],
+        )
+
+    def test_counterparty_review_role_accepts_reviewer(self) -> None:
+        _state, pool = self._build_state()
+
+        normalized_role = main._require_counterparty_review_role(
+            pool,
+            organization_id="org-1",
+            user_id="11111111-1111-1111-1111-111111111111",
+            external_user_id=None,
+            request_id="req-counterparty-reviewer",
+            x_role="REVIEWER",
+            resource_id="counterparty-1",
+            endpoint="/api/v1/compliance/counterparties/{counterparty_id}/review",
+            method="PATCH",
+        )
+
+        self.assertEqual(normalized_role, "REVIEWER")
+        self.assertEqual(pool._connection.commit_calls, 0)
+
+    def test_counterparty_review_role_rejects_analyst_and_records_denial(self) -> None:
+        state, pool = self._build_state()
+
+        with self.assertRaises(main.HTTPException) as ctx:
+            main._require_counterparty_review_role(
+                pool,
+                organization_id="org-1",
+                user_id="11111111-1111-1111-1111-111111111111",
+                external_user_id=None,
+                request_id="req-counterparty-analyst-review",
+                x_role="ANALYST",
+                resource_id="counterparty-1",
+                endpoint="/api/v1/compliance/counterparties/{counterparty_id}/review",
+                method="PATCH",
+            )
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, "counterparty_review_role_required")
+        self.assertEqual(pool._connection.commit_calls, 1)
+        self.assertEqual(len(state["audit_logs"]), 1)
+        log_entry = state["audit_logs"][0]
+        self.assertEqual(log_entry["action"], "authorization_denied")
+        self.assertEqual(log_entry["resource_type"], "counterparty_review")
+        self.assertEqual(log_entry["resource_id"], "counterparty-1")
+        self.assertEqual(log_entry["metadata"]["detail"], "counterparty_review_role_required")
+        self.assertEqual(
+            log_entry["metadata"]["allowed_roles"],
+            ["ADMIN", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER", "OTK_REVIEWER", "REVIEWER"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -12,9 +12,9 @@ Estado deste arquivo:
 
 ## Baseline de Referencia
 
-- construcao tecnica: `92%`
+- construcao tecnica: `93%`
 - prontidao regulatoria/operacional: `79%`
-- consolidado total: `88%`
+- consolidado total: `89%`
 - accountable oficial da baseline: `pendente de definicao`
 
 ## Escopo do Ciclo

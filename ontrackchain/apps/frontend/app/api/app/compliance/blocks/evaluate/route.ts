@@ -11,7 +11,7 @@ export async function POST(request: Request) {
 
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const body = await request.text();
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik:8080";
+  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const authBaseUrl = process.env.INTERNAL_AUTH_BASE_URL ?? "http://auth-service:9000";
   const validateRes = await fetch(`${authBaseUrl}/validate`, {
     method: "GET",
@@ -45,5 +45,9 @@ export async function POST(request: Request) {
     cache: "no-store"
   });
 
-  return new Response(await res.text(), { status: res.status, headers: { "content-type": "application/json" } });
+  const responseBody = await res.text();
+  return new Response(responseBody || JSON.stringify({ detail: "block_evaluate_role_required" }), {
+    status: res.status,
+    headers: { "content-type": "application/json" }
+  });
 }

@@ -43,6 +43,58 @@ Comportamento atual:
 - `due_diligence` e `source_of_funds` respondem `manual_review_required`
 - `sanctions_check` agora aparece `live` no catalogo e no endpoint direto, ambos sustentados por cache local sincronizado
 
+### `POST /api/v1/compliance/kyc-wallet`
+
+Uso:
+
+- screening AML/KYT autenticado com recomendação operacional de onboarding
+
+Comportamento atual:
+
+- usa o provider AML/KYT configurado para screening autenticado
+- registra `compliance_kyc_wallet_checked` em `audit_logs` quando há contexto organizacional
+- exige `X-Role` operacional (`ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` e alias legado `OTK_COMPLIANCE_OFFICER`)
+- retorna `403 kyc_wallet_role_required` quando o ator não pertence ao recorte
+
+### `POST /api/v1/compliance/risk-check`
+
+Uso:
+
+- score AML/KYT autenticado com dimensões analíticas detalhadas
+
+Comportamento atual:
+
+- usa o provider AML/KYT configurado para scoring autenticado
+- registra `compliance_risk_checked` em `audit_logs` com dimensões e payload do provider quando há contexto organizacional
+- exige `X-Role` operacional (`ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` e alias legado `OTK_COMPLIANCE_OFFICER`)
+- retorna `403 risk_check_role_required` quando o ator não pertence ao recorte
+
+### `POST /api/v1/compliance/due-diligence`
+
+Uso:
+
+- triagem manual assistida de due diligence com contexto opcional de contraparte
+
+Comportamento atual:
+
+- responde `manual_review_required` via capability local
+- registra `compliance_due_diligence_checked` em `audit_logs` quando há contexto organizacional
+- exige `X-Role` operacional (`ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` e alias legado `OTK_COMPLIANCE_OFFICER`)
+- retorna `403 due_diligence_role_required` quando o ator não pertence ao recorte
+
+### `POST /api/v1/compliance/source-of-funds`
+
+Uso:
+
+- análise assistida de origem de fundos com contexto de valor e finalidade
+
+Comportamento atual:
+
+- responde `manual_review_required` via capability local
+- registra `compliance_source_of_funds_checked` em `audit_logs` quando há contexto organizacional
+- exige `X-Role` operacional (`ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` e alias legado `OTK_COMPLIANCE_OFFICER`)
+- retorna `403 source_of_funds_role_required` quando o ator não pertence ao recorte
+
 ### `GET /api/v1/compliance/sanctions-check/{address}`
 
 Uso:
@@ -56,6 +108,7 @@ Comportamento atual:
 - responde `provider_status=live`
 - emite `SANCTIONS_CHECKED` ou `SANCTIONS_HIT` na trilha regulatoria
 - registra `compliance_sanctions_checked` em `audit_logs` quando ha contexto organizacional
+- exige `X-Role` operacional (`ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` e alias legado `OTK_COMPLIANCE_OFFICER`) e retorna `sanctions_check_role_required` quando o ator nao pertence ao recorte
 
 Response exemplo:
 
@@ -76,6 +129,46 @@ Response exemplo:
 }
 ```
 
+### `POST /api/v1/compliance/start`
+
+Uso:
+
+- materializar um `case` de compliance a partir de um `quote` valido, respeitando plan lock e billing do snapshot
+
+Requisitos:
+
+- `X-Org-Id` valido
+- body com `confirmed=true`
+- role `ADMIN|ANALYST|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`
+- quando a role nao atende, o backend persiste `authorization_denied` com `request_id`, `effective_role`, `allowed_roles` e endpoint
+
+Erros relevantes:
+
+- `403 compliance_start_role_required`
+- `412 quote_confirmation_required`
+- `404 quote_not_found`
+- `409 quote_already_used`
+- `410 quote_expired`
+
+### `POST /api/v1/compliance/cases/{case_id}/report`
+
+Uso:
+
+- gerar o relatório operacional do `case` de compliance já materializado, delegando a geração canônica ao `report-api`
+
+Requisitos:
+
+- `X-Org-Id` valido
+- `case_id` pertencente à organizacao e com `case_type='compliance'`
+- role `ADMIN|ANALYST`
+- quando a role nao atende, o backend persiste `authorization_denied` com `request_id`, `effective_role`, `allowed_roles` e endpoint
+- a política do ponto de entrada espelha o gate já aplicado em `POST /api/v1/reports/generate`, evitando drift entre `compliance-api` e `report-api`
+
+Erros relevantes:
+
+- `403 compliance_case_report_role_required`
+- `404 compliance_case_not_found`
+
 ### `POST /api/v1/compliance/blocks/evaluate`
 
 Uso:
@@ -87,6 +180,15 @@ Requisitos:
 - `X-Org-Id` valido
 - role `ADMIN|ANALYST|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`
 - quando a role nao atende, o backend persiste `authorization_denied` com `request_id`, `effective_role`, `allowed_roles` e endpoint
+
+Erros relevantes:
+
+- `403 counterparty_create_role_required`
+- `403 linked_user_required_for_counterparty_creation`
+
+Erros relevantes:
+
+- `403 block_evaluate_role_required`
 
 Request:
 
@@ -135,7 +237,8 @@ Requisitos:
 - `X-MFA-Mode=external_provider`
 - `X-MFA-Provider-Homologated=true`
 - `X-Org-Id` e usuario persistido valido
-- role `ADMIN|ANALYST|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`
+- role `ADMIN|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`
+- `ANALYST` permanece em `blocks/evaluate`, mas nao executa o lift regulatorio
 
 Erros relevantes:
 
@@ -162,6 +265,20 @@ Requisitos:
 - role `ADMIN|ANALYST|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`
 - quando a role nao atende, o backend persiste `authorization_denied` com `request_id`, `effective_role`, `allowed_roles` e endpoint
 
+### `POST /api/v1/compliance/estimate`
+
+Uso:
+
+- cotar custo e operacao canonica antes da abertura de um case de compliance
+
+Comportamento atual:
+
+- resolve alias operacional para o identificador canônico antes do quote
+- persiste `compliance_quotes` com `quote_id`, plano, operação e tabela de pricing aplicada
+- exige `X-Role` operacional compatível (`ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `OTK_COMPLIANCE_OFFICER`)
+- retorna `403 compliance_estimate_role_required` quando a sessão não pertence ao recorte humano de contratação
+- persiste `authorization_denied` auditado com `request_id`, `effective_role`, `allowed_roles` e endpoint quando a role não atende
+
 ### `PATCH /api/v1/compliance/counterparties/{counterparty_id}/review`
 
 Uso:
@@ -172,14 +289,22 @@ Requisitos:
 
 - `X-Org-Id` valido
 - usuario persistido valido
-- role `ADMIN|ANALYST|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`
+- role `ADMIN|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER|REVIEWER|OTK_REVIEWER`
 - quando a role nao atende, o backend persiste `authorization_denied` com `request_id`, `effective_role`, `allowed_roles` e endpoint
+- `ANALYST` permanece no onboarding/operacao de `counterparties`, mas nao executa a revisao formal DD/SoF
 
 ### `GET /api/v1/compliance/counterparties`
 
 Uso:
 
 - listar contrapartes da organizacao com paginacao basica por `limit/offset`
+
+Comportamento atual:
+
+- retorna carteira operacional com `risk_level`, `kyc_status`, `PEP`, janela de revisao e snapshot DD/SoF
+- exige `X-Role` regulatorio compativel (`ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `OTK_COMPLIANCE_OFFICER`, `REVIEWER`, `OTK_REVIEWER`)
+- retorna `403 counterparty_read_role_required` quando a sessao nao possui leitura operacional regulatoria
+- persiste `authorization_denied` auditado com `request_id`, `effective_role`, `allowed_roles` e endpoint quando a role nao atende
 
 ## Report API
 
@@ -629,6 +754,18 @@ Uso:
 
 - metadados e download de relatorios deterministas
 
+Requisitos para `GET /api/v1/reports/{report_id}`:
+
+- `ADMIN`, `AUDITOR` e `ANALYST` podem ler metadados e contexto operacional rico do relatório
+- `VIEWER` permanece apenas no trilho de catálogo/listagem e recebe `403 report_detail_role_required` ao tentar abrir o detalhe dedicado
+- o App Router de `/api/app/reports/{reportId}` preserva esse recorte e devolve o `detail` canônico para o cockpit
+
+Requisitos para `GET /api/v1/reports/{report_id}/download`:
+
+- `ADMIN`, `AUDITOR` e `ANALYST` podem baixar o artefato comum do relatório
+- `VIEWER` nao pode baixar o artefato comum e recebe `403 report_download_role_required`
+- o App Router de `/api/app/reports/download` preserva o recorte e faz bloqueio precoce coerente com a UX
+
 Regra para `legal_report`:
 
 - `X-Auth-Method=jwt`
@@ -636,7 +773,191 @@ Regra para `legal_report`:
 - `X-2FA=ok` no trilho local
 - ou `X-MFA-Mode=external_provider` + `X-MFA-Provider-Homologated=true` + `X-2FA=managed_externally|managed_externally_homologated`
 
+## Auth Service
+
+### `POST /api/v1/team/users`
+
+Uso:
+
+- criar administrativamente um usuário local no diretório do tenant
+
+Requisitos:
+
+- `X-Org-Id` valido
+- role `ADMIN`
+- body com `email`, `role`, `status` e opcionais `name`, `note`
+- quando a role nao atende, o backend retorna `403 team_user_create_role_required`
+- o App Router de `/api/app/team/users` preserva o `detail` canônico do backend mesmo quando a resposta chega sem corpo útil
+
+Erros relevantes:
+
+- `403 team_user_create_role_required`
+- `409 team_user_email_already_exists`
+- `500 team_user_create_failed`
+
+### `PATCH /api/v1/team/users/{member_id}`
+
+Uso:
+
+- editar administrativamente um usuário local do tenant ou desativá-lo por `status=disabled`
+
+Requisitos:
+
+- `X-Org-Id` valido
+- role `ADMIN`
+- `member_id` válido e pertencente ao tenant atual
+- quando a operação é edição comum, o backend retorna `403 team_user_update_role_required` para role não autorizada
+- quando a operação é desativação (`status=disabled`), o backend retorna `403 team_user_disable_role_required` para role não autorizada
+- o App Router de `/api/app/team/users/{memberId}` preserva o `detail` canônico do backend, diferenciando `update` de `disable`
+
+Erros relevantes:
+
+- `403 team_user_update_role_required`
+- `403 team_user_disable_role_required`
+- `404 team_user_not_found`
+- `409 team_user_email_already_exists`
+- `422 invalid_team_user_id`
+- `500 team_user_update_failed`
+
+### `GET /api/v1/team/users/{member_id}/external-identities`
+
+Uso:
+
+- ler administrativamente os vínculos federados persistidos de um usuário local do tenant
+
+Requisitos:
+
+- `X-Org-Id` valido
+- role `ADMIN`
+- `member_id` válido e pertencente ao tenant atual
+- quando a role nao atende, o backend retorna `403 team_federated_identity_read_role_required`
+- o App Router de `/api/app/team/users/{memberId}/external-identities` preserva o `detail` canônico do backend mesmo quando a resposta chega sem corpo útil
+
+Erros relevantes:
+
+- `403 team_federated_identity_read_role_required`
+- `404 team_user_not_found`
+- `422 invalid_team_user_id`
+
+### `POST /api/v1/team/users/{member_id}/external-identities`
+
+Uso:
+
+- vincular manualmente um principal federado persistido ao usuário local selecionado do tenant
+
+Requisitos:
+
+- `X-Org-Id` valido
+- `member_id` pertencente ao tenant atual
+- role `ADMIN`
+- body com `provider` e `external_subject` validos; `email_snapshot` e `role_snapshot` permanecem opcionais
+- quando a role nao atende, o backend retorna `403 team_federated_identity_link_role_required`
+- o App Router de `/api/app/team/users/{memberId}/external-identities` preserva o `detail` canônico do backend, evitando drift entre BFF e `auth-service`
+- o backend emite trilha auditavel local com `team_external_identity_linked`
+
+Erros relevantes:
+
+- `403 team_federated_identity_link_role_required`
+- `409 team_external_identity_already_linked`
+- `422 team_external_identity_provider_required`
+- `422 team_external_identity_provider_invalid`
+- `422 team_external_identity_subject_required`
+
+### `DELETE /api/v1/team/users/{member_id}/external-identities`
+
+Uso:
+
+- desvincular manualmente um principal federado persistido do usuário local selecionado do tenant
+
+Requisitos:
+
+- `X-Org-Id` valido
+- `member_id` pertencente ao tenant atual
+- role `ADMIN`
+- body com `provider` e `external_subject` validos
+- quando a role nao atende, o backend retorna `403 team_federated_identity_unlink_role_required`
+- o App Router de `/api/app/team/users/{memberId}/external-identities` preserva o `detail` canônico do backend, evitando mascarar recusas de autorizacao
+- o backend emite trilha auditavel local com `team_external_identity_unlinked`
+
+Erros relevantes:
+
+- `403 team_federated_identity_unlink_role_required`
+- `404 team_external_identity_not_found`
+- `422 team_external_identity_provider_required`
+- `422 team_external_identity_provider_invalid`
+- `422 team_external_identity_subject_required`
+
+### `GET /api/v1/team/federated-directory/users`
+
+Uso:
+
+- buscar candidatos no diretório federado do IdP com enriquecimento local de vínculo, match por tenant e validação preliminar de role
+
+Query:
+
+- `query` obrigatório
+- `limit` opcional (default `20`)
+
+Requisitos:
+
+- `X-Org-Id` valido
+- role `ADMIN`
+- quando a role nao atende, o backend retorna `403 team_federated_directory_search_role_required`
+- o App Router de `/api/app/team/federated-directory/users` preserva o `detail` canônico do backend mesmo quando a resposta chega sem corpo útil
+- o backend registra `team_federated_directory_searched` em `audit_logs`
+
+Erros relevantes:
+
+- `403 team_federated_directory_search_role_required`
+- `422 federated_directory_query_required`
+- `422 federated_directory_limit_invalid`
+- `503 federated_directory_unavailable`
+- `503 federated_directory_forbidden`
+
+### `POST /api/v1/team/federated-directory/suggestions`
+
+Uso:
+
+- validar tardiamente uma sugestão de vínculo federado antes do `link` efetivo, consultando o IdP e cruzando `member_id`, `org`, `email` e `role`
+
+Requisitos:
+
+- `X-Org-Id` valido
+- role `ADMIN`
+- body com `member_id`, `provider` e `external_subject`
+- quando a role nao atende, o backend retorna `403 team_federated_directory_suggestion_role_required`
+- o App Router de `/api/app/team/federated-directory/suggestions` preserva o `detail` canônico do backend mesmo quando a resposta chega sem corpo útil
+- o backend registra `team_federated_directory_suggestion_validated` em `audit_logs`
+
+Erros relevantes:
+
+- `403 team_federated_directory_suggestion_role_required`
+- `404 federated_directory_candidate_not_found`
+- `422 invalid_team_user_id`
+- `422 team_external_identity_provider_invalid`
+- `422 team_external_identity_subject_required`
+- `503 federated_directory_unavailable`
+
 ## Evidence API
+
+### `POST /api/app/reports/formal-dossier`
+
+Uso:
+
+- compor e exportar o dossiê formal JSON de um relatório a partir do cockpit `reports`
+
+Comportamento atual:
+
+- autentica a sessão via `auth-service /validate`
+- exige role `ADMIN` ou `AUDITOR`
+- quando a role nao atende, retorna `403 report_formal_dossier_role_required`
+- chama `POST /api/v1/audit/evidence-export` para compor o bundle correlacionado
+- responde com JSON baixável e `Content-Disposition` próprio do dossiê formal
+
+Erros relevantes:
+
+- `403 report_formal_dossier_role_required`
+- `422 invalid_formal_dossier_payload`
 
 ### `POST /api/app/evidence/manual-package`
 
@@ -999,6 +1320,64 @@ Comportamento atual:
 - o mesmo export propaga o resumo leve de RCA via `rca_*`, incluindo dominio, contencao, commander, dominios afetados, impacto, causa suspeita/confirmada, acoes corretivas e referencias de evidencia
 - no formato `csv`, os campos de lista (`affected_domains`, `corrective_actions`, `evidence_refs`) saem serializados como JSON em colunas `*_json`
 - a ausencia de `work-item` nao bloqueia o export; os campos `work_item_*` e `rca_*` permanecem `null` ou listas vazias
+
+### `POST /api/v1/monitoring/test/trigger-alert`
+
+Uso:
+
+- disparar um alerta sintetico ligado a uma `watchlist` existente para validacao/QA do cockpit de monitoring
+
+Controles atuais:
+
+- endpoint disponivel apenas quando `enable_test_endpoints=true`
+- exige `X-Role` efetivo dentro de `ADMIN|TESTER|OTK_TESTER`
+- persiste `authorization_denied` quando uma role fora desse recorte tenta operar o endpoint
+
+## Investigation API
+
+### `POST /api/v1/investigation/estimate`
+
+Uso:
+
+- gerar quote operacional para abertura de investigação
+
+Controles atuais:
+
+- exige papel humano operacional `ADMIN|ANALYST|OTK_ANALYST`
+- integrações server-to-server continuam no trilho de `API Key`
+
+### `POST /api/v1/investigation/start`
+
+Uso:
+
+- consumir quote válido e abrir o case operacional de investigação
+
+Controles atuais:
+
+- exige papel humano operacional `ADMIN|ANALYST|OTK_ANALYST`
+- integrações server-to-server continuam no trilho de `API Key`
+
+### `POST /api/v1/investigation/{case_id}/internal/complete`
+
+Uso:
+
+- endpoint interno usado pelo `investigation-worker` para finalizar casos e consolidar cobrança/ledger
+
+Controles atuais:
+
+- exige `X-Internal-Token` (segredo interno compartilhado entre worker e API)
+- o segredo é configurado via `INVESTIGATION_INTERNAL_WORKER_TOKEN`
+
+### `POST /api/v1/investigation/{case_id}/internal/fail`
+
+Uso:
+
+- endpoint interno usado pelo `investigation-worker` para marcar caso como falho e efetuar refund/ledger
+
+Controles atuais:
+
+- exige `X-Internal-Token` (segredo interno compartilhado entre worker e API)
+- o segredo é configurado via `INVESTIGATION_INTERNAL_WORKER_TOKEN`
 
 ## Operations API
 
