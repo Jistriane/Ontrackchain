@@ -4,16 +4,16 @@
 
 Centralizar a documentacao viva do Ontrackchain em um unico indice, reduzindo drift entre codigo, runtime, operacao e narrativa executiva.
 
-Estado de referencia atual:
+## Snapshot Atual
 
-- baseline oficial: `92%` tecnico, `79%` regulatorio/operacional, `88%` consolidado
+- baseline oficial: `93%` tecnico, `79%` regulatorio/operacional, `89%` consolidado
 - frontend operacional com tri-locale, contratos compartilhados e 7 cockpits convergidos ao mesmo modelo de workspace
-- `monitoring` decomposto em loaders, hooks e paineis dedicados
-- `P1-01` concluido com contrato unificado de metadata para `work-items`
+- `monitoring` modularizado em loaders, hooks e paineis dedicados
+- `P1-01` consolidado para metadata de `work-items`
 - `P2-03` consolidado com RCA cross-domain leve
-- `P2-05` em execucao incremental com `REVIEWER` e `BILLING_ADMIN` em superficies reais
-- Playwright institucionalizado por classes (`stack real leve`, `browser-mocked`, `ssr-mocked`, `dev-auth`, `oidc-critical`)
-- o blueprint atual do Render foi reduzido para `frontend-only`; staging serio full-stack continua documentado separadamente
+- `P2-05` segue em execucao incremental, com enforcement fino ja expandido por `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties` e navegacao global sensivel
+- Playwright institucionalizado por classes: `stack real leve`, `browser-mocked`, `ssr-mocked`, `dev-auth` e `oidc-critical`
+- o blueprint atual do Render voltou ao modo `staging full-stack`, com gateway, auth, Keycloak, banco, workers e observabilidade
 
 ## Precedencia Documental
 
@@ -21,25 +21,23 @@ Use esta ordem quando houver conflito:
 
 1. arquivos canonicamente indexados neste `docs/README.md`
 2. evidencias datadas e sign-offs em `docs/governance-weekly/`
-3. READMEs tecnicos locais em subpastas especificas (`infra/`, `migrations/`, etc.)
+3. READMEs tecnicos locais em subpastas especificas
 
 Arquivos paralelos fora dessa trilha devem ser consolidados, arquivados ou removidos.
 
 ## Taxonomia Documental
 
-Use esta classificacao para decidir onde cada artefato deve viver:
-
 - `documentacao viva`: arquivos `docs/*.md` indexados aqui e usados como fonte primaria de arquitetura, contrato, operacao, readiness e governanca executiva
-- `documentacao historica`: artefatos datados preservados em `docs/history/` apenas como registro frio, nunca como baseline corrente
-- `documentacao gerada`: artefatos produzidos automaticamente em `docs/governance-weekly/generated/`, especialmente no namespace `generated/windows/<window_id>/`
 - `documentacao de ciclo`: materiais humanos datados ainda ativos em `docs/governance-weekly/cycles/`
+- `documentacao gerada`: artefatos produzidos automaticamente em `docs/governance-weekly/generated/`, especialmente `generated/windows/<window_id>/`
+- `documentacao historica`: artefatos datados preservados em `docs/history/` apenas como registro frio, nunca como baseline corrente
 - `documentacao arquivada`: historico preservado em `docs/governance-weekly/archive/`
-- `.publish_repo/`, quando existir na raiz agregadora, deve ser tratado apenas como espelho de publicacao e nunca como fonte primaria de baseline, contrato ou status
+- o espelho legado `.publish_repo/` foi aposentado e removido em `2026-07-15`; a unica fonte primaria de baseline, contrato e status passa a ser esta arvore canônica
 
 Regras objetivas:
 
 - se o arquivo governa decisao atual, ele deve estar indexado neste `README`
-- se o arquivo e evidência de uma semana/janela especifica, ele deve viver em `governance-weekly/`
+- se o arquivo e evidencia de uma semana ou janela especifica, ele deve viver em `governance-weekly/`
 - se o arquivo foi superado mas ainda tem valor de trilha, ele deve viver em `history/` ou `archive/`
 - se o arquivo repete contrato, comando ou checklist ja coberto por fonte canônica, ele deve ser consolidado ou removido
 
@@ -50,30 +48,33 @@ Regras objetivas:
 - [Arquitetura](./architecture.md): boundaries do sistema, dados, tabelas-chave e regras criticas
 - [Contratos de API](./api-contracts.md): endpoints, payloads e fluxos expostos
 - [Arquitetura da Selagem DD/SoF](./evidence-manual-package-strong-sealing-architecture.md): visao arquitetural da trilha de selagem institucional forte ja implementada no baseline atual
-- [Cobertura do Frontend](./frontend-coverage-matrix.md): rotas reais, cobertura por modulo e lacunas remanescentes
-- [Rastreabilidade de Regressao Estatica do Frontend](./frontend-static-regression-traceability.md): mapeia `cockpit -> spec -> contrato protegido`
-- [Checklist de Regressao Estatica do Frontend](./frontend-static-regression-checklist.md): gate operacional da trilha de contratos visuais e semanticos
-- [Checklist de Rollout dos Contratos Visuais](./frontend-visual-contract-rollout-checklist.md): criterio de rollout seguro do hardening de UI
+- [Cobertura do Frontend](./frontend-coverage-matrix.md): rotas reais, cobertura por modulo, lacunas remanescentes e resumo executivo da trilha estatica
+- [Rastreabilidade Canonica de Regressao Estatica do Frontend](./frontend-static-regression-traceability.md): fonte unica do mapeamento `cockpit -> spec -> contrato protegido`
+- [Checklist Canonico de Regressao Estatica e Contratos Visuais do Frontend](./frontend-static-regression-checklist.md): documento canonico da trilha de contratos visuais, regressao estatica e gate de rollout
+- [Checklist de Rollout dos Contratos Visuais](./frontend-visual-contract-rollout-checklist.md): ponte de compatibilidade para links legados, redirecionando ao checklist canonico
 - [RBAC e Permissoes](./rbac-and-permissions.md): matriz funcional de acesso
 - [Roadmap de Secrets e RBAC para Producao](./production-secrets-and-rbac-roadmap.md): caminho canonico pos-90% para `P2-04` e `P2-05`
 
 ### Operacao e Release
 
 - [Operacao Local](./operations.md): bootstrap local, troubleshooting e comandos do dia a dia
-- [Deploy e Staging](./deploy-and-staging.md): fluxo `prepare -> validate -> preflight -> run`
-- [Blueprint Render para Frontend-Only](./render-staging-blueprint.md): estado atual do deploy publico no Render, limitado ao shell do frontend
-- [GitHub Environment para Staging Serio](./github-environment-staging-serious.md): contrato operacional do environment manual usado na janela seria
+- [Deploy e Staging](./deploy-and-staging.md): fonte canonica do fluxo tecnico `prepare -> validate -> preflight -> run`
+- [Blueprint Render para Staging Full-Stack](./render-staging-blueprint.md): fonte canonica da topologia hospedada e do preenchimento manual `sync: false` no Render
+- [GitHub Environment para Staging Serio](./github-environment-staging-serious.md): fonte canonica do workflow manual, approvals e secret multi-linha da janela seria
 - [Template Keycloak OIDC](./keycloak-oidc-template.md): referencia de configuracao inicial do IdP, util para alinhamento com `environment-variables.md`
 - [Variaveis de Ambiente](./environment-variables.md): baseline por servico e overrides
 - [CI/CD e Release](./ci-cd-and-release.md): workflows, quality gates e promocao
 - [Runbooks Operacionais](./runbooks.md): resposta inicial por sintoma e severidade
+- [Run Sheet da Malha E2E Local](./governance-weekly/guides/E2E_LOCAL_MESH_RUN_SHEET.md): preflight, guardrails e triagem objetiva da baseline Playwright local
 - [Playbook de Incidente Cross-Domain e RCA](./cross-domain-incident-rca-playbook.md): escalacao leve, ownership e fechamento de causa raiz sem abrir um servico novo
 - [Pre-Production Checklist](./pre-production-checklist.md): validacoes obrigatorias antes de promover
 
 ### Validacao, Compliance e Auditoria
 
 - [Validacao e Auditoria](./validation-and-audit.md): smoke, Playwright, preflights e evidencias
+- [Validacao em Staging - Diretorio Federado](./federated-directory-staging-validation.md): trilha complementar do diretorio federado em `staging`, usada por guias e validacoes ativas
 - [Compliance e Controles de Seguranca](./compliance-and-security-controls.md): enforcement e gaps residuais
+- [Relatorios de Compliance (Gerados)](./compliance-reports/README.md): outputs gerados a partir das metricas de governanca, usados como apoio para revisao operacional
 - [Matriz de Evidencias e Auditoria](./evidence-and-audit-matrix.md): relacao entre fluxos, artefatos e provas
 - [Readiness Regulatorio](./regulatory-readiness.md): leitura honesta da prontidao regulatoria
 - [Retention e Recovery](./retention-and-recovery-policy.md): baseline de recuperacao e retencao
@@ -85,29 +86,23 @@ Regras objetivas:
 - [Kit de Execucao por Evidencia](./project-maturity-evidence-execution-kit.md): templates, semaforo e plano `D1-D7`
 - [Scorecard Oficial](./project-kpi-scorecard.md): formula e baseline executiva
 - [Avaliacao de Maturidade](./project-maturity-assessment.md): baseline viva com racional tecnico e regulatorio
-- [Plano Consolidado ate 95%](./project-construction-plan-to-95-percent.md): caminho executivo unificado para sair de `88%` e atingir `95%`
+- [Plano Consolidado ate 95%](./project-construction-plan-to-95-percent.md): fonte canonica da execucao, dos gates operacionais e da cobranca por owner ate `95%`
 - [Assessments formais](./assessments/README.md): pareceres datados de calibracao e `go/no-go`
 - [Avaliacao de Status](./assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md): parecer formal datado de calibracao e `go/no-go`, preservado como corte historico e nao como baseline viva corrente
-- [Board de Prioridades](./project-priority-board.md): prioridades por frente
-- [Board Operacional](./project-operational-execution-board.md): fila diaria de execucao
+- [Board de Prioridades](./project-priority-board.md): fonte canonica da ordem estrategica de ataque por frente
+- [Board Operacional](./project-operational-execution-board.md): fonte canonica do status, owner, evidencia e fila diaria de execucao
 - [Registro de Riscos](./project-risk-register.md): riscos tecnicos, operacionais e regulatorios
-- [Checklist para 95%](./EXECUTION_CHECKLIST_TO_95_PERCENT.md): checklist de cobranca por frente
+- [Checklist para 95%](./EXECUTION_CHECKLIST_TO_95_PERCENT.md): ponte legada de compatibilidade para o plano canônico
 
 ### Janela Seria e Evidencias Datadas
 
 - [Runbook Semanal de Governanca](./project-weekly-governance-runbook.md)
-- [Gates de release](./project-release-gates.md)
-- [Ownership do `.env.staging`](./staging-env-ownership.md)
-- [Ownership e SLAs operacionais](./operational-ownership-and-slas.md)
+- [Gates de release](./project-release-gates.md): fonte canonica da decisao executiva de `go/no-go`
+- [Ownership do `.env.staging`](./staging-env-ownership.md): aplicacao da taxonomia canonica de ownership aos placeholders, handoff e bloqueios da janela
+- [Ownership e SLAs operacionais](./operational-ownership-and-slas.md): fonte canonica de dominios, owners, backups e SLA base por severidade
 - [Matriz de War Room](./staging-serious-window-war-room-matrix.md)
 - [Historico de apoio](./history/README.md): indice de planos, trackers e runbooks datados que nao sao fonte primaria
 - [Governanca Semanal](./governance-weekly/README.md): ciclos, guias permanentes, templates, artefatos gerados e historico datado
-
-### Legado Mantido por Compatibilidade
-
-- [Checklist de Evidencia Minima da Primeira Janela Seria](./history/first-serious-window-evidence-checklist.md): apoio historico movido para `history/`; a fonte viva e `governance-weekly/guides/`
-- [Runbook do Primeiro Disparo Real](./history/first-serious-window-first-dispatch-runbook.md): apoio historico movido para `history/` para reconciliar ciclos antigos
-- [Template de Sign-Off da Janela Seria](./history/staging-serious-window-signoff-template.md): template legado movido para `history/` e preservado apenas para compatibilidade de referencia
 
 ### Decisoes Arquiteturais
 
@@ -127,15 +122,19 @@ Regras objetivas:
 1. `operations.md`
 2. `environment-variables.md`
 3. `validation-and-audit.md`
-4. `deploy-and-staging.md`
+4. `governance-weekly/guides/E2E_LOCAL_MESH_RUN_SHEET.md`
+5. `apps/frontend/tests/e2e/README.md`
+6. `deploy-and-staging.md`
 
 ### Validar integracoes e janela seria
 
 1. `deploy-and-staging.md`
 2. `project-release-gates.md`
-3. `staging-env-ownership.md`
-4. `staging-serious-window-war-room-matrix.md`
-5. `governance-weekly/README.md`
+3. `github-environment-staging-serious.md`
+4. `render-staging-blueprint.md`
+5. `staging-env-ownership.md`
+6. `staging-serious-window-war-room-matrix.md`
+7. `governance-weekly/README.md`
 
 ### Auditar seguranca e compliance
 
@@ -153,9 +152,9 @@ Regras objetivas:
 - documentos redundantes, snapshots soltos ou analises supersedidas devem ser removidos
 - documentos datados mantidos fora de `governance-weekly/` devem carregar aviso explicito de que nao sao fonte primaria
 
-## Consolidacoes Recentes
+## Consolidacoes Relevantes
 
-Esta base ja foi racionalizada para reduzir drift. Como referencia:
+Esta base ja foi racionalizada para reduzir drift. Referencias principais:
 
 - `api-contracts.md` passou a ser a fonte canônica dos contratos HTTP da trilha de selagem DD/SoF
 - `docs/evidence-manual-package-strong-sealing-backlog.md` foi consolidado e removido
@@ -165,8 +164,8 @@ Esta base ja foi racionalizada para reduzir drift. Como referencia:
 - `docs/history/DAY_OF_WINDOW_RUNBOOK_STG_2026_07_06_A.md` foi absorvido pelo ciclo `governance-weekly/cycles/2026-07-06/`
 - os caminhos canônicos de artefatos gerados agora usam `docs/governance-weekly/generated/windows/<window_id>/`
 - o pos-processamento da janela seria agora gera `sign-off`, sincronizacao semanal, board operacional e `go/no-go decision packet` a partir do mesmo payload consolidado
-- a trilha antiga de Render full-stack foi consolidada no documento `render-staging-blueprint.md`, agora alinhado ao blueprint `frontend-only`; o runbook de primeiro sync e o checklist de secrets completos foram removidos por estarem obsoletos
-- `.publish_repo/` foi auditado e classificado como espelho de publicacao nao-canônico, sem evidencia suficiente para delecao automatica nesta rodada
+- o documento `render-staging-blueprint.md` voltou a refletir a topologia `full-stack` do Render, incluindo `Traefik`, `Keycloak`, `auth-service`, `Postgres`, `Key Value`, workers e observabilidade
+- a auditoria de `.publish_repo/` foi concluida com aposentadoria definitiva do espelho em `2026-07-15`, apos confirmacao explicita para descontinuar qualquer uso externo/manual remanescente
 
 ## O Que Esta Documentado Agora
 

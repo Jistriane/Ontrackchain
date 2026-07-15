@@ -246,10 +246,8 @@ Quando houver recalibracao relevante do scorecard, anexar ou embutir um bloco ba
 
 Registro inicial publicado:
 
-- snapshot historico arquivado: [Governança Semanal 2026-06-29](governance-weekly/archive/weekly/2026-06-29-weekly-governance.md)
-- rascunho arquivado e incompleto da janela do dia: [Governança Semanal 2026-06-30](governance-weekly/archive/weekly/2026-06-30-weekly-governance.md)
-- rascunho do próximo ciclo: [Governança Semanal 2026-07-06](governance-weekly/cycles/2026-07-06/2026-07-06-weekly-governance.md)
-- ciclo ativo mais recente: [Ciclo 2026-07-13](governance-weekly/cycles/2026-07-13/README.md)
+- usar [Registros Semanais de Governança](governance-weekly/README.md) como ponto de entrada para localizar o ciclo ativo, o ciclo fechado mais recente e o histórico arquivado
+- quando precisar de snapshots antigos, navegar pelo índice [Histórico Semanal](governance-weekly/archive/weekly/README.md), nunca por links nominais hardcoded neste runbook
 
 ## Checklist de Fechamento
 

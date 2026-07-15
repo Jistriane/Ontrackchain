@@ -4,6 +4,23 @@
 
 Aplicacao principal do projeto: servicos `FastAPI` por dominio, frontend `Next.js 14`, infraestrutura local com `docker compose`, bundles de readiness, trilha regulatoria auditavel e documentacao canônica do produto.
 
+## Leitura Tecnica Rapida
+
+Se voce vai trabalhar no codigo ou operar o ambiente, leia nesta ordem:
+
+1. [Snapshot Tecnico](#snapshot-tecnico)
+2. [Servicos e Dominios](#servicos-e-dominios)
+3. [Quick Start](#quick-start)
+4. [Documentacao Canonica](#documentacao-canonica)
+
+Resumo tecnico:
+
+- baseline oficial: `93%` tecnico, `79%` regulatorio/operacional, `89%` consolidado
+- a baseline viva esta em `docs/README.md`, `docs/project-kpi-scorecard.md` e `docs/project-maturity-assessment.md`
+- o blueprint hospedado voltou ao modo `staging full-stack`, com `gateway`, `Keycloak`, `auth-service`, APIs privadas, `Postgres`, `Key Value`, workers e observabilidade
+- o principal gap nao e mais scaffold, e sim homologacao externa real com prova revisavel
+- a arvore tecnica separa claramente fonte viva, evidencia de ciclo e historico frio
+
 ## Escopo Deste Diretorio
 
 Aqui vivem:
@@ -15,23 +32,32 @@ Aqui vivem:
 - testes automatizados
 - ADRs e documentacao canônica
 
-## Snapshot Tecnico Atual
+Nota de workspace:
 
-- baseline oficial: `92%` tecnico, `79%` regulatorio/operacional, `88%` consolidado
-- o assessment formal datado continua em `docs/assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md`, mas a baseline viva esta em `docs/README.md`, `docs/project-kpi-scorecard.md` e `docs/project-maturity-assessment.md`
-- a leitura documental do workspace agora separa explicitamente fonte viva, evidência de ciclo, historico de apoio e historico frio
-- o blueprint publico atual no Render foi reduzido para `frontend-only`; a trilha de staging serio full-stack continua documentada em `docs/deploy-and-staging.md`
-- frentes recentes ja consolidadas:
-  - `P1-01` metadata de work-items padronizada entre frontend, backend e contrato
-  - `P2-02` timeline/comments compartilhados nos 7 cockpits
-  - `P2-03` RCA cross-domain leve indexada na trilha operacional
-  - `P2-05` RBAC incremental em andamento com `REVIEWER` e `BILLING_ADMIN`
+- alguns artefatos operacionais, especialmente workflows do GitHub Actions, vivem no repositorio agregador pai `/home/jistriane/Ontrackchain`; quando um documento desta arvore apontar para `../.github/workflows/`, trate isso como referencia intencional ao workspace agregado e nao como drift tecnico
 
-## Diagramas de Fluxo
+## Snapshot Tecnico
 
-### Fluxo Tecnico da Plataforma
+### Estado atual
 
-O diagrama abaixo resume como os componentes do workspace cooperam em runtime e onde cada domínio principal se conecta.
+- `P1-01` consolidou metadata de `work-items` entre frontend, backend e contrato canonico
+- `P2-02` consolidou `timeline/comments` compartilhados nos cockpits operacionais
+- `P2-03` consolidou RCA cross-domain leve entre `alerts`, `/monitoring` e governanca
+- `P2-05` segue em expansao incremental com enforcement fino em `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties` e navegacao global
+- a taxonomia documental ja foi saneada para separar documento vivo, ciclo ativo, historico de apoio e historico arquivado
+
+### Gargalos tecnicos atuais
+
+- `P0-01`: homologar `OIDC + MFA` federado em trilho serio
+- `P0-02`: fechar provider `AML/KYT live` com credencial real
+- `P0-03`: fechar feed UE com URL tokenizada real
+- `P0-04`: consolidar bundle regulatorio oficial com evidencias revisaveis
+- `P0-05`: executar a primeira janela seria completa com `go/no-go` formal
+- `P0-06`: formalizar recorrencia de retention/recovery com sign-off institucional
+
+## Fluxo Tecnico da Plataforma
+
+O diagrama abaixo resume como os componentes cooperam em runtime.
 
 ```mermaid
 flowchart LR
@@ -61,23 +87,24 @@ flowchart LR
 | --- | --- |
 | `auth-service` | autenticacao `dev` e `oidc`, `2FA`, RBAC e contexto de sessao |
 | `public-api` | superficie publica e catalogos expostos pelo gateway |
-| `investigation-api` | `estimate`, `start`, `status`, billing, ledger e surfaces financeiras administrativas |
+| `investigation-api` | `estimate`, `start`, `status`, billing, ledger e superficies financeiras administrativas |
 | `investigation-worker` | fila, retry/backoff e processamento assincrono |
 | `compliance-api` | sanctions, counterparties, blocks, work-items e controles regulatorios |
 | `compliance-worker` | sync de listas, readiness regulatorio e checks de provider |
 | `monitoring-api` | webhooks do `Alertmanager`, triagem, RCA leve e export operacional |
 | `report-api` | relatorios deterministas, download sensivel e fluxo `ROS/COAF` |
-| `frontend` | cockpits operacionais, audit, monitoring, billing, evidence, reports e callbacks OIDC |
+| `frontend` | cockpits operacionais, audit, monitoring, billing, evidence, reports e callbacks `OIDC` |
 
 ## Frontend Operacional
 
 O frontend em `apps/frontend` segue estas linhas estruturais:
 
-- tri-locale obrigatorio (`pt-BR`, `en`, `es`)
+- tri-locale obrigatorio: `pt-BR`, `en`, `es`
 - contratos compartilhados em `app/lib/`
 - workspaces operacionais convergidos para o mesmo modelo de `timeline/comments`
 - `monitoring` modularizado em hooks, loaders e paineis dedicados
-- `billing` agora com snapshot reconciliavel alem do saldo consolidado
+- `billing` com snapshot reconciliavel alem do saldo consolidado
+- UX preventiva e contratos visuais endurecidos para superficies sensiveis
 
 Classes de suite Playwright institucionalizadas:
 
@@ -90,8 +117,6 @@ Classes de suite Playwright institucionalizadas:
 | `oidc-critical` | validacao seria OIDC e fluxo real | `npm run test:e2e:oidc-critical` |
 
 ### Fluxo de Validacao Local
-
-O diagrama abaixo mostra a ordem prática de validação local antes de qualquer promoção para readiness séria ou governança.
 
 ```mermaid
 flowchart TD
@@ -154,7 +179,7 @@ make run-regulatory-readiness-bundle-local \
   PUBLIC_BASE_URL=http://localhost:8080
 ```
 
-## Operacao de Janela Seria
+## Janela Seria
 
 Comandos principais:
 
@@ -166,26 +191,51 @@ make run-serious-window-local WINDOW_ID=stg-2026-07-13-a MODE=baseline
 make postprocess-serious-window RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
 ```
 
-Situacao executiva atual:
+Estado atual da janela:
 
-- `P0-01`: `OIDC + MFA` federado serio segue bloqueado por homologacao externa
-- `P0-02`: provider `AML/KYT live` pronto para fechar com credencial real
-- `P0-03`: feed UE pronto para fechar com URL tokenizada real
-- `stg-2026-07-13-a`: segue em `pending_no_go` ate confirmar insumos externos e ownership material
+- `stg-2026-07-13-a` segue em `pending_no_go`
+- o bloqueio principal continua sendo insumo externo real, ownership material e prova revisavel
+- `ROS/COAF` segue sendo a trilha mais sensivel para validacao fim a fim do staging
+
+## Trilhas de Validacao Prioritarias
+
+Para o staging atual, a ordem de prova recomendada e:
+
+1. validar `OIDC` no `gateway` com `auth-service` e `Keycloak`
+2. validar `ROS/COAF` com `report-api` real e ator persistido
+3. validar `monitoring` e a malha de observabilidade
+4. validar `compliance` com providers reais ou fallback controlado
+
+`ROS/COAF` e a trilha mais sensivel para homologacao tecnica porque depende de:
+
+- `X-Linked-User-Id` resolvido a partir da identidade federada
+- consistencia da migration `0016_team_users_directory.sql`
+- segregacao de papeis para aprovacao e submissao manual
+- MFA forte para a trilha regulatoria
+- persistencia auditavel no banco real
 
 ## Documentacao Canonica
+
+### Portas de entrada
 
 - [Indice Canonico](./docs/README.md)
 - [Arquitetura](./docs/architecture.md)
 - [Contratos de API](./docs/api-contracts.md)
 - [RBAC e Permissoes](./docs/rbac-and-permissions.md)
-- [Cobertura do Frontend](./docs/frontend-coverage-matrix.md)
+
+### Operacao e validacao
+
 - [Operacao Local](./docs/operations.md)
 - [Deploy e Staging](./docs/deploy-and-staging.md)
 - [Validacao e Auditoria](./docs/validation-and-audit.md)
+- [Runbook Semanal de Governanca](./docs/project-weekly-governance-runbook.md)
+
+### Readiness executiva
+
 - [Resumo Executivo de Readiness](./docs/project-executive-readiness-brief.md)
 - [Scorecard Oficial](./docs/project-kpi-scorecard.md)
 - [Avaliacao de Maturidade](./docs/project-maturity-assessment.md)
+- [Board Operacional](./docs/project-operational-execution-board.md)
 
 ## Evidencia Datada e Historico
 
@@ -200,7 +250,7 @@ Situacao executiva atual:
 - `docs/governance-weekly/cycles/` guarda evidencias datadas ainda navegaveis por ciclo
 - `docs/history/` guarda apoio historico fora da trilha viva
 - `docs/governance-weekly/archive/` guarda historico frio consolidado de governanca
-- `.publish_repo/`, se existir fora deste diretorio, deve ser tratado apenas como espelho de publicacao e nunca como baseline, contrato ou status oficial
+- o espelho legado `.publish_repo/` foi aposentado e removido em `2026-07-15`; a baseline, os contratos e o status oficial vivem apenas nesta arvore ativa
 
 Use esta precedencia quando houver conflito:
 
@@ -209,8 +259,6 @@ Use esta precedencia quando houver conflito:
 3. `docs/history/` e `docs/governance-weekly/archive/` apenas como contexto historico
 
 ### Fluxo de Precedencia Documental
-
-O diagrama abaixo ajuda a distinguir decisão corrente, prova datada e contexto histórico dentro deste diretório técnico.
 
 ```mermaid
 flowchart TD
@@ -231,7 +279,7 @@ flowchart TD
     class E,F history;
 ```
 
-## Estrutura
+## Estrutura do Workspace
 
 ```text
 ontrackchain/

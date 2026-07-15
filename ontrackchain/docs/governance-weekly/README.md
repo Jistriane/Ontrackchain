@@ -4,6 +4,20 @@
 
 Centralizar os registros gerados a partir do [Runbook de Governança Semanal](../project-weekly-governance-runbook.md).
 
+## Papel Nesta Taxonomia
+
+Nesta arvore vivem os artefatos datados de execucao, divididos em:
+
+- `cycles/`: ciclos humanos ainda navegaveis por data
+- `generated/`: artefatos gerados automaticamente, especialmente por `window_id`
+- `archive/`: historico frio consolidado
+
+Esta pasta nao substitui a baseline viva de `docs/`. Quando houver conflito, a precedencia continua sendo:
+
+1. `../README.md` e os documentos canonicamente indexados nele
+2. `cycles/` para prova datada por semana ou janela
+3. `archive/` apenas como historico preservado
+
 ## Escopo Canônico
 
 Use esta pasta para:
@@ -33,6 +47,7 @@ Cada arquivo desta pasta deve representar um ciclo semanal fechado, contendo:
 - considere como `ativo` apenas o ciclo corrente ainda em preparação ou execução
 - trate ciclos datados anteriores como registro operacional fechado, mesmo quando permaneçam em `cycles/` por valor de consulta
 - use `archive/` para histórico frio consolidado e `cycles/` para histórico operacional navegável por data
+- use `generated/windows/<window_id>/` para payloads, dashboards e artefatos derivados gerados automaticamente, nunca como substituto da narrativa humana do ciclo
 
 ## Convenção de Nome
 
@@ -51,8 +66,10 @@ Exemplo:
 3. registrar apenas evidências reais revisadas no ciclo
 4. manter alinhamento entre este registro, a [Matriz Operacional de Execução para 95%](../project-operational-execution-board.md) e o [Board de Prioridades do Projeto](../project-priority-board.md)
 5. quando houver janela séria via GitHub Actions, registrar `window_id`, `environment_name`, link do run e artifact `serious-staging-window-<janela>`
-6. usar [Avaliacao Consolidada de Status do Projeto](../assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md) como parecer executivo de apoio quando houver discussão de baseline, subida para `95%` ou decisão de `go/no-go`
+6. usar [Resumo Executivo de Readiness](../project-executive-readiness-brief.md), [Scorecard Oficial](../project-kpi-scorecard.md) e [Avaliacao de Maturidade](../project-maturity-assessment.md) como baseline viva para discussoes de maturidade, subida para `95%` ou decisao de `go/no-go`
 7. para qualquer decisão de `go`, anexar resultado do `validate_serious_window_artifact.py` com `status=ok` e `invalid_artifacts=[]` no war room, sign-off e registro semanal
+
+Se precisar citar um parecer historico congelado para comparacao de momento, use [Avaliacao Consolidada de Status do Projeto](../assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md) explicitamente como corte datado, nunca como baseline corrente.
 
 ## Comando Unico (War Room Local)
 
