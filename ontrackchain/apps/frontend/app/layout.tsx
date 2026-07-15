@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import "./globals.css";
 import { I18nProvider } from "../components/i18n-provider";
-import { isFrontendStandaloneDemoMode } from "./lib/auth-runtime";
+import { isFrontendStandaloneDemoMode, resolveEffectiveAuthMode } from "./lib/auth-runtime";
 import { LOCALE_COOKIE_NAME, normalizeLocale } from "./lib/i18n";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_FRONTEND_URL ?? "http://localhost:8080";
@@ -44,11 +44,16 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   const locale = normalizeLocale(cookies().get(LOCALE_COOKIE_NAME)?.value);
   const frontendStandaloneDemoMode = isFrontendStandaloneDemoMode();
+  const effectiveAuthMode = resolveEffectiveAuthMode();
 
   return (
     <html lang={locale} suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <I18nProvider initialLocale={locale} frontendStandaloneDemoMode={frontendStandaloneDemoMode}>
+        <I18nProvider
+          initialLocale={locale}
+          frontendStandaloneDemoMode={frontendStandaloneDemoMode}
+          effectiveAuthMode={effectiveAuthMode}
+        >
           {children}
         </I18nProvider>
       </body>

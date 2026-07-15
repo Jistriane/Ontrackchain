@@ -3,6 +3,7 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { DEFAULT_LOCALE, LOCALE_COOKIE_NAME, SUPPORTED_LOCALES, getDictionary, normalizeLocale, translate, type Locale, type MessageKey } from "../app/lib/i18n";
+import type { AuthMode } from "../app/lib/auth-runtime";
 
 type I18nContextValue = {
   locale: Locale;
@@ -10,6 +11,7 @@ type I18nContextValue = {
   t: (key: MessageKey, values?: Record<string, string | number>) => string;
   locales: readonly Locale[];
   frontendStandaloneDemoMode: boolean;
+  effectiveAuthMode: AuthMode;
 };
 
 const I18nContext = createContext<I18nContextValue | null>(null);
@@ -17,10 +19,12 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 export function I18nProvider({
   initialLocale = DEFAULT_LOCALE,
   frontendStandaloneDemoMode = false,
+  effectiveAuthMode = "dev",
   children
 }: {
   initialLocale?: Locale;
   frontendStandaloneDemoMode?: boolean;
+  effectiveAuthMode?: AuthMode;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -39,9 +43,10 @@ export function I18nProvider({
       setLocale,
       t: (key, values) => translate(locale, key, values),
       locales: SUPPORTED_LOCALES,
-      frontendStandaloneDemoMode
+      frontendStandaloneDemoMode,
+      effectiveAuthMode
     };
-  }, [frontendStandaloneDemoMode, locale, router]);
+  }, [effectiveAuthMode, frontendStandaloneDemoMode, locale, router]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }

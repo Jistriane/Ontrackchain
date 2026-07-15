@@ -9,8 +9,8 @@ import { AuthShell, Message } from "../../components/ui";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { t, frontendStandaloneDemoMode } = useI18n();
-  const [authMode, setAuthMode] = useState<"dev" | "oidc">(process.env.NEXT_PUBLIC_AUTH_MODE === "oidc" ? "oidc" : "dev");
+  const { t, frontendStandaloneDemoMode, effectiveAuthMode } = useI18n();
+  const [authMode, setAuthMode] = useState<"dev" | "oidc">(effectiveAuthMode);
   const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,7 +36,7 @@ export default function LoginPage() {
         setAuthMode(config.effective_auth_mode ?? config.auth_mode);
       })
       .catch(() => {
-        // Keep the build-time fallback if runtime config is unavailable.
+        // Keep the server-provided fallback if runtime config is unavailable.
       });
 
     return () => {
