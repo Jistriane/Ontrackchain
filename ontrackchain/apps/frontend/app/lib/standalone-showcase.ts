@@ -14,6 +14,72 @@ export const STANDALONE_SHOWCASE_AUTH_CONTEXT = {
   two_factor: "managed_externally_homologated"
 } as const;
 
+export type ShowcaseTeamRole =
+  | "ADMIN"
+  | "ANALYST"
+  | "AUDITOR"
+  | "VIEWER"
+  | "REVIEWER"
+  | "COMPLIANCE_OFFICER"
+  | "LEGAL_REVIEWER"
+  | "BILLING_ADMIN";
+
+export type ShowcaseTeamStatus = "active" | "invited" | "disabled";
+
+export type ShowcaseTeamMemberRecord = {
+  member_id: string;
+  name: string;
+  email: string;
+  role: ShowcaseTeamRole;
+  status: ShowcaseTeamStatus;
+  note: string;
+  created_at: string;
+  updated_at: string;
+  linked_identity_count: number;
+  last_identity_seen_at: string | null;
+};
+
+export type ShowcaseTeamExternalIdentityRecord = {
+  provider: string;
+  external_subject: string;
+  email_snapshot?: string | null;
+  role_snapshot?: string | null;
+  created_at: string;
+  last_seen_at?: string | null;
+};
+
+export type ShowcaseFederatedDirectoryUserRecord = {
+  provider: string;
+  external_subject: string;
+  email?: string | null;
+  username?: string | null;
+  organization_id?: string | null;
+  role_snapshot?: string | null;
+  enabled: boolean;
+  match_status: string;
+  linked_user_id?: string | null;
+  linked_user_email?: string | null;
+  role_validation_status: string;
+  warnings: string[];
+};
+
+type ShowcaseFederatedSuggestionResponse = {
+  can_link: boolean;
+  match_reason: string;
+  org_match: boolean;
+  email_match: boolean;
+  provider: string;
+  external_subject: string;
+  candidate_email: string | null;
+  candidate_username: string | null;
+  candidate_org: string | null;
+  role_snapshot: string | null;
+  role_validation_status: string;
+  linked_user_id: string | null;
+  linked_user_email: string | null;
+  warnings: string[];
+};
+
 export const STANDALONE_SHOWCASE_HOME_CATALOGS = {
   reportTypes: {
     plan: "enterprise",
@@ -338,6 +404,114 @@ let standaloneShowcaseTimelineCommentsStore = Object.fromEntries(
   ])
 ) as Record<string, WorkCommentResponse[]>;
 
+const STANDALONE_SHOWCASE_TEAM_MEMBER_SEEDS: ShowcaseTeamMemberRecord[] = [
+  {
+    member_id: "team-showcase-admin-01",
+    name: "Alice Admin",
+    email: "admin@ontrackchain.local",
+    role: "ADMIN",
+    status: "active",
+    note: "Responsável pela governança do tenant no showcase standalone.",
+    created_at: "2026-07-15T18:20:00Z",
+    updated_at: "2026-07-15T19:10:00Z",
+    linked_identity_count: 1,
+    last_identity_seen_at: "2026-07-15T19:05:00Z"
+  },
+  {
+    member_id: "team-showcase-compliance-01",
+    name: "Carla Compliance",
+    email: "compliance@ontrackchain.local",
+    role: "COMPLIANCE_OFFICER",
+    status: "active",
+    note: "Lead operacional de triagem e revisão de contrapartes.",
+    created_at: "2026-07-15T18:25:00Z",
+    updated_at: "2026-07-15T18:55:00Z",
+    linked_identity_count: 0,
+    last_identity_seen_at: null
+  },
+  {
+    member_id: "team-showcase-reviewer-01",
+    name: "Rafa Reviewer",
+    email: "reviewer@ontrackchain.local",
+    role: "REVIEWER",
+    status: "invited",
+    note: "Perfil convidado para revisão cruzada e evidências.",
+    created_at: "2026-07-15T18:40:00Z",
+    updated_at: "2026-07-15T18:40:00Z",
+    linked_identity_count: 0,
+    last_identity_seen_at: null
+  }
+];
+
+const STANDALONE_SHOWCASE_TEAM_EXTERNAL_IDENTITY_SEEDS: Record<string, ShowcaseTeamExternalIdentityRecord[]> = {
+  "team-showcase-admin-01": [
+    {
+      provider: "keycloak",
+      external_subject: "kc-showcase-admin-01",
+      email_snapshot: "admin@ontrackchain.local",
+      role_snapshot: "ADMIN",
+      created_at: "2026-07-15T18:30:00Z",
+      last_seen_at: "2026-07-15T19:05:00Z"
+    }
+  ],
+  "team-showcase-compliance-01": [],
+  "team-showcase-reviewer-01": []
+};
+
+const STANDALONE_SHOWCASE_FEDERATED_DIRECTORY_SEEDS: ShowcaseFederatedDirectoryUserRecord[] = [
+  {
+    provider: "keycloak",
+    external_subject: "kc-showcase-admin-01",
+    email: "admin@ontrackchain.local",
+    username: "alice.admin",
+    organization_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.org_id,
+    role_snapshot: "ADMIN",
+    enabled: true,
+    match_status: "linked",
+    linked_user_id: "team-showcase-admin-01",
+    linked_user_email: "admin@ontrackchain.local",
+    role_validation_status: "valid",
+    warnings: ["candidate_already_linked_to_member"]
+  },
+  {
+    provider: "keycloak",
+    external_subject: "kc-showcase-compliance-01",
+    email: "compliance@ontrackchain.local",
+    username: "carla.compliance",
+    organization_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.org_id,
+    role_snapshot: "COMPLIANCE_OFFICER",
+    enabled: true,
+    match_status: "suggested",
+    linked_user_id: null,
+    linked_user_email: null,
+    role_validation_status: "valid",
+    warnings: []
+  },
+  {
+    provider: "keycloak",
+    external_subject: "kc-showcase-review-01",
+    email: "review.partner@external.local",
+    username: "review.partner",
+    organization_id: "foreign-org",
+    role_snapshot: null,
+    enabled: true,
+    match_status: "org_match_only",
+    linked_user_id: null,
+    linked_user_email: null,
+    role_validation_status: "missing",
+    warnings: ["candidate_org_mismatch", "candidate_role_missing", "candidate_email_mismatch"]
+  }
+];
+
+let standaloneShowcaseTeamMembersStore = STANDALONE_SHOWCASE_TEAM_MEMBER_SEEDS.map((member) => ({ ...member }));
+let standaloneShowcaseTeamExternalIdentitiesStore = Object.fromEntries(
+  Object.entries(STANDALONE_SHOWCASE_TEAM_EXTERNAL_IDENTITY_SEEDS).map(([memberId, identities]) => [
+    memberId,
+    identities.map((identity) => ({ ...identity }))
+  ])
+) as Record<string, ShowcaseTeamExternalIdentityRecord[]>;
+let standaloneShowcaseFederatedDirectoryStore = STANDALONE_SHOWCASE_FEDERATED_DIRECTORY_SEEDS.map((candidate) => ({ ...candidate }));
+
 export function buildStandaloneShowcaseQuote(input: {
   address: string;
   chains?: string[];
@@ -541,4 +715,305 @@ export function createStandaloneShowcaseWorkItemComment(
     entry.id === workItemId ? { ...entry, updated_at: now, last_activity_at: now, metadata: { ...entry.metadata } } : entry
   );
   return { ...comment };
+}
+
+function cloneShowcaseTeamMember(member: ShowcaseTeamMemberRecord): ShowcaseTeamMemberRecord {
+  return { ...member };
+}
+
+function cloneShowcaseExternalIdentity(
+  identity: ShowcaseTeamExternalIdentityRecord
+): ShowcaseTeamExternalIdentityRecord {
+  return { ...identity };
+}
+
+function cloneShowcaseFederatedCandidate(
+  candidate: ShowcaseFederatedDirectoryUserRecord
+): ShowcaseFederatedDirectoryUserRecord {
+  return { ...candidate, warnings: [...candidate.warnings] };
+}
+
+function getShowcaseMemberIndex(memberId: string) {
+  return standaloneShowcaseTeamMembersStore.findIndex((member) => member.member_id === memberId);
+}
+
+function ensureShowcaseMemberIdentityCollection(memberId: string) {
+  if (!standaloneShowcaseTeamExternalIdentitiesStore[memberId]) {
+    standaloneShowcaseTeamExternalIdentitiesStore[memberId] = [];
+  }
+}
+
+function recomputeShowcaseMemberIdentitySummary(memberId: string) {
+  ensureShowcaseMemberIdentityCollection(memberId);
+  const identities = standaloneShowcaseTeamExternalIdentitiesStore[memberId];
+  const lastSeenAt = identities
+    .map((identity) => identity.last_seen_at || identity.created_at)
+    .filter(Boolean)
+    .sort((left, right) => right.localeCompare(left))[0] ?? null;
+  const memberIndex = getShowcaseMemberIndex(memberId);
+  if (memberIndex < 0) {
+    return null;
+  }
+  const current = standaloneShowcaseTeamMembersStore[memberIndex];
+  const nextMember: ShowcaseTeamMemberRecord = {
+    ...current,
+    linked_identity_count: identities.length,
+    last_identity_seen_at: lastSeenAt,
+    updated_at: new Date().toISOString()
+  };
+  standaloneShowcaseTeamMembersStore[memberIndex] = nextMember;
+  return cloneShowcaseTeamMember(nextMember);
+}
+
+function syncShowcaseFederatedDirectoryLinkState(
+  member: ShowcaseTeamMemberRecord,
+  identity: Pick<ShowcaseTeamExternalIdentityRecord, "provider" | "external_subject">
+) {
+  standaloneShowcaseFederatedDirectoryStore = standaloneShowcaseFederatedDirectoryStore.map((candidate) => {
+    if (candidate.provider === identity.provider && candidate.external_subject === identity.external_subject) {
+      return {
+        ...candidate,
+        linked_user_id: member.member_id,
+        linked_user_email: member.email,
+        match_status: "linked",
+        warnings: ["candidate_already_linked_to_member"]
+      };
+    }
+    return candidate;
+  });
+}
+
+function clearShowcaseFederatedDirectoryLinkState(identity: Pick<ShowcaseTeamExternalIdentityRecord, "provider" | "external_subject">) {
+  standaloneShowcaseFederatedDirectoryStore = standaloneShowcaseFederatedDirectoryStore.map((candidate) => {
+    if (candidate.provider === identity.provider && candidate.external_subject === identity.external_subject) {
+      return {
+        ...candidate,
+        linked_user_id: null,
+        linked_user_email: null,
+        match_status: candidate.organization_id === STANDALONE_SHOWCASE_AUTH_CONTEXT.org_id ? "suggested" : "org_match_only",
+        warnings:
+          candidate.organization_id === STANDALONE_SHOWCASE_AUTH_CONTEXT.org_id
+            ? []
+            : ["candidate_org_mismatch", "candidate_role_missing", "candidate_email_mismatch"]
+      };
+    }
+    return candidate;
+  });
+}
+
+export function listStandaloneShowcaseTeamMembers() {
+  return {
+    data: standaloneShowcaseTeamMembersStore
+      .slice()
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
+      .map(cloneShowcaseTeamMember)
+  };
+}
+
+export function createStandaloneShowcaseTeamMember(input: {
+  name?: string;
+  email: string;
+  role?: ShowcaseTeamRole;
+  status?: ShowcaseTeamStatus;
+  note?: string;
+}) {
+  const now = new Date().toISOString();
+  const member: ShowcaseTeamMemberRecord = {
+    member_id: crypto.randomUUID(),
+    name: input.name?.trim() || input.email.trim().toLowerCase(),
+    email: input.email.trim().toLowerCase(),
+    role: input.role ?? "ANALYST",
+    status: input.status ?? "invited",
+    note: input.note?.trim() ?? "",
+    created_at: now,
+    updated_at: now,
+    linked_identity_count: 0,
+    last_identity_seen_at: null
+  };
+  standaloneShowcaseTeamMembersStore = [member, ...standaloneShowcaseTeamMembersStore];
+  ensureShowcaseMemberIdentityCollection(member.member_id);
+  return cloneShowcaseTeamMember(member);
+}
+
+export function updateStandaloneShowcaseTeamMember(
+  memberId: string,
+  patch: Partial<Pick<ShowcaseTeamMemberRecord, "name" | "email" | "role" | "status" | "note">>
+) {
+  const memberIndex = getShowcaseMemberIndex(memberId);
+  if (memberIndex < 0) {
+    return null;
+  }
+  const current = standaloneShowcaseTeamMembersStore[memberIndex];
+  const nextMember: ShowcaseTeamMemberRecord = {
+    ...current,
+    name: patch.name !== undefined ? patch.name.trim() || current.name : current.name,
+    email: patch.email !== undefined ? patch.email.trim().toLowerCase() || current.email : current.email,
+    role: patch.role ?? current.role,
+    status: patch.status ?? current.status,
+    note: patch.note !== undefined ? patch.note.trim() : current.note,
+    updated_at: new Date().toISOString()
+  };
+  standaloneShowcaseTeamMembersStore[memberIndex] = nextMember;
+  return cloneShowcaseTeamMember(nextMember);
+}
+
+export function listStandaloneShowcaseExternalIdentities(memberId: string) {
+  ensureShowcaseMemberIdentityCollection(memberId);
+  return {
+    data: standaloneShowcaseTeamExternalIdentitiesStore[memberId].map(cloneShowcaseExternalIdentity)
+  };
+}
+
+export function linkStandaloneShowcaseExternalIdentity(
+  memberId: string,
+  payload: {
+    provider: string;
+    external_subject: string;
+    email_snapshot?: string | null;
+    role_snapshot?: string | null;
+  }
+) {
+  const member = standaloneShowcaseTeamMembersStore.find((entry) => entry.member_id === memberId) ?? null;
+  if (!member) {
+    return null;
+  }
+  ensureShowcaseMemberIdentityCollection(memberId);
+  const now = new Date().toISOString();
+  const identity: ShowcaseTeamExternalIdentityRecord = {
+    provider: payload.provider.trim().toLowerCase(),
+    external_subject: payload.external_subject.trim(),
+    email_snapshot: payload.email_snapshot?.trim() || null,
+    role_snapshot: payload.role_snapshot?.trim() || null,
+    created_at: now,
+    last_seen_at: null
+  };
+  const nextIdentities = [
+    identity,
+    ...standaloneShowcaseTeamExternalIdentitiesStore[memberId].filter(
+      (entry) => !(entry.provider === identity.provider && entry.external_subject === identity.external_subject)
+    )
+  ];
+  standaloneShowcaseTeamExternalIdentitiesStore[memberId] = nextIdentities;
+  const nextMember = recomputeShowcaseMemberIdentitySummary(memberId);
+  if (nextMember) {
+    syncShowcaseFederatedDirectoryLinkState(nextMember, identity);
+  }
+  return nextMember;
+}
+
+export function unlinkStandaloneShowcaseExternalIdentity(
+  memberId: string,
+  payload: {
+    provider: string;
+    external_subject: string;
+  }
+) {
+  const member = standaloneShowcaseTeamMembersStore.find((entry) => entry.member_id === memberId) ?? null;
+  if (!member) {
+    return null;
+  }
+  ensureShowcaseMemberIdentityCollection(memberId);
+  standaloneShowcaseTeamExternalIdentitiesStore[memberId] = standaloneShowcaseTeamExternalIdentitiesStore[memberId].filter(
+    (entry) => !(entry.provider === payload.provider.trim().toLowerCase() && entry.external_subject === payload.external_subject.trim())
+  );
+  const nextMember = recomputeShowcaseMemberIdentitySummary(memberId);
+  clearShowcaseFederatedDirectoryLinkState({
+    provider: payload.provider.trim().toLowerCase(),
+    external_subject: payload.external_subject.trim()
+  });
+  return nextMember;
+}
+
+export function searchStandaloneShowcaseFederatedDirectory(filters: { query?: string | null; limit?: number | null }) {
+  const query = filters.query?.trim().toLowerCase() ?? "";
+  const limit = typeof filters.limit === "number" && filters.limit > 0 ? filters.limit : 20;
+  const filtered = standaloneShowcaseFederatedDirectoryStore.filter((candidate) => {
+    if (!query) {
+      return true;
+    }
+    return [candidate.email, candidate.username, candidate.external_subject, candidate.linked_user_email]
+      .filter((value): value is string => Boolean(value))
+      .some((value) => value.toLowerCase().includes(query));
+  });
+  return {
+    data: filtered.slice(0, limit).map(cloneShowcaseFederatedCandidate)
+  };
+}
+
+export function evaluateStandaloneShowcaseFederatedSuggestion(input: {
+  member_id?: string;
+  provider?: string;
+  external_subject?: string;
+}): ShowcaseFederatedSuggestionResponse | null {
+  const member = standaloneShowcaseTeamMembersStore.find((entry) => entry.member_id === input.member_id) ?? null;
+  const candidate =
+    standaloneShowcaseFederatedDirectoryStore.find(
+      (entry) => entry.provider === input.provider?.trim().toLowerCase() && entry.external_subject === input.external_subject?.trim()
+    ) ?? null;
+  if (!member || !candidate) {
+    return null;
+  }
+
+  const orgMatch = candidate.organization_id === STANDALONE_SHOWCASE_AUTH_CONTEXT.org_id;
+  const emailMatch = (candidate.email?.trim().toLowerCase() ?? "") === member.email.trim().toLowerCase();
+  const roleSnapshot = candidate.role_snapshot?.trim() || null;
+  const warnings = [...candidate.warnings];
+
+  let canLink = true;
+  let matchReason = "ready";
+
+  if (candidate.linked_user_id && candidate.linked_user_id !== member.member_id) {
+    canLink = false;
+    matchReason = "already_linked";
+    if (!warnings.includes("candidate_already_linked")) {
+      warnings.unshift("candidate_already_linked");
+    }
+  } else if (!orgMatch) {
+    canLink = false;
+    matchReason = "org_mismatch";
+    if (!warnings.includes("candidate_org_mismatch")) {
+      warnings.unshift("candidate_org_mismatch");
+    }
+  } else if (!candidate.email) {
+    canLink = false;
+    matchReason = "email_missing";
+    if (!warnings.includes("candidate_email_missing")) {
+      warnings.unshift("candidate_email_missing");
+    }
+  } else if (!emailMatch) {
+    canLink = false;
+    matchReason = "email_mismatch";
+    if (!warnings.includes("candidate_email_mismatch")) {
+      warnings.unshift("candidate_email_mismatch");
+    }
+  } else if (!roleSnapshot) {
+    canLink = false;
+    matchReason = "role_missing";
+    if (!warnings.includes("candidate_role_missing")) {
+      warnings.unshift("candidate_role_missing");
+    }
+  } else if (roleSnapshot !== member.role) {
+    canLink = false;
+    matchReason = "role_mismatch";
+    if (!warnings.includes("candidate_role_mismatch")) {
+      warnings.unshift("candidate_role_mismatch");
+    }
+  }
+
+  return {
+    can_link: canLink,
+    match_reason: matchReason,
+    org_match: orgMatch,
+    email_match: emailMatch,
+    provider: candidate.provider,
+    external_subject: candidate.external_subject,
+    candidate_email: candidate.email ?? null,
+    candidate_username: candidate.username ?? null,
+    candidate_org: candidate.organization_id ?? null,
+    role_snapshot: roleSnapshot,
+    role_validation_status: candidate.role_validation_status,
+    linked_user_id: candidate.linked_user_id ?? null,
+    linked_user_email: candidate.linked_user_email ?? null,
+    warnings
+  };
 }
