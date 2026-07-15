@@ -28,6 +28,8 @@ const API_ERROR_MESSAGE_KEYS: Partial<Record<string, MessageKey>> = {
   block_lift_role_required: "apiErrors.blockLiftRoleRequired",
   mfa_external_provider_required: "apiErrors.mfaExternalProviderRequired",
   mfa_provider_not_homologated: "apiErrors.mfaProviderNotHomologated",
+  monitoring_read_role_required: "apiErrors.monitoringReadRoleRequired" as MessageKey,
+  monitoring_operational_role_required: "apiErrors.monitoringOperationalRoleRequired" as MessageKey,
   monitoring_test_trigger_role_required: "apiErrors.monitoringTestTriggerRoleRequired",
   investigation_operational_role_required: "apiErrors.investigationOperationalRoleRequired",
   billing_balance_role_required: "apiErrors.billingBalanceRoleRequired",

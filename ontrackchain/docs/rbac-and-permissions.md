@@ -103,6 +103,9 @@ Leitura arquitetural atual:
 - `monitoring` administrativo:
   - leitura privilegiada com `ADMIN|AUDITOR`
   - acknowledge/export com `ADMIN`
+- `monitoring` core:
+  - leitura operacional com `ADMIN|ANALYST|AUDITOR|VIEWER` e excecao controlada de QA para `TESTER`
+  - operacao humana com `ADMIN|ANALYST`
 - `audit/logs`:
   - leitura privilegiada com `ADMIN|AUDITOR`
 - `report download` para `legal_report`:
@@ -111,7 +114,6 @@ Leitura arquitetural atual:
 ### Onde o controle ainda e predominantemente contextual
 
 - `investigation` core (`estimate`, `start`, `status`, `result`, `history`)
-- `monitoring` core (`watchlists`, `alerts`, `start`, `estimate`)
 - `compliance/*`
 - `billing/balance`
 
@@ -235,7 +237,7 @@ Do que de uma matriz RBAC fina por papel.
 | `investigation/start` | JWT ou API Key | `ADMIN`, `ANALYST` e alias legado `OTK_ANALYST` | `investigation_operational_role_required` | `quote` valida + plan lock |
 | `billing/balance` | JWT ou API Key | `ADMIN`, `BILLING_ADMIN` e alias legado `OTK_BILLING_ADMIN` | `partial_rbac_enforced` | leitura de saldo financeiro + negacao auditada |
 | `billing/reconciliation` | JWT ou API Key | `ADMIN`, `BILLING_ADMIN` e alias legado `OTK_BILLING_ADMIN` | `partial_rbac_enforced` | snapshot reconciliavel de `quotes` + `credit_ledger` com negacao auditada |
-| `monitoring` core (`watchlists`, `alerts`, `start`, `estimate`) | JWT ou API Key | qualquer autenticado | `enforced_by_context` | contexto valido |
+| `monitoring` core (`watchlists`, `alerts`, `start`, `estimate`) | JWT ou API Key | leitura: `ADMIN`, `ANALYST`, `AUDITOR`, `VIEWER`, `TESTER` e aliases legados `OTK_ANALYST`, `OTK_VIEWER`, `OTK_TESTER`; operacao: `ADMIN`, `ANALYST` e alias legado `OTK_ANALYST` | `rbac_enforced` | leitura do cockpit e listagens sob gate `monitoring_read_role_required`; quote/start e mutacoes de watchlist sob `monitoring_operational_role_required`; `TESTER` permanece apenas na trilha de leitura/QA e no `trigger-alert` sintetico |
 | `compliance/*` | JWT ou API Key | contexto misto; mutacoes criticas com `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` e alias legado `OTK_COMPLIANCE_OFFICER` | `partial_rbac_enforced` | `estimate`, `start`, `kyc-wallet`, `risk-check`, `due-diligence`, `source-of-funds`, `counterparties`, `sanctions-check`, `blocks/evaluate`, `blocks/*/lift` e `counterparties/*/review` agora seguem gates formais dedicados |
 | `monitoring/admin/operational-alerts` | contexto autenticado via gateway | `ADMIN` ou `AUDITOR` | `rbac_enforced` | leitura privilegiada + negacao auditada |
 | `monitoring/admin/operational-alerts/filter-options` | contexto autenticado via gateway | `ADMIN` ou `AUDITOR` | `rbac_enforced` | leitura privilegiada + negacao auditada |
@@ -324,8 +326,10 @@ Observacao importante:
 - `investigation-api` agora aplica `BILLING_ADMIN` tambem em `billing/reconciliation`, protegendo o snapshot reconciliavel de saldo, quotes e `credit_ledger`
 - `investigation-api` agora expõe `billing/reconciliation/export` sob o mesmo gate `ADMIN|BILLING_ADMIN|OTK_BILLING_ADMIN`, preservando `content-disposition` e negacao auditada por papel no backend
 - `monitoring-api` agora trata `monitoring/test/trigger-alert` como superficie de QA/admin (`ADMIN|TESTER|OTK_TESTER`), com `authorization_denied` auditado para roles fora desse recorte
+- `monitoring-api` agora trata `monitoring/estimate`, `monitoring/start`, `monitoring/watchlists`, `monitoring/watchlists/{watchlist_id}/items` e `monitoring/alerts` como superficies core distintas, separando leitura operacional (`ADMIN|ANALYST|AUDITOR|VIEWER|TESTER` e aliases legados compatíveis) de operacao humana (`ADMIN|ANALYST|OTK_ANALYST`) com `authorization_denied` auditado por `monitoring_read_role_required` e `monitoring_operational_role_required`
 - `investigation-api` agora trata `investigation/estimate` e `investigation/start` como superficies operacionais humanas (`ADMIN|ANALYST|OTK_ANALYST`), com `authorization_denied` auditado para roles fora desse recorte
 - o cockpit `monitoring` agora degrada os paineis administrativos de `monitoring` e `investigation` para leitura privilegiada `ADMIN/AUDITOR`, ocultando mutacoes/exportacoes de incidentes globais e DLQ fora de `ADMIN` para evitar negacao tardia na UI
+- o cockpit `monitoring` agora bloqueia preventivamente a carteira core de watchlists/alerts para roles fora do recorte de leitura compatível, evitando chamadas tardias ao BFF e preservando o fluxo de QA sintetico apenas para perfis `TESTER` elegíveis
 - `compliance-api` agora trata `compliance/estimate` e `compliance/start` como um unico trilho operacional humano (`ADMIN|ANALYST|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`), com `authorization_denied` auditado e `detail` dedicado ja na fase de quote
 - `compliance-api` agora trata `compliance/start` como superficie operacional humana (`ADMIN|ANALYST|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`), separada do write generico e com `authorization_denied` auditado por `compliance_start_role_required`
 - `compliance-api` agora trata `compliance/cases/{case_id}/report` como superficie operacional de emissão (`ADMIN|ANALYST`), espelhando explicitamente o gate já aplicado no `report-api` e registrando `compliance_case_report_role_required` no ponto de entrada

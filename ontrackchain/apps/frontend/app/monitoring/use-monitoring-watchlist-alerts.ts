@@ -15,22 +15,39 @@ type Translator = (key: MessageKey, values?: Record<string, string | number>) =>
 type UseMonitoringWatchlistAlertsArgs = {
   t: Translator;
   setError: (value: string | null) => void;
+  canReadMonitoringCore: boolean | null;
   canTriggerTestAlert: boolean;
 };
 
-export function useMonitoringWatchlistAlerts({ t, setError, canTriggerTestAlert }: UseMonitoringWatchlistAlertsArgs) {
+export function useMonitoringWatchlistAlerts({
+  t,
+  setError,
+  canReadMonitoringCore,
+  canTriggerTestAlert
+}: UseMonitoringWatchlistAlertsArgs) {
   const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([]);
 
   useEffect(() => {
+    if (canReadMonitoringCore !== true) {
+      setWatchlists([]);
+      setAlerts([]);
+      setSelectedAlert(null);
+      setWatchlistItems([]);
+      return;
+    }
     fetchMonitoringWatchlists()
       .then((data) => setWatchlists(data))
       .catch(() => setError(t("monitoring.errors.loadWatchlists")));
-  }, [setError, t]);
+  }, [canReadMonitoringCore, setError, t]);
 
   useEffect(() => {
+    if (canReadMonitoringCore !== true) {
+      setWatchlistItems([]);
+      return;
+    }
     const primaryWatchlistId = watchlists[0]?.id;
     if (!primaryWatchlistId) {
       setWatchlistItems([]);
@@ -40,9 +57,13 @@ export function useMonitoringWatchlistAlerts({ t, setError, canTriggerTestAlert 
     fetchMonitoringWatchlistItems(primaryWatchlistId)
       .then((items) => setWatchlistItems(items))
       .catch(() => setError(t("monitoring.errors.loadWatchlists")));
-  }, [setError, t, watchlists]);
+  }, [canReadMonitoringCore, setError, t, watchlists]);
 
   async function refreshAlerts() {
+    if (canReadMonitoringCore !== true) {
+      setError(t("apiErrors.monitoringReadRoleRequired" as MessageKey));
+      return;
+    }
     setError(null);
     try {
       const data = await fetchMonitoringAlerts(watchlists[0]?.id);

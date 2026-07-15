@@ -6,6 +6,7 @@ type Translator = (key: MessageKey, values?: Record<string, string | number>) =>
 
 type WatchlistAlertsPanelProps = {
   t: Translator;
+  canReadMonitoringCore: boolean | null;
   watchlists: Watchlist[];
   alerts: Alert[];
   selectedAlert: Alert | null;
@@ -17,6 +18,7 @@ type WatchlistAlertsPanelProps = {
 
 export function WatchlistAlertsPanel({
   t,
+  canReadMonitoringCore,
   watchlists,
   alerts,
   selectedAlert,
@@ -28,7 +30,11 @@ export function WatchlistAlertsPanel({
   return (
     <>
       <Panel title={t("monitoring.watchlists.title")}>
-        {watchlists.length ? (
+        {canReadMonitoringCore === false ? (
+          <div data-testid="monitoring-core-read-restricted">
+            <Message>{t("monitoring.watchlists.readRestricted" as MessageKey)}</Message>
+          </div>
+        ) : watchlists.length ? (
           <div data-testid="watchlist-item" className="otc-monitoring-card">
             {watchlists[0].name} ({watchlists[0].priority})
           </div>
@@ -38,6 +44,12 @@ export function WatchlistAlertsPanel({
       </Panel>
 
       <Panel title={t("monitoring.alerts.title")}>
+        {canReadMonitoringCore === false ? (
+          <div data-testid="monitoring-alerts-read-restricted">
+            <Message>{t("monitoring.watchlists.readRestricted" as MessageKey)}</Message>
+          </div>
+        ) : (
+          <>
         <div className="otc-controls">
           <button type="button" onClick={refreshAlerts} className="otc-button otc-button--ghost">
             {t("monitoring.actions.refresh")}
@@ -87,6 +99,8 @@ export function WatchlistAlertsPanel({
             <CodeBlock>{JSON.stringify(selectedAlert, null, 2)}</CodeBlock>
           </div>
         ) : null}
+          </>
+        )}
       </Panel>
     </>
   );

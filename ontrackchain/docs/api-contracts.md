@@ -1301,6 +1301,83 @@ Aliases relevantes:
 - `90d`, `quarterly` -> `monitoring_90days`
 - `365d`, `annual` -> `monitoring_365days`
 
+### `POST /api/v1/monitoring/estimate`
+
+Uso:
+
+- gerar quote operacional para iniciar uma watchlist/case de monitoring
+
+Controles atuais:
+
+- exige papel humano operacional `ADMIN|ANALYST|OTK_ANALYST`
+- persiste `authorization_denied` com `detail=monitoring_operational_role_required` para roles fora desse recorte
+
+### `POST /api/v1/monitoring/start`
+
+Uso:
+
+- consumir um `quote` válido e abrir o case/watchlist operacional de monitoring
+
+Controles atuais:
+
+- exige papel humano operacional `ADMIN|ANALYST|OTK_ANALYST`
+- persiste `authorization_denied` com `detail=monitoring_operational_role_required` para roles fora desse recorte
+
+### `GET /api/v1/monitoring/watchlists`
+
+Uso:
+
+- listar watchlists da organização autenticada no cockpit de monitoring
+
+Controles atuais:
+
+- exige leitura compatível `ADMIN|ANALYST|AUDITOR|VIEWER|TESTER` e aliases legados `OTK_ANALYST|OTK_VIEWER|OTK_TESTER`
+- persiste `authorization_denied` com `detail=monitoring_read_role_required` para roles fora desse recorte
+
+### `GET /api/v1/monitoring/watchlists/{watchlist_id}/items`
+
+Uso:
+
+- listar os itens monitorados da watchlist selecionada
+
+Controles atuais:
+
+- exige o mesmo recorte de leitura do core de monitoring
+- persiste `authorization_denied` com `detail=monitoring_read_role_required` para roles fora desse recorte
+
+### `GET /api/v1/monitoring/alerts`
+
+Uso:
+
+- listar alertas do core de monitoring filtrados por `watchlist_id`
+
+Controles atuais:
+
+- exige o mesmo recorte de leitura do core de monitoring
+- persiste `authorization_denied` com `detail=monitoring_read_role_required` para roles fora desse recorte
+
+### `POST /api/v1/monitoring/watchlists`
+
+Uso:
+
+- criar watchlist operacional manual fora do fluxo `estimate -> start`
+
+Controles atuais:
+
+- exige papel humano operacional `ADMIN|ANALYST|OTK_ANALYST`
+- persiste `authorization_denied` com `detail=monitoring_operational_role_required` para roles fora desse recorte
+
+### `POST /api/v1/monitoring/watchlists/{watchlist_id}/items`
+
+Uso:
+
+- adicionar manualmente um item monitorado a uma watchlist existente
+
+Controles atuais:
+
+- exige papel humano operacional `ADMIN|ANALYST|OTK_ANALYST`
+- persiste `authorization_denied` com `detail=monitoring_operational_role_required` para roles fora desse recorte
+
 ### `GET /api/v1/monitoring/admin/operational-alerts`
 
 Uso:

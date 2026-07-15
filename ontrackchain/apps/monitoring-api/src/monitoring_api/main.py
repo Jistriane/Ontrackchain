@@ -50,6 +50,17 @@ app = FastAPI(title="OnTrackChain Monitoring API")
 QUOTE_TTL_MINUTES = 15
 CALCULATION_VERSION = "v1.0"
 SUPPORTED_CHAINS = {"ethereum", "polygon", "bsc", "arbitrum", "base", "bitcoin"}
+MONITORING_CORE_READ_ALLOWED_ROLES = {
+    "ADMIN",
+    "ANALYST",
+    "OTK_ANALYST",
+    "AUDITOR",
+    "VIEWER",
+    "OTK_VIEWER",
+    "TESTER",
+    "OTK_TESTER",
+}
+MONITORING_CORE_OPERATION_ALLOWED_ROLES = {"ADMIN", "ANALYST", "OTK_ANALYST"}
 
 MONITORING_OPERATION_ALIASES = {
     "30d": "monitoring_30days",
@@ -506,6 +517,64 @@ def _require_test_trigger_role_with_audit(
         detail="monitoring_test_trigger_role_required",
         resource_type="monitoring_test_alert",
         resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _require_monitoring_core_read_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_type: str,
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=MONITORING_CORE_READ_ALLOWED_ROLES,
+        detail="monitoring_read_role_required",
+        resource_type=resource_type,
+        resource_id=str(resource_id) if resource_id is not None else None,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _require_monitoring_operational_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_type: str,
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=MONITORING_CORE_OPERATION_ALLOWED_ROLES,
+        detail="monitoring_operational_role_required",
+        resource_type=resource_type,
+        resource_id=str(resource_id) if resource_id is not None else None,
         endpoint=endpoint,
         method=method,
     )
@@ -1820,10 +1889,28 @@ async def estimate_monitoring(
     x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
     x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
     x_plan: Annotated[Optional[str], Header(alias="X-Plan")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> EstimateMonitoringResponse:
     org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
     plan = normalize_plan(x_plan or "professional")
-    effective_user_id, _ = _resolve_actor_ids(external_user_id=x_user_id, linked_user_id=x_linked_user_id)
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_monitoring_operational_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_type="monitoring_quote",
+        resource_id=None,
+        endpoint="/api/v1/monitoring/estimate",
+        method="POST",
+    )
     chain = _validate_chain(body.chain)
     quote_payload = _build_monitoring_quote_payload(
         watchlist_name=body.name,
@@ -1867,10 +1954,32 @@ async def create_watchlist(
     body: CreateWatchlistRequest,
     pool: ConnectionPool = Depends(get_pool),
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> dict:
+    org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_monitoring_operational_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_type="monitoring_watchlist",
+        resource_id=None,
+        endpoint="/api/v1/monitoring/watchlists",
+        method="POST",
+    )
     now = datetime.now(timezone.utc)
     with pool.connection() as conn:
-        _apply_rls_context(conn, x_org_id)
+        _apply_rls_context(conn, org_id)
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -1878,7 +1987,7 @@ async def create_watchlist(
                 VALUES (%s, %s, %s, %s)
                 RETURNING id
                 """,
-                (x_org_id, body.name, body.priority, now),
+                (org_id, body.name, body.priority, now),
             )
             row = cur.fetchone()
         conn.commit()
@@ -1889,9 +1998,31 @@ async def create_watchlist(
 async def list_watchlists(
     pool: ConnectionPool = Depends(get_pool),
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> dict:
+    org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_monitoring_core_read_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_type="monitoring_watchlist",
+        resource_id=None,
+        endpoint="/api/v1/monitoring/watchlists",
+        method="GET",
+    )
     with pool.connection() as conn:
-        _apply_rls_context(conn, x_org_id)
+        _apply_rls_context(conn, org_id)
         with conn.cursor() as cur:
             cur.execute("SELECT id, name, priority, created_at FROM watchlists ORDER BY created_at DESC")
             rows = cur.fetchall()
@@ -1906,19 +2037,32 @@ async def start_monitoring(
     x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
     x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
     x_plan: Annotated[Optional[str], Header(alias="X-Plan")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
     x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> StartMonitoringResponse:
     org_id = _require_org_id(x_org_id)
     request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_monitoring_operational_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_type="monitoring_case",
+        resource_id=None,
+        endpoint="/api/v1/monitoring/start",
+        method="POST",
+    )
     if not body.confirmed:
         raise HTTPException(status_code=412, detail="quote_confirmation_required")
     plan = normalize_plan(x_plan or "professional")
     now = datetime.now(timezone.utc)
     warnings: list[dict] = []
-    effective_user_id, external_actor_user_id = _resolve_actor_ids(
-        external_user_id=x_user_id,
-        linked_user_id=x_linked_user_id,
-    )
 
     with pool.connection() as conn:
         _apply_rls_context(conn, org_id)
@@ -2131,10 +2275,32 @@ async def add_watchlist_item(
     body: AddWatchlistItemRequest,
     pool: ConnectionPool = Depends(get_pool),
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> dict:
+    org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_monitoring_operational_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_type="monitoring_watchlist_item",
+        resource_id=str(watchlist_id),
+        endpoint="/api/v1/monitoring/watchlists/{watchlist_id}/items",
+        method="POST",
+    )
     now = datetime.now(timezone.utc)
     with pool.connection() as conn:
-        _apply_rls_context(conn, x_org_id)
+        _apply_rls_context(conn, org_id)
         with conn.cursor() as cur:
             cur.execute("SELECT id FROM watchlists WHERE id = %s", (watchlist_id,))
             wl = cur.fetchone()
@@ -2161,8 +2327,29 @@ async def list_watchlist_items(
     limit: int = Query(default=20, ge=1, le=200),
     pool: ConnectionPool = Depends(get_pool),
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> dict:
     org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_monitoring_core_read_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_type="monitoring_watchlist_item",
+        resource_id=str(watchlist_id),
+        endpoint="/api/v1/monitoring/watchlists/{watchlist_id}/items",
+        method="GET",
+    )
     with pool.connection() as conn:
         _apply_rls_context(conn, org_id)
         with conn.cursor() as cur:
@@ -2199,8 +2386,29 @@ async def list_alerts(
     limit: int = Query(default=50, ge=1, le=200),
     pool: ConnectionPool = Depends(get_pool),
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> dict:
     org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_monitoring_core_read_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_type="monitoring_alert",
+        resource_id=str(watchlist_id) if watchlist_id else None,
+        endpoint="/api/v1/monitoring/alerts",
+        method="GET",
+    )
     with pool.connection() as conn:
         _apply_rls_context(conn, org_id)
         with conn.cursor() as cur:

@@ -1,6 +1,12 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
 async function seedFrontendAuth(page: Page, role: string) {
+  const calls = {
+    watchlists: 0,
+    watchlistItems: 0,
+    alerts: 0
+  };
+
   await page.context().addCookies([
     {
       name: "otc_token",
@@ -31,6 +37,7 @@ async function seedFrontendAuth(page: Page, role: string) {
   });
 
   await page.route("**/api/app/monitoring/watchlists", async (route: Route) => {
+    calls.watchlists += 1;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -41,6 +48,7 @@ async function seedFrontendAuth(page: Page, role: string) {
   });
 
   await page.route("**/api/app/monitoring/watchlists/watchlist-1/items?limit=20", async (route: Route) => {
+    calls.watchlistItems += 1;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -51,6 +59,7 @@ async function seedFrontendAuth(page: Page, role: string) {
   });
 
   await page.route("**/api/app/monitoring/alerts?**", async (route: Route) => {
+    calls.alerts += 1;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -184,6 +193,8 @@ async function seedFrontendAuth(page: Page, role: string) {
       body: JSON.stringify({ alert_id: "alert-1", status: "created" })
     });
   });
+
+  return calls;
 }
 
 test.describe("monitoring RBAC", () => {
@@ -204,6 +215,23 @@ test.describe("monitoring RBAC", () => {
     );
     await expect(page.getByTestId("platform-alerts-ack-batch-btn")).toHaveCount(0);
     await expect(page.getByTestId("dlq-requeue-btn-case-dlq-1")).toHaveCount(0);
+  });
+
+  test("reviewer recebe bloqueio preventivo antes de carregar o core de monitoring", async ({ page }) => {
+    const calls = await seedFrontendAuth(page, "REVIEWER");
+    await page.goto("/monitoring");
+
+    await expect(page.getByTestId("monitoring-core-read-restricted")).toContainText(
+      "A carteira operacional de monitoring está oculta nesta sessão porque a role atual não possui leitura compatível: ADMIN, ANALYST, AUDITOR, VIEWER ou TESTER."
+    );
+    await expect(page.getByTestId("monitoring-alerts-read-restricted")).toContainText(
+      "A carteira operacional de monitoring está oculta nesta sessão porque a role atual não possui leitura compatível: ADMIN, ANALYST, AUDITOR, VIEWER ou TESTER."
+    );
+    await expect(page.locator('[data-testid="watchlist-item"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="trigger-alert-btn"]')).toHaveCount(0);
+    expect(calls.watchlists).toBe(0);
+    expect(calls.watchlistItems).toBe(0);
+    expect(calls.alerts).toBe(0);
   });
 
   test("tester recebe CTA de trigger-alert", async ({ page }) => {

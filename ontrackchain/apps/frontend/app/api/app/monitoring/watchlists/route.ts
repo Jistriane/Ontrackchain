@@ -21,13 +21,12 @@ export async function GET(request: Request) {
     cache: "no-store"
   });
 
+  const body = await res.text();
   if (res.status === 401 || res.status === 403) {
-    return new Response(JSON.stringify(EMPTY_MONITORING_WATCHLISTS_RESPONSE), {
-      status: 200,
+    return new Response(body || JSON.stringify({ detail: "monitoring_read_role_required" }), {
+      status: res.status,
       headers: { "content-type": "application/json" }
     });
   }
-
-  const body = await res.text();
   return new Response(body, { status: res.status, headers: { "content-type": "application/json" } });
 }

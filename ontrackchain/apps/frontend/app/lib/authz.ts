@@ -1,5 +1,6 @@
 const BILLING_READ_ROLES = new Set(["ADMIN", "BILLING_ADMIN", "OTK_BILLING_ADMIN"]);
 const INVESTIGATION_OPERATION_ROLES = new Set(["ADMIN", "ANALYST", "OTK_ANALYST"]);
+const MONITORING_CORE_READ_ROLES = new Set(["ADMIN", "ANALYST", "OTK_ANALYST", "AUDITOR", "VIEWER", "OTK_VIEWER", "TESTER", "OTK_TESTER"]);
 const PRIVILEGED_ADMIN_READ_ROLES = new Set(["ADMIN", "AUDITOR"]);
 const PRIVILEGED_ADMIN_MUTATION_ROLES = new Set(["ADMIN"]);
 const MONITORING_TEST_TRIGGER_ROLES = new Set(["ADMIN", "TESTER", "OTK_TESTER"]);
@@ -64,6 +65,10 @@ export function canReadBilling(role: string | null | undefined) {
 
 export function canOperateInvestigation(role: string | null | undefined) {
   return INVESTIGATION_OPERATION_ROLES.has(normalizeAuthRole(role));
+}
+
+export function canReadMonitoringCore(role: string | null | undefined) {
+  return MONITORING_CORE_READ_ROLES.has(normalizeAuthRole(role));
 }
 
 export function canReadMonitoringAdmin(role: string | null | undefined) {

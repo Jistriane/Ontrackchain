@@ -7,6 +7,7 @@ import {
   canManageInvestigationAdmin,
   canManageMonitoringAdmin,
   canReadInvestigationAdmin,
+  canReadMonitoringCore,
   canReadMonitoringAdmin,
   canTriggerMonitoringTestAlert
 } from "../lib/authz";
@@ -26,13 +27,14 @@ export default function MonitoringPage() {
   const [error, setError] = useState<string | null>(null);
   const [authContext, setAuthContext] = useState<AuthContext | null>(null);
   const [authResolved, setAuthResolved] = useState(false);
+  const canReadCoreMonitoringSurface = authResolved ? canReadMonitoringCore(authContext?.role) : null;
   const canTriggerTestAlert = authResolved ? canTriggerMonitoringTestAlert(authContext?.role) : false;
   const canReadPlatformAdmin = authResolved ? canReadMonitoringAdmin(authContext?.role) : null;
   const canManagePlatformAdmin = authResolved ? canManageMonitoringAdmin(authContext?.role) : null;
   const canReadInvestigationAdminSurface = authResolved ? canReadInvestigationAdmin(authContext?.role) : null;
   const canManageInvestigationAdminSurface = authResolved ? canManageInvestigationAdmin(authContext?.role) : null;
   const { watchlists, alerts, selectedAlert, setSelectedAlert, refreshAlerts, triggerAlert } =
-    useMonitoringWatchlistAlerts({ t, setError, canTriggerTestAlert });
+    useMonitoringWatchlistAlerts({ t, setError, canReadMonitoringCore: canReadCoreMonitoringSurface, canTriggerTestAlert });
   const {
     metricsText,
     refreshMetricsPreview: refreshPlatformMetricsPreview,
@@ -164,6 +166,7 @@ export default function MonitoringPage() {
 
       <WatchlistAlertsPanel
         t={t}
+        canReadMonitoringCore={canReadCoreMonitoringSurface}
         watchlists={watchlists}
         alerts={alerts}
         selectedAlert={selectedAlert}
