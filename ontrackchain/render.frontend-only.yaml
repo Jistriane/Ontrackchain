@@ -27,6 +27,6 @@ services:
       - key: NEXT_PUBLIC_FRONTEND_STANDALONE_DEMO_MODE
         value: "true"
       - key: NEXT_PUBLIC_FRONTEND_URL
-        value: https://ontrackchain-frontend-demo-staging.onrender.com
+        value: "https://ontrackchain-frontend-demo-staging.onrender.com"
       - key: NEXT_PUBLIC_APP_URL
-        value: https://ontrackchain-frontend-demo-staging.onrender.com
+        value: "https://ontrackchain-frontend-demo-staging.onrender.com"
