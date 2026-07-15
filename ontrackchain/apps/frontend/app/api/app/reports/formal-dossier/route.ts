@@ -1,3 +1,4 @@
+import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
 import { authenticateReportRequest, jsonResponse } from "../_shared";
 import { canExportSensitiveEvidence } from "../../../../lib/authz";
 import {
@@ -24,6 +25,45 @@ type ReportFormalDossierRequest = {
 };
 
 export async function POST(request: Request) {
+  if (isFrontendStandaloneShowcaseMode()) {
+    const payload = (await request.json().catch(() => null)) as ReportFormalDossierRequest | null;
+    if (!payload?.report?.report_id || !payload.report.case_id) {
+      return jsonResponse(JSON.stringify({ error: "invalid_formal_dossier_payload" }), 422);
+    }
+
+    const dossier = deriveReportFormalDossierSummary(payload.report, payload.has_download_audit);
+    const body = {
+      package_type: dossier.packageType,
+      classification: dossier.classification,
+      access_policy: dossier.accessPolicy,
+      signoff_mode: dossier.signoffMode,
+      anchoring_status: dossier.anchoringStatus,
+      download_state: dossier.downloadState,
+      custody_state: dossier.custodyState,
+      distribution_scope: dossier.distributionScope,
+      retention_class: dossier.retentionClass,
+      generated_at: new Date().toISOString(),
+      mode: "standalone_showcase",
+      report: payload.report,
+      workspace_summary: payload.workspace_summary ?? null,
+      evidence_bundle: {
+        summary: "Generated locally in standalone showcase mode.",
+        events: [
+          { at: "2026-07-15T22:10:00Z", action: "report_generated", actor: "showcase-user" },
+          { at: "2026-07-15T22:20:00Z", action: "dossier_packaged", actor: "showcase-user" }
+        ]
+      }
+    };
+
+    return new Response(JSON.stringify(body, null, 2), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+        "content-disposition": `attachment; filename="${buildReportFormalDossierFilename(payload.report.report_id)}"`
+      }
+    });
+  }
+
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const auth = await authenticateReportRequest(requestId);
   if (auth instanceof Response) {

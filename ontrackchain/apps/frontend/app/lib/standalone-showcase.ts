@@ -5,10 +5,10 @@ export const STANDALONE_SHOWCASE_AUTH_CONTEXT = {
   linked_user_id: "showcase-user",
   role: "ADMIN",
   plan: "enterprise",
-  auth_method: "standalone_showcase",
-  mfa_mode: "managed_externally",
-  mfa_provider_homologated: "showcase",
-  two_factor: "managed_externally"
+  auth_method: "jwt",
+  mfa_mode: "external_provider",
+  mfa_provider_homologated: "true",
+  two_factor: "managed_externally_homologated"
 } as const;
 
 export const STANDALONE_SHOWCASE_HOME_CATALOGS = {
@@ -189,3 +189,94 @@ export const STANDALONE_SHOWCASE_DASHBOARD = {
     }
   ]
 } as const;
+
+export const STANDALONE_SHOWCASE_CASES = [
+  {
+    id: "case-showcase-001",
+    status: "completed",
+    target_address: "0x6b175474e89094c44da98b954eedeac495271d0f",
+    target_chain: "ethereum",
+    created_at: "2026-07-14T10:15:00Z",
+    completed_at: "2026-07-14T10:24:00Z"
+  },
+  {
+    id: "case-showcase-002",
+    status: "processing",
+    target_address: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+    target_chain: "bitcoin",
+    created_at: "2026-07-15T08:40:00Z",
+    completed_at: null
+  },
+  {
+    id: "case-showcase-003",
+    status: "queued",
+    target_address: "0x4200000000000000000000000000000000000006",
+    target_chain: "base",
+    created_at: "2026-07-15T09:05:00Z",
+    completed_at: null
+  }
+] as const;
+
+export const STANDALONE_SHOWCASE_REPORT_HISTORY = [
+  {
+    report_id: "rep-showcase-001",
+    case_id: "case-showcase-001",
+    report_type_requested: "technical_basic",
+    report_type: "technical_basic",
+    content_type: "application/pdf",
+    file_hash_sha256: "f4b79e0a4ca8ec4ba5ff0b473acdb7d2ccfca9a2f7d6a654df6f33ce2eb1f150",
+    onchain_hash: "0xf4b79e0a4ca8ec4ba5ff0b473acdb7d2ccfca9a2f7d6a654df6f33ce2eb1f150",
+    created_at: "2026-07-14T10:24:00Z",
+    has_download_audit: true
+  },
+  {
+    report_id: "rep-showcase-002",
+    case_id: "case-showcase-002",
+    report_type_requested: "legal_report",
+    report_type: "legal_report",
+    content_type: "application/pdf",
+    file_hash_sha256: "9a9380d4f2f37ce5be779dd111b97d95d9fe5cdaeb34b483fbb3e4088ff5e8f4",
+    onchain_hash: null,
+    created_at: "2026-07-15T08:55:00Z",
+    has_download_audit: false
+  }
+] as const;
+
+export function buildStandaloneShowcaseQuote(input: {
+  address: string;
+  chains?: string[];
+  report_type?: string;
+}) {
+  const chain = input.chains?.[0] ?? "ethereum";
+  const reportType = input.report_type?.trim() || "technical_basic";
+  const catalogEntry = STANDALONE_SHOWCASE_HOME_CATALOGS.reportTypes.types.find((item) => item.canonical === reportType);
+  const totalCredits = catalogEntry?.cost_credits ?? 24;
+  return {
+    quote_id: `quote-${reportType}-${chain}`,
+    total_credits: totalCredits,
+    address: input.address.trim(),
+    chains: [chain],
+    report_type: reportType,
+    addons: [],
+    mode: "standalone_showcase",
+    expires_at: "2026-07-15T23:59:59Z"
+  } as const;
+}
+
+export function buildStandaloneShowcaseGeneratedReport(input: { caseId: string; reportType: string }) {
+  return {
+    report_id: `rep-${input.caseId}-${input.reportType}`,
+    created_at: "2026-07-15T22:30:00Z",
+    report_type: input.reportType,
+    file_hash_sha256: "7e3344272f2f1b2e22fce9c0d3108a3f1df14a0b9937cc12f5a39bfe9b9fdf12",
+    content_type: "application/pdf"
+  } as const;
+}
+
+export function resolveStandaloneShowcaseCase(caseId: string) {
+  return STANDALONE_SHOWCASE_CASES.find((item) => item.id === caseId) ?? null;
+}
+
+export function resolveStandaloneShowcaseReport(reportId: string) {
+  return STANDALONE_SHOWCASE_REPORT_HISTORY.find((item) => item.report_id === reportId) ?? null;
+}

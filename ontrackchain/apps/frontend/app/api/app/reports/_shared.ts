@@ -1,4 +1,6 @@
 import { cookies } from "next/headers";
+import { isFrontendStandaloneShowcaseMode } from "../../../lib/auth-runtime";
+import { STANDALONE_SHOWCASE_AUTH_CONTEXT } from "../../../lib/standalone-showcase";
 
 type ReportAuthContext = {
   token: string;
@@ -25,6 +27,20 @@ export function jsonResponse(body: string, status: number) {
 }
 
 export async function authenticateReportRequest(requestId: string): Promise<ReportAuthContext | Response> {
+  if (isFrontendStandaloneShowcaseMode()) {
+    return {
+      token: "standalone-showcase",
+      orgId: STANDALONE_SHOWCASE_AUTH_CONTEXT.org_id,
+      userId: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      linkedUserId: STANDALONE_SHOWCASE_AUTH_CONTEXT.linked_user_id,
+      role: STANDALONE_SHOWCASE_AUTH_CONTEXT.role,
+      authMethod: STANDALONE_SHOWCASE_AUTH_CONTEXT.auth_method,
+      mfaMode: STANDALONE_SHOWCASE_AUTH_CONTEXT.mfa_mode,
+      mfaProviderHomologated: STANDALONE_SHOWCASE_AUTH_CONTEXT.mfa_provider_homologated,
+      twoFactor: STANDALONE_SHOWCASE_AUTH_CONTEXT.two_factor
+    };
+  }
+
   const token = cookies().get("otc_token")?.value;
   if (!token) {
     return jsonResponse(JSON.stringify({ error: "not_authenticated" }), 401);

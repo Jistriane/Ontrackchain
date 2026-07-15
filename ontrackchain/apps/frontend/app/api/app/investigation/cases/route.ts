@@ -1,4 +1,6 @@
 import { cookies } from "next/headers";
+import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
+import { STANDALONE_SHOWCASE_CASES } from "../../../../lib/standalone-showcase";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -15,6 +17,13 @@ function buildEmptyCasesResponse(request: Request) {
 }
 
 export async function GET(request: Request) {
+  if (isFrontendStandaloneShowcaseMode()) {
+    return new Response(JSON.stringify({ ...buildEmptyCasesResponse(request), data: [...STANDALONE_SHOWCASE_CASES] }), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  }
+
   const token = cookies().get("otc_token")?.value;
   if (!token) {
     return new Response(JSON.stringify(buildEmptyCasesResponse(request)), {
