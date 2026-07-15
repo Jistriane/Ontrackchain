@@ -63,9 +63,9 @@ services:
     healthCheckPath: /realms/ontrackchain
     envVars:
       - key: KEYCLOAK_PUBLIC_URL
-        value: https://ontrackchain-keycloak-staging.onrender.com
+        value: "https://ontrackchain-keycloak-staging.onrender.com"
       - key: ONTRACKCHAIN_PUBLIC_BASE_URL
-        value: https://ontrackchain-gateway-staging.onrender.com
+        value: "https://ontrackchain-gateway-staging.onrender.com"
       - key: KEYCLOAK_ADMIN
         value: admin
       - key: KEYCLOAK_ADMIN_PASSWORD
@@ -125,15 +125,15 @@ services:
       - key: MFA_TOTP_WINDOW
         value: "1"
       - key: OIDC_ISSUER_URL
-        value: https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain
+        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain"
       - key: OIDC_AUDIENCE
         value: ontrackchain-api
       - key: OIDC_CLIENT_ID
         value: ontrackchain-web
       - key: OIDC_JWKS_URL
-        value: https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/certs
+        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/certs"
       - key: OIDC_AUTHORIZATION_URL
-        value: https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/auth
+        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/auth"
       - key: OIDC_ORG_CLAIM
         value: org
       - key: OIDC_PLAN_CLAIM
@@ -141,7 +141,7 @@ services:
       - key: OIDC_ROLE_CLAIM
         value: otk_role
       - key: KEYCLOAK_ADMIN_BASE_URL
-        value: https://ontrackchain-keycloak-staging.onrender.com
+        value: "https://ontrackchain-keycloak-staging.onrender.com"
       - key: KEYCLOAK_ADMIN_REALM
         value: ontrackchain
       - key: KEYCLOAK_ADMIN_CLIENT_ID
@@ -589,13 +589,13 @@ services:
       - key: NEXT_PUBLIC_DEV_AUTH_ENABLED
         value: "false"
       - key: INTERNAL_API_BASE_URL
-        value: https://ontrackchain-gateway-staging.onrender.com
+        value: "https://ontrackchain-gateway-staging.onrender.com"
       - key: INTERNAL_AUTH_BASE_URL
-        value: https://ontrackchain-auth-service-staging.onrender.com
+        value: "https://ontrackchain-auth-service-staging.onrender.com"
       - key: INTERNAL_KEYCLOAK_BASE_URL
-        value: https://ontrackchain-keycloak-staging.onrender.com
+        value: "https://ontrackchain-keycloak-staging.onrender.com"
       - key: NEXT_PUBLIC_API_BASE_URL
-        value: https://ontrackchain-gateway-staging.onrender.com
+        value: "https://ontrackchain-gateway-staging.onrender.com"
 
 databases:
   - name: ontrackchain-postgres-staging
