@@ -1,0 +1,32 @@
+version: "1"
+
+previews:
+  generation: off
+
+services:
+  - type: web
+    runtime: docker
+    name: ontrackchain-frontend-demo-staging
+    plan: starter
+    dockerContext: ./apps/frontend
+    dockerfilePath: ./apps/frontend/Dockerfile
+    healthCheckPath: /api/healthz
+    envVars:
+      - key: APP_ENV
+        value: staging
+      - key: AUTH_MODE
+        value: oidc
+      - key: DEV_AUTH_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_APP_ENV
+        value: staging
+      - key: NEXT_PUBLIC_AUTH_MODE
+        value: oidc
+      - key: NEXT_PUBLIC_DEV_AUTH_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_FRONTEND_STANDALONE_DEMO_MODE
+        value: "true"
+      - key: NEXT_PUBLIC_FRONTEND_URL
+        value: https://ontrackchain-frontend-demo-staging.onrender.com
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://ontrackchain-frontend-demo-staging.onrender.com

@@ -27,6 +27,8 @@ Nao use este documento para:
 - decidir promocao ou `go/no-go` formal: use [Gates de Release para Staging Serio](./project-release-gates.md)
 - configurar o workflow manual e o secret multi-linha do GitHub Actions: use [GitHub Environment para Staging Serio](./github-environment-staging-serious.md)
 
+Para execucao operacional curta do primeiro `sync` focado em convergencia do frontend, use tambem o [Run Sheet Operacional do Frontend em Staging no Render](./governance-weekly/guides/RENDER_STAGING_FRONTEND_RUN_SHEET.md).
+
 ## Estado Atual
 
 O blueprint vigente volta a provisionar a malha principal de staging:
@@ -41,7 +43,7 @@ O blueprint vigente volta a provisionar a malha principal de staging:
 - `ontrackchain-compliance-worker-staging`: `worker`
 - `ontrackchain-monitoring-api-staging`: `pserv`
 - `ontrackchain-report-api-staging`: `pserv`
-- `ontrackchain-frontend-staging`: `pserv`
+- `ontrackchain-frontend-staging`: `pserv` com `healthCheckPath=/api/healthz`
 - `ontrackchain-alertmanager-staging`: `pserv`
 - `ontrackchain-prometheus-staging`: `pserv`
 - `ontrackchain-grafana-staging`: `web` público
@@ -95,6 +97,25 @@ Trade-off aceito:
 - screening, `counterparties`, `blocks` e `work-items` com `compliance-api`
 - alertas operacionais e webhook do `Alertmanager` com `monitoring-api`
 - observabilidade básica via `Prometheus` e `Grafana`
+
+## Contrato Operacional do Frontend
+
+O serviço `ontrackchain-frontend-staging` continua privado no Render e não deve ser promovido a endpoint público direto neste blueprint. O tráfego do usuário entra por `ontrackchain-gateway-staging`, que roteia `PathPrefix("/")` para o frontend.
+
+Contrato mínimo do serviço:
+
+- `dockerContext=./apps/frontend`
+- `dockerfilePath=./apps/frontend/Dockerfile`
+- `healthCheckPath=/api/healthz`
+- `APP_ENV=staging`
+- `AUTH_MODE=oidc`
+- `DEV_AUTH_ENABLED=false`
+- `INTERNAL_API_BASE_URL=https://ontrackchain-gateway-staging.onrender.com`
+- `INTERNAL_AUTH_BASE_URL=https://ontrackchain-auth-service-staging.onrender.com`
+- `INTERNAL_KEYCLOAK_BASE_URL=https://ontrackchain-keycloak-staging.onrender.com`
+- `NEXT_PUBLIC_API_BASE_URL=https://ontrackchain-gateway-staging.onrender.com`
+
+O endpoint `/api/healthz` do frontend valida apenas a presença das envs obrigatórias do runtime hospedado. Ele existe para detectar drift de configuração do serviço sem depender do login completo ou de chamadas transversais ao gateway.
 
 ## O Que Ainda Fica Limitado
 
@@ -269,6 +290,7 @@ Checklist minimo do primeiro `sync`:
 - `Keycloak` responde no realm `ontrackchain`
 - `Grafana` responde em `/api/health`
 - `frontend` carrega com `AUTH_MODE=oidc`
+- o serviço `ontrackchain-frontend-staging` converge com health check verde em `/api/healthz`
 - `ROS/COAF` ainda nao e usado como aceite final antes de preencher os segredos de providers e validar identidade persistida
 
 ## Roteiro Curto do Operador
@@ -309,6 +331,7 @@ Pare imediatamente e nao avance para providers reais se qualquer um destes ocorr
 - `auth-service` nao responder em `/health`
 - `Keycloak` nao responder no realm
 - `Grafana` nao responder em `/api/health`
+- `frontend` nao convergir no health check `/api/healthz`
 
 Quando parar:
 
@@ -332,7 +355,8 @@ Com a malha principal verde:
 2. validar `/health`
 3. validar o realm do `Keycloak`
 4. validar `Grafana`
-5. só entao seguir para o rito em [deploy-and-staging.md](./deploy-and-staging.md)
+5. confirmar no painel do Render que `ontrackchain-frontend-staging` ficou verde em `/api/healthz`
+6. só entao seguir para o rito em [deploy-and-staging.md](./deploy-and-staging.md)
 
 ### Rollback Imediato de Operador
 

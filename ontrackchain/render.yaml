@@ -574,6 +574,7 @@ services:
     plan: starter
     dockerContext: ./apps/frontend
     dockerfilePath: ./apps/frontend/Dockerfile
+    healthCheckPath: /api/healthz
     envVars:
       - key: APP_ENV
         value: staging

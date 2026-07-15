@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuthConfig, createOidcAuthorizationUrl } from "../lib/oidc";
+import { isFrontendStandaloneDemoMode } from "../lib/auth-runtime";
+import type { MessageKey } from "../lib/i18n";
 import { useI18n } from "../../components/i18n-provider";
 import { AuthShell, Message } from "../../components/ui";
 
@@ -17,8 +19,12 @@ export default function LoginPage() {
   const [totp, setTotp] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const standaloneDemoMode = isFrontendStandaloneDemoMode();
 
   useEffect(() => {
+    if (standaloneDemoMode) {
+      return;
+    }
     let active = true;
     fetch("/auth/config", { cache: "no-store" })
       .then(async (res) => {
@@ -37,10 +43,14 @@ export default function LoginPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [standaloneDemoMode]);
 
   async function onLogin() {
     setError(null);
+    if (standaloneDemoMode) {
+      setError(t("login.demoUnavailable" as MessageKey));
+      return;
+    }
     setIsSubmitting(true);
     if (authMode === "oidc") {
       try {
@@ -132,6 +142,7 @@ export default function LoginPage() {
           {t("login.devBlocked", { appEnv: authConfig.app_env ?? "unknown" })}
         </Message>
       ) : null}
+      {standaloneDemoMode ? <Message>{t("login.demoNotice" as MessageKey)}</Message> : null}
 
       <div className="otc-stack">
         {authMode !== "oidc" ? (
@@ -159,9 +170,9 @@ export default function LoginPage() {
           type="button"
           data-testid="login-btn"
           onClick={onLogin}
-          disabled={isSubmitting || (authMode !== "oidc" && (!email.trim() || !password))}
+          disabled={standaloneDemoMode || isSubmitting || (authMode !== "oidc" && (!email.trim() || !password))}
         >
-          {authMode === "oidc" ? t("login.enterKeycloak") : t("login.enter")}
+          {standaloneDemoMode ? t("login.demoButton" as MessageKey) : authMode === "oidc" ? t("login.enterKeycloak") : t("login.enter")}
         </button>
         {error ? <Message tone="error">{error}</Message> : null}
       </div>

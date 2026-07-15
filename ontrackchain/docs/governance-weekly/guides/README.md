@@ -15,6 +15,7 @@ Concentrar guias operacionais permanentes da governanca semanal que nao pertence
 - [Guia de Execucao Assistida de `P0-04` Bundle Regulatorio Oficial](./P0-04_REGULATORY_BUNDLE_EXECUTION_GUIDE.md)
 - [Pacote Final de Execucao da Janela Seria Integrada](./SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md)
 - [Run Sheet Operacional da Malha E2E Local](./E2E_LOCAL_MESH_RUN_SHEET.md)
+- [Run Sheet Operacional do Frontend em Staging no Render](./RENDER_STAGING_FRONTEND_RUN_SHEET.md)
 - [Checklist Executivo da Primeira Janela Combinada](./FIRST_COMBINED_SERIOUS_WINDOW_EXECUTIVE_CHECKLIST.md)
 - [Run Sheet da Primeira Janela Combinada](./FIRST_COMBINED_SERIOUS_WINDOW_RUN_SHEET.md)
 - [Workflow de Atualizacao Semanal da Governanca](./WEEKLY_GOVERNANCE_UPDATE_WORKFLOW.md)

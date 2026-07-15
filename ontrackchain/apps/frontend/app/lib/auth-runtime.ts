@@ -55,3 +55,12 @@ export function resolveEffectiveAuthMode(env: NodeJS.ProcessEnv = process.env): 
 export function isConfiguredDevAuthButDisabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return resolveConfiguredAuthMode(env) === "dev" && !isDevAuthEnabled(env);
 }
+
+export function isFrontendStandaloneDemoMode(env: NodeJS.ProcessEnv = process.env): boolean {
+  const configured = parseBoolean(
+    env.FRONTEND_STANDALONE_DEMO_MODE ??
+      env.NEXT_PUBLIC_FRONTEND_STANDALONE_DEMO_MODE ??
+      env.NEXT_PUBLIC_FRONTEND_DEMO_MODE
+  );
+  return configured === true;
+}

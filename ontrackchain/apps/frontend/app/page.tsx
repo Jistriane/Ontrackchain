@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { isConfiguredDevAuthButDisabled, resolveEffectiveAuthMode } from "./lib/auth-runtime";
+import { isConfiguredDevAuthButDisabled, isFrontendStandaloneDemoMode, resolveEffectiveAuthMode } from "./lib/auth-runtime";
 import { AppShell, CodeBlock, MetricCard, MetricGrid, ModuleCard, ModuleGrid, Panel, Pill } from "../components/ui";
 import { LOCALE_COOKIE_NAME, normalizeLocale, translate, type MessageKey } from "./lib/i18n";
 
@@ -94,9 +94,10 @@ export default async function Home() {
   const t = (key: MessageKey, values?: Record<string, string | number>) => translate(locale, key, values);
   const authMode = resolveEffectiveAuthMode();
   const devAuthDisabled = isConfiguredDevAuthButDisabled();
+  const standaloneDemoMode = isFrontendStandaloneDemoMode();
   const sessionToken = cookieStore.get("otc_token")?.value?.trim() ?? "";
   const authenticated = sessionToken.length > 0;
-  const sessionBundle = authenticated
+  const sessionBundle = authenticated && !standaloneDemoMode
     ? await fetchDashboardBundle(sessionToken)
     : {
         reportTypes: null,
@@ -114,8 +115,13 @@ export default async function Home() {
       title={t("home.title")}
       subtitle={t("home.subtitle")}
       activePath="/dashboard"
-      actions={<a href="/dashboard" className="otc-link-button">{t("home.openDashboard")}</a>}
+      actions={standaloneDemoMode ? <Pill tone="warning">{t("home.demo.badge" as MessageKey)}</Pill> : <a href="/dashboard" className="otc-link-button">{t("home.openDashboard")}</a>}
     >
+      {standaloneDemoMode ? (
+        <Panel title={t("home.demo.title" as MessageKey)} description={t("home.demo.description" as MessageKey)}>
+          <div className="otc-message">{t("home.demo.notice" as MessageKey)}</div>
+        </Panel>
+      ) : null}
       <MetricGrid>
         <MetricCard label={t("home.stats.authMode")} value={authMode.toUpperCase()} meta={devAuthDisabled ? t("home.stats.authMetaDevBlocked") : t("home.stats.authMetaEffective")} />
         <MetricCard
@@ -129,10 +135,10 @@ export default async function Home() {
 
       <Panel title={t("home.summary.title")} description={t("home.summary.description")}>
         <ModuleGrid>
-          <ModuleCard href="/dashboard" title={t("home.summary.panel")} description={t("home.summary.panelDesc")} badge={<Pill>{t("dashboard.modules.active")}</Pill>} />
-          <ModuleCard href="/investigate" title={t("home.summary.investigations")} description={t("home.summary.investigationsDesc")} badge={<Pill>{t("dashboard.modules.active")}</Pill>} />
-          <ModuleCard href="/monitoring" title={t("home.summary.monitoring")} description={t("home.summary.monitoringDesc")} badge={<Pill>{t("dashboard.modules.active")}</Pill>} />
-          <ModuleCard href="/audit" title={t("home.summary.audit")} description={t("home.summary.auditDesc")} badge={<Pill>{t("dashboard.modules.active")}</Pill>} />
+          <ModuleCard href={standaloneDemoMode ? undefined : "/dashboard"} title={t("home.summary.panel")} description={t("home.summary.panelDesc")} badge={<Pill>{standaloneDemoMode ? t("home.demo.badge" as MessageKey) : t("dashboard.modules.active")}</Pill>} />
+          <ModuleCard href={standaloneDemoMode ? undefined : "/investigate"} title={t("home.summary.investigations")} description={t("home.summary.investigationsDesc")} badge={<Pill>{standaloneDemoMode ? t("home.demo.badge" as MessageKey) : t("dashboard.modules.active")}</Pill>} />
+          <ModuleCard href={standaloneDemoMode ? undefined : "/monitoring"} title={t("home.summary.monitoring")} description={t("home.summary.monitoringDesc")} badge={<Pill>{standaloneDemoMode ? t("home.demo.badge" as MessageKey) : t("dashboard.modules.active")}</Pill>} />
+          <ModuleCard href={standaloneDemoMode ? undefined : "/audit"} title={t("home.summary.audit")} description={t("home.summary.auditDesc")} badge={<Pill>{standaloneDemoMode ? t("home.demo.badge" as MessageKey) : t("dashboard.modules.active")}</Pill>} />
         </ModuleGrid>
       </Panel>
 
@@ -143,7 +149,7 @@ export default async function Home() {
       {!authenticated ? (
         <Panel title={t("home.authNotice.title")} description={t("home.authNotice.description")}>
           <div className="otc-message">
-            {devAuthDisabled ? t("home.authNotice.devBlocked") : t("home.authNotice.loginRequired")}
+            {standaloneDemoMode ? t("home.demo.authBlocked" as MessageKey) : devAuthDisabled ? t("home.authNotice.devBlocked") : t("home.authNotice.loginRequired")}
           </div>
         </Panel>
       ) : null}

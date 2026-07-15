@@ -558,6 +558,7 @@ services:
     plan: starter
     dockerContext: ./ontrackchain/apps/frontend
     dockerfilePath: ./ontrackchain/apps/frontend/Dockerfile
+    healthCheckPath: /api/healthz
     envVars:
       - key: APP_ENV
         value: staging

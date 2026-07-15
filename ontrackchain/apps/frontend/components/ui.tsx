@@ -223,6 +223,9 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const ROLE_GATED_NAV_ITEMS = new Set(["/billing", "/counterparties", "/alerts", "/team"]);
+const STANDALONE_DEMO_MODE =
+  process.env.NEXT_PUBLIC_FRONTEND_STANDALONE_DEMO_MODE === "true" ||
+  process.env.NEXT_PUBLIC_FRONTEND_DEMO_MODE === "true";
 
 function joinClasses(...parts: Array<string | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -316,7 +319,7 @@ export function AppShell({ title, subtitle, activePath, eyebrow, actions, childr
 
   const visibleNavItems = useMemo(
     () =>
-      NAV_ITEMS.filter((item) => {
+      (STANDALONE_DEMO_MODE ? [] : NAV_ITEMS).filter((item) => {
         if (authRole === undefined) {
           return !ROLE_GATED_NAV_ITEMS.has(item.href);
         }
@@ -402,7 +405,9 @@ export function AppShell({ title, subtitle, activePath, eyebrow, actions, childr
             </nav>
             <div className={joinClasses("otc-sidebar__footer", sidebarCollapsed ? "otc-sidebar__footer--collapsed" : undefined)}>
               <span className="otc-status-pill">{t("topbar.online")}</span>
-              <span className={joinClasses("otc-ghost-pill", sidebarCollapsed ? "otc-ghost-pill--compact" : undefined)}>{t("topbar.systemUser")}</span>
+              <span className={joinClasses("otc-ghost-pill", sidebarCollapsed ? "otc-ghost-pill--compact" : undefined)}>
+                {STANDALONE_DEMO_MODE ? "Demo" : t("topbar.systemUser")}
+              </span>
             </div>
           </aside>
 

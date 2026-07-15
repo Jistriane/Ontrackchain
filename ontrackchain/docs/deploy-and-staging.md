@@ -72,6 +72,8 @@ Use [Blueprint Render para Staging Full-Stack](render-staging-blueprint.md) quan
 
 Nao trate esse deploy sozinho como evidência suficiente de staging sério, readiness regulatório ou aceite institucional; continue exigindo `preflight`, bundles, evidências e `go/no-go`.
 
+Quando a necessidade for apenas publicar uma vitrine do frontend sem backend real e sem segredos, use o recorte deliberadamente limitado em [Blueprint Render - Frontend-Only Demo](render-frontend-only-demo.md). Ele nao substitui staging funcional.
+
 ## Ambientes Recomendados
 
 ### Development
@@ -489,8 +491,10 @@ python3 scripts/smoke_auth_oidc_mode.py
 - imagens/builds atualizados
 - rotas Traefik alinhadas com servicos
 - variaveis de ambiente coerentes
+- `ontrackchain-frontend-staging` com `healthCheckPath=/api/healthz`
 - `INTERNAL_API_BASE_URL` correto para o frontend
 - override `INTERNAL_AUTH_BASE_URL` revisado quando o frontend nao estiver na rede padrao do compose
+- `INTERNAL_KEYCLOAK_BASE_URL` coerente com o `Keycloak` hospedado no Render
 
 ### Banco
 
