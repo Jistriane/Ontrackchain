@@ -1,6 +1,31 @@
 import { cookies } from "next/headers";
+import { isFrontendStandaloneShowcaseMode } from "../../../../../lib/auth-runtime";
+import { exportStandaloneShowcasePlatformAlerts } from "../../../../../lib/standalone-showcase";
 
 export async function POST(request: Request) {
+  if (isFrontendStandaloneShowcaseMode()) {
+    const payload = (await request.json().catch(() => null)) as
+      | {
+          format?: "csv" | "json";
+          scope?: "filtered" | "selected";
+          ids?: string[] | null;
+          status?: string | null;
+          triage_status?: string | null;
+          service?: string | null;
+          receiver?: string | null;
+          severity?: string | null;
+        }
+      | null;
+    const exported = exportStandaloneShowcasePlatformAlerts(payload ?? {});
+    return new Response(exported.body, {
+      status: 200,
+      headers: {
+        "content-type": exported.contentType,
+        "content-disposition": `attachment; filename="${exported.filename}"`
+      }
+    });
+  }
+
   const token = cookies().get("otc_token")?.value;
   if (!token) {
     return new Response(JSON.stringify({ error: "not_authenticated" }), {

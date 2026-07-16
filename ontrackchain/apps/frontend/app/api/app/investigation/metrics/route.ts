@@ -1,8 +1,17 @@
 import { cookies } from "next/headers";
+import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
+import { getStandaloneShowcaseInvestigationMetricsPreview } from "../../../../lib/standalone-showcase";
 
 const EMPTY_METRICS_PREVIEW = "# metrics_unavailable_anonymous 1\n";
 
 export async function GET(request: Request) {
+  if (isFrontendStandaloneShowcaseMode()) {
+    return new Response(getStandaloneShowcaseInvestigationMetricsPreview(), {
+      status: 200,
+      headers: { "content-type": "text/plain; charset=utf-8" }
+    });
+  }
+
   const token = cookies().get("otc_token")?.value;
   if (!token) {
     return new Response(EMPTY_METRICS_PREVIEW, {

@@ -1,4 +1,6 @@
 import { cookies } from "next/headers";
+import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
+import { listStandaloneShowcasePlatformAlertFilterOptions } from "../../../../lib/standalone-showcase";
 
 const EMPTY_PLATFORM_ALERT_FILTER_OPTIONS = {
   services: [],
@@ -7,6 +9,13 @@ const EMPTY_PLATFORM_ALERT_FILTER_OPTIONS = {
 } as const;
 
 export async function GET(request: Request) {
+  if (isFrontendStandaloneShowcaseMode()) {
+    return new Response(JSON.stringify(listStandaloneShowcasePlatformAlertFilterOptions()), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  }
+
   const token = cookies().get("otc_token")?.value;
   if (!token) {
     return new Response(JSON.stringify(EMPTY_PLATFORM_ALERT_FILTER_OPTIONS), {

@@ -1,4 +1,6 @@
 import { cookies } from "next/headers";
+import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
+import { getStandaloneShowcaseDlq } from "../../../../lib/standalone-showcase";
 
 const DEFAULT_DLQ_LIMIT = 100;
 
@@ -23,6 +25,23 @@ function buildEmptyDlqResponse(request: Request) {
 }
 
 export async function GET(request: Request) {
+  if (isFrontendStandaloneShowcaseMode()) {
+    const url = new URL(request.url);
+    return new Response(
+      JSON.stringify(
+        getStandaloneShowcaseDlq({
+          state: url.searchParams.get("state"),
+          targetChain: url.searchParams.get("target_chain"),
+          limit: Number(url.searchParams.get("limit") ?? DEFAULT_DLQ_LIMIT)
+        })
+      ),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      }
+    );
+  }
+
   const token = cookies().get("otc_token")?.value;
   if (!token) {
     return new Response(JSON.stringify(buildEmptyDlqResponse(request)), {

@@ -1,4 +1,13 @@
 import type { WorkCommentResponse, WorkEventResponse, WorkItemTimelineResponse } from "./work-item-timeline";
+import type { Alert, Watchlist, WatchlistItem } from "./monitoring-api";
+import type { DlqSnapshot } from "./monitoring-dlq";
+import type { OperationsSnapshot, OperationalAlertsSnapshot } from "./monitoring-investigation-operations";
+import type {
+  PlatformAlertExportFormat,
+  PlatformAlertFilterState,
+  PlatformOperationalAlertFilterOptions,
+  PlatformOperationalAlertsSnapshot
+} from "./monitoring-platform-alerts";
 import type { ReportWorkItemMetadata, WorkItemListResponse, WorkItemResponse } from "./work-items";
 
 export const STANDALONE_SHOWCASE_AUTH_CONTEXT = {
@@ -512,6 +521,262 @@ let standaloneShowcaseTeamExternalIdentitiesStore = Object.fromEntries(
 ) as Record<string, ShowcaseTeamExternalIdentityRecord[]>;
 let standaloneShowcaseFederatedDirectoryStore = STANDALONE_SHOWCASE_FEDERATED_DIRECTORY_SEEDS.map((candidate) => ({ ...candidate }));
 
+const STANDALONE_SHOWCASE_MONITORING_WATCHLISTS: Watchlist[] = [
+  { id: "watchlist-showcase-critical", name: "Critical Counterparties", priority: "high" },
+  { id: "watchlist-showcase-bridges", name: "Bridge Exposure", priority: "normal" }
+];
+
+const STANDALONE_SHOWCASE_MONITORING_WATCHLIST_ITEMS: Record<string, WatchlistItem[]> = {
+  "watchlist-showcase-critical": [
+    {
+      id: "watchlist-item-showcase-001",
+      watchlist_id: "watchlist-showcase-critical",
+      address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+      chain: "ethereum",
+      created_at: "2026-07-15T18:12:00Z"
+    },
+    {
+      id: "watchlist-item-showcase-002",
+      watchlist_id: "watchlist-showcase-critical",
+      address: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+      chain: "bitcoin",
+      created_at: "2026-07-15T18:13:00Z"
+    }
+  ],
+  "watchlist-showcase-bridges": [
+    {
+      id: "watchlist-item-showcase-003",
+      watchlist_id: "watchlist-showcase-bridges",
+      address: "0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      chain: "base",
+      created_at: "2026-07-15T18:15:00Z"
+    }
+  ]
+};
+
+const STANDALONE_SHOWCASE_MONITORING_ALERT_SEEDS: Alert[] = [
+  {
+    id: "alert-showcase-001",
+    watchlist_id: "watchlist-showcase-critical",
+    address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+    chain: "ethereum",
+    severity: "high",
+    title: "Sanctions proximity detected",
+    details: { source: "showcase_seed", matched_list: "ofac", risk_score: 91 },
+    created_at: "2026-07-15T18:25:00Z"
+  }
+];
+
+type ShowcasePlatformAlertRecord = PlatformOperationalAlertsSnapshot["data"][number];
+
+const STANDALONE_SHOWCASE_PLATFORM_ALERT_SEEDS: ShowcasePlatformAlertRecord[] = [
+  {
+    id: "platform-alert-showcase-001",
+    receiver: "slack-secops",
+    status: "firing",
+    triage_status: "pending",
+    alertname: "IndexerLagHigh",
+    service: "indexer",
+    severity: "critical",
+    fingerprint: "fp-showcase-indexer-lag",
+    labels: { env: "showcase", service: "indexer", team: "platform" },
+    annotations: {
+      summary: "Indexer com lag acima do limite de governança.",
+      description: "Lag sustentado por 7 minutos no pipeline de indexacao regulatoria."
+    },
+    first_received_at: "2026-07-15T18:00:00Z",
+    last_received_at: "2026-07-15T18:32:00Z",
+    delivery_count: 5,
+    resolved_at: null,
+    triaged_at: null,
+    triaged_by: null,
+    triage_note: null
+  },
+  {
+    id: "platform-alert-showcase-002",
+    receiver: "pagerduty-compliance",
+    status: "firing",
+    triage_status: "pending",
+    alertname: "RulesEngineRetryBurst",
+    service: "rules-engine",
+    severity: "warning",
+    fingerprint: "fp-showcase-rules-retry",
+    labels: { env: "showcase", service: "rules-engine", team: "compliance" },
+    annotations: {
+      summary: "Burst de retries em regras de screening.",
+      description: "Fila de reprocessamento subiu acima da baseline operacional."
+    },
+    first_received_at: "2026-07-15T18:08:00Z",
+    last_received_at: "2026-07-15T18:31:00Z",
+    delivery_count: 3,
+    resolved_at: null,
+    triaged_at: null,
+    triaged_by: null,
+    triage_note: null
+  },
+  {
+    id: "platform-alert-showcase-003",
+    receiver: "slack-secops",
+    status: "resolved",
+    triage_status: "acknowledged",
+    alertname: "WorkerCpuRecovered",
+    service: "worker",
+    severity: "info",
+    fingerprint: "fp-showcase-worker-recovered",
+    labels: { env: "showcase", service: "worker", team: "investigation" },
+    annotations: {
+      summary: "Recuperacao automatica do worker principal.",
+      description: "Escalonamento horizontal estabilizou a fila de casos."
+    },
+    first_received_at: "2026-07-15T17:40:00Z",
+    last_received_at: "2026-07-15T18:05:00Z",
+    delivery_count: 2,
+    resolved_at: "2026-07-15T18:06:00Z",
+    triaged_at: "2026-07-15T18:07:00Z",
+    triaged_by: "alice.admin",
+    triage_note: "noise reduced after autoscaling"
+  }
+];
+
+const STANDALONE_SHOWCASE_OPERATIONAL_ALERT_SEED_BASE: OperationalAlertsSnapshot["alerts"] = [
+  {
+    code: "IDX_LAG_HIGH",
+    severity: "critical",
+    status: "open",
+    metric: "indexer_lag_seconds",
+    value: 540,
+    threshold: 180,
+    title: "Indexer lag acima do limite",
+    message: "A indexacao regulatoria esta atrasada e pode afetar UX e governanca.",
+    recommended_action: "Validar backlog, workers e pressao no banco antes de ampliar ingestao."
+  },
+  {
+    code: "RULES_RETRY_BURST",
+    severity: "warning",
+    status: "open",
+    metric: "rules_retry_backlog",
+    value: 34,
+    threshold: 10,
+    title: "Burst de retries em screening",
+    message: "O motor de regras entrou em degradacao parcial e requer triagem.",
+    recommended_action: "Revisar fila DLQ, backoff e dependencia externa de enrichment."
+  }
+];
+
+type ShowcaseDlqCaseRecord = DlqSnapshot["cases"][number];
+
+const STANDALONE_SHOWCASE_DLQ_CASE_SEEDS: ShowcaseDlqCaseRecord[] = [
+  {
+    case_id: "case-showcase-dlq-001",
+    status: "failed",
+    target_address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+    target_chain: "ethereum",
+    created_at: "2026-07-15T17:20:00Z",
+    completed_at: null,
+    report_type_canonical: "technical_basic",
+    failure_reason: "provider_timeout_chain_analytics",
+    dlq_state: "failed_permanent",
+    dlq_failed_at: "2026-07-15T17:31:00Z",
+    dlq_requeue_count: 1,
+    dlq_acknowledged_at: null,
+    dlq_acknowledged_by: null,
+    dlq_resolution_note: null,
+    attempt_count: 3,
+    max_attempts: 3,
+    credits_estimated: 42,
+    credits_available: 120,
+    can_requeue: true
+  },
+  {
+    case_id: "case-showcase-dlq-002",
+    status: "failed",
+    target_address: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+    target_chain: "bitcoin",
+    created_at: "2026-07-15T16:55:00Z",
+    completed_at: null,
+    report_type_canonical: "wallet_screening",
+    failure_reason: "manual_review_required",
+    dlq_state: "acknowledged",
+    dlq_failed_at: "2026-07-15T17:05:00Z",
+    dlq_requeue_count: 0,
+    dlq_acknowledged_at: "2026-07-15T17:12:00Z",
+    dlq_acknowledged_by: "carla.compliance",
+    dlq_resolution_note: "triaged_for_manual_followup",
+    attempt_count: 3,
+    max_attempts: 3,
+    credits_estimated: 35,
+    credits_available: 120,
+    can_requeue: true
+  }
+];
+
+const STANDALONE_SHOWCASE_OPERATIONS_BASE: Omit<OperationsSnapshot, "states" | "recent_cases" | "generated_at"> = {
+  queue: {
+    ready: 6,
+    waiting: 14,
+    retry_pending: 3,
+    retry_due: 2,
+    wake_signals: 9
+  },
+  concurrency: {
+    org_active: 4,
+    org_limit: 8,
+    global_active: 11,
+    global_limit: 20,
+    plan: "enterprise"
+  },
+  throughput: {
+    completed_last_hour: 52,
+    failed_last_hour: 4,
+    billing_recalc_last_hour: 7,
+    avg_duration_ms_last_20: 1840
+  },
+  security: {
+    manual_package_mfa_violations_last_hour: 1,
+    manual_package_mfa_2fa_required_last_hour: 1,
+    manual_package_mfa_provider_not_homologated_last_hour: 0
+  }
+};
+
+const STANDALONE_SHOWCASE_OPERATION_RECENT_CASES: OperationsSnapshot["recent_cases"] = [
+  {
+    case_id: "case-showcase-001",
+    status: "completed",
+    target_address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+    target_chain: "ethereum",
+    created_at: "2026-07-15T18:05:00Z",
+    completed_at: "2026-07-15T18:12:00Z",
+    queue_state: "completed",
+    last_error: null,
+    attempt_count: 1,
+    report_type_canonical: "technical_basic",
+    charged_cost: 18,
+    duration_ms: 1280
+  },
+  {
+    case_id: "case-showcase-dlq-001",
+    status: "failed",
+    target_address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+    target_chain: "ethereum",
+    created_at: "2026-07-15T17:20:00Z",
+    completed_at: null,
+    queue_state: "dlq_failed",
+    last_error: "provider_timeout_chain_analytics",
+    attempt_count: 3,
+    report_type_canonical: "technical_basic",
+    charged_cost: null,
+    duration_ms: 6400
+  }
+];
+
+let standaloneShowcaseMonitoringAlertsStore = STANDALONE_SHOWCASE_MONITORING_ALERT_SEEDS.map((alert) => ({ ...alert }));
+let standaloneShowcasePlatformAlertsStore = STANDALONE_SHOWCASE_PLATFORM_ALERT_SEEDS.map((alert) => ({
+  ...alert,
+  labels: { ...alert.labels },
+  annotations: { ...alert.annotations }
+}));
+let standaloneShowcaseDlqStore = STANDALONE_SHOWCASE_DLQ_CASE_SEEDS.map((entry) => ({ ...entry }));
+
 export function buildStandaloneShowcaseQuote(input: {
   address: string;
   chains?: string[];
@@ -1015,5 +1280,400 @@ export function evaluateStandaloneShowcaseFederatedSuggestion(input: {
     linked_user_id: candidate.linked_user_id ?? null,
     linked_user_email: candidate.linked_user_email ?? null,
     warnings
+  };
+}
+
+function cloneShowcaseMonitoringAlert(alert: Alert): Alert {
+  return { ...alert, details: { ...(alert.details ?? {}) } };
+}
+
+function cloneShowcasePlatformAlert(alert: ShowcasePlatformAlertRecord): ShowcasePlatformAlertRecord {
+  return { ...alert, labels: { ...alert.labels }, annotations: { ...alert.annotations } };
+}
+
+function cloneShowcaseDlqCase(entry: ShowcaseDlqCaseRecord): ShowcaseDlqCaseRecord {
+  return { ...entry };
+}
+
+function buildStandaloneShowcaseOperationalAlertsSnapshot(): OperationalAlertsSnapshot {
+  const acknowledgedPlatformAlerts = standaloneShowcasePlatformAlertsStore.filter((entry) => entry.triage_status === "acknowledged").length;
+  return {
+    generated_at: new Date().toISOString(),
+    open_total: STANDALONE_SHOWCASE_OPERATIONAL_ALERT_SEED_BASE.filter((entry) => entry.status === "open").length,
+    critical_open_total: STANDALONE_SHOWCASE_OPERATIONAL_ALERT_SEED_BASE.filter(
+      (entry) => entry.status === "open" && entry.severity === "critical"
+    ).length,
+    alerts: STANDALONE_SHOWCASE_OPERATIONAL_ALERT_SEED_BASE.map((entry, index) => {
+      if (index === 1 && acknowledgedPlatformAlerts > 0) {
+        return {
+          ...entry,
+          value: Math.max(0, entry.value - acknowledgedPlatformAlerts * 5)
+        };
+      }
+      return { ...entry };
+    })
+  };
+}
+
+function buildStandaloneShowcaseOperationsSnapshot(): OperationsSnapshot {
+  const dlqFailed = standaloneShowcaseDlqStore.filter((entry) => entry.dlq_state === "failed_permanent").length;
+  const dlqResolved = standaloneShowcaseDlqStore.filter(
+    (entry) => entry.dlq_state === "acknowledged" || entry.dlq_state === "discarded" || entry.dlq_state === "resolved"
+  ).length;
+  const recentCases = STANDALONE_SHOWCASE_OPERATION_RECENT_CASES.map((entry) => {
+    const dlqEntry = standaloneShowcaseDlqStore.find((candidate) => candidate.case_id === entry.case_id);
+    if (!dlqEntry) {
+      return { ...entry };
+    }
+    return {
+      ...entry,
+      status: dlqEntry.dlq_state === "failed_permanent" ? "failed" : "queued",
+      queue_state: dlqEntry.dlq_state === "failed_permanent" ? "dlq_failed" : "queued",
+      last_error: dlqEntry.dlq_state === "failed_permanent" ? dlqEntry.failure_reason : null,
+      completed_at: dlqEntry.dlq_state === "failed_permanent" ? null : new Date().toISOString()
+    };
+  });
+  return {
+    ...STANDALONE_SHOWCASE_OPERATIONS_BASE,
+    states: {
+      queued: STANDALONE_SHOWCASE_OPERATIONS_BASE.queue.ready + STANDALONE_SHOWCASE_OPERATIONS_BASE.queue.waiting,
+      processing: STANDALONE_SHOWCASE_OPERATIONS_BASE.concurrency.global_active,
+      dlq_failed: dlqFailed,
+      dlq_resolved: dlqResolved
+    },
+    recent_cases: recentCases,
+    generated_at: new Date().toISOString()
+  };
+}
+
+function buildStandaloneShowcaseMetricsPreview() {
+  const operations = buildStandaloneShowcaseOperationsSnapshot();
+  const operationalAlerts = buildStandaloneShowcaseOperationalAlertsSnapshot();
+  return [
+    "# HELP otc_showcase_queue_ready Cases prontos para processamento no showcase",
+    "# TYPE otc_showcase_queue_ready gauge",
+    `otc_showcase_queue_ready ${operations.queue.ready}`,
+    "# HELP otc_showcase_dlq_failed Casos em DLQ permanente",
+    "# TYPE otc_showcase_dlq_failed gauge",
+    `otc_showcase_dlq_failed ${operations.states.dlq_failed}`,
+    "# HELP otc_showcase_platform_alerts_open Alertas de plataforma ainda abertos",
+    "# TYPE otc_showcase_platform_alerts_open gauge",
+    `otc_showcase_platform_alerts_open ${operationalAlerts.open_total}`
+  ].join("\n");
+}
+
+function matchesPlatformAlertFilters(entry: ShowcasePlatformAlertRecord, filters: PlatformAlertFilterState) {
+  return (
+    (filters.status === "all" || entry.status === filters.status) &&
+    (filters.triageStatus === "all" || entry.triage_status === filters.triageStatus) &&
+    (filters.service === "all" || (entry.service ?? "") === filters.service) &&
+    (filters.receiver === "all" || entry.receiver === filters.receiver) &&
+    (filters.severity === "all" || (entry.severity ?? "") === filters.severity)
+  );
+}
+
+function resolveStandaloneShowcasePlatformAlertsByPayload(payload: {
+  ids?: string[] | null;
+  status?: string | null;
+  triage_status?: string | null;
+  service?: string | null;
+  receiver?: string | null;
+  severity?: string | null;
+}) {
+  const selectedIds = Array.isArray(payload.ids) ? new Set(payload.ids.filter(Boolean)) : null;
+  const filters: PlatformAlertFilterState = {
+    status: payload.status?.trim() || "all",
+    triageStatus: payload.triage_status?.trim() || "all",
+    service: payload.service?.trim() || "all",
+    receiver: payload.receiver?.trim() || "all",
+    severity: payload.severity?.trim() || "all"
+  };
+  return standaloneShowcasePlatformAlertsStore.filter((entry) => {
+    if (selectedIds) {
+      return selectedIds.has(entry.id);
+    }
+    return matchesPlatformAlertFilters(entry, filters);
+  });
+}
+
+export function listStandaloneShowcaseMonitoringWatchlists() {
+  return {
+    data: STANDALONE_SHOWCASE_MONITORING_WATCHLISTS.map((entry) => ({ ...entry }))
+  };
+}
+
+export function listStandaloneShowcaseMonitoringWatchlistItems(watchlistId: string, limit = 20) {
+  const resolvedLimit = Number.isFinite(limit) && limit > 0 ? limit : 20;
+  return {
+    data: (STANDALONE_SHOWCASE_MONITORING_WATCHLIST_ITEMS[watchlistId] ?? []).slice(0, resolvedLimit).map((entry) => ({ ...entry }))
+  };
+}
+
+export function listStandaloneShowcaseMonitoringAlerts(filters: { watchlistId?: string | null; limit?: number | null }) {
+  const resolvedLimit = typeof filters.limit === "number" && filters.limit > 0 ? filters.limit : 50;
+  const filtered = standaloneShowcaseMonitoringAlertsStore.filter(
+    (entry) => !filters.watchlistId?.trim() || entry.watchlist_id === filters.watchlistId.trim()
+  );
+  return {
+    data: filtered
+      .slice()
+      .sort((left, right) => right.created_at.localeCompare(left.created_at))
+      .slice(0, resolvedLimit)
+      .map(cloneShowcaseMonitoringAlert)
+  };
+}
+
+export function createStandaloneShowcaseMonitoringAlert(payload: {
+  watchlist_id: string;
+  address: string;
+  chain: string;
+  severity?: string;
+  title?: string;
+  details?: Record<string, unknown>;
+}) {
+  const now = new Date().toISOString();
+  const alert: Alert = {
+    id: crypto.randomUUID(),
+    watchlist_id: payload.watchlist_id,
+    address: payload.address,
+    chain: payload.chain,
+    severity: payload.severity?.trim() || "high",
+    title: payload.title?.trim() || "Manual showcase alert",
+    details: payload.details ?? {},
+    created_at: now
+  };
+  standaloneShowcaseMonitoringAlertsStore = [alert, ...standaloneShowcaseMonitoringAlertsStore];
+
+  const platformAlert: ShowcasePlatformAlertRecord = {
+    id: crypto.randomUUID(),
+    receiver: "slack-secops",
+    status: "firing",
+    triage_status: "pending",
+    alertname: "WatchlistSignalRaised",
+    service: "watchlists",
+    severity: alert.severity,
+    fingerprint: `fp-${alert.id}`,
+    labels: { chain: alert.chain, source: "showcase_trigger", watchlist_id: alert.watchlist_id },
+    annotations: {
+      summary: alert.title,
+      description: `Triggered for ${alert.address} on ${alert.chain}.`
+    },
+    first_received_at: now,
+    last_received_at: now,
+    delivery_count: 1,
+    resolved_at: null,
+    triaged_at: null,
+    triaged_by: null,
+    triage_note: null
+  };
+  standaloneShowcasePlatformAlertsStore = [platformAlert, ...standaloneShowcasePlatformAlertsStore];
+  return cloneShowcaseMonitoringAlert(alert);
+}
+
+export function listStandaloneShowcasePlatformAlertFilterOptions(): PlatformOperationalAlertFilterOptions {
+  return {
+    services: Array.from(new Set(standaloneShowcasePlatformAlertsStore.map((entry) => entry.service).filter(Boolean) as string[])).sort(),
+    receivers: Array.from(new Set(standaloneShowcasePlatformAlertsStore.map((entry) => entry.receiver).filter(Boolean))).sort(),
+    generated_at: new Date().toISOString()
+  };
+}
+
+export function listStandaloneShowcasePlatformOperationalAlerts(input: {
+  filters: PlatformAlertFilterState;
+  cursor?: string | null;
+  limit?: number | null;
+}): PlatformOperationalAlertsSnapshot {
+  const resolvedLimit = typeof input.limit === "number" && input.limit > 0 ? input.limit : 20;
+  const filtered = standaloneShowcasePlatformAlertsStore
+    .filter((entry) => matchesPlatformAlertFilters(entry, input.filters))
+    .sort((left, right) => right.last_received_at.localeCompare(left.last_received_at));
+  const count = Math.min(filtered.length, resolvedLimit);
+  return {
+    status_filter: input.filters.status === "all" ? null : input.filters.status,
+    triage_status_filter: input.filters.triageStatus === "all" ? null : input.filters.triageStatus,
+    service_filter: input.filters.service === "all" ? null : input.filters.service,
+    receiver_filter: input.filters.receiver === "all" ? null : input.filters.receiver,
+    severity_filter: input.filters.severity === "all" ? null : input.filters.severity,
+    cursor: input.cursor?.trim() || null,
+    limit: resolvedLimit,
+    total_count: filtered.length,
+    count,
+    has_more: filtered.length > resolvedLimit,
+    next_cursor: filtered.length > resolvedLimit ? String(resolvedLimit) : null,
+    data: filtered.slice(0, resolvedLimit).map(cloneShowcasePlatformAlert)
+  };
+}
+
+export function acknowledgeStandaloneShowcasePlatformAlert(eventId: string, payload: { note?: string | null; triaged_by?: string | null }) {
+  const now = new Date().toISOString();
+  let updated: ShowcasePlatformAlertRecord | null = null;
+  standaloneShowcasePlatformAlertsStore = standaloneShowcasePlatformAlertsStore.map((entry) => {
+    if (entry.id !== eventId) {
+      return entry;
+    }
+    updated = {
+      ...entry,
+      triage_status: "acknowledged",
+      triaged_at: now,
+      triaged_by: payload.triaged_by?.trim() || "showcase-admin",
+      triage_note: payload.note?.trim() || "ack_from_showcase"
+    };
+    return updated;
+  });
+  return updated ? cloneShowcasePlatformAlert(updated) : null;
+}
+
+export function acknowledgeStandaloneShowcasePlatformAlerts(payload: {
+  ids?: string[] | null;
+  note?: string | null;
+  triaged_by?: string | null;
+  status?: string | null;
+  triage_status?: string | null;
+  service?: string | null;
+  receiver?: string | null;
+  severity?: string | null;
+}) {
+  const targets = new Set(
+    resolveStandaloneShowcasePlatformAlertsByPayload(payload)
+      .filter((entry) => entry.triage_status !== "acknowledged")
+      .map((entry) => entry.id)
+  );
+  const now = new Date().toISOString();
+  let updatedCount = 0;
+  standaloneShowcasePlatformAlertsStore = standaloneShowcasePlatformAlertsStore.map((entry) => {
+    if (!targets.has(entry.id)) {
+      return entry;
+    }
+    updatedCount += 1;
+    return {
+      ...entry,
+      triage_status: "acknowledged",
+      triaged_at: now,
+      triaged_by: payload.triaged_by?.trim() || "showcase-admin",
+      triage_note: payload.note?.trim() || "ack_batch_from_showcase"
+    };
+  });
+  return {
+    updated_count: updatedCount,
+    generated_at: now
+  };
+}
+
+export function exportStandaloneShowcasePlatformAlerts(payload: {
+  format?: PlatformAlertExportFormat;
+  scope?: "filtered" | "selected";
+  ids?: string[] | null;
+  status?: string | null;
+  triage_status?: string | null;
+  service?: string | null;
+  receiver?: string | null;
+  severity?: string | null;
+}) {
+  const format = payload.format === "json" ? "json" : "csv";
+  const rows = resolveStandaloneShowcasePlatformAlertsByPayload(payload);
+  if (format === "json") {
+    return {
+      filename: `monitoring-operational-alerts-${payload.scope ?? "filtered"}.json`,
+      contentType: "application/json; charset=utf-8",
+      body: JSON.stringify({ data: rows.map(cloneShowcasePlatformAlert) }, null, 2)
+    };
+  }
+  const header = ["id", "alertname", "service", "receiver", "status", "triage_status", "severity", "last_received_at"];
+  const csvRows = rows.map((entry) =>
+    [entry.id, entry.alertname, entry.service ?? "", entry.receiver, entry.status, entry.triage_status, entry.severity ?? "", entry.last_received_at]
+      .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+      .join(",")
+  );
+  return {
+    filename: `monitoring-operational-alerts-${payload.scope ?? "filtered"}.csv`,
+    contentType: "text/csv; charset=utf-8",
+    body: [header.join(","), ...csvRows].join("\n")
+  };
+}
+
+export function getStandaloneShowcaseInvestigationOperations() {
+  return buildStandaloneShowcaseOperationsSnapshot();
+}
+
+export function getStandaloneShowcaseInvestigationOperationalAlerts() {
+  return buildStandaloneShowcaseOperationalAlertsSnapshot();
+}
+
+export function getStandaloneShowcaseInvestigationMetricsPreview() {
+  return `${buildStandaloneShowcaseMetricsPreview()}\n`;
+}
+
+export function getStandaloneShowcaseDlq(input: {
+  state?: string | null;
+  targetChain?: string | null;
+  limit?: number | null;
+}): DlqSnapshot {
+  const state = input.state?.trim() || "failed_permanent";
+  const targetChain = input.targetChain?.trim() || null;
+  const resolvedLimit = typeof input.limit === "number" && input.limit > 0 ? input.limit : 100;
+  const filtered = standaloneShowcaseDlqStore.filter((entry) => {
+    const stateMatches = state === "all" || (entry.dlq_state ?? "") === state;
+    const chainMatches = !targetChain || entry.target_chain === targetChain;
+    return stateMatches && chainMatches;
+  });
+  return {
+    count: filtered.length,
+    credits_available: 120,
+    filters: {
+      state,
+      target_chain: targetChain,
+      can_requeue: state === "failed_permanent" ? true : null,
+      limit: resolvedLimit
+    },
+    cases: filtered.slice(0, resolvedLimit).map(cloneShowcaseDlqCase),
+    generated_at: new Date().toISOString()
+  };
+}
+
+export function requeueStandaloneShowcaseDlqCase(caseId: string, payload: { reason?: string | null }) {
+  const entry = standaloneShowcaseDlqStore.find((candidate) => candidate.case_id === caseId) ?? null;
+  if (!entry) {
+    return null;
+  }
+  const nextEntry: ShowcaseDlqCaseRecord = {
+    ...entry,
+    status: "queued",
+    dlq_state: "resolved",
+    dlq_requeue_count: entry.dlq_requeue_count + 1,
+    dlq_resolution_note: payload.reason?.trim() || "manual_requeue_from_showcase",
+    dlq_acknowledged_at: new Date().toISOString(),
+    dlq_acknowledged_by: "showcase-admin",
+    can_requeue: false
+  };
+  standaloneShowcaseDlqStore = standaloneShowcaseDlqStore.map((candidate) => (candidate.case_id === caseId ? nextEntry : candidate));
+  return {
+    case_id: caseId,
+    status: "queued",
+    dlq_state: nextEntry.dlq_state,
+    resolution_note: nextEntry.dlq_resolution_note
+  };
+}
+
+export function resolveStandaloneShowcaseDlqCase(
+  caseId: string,
+  payload: { action?: "acknowledged" | "discarded"; note?: string | null }
+) {
+  const entry = standaloneShowcaseDlqStore.find((candidate) => candidate.case_id === caseId) ?? null;
+  if (!entry) {
+    return null;
+  }
+  const action = payload.action === "discarded" ? "discarded" : "acknowledged";
+  const nextEntry: ShowcaseDlqCaseRecord = {
+    ...entry,
+    dlq_state: action,
+    dlq_acknowledged_at: new Date().toISOString(),
+    dlq_acknowledged_by: "showcase-admin",
+    dlq_resolution_note: payload.note?.trim() || action
+  };
+  standaloneShowcaseDlqStore = standaloneShowcaseDlqStore.map((candidate) => (candidate.case_id === caseId ? nextEntry : candidate));
+  return {
+    case_id: caseId,
+    dlq_state: nextEntry.dlq_state,
+    note: nextEntry.dlq_resolution_note
   };
 }

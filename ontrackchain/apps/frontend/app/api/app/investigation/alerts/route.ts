@@ -1,4 +1,6 @@
 import { cookies } from "next/headers";
+import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
+import { getStandaloneShowcaseInvestigationOperationalAlerts } from "../../../../lib/standalone-showcase";
 
 const EMPTY_OPERATIONAL_ALERTS_RESPONSE = {
   generated_at: new Date(0).toISOString(),
@@ -8,6 +10,13 @@ const EMPTY_OPERATIONAL_ALERTS_RESPONSE = {
 } as const;
 
 export async function GET(request: Request) {
+  if (isFrontendStandaloneShowcaseMode()) {
+    return new Response(JSON.stringify(getStandaloneShowcaseInvestigationOperationalAlerts()), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  }
+
   const token = cookies().get("otc_token")?.value;
   if (!token) {
     return new Response(JSON.stringify(EMPTY_OPERATIONAL_ALERTS_RESPONSE), {

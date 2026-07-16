@@ -1,6 +1,38 @@
 import { cookies } from "next/headers";
+import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
+import { createStandaloneShowcaseMonitoringAlert } from "../../../../lib/standalone-showcase";
 
 export async function POST(request: Request) {
+  if (isFrontendStandaloneShowcaseMode()) {
+    const payload = (await request.json().catch(() => null)) as
+      | {
+          watchlist_id?: string;
+          address?: string;
+          chain?: string;
+          severity?: string;
+          title?: string;
+          details?: Record<string, unknown>;
+        }
+      | null;
+    if (!payload?.watchlist_id?.trim() || !payload.address?.trim() || !payload.chain?.trim()) {
+      return new Response(JSON.stringify({ error: "invalid_trigger_alert_payload" }), {
+        status: 422,
+        headers: { "content-type": "application/json" }
+      });
+    }
+    return new Response(JSON.stringify(createStandaloneShowcaseMonitoringAlert({
+      watchlist_id: payload.watchlist_id,
+      address: payload.address,
+      chain: payload.chain,
+      severity: payload.severity,
+      title: payload.title,
+      details: payload.details
+    })), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  }
+
   const token = cookies().get("otc_token")?.value;
   if (!token) {
     return new Response(JSON.stringify({ error: "not_authenticated" }), {

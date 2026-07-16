@@ -1,4 +1,6 @@
 import { cookies } from "next/headers";
+import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
+import { listStandaloneShowcasePlatformOperationalAlerts } from "../../../../lib/standalone-showcase";
 
 const EMPTY_PLATFORM_OPERATIONAL_ALERTS = {
   status_filter: null,
@@ -16,6 +18,29 @@ const EMPTY_PLATFORM_OPERATIONAL_ALERTS = {
 } as const;
 
 export async function GET(request: Request) {
+  if (isFrontendStandaloneShowcaseMode()) {
+    const url = new URL(request.url);
+    return new Response(
+      JSON.stringify(
+        listStandaloneShowcasePlatformOperationalAlerts({
+          filters: {
+            status: url.searchParams.get("status")?.trim() || "all",
+            triageStatus: url.searchParams.get("triage_status")?.trim() || "all",
+            service: url.searchParams.get("service")?.trim() || "all",
+            receiver: url.searchParams.get("receiver")?.trim() || "all",
+            severity: url.searchParams.get("severity")?.trim() || "all"
+          },
+          cursor: url.searchParams.get("cursor"),
+          limit: Number(url.searchParams.get("limit") ?? 20)
+        })
+      ),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      }
+    );
+  }
+
   const token = cookies().get("otc_token")?.value;
   if (!token) {
     return new Response(JSON.stringify(EMPTY_PLATFORM_OPERATIONAL_ALERTS), {

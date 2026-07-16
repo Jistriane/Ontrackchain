@@ -1,4 +1,6 @@
 import { cookies } from "next/headers";
+import { isFrontendStandaloneShowcaseMode } from "../../../../../../lib/auth-runtime";
+import { resolveStandaloneShowcaseDlqCase } from "../../../../../../lib/standalone-showcase";
 
 type RouteContext = {
   params: Promise<{
@@ -7,6 +9,27 @@ type RouteContext = {
 };
 
 export async function POST(request: Request, context: RouteContext) {
+  if (isFrontendStandaloneShowcaseMode()) {
+    const { caseId } = await context.params;
+    const payload = (await request.json().catch(() => null)) as
+      | {
+          action?: "acknowledged" | "discarded";
+          note?: string | null;
+        }
+      | null;
+    const resolved = resolveStandaloneShowcaseDlqCase(caseId, payload ?? {});
+    if (!resolved) {
+      return new Response(JSON.stringify({ error: "dlq_case_not_found" }), {
+        status: 404,
+        headers: { "content-type": "application/json" }
+      });
+    }
+    return new Response(JSON.stringify(resolved), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  }
+
   const token = cookies().get("otc_token")?.value;
   if (!token) {
     return new Response(JSON.stringify({ error: "not_authenticated" }), {
