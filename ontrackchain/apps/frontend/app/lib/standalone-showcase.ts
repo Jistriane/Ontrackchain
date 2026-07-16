@@ -8,7 +8,12 @@ import type {
   PlatformOperationalAlertFilterOptions,
   PlatformOperationalAlertsSnapshot
 } from "./monitoring-platform-alerts";
-import type { ReportWorkItemMetadata, WorkItemListResponse, WorkItemResponse } from "./work-items";
+import type {
+  CounterpartyWorkItemMetadata,
+  ReportWorkItemMetadata,
+  WorkItemListResponse,
+  WorkItemResponse
+} from "./work-items";
 
 export const STANDALONE_SHOWCASE_AUTH_CONTEXT = {
   authenticated: true,
@@ -320,7 +325,10 @@ export const STANDALONE_SHOWCASE_REPORT_HISTORY = [
   }
 ] as const;
 
-const STANDALONE_SHOWCASE_WORK_ITEM_SEEDS: WorkItemResponse<ReportWorkItemMetadata>[] = [
+type ShowcaseWorkItemMetadata = ReportWorkItemMetadata | CounterpartyWorkItemMetadata;
+type ShowcaseWorkItemRecord = WorkItemResponse<ShowcaseWorkItemMetadata>;
+
+const STANDALONE_SHOWCASE_WORK_ITEM_SEEDS: ShowcaseWorkItemRecord[] = [
   {
     id: "6f0d6a9d-76c4-57d2-8f41-41272e7b0a11",
     module: "reports",
@@ -351,6 +359,52 @@ const STANDALONE_SHOWCASE_WORK_ITEM_SEEDS: WorkItemResponse<ReportWorkItemMetada
     created_at: "2026-07-15T19:05:00Z",
     updated_at: "2026-07-15T19:20:00Z",
     last_activity_at: "2026-07-15T19:20:00Z"
+  },
+  {
+    id: "8b4aa5f0-2967-5d59-8dc0-8f37f4e75961",
+    module: "counterparties",
+    resource_type: "counterparty",
+    resource_id: "22222222-2222-4222-8222-222222222222",
+    case_id: "33333333-3333-4333-8333-333333333333",
+    owner_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    assigned_by_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    queue_status: "UNDER_REVIEW",
+    priority: "high",
+    due_at: "2026-07-18T18:00:00Z",
+    sla_breached: false,
+    title: "Counterparty review • Atlas OTC Desk",
+    note: "Contraparte seeded para demonstrar onboarding regulatório e workspace compartilhado.",
+    metadata: {
+      case_id: "33333333-3333-4333-8333-333333333333",
+      owner_label: "showcase-user",
+      owner_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      workspace_status: "UNDER_REVIEW",
+      local_workspace_status: "UNDER_REVIEW",
+      counterparty_id: "22222222-2222-4222-8222-222222222222",
+      legal_name: "Atlas OTC Desk",
+      counterparty_type: "PARCEIRO_COMERCIAL",
+      document_type: "CNPJ",
+      document_number: "12.345.678/0001-90",
+      wallet_chain: "ethereum",
+      wallet_address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+      wallet_label: "primary treasury",
+      risk_level: 4,
+      kyc_status: "PENDING",
+      sanctions_cleared: false,
+      is_pep: false,
+      enhanced_dd_required: true,
+      next_review_date: "2026-08-10T00:00:00Z",
+      status: "UNDER_REVIEW",
+      created_at: "2026-07-15T17:40:00Z",
+      dd_review_status: "in_progress",
+      dd_review_note: "Pending SoF evidence for high-volume OTC corridor.",
+      sof_description: "Capital de giro próprio com reforço documental em coleta.",
+      sof_document_ref: "SOF-ATLAS-2026-001",
+      note: "Contraparte seeded para demonstrar onboarding regulatório e workspace compartilhado."
+    },
+    created_at: "2026-07-15T17:45:00Z",
+    updated_at: "2026-07-15T18:20:00Z",
+    last_activity_at: "2026-07-15T18:20:00Z"
   }
 ];
 
@@ -374,6 +428,26 @@ const STANDALONE_SHOWCASE_TIMELINE_EVENT_SEEDS: Record<string, WorkEventResponse
       payload: { workspace_status: "ready" },
       created_at: "2026-07-15T19:20:00Z"
     }
+  ],
+  "8b4aa5f0-2967-5d59-8dc0-8f37f4e75961": [
+    {
+      id: "evt-showcase-counterparty-001",
+      event_type: "WORK_ITEM_CREATED",
+      from_status: null,
+      to_status: "UNDER_REVIEW",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      payload: { source: "standalone_showcase_seed", counterparty_id: "22222222-2222-4222-8222-222222222222" },
+      created_at: "2026-07-15T17:45:00Z"
+    },
+    {
+      id: "evt-showcase-counterparty-002",
+      event_type: "DD_REVIEW_UPDATED",
+      from_status: "UNDER_REVIEW",
+      to_status: "UNDER_REVIEW",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      payload: { dd_review_status: "in_progress", sof_document_ref: "SOF-ATLAS-2026-001" },
+      created_at: "2026-07-15T18:20:00Z"
+    }
   ]
 };
 
@@ -392,6 +466,15 @@ const STANDALONE_SHOWCASE_TIMELINE_COMMENT_SEEDS: Record<string, WorkCommentResp
       actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
       body: "Handoff demonstrativo para revisão jurídica do dossiê formal.",
       created_at: "2026-07-15T19:18:00Z"
+    }
+  ],
+  "8b4aa5f0-2967-5d59-8dc0-8f37f4e75961": [
+    {
+      id: "cmt-showcase-counterparty-001",
+      comment_type: "note",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      body: "Seed regulatório com DD em andamento para demonstrar revisão, workspace e timeline.",
+      created_at: "2026-07-15T18:05:00Z"
     }
   ]
 };
@@ -777,6 +860,104 @@ let standaloneShowcasePlatformAlertsStore = STANDALONE_SHOWCASE_PLATFORM_ALERT_S
 }));
 let standaloneShowcaseDlqStore = STANDALONE_SHOWCASE_DLQ_CASE_SEEDS.map((entry) => ({ ...entry }));
 
+export type ShowcaseCounterpartyRecord = {
+  id: string;
+  legal_name: string;
+  counterparty_type: string;
+  document_type: string;
+  document_number: string;
+  risk_level: number;
+  kyc_status: string;
+  sanctions_cleared: boolean;
+  is_pep: boolean;
+  enhanced_dd_required: boolean;
+  next_review_date: string | null;
+  status: string;
+  created_at: string;
+  dd_review_status?: string;
+  dd_review_note?: string;
+  sof_description?: string;
+  sof_document_ref?: string;
+  last_reviewed_at?: string | null;
+  wallet_chain?: string;
+  wallet_address?: string;
+  wallet_label?: string;
+};
+
+const STANDALONE_SHOWCASE_COUNTERPARTY_SEEDS: ShowcaseCounterpartyRecord[] = [
+  {
+    id: "22222222-2222-4222-8222-222222222222",
+    legal_name: "Atlas OTC Desk",
+    counterparty_type: "PARCEIRO_COMERCIAL",
+    document_type: "CNPJ",
+    document_number: "12.345.678/0001-90",
+    risk_level: 4,
+    kyc_status: "PENDING",
+    sanctions_cleared: false,
+    is_pep: false,
+    enhanced_dd_required: true,
+    next_review_date: "2026-08-10T00:00:00Z",
+    status: "UNDER_REVIEW",
+    created_at: "2026-07-15T17:40:00Z",
+    dd_review_status: "in_progress",
+    dd_review_note: "Pending SoF evidence for high-volume OTC corridor.",
+    sof_description: "Capital de giro próprio com reforço documental em coleta.",
+    sof_document_ref: "SOF-ATLAS-2026-001",
+    last_reviewed_at: "2026-07-15T18:20:00Z",
+    wallet_chain: "ethereum",
+    wallet_address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+    wallet_label: "primary treasury"
+  },
+  {
+    id: "44444444-4444-4444-8444-444444444444",
+    legal_name: "Lumen DeFi Labs",
+    counterparty_type: "CONTRAPARTE_DEFI",
+    document_type: "FOREIGN_ID",
+    document_number: "US-DEFI-99281",
+    risk_level: 3,
+    kyc_status: "APPROVED",
+    sanctions_cleared: true,
+    is_pep: false,
+    enhanced_dd_required: false,
+    next_review_date: "2026-09-01T00:00:00Z",
+    status: "ACTIVE",
+    created_at: "2026-07-14T14:10:00Z",
+    dd_review_status: "completed",
+    dd_review_note: "Governance and treasury evidence archived.",
+    sof_description: "Treasury funded by audited governance allocation.",
+    sof_document_ref: "SOF-LUMEN-2026-004",
+    last_reviewed_at: "2026-07-14T16:00:00Z",
+    wallet_chain: "arbitrum",
+    wallet_address: "0x4200000000000000000000000000000000000006",
+    wallet_label: "dao treasury"
+  },
+  {
+    id: "55555555-5555-4555-8555-555555555555",
+    legal_name: "Carla Ventures",
+    counterparty_type: "CLIENTE_PF",
+    document_type: "CPF",
+    document_number: "123.456.789-00",
+    risk_level: 2,
+    kyc_status: "PENDING",
+    sanctions_cleared: true,
+    is_pep: true,
+    enhanced_dd_required: true,
+    next_review_date: "2026-07-20T00:00:00Z",
+    status: "PENDING_REVIEW",
+    created_at: "2026-07-15T09:30:00Z",
+    dd_review_status: "pending",
+    dd_review_note: "",
+    sof_description: "",
+    sof_document_ref: "",
+    last_reviewed_at: null,
+    wallet_chain: "base",
+    wallet_address: "0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    wallet_label: "personal wallet"
+  }
+];
+
+let standaloneShowcaseCounterpartiesStore = STANDALONE_SHOWCASE_COUNTERPARTY_SEEDS.map((item) => ({ ...item }));
+
 export function buildStandaloneShowcaseQuote(input: {
   address: string;
   chains?: string[];
@@ -816,7 +997,7 @@ export function resolveStandaloneShowcaseReport(reportId: string) {
   return STANDALONE_SHOWCASE_REPORT_HISTORY.find((item) => item.report_id === reportId) ?? null;
 }
 
-function cloneStandaloneWorkItem(item: WorkItemResponse<ReportWorkItemMetadata>): WorkItemResponse<ReportWorkItemMetadata> {
+function cloneStandaloneWorkItem(item: ShowcaseWorkItemRecord): ShowcaseWorkItemRecord {
   return {
     ...item,
     metadata: { ...item.metadata }
@@ -837,7 +1018,7 @@ export function listStandaloneShowcaseWorkItems(filters: {
   resourceType?: string | null;
   reportExternalId?: string | null;
   limit?: number | null;
-}): WorkItemListResponse<ReportWorkItemMetadata> {
+}): WorkItemListResponse<ShowcaseWorkItemMetadata> {
   const filtered = standaloneShowcaseWorkItemsStore.filter((item) => {
     if (filters.module && item.module !== filters.module) return false;
     if (filters.resourceType && item.resource_type !== filters.resourceType) return false;
@@ -865,9 +1046,9 @@ export function getStandaloneShowcaseWorkItem(workItemId: string) {
 }
 
 export function upsertStandaloneShowcaseWorkItem(
-  payload: Partial<WorkItemResponse<ReportWorkItemMetadata>> & {
-    module?: "reports";
-    resource_type?: "formal_report_case";
+  payload: Partial<ShowcaseWorkItemRecord> & {
+    module?: ShowcaseWorkItemRecord["module"];
+    resource_type?: ShowcaseWorkItemRecord["resource_type"];
     resource_id?: string;
     case_id?: string | null;
     report_external_id?: string | null;
@@ -876,7 +1057,7 @@ export function upsertStandaloneShowcaseWorkItem(
     due_at: string | null;
     title: string;
     note: string | null;
-    metadata: ReportWorkItemMetadata;
+    metadata: ShowcaseWorkItemMetadata;
   },
   workItemId?: string
 ) {
@@ -884,10 +1065,10 @@ export function upsertStandaloneShowcaseWorkItem(
   const existingIndex = workItemId ? standaloneShowcaseWorkItemsStore.findIndex((item) => item.id === workItemId) : -1;
   const existing = existingIndex >= 0 ? standaloneShowcaseWorkItemsStore[existingIndex] : null;
   const resolvedId = existing?.id ?? workItemId ?? crypto.randomUUID();
-  const nextItem: WorkItemResponse<ReportWorkItemMetadata> = {
+  const nextItem: ShowcaseWorkItemRecord = {
     id: resolvedId,
-    module: "reports",
-    resource_type: "formal_report_case",
+    module: payload.module ?? existing?.module ?? "reports",
+    resource_type: payload.resource_type ?? existing?.resource_type ?? "formal_report_case",
     resource_id: payload.resource_id ?? payload.case_id ?? existing?.resource_id ?? resolvedId,
     case_id: payload.case_id ?? existing?.case_id ?? null,
     report_external_id: payload.report_external_id ?? existing?.report_external_id ?? null,
@@ -922,7 +1103,8 @@ export function upsertStandaloneShowcaseWorkItem(
       actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
       payload: {
         workspace_status: nextItem.metadata.workspace_status ?? null,
-        report_id: nextItem.report_external_id ?? null
+        report_id: nextItem.report_external_id ?? null,
+        resource_type: nextItem.resource_type
       },
       created_at: now
     }
@@ -933,7 +1115,7 @@ export function upsertStandaloneShowcaseWorkItem(
 
 export function getStandaloneShowcaseWorkItemTimeline(
   workItemId: string
-): WorkItemTimelineResponse<WorkItemResponse<ReportWorkItemMetadata>> | null {
+): WorkItemTimelineResponse<ShowcaseWorkItemRecord> | null {
   const item = getStandaloneShowcaseWorkItem(workItemId);
   if (!item) {
     return null;
@@ -980,6 +1162,119 @@ export function createStandaloneShowcaseWorkItemComment(
     entry.id === workItemId ? { ...entry, updated_at: now, last_activity_at: now, metadata: { ...entry.metadata } } : entry
   );
   return { ...comment };
+}
+
+function cloneShowcaseCounterparty(item: ShowcaseCounterpartyRecord): ShowcaseCounterpartyRecord {
+  return { ...item };
+}
+
+function findShowcaseCounterpartyIndex(counterpartyId: string) {
+  return standaloneShowcaseCounterpartiesStore.findIndex((item) => item.id === counterpartyId);
+}
+
+function buildShowcaseCounterpartyCreateResponse(item: ShowcaseCounterpartyRecord) {
+  return {
+    counterparty_id: item.id,
+    legal_name: item.legal_name,
+    risk_level: item.risk_level,
+    kyc_status: item.kyc_status,
+    sanctions_cleared: item.sanctions_cleared,
+    is_pep: item.is_pep,
+    enhanced_dd_required: item.enhanced_dd_required,
+    next_review_date: item.next_review_date ?? "",
+    status: item.status
+  };
+}
+
+export function listStandaloneShowcaseCounterparties(input: { limit?: number | null; offset?: number | null }) {
+  const limit = typeof input.limit === "number" && input.limit > 0 ? input.limit : 20;
+  const offset = typeof input.offset === "number" && input.offset >= 0 ? input.offset : 0;
+  const ordered = standaloneShowcaseCounterpartiesStore
+    .slice()
+    .sort((left, right) => right.created_at.localeCompare(left.created_at));
+  return {
+    items: ordered.slice(offset, offset + limit).map(cloneShowcaseCounterparty),
+    total: ordered.length
+  };
+}
+
+export function createStandaloneShowcaseCounterparty(payload: {
+  counterparty_type?: string | null;
+  legal_name?: string | null;
+  document_type?: string | null;
+  document_number?: string | null;
+  wallet_addresses?: Array<{ chain?: string | null; address?: string | null; label?: string | null }> | null;
+  declared_risk_context?: string | null;
+  onchain_risk_score?: number | null;
+}) {
+  const legalName = payload.legal_name?.trim() ?? "";
+  const documentNumber = payload.document_number?.trim() ?? "";
+  if (!legalName || !documentNumber) {
+    return null;
+  }
+  const now = new Date().toISOString();
+  const wallet = payload.wallet_addresses?.[0] ?? null;
+  const onchainRiskScore = typeof payload.onchain_risk_score === "number" ? payload.onchain_risk_score : null;
+  const riskLevel = onchainRiskScore !== null ? Math.max(1, Math.min(4, Math.ceil(onchainRiskScore / 25))) : 2;
+  const nextItem: ShowcaseCounterpartyRecord = {
+    id: crypto.randomUUID(),
+    legal_name: legalName,
+    counterparty_type: payload.counterparty_type?.trim() || "CLIENTE_PJ",
+    document_type: payload.document_type?.trim() || "CNPJ",
+    document_number: documentNumber,
+    risk_level: riskLevel,
+    kyc_status: "PENDING",
+    sanctions_cleared: false,
+    is_pep: false,
+    enhanced_dd_required: riskLevel >= 3,
+    next_review_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    status: "UNDER_REVIEW",
+    created_at: now,
+    dd_review_status: "pending",
+    dd_review_note: payload.declared_risk_context?.trim() || "",
+    sof_description: "",
+    sof_document_ref: "",
+    last_reviewed_at: null,
+    wallet_chain: wallet?.chain?.trim() || "",
+    wallet_address: wallet?.address?.trim() || "",
+    wallet_label: wallet?.label?.trim() || ""
+  };
+  standaloneShowcaseCounterpartiesStore = [nextItem, ...standaloneShowcaseCounterpartiesStore];
+  return buildShowcaseCounterpartyCreateResponse(nextItem);
+}
+
+export function reviewStandaloneShowcaseCounterparty(
+  counterpartyId: string,
+  payload: {
+    dd_review_status?: string | null;
+    dd_review_note?: string | null;
+    sof_description?: string | null;
+    sof_document_ref?: string | null;
+  }
+) {
+  const currentIndex = findShowcaseCounterpartyIndex(counterpartyId);
+  if (currentIndex < 0) {
+    return null;
+  }
+  const now = new Date().toISOString();
+  const current = standaloneShowcaseCounterpartiesStore[currentIndex];
+  const nextItem: ShowcaseCounterpartyRecord = {
+    ...current,
+    dd_review_status: payload.dd_review_status?.trim() || current.dd_review_status || "pending",
+    dd_review_note: payload.dd_review_note?.trim() ?? current.dd_review_note ?? "",
+    sof_description: payload.sof_description?.trim() ?? current.sof_description ?? "",
+    sof_document_ref: payload.sof_document_ref?.trim() ?? current.sof_document_ref ?? "",
+    last_reviewed_at: now
+  };
+  standaloneShowcaseCounterpartiesStore[currentIndex] = nextItem;
+  return {
+    counterparty_id: nextItem.id,
+    dd_review_status: nextItem.dd_review_status ?? "pending",
+    dd_review_note: nextItem.dd_review_note ?? "",
+    sof_description: nextItem.sof_description ?? "",
+    sof_document_ref: nextItem.sof_document_ref ?? "",
+    last_reviewed_at: nextItem.last_reviewed_at ?? now
+  };
 }
 
 function cloneShowcaseTeamMember(member: ShowcaseTeamMemberRecord): ShowcaseTeamMemberRecord {

@@ -1,6 +1,10 @@
 import { isFrontendStandaloneShowcaseMode } from "../../../../../lib/auth-runtime";
 import { getStandaloneShowcaseWorkItem, upsertStandaloneShowcaseWorkItem } from "../../../../../lib/standalone-showcase";
-import type { PatchWorkItemRequest, ReportWorkItemMetadata } from "../../../../../lib/work-items";
+import type {
+  CounterpartyWorkItemMetadata,
+  PatchWorkItemRequest,
+  ReportWorkItemMetadata
+} from "../../../../../lib/work-items";
 import { authenticateRequest, proxyOperationsRequest } from "../../_shared";
 
 export async function PATCH(request: Request, context: { params: Promise<{ workItemId: string }> }) {
@@ -13,7 +17,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ workI
         headers: { "content-type": "application/json" }
       });
     }
-    const payload = (await request.json().catch(() => null)) as PatchWorkItemRequest<ReportWorkItemMetadata> | null;
+    const payload = (await request.json().catch(() => null)) as
+      | PatchWorkItemRequest<ReportWorkItemMetadata>
+      | PatchWorkItemRequest<CounterpartyWorkItemMetadata>
+      | null;
     if (!payload) {
       return new Response(JSON.stringify({ error: "invalid_work_item_payload" }), {
         status: 422,
@@ -29,8 +36,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ workI
             resource_id: existing.resource_id,
             case_id: existing.case_id,
             report_external_id: existing.report_external_id,
-            module: "reports",
-            resource_type: "formal_report_case"
+            module: existing.module,
+            resource_type: existing.resource_type
           },
           workItemId
         )

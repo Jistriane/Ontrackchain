@@ -5,7 +5,11 @@ import {
   listStandaloneShowcaseWorkItems,
   upsertStandaloneShowcaseWorkItem
 } from "../../../../lib/standalone-showcase";
-import type { CreateWorkItemRequest, ReportWorkItemMetadata } from "../../../../lib/work-items";
+import type {
+  CounterpartyWorkItemMetadata,
+  CreateWorkItemRequest,
+  ReportWorkItemMetadata
+} from "../../../../lib/work-items";
 import { authenticateRequest, proxyOperationsRequest } from "../_shared";
 
 const EMPTY_WORK_ITEMS = {
@@ -55,20 +59,38 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   if (isFrontendStandaloneShowcaseMode()) {
-    const payload = (await request.json().catch(() => null)) as CreateWorkItemRequest<ReportWorkItemMetadata> | null;
-    if (!payload?.resource_id || payload?.resource_type !== "formal_report_case" || payload?.module !== "reports") {
+    const payload = (await request.json().catch(() => null)) as
+      | CreateWorkItemRequest<ReportWorkItemMetadata>
+      | CreateWorkItemRequest<CounterpartyWorkItemMetadata>
+      | null;
+    if (!payload?.resource_id) {
       return new Response(JSON.stringify({ error: "invalid_work_item_payload" }), {
         status: 422,
         headers: { "content-type": "application/json" }
       });
     }
-    return new Response(
-      JSON.stringify(
-        upsertStandaloneShowcaseWorkItem({
+    const isReportPayload = payload.resource_type === "formal_report_case" && payload.module === "reports";
+    const isCounterpartyPayload = payload.resource_type === "counterparty" && payload.module === "counterparties";
+    if (!isReportPayload && !isCounterpartyPayload) {
+      return new Response(JSON.stringify({ error: "unsupported_work_item_payload" }), {
+        status: 422,
+        headers: { "content-type": "application/json" }
+      });
+    }
+    const normalizedPayload = isReportPayload
+      ? ({
           ...payload,
           module: "reports",
           resource_type: "formal_report_case"
-        })
+        } as CreateWorkItemRequest<ReportWorkItemMetadata>)
+      : ({
+          ...payload,
+          module: "counterparties",
+          resource_type: "counterparty"
+        } as CreateWorkItemRequest<CounterpartyWorkItemMetadata>);
+    return new Response(
+      JSON.stringify(
+        upsertStandaloneShowcaseWorkItem(normalizedPayload)
       ),
       {
       status: 200,

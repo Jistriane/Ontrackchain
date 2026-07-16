@@ -1,10 +1,29 @@
 import { cookies } from "next/headers";
+import { isFrontendStandaloneShowcaseMode } from "../../../../../../lib/auth-runtime";
+import { reviewStandaloneShowcaseCounterparty } from "../../../../../../lib/standalone-showcase";
 
 function jsonResponse(body: string, status: number) {
   return new Response(body, { status, headers: { "content-type": "application/json" } });
 }
 
 export async function PATCH(request: Request, context: { params: Promise<{ counterpartyId: string }> }) {
+  if (isFrontendStandaloneShowcaseMode()) {
+    const { counterpartyId } = await context.params;
+    const payload = (await request.json().catch(() => null)) as
+      | {
+          dd_review_status?: string | null;
+          dd_review_note?: string | null;
+          sof_description?: string | null;
+          sof_document_ref?: string | null;
+        }
+      | null;
+    const reviewed = reviewStandaloneShowcaseCounterparty(counterpartyId, payload ?? {});
+    if (!reviewed) {
+      return jsonResponse(JSON.stringify({ error: "counterparty_not_found" }), 404);
+    }
+    return jsonResponse(JSON.stringify(reviewed), 200);
+  }
+
   const token = cookies().get("otc_token")?.value;
   if (!token) {
     return jsonResponse(JSON.stringify({ error: "not_authenticated" }), 401);
