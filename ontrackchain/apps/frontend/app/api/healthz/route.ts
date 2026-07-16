@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { isFrontendStandaloneShowcaseMode, resolveFrontendDeploymentModel } from "../../lib/auth-runtime";
+import {
+  isFrontendStandaloneShowcaseMode,
+  isHostedStandaloneShowcaseFallback,
+  resolveFrontendDeploymentModel
+} from "../../lib/auth-runtime";
 
 const REQUIRED_FRONTEND_RENDER_ENV_KEYS = [
   "APP_ENV",
@@ -22,7 +26,12 @@ const REQUIRED_FRONTEND_SHOWCASE_ENV_KEYS = [
 
 export async function GET() {
   const standaloneShowcaseMode = isFrontendStandaloneShowcaseMode();
-  const requiredKeys = standaloneShowcaseMode ? REQUIRED_FRONTEND_SHOWCASE_ENV_KEYS : REQUIRED_FRONTEND_RENDER_ENV_KEYS;
+  const hostedShowcaseFallback = isHostedStandaloneShowcaseFallback();
+  const requiredKeys = standaloneShowcaseMode
+    ? hostedShowcaseFallback
+      ? []
+      : REQUIRED_FRONTEND_SHOWCASE_ENV_KEYS
+    : REQUIRED_FRONTEND_RENDER_ENV_KEYS;
   const missing = requiredKeys.filter((key) => {
     const value = process.env[key];
     return typeof value !== "string" || value.trim().length === 0;
@@ -40,6 +49,7 @@ export async function GET() {
         requiredEnv: missing.length === 0 ? "ok" : "missing"
       },
       standaloneShowcaseMode,
+      hostedShowcaseFallback,
       missingEnvKeys: missing
     },
     { status }
