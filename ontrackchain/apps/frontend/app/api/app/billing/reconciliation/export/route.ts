@@ -1,6 +1,20 @@
 import { cookies } from "next/headers";
+import { isFrontendStandaloneShowcaseMode } from "../../../../../lib/auth-runtime";
+import { exportStandaloneShowcaseBillingReconciliation } from "../../../../../lib/standalone-showcase";
 
 export async function GET(request: Request) {
+  if (isFrontendStandaloneShowcaseMode()) {
+    const url = new URL(request.url);
+    const exported = exportStandaloneShowcaseBillingReconciliation(Number(url.searchParams.get("limit") ?? 25));
+    return new Response(exported.body, {
+      status: 200,
+      headers: {
+        "content-type": exported.contentType,
+        "content-disposition": `attachment; filename="${exported.filename}"`
+      }
+    });
+  }
+
   const token = cookies().get("otc_token")?.value;
   if (!token) {
     return new Response(JSON.stringify({ error: "not_authenticated" }), {

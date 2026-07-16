@@ -1,4 +1,6 @@
 import { cookies } from "next/headers";
+import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
+import { getStandaloneShowcaseBillingBalance } from "../../../../lib/standalone-showcase";
 
 const EMPTY_BILLING_BALANCE_RESPONSE = {
   credits_available: 0,
@@ -7,6 +9,13 @@ const EMPTY_BILLING_BALANCE_RESPONSE = {
 } as const;
 
 export async function GET(request: Request) {
+  if (isFrontendStandaloneShowcaseMode()) {
+    return new Response(JSON.stringify(getStandaloneShowcaseBillingBalance()), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  }
+
   const token = cookies().get("otc_token")?.value;
   if (!token) {
     return new Response(JSON.stringify(EMPTY_BILLING_BALANCE_RESPONSE), {

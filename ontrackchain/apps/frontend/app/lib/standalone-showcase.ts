@@ -958,6 +958,111 @@ const STANDALONE_SHOWCASE_COUNTERPARTY_SEEDS: ShowcaseCounterpartyRecord[] = [
 
 let standaloneShowcaseCounterpartiesStore = STANDALONE_SHOWCASE_COUNTERPARTY_SEEDS.map((item) => ({ ...item }));
 
+export type ShowcaseBillingBalanceRecord = {
+  credits_available: number;
+  credits_reserved: number;
+  credits_used_total: number;
+};
+
+export type ShowcaseBillingActionTotalRecord = {
+  action: string;
+  entry_count: number;
+  amount_total: number;
+};
+
+export type ShowcaseBillingLedgerEntryRecord = {
+  id: string;
+  case_id: string | null;
+  action: string;
+  amount: number | null;
+  balance_after: number | null;
+  request_id: string | null;
+  quote_id: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string | null;
+};
+
+export type ShowcaseBillingReconciliationRecord = {
+  generated_at: string;
+  balance: ShowcaseBillingBalanceRecord;
+  quotes: {
+    investigation: { open_total: number; expired_total: number };
+    compliance: { open_total: number; expired_total: number };
+    monitoring: { open_total: number; expired_total: number };
+    open_total: number;
+    expired_total: number;
+  };
+  ledger: {
+    total_entries: number;
+    action_totals: ShowcaseBillingActionTotalRecord[];
+    recent: ShowcaseBillingLedgerEntryRecord[];
+  };
+};
+
+const STANDALONE_SHOWCASE_BILLING_BALANCE: ShowcaseBillingBalanceRecord = {
+  credits_available: 1840,
+  credits_reserved: 210,
+  credits_used_total: 9620
+};
+
+const STANDALONE_SHOWCASE_BILLING_LEDGER_SEEDS: ShowcaseBillingLedgerEntryRecord[] = [
+  {
+    id: "ledger-showcase-001",
+    case_id: "case-showcase-001",
+    action: "CONFIRMED",
+    amount: 24,
+    balance_after: 1858,
+    request_id: "req-showcase-report-001",
+    quote_id: "quote-technical_basic-ethereum",
+    metadata: { domain: "investigation", report_type: "technical_basic", mode: "standalone_showcase" },
+    created_at: "2026-07-15T19:05:00Z"
+  },
+  {
+    id: "ledger-showcase-002",
+    case_id: "33333333-3333-4333-8333-333333333333",
+    action: "PRE_HOLD",
+    amount: 36,
+    balance_after: 1822,
+    request_id: "req-showcase-counterparty-001",
+    quote_id: null,
+    metadata: { domain: "compliance", counterparty_id: "22222222-2222-4222-8222-222222222222" },
+    created_at: "2026-07-15T18:18:00Z"
+  },
+  {
+    id: "ledger-showcase-003",
+    case_id: null,
+    action: "RELEASED",
+    amount: -12,
+    balance_after: 1834,
+    request_id: "req-showcase-monitoring-001",
+    quote_id: null,
+    metadata: { domain: "monitoring", watchlist_id: "watchlist-showcase-critical" },
+    created_at: "2026-07-15T18:32:00Z"
+  },
+  {
+    id: "ledger-showcase-004",
+    case_id: "case-showcase-002",
+    action: "CONFIRMED",
+    amount: 68,
+    balance_after: 1766,
+    request_id: "req-showcase-report-002",
+    quote_id: "quote-legal_report-bitcoin",
+    metadata: { domain: "reports", report_type: "legal_report", mode: "standalone_showcase" },
+    created_at: "2026-07-15T17:55:00Z"
+  },
+  {
+    id: "ledger-showcase-005",
+    case_id: null,
+    action: "MANUAL_ADJUSTMENT",
+    amount: 74,
+    balance_after: 1840,
+    request_id: "req-showcase-billing-adjustment-001",
+    quote_id: null,
+    metadata: { domain: "billing", reason: "showcase_monthly_topup" },
+    created_at: "2026-07-15T16:40:00Z"
+  }
+];
+
 export function buildStandaloneShowcaseQuote(input: {
   address: string;
   chains?: string[];
@@ -1274,6 +1379,65 @@ export function reviewStandaloneShowcaseCounterparty(
     sof_description: nextItem.sof_description ?? "",
     sof_document_ref: nextItem.sof_document_ref ?? "",
     last_reviewed_at: nextItem.last_reviewed_at ?? now
+  };
+}
+
+function cloneShowcaseBillingLedgerEntry(entry: ShowcaseBillingLedgerEntryRecord): ShowcaseBillingLedgerEntryRecord {
+  return { ...entry, metadata: { ...entry.metadata } };
+}
+
+function cloneShowcaseBillingActionTotal(entry: ShowcaseBillingActionTotalRecord): ShowcaseBillingActionTotalRecord {
+  return { ...entry };
+}
+
+export function getStandaloneShowcaseBillingBalance(): ShowcaseBillingBalanceRecord {
+  return { ...STANDALONE_SHOWCASE_BILLING_BALANCE };
+}
+
+export function getStandaloneShowcaseBillingReconciliation(limit?: number | null): ShowcaseBillingReconciliationRecord {
+  const resolvedLimit = typeof limit === "number" && limit > 0 ? limit : 5;
+  const orderedLedger = STANDALONE_SHOWCASE_BILLING_LEDGER_SEEDS
+    .slice()
+    .sort((left, right) => (right.created_at ?? "").localeCompare(left.created_at ?? ""));
+  const recent = orderedLedger.slice(0, resolvedLimit).map(cloneShowcaseBillingLedgerEntry);
+  const actionTotalsMap = new Map<string, ShowcaseBillingActionTotalRecord>();
+  for (const entry of orderedLedger) {
+    const current = actionTotalsMap.get(entry.action) ?? {
+      action: entry.action,
+      entry_count: 0,
+      amount_total: 0
+    };
+    current.entry_count += 1;
+    current.amount_total += entry.amount ?? 0;
+    actionTotalsMap.set(entry.action, current);
+  }
+
+  return {
+    generated_at: new Date().toISOString(),
+    balance: getStandaloneShowcaseBillingBalance(),
+    quotes: {
+      investigation: { open_total: 2, expired_total: 1 },
+      compliance: { open_total: 1, expired_total: 1 },
+      monitoring: { open_total: 3, expired_total: 2 },
+      open_total: 6,
+      expired_total: 4
+    },
+    ledger: {
+      total_entries: orderedLedger.length,
+      action_totals: Array.from(actionTotalsMap.values())
+        .sort((left, right) => right.entry_count - left.entry_count || left.action.localeCompare(right.action))
+        .map(cloneShowcaseBillingActionTotal),
+      recent
+    }
+  };
+}
+
+export function exportStandaloneShowcaseBillingReconciliation(limit?: number | null) {
+  const snapshot = getStandaloneShowcaseBillingReconciliation(limit);
+  return {
+    filename: "billing-reconciliation-showcase.json",
+    contentType: "application/json; charset=utf-8",
+    body: JSON.stringify(snapshot, null, 2)
   };
 }
 
