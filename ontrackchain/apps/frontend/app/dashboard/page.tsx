@@ -164,7 +164,7 @@ export default async function DashboardPage() {
   const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const headers = { Authorization: `Bearer ${token}`, "X-Request-Id": requestId };
   const dashboardRole = standaloneShowcaseMode ? STANDALONE_SHOWCASE_AUTH_CONTEXT.role : await validateDashboardRole(token!, requestId);
-  const showTeamModule = canManageFederatedIdentity(dashboardRole);
+  const showTeamModule = standaloneShowcaseMode || canManageFederatedIdentity(dashboardRole);
   const showBillingQuickAction = standaloneShowcaseMode || canReadBilling(dashboardRole);
   let watchlistsCount: number | null = null;
   let creditsAvailable: number | null = null;
