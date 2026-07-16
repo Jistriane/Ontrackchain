@@ -1,9 +1,13 @@
 import { isFrontendStandaloneShowcaseMode } from "../../../../../lib/auth-runtime";
 import { getStandaloneShowcaseWorkItem, upsertStandaloneShowcaseWorkItem } from "../../../../../lib/standalone-showcase";
 import type {
+  BlocksWorkItemMetadata,
   CounterpartyWorkItemMetadata,
+  EvidenceWorkItemMetadata,
   PatchWorkItemRequest,
-  ReportWorkItemMetadata
+  ReportWorkItemMetadata,
+  RosCoafWorkItemMetadata,
+  SanctionsWorkItemMetadata
 } from "../../../../../lib/work-items";
 import { authenticateRequest, proxyOperationsRequest } from "../../_shared";
 
@@ -20,6 +24,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ workI
     const payload = (await request.json().catch(() => null)) as
       | PatchWorkItemRequest<ReportWorkItemMetadata>
       | PatchWorkItemRequest<CounterpartyWorkItemMetadata>
+      | PatchWorkItemRequest<SanctionsWorkItemMetadata>
+      | PatchWorkItemRequest<BlocksWorkItemMetadata>
+      | PatchWorkItemRequest<RosCoafWorkItemMetadata>
+      | PatchWorkItemRequest<EvidenceWorkItemMetadata>
       | null;
     if (!payload) {
       return new Response(JSON.stringify({ error: "invalid_work_item_payload" }), {

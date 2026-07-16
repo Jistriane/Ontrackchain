@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { useI18n } from "../../components/i18n-provider";
@@ -210,6 +210,12 @@ type EvidenceManualPackageExportContext = {
   packageSha256: string;
   filename: string;
   createdAt: string | null;
+};
+
+type LocalManualPackageExportContext = EvidenceManualPackageExportContext & {
+  requestId: string;
+  reportId: string;
+  manualReviewAction: string;
 };
 
 const STORAGE_KEY = "otc-evidence-workspace";
@@ -451,18 +457,31 @@ function resolveManualWorkspaceRecord(
   if (!selectedLog || !selectedContext || !resolveManualReviewBaseAction(selectedLog)) {
     return null;
   }
-  return (
-    workspace.find((entry: EvidenceWorkspaceRecord) => {
-      if (selectedContext.requestId && entry.requestId === selectedContext.requestId) {
-        return true;
-      }
-      if (selectedContext.reportId && entry.reportId === selectedContext.reportId) {
-        return true;
-      }
-      return false;
-    }) ??
-    null
-  );
+  const normalizedRequestId = selectedContext.requestId.trim();
+  const normalizedReportId = selectedContext.reportId.trim();
+  const normalizedFileHash = selectedContext.fileHash.trim() || (selectedLog.file_hash_sha256 ?? "").trim();
+  if (normalizedRequestId) {
+    const requestMatch =
+      workspace.find((entry: EvidenceWorkspaceRecord) => entry.requestId === normalizedRequestId) ??
+      workspace.find(
+        (entry: EvidenceWorkspaceRecord) =>
+          entry.requestId === normalizedRequestId ||
+          (normalizedFileHash && entry.fileHash === normalizedFileHash)
+      );
+    if (requestMatch) {
+      return requestMatch;
+    }
+  }
+  if (normalizedFileHash) {
+    const hashMatch = workspace.find((entry: EvidenceWorkspaceRecord) => entry.fileHash === normalizedFileHash);
+    if (hashMatch) {
+      return hashMatch;
+    }
+  }
+  if (normalizedReportId && !normalizedRequestId) {
+    return workspace.find((entry: EvidenceWorkspaceRecord) => entry.reportId === normalizedReportId) ?? null;
+  }
+  return null;
 }
 
 function buildManualPackageAuditPresetHref(requestId: string, reportId: string | null | undefined) {
@@ -736,6 +755,7 @@ export default function EvidenceTrailPage() {
   const [exportingManualPackage, setExportingManualPackage] = useState(false);
   const [exportingRosCoafDossier, setExportingRosCoafDossier] = useState(false);
   const [lastRosDossierExport, setLastRosDossierExport] = useState<{ rosId: string; sha256: string; filename: string } | null>(null);
+  const [lastManualPackageExport, setLastManualPackageExport] = useState<LocalManualPackageExportContext | null>(null);
   const [syncingWorkspace, setSyncingWorkspace] = useState(false);
   const [authContext, setAuthContext] = useState<AuthContext | null>(null);
   const [manualPackageSeal, setManualPackageSeal] = useState<ManualPackageSeal | null>(null);
@@ -770,6 +790,13 @@ export default function EvidenceTrailPage() {
   const [workspaceNote, setWorkspaceNote] = useState("");
   const canExportEvidenceArtifacts = canExportSensitiveEvidence(authContext?.role);
   const [timelineEventId, setTimelineEventId] = useState("");
+  const resolveTimelineErrorMessage = useCallback(
+    (apiError: unknown, fallback: string) => resolveApiErrorMessage(t, apiError, fallback),
+    [t]
+  );
+  const handleTimelineCommentSaved = useCallback(() => {
+    setNotice(tr("evidenceTrail.workspace.timeline.commentSaved" as MessageKey));
+  }, [tr]);
   const {
     timelineLoading,
     timelineError,
@@ -783,14 +810,12 @@ export default function EvidenceTrailPage() {
     loadTimeline,
     submitTimelineComment
   } = useWorkItemTimeline<WorkItemResponse>({
-    resolveErrorMessage: (apiError, fallback) => resolveApiErrorMessage(t, apiError, fallback),
+    resolveErrorMessage: resolveTimelineErrorMessage,
     loadErrorMessage: tr("evidenceTrail.workspace.timeline.errorLoad" as MessageKey),
     commentErrorMessage: tr("evidenceTrail.workspace.timeline.errorComment" as MessageKey),
     emptySelectionErrorMessage: tr("evidenceTrail.workspace.timeline.emptyLocal" as MessageKey),
     emptyCommentErrorMessage: tr("evidenceTrail.workspace.timeline.commentEmpty" as MessageKey),
-    onCommentSaved: () => {
-      setNotice(tr("evidenceTrail.workspace.timeline.commentSaved" as MessageKey));
-    }
+    onCommentSaved: handleTimelineCommentSaved
   });
   const latestRequestRef = useRef(0);
 
@@ -943,6 +968,8 @@ export default function EvidenceTrailPage() {
       return null;
     }
 
+    const currentRequestId = selectedContext.requestId.trim();
+    const currentReportId = selectedContext.reportId.trim();
     const exportEntry = selectedChainLogs
       .filter((entry: AuditLogEntry) => entry.action === "evidence_manual_review_package_exported")
       .slice()
@@ -952,22 +979,36 @@ export default function EvidenceTrailPage() {
         return !manualReviewAction || manualReviewAction === selectedManualReviewAction;
       });
 
-    if (!exportEntry) {
-      return null;
-    }
+    const seededContext = (() => {
+      if (!exportEntry) {
+        return null;
+      }
+      const packageSha256 = readWorkItemMetadataString(exportEntry.metadata ?? {}, "package_sha256");
+      const filename = readWorkItemMetadataString(exportEntry.metadata ?? {}, "filename");
+      if (!packageSha256 && !filename) {
+        return null;
+      }
+      return {
+        packageSha256,
+        filename,
+        createdAt: exportEntry.created_at
+      };
+    })();
 
-    const packageSha256 = readWorkItemMetadataString(exportEntry.metadata ?? {}, "package_sha256");
-    const filename = readWorkItemMetadataString(exportEntry.metadata ?? {}, "filename");
-    if (!packageSha256 && !filename) {
-      return null;
-    }
+    const localContext =
+      lastManualPackageExport &&
+      lastManualPackageExport.requestId === currentRequestId &&
+      lastManualPackageExport.reportId === currentReportId &&
+      lastManualPackageExport.manualReviewAction === selectedManualReviewAction
+        ? {
+            packageSha256: lastManualPackageExport.packageSha256,
+            filename: lastManualPackageExport.filename,
+            createdAt: lastManualPackageExport.createdAt
+          }
+        : null;
 
-    return {
-      packageSha256,
-      filename,
-      createdAt: exportEntry.created_at
-    };
-  }, [selectedChainLogs, selectedContext, selectedManualPackageSummary, selectedManualReviewAction]);
+    return localContext ?? seededContext;
+  }, [lastManualPackageExport, selectedChainLogs, selectedContext, selectedManualPackageSummary, selectedManualReviewAction]);
   const canManageManualPackageSealState = useMemo(
     () => canManageManualPackageSeal(authContext?.role),
     [authContext?.role]
@@ -1499,10 +1540,25 @@ export default function EvidenceTrailPage() {
         res.headers.get("content-disposition"),
         buildManualReviewPackageFilename(manualReviewAction, selectedManualPackageSummary.scopeId)
       );
+      const exportedFilename = resolveDownloadFilename(
+        res.headers.get("content-disposition"),
+        buildManualReviewPackageFilename(manualReviewAction, selectedManualPackageSummary.scopeId)
+      );
+      const exportedPackageSha256 = res.headers.get("x-ontrack-manual-package-sha256")?.trim() ?? "";
       document.body.appendChild(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(href);
+      if (exportedPackageSha256) {
+        setLastManualPackageExport({
+          requestId: selectedContext.requestId || selectedManualPackageSummary.scopeId,
+          reportId: selectedContext.reportId || "",
+          manualReviewAction,
+          packageSha256: exportedPackageSha256,
+          filename: exportedFilename,
+          createdAt: new Date().toISOString()
+        });
+      }
       setNotice(tr("evidenceTrail.manualPackage.exportSuccess" as MessageKey, { scopeId: selectedManualPackageSummary.scopeId }));
     } catch (exportError) {
       setError(exportError instanceof Error ? exportError.message : tr("evidenceTrail.errorExport" as MessageKey));

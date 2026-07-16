@@ -1,6 +1,13 @@
+import { isFrontendStandaloneShowcaseMode } from "../../../../../lib/auth-runtime";
+import { resolveStandaloneShowcaseRosRef } from "../../../../../lib/standalone-showcase";
 import { authenticateReportRequest, jsonResponse, proxyReportJsonRequest } from "../../_shared";
 
 export async function GET(request: Request, context: { params: Promise<{ reportId: string }> }) {
+  if (isFrontendStandaloneShowcaseMode()) {
+    const { reportId } = await context.params;
+    return jsonResponse(JSON.stringify(resolveStandaloneShowcaseRosRef(reportId)), 200);
+  }
+
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const auth = await authenticateReportRequest(requestId);
   if (auth instanceof Response) {

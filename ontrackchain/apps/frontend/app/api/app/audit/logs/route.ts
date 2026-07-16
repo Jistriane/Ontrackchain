@@ -1,4 +1,6 @@
 import { cookies } from "next/headers";
+import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
+import { listStandaloneShowcaseAuditLogs } from "../../../../lib/standalone-showcase";
 
 const EMPTY_AUDIT_LOGS_RESPONSE = {
   data: [],
@@ -11,6 +13,29 @@ const EMPTY_AUDIT_LOGS_RESPONSE = {
 } as const;
 
 export async function GET(request: Request) {
+  if (isFrontendStandaloneShowcaseMode()) {
+    const url = new URL(request.url);
+    const page = Number(url.searchParams.get("page") ?? 1);
+    const limit = Number(url.searchParams.get("limit") ?? 50);
+    return new Response(
+      JSON.stringify(
+        listStandaloneShowcaseAuditLogs({
+          requestId: url.searchParams.get("request_id"),
+          action: url.searchParams.get("action"),
+          resourceType: url.searchParams.get("resource_type"),
+          reportId: url.searchParams.get("report_id"),
+          resourceId: url.searchParams.get("resource_id"),
+          page: Number.isFinite(page) ? page : 1,
+          limit: Number.isFinite(limit) ? limit : 50
+        })
+      ),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      }
+    );
+  }
+
   const token = cookies().get("otc_token")?.value;
   if (!token) {
     return new Response(JSON.stringify(EMPTY_AUDIT_LOGS_RESPONSE), {

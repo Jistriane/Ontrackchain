@@ -1,3 +1,16 @@
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { AuditLogEntry, AuditLogsResponse } from "./audit-log";
+import {
+  buildEvidenceManualPackageAuditMetadata,
+  buildEvidenceManualPackageDocument,
+  buildEvidenceManualPackageManifest,
+  buildManualReviewPackageFilename,
+  finalizeEvidenceManualPackageDocument,
+  type EvidenceManualPackagePayload
+} from "./evidence-manual-package";
+import type { ManualPackageSeal, ManualPackageSealSignoff } from "./manual-package-seal";
 import type { WorkCommentResponse, WorkEventResponse, WorkItemTimelineResponse } from "./work-item-timeline";
 import type { Alert, Watchlist, WatchlistItem } from "./monitoring-api";
 import type { DlqSnapshot } from "./monitoring-dlq";
@@ -9,8 +22,12 @@ import type {
   PlatformOperationalAlertsSnapshot
 } from "./monitoring-platform-alerts";
 import type {
+  BlocksWorkItemMetadata,
   CounterpartyWorkItemMetadata,
+  EvidenceWorkItemMetadata,
   ReportWorkItemMetadata,
+  RosCoafWorkItemMetadata,
+  SanctionsWorkItemMetadata,
   WorkItemListResponse,
   WorkItemResponse
 } from "./work-items";
@@ -300,7 +317,17 @@ export const STANDALONE_SHOWCASE_CASES = [
   }
 ] as const;
 
-export const STANDALONE_SHOWCASE_REPORT_HISTORY = [
+export const STANDALONE_SHOWCASE_REPORT_HISTORY: Array<{
+  report_id: string;
+  case_id: string | null;
+  report_type_requested: string;
+  report_type: string;
+  content_type: string;
+  file_hash_sha256: string | null;
+  onchain_hash: string | null;
+  created_at: string;
+  has_download_audit: boolean;
+}> = [
   {
     report_id: "rep-showcase-001",
     case_id: "case-showcase-001",
@@ -322,10 +349,149 @@ export const STANDALONE_SHOWCASE_REPORT_HISTORY = [
     onchain_hash: null,
     created_at: "2026-07-15T08:55:00Z",
     has_download_audit: false
+  },
+  {
+    report_id: "rep-showcase-003",
+    case_id: "case-showcase-002",
+    report_type_requested: "coaf_ready_report",
+    report_type: "coaf_ready_report",
+    content_type: "application/pdf",
+    file_hash_sha256: "4f8d86d1d8dd7a32d8f7f86d7b219b7f3f95e351ee8e0f38d7fd0ce93f37b8b5",
+    onchain_hash: null,
+    created_at: "2026-07-15T18:42:00Z",
+    has_download_audit: true
   }
-] as const;
+];
 
-type ShowcaseWorkItemMetadata = ReportWorkItemMetadata | CounterpartyWorkItemMetadata;
+type ShowcaseSanctionsCheckResponse = {
+  address: string;
+  chain: string;
+  provider: string;
+  provider_status: "live" | "degraded";
+  degraded_reason?: string | null;
+  capability_status: "live" | "degraded";
+  lists: string[];
+  hit?: boolean | null;
+  matched_lists: string[];
+  entity_name?: string | null;
+  designation_date?: string | null;
+  checked_at: string;
+};
+
+type ShowcaseBlockEvaluateResponse = {
+  address: string;
+  chain: string;
+  action: string;
+  requires_coaf_report: boolean;
+  decision_confidence: number;
+  regulatory_basis: string[];
+  matched_lists: string[];
+  evidence_hash?: string | null;
+  block_id?: string | null;
+  screened_at: string;
+};
+
+type ShowcaseBlockLiftResponse = {
+  block_id: string;
+  status: string;
+  review_status: string;
+  lifted_at: string;
+};
+
+type ShowcaseEvidenceBundle = {
+  mode: "standalone_showcase";
+  request: {
+    format: string;
+    request_id: string | null;
+    action: string | null;
+    resource_type: string | null;
+    report_id: string | null;
+    resource_id: string | null;
+    limit: number;
+    include_audit_logs: boolean;
+    include_credit_ledger: boolean;
+    include_reports: boolean;
+  };
+  export_generated_at: string;
+  audit_logs: AuditLogEntry[];
+  credit_ledger: Array<Record<string, unknown>>;
+  reports: Array<Record<string, unknown>>;
+};
+
+type ShowcaseRosCoafListItem = {
+  ros_id: string;
+  case_id: string | null;
+  status: string;
+  report_id: string;
+  created_at: string;
+  approved_at: string | null;
+  submitted_at: string | null;
+  coaf_protocol_number: string;
+  coaf_receipt_hash: string;
+  rejection_reason: string;
+  approval_2fa_verified: boolean;
+  submission_deadline: string | null;
+  deadline_breached: boolean;
+  last_activity_at: string;
+};
+
+type ShowcaseRosCoafAuditEntry = {
+  id: string;
+  action: string;
+  user_id: string | null;
+  created_at: string;
+  metadata: Record<string, unknown>;
+};
+
+type ShowcaseRosCoafDetail = ShowcaseRosCoafListItem & {
+  tipologia_code: string;
+  tipologia_description: string;
+  trigger_reason: string;
+  suspected_amount_brl: number | null;
+  suspected_address: string;
+  suspected_chain: string;
+  pdf_hash: string;
+  pdf_path: string;
+  generated_at: string | null;
+  evidence_hash: string;
+  evidence_trail_ref: string;
+  updated_at: string;
+  retain_until: string;
+  audit: ShowcaseRosCoafAuditEntry[];
+};
+
+type ShowcaseRosCoafGenerateResponse = {
+  ros_id: string;
+  report_id: string;
+  report_type: string;
+  status: string;
+  created_at: string;
+  file_hash_sha256: string;
+  content_type: string;
+};
+
+type ShowcaseRosCoafApproveResponse = {
+  ros_id: string;
+  status: string;
+  approved_at: string;
+  approval_2fa_verified: boolean;
+};
+
+type ShowcaseRosCoafSubmitResponse = {
+  ros_id: string;
+  status: string;
+  submitted_at: string;
+  coaf_protocol_number: string;
+  coaf_receipt_hash: string;
+};
+
+type ShowcaseWorkItemMetadata =
+  | ReportWorkItemMetadata
+  | CounterpartyWorkItemMetadata
+  | SanctionsWorkItemMetadata
+  | BlocksWorkItemMetadata
+  | EvidenceWorkItemMetadata
+  | RosCoafWorkItemMetadata;
 type ShowcaseWorkItemRecord = WorkItemResponse<ShowcaseWorkItemMetadata>;
 
 const STANDALONE_SHOWCASE_WORK_ITEM_SEEDS: ShowcaseWorkItemRecord[] = [
@@ -405,6 +571,212 @@ const STANDALONE_SHOWCASE_WORK_ITEM_SEEDS: ShowcaseWorkItemRecord[] = [
     created_at: "2026-07-15T17:45:00Z",
     updated_at: "2026-07-15T18:20:00Z",
     last_activity_at: "2026-07-15T18:20:00Z"
+  },
+  {
+    id: "a5c82378-7e1a-54d0-9785-1c4d0379d4c1",
+    module: "sanctions",
+    resource_type: "sanctions_screening",
+    resource_id: "0f58c5fa-3d28-5f7f-a9f3-1ad6bb2d4e31",
+    case_id: "case-showcase-002",
+    report_external_id: "rep-showcase-002",
+    owner_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    assigned_by_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    queue_status: "UNDER_REVIEW",
+    priority: "critical",
+    due_at: "2026-07-16T12:00:00Z",
+    sla_breached: false,
+    title: "Sanctions HIT • 0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+    note: "Hit seeded para demonstrar screening, triagem e navegação operacional no showcase.",
+    metadata: {
+      case_id: "case-showcase-002",
+      local_case_id: "case-showcase-002",
+      owner_label: "showcase-user",
+      owner_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      workspace_status: "UNDER_REVIEW",
+      local_workspace_status: "UNDER_REVIEW",
+      workspace_id: "sanctions:0x8ba1f109551bD432803012645Ac136ddd64DBA72:ethereum:2026-07-15T18:26:00Z",
+      address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+      chain: "ethereum",
+      lists: ["OFAC", "UN", "EU", "COAF"],
+      provider: "Chainalysis KYT Showcase",
+      provider_status: "live",
+      capability_status: "live",
+      degraded_reason: "",
+      matched_lists: ["OFAC", "EU"],
+      hit: true,
+      entity_name: "Atlas OTC Desk",
+      designation_date: "2025-11-20T00:00:00Z",
+      checked_at: "2026-07-15T18:26:00Z",
+      triage_note: "Hit seeded para demonstrar screening, triagem e navegação operacional no showcase.",
+      note: "Hit seeded para demonstrar screening, triagem e navegação operacional no showcase."
+    },
+    created_at: "2026-07-15T18:26:00Z",
+    updated_at: "2026-07-15T18:31:00Z",
+    last_activity_at: "2026-07-15T18:31:00Z"
+  },
+  {
+    id: "c4d8dd9b-262b-5d32-840d-f9ec4f12ee89",
+    module: "blocks",
+    resource_type: "preventive_block",
+    resource_id: "bb86c0d1-1b7e-55dd-8e6b-a8f4318fb91f",
+    case_id: "case-showcase-002",
+    report_external_id: "rep-showcase-002",
+    owner_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    assigned_by_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    queue_status: "UNDER_REVIEW",
+    priority: "critical",
+    due_at: "2026-07-16T14:00:00Z",
+    sla_breached: false,
+    title: "Preventive block • 0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+    note: "Bloqueio preventivo seeded para demonstrar decisão, lift e trilha compartilhada.",
+    metadata: {
+      case_id: "case-showcase-002",
+      local_case_id: "case-showcase-002",
+      owner_label: "showcase-user",
+      owner_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      workspace_status: "BLOCKED",
+      local_workspace_status: "BLOCKED",
+      local_block_status: "BLOCKED",
+      workspace_id: "bb86c0d1-1b7e-55dd-8e6b-a8f4318fb91f",
+      address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+      chain: "ethereum",
+      entity_name: "Atlas OTC Desk",
+      entity_document: "12.345.678/0001-90",
+      action: "BLOCK",
+      requires_coaf_report: true,
+      decision_confidence: 0.94,
+      regulatory_basis: [
+        "OFAC SDN match with corroborated counterparty context",
+        "Internal policy OTC-HIGH-RISK-07"
+      ],
+      matched_lists: ["OFAC", "EU"],
+      evidence_hash: "2fb8b4823d65c11274f0e95ad1f20ee0be79b86d5f16e34f96cbe8c8fb7a9c32",
+      block_id: "bb86c0d1-1b7e-55dd-8e6b-a8f4318fb91f",
+      screened_at: "2026-07-15T18:35:00Z",
+      lifted_at: "",
+      lift_reason: "",
+      note: "Bloqueio preventivo seeded para demonstrar decisão, lift e trilha compartilhada."
+    },
+    created_at: "2026-07-15T18:35:00Z",
+    updated_at: "2026-07-15T18:38:00Z",
+    last_activity_at: "2026-07-15T18:38:00Z"
+  },
+  {
+    id: "f17b41c9-f5a7-5ec2-b970-511c4fd0b14b",
+    module: "ros_coaf",
+    resource_type: "ros_record",
+    resource_id: "7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+    case_id: "case-showcase-002",
+    report_external_id: "rep-showcase-003",
+    owner_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    assigned_by_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    queue_status: "SUBMITTED",
+    priority: "critical",
+    due_at: "2026-07-16T09:00:00Z",
+    sla_breached: false,
+    title: "ROS/COAF • 7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+    note: "Recibo seeded para demonstrar submissao manual auditavel no showcase.",
+    metadata: {
+      case_id: "case-showcase-002",
+      owner_label: "showcase-user",
+      owner_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      workspace_status: "SUBMITTED_MANUAL",
+      ros_status: "SUBMITTED_MANUAL",
+      ros_phase: "submitted",
+      ros_id: "7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+      report_id: "rep-showcase-003",
+      created_at: "2026-07-15T18:42:00Z",
+      approved_at: "2026-07-15T18:47:00Z",
+      approval_2fa_verified: true,
+      submitted_at: "2026-07-15T18:55:00Z",
+      coaf_protocol_number: "COAF-2026-000184",
+      coaf_receipt_hash: "4fcd0bdfe7f42dcd765358f8f582d7a35f992f64a3e8f53d651f44af4e5ba328",
+      rejection_reason: ""
+    },
+    created_at: "2026-07-15T18:42:00Z",
+    updated_at: "2026-07-15T18:55:00Z",
+    last_activity_at: "2026-07-15T18:55:00Z"
+  },
+  {
+    id: "7d4a7d2f-42f0-59f6-9335-75e4b33e5161",
+    module: "evidence",
+    resource_type: "evidence_event",
+    resource_id: "audit-showcase-dd-export-001",
+    case_id: "case-showcase-002",
+    report_external_id: "rep-showcase-003",
+    owner_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    assigned_by_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    queue_status: "UNDER_REVIEW",
+    priority: "high",
+    due_at: "2026-07-16T10:00:00Z",
+    sla_breached: false,
+    title: "Evidence manual package • req-showcase-dd-001",
+    note: "Pacote manual seeded para trilha regulatoria de due diligence no showcase.",
+    metadata: {
+      event_id: "audit-showcase-dd-export-001",
+      audit_action: "evidence_manual_review_package_exported",
+      audit_resource_type: "audit_log",
+      audit_resource_id: "audit-showcase-dd-export-001",
+      request_id: "req-showcase-dd-001",
+      report_id: "rep-showcase-003",
+      file_hash_sha256: "91e49bb8a644f40d938c9334f50fca6e84bd828278dbaf3df881723b0d7f5eb3",
+      provider: "Ontrackchain DD Showcase",
+      provider_status: "degraded",
+      degraded_reason: "manual_review_required",
+      capability_status: "degraded",
+      delivery_mode: "manual_review_pending",
+      requires_human_review: true,
+      counterparty_context_present: true,
+      counterparty_context: "Atlas OTC Desk flagged during enhanced due diligence.",
+      manual_review_action: "compliance_due_diligence_checked",
+      package_sha256: "91e49bb8a644f40d938c9334f50fca6e84bd828278dbaf3df881723b0d7f5eb3",
+      filename: "ontrackchain-manual-review-due-diligence-req-showcase-dd-001.json",
+      workspace_status: "reviewing",
+      local_workspace_status: "reviewing",
+      note: "Pacote manual seeded para trilha regulatoria de due diligence no showcase."
+    },
+    created_at: "2026-07-15T19:26:00Z",
+    updated_at: "2026-07-15T19:31:00Z",
+    last_activity_at: "2026-07-15T19:31:00Z"
+  },
+  {
+    id: "9a96176a-a97d-5dce-a7cf-77b9c2d4f0de",
+    module: "evidence",
+    resource_type: "evidence_event",
+    resource_id: "audit-showcase-sof-001",
+    case_id: "case-showcase-002",
+    report_external_id: "rep-showcase-003",
+    owner_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    assigned_by_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    queue_status: "UNDER_REVIEW",
+    priority: "high",
+    due_at: "2026-07-16T10:30:00Z",
+    sla_breached: false,
+    title: "Evidence manual package • req-showcase-sof-001",
+    note: "Workspace seeded para trilha regulatoria de source of funds no showcase.",
+    metadata: {
+      event_id: "audit-showcase-sof-001",
+      audit_action: "compliance_source_of_funds_checked",
+      audit_resource_type: "address",
+      audit_resource_id: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+      request_id: "req-showcase-sof-001",
+      report_id: "rep-showcase-003",
+      file_hash_sha256: "4cd72d6a8f9fc5b58debb42d67f2f6871775c2cda4ff7e5814ac1cbfc8cdf44a",
+      provider: "Ontrackchain SoF Showcase",
+      provider_status: "degraded",
+      degraded_reason: "manual_review_required",
+      capability_status: "degraded",
+      delivery_mode: "manual_review_pending",
+      requires_human_review: true,
+      purpose: "Cross-border OTC settlement",
+      manual_review_action: "compliance_source_of_funds_checked",
+      workspace_status: "reviewing",
+      local_workspace_status: "reviewing",
+      note: "Workspace seeded para trilha regulatoria de source of funds no showcase."
+    },
+    created_at: "2026-07-15T19:18:00Z",
+    updated_at: "2026-07-15T19:24:00Z",
+    last_activity_at: "2026-07-15T19:24:00Z"
   }
 ];
 
@@ -448,6 +820,152 @@ const STANDALONE_SHOWCASE_TIMELINE_EVENT_SEEDS: Record<string, WorkEventResponse
       payload: { dd_review_status: "in_progress", sof_document_ref: "SOF-ATLAS-2026-001" },
       created_at: "2026-07-15T18:20:00Z"
     }
+  ],
+  "a5c82378-7e1a-54d0-9785-1c4d0379d4c1": [
+    {
+      id: "evt-showcase-sanctions-001",
+      event_type: "WORK_ITEM_CREATED",
+      from_status: null,
+      to_status: "UNDER_REVIEW",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      payload: {
+        source: "standalone_showcase_seed",
+        matched_lists: ["OFAC", "EU"],
+        screening_result: "hit"
+      },
+      created_at: "2026-07-15T18:26:00Z"
+    },
+    {
+      id: "evt-showcase-sanctions-002",
+      event_type: "SANCTIONS_HIT_TRIAGED",
+      from_status: "UNDER_REVIEW",
+      to_status: "UNDER_REVIEW",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      payload: {
+        triage_note: "Escalar para bloqueio preventivo e ROS/COAF se confirmado.",
+        provider: "Chainalysis KYT Showcase"
+      },
+      created_at: "2026-07-15T18:31:00Z"
+    }
+  ],
+  "c4d8dd9b-262b-5d32-840d-f9ec4f12ee89": [
+    {
+      id: "evt-showcase-blocks-001",
+      event_type: "WORK_ITEM_CREATED",
+      from_status: null,
+      to_status: "UNDER_REVIEW",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      payload: {
+        source: "standalone_showcase_seed",
+        block_id: "bb86c0d1-1b7e-55dd-8e6b-a8f4318fb91f"
+      },
+      created_at: "2026-07-15T18:35:00Z"
+    },
+    {
+      id: "evt-showcase-blocks-002",
+      event_type: "BLOCK_DECISION_RECORDED",
+      from_status: "UNDER_REVIEW",
+      to_status: "BLOCKED",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      payload: {
+        action: "BLOCK",
+        requires_coaf_report: true
+      },
+      created_at: "2026-07-15T18:38:00Z"
+    }
+  ],
+  "f17b41c9-f5a7-5ec2-b970-511c4fd0b14b": [
+    {
+      id: "evt-showcase-ros-001",
+      event_type: "WORK_ITEM_CREATED",
+      from_status: null,
+      to_status: "UNDER_REVIEW",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      payload: {
+        source: "standalone_showcase_seed",
+        ros_id: "7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+        report_id: "rep-showcase-003"
+      },
+      created_at: "2026-07-15T18:42:00Z"
+    },
+    {
+      id: "evt-showcase-ros-002",
+      event_type: "COAF_REPORT_APPROVED",
+      from_status: "UNDER_REVIEW",
+      to_status: "APPROVED",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      payload: {
+        ros_id: "7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+        approval_2fa_verified: true
+      },
+      created_at: "2026-07-15T18:47:00Z"
+    },
+    {
+      id: "evt-showcase-ros-003",
+      event_type: "COAF_REPORT_SUBMITTED_MANUAL",
+      from_status: "APPROVED",
+      to_status: "SUBMITTED",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      payload: {
+        ros_id: "7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+        coaf_protocol_number: "COAF-2026-000184"
+      },
+      created_at: "2026-07-15T18:55:00Z"
+    }
+  ],
+  "7d4a7d2f-42f0-59f6-9335-75e4b33e5161": [
+    {
+      id: "evt-showcase-evidence-001",
+      event_type: "WORK_ITEM_CREATED",
+      from_status: null,
+      to_status: "UNDER_REVIEW",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      payload: {
+        source: "standalone_showcase_seed",
+        request_id: "req-showcase-dd-001",
+        package_sha256: "91e49bb8a644f40d938c9334f50fca6e84bd828278dbaf3df881723b0d7f5eb3"
+      },
+      created_at: "2026-07-15T19:26:00Z"
+    },
+    {
+      id: "evt-showcase-evidence-002",
+      event_type: "MANUAL_PACKAGE_EXPORTED",
+      from_status: "UNDER_REVIEW",
+      to_status: "UNDER_REVIEW",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      payload: {
+        manual_review_action: "compliance_due_diligence_checked",
+        filename: "ontrackchain-manual-review-due-diligence-req-showcase-dd-001.json"
+      },
+      created_at: "2026-07-15T19:31:00Z"
+    }
+  ],
+  "9a96176a-a97d-5dce-a7cf-77b9c2d4f0de": [
+    {
+      id: "evt-showcase-evidence-sof-001",
+      event_type: "WORK_ITEM_CREATED",
+      from_status: null,
+      to_status: "UNDER_REVIEW",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      payload: {
+        source: "standalone_showcase_seed",
+        request_id: "req-showcase-sof-001",
+        review_mode: "manual_review_pending"
+      },
+      created_at: "2026-07-15T19:18:00Z"
+    },
+    {
+      id: "evt-showcase-evidence-sof-002",
+      event_type: "SOURCE_OF_FUNDS_REVIEW_UPDATED",
+      from_status: "UNDER_REVIEW",
+      to_status: "UNDER_REVIEW",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      payload: {
+        purpose: "Cross-border OTC settlement",
+        provider: "Ontrackchain SoF Showcase"
+      },
+      created_at: "2026-07-15T19:24:00Z"
+    }
   ]
 };
 
@@ -476,25 +994,504 @@ const STANDALONE_SHOWCASE_TIMELINE_COMMENT_SEEDS: Record<string, WorkCommentResp
       body: "Seed regulatório com DD em andamento para demonstrar revisão, workspace e timeline.",
       created_at: "2026-07-15T18:05:00Z"
     }
+  ],
+  "a5c82378-7e1a-54d0-9785-1c4d0379d4c1": [
+    {
+      id: "cmt-showcase-sanctions-001",
+      comment_type: "note",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      body: "Hit seeded com escalonamento sugerido para bloqueio preventivo e trilha auditável.",
+      created_at: "2026-07-15T18:29:00Z"
+    }
+  ],
+  "c4d8dd9b-262b-5d32-840d-f9ec4f12ee89": [
+    {
+      id: "cmt-showcase-blocks-001",
+      comment_type: "note",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      body: "Bloqueio preventivo seeded para demonstrar handoff entre sanctions, blocks e audit.",
+      created_at: "2026-07-15T18:37:00Z"
+    }
+  ],
+  "f17b41c9-f5a7-5ec2-b970-511c4fd0b14b": [
+    {
+      id: "cmt-showcase-ros-001",
+      comment_type: "handoff",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      body: "ROS/COAF seeded para demonstrar handoff regulatorio apos triagem de sanctions e block.",
+      created_at: "2026-07-15T18:45:00Z"
+    },
+    {
+      id: "cmt-showcase-ros-002",
+      comment_type: "note",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      body: "Submissao manual registrada com protocolo e hash do recibo para auditoria cruzada.",
+      created_at: "2026-07-15T18:56:00Z"
+    }
+  ],
+  "7d4a7d2f-42f0-59f6-9335-75e4b33e5161": [
+    {
+      id: "cmt-showcase-evidence-001",
+      comment_type: "handoff",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      body: "Pacote manual seeded para ligar due diligence, audit trail e governanca de selagem.",
+      created_at: "2026-07-15T19:29:00Z"
+    }
+  ],
+  "9a96176a-a97d-5dce-a7cf-77b9c2d4f0de": [
+    {
+      id: "cmt-showcase-evidence-sof-001",
+      comment_type: "note",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      body: "Workspace seeded para demonstrar timeline da trilha source of funds antes da exportacao do pacote.",
+      created_at: "2026-07-15T19:22:00Z"
+    }
   ]
 };
 
-let standaloneShowcaseWorkItemsStore = STANDALONE_SHOWCASE_WORK_ITEM_SEEDS.map((item) => ({
-  ...item,
-  metadata: { ...item.metadata }
+const STANDALONE_SHOWCASE_AUDIT_LOG_SEEDS: AuditLogEntry[] = [
+  {
+    id: "audit-showcase-sanctions-001",
+    user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    action: "compliance_sanctions_checked",
+    resource_type: "case",
+    resource_id: "case-showcase-002",
+    request_id: "req-showcase-sanctions-001",
+    report_id: "rep-showcase-002",
+    file_hash_sha256: null,
+    metadata: {
+      case_id: "case-showcase-002",
+      address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+      chain: "ethereum",
+      provider: "Chainalysis KYT Showcase",
+      provider_status: "live",
+      capability_status: "live",
+      matched_lists: ["OFAC", "EU"],
+      hit: true,
+      entity_name: "Atlas OTC Desk",
+      designation_date: "2025-11-20T00:00:00Z",
+      checked_at: "2026-07-15T18:26:00Z",
+      report_type: "legal_report"
+    },
+    created_at: "2026-07-15T18:26:00Z"
+  },
+  {
+    id: "audit-showcase-block-001",
+    user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    action: "preventive_block_evaluated",
+    resource_type: "preventive_block",
+    resource_id: "bb86c0d1-1b7e-55dd-8e6b-a8f4318fb91f",
+    request_id: "req-showcase-block-001",
+    report_id: "rep-showcase-002",
+    file_hash_sha256: "2fb8b4823d65c11274f0e95ad1f20ee0be79b86d5f16e34f96cbe8c8fb7a9c32",
+    metadata: {
+      case_id: "case-showcase-002",
+      address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+      chain: "ethereum",
+      action: "BLOCK",
+      block_id: "bb86c0d1-1b7e-55dd-8e6b-a8f4318fb91f",
+      evidence_hash: "2fb8b4823d65c11274f0e95ad1f20ee0be79b86d5f16e34f96cbe8c8fb7a9c32",
+      matched_lists: ["OFAC", "EU"],
+      regulatory_basis: [
+        "OFAC SDN match with corroborated counterparty context",
+        "Internal policy OTC-HIGH-RISK-07"
+      ],
+      requires_coaf_report: true,
+      decision_confidence: 0.94,
+      screened_at: "2026-07-15T18:35:00Z",
+      report_type: "legal_report"
+    },
+    created_at: "2026-07-15T18:35:00Z"
+  },
+  {
+    id: "audit-showcase-team-001",
+    user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    action: "team_external_identity_linked",
+    resource_type: "team_user",
+    resource_id: "team-showcase-admin-01",
+    request_id: "req-showcase-team-link-001",
+    report_id: null,
+    file_hash_sha256: null,
+    metadata: {
+      provider: "keycloak",
+      external_subject: "kc-showcase-admin-01",
+      email_snapshot: "admin@ontrackchain.local",
+      role_snapshot: "ADMIN",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      linked_user_id: "team-showcase-admin-01",
+      external_user_id: "kc-showcase-admin-01",
+      auth_method: "oidc",
+      tenant_role: "ADMIN"
+    },
+    created_at: "2026-07-15T19:05:00Z"
+  },
+  {
+    id: "audit-showcase-denial-001",
+    user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    action: "authorization_denied",
+    resource_type: "audit_log",
+    resource_id: "showcase-denied-alert-export",
+    request_id: "req-showcase-deny-001",
+    report_id: null,
+    file_hash_sha256: null,
+    metadata: {
+      actor_role: "VIEWER",
+      attempted_action: "operational_alerts_exported",
+      denial_reason: "viewer_role_required",
+      route: "/api/v1/monitoring/alerts/export",
+      service: "monitoring-api"
+    },
+    created_at: "2026-07-15T19:12:00Z"
+  },
+  {
+    id: "audit-showcase-ros-generated-001",
+    user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    action: "coaf_report_generated",
+    resource_type: "ros_record",
+    resource_id: "7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+    request_id: "req-showcase-ros-001",
+    report_id: "rep-showcase-003",
+    file_hash_sha256: "4f8d86d1d8dd7a32d8f7f86d7b219b7f3f95e351ee8e0f38d7fd0ce93f37b8b5",
+    metadata: {
+      case_id: "case-showcase-002",
+      ros_id: "7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+      report_id: "rep-showcase-003",
+      report_type: "coaf_ready_report",
+      trigger_reason: "Escalonamento automatico apos block + sanctions hit.",
+      file_hash_sha256: "4f8d86d1d8dd7a32d8f7f86d7b219b7f3f95e351ee8e0f38d7fd0ce93f37b8b5"
+    },
+    created_at: "2026-07-15T18:42:00Z"
+  },
+  {
+    id: "audit-showcase-ros-approved-001",
+    user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    action: "coaf_report_approved",
+    resource_type: "ros_record",
+    resource_id: "7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+    request_id: "req-showcase-ros-002",
+    report_id: "rep-showcase-003",
+    file_hash_sha256: "4f8d86d1d8dd7a32d8f7f86d7b219b7f3f95e351ee8e0f38d7fd0ce93f37b8b5",
+    metadata: {
+      ros_id: "7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+      approved_at: "2026-07-15T18:47:00Z",
+      approval_2fa_verified: true,
+      approver_role: STANDALONE_SHOWCASE_AUTH_CONTEXT.role
+    },
+    created_at: "2026-07-15T18:47:00Z"
+  },
+  {
+    id: "audit-showcase-ros-submitted-001",
+    user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    action: "coaf_report_submitted_manual",
+    resource_type: "ros_record",
+    resource_id: "7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+    request_id: "req-showcase-ros-003",
+    report_id: "rep-showcase-003",
+    file_hash_sha256: "4f8d86d1d8dd7a32d8f7f86d7b219b7f3f95e351ee8e0f38d7fd0ce93f37b8b5",
+    metadata: {
+      ros_id: "7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+      submitted_at: "2026-07-15T18:55:00Z",
+      coaf_protocol_number: "COAF-2026-000184",
+      coaf_receipt_hash: "4fcd0bdfe7f42dcd765358f8f582d7a35f992f64a3e8f53d651f44af4e5ba328"
+    },
+    created_at: "2026-07-15T18:55:00Z"
+  },
+  {
+    id: "audit-showcase-ros-dossier-001",
+    user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    action: "coaf_regulatory_dossier_downloaded",
+    resource_type: "ros_record",
+    resource_id: "7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+    request_id: "req-showcase-ros-004",
+    report_id: "rep-showcase-003",
+    file_hash_sha256: "4f8d86d1d8dd7a32d8f7f86d7b219b7f3f95e351ee8e0f38d7fd0ce93f37b8b5",
+    metadata: {
+      ros_id: "7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+      filename: "ontrackchain-ros-coaf-regulatory-dossier-7c4dca53-5806-564f-91ba-ef5487dbf6ce.json",
+      dossier_sha256: "ce419a4af145cabaf0b7d8a89ddb501f712d0b5d12bb6dbec64b1ea3dfd2ea69",
+      report_id: "rep-showcase-003"
+    },
+    created_at: "2026-07-15T19:03:00Z"
+  },
+  {
+    id: "audit-showcase-dd-001",
+    user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    action: "compliance_due_diligence_checked",
+    resource_type: "address",
+    resource_id: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+    request_id: "req-showcase-dd-001",
+    report_id: "rep-showcase-003",
+    file_hash_sha256: "91e49bb8a644f40d938c9334f50fca6e84bd828278dbaf3df881723b0d7f5eb3",
+    metadata: {
+      case_id: "case-showcase-002",
+      address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+      chain: "ethereum",
+      provider: "Ontrackchain DD Showcase",
+      provider_status: "degraded",
+      degraded_reason: "manual_review_required",
+      capability_status: "degraded",
+      delivery_mode: "manual_review_pending",
+      requires_human_review: true,
+      counterparty_context_present: true,
+      counterparty_context: "Atlas OTC Desk flagged during enhanced due diligence.",
+      file_hash_sha256: "91e49bb8a644f40d938c9334f50fca6e84bd828278dbaf3df881723b0d7f5eb3"
+    },
+    created_at: "2026-07-15T19:24:00Z"
+  },
+  {
+    id: "audit-showcase-dd-export-001",
+    user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    action: "evidence_manual_review_package_exported",
+    resource_type: "audit_log",
+    resource_id: "audit-showcase-dd-export-001",
+    request_id: "req-showcase-dd-001",
+    report_id: "rep-showcase-003",
+    file_hash_sha256: "91e49bb8a644f40d938c9334f50fca6e84bd828278dbaf3df881723b0d7f5eb3",
+    metadata: {
+      case_id: "case-showcase-002",
+      resource_id: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+      address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+      chain: "ethereum",
+      provider: "Ontrackchain DD Showcase",
+      provider_status: "degraded",
+      degraded_reason: "manual_review_required",
+      capability_status: "degraded",
+      delivery_mode: "manual_review_pending",
+      requires_human_review: true,
+      counterparty_context_present: true,
+      counterparty_context: "Atlas OTC Desk flagged during enhanced due diligence.",
+      manual_review_action: "compliance_due_diligence_checked",
+      package_sha256: "91e49bb8a644f40d938c9334f50fca6e84bd828278dbaf3df881723b0d7f5eb3",
+      filename: "ontrackchain-manual-review-due-diligence-req-showcase-dd-001.json",
+      hash_algorithm: "SHA-256",
+      scope_id: "req-showcase-dd-001"
+    },
+    created_at: "2026-07-15T19:31:00Z"
+  },
+  {
+    id: "audit-showcase-sof-001",
+    user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    action: "compliance_source_of_funds_checked",
+    resource_type: "address",
+    resource_id: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+    request_id: "req-showcase-sof-001",
+    report_id: "rep-showcase-003",
+    file_hash_sha256: "4cd72d6a8f9fc5b58debb42d67f2f6871775c2cda4ff7e5814ac1cbfc8cdf44a",
+    metadata: {
+      case_id: "case-showcase-002",
+      address: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+      chain: "bitcoin",
+      provider: "Ontrackchain SoF Showcase",
+      provider_status: "degraded",
+      degraded_reason: "manual_review_required",
+      capability_status: "degraded",
+      delivery_mode: "manual_review_pending",
+      requires_human_review: true,
+      purpose: "Cross-border OTC settlement",
+      amount: 1845000,
+      file_hash_sha256: "4cd72d6a8f9fc5b58debb42d67f2f6871775c2cda4ff7e5814ac1cbfc8cdf44a"
+    },
+    created_at: "2026-07-15T19:18:00Z"
+  }
+];
+
+type StandaloneShowcaseEvidenceRuntime = {
+  workItems: ShowcaseWorkItemRecord[];
+  timelineEvents: Record<string, WorkEventResponse[]>;
+  timelineComments: Record<string, WorkCommentResponse[]>;
+  auditLogs: AuditLogEntry[];
+  manualPackageSeals: ManualPackageSeal[];
+};
+
+const STANDALONE_SHOWCASE_EVIDENCE_RUNTIME_FILE = join(
+  tmpdir(),
+  "ontrackchain-standalone-showcase-evidence-runtime.json"
+);
+
+function createStandaloneShowcaseEvidenceRuntime(): StandaloneShowcaseEvidenceRuntime {
+  return {
+    workItems: STANDALONE_SHOWCASE_WORK_ITEM_SEEDS.map((item) => ({
+      ...item,
+      metadata: { ...item.metadata }
+    })),
+    timelineEvents: Object.fromEntries(
+      Object.entries(STANDALONE_SHOWCASE_TIMELINE_EVENT_SEEDS).map(([workItemId, events]) => [
+        workItemId,
+        events.map((event) => ({ ...event, payload: { ...event.payload } }))
+      ])
+    ) as Record<string, WorkEventResponse[]>,
+    timelineComments: Object.fromEntries(
+      Object.entries(STANDALONE_SHOWCASE_TIMELINE_COMMENT_SEEDS).map(([workItemId, comments]) => [
+        workItemId,
+        comments.map((comment) => ({ ...comment }))
+      ])
+    ) as Record<string, WorkCommentResponse[]>,
+    auditLogs: STANDALONE_SHOWCASE_AUDIT_LOG_SEEDS.map((entry) => ({
+      ...entry,
+      metadata: { ...entry.metadata }
+    })),
+    manualPackageSeals: []
+  };
+}
+
+function loadStandaloneShowcaseEvidenceRuntimeFromDisk(): StandaloneShowcaseEvidenceRuntime | null {
+  if (!existsSync(STANDALONE_SHOWCASE_EVIDENCE_RUNTIME_FILE)) {
+    return null;
+  }
+  try {
+    const raw = readFileSync(STANDALONE_SHOWCASE_EVIDENCE_RUNTIME_FILE, "utf8");
+    const parsed = JSON.parse(raw) as Partial<StandaloneShowcaseEvidenceRuntime> | null;
+    if (!parsed) {
+      return null;
+    }
+    return {
+      workItems: Array.isArray(parsed.workItems) ? (parsed.workItems as ShowcaseWorkItemRecord[]) : [],
+      timelineEvents:
+        parsed.timelineEvents && typeof parsed.timelineEvents === "object"
+          ? (parsed.timelineEvents as Record<string, WorkEventResponse[]>)
+          : {},
+      timelineComments:
+        parsed.timelineComments && typeof parsed.timelineComments === "object"
+          ? (parsed.timelineComments as Record<string, WorkCommentResponse[]>)
+          : {},
+      auditLogs: Array.isArray(parsed.auditLogs) ? (parsed.auditLogs as AuditLogEntry[]) : [],
+      manualPackageSeals: Array.isArray(parsed.manualPackageSeals) ? (parsed.manualPackageSeals as ManualPackageSeal[]) : []
+    };
+  } catch {
+    return null;
+  }
+}
+
+const standaloneShowcaseEvidenceGlobal = globalThis as typeof globalThis & {
+  __ontrackchainStandaloneShowcaseEvidenceRuntime?: StandaloneShowcaseEvidenceRuntime;
+};
+
+const standaloneShowcaseEvidenceRuntime =
+  standaloneShowcaseEvidenceGlobal.__ontrackchainStandaloneShowcaseEvidenceRuntime ??
+  (standaloneShowcaseEvidenceGlobal.__ontrackchainStandaloneShowcaseEvidenceRuntime =
+    loadStandaloneShowcaseEvidenceRuntimeFromDisk() ?? createStandaloneShowcaseEvidenceRuntime());
+
+let standaloneShowcaseWorkItemsStore = standaloneShowcaseEvidenceRuntime.workItems;
+let standaloneShowcaseTimelineEventsStore = standaloneShowcaseEvidenceRuntime.timelineEvents;
+let standaloneShowcaseTimelineCommentsStore = standaloneShowcaseEvidenceRuntime.timelineComments;
+let standaloneShowcaseAuditLogsStore = standaloneShowcaseEvidenceRuntime.auditLogs;
+let standaloneShowcaseManualPackageSealsStore = standaloneShowcaseEvidenceRuntime.manualPackageSeals;
+
+function syncStandaloneShowcaseEvidenceRuntimeStores() {
+  standaloneShowcaseEvidenceRuntime.workItems = standaloneShowcaseWorkItemsStore;
+  standaloneShowcaseEvidenceRuntime.timelineEvents = standaloneShowcaseTimelineEventsStore;
+  standaloneShowcaseEvidenceRuntime.timelineComments = standaloneShowcaseTimelineCommentsStore;
+  standaloneShowcaseEvidenceRuntime.auditLogs = standaloneShowcaseAuditLogsStore;
+  standaloneShowcaseEvidenceRuntime.manualPackageSeals = standaloneShowcaseManualPackageSealsStore;
+  try {
+    writeFileSync(
+      STANDALONE_SHOWCASE_EVIDENCE_RUNTIME_FILE,
+      JSON.stringify(standaloneShowcaseEvidenceRuntime),
+      "utf8"
+    );
+  } catch {
+    // Best-effort persistence for standalone showcase in dev/test mode.
+  }
+}
+
+function refreshStandaloneShowcaseEvidenceRuntimeStores() {
+  const persisted = loadStandaloneShowcaseEvidenceRuntimeFromDisk();
+  if (!persisted) {
+    return;
+  }
+  standaloneShowcaseEvidenceRuntime.workItems = persisted.workItems;
+  standaloneShowcaseEvidenceRuntime.timelineEvents = persisted.timelineEvents;
+  standaloneShowcaseEvidenceRuntime.timelineComments = persisted.timelineComments;
+  standaloneShowcaseEvidenceRuntime.auditLogs = persisted.auditLogs;
+  standaloneShowcaseEvidenceRuntime.manualPackageSeals = persisted.manualPackageSeals;
+  standaloneShowcaseWorkItemsStore = standaloneShowcaseEvidenceRuntime.workItems;
+  standaloneShowcaseTimelineEventsStore = standaloneShowcaseEvidenceRuntime.timelineEvents;
+  standaloneShowcaseTimelineCommentsStore = standaloneShowcaseEvidenceRuntime.timelineComments;
+  standaloneShowcaseAuditLogsStore = standaloneShowcaseEvidenceRuntime.auditLogs;
+  standaloneShowcaseManualPackageSealsStore = standaloneShowcaseEvidenceRuntime.manualPackageSeals;
+}
+
+const STANDALONE_SHOWCASE_ROS_COAF_SEEDS: ShowcaseRosCoafDetail[] = [
+  {
+    ros_id: "7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+    case_id: "case-showcase-002",
+    status: "SUBMITTED_MANUAL",
+    report_id: "rep-showcase-003",
+    created_at: "2026-07-15T18:42:00Z",
+    approved_at: "2026-07-15T18:47:00Z",
+    submitted_at: "2026-07-15T18:55:00Z",
+    coaf_protocol_number: "COAF-2026-000184",
+    coaf_receipt_hash: "4fcd0bdfe7f42dcd765358f8f582d7a35f992f64a3e8f53d651f44af4e5ba328",
+    rejection_reason: "",
+    approval_2fa_verified: true,
+    submission_deadline: "2026-07-16T09:00:00Z",
+    deadline_breached: false,
+    last_activity_at: "2026-07-15T19:03:00Z",
+    tipologia_code: "TIP-AML-021",
+    tipologia_description: "Operacao com indício de tentativa de ocultacao patrimonial por ativo virtual.",
+    trigger_reason: "Escalonado apos sanctions hit e preventive block com obrigatoriedade de trilha ROS/COAF.",
+    suspected_amount_brl: 1845000,
+    suspected_address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+    suspected_chain: "ethereum",
+    pdf_hash: "4f8d86d1d8dd7a32d8f7f86d7b219b7f3f95e351ee8e0f38d7fd0ce93f37b8b5",
+    pdf_path: "/standalone-showcase/reports/rep-showcase-003.pdf",
+    generated_at: "2026-07-15T18:42:00Z",
+    evidence_hash: "2fb8b4823d65c11274f0e95ad1f20ee0be79b86d5f16e34f96cbe8c8fb7a9c32",
+    evidence_trail_ref: "ev-trail-showcase-ros-001",
+    updated_at: "2026-07-15T19:03:00Z",
+    retain_until: "2031-07-15T00:00:00Z",
+    audit: [
+      {
+        id: "ros-audit-showcase-001",
+        action: "coaf_report_generated",
+        user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+        created_at: "2026-07-15T18:42:00Z",
+        metadata: {
+          ros_id: "7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+          report_id: "rep-showcase-003",
+          file_hash_sha256: "4f8d86d1d8dd7a32d8f7f86d7b219b7f3f95e351ee8e0f38d7fd0ce93f37b8b5"
+        }
+      },
+      {
+        id: "ros-audit-showcase-002",
+        action: "coaf_report_approved",
+        user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+        created_at: "2026-07-15T18:47:00Z",
+        metadata: {
+          ros_id: "7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+          approval_2fa_verified: true
+        }
+      },
+      {
+        id: "ros-audit-showcase-003",
+        action: "coaf_report_submitted_manual",
+        user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+        created_at: "2026-07-15T18:55:00Z",
+        metadata: {
+          ros_id: "7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+          coaf_protocol_number: "COAF-2026-000184",
+          coaf_receipt_hash: "4fcd0bdfe7f42dcd765358f8f582d7a35f992f64a3e8f53d651f44af4e5ba328"
+        }
+      },
+      {
+        id: "ros-audit-showcase-004",
+        action: "coaf_regulatory_dossier_downloaded",
+        user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+        created_at: "2026-07-15T19:03:00Z",
+        metadata: {
+          ros_id: "7c4dca53-5806-564f-91ba-ef5487dbf6ce",
+          filename: "ontrackchain-ros-coaf-regulatory-dossier-7c4dca53-5806-564f-91ba-ef5487dbf6ce.json",
+          dossier_sha256: "ce419a4af145cabaf0b7d8a89ddb501f712d0b5d12bb6dbec64b1ea3dfd2ea69"
+        }
+      }
+    ]
+  }
+];
+
+let standaloneShowcaseRosCoafStore = STANDALONE_SHOWCASE_ROS_COAF_SEEDS.map((record) => ({
+  ...record,
+  audit: record.audit.map((entry) => ({ ...entry, metadata: { ...entry.metadata } }))
 }));
-let standaloneShowcaseTimelineEventsStore = Object.fromEntries(
-  Object.entries(STANDALONE_SHOWCASE_TIMELINE_EVENT_SEEDS).map(([workItemId, events]) => [
-    workItemId,
-    events.map((event) => ({ ...event, payload: { ...event.payload } }))
-  ])
-) as Record<string, WorkEventResponse[]>;
-let standaloneShowcaseTimelineCommentsStore = Object.fromEntries(
-  Object.entries(STANDALONE_SHOWCASE_TIMELINE_COMMENT_SEEDS).map(([workItemId, comments]) => [
-    workItemId,
-    comments.map((comment) => ({ ...comment }))
-  ])
-) as Record<string, WorkCommentResponse[]>;
 
 const STANDALONE_SHOWCASE_TEAM_MEMBER_SEEDS: ShowcaseTeamMemberRecord[] = [
   {
@@ -1109,6 +2106,894 @@ function cloneStandaloneWorkItem(item: ShowcaseWorkItemRecord): ShowcaseWorkItem
   };
 }
 
+function cloneStandaloneAuditLog(entry: AuditLogEntry): AuditLogEntry {
+  return { ...entry, metadata: { ...entry.metadata } };
+}
+
+function cloneStandaloneRosAuditEntry(entry: ShowcaseRosCoafAuditEntry): ShowcaseRosCoafAuditEntry {
+  return { ...entry, metadata: { ...entry.metadata } };
+}
+
+function cloneStandaloneRosCoafRecord(record: ShowcaseRosCoafDetail): ShowcaseRosCoafDetail {
+  return {
+    ...record,
+    audit: record.audit.map(cloneStandaloneRosAuditEntry)
+  };
+}
+
+function buildStandaloneShowcaseHash(seed: string) {
+  const normalized = seed.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "showcase";
+  return normalized.repeat(16).slice(0, 64);
+}
+
+function cloneStandaloneManualPackageSignoff(signoff: ManualPackageSealSignoff): ManualPackageSealSignoff {
+  return {
+    ...signoff,
+    metadata: { ...signoff.metadata }
+  };
+}
+
+function cloneStandaloneManualPackageSeal(seal: ManualPackageSeal): ManualPackageSeal {
+  return {
+    ...seal,
+    required_signers: [...seal.required_signers],
+    signoffs: seal.signoffs.map(cloneStandaloneManualPackageSignoff),
+    seal_envelope: { ...seal.seal_envelope },
+    verification_summary: { ...seal.verification_summary }
+  };
+}
+
+function findStandaloneShowcaseManualPackageSealIndex(sealId: string) {
+  refreshStandaloneShowcaseEvidenceRuntimeStores();
+  return standaloneShowcaseManualPackageSealsStore.findIndex((entry) => entry.seal_id === sealId.trim());
+}
+
+function findStandaloneShowcaseManualPackageSealByDigest(packageSha256: string, policyVersion?: string | null) {
+  refreshStandaloneShowcaseEvidenceRuntimeStores();
+  const normalizedDigest = packageSha256.trim();
+  const normalizedPolicyVersion = policyVersion?.trim() ?? "";
+  return (
+    standaloneShowcaseManualPackageSealsStore.find((entry) => {
+      if (entry.package_sha256 !== normalizedDigest) {
+        return false;
+      }
+      if (normalizedPolicyVersion && entry.policy_version !== normalizedPolicyVersion) {
+        return false;
+      }
+      return true;
+    }) ?? null
+  );
+}
+
+function findStandaloneShowcaseManualPackageSealById(sealId: string) {
+  refreshStandaloneShowcaseEvidenceRuntimeStores();
+  const normalizedSealId = sealId.trim();
+  return standaloneShowcaseManualPackageSealsStore.find((entry) => entry.seal_id === normalizedSealId) ?? null;
+}
+
+function normalizeStandaloneManualPackageRequest(input: {
+  format?: string | null;
+  request_id?: string | null;
+  action?: string | null;
+  resource_type?: string | null;
+  report_id?: string | null;
+  resource_id?: string | null;
+  limit?: number | null;
+  include_audit_logs?: boolean;
+  include_credit_ledger?: boolean;
+  include_reports?: boolean;
+}): ShowcaseEvidenceBundle["request"] {
+  return {
+    format: input.format?.trim() || "json",
+    request_id: input.request_id?.trim() || null,
+    action: input.action?.trim() || null,
+    resource_type: input.resource_type?.trim() || null,
+    report_id: input.report_id?.trim() || null,
+    resource_id: input.resource_id?.trim() || null,
+    limit: typeof input.limit === "number" && input.limit > 0 ? input.limit : 50,
+    include_audit_logs: input.include_audit_logs !== false,
+    include_credit_ledger: input.include_credit_ledger !== false,
+    include_reports: input.include_reports !== false
+  };
+}
+
+function buildStandaloneShowcaseEvidenceBundleCreditLedger(request: ShowcaseEvidenceBundle["request"]) {
+  const relevantReports = STANDALONE_SHOWCASE_REPORT_HISTORY.filter((entry) => {
+    if (request.report_id && entry.report_id !== request.report_id) return false;
+    if (request.request_id && entry.case_id !== request.request_id) return false;
+    return true;
+  });
+
+  return relevantReports.slice(0, request.limit).map((entry) => ({
+    at: entry.created_at,
+    credits: entry.report_type === "coaf_ready_report" ? -18 : entry.report_type === "legal_report" ? -68 : -24,
+    reference: entry.report_id,
+    case_id: entry.case_id,
+    report_type: entry.report_type
+  }));
+}
+
+function buildStandaloneShowcaseEvidenceBundleReports(request: ShowcaseEvidenceBundle["request"]) {
+  return STANDALONE_SHOWCASE_REPORT_HISTORY.filter((entry) => {
+    if (request.report_id && entry.report_id !== request.report_id) return false;
+    if (request.request_id && entry.case_id !== request.request_id) return false;
+    return true;
+  })
+    .slice(0, request.limit)
+    .map((entry) => ({
+      report_id: entry.report_id,
+      case_id: entry.case_id,
+      report_type_requested: entry.report_type_requested,
+      report_type: entry.report_type,
+      content_type: entry.content_type,
+      file_hash_sha256: entry.file_hash_sha256,
+      onchain_hash: entry.onchain_hash,
+      created_at: entry.created_at,
+      has_download_audit: entry.has_download_audit
+    }));
+}
+
+function buildStandaloneShowcaseManualPackageVerificationSummary(seal: ManualPackageSeal) {
+  return {
+    verified: seal.seal_status === "sealed",
+    verification_method: seal.seal_status === "sealed" ? "x509_chain_and_manifest_digest" : "pending_signature_materialization",
+    issuer: seal.seal_status === "sealed" ? "Ontrackchain Showcase Trust Service" : "pending",
+    key_id: seal.seal_status === "sealed" ? "showcase-kms/manual-package-signing" : "pending",
+    policy_version: seal.policy_version
+  };
+}
+
+function buildStandaloneShowcaseManualPackageEnvelope(seal: ManualPackageSeal) {
+  return {
+    package_sha256: seal.package_sha256,
+    classification: seal.classification,
+    policy_version: seal.policy_version,
+    signoff_mode: seal.signoff_mode,
+    seal_status: seal.seal_status,
+    required_signers: [...seal.required_signers],
+    signoff_count: seal.signoffs.length
+  };
+}
+
+function finalizeStandaloneShowcaseManualPackageSealShape(seal: ManualPackageSeal): ManualPackageSeal {
+  const requiredSignerSet = new Set(seal.required_signers);
+  const approvedRequiredRoles = new Set(
+    seal.signoffs
+      .filter((signoff) => requiredSignerSet.has(signoff.signer_role) && signoff.decision === "approved")
+      .map((signoff) => signoff.signer_role)
+  );
+  const hasRejectedRequiredRole = seal.signoffs.some(
+    (signoff) => requiredSignerSet.has(signoff.signer_role) && signoff.decision === "rejected"
+  );
+
+  let sealStatus = seal.seal_status;
+  if (sealStatus !== "sealed" && sealStatus !== "revoked" && sealStatus !== "superseded") {
+    if (hasRejectedRequiredRole) {
+      sealStatus = "failed";
+    } else if (approvedRequiredRoles.size >= seal.required_signers.length) {
+      sealStatus = "ready_to_seal";
+    } else {
+      sealStatus = "pending_signoff";
+    }
+  }
+
+  const nextSeal: ManualPackageSeal = {
+    ...seal,
+    seal_status: sealStatus,
+    completed_signoffs: seal.signoffs.length,
+    approved_required_signoffs: approvedRequiredRoles.size,
+    required_signoffs: seal.required_signers.length,
+    seal_envelope: buildStandaloneShowcaseManualPackageEnvelope({ ...seal, seal_status: sealStatus }),
+    verification_summary: buildStandaloneShowcaseManualPackageVerificationSummary({ ...seal, seal_status: sealStatus })
+  };
+
+  return nextSeal;
+}
+
+function storeStandaloneShowcaseManualPackageSeal(seal: ManualPackageSeal) {
+  const normalized = finalizeStandaloneShowcaseManualPackageSealShape({
+    ...seal,
+    required_signers: [...seal.required_signers],
+    signoffs: seal.signoffs.map(cloneStandaloneManualPackageSignoff),
+    seal_envelope: { ...seal.seal_envelope },
+    verification_summary: { ...seal.verification_summary }
+  });
+  const index = findStandaloneShowcaseManualPackageSealIndex(normalized.seal_id);
+  if (index >= 0) {
+    standaloneShowcaseManualPackageSealsStore[index] = normalized;
+  } else {
+    standaloneShowcaseManualPackageSealsStore = [normalized, ...standaloneShowcaseManualPackageSealsStore];
+  }
+  syncStandaloneShowcaseEvidenceRuntimeStores();
+  return cloneStandaloneManualPackageSeal(normalized);
+}
+
+function appendStandaloneShowcaseAuditLog(input: {
+  action: string;
+  resource_type: string;
+  resource_id: string | null;
+  request_id?: string | null;
+  report_id?: string | null;
+  file_hash_sha256?: string | null;
+  metadata: Record<string, unknown>;
+  created_at?: string;
+}) {
+  const createdAt = input.created_at ?? new Date().toISOString();
+  const idSeed = `${input.action}:${input.resource_id ?? "none"}:${createdAt}`;
+  const id = `audit-showcase-${buildStandaloneShowcaseHash(idSeed).slice(0, 24)}`;
+  const entry: AuditLogEntry = {
+    id,
+    user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    action: input.action,
+    resource_type: input.resource_type,
+    resource_id: input.resource_id,
+    request_id: input.request_id ?? null,
+    report_id: input.report_id ?? null,
+    file_hash_sha256: input.file_hash_sha256 ?? null,
+    metadata: { ...input.metadata },
+    created_at: createdAt
+  };
+  standaloneShowcaseAuditLogsStore = [entry, ...standaloneShowcaseAuditLogsStore];
+  syncStandaloneShowcaseEvidenceRuntimeStores();
+  return cloneStandaloneAuditLog(entry);
+}
+
+function findStandaloneShowcaseEvidenceWorkItemByPackageSha(packageSha256: string) {
+  refreshStandaloneShowcaseEvidenceRuntimeStores();
+  const normalizedDigest = packageSha256.trim();
+  return (
+    standaloneShowcaseWorkItemsStore.find((entry) => {
+      if (entry.module !== "evidence" || entry.resource_type !== "evidence_event") {
+        return false;
+      }
+      return ((entry.metadata as EvidenceWorkItemMetadata).package_sha256 ?? "").trim() === normalizedDigest;
+    }) ?? null
+  );
+}
+
+function syncStandaloneShowcaseEvidenceWorkItemFromAuditLog(auditLog: AuditLogEntry) {
+  const metadata = (auditLog.metadata ?? {}) as EvidenceWorkItemMetadata;
+  const existing =
+    ((metadata.package_sha256 && findStandaloneShowcaseEvidenceWorkItemByPackageSha(metadata.package_sha256)) as
+      | ShowcaseWorkItemRecord
+      | null) ??
+    standaloneShowcaseWorkItemsStore.find(
+      (entry) =>
+        entry.module === "evidence" &&
+        entry.resource_type === "evidence_event" &&
+        ((entry.metadata as EvidenceWorkItemMetadata).event_id ?? "") === auditLog.id
+    ) ??
+    null;
+
+  const workspaceStatus =
+    metadata.workspace_status?.trim() ||
+    (existing?.metadata as EvidenceWorkItemMetadata | undefined)?.workspace_status?.trim() ||
+    "reviewing";
+  const queueStatus =
+    workspaceStatus === "sealed" ? "CLOSED" : workspaceStatus === "failed" || workspaceStatus === "revoked" ? "REJECTED" : "UNDER_REVIEW";
+
+  return upsertStandaloneShowcaseWorkItem(
+    {
+      module: "evidence",
+      resource_type: "evidence_event",
+      resource_id: auditLog.id,
+      case_id: metadata.case_id ?? existing?.case_id ?? null,
+      report_external_id: auditLog.report_id ?? metadata.report_id ?? existing?.report_external_id ?? null,
+      owner_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      priority: existing?.priority ?? "high",
+      queue_status: queueStatus,
+      due_at: existing?.due_at ?? null,
+      title:
+        existing?.title ??
+        `Evidence manual package • ${metadata.scope_id ?? auditLog.request_id ?? auditLog.resource_id ?? auditLog.id}`,
+      note:
+        (typeof metadata.filename === "string" && metadata.filename.trim()) ||
+        existing?.note ||
+        "Pacote manual sincronizado no showcase.",
+      metadata: {
+        ...(existing?.metadata ?? {}),
+        ...metadata,
+        event_id: auditLog.id,
+        audit_action: auditLog.action,
+        audit_resource_type: auditLog.resource_type,
+        audit_resource_id: auditLog.resource_id ?? auditLog.id,
+        request_id: auditLog.request_id ?? metadata.request_id ?? undefined,
+        report_id: auditLog.report_id ?? metadata.report_id ?? undefined,
+        file_hash_sha256: auditLog.file_hash_sha256 ?? metadata.file_hash_sha256 ?? undefined,
+        workspace_status: workspaceStatus,
+        local_workspace_status: workspaceStatus
+      }
+    },
+    existing?.id
+  );
+}
+
+function syncStandaloneShowcaseEvidenceWorkItemFromSeal(
+  seal: ManualPackageSeal,
+  metadata: Record<string, unknown> = {}
+) {
+  const existing = findStandaloneShowcaseEvidenceWorkItemByPackageSha(seal.package_sha256);
+  const workspaceStatus =
+    seal.seal_status === "sealed"
+      ? "sealed"
+      : seal.seal_status === "revoked"
+        ? "revoked"
+        : seal.seal_status === "superseded"
+          ? "superseded"
+          : seal.seal_status === "failed"
+            ? "failed"
+            : "reviewing";
+  const queueStatus =
+    seal.seal_status === "sealed"
+      ? "CLOSED"
+      : seal.seal_status === "revoked" || seal.seal_status === "failed"
+        ? "REJECTED"
+        : "UNDER_REVIEW";
+
+  return upsertStandaloneShowcaseWorkItem(
+    {
+      module: "evidence",
+      resource_type: "evidence_event",
+      resource_id: existing?.resource_id ?? crypto.randomUUID(),
+      case_id:
+        existing?.case_id ??
+        (typeof metadata.case_id === "string" ? metadata.case_id : null),
+      report_external_id:
+        existing?.report_external_id ??
+        seal.report_id ??
+        (typeof metadata.report_id === "string" ? metadata.report_id : null),
+      owner_user_id: existing?.owner_user_id ?? STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      priority: existing?.priority ?? "high",
+      queue_status: queueStatus,
+      due_at: existing?.due_at ?? null,
+      title: existing?.title ?? `Evidence manual package • ${seal.scope_id}`,
+      note:
+        existing?.note ??
+        (typeof metadata.reason === "string" && metadata.reason.trim() ? metadata.reason.trim() : "Pacote manual em trilha regulatoria."),
+      metadata: {
+        ...(existing?.metadata ?? {}),
+        request_id: seal.request_id,
+        report_id: seal.report_id ?? undefined,
+        manual_review_action: seal.manual_review_action,
+        package_sha256: seal.package_sha256,
+        workspace_status: workspaceStatus,
+        local_workspace_status: workspaceStatus,
+        seal_status: seal.seal_status,
+        ...(seal.sealed_at ? { sealed_at: seal.sealed_at } : {}),
+        ...(seal.superseded_by_seal_id ? { superseded_by_seal_id: seal.superseded_by_seal_id } : {}),
+        ...metadata
+      } as EvidenceWorkItemMetadata
+    },
+    existing?.id
+  );
+}
+
+export function buildStandaloneShowcaseEvidenceExportBundle(input: {
+  format?: string | null;
+  request_id?: string | null;
+  action?: string | null;
+  resource_type?: string | null;
+  report_id?: string | null;
+  resource_id?: string | null;
+  limit?: number | null;
+  include_audit_logs?: boolean;
+  include_credit_ledger?: boolean;
+  include_reports?: boolean;
+}): ShowcaseEvidenceBundle {
+  const request = normalizeStandaloneManualPackageRequest(input);
+  return {
+    mode: "standalone_showcase",
+    request,
+    export_generated_at: new Date().toISOString(),
+    audit_logs: request.include_audit_logs
+      ? listStandaloneShowcaseAuditLogs({
+          requestId: request.request_id,
+          action: request.action,
+          resourceType: request.resource_type,
+          reportId: request.report_id,
+          resourceId: request.resource_id,
+          page: 1,
+          limit: request.limit
+        }).data
+      : [],
+    credit_ledger: request.include_credit_ledger ? buildStandaloneShowcaseEvidenceBundleCreditLedger(request) : [],
+    reports: request.include_reports ? buildStandaloneShowcaseEvidenceBundleReports(request) : []
+  };
+}
+
+export async function exportStandaloneShowcaseEvidenceManualPackage(
+  payload: EvidenceManualPackagePayload,
+  exportRequestId: string
+) {
+  const generatedAt = new Date().toISOString();
+  const filename = buildManualReviewPackageFilename(payload.action, payload.scope_id);
+  const evidenceBundle = buildStandaloneShowcaseEvidenceExportBundle({
+    format: "json",
+    request_id: payload.evidence_request.request_id ?? null,
+    action: null,
+    resource_type: payload.evidence_request.resource_type ?? null,
+    report_id: payload.evidence_request.report_id ?? null,
+    resource_id: payload.evidence_request.resource_id ?? null,
+    limit: payload.evidence_request.limit ?? 50,
+    include_audit_logs: payload.evidence_request.include_audit_logs ?? true,
+    include_credit_ledger: payload.evidence_request.include_credit_ledger ?? true,
+    include_reports: payload.evidence_request.include_reports ?? true
+  });
+  const packageDocument = buildEvidenceManualPackageDocument(payload, evidenceBundle, generatedAt);
+  const manifest = await buildEvidenceManualPackageManifest({
+    payload,
+    evidenceBundle,
+    generatedAt,
+    exportRequestId,
+    filename
+  });
+  const manualPackageAuditMetadata = buildEvidenceManualPackageAuditMetadata({
+    payload,
+    manifest,
+    filename
+  });
+  const auditLog = appendStandaloneShowcaseAuditLog({
+    action: "evidence_manual_review_package_exported",
+    resource_type: "audit_log",
+    resource_id: null,
+    request_id: payload.evidence_request.request_id ?? payload.scope.request_id ?? null,
+    report_id: payload.evidence_request.report_id ?? payload.scope.report_id ?? null,
+    file_hash_sha256: manifest.payload_sha256,
+    metadata: {
+      ...manualPackageAuditMetadata,
+      scope_id: payload.scope_id,
+      report_id: payload.evidence_request.report_id ?? payload.scope.report_id ?? null,
+      request_id: payload.evidence_request.request_id ?? payload.scope.request_id ?? null,
+      resource_id: payload.scope.resource_id ?? payload.evidence_request.resource_id ?? null,
+      workspace_status: (payload.workspace_summary?.status as string | null | undefined) ?? "reviewing"
+    },
+    created_at: generatedAt
+  });
+  const finalizedDocument = finalizeEvidenceManualPackageDocument(packageDocument, manifest, {
+    action: auditLog.action,
+    resource_type: auditLog.resource_type,
+    resource_id: auditLog.resource_id ?? null,
+    request_id: auditLog.request_id ?? null,
+    report_id: auditLog.report_id ?? null,
+    created_at: auditLog.created_at ?? generatedAt,
+    metadata: { ...auditLog.metadata }
+  });
+  syncStandaloneShowcaseEvidenceWorkItemFromAuditLog(auditLog);
+  return {
+    filename,
+    packageSha256: manifest.payload_sha256,
+    document: finalizedDocument
+  };
+}
+
+export function getStandaloneShowcaseManualPackageSealByDigest(packageSha256: string, policyVersion?: string | null) {
+  const seal = findStandaloneShowcaseManualPackageSealByDigest(packageSha256, policyVersion);
+  return seal ? cloneStandaloneManualPackageSeal(seal) : null;
+}
+
+export function createStandaloneShowcaseManualPackageSignoffRequest(input: {
+  request_id?: string | null;
+  report_id?: string | null;
+  scope_id?: string | null;
+  manual_review_action?: string | null;
+  package_sha256?: string | null;
+  manifest_schema_version?: string | null;
+  classification?: string | null;
+  signoff_mode?: string | null;
+  package_kind?: string | null;
+  policy_version?: string | null;
+}) {
+  const packageSha256 = input.package_sha256?.trim() ?? "";
+  if (!packageSha256) {
+    return null;
+  }
+  const existing = findStandaloneShowcaseManualPackageSealByDigest(packageSha256, input.policy_version);
+  if (existing && !["revoked", "superseded", "failed"].includes(existing.seal_status)) {
+    return cloneStandaloneManualPackageSeal(existing);
+  }
+
+  const now = new Date().toISOString();
+  const nextSeal: ManualPackageSeal = {
+    seal_id: crypto.randomUUID(),
+    organization_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.org_id,
+    package_kind: input.package_kind?.trim() || "manual_review_package",
+    request_id: input.request_id?.trim() || input.scope_id?.trim() || "showcase-manual-package",
+    report_id: input.report_id?.trim() || null,
+    scope_id: input.scope_id?.trim() || input.request_id?.trim() || "showcase-manual-package",
+    manual_review_action: input.manual_review_action?.trim() || "compliance_due_diligence_checked",
+    package_sha256: packageSha256,
+    manifest_schema_version: input.manifest_schema_version?.trim() || "manual_review_package/v2",
+    classification: input.classification?.trim() || "restricted_regulatory",
+    signoff_mode: input.signoff_mode?.trim() || "compliance_ops_signoff",
+    seal_status: "pending_signoff",
+    seal_format: "json_detached_signature",
+    signature_algorithm: null,
+    kms_key_ref: null,
+    certificate_fingerprint_sha256: null,
+    certificate_bundle_ref: null,
+    policy_version: input.policy_version?.trim() || "manual_package_sealing/v1",
+    sealed_at: null,
+    sealed_by_user_id: null,
+    revoked_at: null,
+    superseded_by_seal_id: null,
+    required_signers: ["compliance_owner"],
+    completed_signoffs: 0,
+    approved_required_signoffs: 0,
+    required_signoffs: 1,
+    signoffs: [],
+    seal_envelope: {},
+    verification_summary: {},
+    created_at: now,
+    updated_at: now
+  };
+  const stored = storeStandaloneShowcaseManualPackageSeal(nextSeal);
+  syncStandaloneShowcaseEvidenceWorkItemFromSeal(stored);
+  return stored;
+}
+
+export function recordStandaloneShowcaseManualPackageSignoff(
+  sealId: string,
+  input: {
+    decision?: string | null;
+    signer_role?: string | null;
+    signoff_method?: string | null;
+    ticket_ref?: string | null;
+    notes?: string | null;
+    signer_display_name?: string | null;
+    metadata?: Record<string, unknown> | null;
+  }
+) {
+  const current = findStandaloneShowcaseManualPackageSealById(sealId);
+  if (!current) {
+    return null;
+  }
+  const signerRole = input.signer_role?.trim() ?? "";
+  if (!signerRole) {
+    return "invalid_signer_role" as const;
+  }
+
+  const now = new Date().toISOString();
+  const nextSignoff: ManualPackageSealSignoff = {
+    id: crypto.randomUUID(),
+    seal_id: current.seal_id,
+    organization_id: current.organization_id,
+    signer_role: signerRole,
+    signer_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    signer_display_name: input.signer_display_name?.trim() || "Showcase Operator",
+    decision: input.decision?.trim() || "approved",
+    signoff_method: input.signoff_method?.trim() || "platform_authenticated_2fa",
+    ticket_ref: input.ticket_ref?.trim() || null,
+    notes: input.notes?.trim() || null,
+    signed_at: now,
+    metadata: { ...(input.metadata ?? {}) }
+  };
+
+  const remainingSignoffs = current.signoffs.filter((entry) => entry.signer_role !== signerRole);
+  const stored = storeStandaloneShowcaseManualPackageSeal({
+    ...current,
+    signoffs: [...remainingSignoffs, nextSignoff],
+    updated_at: now
+  });
+  syncStandaloneShowcaseEvidenceWorkItemFromSeal(stored, {
+    signoff_role: signerRole,
+    signoff_decision: nextSignoff.decision
+  });
+  return stored;
+}
+
+export function finalizeStandaloneShowcaseManualPackageSeal(
+  sealId: string,
+  input: { metadata?: Record<string, unknown> | null }
+) {
+  const current = findStandaloneShowcaseManualPackageSealById(sealId);
+  if (!current) {
+    return null;
+  }
+  const normalized = finalizeStandaloneShowcaseManualPackageSealShape(current);
+  if (normalized.seal_status !== "ready_to_seal" && normalized.seal_status !== "sealed") {
+    return "seal_not_ready" as const;
+  }
+
+  const now = new Date().toISOString();
+  const stored = storeStandaloneShowcaseManualPackageSeal({
+    ...normalized,
+    seal_status: "sealed",
+    signature_algorithm: "ECDSA_P256_SHA256",
+    kms_key_ref: "showcase-kms/manual-package-signing",
+    certificate_fingerprint_sha256: buildStandaloneShowcaseHash(`${normalized.seal_id}-cert-fingerprint`),
+    certificate_bundle_ref: "showcase-trust-bundle/manual-package/v1",
+    sealed_at: normalized.sealed_at ?? now,
+    sealed_by_user_id: normalized.sealed_by_user_id ?? STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    updated_at: now
+  });
+  syncStandaloneShowcaseEvidenceWorkItemFromSeal(stored, {
+    ...(input.metadata ?? {}),
+    sealed_at: stored.sealed_at
+  });
+  appendStandaloneShowcaseAuditLog({
+    action: "evidence_manual_package_sealed",
+    resource_type: "manual_package_seal",
+    resource_id: stored.seal_id,
+    request_id: stored.request_id,
+    report_id: stored.report_id,
+    file_hash_sha256: stored.package_sha256,
+    metadata: {
+      package_sha256: stored.package_sha256,
+      seal_id: stored.seal_id,
+      manual_review_action: stored.manual_review_action,
+      ...(input.metadata ?? {})
+    }
+  });
+  return stored;
+}
+
+export function revokeStandaloneShowcaseManualPackageSeal(
+  sealId: string,
+  input: {
+    ticket_ref?: string | null;
+    reason?: string | null;
+    metadata?: Record<string, unknown> | null;
+  }
+) {
+  const current = findStandaloneShowcaseManualPackageSealById(sealId);
+  if (!current) {
+    return null;
+  }
+  const reason = input.reason?.trim() ?? "";
+  const ticketRef = input.ticket_ref?.trim() ?? "";
+  if (!reason || !ticketRef) {
+    return "invalid_revoke_payload" as const;
+  }
+
+  const now = new Date().toISOString();
+  const stored = storeStandaloneShowcaseManualPackageSeal({
+    ...current,
+    seal_status: "revoked",
+    revoked_at: now,
+    updated_at: now
+  });
+  syncStandaloneShowcaseEvidenceWorkItemFromSeal(stored, {
+    reason,
+    revoke_ticket_ref: ticketRef,
+    ...(input.metadata ?? {})
+  });
+  appendStandaloneShowcaseAuditLog({
+    action: "evidence_manual_package_seal_revoked",
+    resource_type: "manual_package_seal",
+    resource_id: stored.seal_id,
+    request_id: stored.request_id,
+    report_id: stored.report_id,
+    file_hash_sha256: stored.package_sha256,
+    metadata: {
+      package_sha256: stored.package_sha256,
+      seal_id: stored.seal_id,
+      ticket_ref: ticketRef,
+      reason,
+      ...(input.metadata ?? {})
+    }
+  });
+  return stored;
+}
+
+export function supersedeStandaloneShowcaseManualPackageSeal(
+  sealId: string,
+  input: {
+    superseded_by_seal_id?: string | null;
+    ticket_ref?: string | null;
+    reason?: string | null;
+    metadata?: Record<string, unknown> | null;
+  }
+) {
+  const current = findStandaloneShowcaseManualPackageSealById(sealId);
+  if (!current) {
+    return null;
+  }
+  const replacementSealId = input.superseded_by_seal_id?.trim() ?? "";
+  const reason = input.reason?.trim() ?? "";
+  const ticketRef = input.ticket_ref?.trim() ?? "";
+  if (!replacementSealId || !reason || !ticketRef) {
+    return "invalid_supersede_payload" as const;
+  }
+
+  const now = new Date().toISOString();
+  const stored = storeStandaloneShowcaseManualPackageSeal({
+    ...current,
+    seal_status: "superseded",
+    superseded_by_seal_id: replacementSealId,
+    updated_at: now
+  });
+  syncStandaloneShowcaseEvidenceWorkItemFromSeal(stored, {
+    reason,
+    superseded_by_seal_id: replacementSealId,
+    supersede_ticket_ref: ticketRef,
+    ...(input.metadata ?? {})
+  });
+  appendStandaloneShowcaseAuditLog({
+    action: "evidence_manual_package_seal_superseded",
+    resource_type: "manual_package_seal",
+    resource_id: stored.seal_id,
+    request_id: stored.request_id,
+    report_id: stored.report_id,
+    file_hash_sha256: stored.package_sha256,
+    metadata: {
+      package_sha256: stored.package_sha256,
+      seal_id: stored.seal_id,
+      superseded_by_seal_id: replacementSealId,
+      ticket_ref: ticketRef,
+      reason,
+      ...(input.metadata ?? {})
+    }
+  });
+  return stored;
+}
+
+function findStandaloneShowcaseRosCoafById(rosId: string) {
+  const normalizedRosId = rosId.trim();
+  return standaloneShowcaseRosCoafStore.find((record) => record.ros_id === normalizedRosId) ?? null;
+}
+
+function findStandaloneShowcaseRosCoafByReportId(reportId: string) {
+  const normalizedReportId = reportId.trim();
+  return standaloneShowcaseRosCoafStore.find((record) => record.report_id === normalizedReportId) ?? null;
+}
+
+function syncStandaloneShowcaseRosWorkItem(record: ShowcaseRosCoafDetail) {
+  const existing = standaloneShowcaseWorkItemsStore.find(
+    (item) => item.module === "ros_coaf" && item.resource_type === "ros_record" && item.resource_id === record.ros_id
+  );
+  return upsertStandaloneShowcaseWorkItem(
+    {
+      module: "ros_coaf",
+      resource_type: "ros_record",
+      resource_id: record.ros_id,
+      case_id: record.case_id,
+      report_external_id: record.report_id,
+      priority: existing?.priority ?? "critical",
+      queue_status:
+        record.status === "SUBMITTED_MANUAL"
+          ? "SUBMITTED"
+          : record.status === "APPROVED"
+            ? "APPROVED"
+            : record.status === "REJECTED"
+              ? "REJECTED"
+              : "UNDER_REVIEW",
+      due_at: record.submission_deadline,
+      title: `ROS/COAF • ${record.ros_id}`,
+      note:
+        record.status === "REJECTED"
+          ? record.rejection_reason || null
+          : record.status === "SUBMITTED_MANUAL"
+            ? record.coaf_receipt_hash || null
+            : existing?.note ?? null,
+      metadata: {
+        case_id: record.case_id ?? "",
+        owner_label: "showcase-user",
+        owner_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+        workspace_status: record.status,
+        ros_status: record.status,
+        ros_phase:
+          record.status === "SUBMITTED_MANUAL"
+            ? "submitted"
+            : record.status === "APPROVED"
+              ? "approved"
+              : record.status === "REJECTED"
+                ? "rejected"
+                : "generated",
+        ros_id: record.ros_id,
+        report_id: record.report_id,
+        created_at: record.created_at,
+        approved_at: record.approved_at ?? "",
+        approval_2fa_verified: record.approval_2fa_verified,
+        submitted_at: record.submitted_at ?? "",
+        coaf_protocol_number: record.coaf_protocol_number,
+        coaf_receipt_hash: record.coaf_receipt_hash,
+        rejection_reason: record.rejection_reason
+      } satisfies RosCoafWorkItemMetadata
+    },
+    existing?.id
+  );
+}
+
+function appendStandaloneShowcaseRosAudit(
+  rosId: string,
+  action: string,
+  createdAt: string,
+  metadata: Record<string, unknown>,
+  reportId: string,
+  fileHashSha256: string
+) {
+  const auditEntry: ShowcaseRosCoafAuditEntry = {
+    id: crypto.randomUUID(),
+    action,
+    user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+    created_at: createdAt,
+    metadata: { ...metadata }
+  };
+  standaloneShowcaseRosCoafStore = standaloneShowcaseRosCoafStore.map((record) =>
+    record.ros_id === rosId ? { ...record, audit: [...record.audit, auditEntry] } : record
+  );
+  standaloneShowcaseAuditLogsStore = [
+    {
+      id: crypto.randomUUID(),
+      user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      action,
+      resource_type: "ros_record",
+      resource_id: rosId,
+      request_id: `req-${rosId}-${action}-${createdAt}`,
+      report_id: reportId,
+      file_hash_sha256: fileHashSha256,
+      metadata: { ros_id: rosId, report_id: reportId, ...metadata },
+      created_at: createdAt
+    },
+    ...standaloneShowcaseAuditLogsStore
+  ];
+  syncStandaloneShowcaseEvidenceRuntimeStores();
+}
+
+function normalizeStandaloneAddress(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function normalizeStandaloneChain(value: string | null | undefined) {
+  const normalized = value?.trim().toLowerCase() ?? "";
+  return normalized || "ethereum";
+}
+
+function parseStandaloneShowcaseLists(value: string | null | undefined) {
+  const normalized = value
+    ?.split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean) ?? [];
+  return normalized.length ? Array.from(new Set(normalized)) : ["OFAC", "UN", "EU", "COAF"];
+}
+
+function findStandaloneShowcaseSanctionsWorkItem(address: string, chain: string) {
+  const normalizedAddress = normalizeStandaloneAddress(address);
+  const normalizedChain = normalizeStandaloneChain(chain);
+  return (
+    standaloneShowcaseWorkItemsStore.find((item) => {
+      if (item.module !== "sanctions" || item.resource_type !== "sanctions_screening") {
+        return false;
+      }
+      const metadata = item.metadata as SanctionsWorkItemMetadata;
+      return (
+        normalizeStandaloneAddress(metadata.address ?? "") === normalizedAddress &&
+        normalizeStandaloneChain(metadata.chain) === normalizedChain
+      );
+    }) ?? null
+  );
+}
+
+function findStandaloneShowcaseBlockWorkItemByAddress(address: string, chain: string) {
+  const normalizedAddress = normalizeStandaloneAddress(address);
+  const normalizedChain = normalizeStandaloneChain(chain);
+  return (
+    standaloneShowcaseWorkItemsStore.find((item) => {
+      if (item.module !== "blocks" || item.resource_type !== "preventive_block") {
+        return false;
+      }
+      const metadata = item.metadata as BlocksWorkItemMetadata;
+      return (
+        normalizeStandaloneAddress(metadata.address ?? "") === normalizedAddress &&
+        normalizeStandaloneChain(metadata.chain) === normalizedChain
+      );
+    }) ?? null
+  );
+}
+
+function findStandaloneShowcaseBlockWorkItemById(blockId: string) {
+  const normalizedBlockId = blockId.trim();
+  return (
+    standaloneShowcaseWorkItemsStore.find((item) => {
+      if (item.module !== "blocks" || item.resource_type !== "preventive_block") {
+        return false;
+      }
+      const metadata = item.metadata as BlocksWorkItemMetadata;
+      return item.resource_id === normalizedBlockId || (metadata.block_id ?? "") === normalizedBlockId;
+    }) ?? null
+  );
+}
+
 function ensureStandaloneWorkItemCollections(workItemId: string) {
   if (!standaloneShowcaseTimelineEventsStore[workItemId]) {
     standaloneShowcaseTimelineEventsStore[workItemId] = [];
@@ -1124,6 +3009,7 @@ export function listStandaloneShowcaseWorkItems(filters: {
   reportExternalId?: string | null;
   limit?: number | null;
 }): WorkItemListResponse<ShowcaseWorkItemMetadata> {
+  refreshStandaloneShowcaseEvidenceRuntimeStores();
   const filtered = standaloneShowcaseWorkItemsStore.filter((item) => {
     if (filters.module && item.module !== filters.module) return false;
     if (filters.resourceType && item.resource_type !== filters.resourceType) return false;
@@ -1146,6 +3032,7 @@ export function listStandaloneShowcaseWorkItems(filters: {
 }
 
 export function getStandaloneShowcaseWorkItem(workItemId: string) {
+  refreshStandaloneShowcaseEvidenceRuntimeStores();
   const workItem = standaloneShowcaseWorkItemsStore.find((item) => item.id === workItemId) ?? null;
   return workItem ? cloneStandaloneWorkItem(workItem) : null;
 }
@@ -1214,6 +3101,7 @@ export function upsertStandaloneShowcaseWorkItem(
       created_at: now
     }
   ];
+  syncStandaloneShowcaseEvidenceRuntimeStores();
 
   return cloneStandaloneWorkItem(nextItem);
 }
@@ -1221,6 +3109,7 @@ export function upsertStandaloneShowcaseWorkItem(
 export function getStandaloneShowcaseWorkItemTimeline(
   workItemId: string
 ): WorkItemTimelineResponse<ShowcaseWorkItemRecord> | null {
+  refreshStandaloneShowcaseEvidenceRuntimeStores();
   const item = getStandaloneShowcaseWorkItem(workItemId);
   if (!item) {
     return null;
@@ -1237,6 +3126,7 @@ export function createStandaloneShowcaseWorkItemComment(
   workItemId: string,
   payload: Pick<WorkCommentResponse, "comment_type" | "body">
 ) {
+  refreshStandaloneShowcaseEvidenceRuntimeStores();
   const item = getStandaloneShowcaseWorkItem(workItemId);
   if (!item) {
     return null;
@@ -1266,7 +3156,481 @@ export function createStandaloneShowcaseWorkItemComment(
   standaloneShowcaseWorkItemsStore = standaloneShowcaseWorkItemsStore.map((entry) =>
     entry.id === workItemId ? { ...entry, updated_at: now, last_activity_at: now, metadata: { ...entry.metadata } } : entry
   );
+  syncStandaloneShowcaseEvidenceRuntimeStores();
   return { ...comment };
+}
+
+export function listStandaloneShowcaseAuditLogs(filters: {
+  requestId?: string | null;
+  action?: string | null;
+  resourceType?: string | null;
+  reportId?: string | null;
+  resourceId?: string | null;
+  page?: number | null;
+  limit?: number | null;
+}): AuditLogsResponse {
+  refreshStandaloneShowcaseEvidenceRuntimeStores();
+  const page = typeof filters.page === "number" && filters.page > 0 ? filters.page : 1;
+  const limit = typeof filters.limit === "number" && filters.limit > 0 ? filters.limit : 50;
+  const requestId = filters.requestId?.trim() ?? "";
+  const action = filters.action?.trim() ?? "";
+  const resourceType = filters.resourceType?.trim() ?? "";
+  const reportId = filters.reportId?.trim() ?? "";
+  const resourceId = filters.resourceId?.trim() ?? "";
+
+  const filtered = standaloneShowcaseAuditLogsStore.filter((entry) => {
+    if (requestId && (entry.request_id ?? "") !== requestId) return false;
+    if (action && entry.action !== action) return false;
+    if (resourceType && entry.resource_type !== resourceType) return false;
+    if (reportId && (entry.report_id ?? "") !== reportId) return false;
+    if (resourceId && (entry.resource_id ?? "") !== resourceId) return false;
+    return true;
+  });
+  const ordered = filtered
+    .slice()
+    .sort((left, right) => (right.created_at ?? "").localeCompare(left.created_at ?? ""));
+  const offset = (page - 1) * limit;
+  const data = ordered.slice(offset, offset + limit).map(cloneStandaloneAuditLog);
+  const total = ordered.length;
+
+  return {
+    data,
+    page,
+    count: data.length,
+    limit,
+    total,
+    total_pages: Math.max(1, Math.ceil(total / limit)),
+    has_more: offset + data.length < total,
+    filters: {
+      request_id: requestId || null,
+      action: action || null,
+      resource_type: resourceType || null,
+      report_id: reportId || null,
+      resource_id: resourceId || null
+    }
+  };
+}
+
+export function getStandaloneShowcaseSanctionsCheck(input: {
+  address: string;
+  chain?: string | null;
+  lists?: string | null;
+}): ShowcaseSanctionsCheckResponse {
+  const normalizedAddress = input.address.trim();
+  const normalizedChain = normalizeStandaloneChain(input.chain);
+  const requestedLists = parseStandaloneShowcaseLists(input.lists);
+  const existing = findStandaloneShowcaseSanctionsWorkItem(normalizedAddress, normalizedChain);
+  const existingMetadata = (existing?.metadata ?? {}) as SanctionsWorkItemMetadata;
+  const seededLists = existingMetadata.matched_lists ?? [];
+  const matchedLists = seededLists.length
+    ? requestedLists.filter((entry) => seededLists.includes(entry))
+    : [];
+  const heuristicHit =
+    normalizeStandaloneAddress(normalizedAddress) ===
+      normalizeStandaloneAddress("0x8ba1f109551bD432803012645Ac136ddd64DBA72") ||
+    normalizeStandaloneAddress(normalizedAddress) ===
+      normalizeStandaloneAddress("bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
+  const hit = typeof existingMetadata.hit === "boolean" ? existingMetadata.hit : heuristicHit;
+
+  return {
+    address: normalizedAddress,
+    chain: normalizedChain,
+    provider: existingMetadata.provider ?? "Chainalysis KYT Showcase",
+    provider_status: (existingMetadata.provider_status as "live" | "degraded" | undefined) ?? "live",
+    degraded_reason: existingMetadata.degraded_reason ?? null,
+    capability_status: (existingMetadata.capability_status as "live" | "degraded" | undefined) ?? "live",
+    lists: requestedLists,
+    hit,
+    matched_lists: hit ? matchedLists : [],
+    entity_name: hit ? existingMetadata.entity_name ?? "Atlas OTC Desk" : null,
+    designation_date: hit ? existingMetadata.designation_date ?? "2025-11-20T00:00:00Z" : null,
+    checked_at: new Date().toISOString()
+  };
+}
+
+export function evaluateStandaloneShowcaseBlock(input: {
+  address: string;
+  chain?: string | null;
+  entity_name?: string | null;
+  entity_document?: string | null;
+}): ShowcaseBlockEvaluateResponse {
+  const normalizedAddress = input.address.trim();
+  const normalizedChain = normalizeStandaloneChain(input.chain);
+  const existing = findStandaloneShowcaseBlockWorkItemByAddress(normalizedAddress, normalizedChain);
+  const metadata = (existing?.metadata ?? {}) as BlocksWorkItemMetadata;
+  const heuristicBlocked =
+    normalizeStandaloneAddress(normalizedAddress) ===
+      normalizeStandaloneAddress("0x8ba1f109551bD432803012645Ac136ddd64DBA72") ||
+    normalizeStandaloneAddress(normalizedAddress) ===
+      normalizeStandaloneAddress("bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
+
+  if (existing) {
+    return {
+      address: normalizedAddress,
+      chain: normalizedChain,
+      action: metadata.action ?? "BLOCK",
+      requires_coaf_report: metadata.requires_coaf_report === true,
+      decision_confidence: typeof metadata.decision_confidence === "number" ? metadata.decision_confidence : 0.94,
+      regulatory_basis: metadata.regulatory_basis ?? [],
+      matched_lists: metadata.matched_lists ?? [],
+      evidence_hash: metadata.evidence_hash ?? null,
+      block_id: metadata.block_id ?? existing.resource_id,
+      screened_at: new Date().toISOString()
+    };
+  }
+
+  if (heuristicBlocked) {
+    return {
+      address: normalizedAddress,
+      chain: normalizedChain,
+      action: "BLOCK",
+      requires_coaf_report: true,
+      decision_confidence: 0.9,
+      regulatory_basis: [
+        "Heurística showcase de exposição sancionatória",
+        "Escalonamento operacional para revisão regulatória"
+      ],
+      matched_lists: ["OFAC"],
+      evidence_hash: "showcase-evidence-hash-pending",
+      block_id: crypto.randomUUID(),
+      screened_at: new Date().toISOString()
+    };
+  }
+
+  return {
+    address: normalizedAddress,
+    chain: normalizedChain,
+    action: "CLEAR",
+    requires_coaf_report: false,
+    decision_confidence: 0.82,
+    regulatory_basis: ["No critical sanctions or preventive triggers in standalone showcase."],
+    matched_lists: [],
+    evidence_hash: null,
+    block_id: null,
+    screened_at: new Date().toISOString()
+  };
+}
+
+export function liftStandaloneShowcaseBlock(
+  blockId: string,
+  payload: { reason?: string | null }
+): ShowcaseBlockLiftResponse | null {
+  const current = findStandaloneShowcaseBlockWorkItemById(blockId);
+  if (!current) {
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  standaloneShowcaseWorkItemsStore = standaloneShowcaseWorkItemsStore.map((item) => {
+    if (item.id !== current.id) {
+      return item;
+    }
+    const metadata = item.metadata as BlocksWorkItemMetadata;
+    return {
+      ...item,
+      queue_status: "CLOSED",
+      note: payload.reason?.trim() || item.note,
+      metadata: {
+        ...metadata,
+        action: "LIFT",
+        workspace_status: "LIFTED",
+        local_workspace_status: "LIFTED",
+        local_block_status: "LIFTED",
+        lifted_at: now,
+        lift_reason: payload.reason?.trim() || metadata.lift_reason || ""
+      },
+      updated_at: now,
+      last_activity_at: now
+    };
+  });
+  ensureStandaloneWorkItemCollections(current.id);
+  standaloneShowcaseTimelineEventsStore[current.id] = [
+    ...standaloneShowcaseTimelineEventsStore[current.id],
+    {
+      id: crypto.randomUUID(),
+      event_type: "BLOCK_LIFTED",
+      from_status: "BLOCKED",
+      to_status: "LIFTED",
+      actor_user_id: STANDALONE_SHOWCASE_AUTH_CONTEXT.user_id,
+      payload: {
+        block_id: blockId.trim(),
+        reason: payload.reason?.trim() || null
+      },
+      created_at: now
+    }
+  ];
+  syncStandaloneShowcaseEvidenceRuntimeStores();
+
+  return {
+    block_id: blockId.trim(),
+    status: "LIFTED",
+    review_status: "COMPLETED",
+    lifted_at: now
+  };
+}
+
+export function resolveStandaloneShowcaseRosRef(reportId: string) {
+  const rosRecord = findStandaloneShowcaseRosCoafByReportId(reportId);
+  return {
+    report_id: reportId.trim(),
+    ros_id: rosRecord?.ros_id ?? null
+  };
+}
+
+export function listStandaloneShowcaseRosCoaf(filters: {
+  page?: number | null;
+  limit?: number | null;
+  reportId?: string | null;
+  rosId?: string | null;
+}) {
+  const page = typeof filters.page === "number" && filters.page > 0 ? filters.page : 1;
+  const limit = typeof filters.limit === "number" && filters.limit > 0 ? filters.limit : 100;
+  const reportId = filters.reportId?.trim() ?? "";
+  const rosId = filters.rosId?.trim() ?? "";
+  const filtered = standaloneShowcaseRosCoafStore.filter((record) => {
+    if (reportId && record.report_id !== reportId) return false;
+    if (rosId && record.ros_id !== rosId) return false;
+    return true;
+  });
+  const ordered = filtered
+    .slice()
+    .sort((left, right) => (right.last_activity_at ?? "").localeCompare(left.last_activity_at ?? ""));
+  const offset = (page - 1) * limit;
+  const data = ordered.slice(offset, offset + limit).map((record) => {
+    const { audit: _audit, ...listItem } = cloneStandaloneRosCoafRecord(record);
+    return listItem;
+  });
+  return {
+    data,
+    page,
+    limit,
+    total: ordered.length,
+    has_more: offset + data.length < ordered.length
+  };
+}
+
+export function getStandaloneShowcaseRosCoafDetail(rosId: string) {
+  const record = findStandaloneShowcaseRosCoafById(rosId);
+  return record ? cloneStandaloneRosCoafRecord(record) : null;
+}
+
+export function generateStandaloneShowcaseRosCoaf(input: { rosId: string }) {
+  const normalizedRosId = input.rosId.trim();
+  const existing = findStandaloneShowcaseRosCoafById(normalizedRosId);
+  if (existing) {
+    return {
+      ros_id: existing.ros_id,
+      report_id: existing.report_id,
+      report_type: "coaf_ready_report",
+      status: existing.status,
+      created_at: existing.created_at,
+      file_hash_sha256: existing.pdf_hash,
+      content_type: "application/pdf"
+    } satisfies ShowcaseRosCoafGenerateResponse;
+  }
+
+  const now = new Date().toISOString();
+  const nextReportId = `rep-showcase-ros-${normalizedRosId.slice(0, 8)}`;
+  const pdfHash = buildStandaloneShowcaseHash(`${normalizedRosId}-pdf`);
+  const newRecord: ShowcaseRosCoafDetail = {
+    ros_id: normalizedRosId,
+    case_id: "case-showcase-002",
+    status: "PENDING_APPROVAL",
+    report_id: nextReportId,
+    created_at: now,
+    approved_at: null,
+    submitted_at: null,
+    coaf_protocol_number: "",
+    coaf_receipt_hash: "",
+    rejection_reason: "",
+    approval_2fa_verified: false,
+    submission_deadline: "2026-07-16T12:00:00Z",
+    deadline_breached: false,
+    last_activity_at: now,
+    tipologia_code: "TIP-AML-021",
+    tipologia_description: "Operacao suspeita com fluxo transfronteirico e triangulacao em ativos virtuais.",
+    trigger_reason: "Registro gerado dinamicamente no standalone showcase para demonstrar trilha ROS/COAF.",
+    suspected_amount_brl: 925000,
+    suspected_address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+    suspected_chain: "ethereum",
+    pdf_hash: pdfHash,
+    pdf_path: `/standalone-showcase/reports/${nextReportId}.pdf`,
+    generated_at: now,
+    evidence_hash: buildStandaloneShowcaseHash(`${normalizedRosId}-evidence`),
+    evidence_trail_ref: `ev-trail-${normalizedRosId}`,
+    updated_at: now,
+    retain_until: "2031-07-15T00:00:00Z",
+    audit: []
+  };
+
+  standaloneShowcaseRosCoafStore = [newRecord, ...standaloneShowcaseRosCoafStore];
+  STANDALONE_SHOWCASE_REPORT_HISTORY.push({
+    report_id: nextReportId,
+    case_id: "case-showcase-002",
+    report_type_requested: "coaf_ready_report",
+    report_type: "coaf_ready_report",
+    content_type: "application/pdf",
+    file_hash_sha256: pdfHash,
+    onchain_hash: null,
+    created_at: now,
+    has_download_audit: false
+  });
+  appendStandaloneShowcaseRosAudit(
+    normalizedRosId,
+    "coaf_report_generated",
+    now,
+    {
+      case_id: "case-showcase-002",
+      file_hash_sha256: pdfHash,
+      trigger_reason: "Registro gerado dinamicamente no standalone showcase para demonstrar trilha ROS/COAF."
+    },
+    nextReportId,
+    pdfHash
+  );
+  syncStandaloneShowcaseRosWorkItem(newRecord);
+
+  return {
+    ros_id: normalizedRosId,
+    report_id: nextReportId,
+    report_type: "coaf_ready_report",
+    status: "PENDING_APPROVAL",
+    created_at: now,
+    file_hash_sha256: pdfHash,
+    content_type: "application/pdf"
+  } satisfies ShowcaseRosCoafGenerateResponse;
+}
+
+export function approveStandaloneShowcaseRosCoaf(
+  rosId: string,
+  payload: { approved: boolean; rejection_reason?: string | null }
+) {
+  const current = findStandaloneShowcaseRosCoafById(rosId);
+  if (!current) {
+    return null;
+  }
+  const now = new Date().toISOString();
+  const nextStatus = payload.approved ? "APPROVED" : "REJECTED";
+  const rejectionReason = payload.approved ? "" : payload.rejection_reason?.trim() ?? "";
+  standaloneShowcaseRosCoafStore = standaloneShowcaseRosCoafStore.map((record) =>
+    record.ros_id === current.ros_id
+      ? {
+          ...record,
+          status: nextStatus,
+          approved_at: now,
+          approval_2fa_verified: payload.approved,
+          rejection_reason: rejectionReason,
+          updated_at: now,
+          last_activity_at: now
+        }
+      : record
+  );
+  appendStandaloneShowcaseRosAudit(
+    current.ros_id,
+    payload.approved ? "coaf_report_approved" : "coaf_report_rejected",
+    now,
+    {
+      approved_at: now,
+      approval_2fa_verified: payload.approved,
+      rejection_reason: rejectionReason || null
+    },
+    current.report_id,
+    current.pdf_hash
+  );
+  const updated = findStandaloneShowcaseRosCoafById(current.ros_id);
+  if (updated) {
+    syncStandaloneShowcaseRosWorkItem(updated);
+  }
+  return {
+    ros_id: current.ros_id,
+    status: nextStatus,
+    approved_at: now,
+    approval_2fa_verified: payload.approved
+  } satisfies ShowcaseRosCoafApproveResponse;
+}
+
+export function submitStandaloneShowcaseRosCoaf(
+  rosId: string,
+  payload: { coaf_protocol_number: string; coaf_receipt_hash?: string | null }
+) {
+  const current = findStandaloneShowcaseRosCoafById(rosId);
+  if (!current) {
+    return null;
+  }
+  const now = new Date().toISOString();
+  const receiptHash = payload.coaf_receipt_hash?.trim() || buildStandaloneShowcaseHash(`${rosId}-receipt-${now}`);
+  standaloneShowcaseRosCoafStore = standaloneShowcaseRosCoafStore.map((record) =>
+    record.ros_id === current.ros_id
+      ? {
+          ...record,
+          status: "SUBMITTED_MANUAL",
+          submitted_at: now,
+          coaf_protocol_number: payload.coaf_protocol_number.trim(),
+          coaf_receipt_hash: receiptHash,
+          updated_at: now,
+          last_activity_at: now
+        }
+      : record
+  );
+  appendStandaloneShowcaseRosAudit(
+    current.ros_id,
+    "coaf_report_submitted_manual",
+    now,
+    {
+      submitted_at: now,
+      coaf_protocol_number: payload.coaf_protocol_number.trim(),
+      coaf_receipt_hash: receiptHash
+    },
+    current.report_id,
+    current.pdf_hash
+  );
+  const updated = findStandaloneShowcaseRosCoafById(current.ros_id);
+  if (updated) {
+    syncStandaloneShowcaseRosWorkItem(updated);
+  }
+  return {
+    ros_id: current.ros_id,
+    status: "SUBMITTED_MANUAL",
+    submitted_at: now,
+    coaf_protocol_number: payload.coaf_protocol_number.trim(),
+    coaf_receipt_hash: receiptHash
+  } satisfies ShowcaseRosCoafSubmitResponse;
+}
+
+export function buildStandaloneShowcaseRosCoafRegulatoryDossier(rosId: string) {
+  const current = findStandaloneShowcaseRosCoafById(rosId);
+  if (!current) {
+    return null;
+  }
+  const now = new Date().toISOString();
+  const filename = `ontrackchain-ros-coaf-regulatory-dossier-${current.ros_id}.json`;
+  const dossierSha256 = buildStandaloneShowcaseHash(`${current.ros_id}-dossier-${current.updated_at}`);
+  appendStandaloneShowcaseRosAudit(
+    current.ros_id,
+    "coaf_regulatory_dossier_downloaded",
+    now,
+    {
+      filename,
+      dossier_sha256: dossierSha256
+    },
+    current.report_id,
+    current.pdf_hash
+  );
+  const refreshed = findStandaloneShowcaseRosCoafById(current.ros_id) ?? current;
+  return {
+    filename,
+    dossierSha256,
+    content: {
+      mode: "standalone_showcase",
+      generated_at: now,
+      ros: cloneStandaloneRosCoafRecord(refreshed),
+      report: resolveStandaloneShowcaseReport(refreshed.report_id),
+      audit_logs: listStandaloneShowcaseAuditLogs({
+        resourceType: "ros_record",
+        resourceId: refreshed.ros_id,
+        limit: 200
+      }).data
+    }
+  };
 }
 
 function cloneShowcaseCounterparty(item: ShowcaseCounterpartyRecord): ShowcaseCounterpartyRecord {

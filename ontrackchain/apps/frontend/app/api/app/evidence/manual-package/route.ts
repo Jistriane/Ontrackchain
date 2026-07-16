@@ -1,4 +1,6 @@
 import { authenticateRequest, jsonResponse } from "../../operations/_shared";
+import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
+import { exportStandaloneShowcaseEvidenceManualPackage } from "../../../../lib/standalone-showcase";
 import {
   buildEvidenceManualPackageAuditMetadata,
   buildEvidenceManualPackageDocument,
@@ -10,14 +12,26 @@ import {
 
 export async function POST(request: Request) {
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
-  const auth = await authenticateRequest(requestId);
-  if (auth instanceof Response) {
-    return auth;
-  }
-
   const payload = (await request.json().catch(() => null)) as EvidenceManualPackagePayload | null;
   if (!payload?.action || !payload.scope_id || !payload.evidence_request || !payload.scope || !payload.manual_review || !payload.dossier) {
     return jsonResponse(JSON.stringify({ error: "invalid_manual_package_payload" }), 422);
+  }
+
+  if (isFrontendStandaloneShowcaseMode()) {
+    const exported = await exportStandaloneShowcaseEvidenceManualPackage(payload, requestId);
+    return new Response(JSON.stringify(exported.document, null, 2), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+        "content-disposition": `attachment; filename="${exported.filename}"`,
+        "x-ontrack-manual-package-sha256": exported.packageSha256
+      }
+    });
+  }
+
+  const auth = await authenticateRequest(requestId);
+  if (auth instanceof Response) {
+    return auth;
   }
 
   const runtimeEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;

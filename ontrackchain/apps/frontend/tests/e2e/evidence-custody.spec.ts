@@ -75,6 +75,9 @@ type SupersedeSealPayload = TicketedPayload & {
   superseded_by_seal_id?: string;
 };
 
+const EVIDENCE_PRIVILEGED_EXPORT_ROLE = "AUDITOR";
+const EVIDENCE_SEAL_MANAGEMENT_ROLE = "ADMIN";
+
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -278,7 +281,7 @@ test.describe("evidence custody flow", () => {
           org_id: "org-e2e",
           user_id: "user-e2e",
           linked_user_id: "linked-e2e",
-          role: "AUDITOR",
+          role: EVIDENCE_PRIVILEGED_EXPORT_ROLE,
           plan: "professional",
           auth_method: "jwt",
           mfa_mode: "totp",
@@ -696,7 +699,7 @@ test.describe("evidence custody flow", () => {
           org_id: "org-e2e",
           user_id: "user-e2e",
           linked_user_id: "linked-e2e",
-          role: "ANALYST",
+          role: EVIDENCE_PRIVILEGED_EXPORT_ROLE,
           plan: "professional",
           auth_method: "jwt",
           mfa_mode: "totp",
@@ -923,7 +926,7 @@ test.describe("evidence custody flow", () => {
           org_id: "org-e2e",
           user_id: "user-e2e",
           linked_user_id: "linked-e2e",
-          role: "ANALYST",
+          role: EVIDENCE_PRIVILEGED_EXPORT_ROLE,
           plan: "professional",
           auth_method: "jwt",
           mfa_mode: "totp",
@@ -1067,7 +1070,7 @@ test.describe("evidence custody flow", () => {
           org_id: "org-e2e",
           user_id: "user-e2e",
           linked_user_id: "linked-e2e",
-          role: "ANALYST",
+          role: EVIDENCE_PRIVILEGED_EXPORT_ROLE,
           plan: "professional",
           auth_method: "jwt",
           mfa_mode: "totp",
@@ -1263,7 +1266,7 @@ test.describe("evidence custody flow", () => {
           org_id: "org-e2e",
           user_id: "user-e2e",
           linked_user_id: "linked-e2e",
-          role: "ANALYST",
+          role: EVIDENCE_PRIVILEGED_EXPORT_ROLE,
           plan: "professional",
           auth_method: "jwt",
           mfa_mode: "totp",
@@ -1424,7 +1427,7 @@ test.describe("evidence custody flow", () => {
           org_id: "org-e2e",
           user_id: "user-e2e",
           linked_user_id: "linked-e2e",
-          role: "ANALYST",
+          role: EVIDENCE_PRIVILEGED_EXPORT_ROLE,
           plan: "professional",
           auth_method: "jwt",
           mfa_mode: "totp",
@@ -1696,7 +1699,7 @@ test.describe("evidence custody flow", () => {
           org_id: "org-e2e",
           user_id: "user-e2e",
           linked_user_id: "linked-e2e",
-          role: "ADMIN",
+          role: EVIDENCE_SEAL_MANAGEMENT_ROLE,
           plan: "professional",
           auth_method: "jwt",
           mfa_mode: "totp",
@@ -1934,7 +1937,7 @@ test.describe("evidence custody flow", () => {
           org_id: "org-e2e",
           user_id: "user-e2e",
           linked_user_id: "linked-e2e",
-          role: "ADMIN",
+          role: EVIDENCE_SEAL_MANAGEMENT_ROLE,
           plan: "professional",
           auth_method: "jwt",
           mfa_mode: "totp",
@@ -2259,7 +2262,7 @@ test.describe("evidence custody flow", () => {
           org_id: "org-e2e",
           user_id: "user-e2e",
           linked_user_id: "linked-e2e",
-          role: "ADMIN",
+          role: EVIDENCE_SEAL_MANAGEMENT_ROLE,
           plan: "professional",
           auth_method: "jwt",
           mfa_mode: "totp",
@@ -2445,7 +2448,7 @@ test.describe("evidence custody flow", () => {
           org_id: "org-e2e",
           user_id: "user-e2e",
           linked_user_id: "linked-e2e",
-          role: "ADMIN",
+          role: EVIDENCE_SEAL_MANAGEMENT_ROLE,
           plan: "professional",
           auth_method: "jwt",
           mfa_mode: "totp",
@@ -2580,7 +2583,7 @@ test.describe("evidence custody flow", () => {
           org_id: "org-e2e",
           user_id: "user-e2e",
           linked_user_id: "linked-e2e",
-          role: "ADMIN",
+          role: EVIDENCE_SEAL_MANAGEMENT_ROLE,
           plan: "professional",
           auth_method: "jwt",
           mfa_mode: "totp",

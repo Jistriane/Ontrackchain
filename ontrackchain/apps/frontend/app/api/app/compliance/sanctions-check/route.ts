@@ -1,16 +1,12 @@
 import { cookies } from "next/headers";
+import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
+import { getStandaloneShowcaseSanctionsCheck } from "../../../../lib/standalone-showcase";
 
 function jsonResponse(body: string, status: number) {
   return new Response(body, { status, headers: { "content-type": "application/json" } });
 }
 
 export async function GET(request: Request) {
-  const token = cookies().get("otc_token")?.value;
-  if (!token) {
-    return jsonResponse(JSON.stringify({ error: "not_authenticated" }), 401);
-  }
-
-  const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const url = new URL(request.url);
   const address = url.searchParams.get("address");
   const chain = url.searchParams.get("chain") ?? "ethereum";
@@ -19,6 +15,26 @@ export async function GET(request: Request) {
   if (!address) {
     return jsonResponse(JSON.stringify({ error: "missing_address" }), 422);
   }
+
+  if (isFrontendStandaloneShowcaseMode()) {
+    return jsonResponse(
+      JSON.stringify(
+        getStandaloneShowcaseSanctionsCheck({
+          address,
+          chain,
+          lists
+        })
+      ),
+      200
+    );
+  }
+
+  const token = cookies().get("otc_token")?.value;
+  if (!token) {
+    return jsonResponse(JSON.stringify({ error: "not_authenticated" }), 401);
+  }
+
+  const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
 
   const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const authBaseUrl = process.env.INTERNAL_AUTH_BASE_URL ?? "http://auth-service:9000";

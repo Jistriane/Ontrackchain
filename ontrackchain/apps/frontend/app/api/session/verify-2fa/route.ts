@@ -1,8 +1,20 @@
 import { cookies } from "next/headers";
 
-import { isConfiguredDevAuthButDisabled, resolveEffectiveAuthMode } from "../../../lib/auth-runtime";
+import {
+  isConfiguredDevAuthButDisabled,
+  isFrontendStandaloneShowcaseMode,
+  resolveEffectiveAuthMode
+} from "../../../lib/auth-runtime";
 
 export async function POST(request: Request) {
+  if (isFrontendStandaloneShowcaseMode()) {
+    cookies().set("otc_2fa", "managed_externally_homologated", { httpOnly: true, sameSite: "lax", path: "/" });
+    return new Response(JSON.stringify({ status: "ok", mode: "standalone_showcase" }), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  }
+
   if (isConfiguredDevAuthButDisabled()) {
     return new Response(JSON.stringify({ error: "dev_auth_disabled" }), {
       status: 503,

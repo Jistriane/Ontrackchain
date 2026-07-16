@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
+import { isFrontendStandaloneShowcaseMode } from "../lib/auth-runtime";
 import {
   fetchMonitoringMetricsPreview,
   fetchMonitoringPlatformAlertFilterOptions,
@@ -56,6 +57,18 @@ function resolveDownloadFilename(contentDisposition: string | null, fallbackName
   return match?.[1] ?? fallbackName;
 }
 
+function matchesCurrentPlatformAlertFilters(
+  entry: PlatformOperationalAlertsSnapshot["data"][number],
+  filters: PlatformAlertFilterState
+) {
+  const statusMatches = filters.status === "all" || entry.status === filters.status;
+  const triageMatches = filters.triageStatus === "all" || entry.triage_status === filters.triageStatus;
+  const serviceMatches = filters.service === "all" || (entry.service ?? "") === filters.service;
+  const receiverMatches = filters.receiver === "all" || entry.receiver === filters.receiver;
+  const severityMatches = filters.severity === "all" || (entry.severity ?? "") === filters.severity;
+  return statusMatches && triageMatches && serviceMatches && receiverMatches && severityMatches;
+}
+
 export function useMonitoringPlatformAlerts({
   t,
   setError,
@@ -91,6 +104,7 @@ export function useMonitoringPlatformAlerts({
     receiver: "all",
     severity: "all"
   });
+  const standaloneShowcaseMode = isFrontendStandaloneShowcaseMode();
 
   function currentPlatformAlertFilters(
     status = platformAlertFiltersRef.current.status,
@@ -293,6 +307,44 @@ export function useMonitoringPlatformAlerts({
     );
   }
 
+  function applyLocalAcknowledgedPlatformAlerts(eventIds: string[], note: string, triagedBy: string) {
+    if (!eventIds.length) {
+      return;
+    }
+    const targetIds = new Set(eventIds);
+    const filters = currentPlatformAlertFilters();
+    const acknowledgedAt = new Date().toISOString();
+    setPlatformOperationalAlerts((current) => {
+      if (!current) {
+        return current;
+      }
+      const updatedData = current.data.map((entry) =>
+        targetIds.has(entry.id)
+          ? {
+              ...entry,
+              triage_status: "acknowledged",
+              triaged_at: entry.triaged_at ?? acknowledgedAt,
+              triaged_by: triagedBy,
+              triage_note: note
+            }
+          : entry
+      );
+      const visibleData = updatedData.filter((entry) => matchesCurrentPlatformAlertFilters(entry, filters));
+      return {
+        ...current,
+        count: visibleData.length,
+        total_count:
+          filters.triageStatus === "pending"
+            ? Math.max(0, current.total_count - eventIds.length)
+            : filters.triageStatus === "acknowledged"
+              ? current.total_count + eventIds.length
+              : current.total_count,
+        has_more: current.has_more && visibleData.length >= current.limit,
+        data: visibleData
+      };
+    });
+  }
+
   async function goToNextPlatformAlertsPage() {
     if (!canReadPlatformAlerts) {
       return;
@@ -359,7 +411,16 @@ export function useMonitoringPlatformAlerts({
       }
       setPlatformAlertMessage(t("monitoring.platform.messageAckSingle", { eventId, status: data?.triage_status ?? "acknowledged" }));
       setSelectedPlatformAlertIds((current) => current.filter((entryId) => entryId !== eventId));
-      await Promise.all([refreshPlatformOperationalAlerts(), refreshMetricsPreview()]);
+      if (standaloneShowcaseMode) {
+        applyLocalAcknowledgedPlatformAlerts(
+          [eventId],
+          data?.triage_note ?? "ack_from_monitoring_ui",
+          data?.triaged_by ?? "admin_ui"
+        );
+        await refreshMetricsPreview();
+      } else {
+        await Promise.all([refreshPlatformOperationalAlerts(), refreshMetricsPreview()]);
+      }
     } finally {
       setAcknowledgingPlatformAlertId(null);
     }
@@ -403,8 +464,16 @@ export function useMonitoringPlatformAlerts({
           ? t("monitoring.platform.messageAckBatchDone", { count: updatedCount })
           : t("monitoring.platform.messageAckBatchEmpty")
       );
+      const acknowledgedIds = platformOperationalAlerts?.data
+        .filter((entry) => entry.triage_status === "pending")
+        .map((entry) => entry.id) ?? [];
       setSelectedPlatformAlertIds([]);
-      await Promise.all([refreshPlatformOperationalAlerts(), refreshMetricsPreview()]);
+      if (standaloneShowcaseMode) {
+        applyLocalAcknowledgedPlatformAlerts(acknowledgedIds, "ack_batch_from_monitoring_ui", "admin_ui");
+        await refreshMetricsPreview();
+      } else {
+        await Promise.all([refreshPlatformOperationalAlerts(), refreshMetricsPreview()]);
+      }
     } catch {
       setError(t("monitoring.errors.ackPlatformAlertsBatch"));
     } finally {
@@ -467,7 +536,12 @@ export function useMonitoringPlatformAlerts({
           : t("monitoring.platform.messageAckSelectedEmpty")
       );
       setSelectedPlatformAlertIds([]);
-      await Promise.all([refreshPlatformOperationalAlerts(), refreshMetricsPreview()]);
+      if (standaloneShowcaseMode) {
+        applyLocalAcknowledgedPlatformAlerts(selectedIds, "ack_selected_from_monitoring_ui", "admin_ui");
+        await refreshMetricsPreview();
+      } else {
+        await Promise.all([refreshPlatformOperationalAlerts(), refreshMetricsPreview()]);
+      }
     } catch {
       setError(t("monitoring.errors.ackPlatformAlertsSelected"));
     } finally {

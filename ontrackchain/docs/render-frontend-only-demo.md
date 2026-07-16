@@ -72,6 +72,8 @@ Trade-offs aceitos:
 4. validar `https://ontrackchain-frontend-showcase-staging.onrender.com/api/healthz`
 5. validar `https://ontrackchain-frontend-showcase-staging.onrender.com/`
 6. confirmar que `/login` redireciona o usuário para a experiência de showcase sem autenticação real
+7. validar `https://ontrackchain-frontend-showcase-staging.onrender.com/dashboard`
+8. confirmar que os atalhos principais do dashboard navegam para `/alerts`, `/monitoring`, `/reports`, `/evidence`, `/billing` e `/team`
 
 ## Gate de Saida
 
@@ -81,6 +83,20 @@ Considere este recorte pronto apenas se:
 - `/api/healthz` responder `200`
 - a home carregar sem erro de runtime
 - o shell principal carregar sem depender de backend real
+- o dashboard carregar com dados seeded
+- os botões principais do dashboard navegarem sem chamar backend privado
+
+## Smoke Recomendado
+
+Executar pelo menos a suíte pública mínima do showcase:
+
+```bash
+TEST_SHOWCASE_MODE=true TEST_BASE_URL=http://127.0.0.1:3001 npm run test:e2e -- \
+  tests/e2e/showcase-auth.spec.ts \
+  tests/e2e/showcase-monitoring.spec.ts \
+  tests/e2e/showcase-dashboard.spec.ts \
+  tests/e2e/showcase-evidence.spec.ts
+```
 
 ## Relacao com o Blueprint Full-Stack
 

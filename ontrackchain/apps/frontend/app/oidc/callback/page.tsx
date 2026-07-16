@@ -15,7 +15,7 @@ import {
 function OidcCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { t } = useI18n();
+  const { t, frontendStandaloneShowcaseMode } = useI18n();
   const [message, setMessage] = useState(t("oidc.message.completing"));
   const hasAttemptedLoginRef = useRef(false);
 
@@ -28,6 +28,14 @@ function OidcCallbackContent() {
     let active = true;
 
     async function completeLogin() {
+      if (frontendStandaloneShowcaseMode) {
+        if (active) {
+          setMessage(t("login.demoNotice"));
+        }
+        router.replace("/dashboard");
+        return;
+      }
+
       const rememberedMessage = readRememberedOidcCallbackMessage();
       const code = searchParams.get("code");
       const returnedState = searchParams.get("state");
@@ -98,7 +106,7 @@ function OidcCallbackContent() {
     return () => {
       active = false;
     };
-  }, [router, searchParams, t]);
+  }, [frontendStandaloneShowcaseMode, router, searchParams, t]);
 
   return (
     <AuthShell

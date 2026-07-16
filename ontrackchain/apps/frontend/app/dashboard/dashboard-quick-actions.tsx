@@ -12,16 +12,20 @@ export function DashboardQuickActions({ showBillingLink, showTeamLink }: Dashboa
 
   return (
     <div className="otc-controls">
-      <a className="otc-link-button" href="/alerts?status=firing&triage_status=pending">
+      <a
+        className="otc-link-button"
+        href="/alerts?status=firing&triage_status=pending"
+        data-testid="dashboard-quick-action-alerts"
+      >
         {t("dashboard.quickActions.openPendingAlerts")}
       </a>
-      <a className="otc-link-button" href="/monitoring">
+      <a className="otc-link-button" href="/monitoring" data-testid="dashboard-quick-action-monitoring">
         {t("dashboard.quickActions.openMonitoring")}
       </a>
-      <a className="otc-link-button" href="/reports">
+      <a className="otc-link-button" href="/reports" data-testid="dashboard-quick-action-reports">
         {t("dashboard.quickActions.openReports")}
       </a>
-      <a className="otc-link-button" href="/evidence">
+      <a className="otc-link-button" href="/evidence" data-testid="dashboard-quick-action-evidence">
         {t("dashboard.quickActions.openEvidence")}
       </a>
       {showBillingLink ? (

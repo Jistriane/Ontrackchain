@@ -130,13 +130,13 @@ export default function LoginPage() {
       title={t("login.title")}
       subtitle={t("login.subtitle")}
     >
-      {authMode === "oidc" && authConfig?.oidc?.authorization_url ? (
+      {!standaloneShowcaseMode && authMode === "oidc" && authConfig?.oidc?.authorization_url ? (
         <Message>{t("login.oidcActive", { provider: authConfig.oidc.provider ?? "generic" })}</Message>
       ) : null}
-      {authMode === "oidc" ? (
+      {!standaloneShowcaseMode && authMode === "oidc" ? (
         <Message>{t("login.oidc2fa")}</Message>
       ) : null}
-      {authConfig?.auth_mode === "dev" && authConfig.dev_auth_enabled === false ? (
+      {!standaloneShowcaseMode && authConfig?.auth_mode === "dev" && authConfig.dev_auth_enabled === false ? (
         <Message tone="error">
           {t("login.devBlocked", { appEnv: authConfig.app_env ?? "unknown" })}
         </Message>
@@ -144,7 +144,7 @@ export default function LoginPage() {
       {standaloneShowcaseMode ? <Message>{t("login.demoNotice" as MessageKey)}</Message> : null}
 
       <div className="otc-stack">
-        {authMode !== "oidc" ? (
+        {!standaloneShowcaseMode && authMode !== "oidc" ? (
           <>
             <label className="otc-field">
               {t("login.email")}
@@ -161,9 +161,9 @@ export default function LoginPage() {
               />
             </label>
           </>
-        ) : (
+        ) : !standaloneShowcaseMode ? (
           <Message>{t("login.devRedirectReplaced")}</Message>
-        )}
+        ) : null}
         <button
           className="otc-button otc-button--accent"
           type="button"

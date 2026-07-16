@@ -1,6 +1,28 @@
 import { cookies } from "next/headers";
+import { isFrontendStandaloneShowcaseMode } from "../../../../../lib/auth-runtime";
+import { evaluateStandaloneShowcaseBlock } from "../../../../../lib/standalone-showcase";
 
 export async function POST(request: Request) {
+  const body = await request.text();
+  if (isFrontendStandaloneShowcaseMode()) {
+    const payload = JSON.parse(body || "{}") as {
+      address?: string | null;
+      chain?: string | null;
+      entity_name?: string | null;
+      entity_document?: string | null;
+    };
+    if (!payload.address?.trim()) {
+      return new Response(JSON.stringify({ error: "missing_address" }), {
+        status: 422,
+        headers: { "content-type": "application/json" }
+      });
+    }
+    return new Response(JSON.stringify(evaluateStandaloneShowcaseBlock(payload as { address: string; chain?: string | null; entity_name?: string | null; entity_document?: string | null })), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  }
+
   const token = cookies().get("otc_token")?.value;
   if (!token) {
     return new Response(JSON.stringify({ error: "not_authenticated" }), {
@@ -10,7 +32,6 @@ export async function POST(request: Request) {
   }
 
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
-  const body = await request.text();
   const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const authBaseUrl = process.env.INTERNAL_AUTH_BASE_URL ?? "http://auth-service:9000";
   const validateRes = await fetch(`${authBaseUrl}/validate`, {

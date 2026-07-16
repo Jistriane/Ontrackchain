@@ -6,9 +6,13 @@ import {
   upsertStandaloneShowcaseWorkItem
 } from "../../../../lib/standalone-showcase";
 import type {
-  CounterpartyWorkItemMetadata,
+  BlocksWorkItemMetadata,
   CreateWorkItemRequest,
-  ReportWorkItemMetadata
+  CounterpartyWorkItemMetadata,
+  EvidenceWorkItemMetadata,
+  ReportWorkItemMetadata,
+  RosCoafWorkItemMetadata,
+  SanctionsWorkItemMetadata
 } from "../../../../lib/work-items";
 import { authenticateRequest, proxyOperationsRequest } from "../_shared";
 
@@ -62,6 +66,10 @@ export async function POST(request: Request) {
     const payload = (await request.json().catch(() => null)) as
       | CreateWorkItemRequest<ReportWorkItemMetadata>
       | CreateWorkItemRequest<CounterpartyWorkItemMetadata>
+      | CreateWorkItemRequest<SanctionsWorkItemMetadata>
+      | CreateWorkItemRequest<BlocksWorkItemMetadata>
+      | CreateWorkItemRequest<RosCoafWorkItemMetadata>
+      | CreateWorkItemRequest<EvidenceWorkItemMetadata>
       | null;
     if (!payload?.resource_id) {
       return new Response(JSON.stringify({ error: "invalid_work_item_payload" }), {
@@ -71,7 +79,18 @@ export async function POST(request: Request) {
     }
     const isReportPayload = payload.resource_type === "formal_report_case" && payload.module === "reports";
     const isCounterpartyPayload = payload.resource_type === "counterparty" && payload.module === "counterparties";
-    if (!isReportPayload && !isCounterpartyPayload) {
+    const isSanctionsPayload = payload.resource_type === "sanctions_screening" && payload.module === "sanctions";
+    const isBlocksPayload = payload.resource_type === "preventive_block" && payload.module === "blocks";
+    const isRosPayload = payload.resource_type === "ros_record" && payload.module === "ros_coaf";
+    const isEvidencePayload = payload.resource_type === "evidence_event" && payload.module === "evidence";
+    if (
+      !isReportPayload &&
+      !isCounterpartyPayload &&
+      !isSanctionsPayload &&
+      !isBlocksPayload &&
+      !isRosPayload &&
+      !isEvidencePayload
+    ) {
       return new Response(JSON.stringify({ error: "unsupported_work_item_payload" }), {
         status: 422,
         headers: { "content-type": "application/json" }
@@ -83,11 +102,35 @@ export async function POST(request: Request) {
           module: "reports",
           resource_type: "formal_report_case"
         } as CreateWorkItemRequest<ReportWorkItemMetadata>)
-      : ({
+      : isCounterpartyPayload
+        ? ({
           ...payload,
           module: "counterparties",
           resource_type: "counterparty"
-        } as CreateWorkItemRequest<CounterpartyWorkItemMetadata>);
+        } as CreateWorkItemRequest<CounterpartyWorkItemMetadata>)
+        : isSanctionsPayload
+          ? ({
+            ...payload,
+            module: "sanctions",
+            resource_type: "sanctions_screening"
+          } as CreateWorkItemRequest<SanctionsWorkItemMetadata>)
+          : isBlocksPayload
+            ? ({
+              ...payload,
+              module: "blocks",
+              resource_type: "preventive_block"
+            } as CreateWorkItemRequest<BlocksWorkItemMetadata>)
+            : isRosPayload
+              ? ({
+                  ...payload,
+                  module: "ros_coaf",
+                  resource_type: "ros_record"
+                } as CreateWorkItemRequest<RosCoafWorkItemMetadata>)
+              : ({
+                  ...payload,
+                  module: "evidence",
+                  resource_type: "evidence_event"
+                } as CreateWorkItemRequest<EvidenceWorkItemMetadata>);
     return new Response(
       JSON.stringify(
         upsertStandaloneShowcaseWorkItem(normalizedPayload)
