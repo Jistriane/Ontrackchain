@@ -1,46 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../../components/i18n-provider";
-import { canManageFederatedIdentity, canReadBilling } from "../lib/authz";
-import { fetchAuthContext, type AuthContext } from "../lib/ownership";
 
-export function DashboardQuickActions() {
+type DashboardQuickActionsProps = {
+  showBillingLink: boolean;
+  showTeamLink: boolean;
+};
+
+export function DashboardQuickActions({ showBillingLink, showTeamLink }: DashboardQuickActionsProps) {
   const { t } = useI18n();
-  const [authContext, setAuthContext] = useState<AuthContext | null | undefined>(undefined);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    fetchAuthContext()
-      .then((context) => {
-        if (!cancelled) {
-          setAuthContext(context);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setAuthContext(null);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const showBillingLink = useMemo(() => {
-    if (authContext === undefined) {
-      return false;
-    }
-    return canReadBilling(authContext?.role);
-  }, [authContext]);
-  const showTeamLink = useMemo(() => {
-    if (authContext === undefined) {
-      return false;
-    }
-    return canManageFederatedIdentity(authContext?.role);
-  }, [authContext]);
 
   return (
     <div className="otc-controls">

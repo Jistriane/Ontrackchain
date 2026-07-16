@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell, MetricCard, MetricGrid, ModuleCard, ModuleGrid, Panel, Pill } from "../../components/ui";
 import { DashboardQuickActions } from "./dashboard-quick-actions";
-import { canManageFederatedIdentity } from "../lib/authz";
+import { canManageFederatedIdentity, canReadBilling } from "../lib/authz";
 import { isFrontendStandaloneShowcaseMode } from "../lib/auth-runtime";
 import { formatDateTime } from "../lib/date-format";
 import { LOCALE_COOKIE_NAME, normalizeLocale, translate, type MessageKey } from "../lib/i18n";
@@ -165,6 +165,7 @@ export default async function DashboardPage() {
   const headers = { Authorization: `Bearer ${token}`, "X-Request-Id": requestId };
   const dashboardRole = standaloneShowcaseMode ? STANDALONE_SHOWCASE_AUTH_CONTEXT.role : await validateDashboardRole(token!, requestId);
   const showTeamModule = canManageFederatedIdentity(dashboardRole);
+  const showBillingQuickAction = standaloneShowcaseMode || canReadBilling(dashboardRole);
   let watchlistsCount: number | null = null;
   let creditsAvailable: number | null = null;
   let creditsReserved: number | null = null;
@@ -268,7 +269,7 @@ export default async function DashboardPage() {
       </MetricGrid>
 
       <Panel title={t("dashboard.quickActions.title")} description={t("dashboard.quickActions.description")}>
-        <DashboardQuickActions />
+        <DashboardQuickActions showBillingLink={showBillingQuickAction} showTeamLink={showTeamModule} />
       </Panel>
 
       <Panel title={t("dashboard.cases.title")} description={t("dashboard.cases.description")}>
