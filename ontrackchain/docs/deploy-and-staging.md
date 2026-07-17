@@ -274,7 +274,31 @@ Defaults operacionais:
 
 Se os secrets ou variables acima nao estiverem configurados, o workflow falha deliberadamente. Isso e intencional: melhor falhar cedo do que registrar um deploy “verde” sem publicacao real.
 
+### Matriz minima para o primeiro disparo real
+
+Use a tabela abaixo como checklist de configuracao antes de disparar manualmente `deploy-to-production.yml`.
+
+| Chave | Tipo | Valor inicial recomendado | Origem da verdade | Observacoes |
+| --- | --- | --- | --- | --- |
+| `RENDER_STAGING_DEPLOY_HOOK_URL` | secret | `__PREENCHER_NO_GITHUB__` | painel do Render do servico/blueprint que deve publicar o staging real | nao reutilizar hook de showcase puro; o alvo precisa convergir para `render-full-stack-staging` |
+| `RENDER_STAGING_HEALTHCHECK_URL` | variable | `https://ontrackchain-frontend-staging.onrender.com/api/healthz` | URL publica do frontend hospedado | valor atual conhecido; e o endpoint que hoje ainda responde `hostedShowcaseFallback=true` |
+| `RENDER_STAGING_EXPECTED_DEPLOYMENT_MODEL` | variable | `render-full-stack-staging` | contrato de [healthz](../apps/frontend/app/api/healthz/route.ts) | manter explicito para falhar cedo se o runtime continuar em showcase |
+| `RENDER_STAGING_ALLOW_SHOWCASE_FALLBACK` | variable | `false` | decisao operacional do time | nao relaxar no primeiro disparo real |
+| `RENDER_PRODUCTION_DEPLOY_HOOK_URL` | secret | `__PREENCHER_NO_GITHUB__` | painel do Render do servico/blueprint de producao | so cadastrar quando existir runtime produtivo com healthz publico confiavel |
+| `RENDER_PRODUCTION_HEALTHCHECK_URL` | variable | `__DEFINIR_URL_DE_PRODUCAO__/api/healthz` | URL publica do frontend produtivo | nao apontar para staging |
+| `RENDER_PRODUCTION_EXPECTED_DEPLOYMENT_MODEL` | variable | `render-full-stack-staging` | contrato atual do frontend | ajustar quando o runtime passar a distinguir um modelo proprio de producao |
+| `RENDER_PRODUCTION_ALLOW_SHOWCASE_FALLBACK` | variable | `false` | decisao operacional do time | tratar fallback como falha em qualquer ambiente que queira provar integracao real |
+
 - `KEYCLOAK_ADMIN_CLIENT_SECRET` pode espelhar `KEYCLOAK_B2B_CLIENT_SECRET` apenas como medida transitória, até existir um client dedicado com privilégio minimo de leitura
+
+### Checklist do primeiro disparo hospedado
+
+1. confirmar no Render que o servico alvo do hook possui `INTERNAL_AUTH_BASE_URL` e `INTERNAL_KEYCLOAK_BASE_URL` preenchidos
+2. confirmar no GitHub que os quatro `RENDER_*` obrigatorios foram cadastrados
+3. manter `RENDER_STAGING_ALLOW_SHOWCASE_FALLBACK=false`
+4. disparar `deploy-to-production.yml` com `environment=staging`
+5. considerar sucesso apenas se `GET /api/healthz` retornar `status=ok`, `deploymentModel=render-full-stack-staging` e `hostedShowcaseFallback=false`
+6. depois do deploy, validar tambem `GET /auth/config`; ele nao deve mais responder `auth_mode=dev` nem `app_env=test`
 
 ### 6. Rodar validacoes pos-deploy
 

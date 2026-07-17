@@ -110,6 +110,27 @@ Recomendacao:
 - manter `RENDER_PRODUCTION_ALLOW_SHOWCASE_FALLBACK=false`
 - usar `healthz` publico do frontend, por exemplo `https://<frontend>/api/healthz`
 
+### Matriz operacional recomendada
+
+Para reduzir erro manual na primeira configuracao do repositório, usar inicialmente:
+
+| Chave | Onde cadastrar | Valor inicial recomendado | Observacoes |
+| --- | --- | --- | --- |
+| `RENDER_STAGING_DEPLOY_HOOK_URL` | `Settings -> Secrets and variables -> Actions -> Secrets` | `__PREENCHER_NO_GITHUB__` | copiar do painel do Render do alvo de staging real |
+| `RENDER_STAGING_HEALTHCHECK_URL` | `Settings -> Secrets and variables -> Actions -> Variables` | `https://ontrackchain-frontend-staging.onrender.com/api/healthz` | endpoint publico observado no runtime atual |
+| `RENDER_STAGING_EXPECTED_DEPLOYMENT_MODEL` | `Variables` | `render-full-stack-staging` | falhar cedo se o staging continuar em showcase |
+| `RENDER_STAGING_ALLOW_SHOWCASE_FALLBACK` | `Variables` | `false` | manter restritivo no primeiro disparo real |
+| `RENDER_PRODUCTION_DEPLOY_HOOK_URL` | `Secrets` | `__PREENCHER_NO_GITHUB__` | nao reciclar hook de staging |
+| `RENDER_PRODUCTION_HEALTHCHECK_URL` | `Variables` | `__DEFINIR_URL_DE_PRODUCAO__/api/healthz` | preencher so quando houver URL publica produtiva validada |
+| `RENDER_PRODUCTION_EXPECTED_DEPLOYMENT_MODEL` | `Variables` | `render-full-stack-staging` | contrato atual enquanto o frontend nao diferencia producao |
+| `RENDER_PRODUCTION_ALLOW_SHOWCASE_FALLBACK` | `Variables` | `false` | qualquer fallback deve falhar |
+
+Leitura importante do estado atual:
+
+- o endpoint `https://ontrackchain-frontend-staging.onrender.com/api/healthz` ainda responde `deploymentModel=render-frontend-standalone-showcase`
+- o mesmo endpoint ainda responde `hostedShowcaseFallback=true`
+- portanto, o primeiro run real deve ser tratado como prova de saida desse fallback, nao apenas como publicacao de commit
+
 ## Formato do Secret
 
 Use o conteudo final do `.env.staging.private` como fonte da verdade. O bloco abaixo e um recorte representativo das chaves mais sensiveis e das integracoes que costumam bloquear a janela:
