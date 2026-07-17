@@ -15,6 +15,7 @@ Complementa:
 
 - [Blueprint Render para Staging Full-Stack](../../render-staging-blueprint.md)
 - [Deploy e Staging](../../deploy-and-staging.md)
+- [GitHub Environment para Staging Serio](../../github-environment-staging-serious.md)
 - [Run Sheet Operacional de `P0-01` OIDC + MFA serio](./P0-01_OIDC_MFA_RUN_SHEET.md)
 
 ## Identificacao da Janela
@@ -27,6 +28,31 @@ Complementa:
 - `bridge`: `preencher`
 - `run_url`: `preencher`
 - `render_blueprint_file`: `render.full-stack.yaml`
+
+## Estado Inicial Observado
+
+No momento desta revisao, o frontend publico de staging conhecido responde:
+
+- `https://ontrackchain-frontend-staging.onrender.com/api/healthz`
+- `deploymentModel=render-frontend-standalone-showcase`
+- `hostedShowcaseFallback=true`
+
+Interpretacao operacional:
+
+- a vitrine publica esta navegavel
+- o staging full-stack ainda nao convergiu
+- o primeiro disparo real deve provar a saida desse fallback
+
+## Checklist de GitHub Actions Antes do Primeiro Disparo
+
+- [ ] workflow alvo confirmado: `../.github/workflows/deploy-to-production.yml`
+- [ ] secret `RENDER_STAGING_DEPLOY_HOOK_URL` cadastrado em `Settings -> Secrets and variables -> Actions -> Secrets`
+- [ ] variable `RENDER_STAGING_HEALTHCHECK_URL=https://ontrackchain-frontend-staging.onrender.com/api/healthz`
+- [ ] variable `RENDER_STAGING_EXPECTED_DEPLOYMENT_MODEL=render-full-stack-staging`
+- [ ] variable `RENDER_STAGING_ALLOW_SHOWCASE_FALLBACK=false`
+- [ ] hook do Render aponta para o servico de staging real, e nao para um showcase isolado
+- [ ] owner humano do disparo registrado nesta folha
+- [ ] aprovacao de governanca disponivel caso o gate do workflow exija
 
 ## Checklist de Prontidao
 
@@ -106,6 +132,31 @@ Registrar:
 - `frontend_hosted_showcase_fallback`: `true | false | n/a`
 - `frontend_missing_env_keys`: `preencher ou []`
 
+### 3.1. Confirmar convergencia pelo endpoint publico
+
+Executar e registrar:
+
+```bash
+curl -fsS https://ontrackchain-frontend-staging.onrender.com/api/healthz
+curl -fsS https://ontrackchain-frontend-staging.onrender.com/auth/config
+```
+
+Esperado apos o primeiro disparo real:
+
+- `/api/healthz` com `status=ok`
+- `deploymentModel=render-full-stack-staging`
+- `hostedShowcaseFallback=false`
+- `/auth/config` sem regressao para `auth_mode=dev`
+- `/auth/config` sem regressao para `app_env=test`
+
+Registrar:
+
+- `public_healthz_status`: `ok | degraded | failed`
+- `public_deployment_model`: `render-full-stack-staging | render-frontend-standalone-showcase | outro`
+- `public_hosted_showcase_fallback`: `true | false | n/a`
+- `public_auth_mode`: `oidc | dev | outro | n/a`
+- `public_auth_app_env`: `staging | test | outro | n/a`
+
 ### 4. Validar rotas minimas publicas
 
 Validar:
@@ -151,6 +202,17 @@ Registrar:
 - `next_owner`: `preencher`
 - `next_step`: `preencher`
 
+### 6.1. Critério explícito de no-go
+
+Marcar `no-go` imediato se qualquer um ocorrer:
+
+- `RENDER_STAGING_DEPLOY_HOOK_URL` ausente no GitHub
+- `RENDER_STAGING_HEALTHCHECK_URL` ausente ou apontando para URL errada
+- `/api/healthz` continuar em `render-frontend-standalone-showcase`
+- `/api/healthz` continuar com `hostedShowcaseFallback=true`
+- `/auth/config` continuar com `auth_mode=dev` ou `app_env=test`
+- `missingEnvKeys` aparecer no payload do `healthz`
+
 ## Artefatos a Preservar
 
 - screenshot do painel do Render com `ontrackchain-frontend-staging` verde
@@ -170,6 +232,9 @@ Marcar esta trilha como pronta para handoff tecnico somente se todos estiverem v
 - [ ] `Keycloak` respondeu no realm
 - [ ] nao houve drift de env obrigatoria no frontend
 - [ ] `hostedShowcaseFallback=false` no frontend
+- [ ] `deploymentModel=render-full-stack-staging` no endpoint publico
+- [ ] `/auth/config` retornou `auth_mode=oidc`
+- [ ] `/auth/config` retornou `app_env=staging`
 - [ ] owner humano revisou as evidencias minimas
 
 ## Resultado da Janela
