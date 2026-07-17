@@ -14,4 +14,4 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 EXPOSE 9000
 
-CMD ["uvicorn", "auth_service.main:app", "--host", "0.0.0.0", "--port", "9000"]
+CMD ["/app/infra/render/scripts/start-auth-service.sh"]
