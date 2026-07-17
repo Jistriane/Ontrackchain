@@ -16,6 +16,11 @@ Este documento complementa:
 - [Checklist Pré-Produção](pre-production-checklist.md)
 - [Governanca Semanal](./governance-weekly/README.md)
 
+Observacao importante:
+
+- este documento cobre o workflow manual `Staging Serious Window`
+- o workflow separado [deploy-to-production.yml](../../.github/workflows/deploy-to-production.yml) usa hooks de deploy do Render e `healthz` hospedado; ele nao consome `STAGING_WINDOW_PRIVATE_ENV`
+
 ## Papel Canonico
 
 Este documento e a fonte primaria para:
@@ -77,6 +82,33 @@ Nome obrigatório:
 - `STAGING_WINDOW_PRIVATE_ENV`
 
 Esse secret deve conter o conteúdo completo do arquivo `.env.staging.private`, em formato multi-linha.
+
+## Segredos e Variables do Workflow de Deploy Hospedado
+
+Quando o objetivo for acionar o workflow [deploy-to-production.yml](../../.github/workflows/deploy-to-production.yml), configure adicionalmente:
+
+### Secrets
+
+- `RENDER_STAGING_DEPLOY_HOOK_URL`
+- `RENDER_PRODUCTION_DEPLOY_HOOK_URL`
+
+### Repository Variables
+
+- `RENDER_STAGING_HEALTHCHECK_URL`
+- `RENDER_PRODUCTION_HEALTHCHECK_URL`
+
+### Repository Variables opcionais
+
+- `RENDER_STAGING_EXPECTED_DEPLOYMENT_MODEL`
+- `RENDER_PRODUCTION_EXPECTED_DEPLOYMENT_MODEL`
+- `RENDER_STAGING_ALLOW_SHOWCASE_FALLBACK`
+- `RENDER_PRODUCTION_ALLOW_SHOWCASE_FALLBACK`
+
+Recomendacao:
+
+- manter `RENDER_STAGING_ALLOW_SHOWCASE_FALLBACK=false`
+- manter `RENDER_PRODUCTION_ALLOW_SHOWCASE_FALLBACK=false`
+- usar `healthz` publico do frontend, por exemplo `https://<frontend>/api/healthz`
 
 ## Formato do Secret
 

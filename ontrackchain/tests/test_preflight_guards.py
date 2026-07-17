@@ -5,7 +5,7 @@ import os
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -111,59 +111,91 @@ class OidcSeriousEnvPreflightTests(PreflightTestCase):
 
 class ExternalIntegrationsPreflightTests(PreflightTestCase):
     def test_accepts_live_compliance_and_fallback_only_rpc(self) -> None:
-        exit_code, payload = self._run_main(
-            PRE_EXTERNAL,
+        response = MagicMock()
+        response.getcode.return_value = 200
+        response.read.return_value = json.dumps(
             {
-                "APP_ENV": "staging",
-                "ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE": "live",
-                "ONTRACKCHAIN_EXPECT_RPC_MODE": "fallback_only",
-                "COMPLIANCE_TRM_ENABLED": "true",
-                "COMPLIANCE_RISK_PROVIDER": "trm_labs",
-                "COMPLIANCE_TRM_SCREENING_URL": "https://screening.trm.example/v1/check",
-                "COMPLIANCE_TRM_API_KEY": "trm-live-key",
-                "COMPLIANCE_TRM_TIMEOUT_MS": "4000",
-                "COMPLIANCE_TRM_MAX_RETRIES": "2",
-                "COMPLIANCE_EU_SANCTIONS_SOURCE_URL": "https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList_1_1/content?token=abc123",
-                "INVESTIGATION_RPC_ENABLED": "true",
-                "INVESTIGATION_RPC_PROVIDER": "evm_rpc",
-                "INVESTIGATION_RPC_PRIMARY_URL": "",
-                "INVESTIGATION_RPC_FALLBACK_URL": "https://rpc-fallback.ontrackchain.example",
-                "INVESTIGATION_RPC_TIMEOUT_MS": "2500",
-                "INVESTIGATION_RPC_MAX_RETRIES": "1",
-            },
-        )
+                "deploymentModel": "render-full-stack-staging",
+                "hostedShowcaseFallback": False,
+                "standaloneShowcaseMode": False,
+                "missingEnvKeys": [],
+            }
+        ).encode("utf-8")
+        response.__enter__.return_value = response
+        response.__exit__.return_value = False
+
+        with patch.object(PRE_EXTERNAL.urllib.request, "urlopen", return_value=response):
+            exit_code, payload = self._run_main(
+                PRE_EXTERNAL,
+                {
+                    "APP_ENV": "staging",
+                    "ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE": "live",
+                    "ONTRACKCHAIN_EXPECT_RPC_MODE": "fallback_only",
+                    "COMPLIANCE_TRM_ENABLED": "true",
+                    "COMPLIANCE_RISK_PROVIDER": "trm_labs",
+                    "COMPLIANCE_TRM_SCREENING_URL": "https://screening.trm.example/v1/check",
+                    "COMPLIANCE_TRM_API_KEY": "trm-live-key",
+                    "COMPLIANCE_TRM_TIMEOUT_MS": "4000",
+                    "COMPLIANCE_TRM_MAX_RETRIES": "2",
+                    "COMPLIANCE_EU_SANCTIONS_SOURCE_URL": "https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList_1_1/content?token=abc123",
+                    "INVESTIGATION_RPC_ENABLED": "true",
+                    "INVESTIGATION_RPC_PROVIDER": "evm_rpc",
+                    "INVESTIGATION_RPC_PRIMARY_URL": "",
+                    "INVESTIGATION_RPC_FALLBACK_URL": "https://rpc-fallback.ontrackchain.example",
+                    "INVESTIGATION_RPC_TIMEOUT_MS": "2500",
+                    "INVESTIGATION_RPC_MAX_RETRIES": "1",
+                    "NEXT_PUBLIC_API_BASE_URL": "https://ontrackchain-gateway-staging.onrender.com",
+                },
+            )
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["status"], "ok")
         self.assertEqual(payload["errors"], [])
         self.assertEqual(payload["compliance"]["expect_mode"], "live")
         self.assertEqual(payload["rpc"]["expect_mode"], "fallback_only")
+        self.assertEqual(payload["frontend"]["deployment_model"], "render-full-stack-staging")
+        self.assertFalse(payload["frontend"]["hosted_showcase_fallback"])
         self.assertTrue(payload["compliance"]["sanctions_source_overrides"]["eu_present"])
         self.assertTrue(payload["compliance"]["sanctions_source_overrides"]["eu_tokenized"])
         self.assertFalse(payload["compliance"]["sanctions_source_overrides"]["ofac_present"])
 
     def test_rejects_insecure_or_invalid_provider_setup(self) -> None:
-        exit_code, payload = self._run_main(
-            PRE_EXTERNAL,
+        response = MagicMock()
+        response.getcode.return_value = 200
+        response.read.return_value = json.dumps(
             {
-                "APP_ENV": "production",
-                "ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE": "live",
-                "ONTRACKCHAIN_EXPECT_RPC_MODE": "live",
-                "COMPLIANCE_TRM_ENABLED": "false",
-                "COMPLIANCE_RISK_PROVIDER": "other",
-                "COMPLIANCE_TRM_SCREENING_URL": "http://localhost:8081/check",
-                "COMPLIANCE_TRM_API_KEY": "change-me",
-                "COMPLIANCE_TRM_TIMEOUT_MS": "0",
-                "COMPLIANCE_TRM_MAX_RETRIES": "-1",
-                "COMPLIANCE_EU_SANCTIONS_SOURCE_URL": "http://localhost:8080/eu.xml?token=test",
-                "INVESTIGATION_RPC_ENABLED": "true",
-                "INVESTIGATION_RPC_PROVIDER": "other",
-                "INVESTIGATION_RPC_PRIMARY_URL": "http://localhost:8545",
-                "INVESTIGATION_RPC_FALLBACK_URL": "http://localhost:8545",
-                "INVESTIGATION_RPC_TIMEOUT_MS": "0",
-                "INVESTIGATION_RPC_MAX_RETRIES": "-3",
-            },
-        )
+                "deploymentModel": "render-frontend-standalone-showcase",
+                "hostedShowcaseFallback": True,
+                "standaloneShowcaseMode": True,
+                "missingEnvKeys": ["INTERNAL_AUTH_BASE_URL", "INTERNAL_KEYCLOAK_BASE_URL"],
+            }
+        ).encode("utf-8")
+        response.__enter__.return_value = response
+        response.__exit__.return_value = False
+
+        with patch.object(PRE_EXTERNAL.urllib.request, "urlopen", return_value=response):
+            exit_code, payload = self._run_main(
+                PRE_EXTERNAL,
+                {
+                    "APP_ENV": "production",
+                    "ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE": "live",
+                    "ONTRACKCHAIN_EXPECT_RPC_MODE": "live",
+                    "COMPLIANCE_TRM_ENABLED": "false",
+                    "COMPLIANCE_RISK_PROVIDER": "other",
+                    "COMPLIANCE_TRM_SCREENING_URL": "http://localhost:8081/check",
+                    "COMPLIANCE_TRM_API_KEY": "change-me",
+                    "COMPLIANCE_TRM_TIMEOUT_MS": "0",
+                    "COMPLIANCE_TRM_MAX_RETRIES": "-1",
+                    "COMPLIANCE_EU_SANCTIONS_SOURCE_URL": "http://localhost:8080/eu.xml?token=test",
+                    "INVESTIGATION_RPC_ENABLED": "true",
+                    "INVESTIGATION_RPC_PROVIDER": "other",
+                    "INVESTIGATION_RPC_PRIMARY_URL": "http://localhost:8545",
+                    "INVESTIGATION_RPC_FALLBACK_URL": "http://localhost:8545",
+                    "INVESTIGATION_RPC_TIMEOUT_MS": "0",
+                    "INVESTIGATION_RPC_MAX_RETRIES": "-3",
+                    "NEXT_PUBLIC_API_BASE_URL": "https://ontrackchain-gateway-staging.onrender.com",
+                },
+            )
 
         self.assertEqual(exit_code, 1)
         self.assertEqual(payload["status"], "failed")
@@ -185,6 +217,14 @@ class ExternalIntegrationsPreflightTests(PreflightTestCase):
         )
         self.assertIn(
             "INVESTIGATION_RPC_FALLBACK_URL: deve diferir da URL primaria quando configurada",
+            payload["errors"],
+        )
+        self.assertIn(
+            "frontend_healthz: deploymentModel esperado=render-full-stack-staging recebido=render-frontend-standalone-showcase",
+            payload["errors"],
+        )
+        self.assertIn(
+            "frontend_healthz: hostedShowcaseFallback=true nao e permitido para janela seria",
             payload["errors"],
         )
 

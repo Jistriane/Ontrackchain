@@ -13,6 +13,8 @@ Este documento cobre o processo tecnico. Ele nao substitui automacao futura de C
 
 Para execucao controlada via GitHub Actions, use tambem o workflow manual [staging-serious-window.yml](../../.github/workflows/staging-serious-window.yml), que neste workspace fica no repositório agregador pai em `../.github/workflows/`. Ele materializa `.env.staging.private` a partir de um `GitHub Environment` aprovado, instala dependencias do frontend/Playwright e executa o gate unico `prepare -> validate -> preflight -> run`, agora com o `oidc-critical` integrado ao bundle OIDC quando o runner estiver habilitado. A configuracao do environment e do secret multi-linha esta detalhada em [GitHub Environment para Staging Sério](github-environment-staging-serious.md).
 
+Para o workflow de promocao hospedada [deploy-to-production.yml](../../.github/workflows/deploy-to-production.yml), o repositorio agora exige configuracao explicita de hooks e healthchecks. Ele nao aceita mais comandos placeholder com falso positivo de sucesso.
+
 ## Escopo Canonico
 
 Use este documento para:
@@ -238,6 +240,40 @@ python3 scripts/preflight_oidc_serious_env.py
 Nota operacional do diretório federado:
 
 - neste corte, `KEYCLOAK_ADMIN_CLIENT_ID` aponta para `ontrackchain-b2b`
+
+## GitHub Actions de Deploy Hospedado
+
+O workflow [deploy-to-production.yml](../../.github/workflows/deploy-to-production.yml) passou a operar por:
+
+- `POST` em hook real de deploy
+- espera ativa por convergencia do `GET /api/healthz`
+- falha explicita se o frontend hospedado permanecer em `hostedShowcaseFallback=true`
+
+### Secrets obrigatorios
+
+- `RENDER_STAGING_DEPLOY_HOOK_URL`
+- `RENDER_PRODUCTION_DEPLOY_HOOK_URL`
+
+### Repository Variables obrigatorias
+
+- `RENDER_STAGING_HEALTHCHECK_URL`
+- `RENDER_PRODUCTION_HEALTHCHECK_URL`
+
+### Repository Variables opcionais
+
+- `RENDER_STAGING_EXPECTED_DEPLOYMENT_MODEL`
+- `RENDER_PRODUCTION_EXPECTED_DEPLOYMENT_MODEL`
+- `RENDER_STAGING_ALLOW_SHOWCASE_FALLBACK`
+- `RENDER_PRODUCTION_ALLOW_SHOWCASE_FALLBACK`
+
+Defaults operacionais:
+
+- staging espera `render-full-stack-staging`
+- production, enquanto o runtime do frontend ainda nao distingue outro modelo, tambem espera `render-full-stack-staging`
+- `ALLOW_SHOWCASE_FALLBACK` deve permanecer `false` para qualquer ambiente que queira provar integracao real
+
+Se os secrets ou variables acima nao estiverem configurados, o workflow falha deliberadamente. Isso e intencional: melhor falhar cedo do que registrar um deploy “verde” sem publicacao real.
+
 - `KEYCLOAK_ADMIN_CLIENT_SECRET` pode espelhar `KEYCLOAK_B2B_CLIENT_SECRET` apenas como medida transitória, até existir um client dedicado com privilégio minimo de leitura
 
 ### 6. Rodar validacoes pos-deploy

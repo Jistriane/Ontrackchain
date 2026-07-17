@@ -180,7 +180,6 @@ jobs:
     if: github.event.inputs.environment != 'production' || needs.check-governance.outputs.gate_allowed == 'true' || github.event.inputs.force_deploy == 'true'
     environment:
       name: staging
-      url: https://staging.example.com
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -200,26 +199,88 @@ jobs:
             echo "✅ Gate approved: Proceeding with deployment"
           fi
 
-      - name: Deploy to staging
-        working-directory: ./ontrackchain
+      - name: Validate staging deploy configuration
+        env:
+          RENDER_STAGING_DEPLOY_HOOK_URL: ${{ secrets.RENDER_STAGING_DEPLOY_HOOK_URL }}
+          RENDER_STAGING_HEALTHCHECK_URL: ${{ vars.RENDER_STAGING_HEALTHCHECK_URL }}
         run: |
-          echo "🚀 Deploying to staging..."
+          if [ -z "$RENDER_STAGING_DEPLOY_HOOK_URL" ]; then
+            echo "::error::Secret RENDER_STAGING_DEPLOY_HOOK_URL not configured"
+            exit 1
+          fi
+
+          if [ -z "$RENDER_STAGING_HEALTHCHECK_URL" ]; then
+            echo "::error::Repository variable RENDER_STAGING_HEALTHCHECK_URL not configured"
+            exit 1
+          fi
+
+      - name: Trigger staging deploy hook
+        env:
+          RENDER_STAGING_DEPLOY_HOOK_URL: ${{ secrets.RENDER_STAGING_DEPLOY_HOOK_URL }}
+        run: |
+          echo "🚀 Triggering staging deploy hook..."
           echo "Commit: ${{ github.sha }}"
           echo "Time: $(date -u)"
-          
-          # Replace with actual deployment commands
-          # docker compose -f docker-compose.yml up -d
-          # or
-          # kubectl apply -f k8s/
-          
-          echo "✅ Staging deployment complete"
 
-      - name: Run smoke tests
-        working-directory: ./ontrackchain
+          curl -fsS -X POST "$RENDER_STAGING_DEPLOY_HOOK_URL"
+          echo "✅ Staging deploy hook accepted"
+
+      - name: Wait for staging healthz
+        env:
+          RENDER_STAGING_HEALTHCHECK_URL: ${{ vars.RENDER_STAGING_HEALTHCHECK_URL }}
+          RENDER_STAGING_EXPECTED_DEPLOYMENT_MODEL: ${{ vars.RENDER_STAGING_EXPECTED_DEPLOYMENT_MODEL }}
+          RENDER_STAGING_ALLOW_SHOWCASE_FALLBACK: ${{ vars.RENDER_STAGING_ALLOW_SHOWCASE_FALLBACK }}
         run: |
-          echo "🧪 Running smoke tests..."
-          # Add your smoke test commands here
-          echo "✅ Smoke tests passed"
+          python3 - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+
+          url = os.environ["RENDER_STAGING_HEALTHCHECK_URL"]
+          expected = os.environ.get("RENDER_STAGING_EXPECTED_DEPLOYMENT_MODEL") or "render-full-stack-staging"
+          allow_fallback = (os.environ.get("RENDER_STAGING_ALLOW_SHOWCASE_FALLBACK") or "false").lower() == "true"
+          attempts = 30
+          sleep_seconds = 20
+          last_observation = ""
+
+          for attempt in range(1, attempts + 1):
+              try:
+                  with urllib.request.urlopen(url, timeout=15) as response:
+                      payload = json.loads(response.read().decode("utf-8"))
+                  deployment_model = str(payload.get("deploymentModel") or "").strip()
+                  hosted_showcase_fallback = bool(payload.get("hostedShowcaseFallback"))
+                  status = str(payload.get("status") or "").strip()
+                  missing_env_keys = payload.get("missingEnvKeys") or []
+                  last_observation = json.dumps(payload, ensure_ascii=True)
+                  print(
+                      f"[attempt {attempt}/{attempts}] "
+                      f"status={status or '<vazio>'} "
+                      f"deploymentModel={deployment_model or '<vazio>'} "
+                      f"hostedShowcaseFallback={hosted_showcase_fallback} "
+                      f"missingEnvKeys={missing_env_keys}"
+                  )
+                  if (
+                      status == "ok"
+                      and deployment_model == expected
+                      and (allow_fallback or not hosted_showcase_fallback)
+                  ):
+                      print("✅ Staging healthcheck converged")
+                      raise SystemExit(0)
+              except urllib.error.HTTPError as exc:
+                  last_observation = f"HTTP {exc.code}"
+                  print(f"[attempt {attempt}/{attempts}] frontend healthcheck returned HTTP {exc.code}")
+              except Exception as exc:  # noqa: BLE001
+                  last_observation = str(exc)
+                  print(f"[attempt {attempt}/{attempts}] healthcheck error: {exc}")
+              time.sleep(sleep_seconds)
+
+          raise SystemExit(
+              "Staging deploy did not converge to the expected frontend runtime. "
+              f"Last observation: {last_observation}"
+          )
+          PY
 
       - name: Record deployment success
         if: success()
@@ -243,9 +304,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [check-governance, deploy-staging]
     if: github.event.inputs.environment == 'production' && (needs.check-governance.outputs.gate_allowed == 'true' || github.event.inputs.force_deploy == 'true')
-    environment:
-      name: production
-      url: https://api.example.com
+    environment: ${{ github.event.inputs.environment || 'production' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -300,19 +359,88 @@ jobs:
 
             return String(issue.data.number);
 
-      - name: Deploy to production
-        working-directory: ./ontrackchain
+      - name: Validate production deploy configuration
+        env:
+          RENDER_PRODUCTION_DEPLOY_HOOK_URL: ${{ secrets.RENDER_PRODUCTION_DEPLOY_HOOK_URL }}
+          RENDER_PRODUCTION_HEALTHCHECK_URL: ${{ vars.RENDER_PRODUCTION_HEALTHCHECK_URL }}
         run: |
-          echo "🚀 Deploying to production..."
+          if [ -z "$RENDER_PRODUCTION_DEPLOY_HOOK_URL" ]; then
+            echo "::error::Secret RENDER_PRODUCTION_DEPLOY_HOOK_URL not configured"
+            exit 1
+          fi
+
+          if [ -z "$RENDER_PRODUCTION_HEALTHCHECK_URL" ]; then
+            echo "::error::Repository variable RENDER_PRODUCTION_HEALTHCHECK_URL not configured"
+            exit 1
+          fi
+
+      - name: Trigger production deploy hook
+        env:
+          RENDER_PRODUCTION_DEPLOY_HOOK_URL: ${{ secrets.RENDER_PRODUCTION_DEPLOY_HOOK_URL }}
+        run: |
+          echo "🚀 Triggering production deploy hook..."
           echo "Commit: ${{ github.sha }}"
           echo "Time: $(date -u)"
-          
-          # Replace with actual production deployment commands
-          # kubectl apply -f k8s/prod/
-          # or
-          # terraform apply -auto-approve
-          
-          echo "✅ Production deployment complete"
+
+          curl -fsS -X POST "$RENDER_PRODUCTION_DEPLOY_HOOK_URL"
+          echo "✅ Production deploy hook accepted"
+
+      - name: Wait for production healthz
+        env:
+          RENDER_PRODUCTION_HEALTHCHECK_URL: ${{ vars.RENDER_PRODUCTION_HEALTHCHECK_URL }}
+          RENDER_PRODUCTION_EXPECTED_DEPLOYMENT_MODEL: ${{ vars.RENDER_PRODUCTION_EXPECTED_DEPLOYMENT_MODEL }}
+          RENDER_PRODUCTION_ALLOW_SHOWCASE_FALLBACK: ${{ vars.RENDER_PRODUCTION_ALLOW_SHOWCASE_FALLBACK }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+
+          url = os.environ["RENDER_PRODUCTION_HEALTHCHECK_URL"]
+          expected = os.environ.get("RENDER_PRODUCTION_EXPECTED_DEPLOYMENT_MODEL") or "render-full-stack-staging"
+          allow_fallback = (os.environ.get("RENDER_PRODUCTION_ALLOW_SHOWCASE_FALLBACK") or "false").lower() == "true"
+          attempts = 30
+          sleep_seconds = 20
+          last_observation = ""
+
+          for attempt in range(1, attempts + 1):
+              try:
+                  with urllib.request.urlopen(url, timeout=15) as response:
+                      payload = json.loads(response.read().decode("utf-8"))
+                  deployment_model = str(payload.get("deploymentModel") or "").strip()
+                  hosted_showcase_fallback = bool(payload.get("hostedShowcaseFallback"))
+                  status = str(payload.get("status") or "").strip()
+                  missing_env_keys = payload.get("missingEnvKeys") or []
+                  last_observation = json.dumps(payload, ensure_ascii=True)
+                  print(
+                      f"[attempt {attempt}/{attempts}] "
+                      f"status={status or '<vazio>'} "
+                      f"deploymentModel={deployment_model or '<vazio>'} "
+                      f"hostedShowcaseFallback={hosted_showcase_fallback} "
+                      f"missingEnvKeys={missing_env_keys}"
+                  )
+                  if (
+                      status == "ok"
+                      and deployment_model == expected
+                      and (allow_fallback or not hosted_showcase_fallback)
+                  ):
+                      print("✅ Production healthcheck converged")
+                      raise SystemExit(0)
+              except urllib.error.HTTPError as exc:
+                  last_observation = f"HTTP {exc.code}"
+                  print(f"[attempt {attempt}/{attempts}] frontend healthcheck returned HTTP {exc.code}")
+              except Exception as exc:  # noqa: BLE001
+                  last_observation = str(exc)
+                  print(f"[attempt {attempt}/{attempts}] healthcheck error: {exc}")
+              time.sleep(sleep_seconds)
+
+          raise SystemExit(
+              "Production deploy did not converge to the expected frontend runtime. "
+              f"Last observation: {last_observation}"
+          )
+          PY
 
       - name: Notify deployment success
         if: success() && steps.approval_issue.outputs.result != ''

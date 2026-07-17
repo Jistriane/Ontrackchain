@@ -208,6 +208,9 @@ Servico principal:
 | `INTERNAL_AUTH_BASE_URL` | `http://auth-service:9000` | override opcional para validacao direta de token em proxies server-side sensiveis |
 | `INTERNAL_KEYCLOAK_BASE_URL` | `http://keycloak:8080` | base interna do IdP usada pelo frontend server-side para `token exchange` e callbacks OIDC |
 | `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:${TRAEFIK_HTTP_PORT}` | base publica no browser |
+| `ONTRACKCHAIN_FRONTEND_HEALTHCHECK_BASE_URL` | vazio | override opcional da base publica usada pelos preflights serios para consultar `GET /api/healthz` do frontend hospedado |
+| `ONTRACKCHAIN_EXPECT_FRONTEND_DEPLOYMENT_MODEL` | `render-full-stack-staging` | modelo esperado de deployment do frontend durante a janela seria; o preflight falha se o `healthz` devolver outro valor |
+| `ONTRACKCHAIN_ALLOW_FRONTEND_SHOWCASE_FALLBACK` | `false` | quando `false`, a janela seria falha se o frontend hospedado cair em `hostedShowcaseFallback=true` |
 | `NEXT_PUBLIC_APP_ENV` | `local` | ambiente refletido na UI para fallback seguro |
 | `NEXT_PUBLIC_DEV_AUTH_ENABLED` | vazio ou `true` em local | informa ao frontend se o login dev pode permanecer habilitado |
 
@@ -219,6 +222,7 @@ Observacao critica:
 - o frontend expõe `GET /auth/config` e tenta proxy para `${INTERNAL_AUTH_BASE_URL}/auth/config` quando esse upstream existir
 - em runtime hospedado (`APP_ENV=test|staging|production`) sem `INTERNAL_AUTH_BASE_URL` ou `INTERNAL_KEYCLOAK_BASE_URL`, o frontend entra automaticamente em `hostedShowcaseFallback`, passa a se anunciar como `render-frontend-standalone-showcase` e libera a UX seeded do showcase
 - o `hostedShowcaseFallback` e um mecanismo de contingencia operacional para evitar um estado hibrido quebrado; ele nao substitui o blueprint `full-stack` quando a meta for validar `OIDC`, `MFA`, `RBAC` e APIs reais
+- o preflight serio de integracoes externas agora consulta `/api/healthz` do frontend hospedado e falha se o deployment esperado nao for observado ou se `hostedShowcaseFallback=true`, salvo override explicito via `ONTRACKCHAIN_ALLOW_FRONTEND_SHOWCASE_FALLBACK=true`
 
 Observacao de escopo:
 

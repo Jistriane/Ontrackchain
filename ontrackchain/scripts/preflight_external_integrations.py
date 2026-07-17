@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import os
 import sys
+import urllib.error
+import urllib.request
 from urllib.parse import urlparse
 
 
@@ -12,6 +14,7 @@ LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "keycloak"}
 PLACEHOLDER_VALUES = {"", "change-me", "change-me-b2b-secret"}
 EXPECTED_COMPLIANCE_MODES = {"disabled", "live"}
 EXPECTED_RPC_MODES = {"disabled", "live", "fallback_only"}
+EXPECTED_FRONTEND_DEPLOYMENT_MODELS = {"render-full-stack-staging", "render-frontend-standalone-showcase"}
 
 
 def _env(name: str, default: str | None = None) -> str:
@@ -59,6 +62,103 @@ def _validate_url(
         errors.append(f"{name}: em ambiente serio deve usar https ({value})")
     if forbid_localhost and host in LOCAL_HOSTS:
         errors.append(f"{name}: endpoint local nao e permitido em ambiente serio ({value})")
+
+
+def _resolve_frontend_healthz_base_url() -> str:
+    return (
+        _env("ONTRACKCHAIN_FRONTEND_HEALTHCHECK_BASE_URL")
+        or _env("ONTRACKCHAIN_BASE_URL")
+        or _env("NEXT_PUBLIC_API_BASE_URL")
+    )
+
+
+def _validate_frontend_runtime(
+    *,
+    app_env: str,
+    errors: list[str],
+) -> dict:
+    expected_deployment_model = _env("ONTRACKCHAIN_EXPECT_FRONTEND_DEPLOYMENT_MODEL", "render-full-stack-staging")
+    allow_showcase_fallback = _as_bool(_env("ONTRACKCHAIN_ALLOW_FRONTEND_SHOWCASE_FALLBACK", "false"))
+    base_url = _resolve_frontend_healthz_base_url()
+    summary = {
+        "expected_deployment_model": expected_deployment_model,
+        "allow_showcase_fallback": allow_showcase_fallback,
+        "base_url": base_url,
+        "healthz_url": "",
+        "reachable": False,
+        "http_status": None,
+        "deployment_model": "",
+        "hosted_showcase_fallback": None,
+        "standalone_showcase_mode": None,
+        "missing_env_keys": [],
+    }
+
+    if app_env not in SERIOUS_ENVS:
+        return summary
+
+    if expected_deployment_model not in EXPECTED_FRONTEND_DEPLOYMENT_MODELS:
+        errors.append(
+            "ONTRACKCHAIN_EXPECT_FRONTEND_DEPLOYMENT_MODEL: "
+            f"esperado um valor em {sorted(EXPECTED_FRONTEND_DEPLOYMENT_MODELS)}, "
+            f"recebido={expected_deployment_model or '<vazio>'}"
+        )
+        return summary
+
+    _validate_url(
+        name="ONTRACKCHAIN_FRONTEND_HEALTHCHECK_BASE_URL",
+        value=base_url,
+        require_https=True,
+        forbid_localhost=True,
+        errors=errors,
+    )
+    if not base_url:
+        return summary
+
+    healthz_url = f"{base_url.rstrip('/')}/api/healthz"
+    summary["healthz_url"] = healthz_url
+
+    try:
+        with urllib.request.urlopen(healthz_url, timeout=10) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            summary["reachable"] = True
+            summary["http_status"] = response.getcode()
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        errors.append(f"frontend_healthz: HTTP {exc.code} em {healthz_url}")
+        summary["http_status"] = exc.code
+        if body:
+            summary["response_body"] = body[:500]
+        return summary
+    except urllib.error.URLError as exc:
+        errors.append(f"frontend_healthz: endpoint inacessivel em {healthz_url} ({exc.reason})")
+        return summary
+    except (OSError, TimeoutError) as exc:
+        errors.append(f"frontend_healthz: falha de rede em {healthz_url} ({exc})")
+        return summary
+    except json.JSONDecodeError as exc:
+        errors.append(f"frontend_healthz: resposta invalida de {healthz_url} ({exc})")
+        return summary
+
+    deployment_model = str(payload.get("deploymentModel") or "").strip()
+    hosted_showcase_fallback = payload.get("hostedShowcaseFallback")
+    standalone_showcase_mode = payload.get("standaloneShowcaseMode")
+    missing_env_keys = payload.get("missingEnvKeys") or []
+
+    summary["deployment_model"] = deployment_model
+    summary["hosted_showcase_fallback"] = hosted_showcase_fallback
+    summary["standalone_showcase_mode"] = standalone_showcase_mode
+    summary["missing_env_keys"] = missing_env_keys if isinstance(missing_env_keys, list) else []
+
+    if deployment_model != expected_deployment_model:
+        errors.append(
+            "frontend_healthz: "
+            f"deploymentModel esperado={expected_deployment_model} recebido={deployment_model or '<vazio>'}"
+        )
+
+    if hosted_showcase_fallback and not allow_showcase_fallback:
+        errors.append("frontend_healthz: hostedShowcaseFallback=true nao e permitido para janela seria")
+
+    return summary
 
 
 def _validate_compliance(
@@ -244,6 +344,7 @@ def main() -> int:
         allow_localhost_urls=allow_localhost_urls,
         errors=errors,
     )
+    frontend_summary = _validate_frontend_runtime(app_env=app_env, errors=errors)
 
     summary = {
         "app_env": app_env,
@@ -251,6 +352,7 @@ def main() -> int:
         "allow_localhost_urls": allow_localhost_urls,
         "compliance": compliance_summary,
         "rpc": rpc_summary,
+        "frontend": frontend_summary,
         "status": "ok" if not errors else "failed",
         "errors": errors,
     }
