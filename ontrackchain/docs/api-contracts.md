@@ -20,6 +20,92 @@
   - `X-Request-Id`
 - Erros devem preferir `error codes` estaveis e neutros em idioma.
 
+## Frontend/Auth Bootstrap
+
+### `GET /auth/config`
+
+Uso:
+
+- bootstrap canônico do login do frontend
+- preflight de `OIDC` para Playwright e troubleshooting operacional
+- resolução do modo efetivo de autenticação sem depender do carregamento completo da sessão
+
+Comportamento atual:
+
+- no `standalone showcase`, responde configuração local com `auth_mode=dev`, `effective_auth_mode=dev` e bloco `mfa` marcado como gerenciado pelo showcase
+- no `full-stack`, o frontend tenta proxy para `${INTERNAL_AUTH_BASE_URL}/auth/config`
+- se o upstream estiver indisponível, o frontend devolve `fallback config` derivado das envs locais para não quebrar o bootstrap da tela de login
+
+Campos mínimos esperados:
+
+- `auth_mode`
+- `effective_auth_mode`
+- `app_env`
+- `dev_auth_enabled`
+- `mfa.enabled`
+- `mfa.method`
+- `mfa.managed_by`
+- `mfa.provider`
+- `mfa.provider_homologated`
+- `oidc.enabled`
+- `oidc.provider`
+- `oidc.issuer_url`
+- `oidc.client_id`
+- `oidc.audience`
+- `oidc.authorization_url`
+- `oidc.token_url`
+
+Response exemplo:
+
+```json
+{
+  "auth_mode": "oidc",
+  "effective_auth_mode": "oidc",
+  "app_env": "staging",
+  "dev_auth_enabled": false,
+  "mfa": {
+    "enabled": true,
+    "method": "external_provider",
+    "managed_by": "external_provider",
+    "provider": "keycloak",
+    "provider_homologated": false,
+    "issuer": "OnTrackChain",
+    "account_name": "local-admin@ontrackchain",
+    "period_seconds": 30,
+    "digits": 6
+  },
+  "oidc": {
+    "enabled": true,
+    "provider": "keycloak",
+    "issuer_url": "https://auth.staging.ontrackchain.com/realms/ontrackchain",
+    "client_id": "ontrackchain-web",
+    "audience": "ontrackchain-api",
+    "authorization_url": "https://auth.staging.ontrackchain.com/realms/ontrackchain/protocol/openid-connect/auth",
+    "token_url": "https://auth.staging.ontrackchain.com/realms/ontrackchain/protocol/openid-connect/token"
+  }
+}
+```
+
+### `GET /api/healthz` do frontend
+
+Uso:
+
+- verificar drift de env e modelo de deployment do frontend sem depender do login completo
+
+Comportamento atual:
+
+- responde `deploymentModel=render-frontend-standalone-showcase` quando o frontend está explicitamente em showcase
+- também pode responder `deploymentModel=render-frontend-standalone-showcase` com `hostedShowcaseFallback=true` quando o runtime hospedado perde `INTERNAL_AUTH_BASE_URL` ou `INTERNAL_KEYCLOAK_BASE_URL`
+- no `full-stack` saudável, responde `deploymentModel=render-full-stack-staging`
+
+Campos relevantes:
+
+- `status`
+- `deploymentModel`
+- `standaloneShowcaseMode`
+- `hostedShowcaseFallback`
+- `missingEnvKeys`
+
 ## Regras Canonicas de Catalogo
 
 - aliases sao aceitos por UX e API, mas devem ser resolvidos para o nome canonico antes de billing, persistencia e auditoria

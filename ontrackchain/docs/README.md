@@ -14,6 +14,8 @@ Centralizar a documentacao viva do Ontrackchain em um unico indice, reduzindo dr
 - `P2-05` segue em execucao incremental, com enforcement fino ja expandido por `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties` e navegacao global sensivel
 - Playwright institucionalizado por classes: `stack real leve`, `browser-mocked`, `ssr-mocked`, `dev-auth` e `oidc-critical`
 - o blueprint padrao do Render passou a ser o recorte `frontend standalone showcase`, enquanto o `full-stack` ficou isolado em arquivo dedicado
+- o frontend expõe `GET /auth/config` como bootstrap canônico do login e do preflight `OIDC`
+- o runtime hospedado agora pode entrar em `hostedShowcaseFallback` quando faltarem `INTERNAL_AUTH_BASE_URL` ou `INTERNAL_KEYCLOAK_BASE_URL`
 
 ## Precedencia Documental
 
@@ -64,8 +66,8 @@ Regras objetivas:
 - [GitHub Environment para Staging Serio](./github-environment-staging-serious.md): fonte canonica do workflow manual, approvals e secret multi-linha da janela seria
 - [Template Keycloak OIDC](./keycloak-oidc-template.md): referencia de configuracao inicial do IdP, util para alinhamento com `environment-variables.md`
 - [Variaveis de Ambiente](./environment-variables.md): baseline por servico e overrides
+- [Runbooks Operacionais](./runbooks.md): resposta inicial por sintoma e severidade, incluindo triagem de `hostedShowcaseFallback` em staging hospedado
 - [CI/CD e Release](./ci-cd-and-release.md): workflows, quality gates e promocao
-- [Runbooks Operacionais](./runbooks.md): resposta inicial por sintoma e severidade
 - [Run Sheet da Malha E2E Local](./governance-weekly/guides/E2E_LOCAL_MESH_RUN_SHEET.md): preflight, guardrails e triagem objetiva da baseline Playwright local
 - [Playbook de Incidente Cross-Domain e RCA](./cross-domain-incident-rca-playbook.md): escalacao leve, ownership e fechamento de causa raiz sem abrir um servico novo
 - [Pre-Production Checklist](./pre-production-checklist.md): validacoes obrigatorias antes de promover

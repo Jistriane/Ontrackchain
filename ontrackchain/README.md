@@ -18,6 +18,8 @@ Resumo tecnico:
 - baseline oficial: `93%` tecnico, `79%` regulatorio/operacional, `89%` consolidado
 - a baseline viva esta em `docs/README.md`, `docs/project-kpi-scorecard.md` e `docs/project-maturity-assessment.md`
 - o blueprint padrao hospedado passou a ser `frontend standalone showcase`; o staging real ficou isolado em `render.full-stack.yaml`
+- o frontend agora expõe `GET /auth/config` como contrato canônico de bootstrap do login, mesmo quando o `auth-service` nao estiver acessivel
+- em runtime hospedado sem `INTERNAL_AUTH_BASE_URL` ou `INTERNAL_KEYCLOAK_BASE_URL`, o frontend cai deliberadamente para `standalone showcase` em vez de permanecer num meio-termo degradado
 - o principal gap nao e mais scaffold, e sim homologacao externa real com prova revisavel
 - a arvore tecnica separa claramente fonte viva, evidencia de ciclo e historico frio
 
@@ -105,6 +107,8 @@ O frontend em `apps/frontend` segue estas linhas estruturais:
 - `monitoring` modularizado em hooks, loaders e paineis dedicados
 - `billing` com snapshot reconciliavel alem do saldo consolidado
 - UX preventiva e contratos visuais endurecidos para superficies sensiveis
+- bootstrap de autenticacao centralizado em `/auth/config`, consumido pelo login para resolver `auth_mode`, `effective_auth_mode`, `oidc` e `mfa`
+- fallback hospedado para `standalone showcase` quando o frontend de `staging` perde envs internas criticas de auth
 
 Classes de suite Playwright institucionalizadas:
 

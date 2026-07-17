@@ -41,6 +41,8 @@ Template serio para homologacao:
 | `NEXT_PUBLIC_AUTH_MODE` | `dev` | modo de auth exposto ao frontend |
 | `NEXT_PUBLIC_APP_ENV` | `local` | ambiente exposto ao frontend para fallback de UX |
 | `NEXT_PUBLIC_DEV_AUTH_ENABLED` | vazio ou `true` em local | gate publico de auth dev usado no fallback da UI |
+| `FRONTEND_STANDALONE_SHOWCASE_MODE` | vazio | ativa explicitamente o runtime `frontend standalone showcase` no servidor Next.js |
+| `NEXT_PUBLIC_FRONTEND_STANDALONE_SHOWCASE_MODE` | vazio | sinaliza ao browser que o shell deve operar em `standalone showcase` |
 | `OIDC_PROVIDER` | `keycloak` | preset de provider OIDC (`generic`, `keycloak`, `auth0`, `entra`) |
 | `KEYCLOAK_PUBLIC_URL` | `http://auth.localhost:8080` | URL publica esperada do Keycloak no scaffold local |
 | `KEYCLOAK_HOSTNAME` | `auth.localhost` | hostname usado pelo router do Traefik para o Keycloak local |
@@ -103,7 +105,7 @@ Servicos que usam:
 | `COMPLIANCE_TRM_SCREENING_URL` | vazio | URL completa do endpoint de screening do provider |
 | `COMPLIANCE_TRM_API_KEY` | vazio | credencial do provider AML/KYT |
 | `COMPLIANCE_TRM_API_KEY_HEADER` | `Authorization` | nome do header usado para enviar a credencial |
-| `COMPLIANCE_TRM_API_KEY_PREFIX` | `Bearer ` | prefixo aplicado antes da credencial no header |
+| `COMPLIANCE_TRM_API_KEY_PREFIX` | `Bearer` | prefixo aplicado antes da credencial no header; no uso padrao, este valor segue acompanhado de um espaco antes do token |
 | `COMPLIANCE_TRM_TIMEOUT_MS` | `1500` | timeout por tentativa do provider AML/KYT |
 | `COMPLIANCE_TRM_MAX_RETRIES` | `1` | numero maximo de retries no adapter de `risk-check` |
 | `OPENSANCTIONS_API_KEY` | vazio | credencial usada pelo worker para enriquecimento e sincronizacao de listas via OpenSanctions |
@@ -154,6 +156,7 @@ Servicos que usam:
 | `OIDC_CLIENT_ID` | `ontrackchain-web` | client id OIDC, usado como fallback de audience |
 | `OIDC_JWKS_URL` | `http://keycloak:8080/realms/ontrackchain/protocol/openid-connect/certs` | URL explicita do JWKS; no scaffold local usa a rede interna Docker |
 | `OIDC_AUTHORIZATION_URL` | `http://auth.localhost:8080/realms/ontrackchain/protocol/openid-connect/auth` | URL explicita do fluxo de login OIDC |
+| `OIDC_TOKEN_URL` | vazio | override opcional do endpoint de `token`; quando ausente, o frontend deriva a URL a partir de `OIDC_ISSUER_URL` ou `OIDC_AUTHORIZATION_URL` |
 | `OIDC_ORG_CLAIM` | `org` | override manual da claim usada como organizacao |
 | `OIDC_PLAN_CLAIM` | `plan` | override manual da claim usada como plano |
 | `OIDC_ROLE_CLAIM` | `otk_role` | override manual da claim usada como papel |
@@ -203,6 +206,7 @@ Servico principal:
 |---|---|---|
 | `INTERNAL_API_BASE_URL` | `http://traefik` | base interna para proxies server-side |
 | `INTERNAL_AUTH_BASE_URL` | `http://auth-service:9000` | override opcional para validacao direta de token em proxies server-side sensiveis |
+| `INTERNAL_KEYCLOAK_BASE_URL` | `http://keycloak:8080` | base interna do IdP usada pelo frontend server-side para `token exchange` e callbacks OIDC |
 | `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:${TRAEFIK_HTTP_PORT}` | base publica no browser |
 | `NEXT_PUBLIC_APP_ENV` | `local` | ambiente refletido na UI para fallback seguro |
 | `NEXT_PUBLIC_DEV_AUTH_ENABLED` | vazio ou `true` em local | informa ao frontend se o login dev pode permanecer habilitado |
@@ -212,6 +216,9 @@ Observacao critica:
 - no container do frontend, o Traefik deve ser acessado como `http://traefik`, nao `http://traefik:8080`
 - o proxy de export administrativo dos incidentes globais usa `INTERNAL_AUTH_BASE_URL` quando presente; no compose local o fallback direto para `auth-service:9000` e suficiente
 - quando `APP_ENV` for `staging` ou `production`, o recomendado e deixar `DEV_AUTH_ENABLED=false` para impedir o uso acidental de `issue-dev-token`
+- o frontend expõe `GET /auth/config` e tenta proxy para `${INTERNAL_AUTH_BASE_URL}/auth/config` quando esse upstream existir
+- em runtime hospedado (`APP_ENV=test|staging|production`) sem `INTERNAL_AUTH_BASE_URL` ou `INTERNAL_KEYCLOAK_BASE_URL`, o frontend entra automaticamente em `hostedShowcaseFallback`, passa a se anunciar como `render-frontend-standalone-showcase` e libera a UX seeded do showcase
+- o `hostedShowcaseFallback` e um mecanismo de contingencia operacional para evitar um estado hibrido quebrado; ele nao substitui o blueprint `full-stack` quando a meta for validar `OIDC`, `MFA`, `RBAC` e APIs reais
 
 Observacao de escopo:
 

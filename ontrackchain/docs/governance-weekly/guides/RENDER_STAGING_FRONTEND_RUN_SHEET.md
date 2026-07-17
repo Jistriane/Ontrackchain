@@ -102,6 +102,8 @@ Registrar:
 
 - `frontend_service_status`: `healthy | degraded | failed`
 - `frontend_healthz_status`: `200 | 503 | n/a`
+- `frontend_deployment_model`: `render-full-stack-staging | render-frontend-standalone-showcase | outro`
+- `frontend_hosted_showcase_fallback`: `true | false | n/a`
 - `frontend_missing_env_keys`: `preencher ou []`
 
 ### 4. Validar rotas minimas publicas
@@ -126,6 +128,7 @@ O frontend so pode ser considerado pronto para o rito tecnico seguinte quando:
 - o `gateway` roteia `/login` corretamente
 - `AUTH_MODE=oidc` fica coerente na UI
 - nao existe drift de env obrigatoria no `/api/healthz`
+- `hostedShowcaseFallback` permanece `false`; se vier `true`, trate como contingencia visual e nao como frontend `full-stack` pronto
 
 Registrar:
 
@@ -166,6 +169,7 @@ Marcar esta trilha como pronta para handoff tecnico somente se todos estiverem v
 - [ ] `auth-service` respondeu em `/health`
 - [ ] `Keycloak` respondeu no realm
 - [ ] nao houve drift de env obrigatoria no frontend
+- [ ] `hostedShowcaseFallback=false` no frontend
 - [ ] owner humano revisou as evidencias minimas
 
 ## Resultado da Janela

@@ -115,7 +115,13 @@ Contrato mínimo do serviço:
 - `INTERNAL_KEYCLOAK_BASE_URL=https://ontrackchain-keycloak-staging.onrender.com`
 - `NEXT_PUBLIC_API_BASE_URL=https://ontrackchain-gateway-staging.onrender.com`
 
-O endpoint `/api/healthz` do frontend valida apenas a presença das envs obrigatórias do runtime hospedado. Ele existe para detectar drift de configuração do serviço sem depender do login completo ou de chamadas transversais ao gateway.
+O endpoint `/api/healthz` do frontend continua sendo a sonda primária de drift de configuração, mas agora há uma nuance importante de runtime:
+
+- no `full-stack` saudável, ele responde `deploymentModel=render-full-stack-staging`
+- se o serviço hospedado perder `INTERNAL_AUTH_BASE_URL` ou `INTERNAL_KEYCLOAK_BASE_URL`, o frontend entra em `hostedShowcaseFallback`
+- nesse fallback, o endpoint pode responder `deploymentModel=render-frontend-standalone-showcase` e `hostedShowcaseFallback=true`, sinalizando que o frontend caiu deliberadamente para showcase seeded em vez de permanecer num estado híbrido quebrado
+
+Esse fallback existe para preservar uma vitrine navegável do frontend, mas nao conta como prova de `OIDC`, `MFA`, `RBAC` ou integração real.
 
 ## O Que Ainda Fica Limitado
 

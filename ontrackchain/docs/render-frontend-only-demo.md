@@ -60,9 +60,11 @@ Trade-offs aceitos:
 ## Comportamento Esperado
 
 - `/api/healthz` responde sem depender de envs internas do stack full-stack
+- `/auth/config` responde localmente sem depender de `auth-service`
 - a home sobe em modo `standalone showcase`
 - o menu lateral e as rotas do frontend ficam navegáveis
 - a página de login informa explicitamente que o deploy nao usa backend real nem autenticação operacional
+- o dashboard materializa dados seeded, inclusive `Gestao de equipe`, sem depender de sessao real
 
 ## Fluxo Recomendado
 
@@ -70,10 +72,12 @@ Trade-offs aceitos:
 2. criar o serviço `ontrackchain-frontend-showcase-staging`
 3. executar o `sync` sem preencher segredos
 4. validar `https://ontrackchain-frontend-showcase-staging.onrender.com/api/healthz`
-5. validar `https://ontrackchain-frontend-showcase-staging.onrender.com/`
-6. confirmar que `/login` redireciona o usuário para a experiência de showcase sem autenticação real
-7. validar `https://ontrackchain-frontend-showcase-staging.onrender.com/dashboard`
-8. confirmar que os atalhos principais do dashboard navegam para `/alerts`, `/monitoring`, `/reports`, `/evidence`, `/billing` e `/team`
+5. validar `https://ontrackchain-frontend-showcase-staging.onrender.com/auth/config`
+6. validar `https://ontrackchain-frontend-showcase-staging.onrender.com/`
+7. confirmar que `/login` redireciona o usuário para a experiência de showcase sem autenticação real
+8. validar `https://ontrackchain-frontend-showcase-staging.onrender.com/dashboard`
+9. confirmar que os atalhos principais do dashboard navegam para `/alerts`, `/monitoring`, `/reports`, `/evidence`, `/billing` e `/team`
+10. confirmar que o módulo `Gestao de equipe / contrapartes` aparece com dados seeded
 
 ## Gate de Saida
 
@@ -81,6 +85,7 @@ Considere este recorte pronto apenas se:
 
 - o deploy convergir sem preenchimento manual
 - `/api/healthz` responder `200`
+- `/auth/config` responder `200`
 - a home carregar sem erro de runtime
 - o shell principal carregar sem depender de backend real
 - o dashboard carregar com dados seeded

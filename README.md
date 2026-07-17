@@ -2,63 +2,39 @@
 
 ![Ontrackchain](./ontrackchain/docs/assets/logo.jpeg)
 
-Plataforma modular de investigacao e compliance on-chain com foco em trilha auditavel, operacao multiusuario, screening regulatorio, governanca de release e evidencia rastreavel.
+Workspace principal publicado do projeto Ontrackchain. Esta raiz existe para onboarding, navegacao do GitHub, workflows compartilhados e orientacao sobre qual arvore tecnica deve ser usada como fonte ativa.
 
 ## Leitura Rapida
 
 Se este e seu primeiro contato com o repositorio, leia nesta ordem:
 
 1. [Snapshot Executivo](#snapshot-executivo)
-2. [Mapa Canonico](#mapa-canonico)
-3. [README tecnico da aplicacao](./ontrackchain/README.md)
-4. [Indice canonico da documentacao](./ontrackchain/docs/README.md)
+2. [Mapa do Workspace](#mapa-do-workspace)
+3. [README tecnico da arvore ativa](./ontrackchain/README.md)
+4. [Indice canonico da documentacao ativa](./ontrackchain/docs/README.md)
 
 Resumo em 30 segundos:
 
-- baseline oficial: `93%` tecnico, `79%` regulatorio/operacional, `89%` consolidado
-- o gargalo principal deixou de ser construcao de base e passou a ser homologacao externa, prova operacional revisavel e aceite institucional
+- baseline oficial atual: `93%` tecnico, `79%` regulatorio/operacional, `89%` consolidado
+- o principal gap nao e mais scaffold; agora e homologacao externa real, prova revisavel e aceite institucional
 - o ciclo ativo continua em `2026-07-13`, com a tentativa `stg-2026-07-13-a` ainda em `pending_no_go`
-- a raiz existe para onboarding e navegacao; a fonte primaria do projeto vive em `ontrackchain/` e `ontrackchain/docs/`
-- a trilha documental ja foi saneada para separar documento vivo, evidencia de ciclo, historico de apoio e historico frio
-
-## Fluxo de Leitura Canonica
-
-O diagrama abaixo mostra como navegar pelo workspace sem misturar baseline viva, evidencias datadas e historico.
-
-```mermaid
-flowchart TD
-    A[README raiz] --> B[Snapshot Executivo]
-    A --> C[Mapa Canonico]
-    C --> D[ontrackchain/README.md]
-    C --> E[ontrackchain/docs/README.md]
-    E --> F[Arquitetura, contratos e operacao]
-    E --> G[governance-weekly/cycles]
-    E --> H[docs/history]
-    E --> I[governance-weekly/archive]
-
-    classDef primary fill:#0f172a,stroke:#0f172a,color:#fff;
-    classDef live fill:#dbeafe,stroke:#2563eb,color:#111827;
-    classDef evidence fill:#dcfce7,stroke:#16a34a,color:#111827;
-    classDef history fill:#f3f4f6,stroke:#6b7280,color:#111827;
-
-    class A,E primary;
-    class D,F live;
-    class G evidence;
-    class H,I history;
-```
+- a arvore tecnica ativa deste repositorio e `ontrackchain/`
+- o blueprint padrao do Render passou a ser `frontend standalone showcase`; o `full-stack` ficou isolado em `render.full-stack.yaml`
+- o frontend ativo agora expõe `GET /auth/config` como bootstrap canonico do login
+- em runtime hospedado sem `INTERNAL_AUTH_BASE_URL` ou `INTERNAL_KEYCLOAK_BASE_URL`, o frontend cai deliberadamente para `standalone showcase`
 
 ## Snapshot Executivo
 
 ### Estado atual
 
-- arquitetura modular operando sobre `frontend`, servicos `FastAPI`, `PostgreSQL`, `Redis`, workers e observabilidade
+- arquitetura modular baseada em `frontend Next.js 14`, servicos `FastAPI`, `PostgreSQL`, `Redis`, workers e observabilidade
 - trilha regulatoria funcional em `counterparties`, `preventive_blocks`, `evidence`, `reports` e `ROS/COAF`
 - operacao multiusuario compartilhada por `regulatory_work_items`, timeline e comentarios estruturados
-- cockpit frontend tri-locale com workspaces convergidos e contratos visuais endurecidos
+- cockpit frontend tri-locale com contratos visuais endurecidos e workspaces convergidos
 - RCA cross-domain leve consolidada entre `alerts`, `/monitoring`, export operacional e governanca
-- blueprint padrao do Render promovido para `frontend-only demo`, com o `staging full-stack` isolado em arquivo dedicado
+- runtime hospedado documentado com dois modos claros: `frontend standalone showcase` e `staging full-stack`
 
-### O que ja foi consolidado
+### Consolidado
 
 | Frente | Estado | Resultado atual |
 | --- | --- | --- |
@@ -67,14 +43,69 @@ flowchart TD
 | `P2-03` RCA cross-domain | `done` | RCA leve persistida, lida por `monitoring` e refletida em governanca |
 | `P2-05` RBAC incremental | `in_progress` | enforcement fino expandido por `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties` e navegacao global sensivel |
 
-### O que ainda bloqueia o salto regulatorio
+### Bloqueadores para o salto regulatorio
 
 - `P0-01`: homologar `OIDC + MFA` federado em trilho serio
-- `P0-02`: fechar `AML/KYT live` com credencial real e artefato revisavel
-- `P0-03`: ativar feed UE real com URL tokenizada e persistencia auditavel
-- `P0-04`: consolidar `P0-02 + P0-03` em bundle regulatorio oficial
-- `P0-05`: executar a primeira janela seria material com `go/no-go` formal
-- `P0-06`: formalizar sign-off recorrente de retention/recovery
+- `P0-02`: fechar provider `AML/KYT live` com credencial real e artefato revisavel
+- `P0-03`: fechar feed UE com URL tokenizada real
+- `P0-04`: consolidar bundle regulatorio oficial com evidencias revisaveis
+- `P0-05`: executar a primeira janela seria completa com `go/no-go` formal
+- `P0-06`: formalizar recorrencia de retention/recovery com sign-off institucional
+
+## Mapa do Workspace
+
+Esta raiz agrega o codigo publicado, a documentacao canônica e os workflows de governanca.
+
+- `ontrackchain/`: arvore tecnica ativa, com codigo, docs e blueprints mais recentes
+- `.github/`: workflows e materiais compartilhados do repositório
+- `ontrackchain/docs/`: documentacao viva, runbooks, blueprints e governanca semanal
+
+### Fluxo de leitura canonica
+
+```mermaid
+flowchart TD
+    A[README raiz] --> B[ontrackchain/README.md]
+    A --> C[ontrackchain/docs/README.md]
+    C --> D[Arquitetura, contratos e operacao]
+    C --> E[governance-weekly/cycles]
+    C --> F[docs/history]
+    C --> G[governance-weekly/archive]
+
+    classDef primary fill:#0f172a,stroke:#0f172a,color:#fff;
+    classDef live fill:#dbeafe,stroke:#2563eb,color:#111827;
+    classDef evidence fill:#dcfce7,stroke:#16a34a,color:#111827;
+    classDef history fill:#f3f4f6,stroke:#6b7280,color:#111827;
+
+    class A,C primary;
+    class B,D live;
+    class E evidence;
+    class F,G history;
+```
+
+## Modos de Deploy
+
+### 1. Frontend Standalone Showcase
+
+Use quando a meta for publicar uma vitrine navegavel do frontend sem backend real e sem segredos.
+
+- blueprint: [render.yaml](./ontrackchain/render.yaml)
+- doc canonica: [Blueprint Render - Frontend Standalone Showcase](./ontrackchain/docs/render-frontend-only-demo.md)
+- comportamento esperado:
+  - `FRONTEND_STANDALONE_SHOWCASE_MODE=true`
+  - `/api/healthz` responde sem depender de auth interna
+  - `/auth/config` responde localmente
+  - dashboard seeded sobe com navegacao e `Gestao de equipe`
+
+### 2. Staging Full-Stack
+
+Use quando a meta for validar a arquitetura real do produto com `OIDC`, banco, workers, APIs e observabilidade.
+
+- blueprint: [render.full-stack.yaml](./ontrackchain/render.full-stack.yaml)
+- doc canonica: [Blueprint Render para Staging Full-Stack](./ontrackchain/docs/render-staging-blueprint.md)
+- comportamento esperado:
+  - `gateway`, `frontend`, `auth-service`, `Keycloak`, APIs e workers convergem
+  - `/api/healthz` do frontend responde `render-full-stack-staging`
+  - se faltarem envs internas criticas, o frontend pode cair em `hostedShowcaseFallback`; isso preserva UX seeded, mas nao prova integracao real
 
 ## Arquitetura em 60 Segundos
 
@@ -87,51 +118,24 @@ flowchart TD
 - `report-api` gera relatorios deterministas e governa o workflow `ROS/COAF`
 - `PostgreSQL` com `RLS` sustenta o dominio multi-tenant; `Redis` cobre fila, retry, DLQ e concorrencia
 
-### Fluxo Macro da Plataforma
-
-```mermaid
-flowchart LR
-    U[Operador e Compliance] --> T[Traefik]
-    S[Sistemas externos e providers] --> T
-    T --> A[auth-service]
-    T --> F[frontend Next.js]
-    F --> I[investigation-api]
-    F --> C[compliance-api]
-    F --> M[monitoring-api]
-    F --> R[report-api]
-    C --> CW[compliance-worker]
-    M --> AL[Alertmanager]
-    I --> P[(PostgreSQL RLS)]
-    C --> P
-    M --> P
-    R --> P
-    I --> X[(Redis)]
-    C --> X
-    M --> X
-    R --> X
-    C --> G[Trilha auditavel e governanca]
-    M --> G
-    R --> G
-```
-
 ## Mapa Canonico
 
 ### Portas de entrada
 
-- [README tecnico da aplicacao](./ontrackchain/README.md)
-- [Indice canonico da documentacao](./ontrackchain/docs/README.md)
+- [README tecnico da arvore ativa](./ontrackchain/README.md)
+- [Indice canonico da documentacao ativa](./ontrackchain/docs/README.md)
 
 ### Documentos principais
 
 - [Arquitetura](./ontrackchain/docs/architecture.md)
 - [Contratos de API](./ontrackchain/docs/api-contracts.md)
 - [RBAC e Permissoes](./ontrackchain/docs/rbac-and-permissions.md)
-- [Cobertura do Frontend](./ontrackchain/docs/frontend-coverage-matrix.md)
+- [Deploy e Staging](./ontrackchain/docs/deploy-and-staging.md)
+- [Variaveis de Ambiente](./ontrackchain/docs/environment-variables.md)
+- [Runbooks Operacionais](./ontrackchain/docs/runbooks.md)
 - [Resumo Executivo de Readiness](./ontrackchain/docs/project-executive-readiness-brief.md)
 - [Scorecard Oficial](./ontrackchain/docs/project-kpi-scorecard.md)
 - [Avaliacao de Maturidade](./ontrackchain/docs/project-maturity-assessment.md)
-- [Board de Prioridades](./ontrackchain/docs/project-priority-board.md)
-- [Board Operacional](./ontrackchain/docs/project-operational-execution-board.md)
 - [Governanca Semanal](./ontrackchain/docs/governance-weekly/README.md)
 
 ### Evidencia datada e historico
@@ -153,8 +157,8 @@ flowchart LR
 
 1. [operations.md](./ontrackchain/docs/operations.md)
 2. [deploy-and-staging.md](./ontrackchain/docs/deploy-and-staging.md)
-3. [project-release-gates.md](./ontrackchain/docs/project-release-gates.md)
-4. [governance-weekly/README.md](./ontrackchain/docs/governance-weekly/README.md)
+3. [render-staging-blueprint.md](./ontrackchain/docs/render-staging-blueprint.md)
+4. [runbooks.md](./ontrackchain/docs/runbooks.md)
 
 ### Compliance / Regulacao
 
@@ -169,14 +173,19 @@ flowchart LR
 1. [project-executive-readiness-brief.md](./ontrackchain/docs/project-executive-readiness-brief.md)
 2. [project-kpi-scorecard.md](./ontrackchain/docs/project-kpi-scorecard.md)
 3. [project-priority-board.md](./ontrackchain/docs/project-priority-board.md)
-4. [governance-weekly/cycles/2026-07-13/README.md](./ontrackchain/docs/governance-weekly/cycles/2026-07-13/README.md)
+4. [ciclo ativo](./ontrackchain/docs/governance-weekly/cycles/2026-07-13/README.md)
 
 ## Quick Start
 
-### 1. Subir a stack local
+### 1. Entrar na arvore ativa
 
 ```bash
 cd ontrackchain
+```
+
+### 2. Subir a stack local
+
+```bash
 cp .env.example .env
 docker compose up -d --build
 ```
@@ -184,14 +193,12 @@ docker compose up -d --build
 Para exercitar `OIDC` localmente:
 
 ```bash
-cd ontrackchain
 docker compose --profile oidc up -d --build
 ```
 
-### 2. Validar o baseline local
+### 3. Validar o baseline local
 
 ```bash
-cd ontrackchain
 python3 scripts/smoke_runtime.py
 make apply-regulatory-work-items-migration
 make smoke-work-items-ownership-backend
@@ -209,10 +216,9 @@ Observacoes:
 - use `npm run test:e2e:oidc-critical` apenas quando o runtime real estiver em `AUTH_MODE=oidc`
 - para mudancas server-side no frontend, prefira `docker compose up -d --build frontend`
 
-### 3. Validar readiness serio
+### 4. Validar readiness serio
 
 ```bash
-cd ontrackchain
 python3 scripts/preflight_external_integrations.py
 make check-compliance-provider-runtime \
   INTERNAL_BASE_URL=http://compliance-api:8002 \
@@ -237,59 +243,35 @@ make run-serious-window-local WINDOW_ID=stg-2026-07-13-a MODE=baseline
 make postprocess-serious-window RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
 ```
 
-Estado atual da janela:
+Estado atual:
 
 - `stg-2026-07-13-a` segue em `pending_no_go`
 - o bloqueio principal continua sendo insumo externo real, ownership material e prova revisavel
 - `ROS/COAF` segue sendo a trilha mais sensivel para validacao fim a fim do staging
 
-### Fluxo da Janela Seria
-
-```mermaid
-flowchart TD
-    A[Preparar ambiente e segredos reais] --> B[preflight_external_integrations]
-    B --> C[Checks de provider]
-    C --> D[Bundles de readiness OIDC e regulatorio]
-    D --> E[Preparar serious window com window_id]
-    E --> F[Executar localmente ou via GitHub Actions]
-    F --> G[Gerar packet, checks, dossier e manifestos]
-    G --> H[Pos-processar snapshot, war room e sign-off]
-    H --> I[Atualizar governance-weekly/cycles]
-    I --> J[Decisao formal go/no-go]
-```
-
 ## Politica Documental
 
-- este `README.md` da raiz existe para onboarding, visao executiva curta e navegacao do GitHub
-- [ontrackchain/README.md](./ontrackchain/README.md) e a porta de entrada tecnica da aplicacao
-- [ontrackchain/docs/README.md](./ontrackchain/docs/README.md) e o indice canonico da documentacao
+- este `README.md` da raiz existe para onboarding, navegacao e orientacao do repositorio
+- a porta de entrada tecnica da aplicacao e [ontrackchain/README.md](./ontrackchain/README.md)
+- o indice canonico da documentacao ativa e [ontrackchain/docs/README.md](./ontrackchain/docs/README.md)
 - artefatos datados ainda ativos devem viver em `ontrackchain/docs/governance-weekly/cycles/`
 - historico datado de apoio deve viver em `ontrackchain/docs/history/`
 - historico frio consolidado deve viver em `ontrackchain/docs/governance-weekly/archive/`
-- outputs gerados, como relatorios de compliance, devem viver em `ontrackchain/docs/compliance-reports/` e nao devem ser editados manualmente
+- outputs gerados devem viver em suas pastas canônicas e nao devem ser editados manualmente
 - `.publish_repo/` foi aposentado e removido em `2026-07-15`
 - documentos paralelos, redundantes ou supersedidos devem ser consolidados, arquivados ou removidos
 
-## Como Ler a Documentacao
-
-Use esta precedencia quando houver duvida:
+### Precedencia de leitura
 
 1. `ontrackchain/docs/README.md` e os documentos canonicamente indexados nele
 2. `ontrackchain/docs/governance-weekly/cycles/` para evidencia datada ainda navegavel
 3. `ontrackchain/docs/history/` e `ontrackchain/docs/governance-weekly/archive/` apenas como contexto historico
 
-Leitura pratica:
-
-- se voce quer o estado atual do projeto, comece por `docs/`
-- se voce quer a prova de uma semana ou janela especifica, use `governance-weekly/cycles/`
-- se voce quer entender uma decisao antiga, use `history/` ou `archive/`
-
 ## Estrutura do Repositorio
 
 ```text
-Ontrackchain/
+github_main/
 ├── .github/
-├── Makefile
 ├── README.md
 └── ontrackchain/
     ├── apps/
@@ -299,8 +281,8 @@ Ontrackchain/
     ├── scripts/
     ├── tests/
     ├── docker-compose.yml
-    ├── Makefile
-    ├── .env.example
+    ├── render.yaml
+    ├── render.full-stack.yaml
     └── README.md
 ```
 

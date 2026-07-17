@@ -61,6 +61,12 @@ Isso significa que o deploy mais barato e menos arriscado no Render:
 
 Esse recorte existe para publicar uma vitrine honesta do frontend sem exigir preenchimento manual de `sync: false` nem dependências privadas.
 
+Nuance importante de runtime:
+
+- o frontend hospedado também pode cair automaticamente em `standalone showcase` quando `APP_ENV=test|staging|production` e faltarem `INTERNAL_AUTH_BASE_URL` ou `INTERNAL_KEYCLOAK_BASE_URL`
+- nesse caso, `/api/healthz` passa a anunciar `deploymentModel=render-frontend-standalone-showcase` com `hostedShowcaseFallback=true`
+- trate esse estado como contingencia visual honesta, nao como validação de `OIDC`, `MFA`, `RBAC` ou APIs reais
+
 Quando o objetivo for validar o runtime real do produto, use o blueprint dedicado [render.full-stack.yaml](../render.full-stack.yaml), descrito em [Blueprint Render para Staging Full-Stack](render-staging-blueprint.md).
 
 Use [Blueprint Render para Staging Full-Stack](render-staging-blueprint.md) quando o objetivo for:

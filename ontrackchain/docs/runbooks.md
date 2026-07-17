@@ -145,11 +145,13 @@ curl -fsS http://localhost:8080/auth/config
 - indisponibilidade do IdP ou do fator adicional configurado no provedor
 - claims obrigatorias ausentes no token retornado
 - regressao no callback OIDC ou no proxy server-side do frontend
+- `INTERNAL_AUTH_BASE_URL` ou `INTERNAL_KEYCLOAK_BASE_URL` ausentes no frontend hospedado, fazendo o runtime cair em `hostedShowcaseFallback`
 
 ### Runbook 4 — Indisponibilidade de OIDC ou MFA do provedor — Regra de fallback
 
 - `local` e `test`: pode-se usar o fluxo `dev + TOTP` apenas para diagnostico local controlado
 - `staging` e `production`: fallback para `dev` e proibido como resposta operacional padrao
+- `staging` hospedado pode cair automaticamente em `hostedShowcaseFallback`; isso preserva a navegacao seeded, mas nao substitui o restabelecimento do `full-stack`
 - qualquer excecao fora do local exige aprovacao explicita de `Arquitetura/Backend Auth` e registro do incidente
 
 ### Runbook 4 — Indisponibilidade de OIDC ou MFA do provedor — Acao imediata
@@ -160,9 +162,11 @@ curl -fsS http://localhost:8080/auth/config
    - erro de configuracao OIDC
    - regressao no callback/frontend
    - politica de MFA do provedor nao aplicada
+   - frontend hospedado degradado para `hostedShowcaseFallback`
 3. se `staging|production`, manter `DEV_AUTH_ENABLED=false` e tratar o caso como incidente de identidade
 4. abrir/atualizar incidente operacional com owner de identidade
 5. comunicar claramente que o `TOTP` local nao substitui o MFA corporativo no modo `OIDC`
+6. consultar `/api/healthz` do frontend e registrar `deploymentModel`, `hostedShowcaseFallback` e `missingEnvKeys`
 
 ### Runbook 4 — Indisponibilidade de OIDC ou MFA do provedor — Critério de excecao
 
