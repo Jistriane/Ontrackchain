@@ -9,7 +9,8 @@ COPY infra/render/scripts /app/infra/render/scripts
 
 RUN pip install --no-cache-dir --upgrade pip \
   && pip install --no-cache-dir hatchling \
-  && pip install --no-cache-dir .
+  && pip install --no-cache-dir . \
+  && chmod +x /app/infra/render/scripts/start-auth-service.sh
 
 EXPOSE 9000
 

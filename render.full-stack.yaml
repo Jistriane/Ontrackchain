@@ -95,7 +95,7 @@ services:
     plan: starter
     dockerContext: ./ontrackchain
     dockerfilePath: ./ontrackchain/infra/render/auth-service/Dockerfile
-    dockerCommand: sh -lc "python3 infra/render/scripts/apply_postgres_bootstrap.py && uvicorn auth_service.main:app --host 0.0.0.0 --port 9000"
+    dockerCommand: /app/infra/render/scripts/start-auth-service.sh
     healthCheckPath: /health
     envVars:
       - key: APP_ENV
