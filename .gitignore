@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 !ontrackchain/.env.staging.example
+!ontrackchain/.env.oidc-local.example
 
 __pycache__/
 *.py[cod]

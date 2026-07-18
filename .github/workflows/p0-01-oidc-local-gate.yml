@@ -1,0 +1,107 @@
+name: P0-01 OIDC Local Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Base URL do stack local OIDC levantado no runner"
+        required: true
+        default: "http://localhost:8080"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p0-01-oidc-local-gate
+  cancel-in-progress: false
+
+jobs:
+  oidc-local-gate:
+    name: Executar gate local P0-01
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+        working-directory: ontrackchain
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: ontrackchain/apps/frontend/package-lock.json
+
+      - name: Validate workflow hygiene
+        run: make check-workflow-hygiene
+
+      - name: Prepare CI artifacts directory
+        run: mkdir -p ci-artifacts
+
+      - name: Install frontend dependencies
+        working-directory: ontrackchain/apps/frontend
+        run: npm ci
+
+      - name: Install Playwright browser
+        working-directory: ontrackchain/apps/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Reset stale local OIDC stack
+        if: always()
+        run: make stop-oidc-local OIDC_LOCAL_ENV_FILE=ci-artifacts/.env.oidc-ci || true
+
+      - name: Run P0-01 local gate
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+        run: |
+          set -o pipefail
+          make gate-p0-01-oidc-ci OIDC_CI_BASE_URL="${BASE_URL}" 2>&1 | tee ci-artifacts/p0-01-oidc-local-gate.log
+
+      - name: Collect Docker diagnostics
+        if: always()
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+        run: |
+          COMPOSE_ARGS=(-f docker-compose.yml -f docker-compose.oidc-local.yml --env-file ci-artifacts/.env.oidc-ci --profile oidc)
+          docker compose "${COMPOSE_ARGS[@]}" ps > ci-artifacts/docker-compose-ps.txt || true
+          docker compose "${COMPOSE_ARGS[@]}" logs --tail=300 > ci-artifacts/docker-compose-logs.txt || true
+          curl --silent --show-error "${BASE_URL%/}/auth/config" > ci-artifacts/auth-config-public.json || true
+          docker compose "${COMPOSE_ARGS[@]}" exec -T auth-service python -c '
+          import json
+          from urllib.request import urlopen
+
+          with urlopen("http://localhost:9000/auth/config", timeout=10) as response:
+              payload = json.load(response)
+          print(json.dumps(payload, ensure_ascii=True))
+          ' > ci-artifacts/auth-config-auth-service.json || true
+          docker compose "${COMPOSE_ARGS[@]}" exec -T frontend sh -lc \
+            "env | grep -E 'APP_ENV|AUTH_MODE|DEV_AUTH_ENABLED|NEXT_PUBLIC_APP_ENV|NEXT_PUBLIC_AUTH_MODE|NEXT_PUBLIC_DEV_AUTH_ENABLED|INTERNAL_AUTH_BASE_URL|INTERNAL_KEYCLOAK_BASE_URL' | sort" \
+            > ci-artifacts/frontend-env-snapshot.txt || true
+
+      - name: Tear down local OIDC stack
+        if: always()
+        run: make stop-oidc-local OIDC_LOCAL_ENV_FILE=ci-artifacts/.env.oidc-ci
+
+      - name: Remove ephemeral CI env file
+        if: always()
+        run: rm -f ci-artifacts/.env.oidc-ci
+
+      - name: Upload CI diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-01-oidc-local-gate-diagnostics
+          path: |
+            ontrackchain/ci-artifacts
+            ontrackchain/apps/frontend/playwright-report
+            ontrackchain/apps/frontend/test-results
+          if-no-files-found: warn
+          retention-days: 30

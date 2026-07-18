@@ -2,6 +2,14 @@ import { expect, type APIRequestContext, type Page } from "@playwright/test";
 
 export const showcaseOnly = process.env.TEST_SHOWCASE_MODE === "true";
 
+export type FrontendHealthzPayload = {
+  status: string;
+  deploymentModel: string;
+  standaloneShowcaseMode: boolean;
+  hostedShowcaseFallback?: boolean;
+  missingEnvKeys: string[];
+};
+
 const SEEDED_MANUAL_PACKAGE_ACTIONS: Record<string, string> = {
   "req-showcase-dd-001": "compliance_due_diligence_checked",
   "req-showcase-sof-001": "compliance_source_of_funds_checked"
@@ -38,9 +46,42 @@ function readDownloadFilenameFromHeaders(headers: Record<string, string>) {
   return plainMatch?.[1]?.trim() ?? "";
 }
 
+export async function readFrontendHealthz(page: Page): Promise<FrontendHealthzPayload> {
+  const response = await page.request.get("/api/healthz");
+  const payload = (await response.json()) as FrontendHealthzPayload;
+  return payload;
+}
+
+export function assertStandaloneShowcasePayload(payload: FrontendHealthzPayload) {
+  expect(payload.deploymentModel).toBe("render-frontend-standalone-showcase");
+  expect(payload.standaloneShowcaseMode).toBe(true);
+  expect(payload.missingEnvKeys).not.toContain("INTERNAL_API_BASE_URL");
+  expect(payload.missingEnvKeys).not.toContain("INTERNAL_AUTH_BASE_URL");
+  expect(payload.missingEnvKeys).not.toContain("INTERNAL_KEYCLOAK_BASE_URL");
+  expect(payload.missingEnvKeys).not.toContain("NEXT_PUBLIC_API_BASE_URL");
+  return payload;
+}
+
+export async function assertStandaloneShowcaseRuntime(page: Page) {
+  return assertStandaloneShowcasePayload(await readFrontendHealthz(page));
+}
+
 export async function loginIntoShowcase(page: Page) {
+  const payload = await readFrontendHealthz(page);
+  if (!payload.standaloneShowcaseMode || payload.deploymentModel !== "render-frontend-standalone-showcase") {
+    throw new Error(
+      [
+        "showcase_runtime_mismatch",
+        `deploymentModel=${payload.deploymentModel}`,
+        `standaloneShowcaseMode=${String(payload.standaloneShowcaseMode)}`,
+        `hostedShowcaseFallback=${String(payload.hostedShowcaseFallback ?? false)}`,
+        `missingEnvKeys=${payload.missingEnvKeys.join(",") || "none"}`
+      ].join(" ")
+    );
+  }
   await page.goto("/login");
   await expect(page.getByTestId("login-btn")).toBeVisible();
+  await expect(page.getByTestId("login-btn")).toBeEnabled();
   await page.getByTestId("login-btn").click();
   await expect(page).toHaveURL(/\/dashboard$/);
 }

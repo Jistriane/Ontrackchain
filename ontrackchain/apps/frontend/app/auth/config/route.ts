@@ -62,12 +62,34 @@ function deriveTokenUrl(env: NodeJS.ProcessEnv) {
   }
 }
 
+function resolveOidcProvider(env: NodeJS.ProcessEnv) {
+  return readTrimmed(env.OIDC_PROVIDER) ?? "keycloak";
+}
+
+function resolveOidcClaimNames(env: NodeJS.ProcessEnv) {
+  const provider = resolveOidcProvider(env).toLowerCase();
+  const defaultsByProvider: Record<string, { org: string; plan: string; role: string }> = {
+    generic: { org: "org_id", plan: "plan", role: "role" },
+    keycloak: { org: "org", plan: "plan", role: "otk_role" },
+    auth0: { org: "org_id", plan: "plan", role: "role" },
+    entra: { org: "tenant_id", plan: "extension_plan", role: "roles" }
+  };
+  const defaults = defaultsByProvider[provider] ?? defaultsByProvider.keycloak;
+
+  return {
+    org: readTrimmed(env.OIDC_ORG_CLAIM) ?? defaults.org,
+    plan: readTrimmed(env.OIDC_PLAN_CLAIM) ?? defaults.plan,
+    role: readTrimmed(env.OIDC_ROLE_CLAIM) ?? defaults.role
+  };
+}
+
 function buildFallbackConfig(env: NodeJS.ProcessEnv = process.env) {
   const appEnv = resolveAppEnv(env);
   const authMode = resolveConfiguredAuthMode(env);
   const effectiveAuthMode = resolveEffectiveAuthMode(env);
   const devAuthEnabled = isDevAuthEnabled(env);
-  const oidcProvider = readTrimmed(env.OIDC_PROVIDER);
+  const oidcProvider = resolveOidcProvider(env);
+  const oidcClaims = resolveOidcClaimNames(env);
 
   return {
     auth_mode: authMode,
@@ -77,7 +99,7 @@ function buildFallbackConfig(env: NodeJS.ProcessEnv = process.env) {
     mfa: {
       enabled: effectiveAuthMode === "oidc",
       method: effectiveAuthMode === "oidc" ? "external_provider" : "totp",
-      managed_by: effectiveAuthMode === "oidc" ? "external_provider" : "application",
+      managed_by: effectiveAuthMode === "oidc" ? "oidc_provider" : "application",
       provider: oidcProvider,
       provider_homologated: readBoolean(env.MFA_EXTERNAL_PROVIDER_HOMOLOGATED),
       issuer: readTrimmed(env.MFA_TOTP_ISSUER),
@@ -92,7 +114,8 @@ function buildFallbackConfig(env: NodeJS.ProcessEnv = process.env) {
       client_id: readTrimmed(env.OIDC_CLIENT_ID),
       audience: readTrimmed(env.OIDC_AUDIENCE),
       authorization_url: readTrimmed(env.OIDC_AUTHORIZATION_URL),
-      token_url: deriveTokenUrl(env)
+      token_url: deriveTokenUrl(env),
+      claims: oidcClaims
     }
   };
 }

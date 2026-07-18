@@ -54,6 +54,9 @@ Campos mínimos esperados:
 - `oidc.audience`
 - `oidc.authorization_url`
 - `oidc.token_url`
+- `oidc.claims.org`
+- `oidc.claims.plan`
+- `oidc.claims.role`
 
 Response exemplo:
 
@@ -66,7 +69,7 @@ Response exemplo:
   "mfa": {
     "enabled": true,
     "method": "external_provider",
-    "managed_by": "external_provider",
+    "managed_by": "oidc_provider",
     "provider": "keycloak",
     "provider_homologated": false,
     "issuer": "OnTrackChain",
@@ -81,7 +84,12 @@ Response exemplo:
     "client_id": "ontrackchain-web",
     "audience": "ontrackchain-api",
     "authorization_url": "https://auth.staging.ontrackchain.com/realms/ontrackchain/protocol/openid-connect/auth",
-    "token_url": "https://auth.staging.ontrackchain.com/realms/ontrackchain/protocol/openid-connect/token"
+    "token_url": "https://auth.staging.ontrackchain.com/realms/ontrackchain/protocol/openid-connect/token",
+    "claims": {
+      "org": "org",
+      "plan": "plan",
+      "role": "otk_role"
+    }
   }
 }
 ```

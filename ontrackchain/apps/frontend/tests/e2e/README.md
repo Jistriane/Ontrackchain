@@ -33,6 +33,10 @@ Scripts principais:
 - `npm run test:e2e:oidc-auth:real`
 - `npm run test:e2e:oidc-critical`
 
+Para execucao local canonica do gate `P0-01` (sobe Keycloak + stack e roda preflight/smoke/playwright):
+
+- `make gate-p0-01-oidc-local`
+
 ### Browser-mocked
 
 Suites com foco em fluxo de UI e contratos locais de browser, tipicamente sem depender da malha inteira atras do proxy:
@@ -71,6 +75,9 @@ Usar para rerun cirurgico, isolamento de regressao e investigacao:
 - `npm run test:e2e -- tests/e2e/<spec>.spec.ts --grep "<cenario>"`
 - `npm run test:e2e:alerts-dashboard-context`
 - `npm run test:e2e:ssr-mocked`
+- `npm run test:e2e:showcase`
+
+`test:e2e:showcase` e o comando canonico da suíte publica minima do `standalone showcase`. Ele assume o frontend ativo em `http://127.0.0.1:3001` com as envs do blueprint `render.yaml` e desliga o `global-setup` da malha full-stack para nao contaminar a validacao com dependencias que esse recorte nao usa.
 
 ## Guardrails de Execucao
 

@@ -1,25 +1,13 @@
 import { expect, test } from "@playwright/test";
 
-import { loginIntoShowcase, showcaseOnly } from "./showcase-helpers";
+import { assertStandaloneShowcasePayload, loginIntoShowcase, showcaseOnly } from "./showcase-helpers";
 
 test.describe("standalone showcase dashboard", () => {
   test.skip(!showcaseOnly, "requer TEST_SHOWCASE_MODE=true");
 
   test("healthz expõe o modelo standalone showcase e não exige backend interno", async ({ request }) => {
     const response = await request.get("/api/healthz");
-    const payload = (await response.json()) as {
-      status: string;
-      deploymentModel: string;
-      standaloneShowcaseMode: boolean;
-      missingEnvKeys: string[];
-    };
-
-    expect(payload.deploymentModel).toBe("render-frontend-standalone-showcase");
-    expect(payload.standaloneShowcaseMode).toBe(true);
-    expect(payload.missingEnvKeys).not.toContain("INTERNAL_API_BASE_URL");
-    expect(payload.missingEnvKeys).not.toContain("INTERNAL_AUTH_BASE_URL");
-    expect(payload.missingEnvKeys).not.toContain("INTERNAL_KEYCLOAK_BASE_URL");
-    expect(payload.missingEnvKeys).not.toContain("NEXT_PUBLIC_API_BASE_URL");
+    const payload = assertStandaloneShowcasePayload(await response.json());
 
     if (response.ok()) {
       expect(payload.status).toBe("ok");

@@ -15,6 +15,7 @@
     "test:e2e:oidc-auth:real": "bash tests/e2e/run-stack-real.sh oidc-auth",
     "test:e2e:stack-real-light": "bash tests/e2e/run-stack-real-light.sh",
     "test:e2e:browser-mocked": "bash tests/e2e/run-browser-mocked.sh",
+    "test:e2e:showcase": "TEST_SHOWCASE_MODE=true TEST_BASE_URL=http://127.0.0.1:3001 ONTRACKCHAIN_E2E_RESET_STATE=false ONTRACKCHAIN_E2E_RESET_RATE_LIMIT=false ONTRACKCHAIN_E2E_ENSURE_FRONTEND=false ONTRACKCHAIN_E2E_ENSURE_CORE_APIS=false ONTRACKCHAIN_E2E_ENSURE_WORKERS=false playwright test tests/e2e/showcase-auth.spec.ts tests/e2e/showcase-monitoring.spec.ts tests/e2e/showcase-dashboard.spec.ts tests/e2e/showcase-evidence.spec.ts",
     "test:e2e:oidc-critical": "bash tests/e2e/run-stack-real.sh oidc-critical",
     "test:e2e:dev-auth": "bash tests/e2e/run-dev-auth.sh",
     "test:e2e:alerts-dashboard-context": "playwright test tests/e2e/alerts-dashboard-context-links.spec.ts",

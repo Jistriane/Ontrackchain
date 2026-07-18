@@ -242,7 +242,7 @@ test("OIDC bloqueia ANALYST e VIEWER nas superficies administrativas e no legal_
 
     const billingReconciliation = await page.request.get("/api/app/billing/reconciliation?limit=5");
     expect(billingReconciliation.status(), `${user.role} nao deve ler billing reconciliation`).toBe(403);
-    await expect(billingReconciliation.json()).resolves.toMatchObject({ detail: "billing_balance_role_required" });
+    await expect(billingReconciliation.json()).resolves.toMatchObject({ detail: "billing_reconciliation_role_required" });
 
     const legalDownload = await page.request.get(
       `/api/app/reports/download?report_id=${generated.report_id}&case_id=${encodeURIComponent(

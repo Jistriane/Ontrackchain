@@ -63,6 +63,86 @@ export NEXT_PUBLIC_APP_ENV=staging
 export NEXT_PUBLIC_DEV_AUTH_ENABLED=false
 ```
 
+## Execucao Local Canonica (dev)
+
+Para validar a trilha `P0-01` em ambiente local com Keycloak (sem depender de staging hospedado), usar:
+
+```bash
+cd /home/jistriane/Ontrackchain/ontrackchain
+cp .env.oidc-local.example .env.oidc-local
+make gate-p0-01-oidc-local
+```
+
+O gate executa, nesta ordem:
+
+- `docker compose` com `--profile oidc` e override `docker-compose.oidc-local.yml`
+- `preflight_oidc_serious_env.py`
+- `smoke_auth_oidc_mode.py`
+- `run_oidc_playwright_critical.py` (que executa `test:e2e:oidc-critical`)
+
+## Execucao CI-Friendly
+
+Para rodar o mesmo gate em GitHub Actions sem preparar `.env` manualmente, usar o workflow:
+
+- `Actions -> P0-01 OIDC Local Gate -> Run workflow`
+
+Pre-requisitos para a validacao hospedada:
+
+- o workflow `p0-01-oidc-local-gate.yml` precisa estar commitado e sincronizado no branch remoto que sera usado no dispatch
+- a execucao hospedada depende do runner do GitHub, nao do ambiente local do operador
+- se o operador estiver sem `gh` CLI, o dispatch deve ser feito pela interface web do GitHub Actions
+- a revisao final deve preservar o `run_url` e os artefatos publicados pelo workflow
+
+Esse workflow materializa um env efemero a partir de `.env.oidc-local.example`, executa `make gate-p0-01-oidc-ci` e publica logs/artefatos do Playwright.
+
+Hardening operacional ja incorporado ao workflow:
+
+- faz reset explicito do stack OIDC local antes da execucao, reduzindo drift entre runs no mesmo runner
+- preserva `ci-artifacts/p0-01-oidc-local-gate.log`
+- coleta `auth-config-public.json` com a resposta externa de `/auth/config`
+- coleta `auth-config-auth-service.json` diretamente do `auth-service`
+- coleta `frontend-env-snapshot.txt` com o env efetivo do `frontend`
+
+### Pacote Minimo de Publicacao
+
+Antes do dispatch hospedado, garantir que o commit remoto inclua pelo menos estes grupos de arquivos:
+
+- workflow: `.github/workflows/p0-01-oidc-local-gate.yml`
+- gate e automacao local/CI: `ontrackchain/scripts/start_oidc_local.sh`, `ontrackchain/scripts/stop_oidc_local.sh`, `ontrackchain/scripts/run_p0_01_oidc_local_gate.sh`, `ontrackchain/scripts/run_p0_01_oidc_ci_gate.sh`, `ontrackchain/Makefile`, `ontrackchain/docker-compose.oidc-local.yml`, `ontrackchain/.env.oidc-local.example`
+- hardening de runtime/testes relacionado ao gate: `ontrackchain/apps/frontend/tests/e2e/oidc-auth.spec.ts`, `ontrackchain/apps/frontend/tests/e2e/billing-users.spec.ts`, `ontrackchain/apps/frontend/tests/e2e/run-stack-real.sh`
+- documentacao operacional: este guia, o run sheet e `.github/GOVERNANCE_CICD_SETUP.md`
+
+Se o branch remoto nao contiver esse conjunto coerente, a validacao hospedada perde rastreabilidade e pode falhar por mismatch entre workflow, scripts e contrato esperado.
+
+### Checklist de Revisao da Run Hospedada
+
+Ao final do workflow no GitHub Actions, revisar no minimo:
+
+- `run_url` da execucao
+- `p0-01-oidc-local-gate.log`
+- `auth-config-public.json`
+- `auth-config-auth-service.json`
+- `frontend-env-snapshot.txt`
+- `docker-compose-ps.txt`
+- `docker-compose-logs.txt`
+- `playwright-report`
+- `test-results`
+
+Sinais esperados para considerar a run aderente:
+
+- `auth_mode=oidc`
+- `effective_auth_mode=oidc`
+- `app_env=staging`
+- `DEV_AUTH_ENABLED=false`
+- ausencia de fallback silencioso para `dev auth`
+
+Quando o gate local ficar verde, o proximo passo canonico continua sendo gerar o bundle:
+
+```bash
+cd /home/jistriane/Ontrackchain/ontrackchain
+make run-oidc-readiness-bundle-local WINDOW_ID=stg-$(date +%F)-oidc BASE_URL=http://localhost:8080
+```
+
 ## Sequencia de Execucao Segura
 
 ### 1. Preflight de Ambiente Serio

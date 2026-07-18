@@ -90,7 +90,7 @@ Este documento deve ser lido em conjunto com:
 
 - `P0-02` homologar `AML/KYT live`
 - `P0-03` ativar feed UE real
-- `P0-01` destravar owner e ambiente de `OIDC + MFA` serio
+- `P0-01` executar `make gate-p0-01-oidc-local` e depois gerar bundle OIDC local enquanto o provider serio institucional segue bloqueado
 - `P1-02` converter capacidade tecnica em evidencia operacional recorrente
 
 ### Next
@@ -114,7 +114,7 @@ Este documento deve ser lido em conjunto com:
 
 ### Gates P0
 
-- `P0-01`: `preflight_oidc_serious_env.py`, `smoke_auth_oidc_mode.py`, bundle `<window>-oidc-readiness-bundle.json` e Playwright critico verdes
+- `P0-01`: `make gate-p0-01-oidc-local` verde como preparo local, mais `preflight_oidc_serious_env.py`, `smoke_auth_oidc_mode.py`, bundle `<window>-oidc-readiness-bundle.json` e Playwright critico verdes no trilho serio
 - `P0-02`: `check_compliance_provider_runtime.py` verde com artefato anexado
 - `P0-03`: `check_sanctions_sync_status.py` verde com JSONs da janela UE persistidos
 - `P0-04`: bundle regulatorio oficial coerente com `P0-02` + `P0-03`

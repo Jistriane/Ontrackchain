@@ -7,6 +7,7 @@ O Ontrackchain agora integra automação de governança no pipeline CI/CD via Gi
 1. **governance-gate-check.yml** — Valida gate em PRs/pushes; bloqueia deployment se governança não permite
 2. **governance-gate-refresh.yml** — Atualiza artefatos de governança diariamente (08:00 UTC) ou manualmente
 3. **governance-status-notify.yml** — Envia notificação Slack de status diário (09:00 UTC)
+4. **p0-01-oidc-local-gate.yml** — Executa o gate CI-friendly de `OIDC + MFA` com stack dockerizada local ao runner
 
 ## Setup Inicial
 
@@ -31,6 +32,7 @@ Acesse seu repositório → Actions para ver:
 - Governance Gate Check (automático em PRs/pushes)
 - Governance Artefacts Refresh (schedule: 08:00 UTC daily)
 - Governance Status Notification (schedule: 09:00 UTC daily)
+- P0-01 OIDC Local Gate (manual, para validar o rito local canônico em runner GitHub)
 
 ### 3. Configurar Branch Protection (Opcional)
 
@@ -126,6 +128,35 @@ Repository → Actions → Governance Artefacts Refresh → Run workflow
 
 **Entrada:**
 - `window_id` — ID da janela (auto-detecta se vazio)
+
+### p0-01-oidc-local-gate.yml
+
+**Quando roda:**
+- ✅ Manualmente via "Run workflow"
+
+**Pre-requisitos:**
+- o arquivo do workflow precisa estar commitado e presente no branch remoto selecionado no dispatch
+- o runner hospedado precisa conseguir construir `docker compose` e executar Playwright
+- se o operador nao tiver `gh` CLI autenticado, a execucao deve ser iniciada pela UI do GitHub
+
+**O que faz:**
+1. Prepara `ci-artifacts/`
+2. Instala dependencias do `frontend` e browser do Playwright
+3. Reseta stack OIDC local anterior para evitar drift entre execucoes
+4. Executa `make gate-p0-01-oidc-ci`
+5. Coleta diagnosticos do compose, do `/auth/config` externo, do `auth-service` e do env efetivo do `frontend`
+6. Derruba a stack e remove o env efemero
+7. Publica artefatos por 30 dias
+
+**Artefatos esperados:**
+- `ontrackchain/ci-artifacts/p0-01-oidc-local-gate.log`
+- `ontrackchain/ci-artifacts/docker-compose-ps.txt`
+- `ontrackchain/ci-artifacts/docker-compose-logs.txt`
+- `ontrackchain/ci-artifacts/auth-config-public.json`
+- `ontrackchain/ci-artifacts/auth-config-auth-service.json`
+- `ontrackchain/ci-artifacts/frontend-env-snapshot.txt`
+- `ontrackchain/apps/frontend/playwright-report`
+- `ontrackchain/apps/frontend/test-results`
 
 ## Exemplos de Uso
 

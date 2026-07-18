@@ -1,0 +1,36 @@
+services:
+  auth-service:
+    environment:
+      APP_ENV: ${APP_ENV:-staging}
+      AUTH_MODE: ${AUTH_MODE:-oidc}
+      DEV_AUTH_ENABLED: ${DEV_AUTH_ENABLED:-false}
+      OIDC_PROVIDER: ${OIDC_PROVIDER:-keycloak}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://auth.localhost:8080/realms/ontrackchain}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-ontrackchain-api}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-ontrackchain-web}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/realms/ontrackchain/protocol/openid-connect/certs}
+      OIDC_AUTHORIZATION_URL: ${OIDC_AUTHORIZATION_URL:-http://auth.localhost:8080/realms/ontrackchain/protocol/openid-connect/auth}
+      OIDC_ORG_CLAIM: ${OIDC_ORG_CLAIM:-org}
+      OIDC_PLAN_CLAIM: ${OIDC_PLAN_CLAIM:-plan}
+      OIDC_ROLE_CLAIM: ${OIDC_ROLE_CLAIM:-otk_role}
+      JWT_HS256_SECRET: ${JWT_HS256_SECRET:-local-dev-not-secret-change-me}
+      MFA_TOTP_SECRET: ${MFA_TOTP_SECRET:-JBSWY3DPEHPK3PXP}
+
+  frontend:
+    environment:
+      APP_ENV: ${APP_ENV:-staging}
+      AUTH_MODE: ${AUTH_MODE:-oidc}
+      DEV_AUTH_ENABLED: ${DEV_AUTH_ENABLED:-false}
+      NEXT_PUBLIC_APP_ENV: ${NEXT_PUBLIC_APP_ENV:-staging}
+      NEXT_PUBLIC_AUTH_MODE: ${NEXT_PUBLIC_AUTH_MODE:-oidc}
+      NEXT_PUBLIC_DEV_AUTH_ENABLED: ${NEXT_PUBLIC_DEV_AUTH_ENABLED:-false}
+
+  keycloak:
+    environment:
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+    command:
+      - start-dev
+      - --import-realm
+      - --proxy-headers=xforwarded
+      - --hostname=${KEYCLOAK_PUBLIC_URL:-http://auth.localhost:8080}
+      - --hostname-strict=false

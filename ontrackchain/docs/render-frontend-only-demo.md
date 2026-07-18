@@ -96,12 +96,10 @@ Considere este recorte pronto apenas se:
 Executar pelo menos a suíte pública mínima do showcase:
 
 ```bash
-TEST_SHOWCASE_MODE=true TEST_BASE_URL=http://127.0.0.1:3001 npm run test:e2e -- \
-  tests/e2e/showcase-auth.spec.ts \
-  tests/e2e/showcase-monitoring.spec.ts \
-  tests/e2e/showcase-dashboard.spec.ts \
-  tests/e2e/showcase-evidence.spec.ts
+npm run test:e2e:showcase
 ```
+
+O script canonico assume que o frontend showcase ja esta ativo em `http://127.0.0.1:3001` com as envs do blueprint `render.yaml` e desabilita o preflight da malha full-stack para evitar falsos negativos de infraestrutura.
 
 ## Relacao com o Blueprint Full-Stack
 

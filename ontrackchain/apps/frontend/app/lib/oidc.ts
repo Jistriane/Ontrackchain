@@ -24,6 +24,11 @@ export type AuthConfig = {
     audience?: string | null;
     authorization_url?: string | null;
     token_url?: string | null;
+    claims?: {
+      org?: string | null;
+      plan?: string | null;
+      role?: string | null;
+    };
   };
 };
 

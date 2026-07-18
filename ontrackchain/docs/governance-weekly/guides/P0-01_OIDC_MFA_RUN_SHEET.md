@@ -31,6 +31,23 @@ Complementa o [Guia de Execucao Assistida de `P0-01` OIDC + MFA serio](./P0-01_O
 
 ## Ordem de Execucao
 
+### Execucao local canonica (quando aplicavel)
+
+Quando a janela estiver sendo ensaiada localmente (Keycloak + stack docker), executar o gate canônico:
+
+```bash
+cd /home/jistriane/Ontrackchain/ontrackchain
+cp .env.oidc-local.example .env.oidc-local
+make gate-p0-01-oidc-local
+```
+
+Se a execucao ocorrer no GitHub Actions via `P0-01 OIDC Local Gate`, registrar tambem:
+
+- `ci_log`: `ci-artifacts/p0-01-oidc-local-gate.log`
+- `auth_config_public`: `ci-artifacts/auth-config-public.json`
+- `auth_config_auth_service`: `ci-artifacts/auth-config-auth-service.json`
+- `frontend_env_snapshot`: `ci-artifacts/frontend-env-snapshot.txt`
+
 ### 1. Validar handoff e placeholders
 
 ```bash
@@ -128,6 +145,10 @@ Registrar:
 - `artifacts/homologation/<arquivo>.json`, quando aplicavel
 - `artifacts/homologation/<arquivo>.manifest.json`, quando aplicavel
 - relatorio do `oidc-critical`
+- `ci-artifacts/p0-01-oidc-local-gate.log`, quando a trilha rodar em GitHub Actions
+- `ci-artifacts/auth-config-public.json`, quando a trilha rodar em GitHub Actions
+- `ci-artifacts/auth-config-auth-service.json`, quando a trilha rodar em GitHub Actions
+- `ci-artifacts/frontend-env-snapshot.txt`, quando a trilha rodar em GitHub Actions
 - `docs/governance-weekly/generated/windows/<window_id>/<window_id>-war-room-action-plan.md`
 - `docs/governance-weekly/generated/windows/<window_id>/<window_id>-status-snapshot.md`
 - `docs/governance-weekly/generated/windows/<window_id>/<window_id>-status-snapshot-delta.md`

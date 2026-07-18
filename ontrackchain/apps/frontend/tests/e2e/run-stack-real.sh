@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TEST_BASE_URL="${TEST_BASE_URL:-http://localhost:8080}"
 AUTH_CONFIG_URL="${TEST_BASE_URL}/auth/config"
 SUITE_NAME="${1:-}"
+CURL_READY_OPTS=(--silent --show-error --fail --retry 5 --retry-delay 1 --retry-all-errors)
 
 usage() {
   cat <<'EOF'
@@ -25,7 +26,7 @@ wait_for_url() {
   local attempts="${2:-20}"
 
   for ((i = 1; i <= attempts; i += 1)); do
-    if curl --silent --fail --output /dev/null "${url}"; then
+    if curl "${CURL_READY_OPTS[@]}" --output /dev/null "${url}"; then
       return 0
     fi
     sleep 1
@@ -38,7 +39,7 @@ wait_for_url() {
 read_auth_field() {
   local field_name="$1"
 
-  curl --silent --fail "${AUTH_CONFIG_URL}" | node -e '
+  curl "${CURL_READY_OPTS[@]}" "${AUTH_CONFIG_URL}" | node -e '
     const fieldName = process.argv[1];
     let data = "";
     process.stdin.on("data", (chunk) => {

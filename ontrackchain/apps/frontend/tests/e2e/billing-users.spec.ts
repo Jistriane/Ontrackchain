@@ -162,7 +162,7 @@ test.describe("billing users table", () => {
       await route.fulfill({
         status: 403,
         contentType: "application/json",
-        body: JSON.stringify({ detail: "billing_balance_role_required" })
+        body: JSON.stringify({ detail: "billing_reconciliation_role_required" })
       });
     });
 

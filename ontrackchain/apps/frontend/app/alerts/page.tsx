@@ -1167,6 +1167,19 @@ export default function AlertsPage() {
     }
   }
 
+  if (!authResolved) {
+    return (
+      <AppShell
+        title={tr("alerts.title" as MessageKey)}
+        subtitle={tr("alerts.subtitle" as MessageKey)}
+        activePath="/alerts"
+        actions={<Pill>{tr("alerts.active" as MessageKey)}</Pill>}
+      >
+        <Message data-testid="alerts-auth-loading">{t("common.loading")}</Message>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell title={tr("alerts.title" as MessageKey)} subtitle={tr("alerts.subtitle" as MessageKey)} activePath="/alerts" actions={<Pill>{tr("alerts.active" as MessageKey)}</Pill>}>
       <MetricGrid>

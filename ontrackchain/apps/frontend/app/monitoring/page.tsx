@@ -189,51 +189,55 @@ export default function MonitoringPage() {
         metricsText={metricsText}
       />
 
-      <PlatformAlertTriagePanel
-        t={t}
-        canReadPlatformAdmin={canReadPlatformAdmin}
-        canManagePlatformAdmin={canManagePlatformAdmin}
-        platformAlertStatusFilter={platformAlertStatusFilter}
-        platformAlertTriageFilter={platformAlertTriageFilter}
-        platformAlertServiceFilter={platformAlertServiceFilter}
-        platformAlertReceiverFilter={platformAlertReceiverFilter}
-        platformAlertSeverityFilter={platformAlertSeverityFilter}
-        platformAlertServiceOptions={platformAlertServiceOptions}
-        platformAlertReceiverOptions={platformAlertReceiverOptions}
-        refreshPlatformOperationalAlerts={refreshPlatformOperationalAlerts}
-        acknowledgeFilteredPlatformAlerts={acknowledgeFilteredPlatformAlerts}
-        acknowledgeSelectedPlatformAlerts={acknowledgeSelectedPlatformAlerts}
-        platformOperationalAlerts={platformOperationalAlerts}
-        platformAlertTrackedWorkItems={platformAlertTrackedWorkItems}
-        acknowledgingPlatformAlertsBatch={acknowledgingPlatformAlertsBatch}
-        selectedPlatformAlertIds={selectedPlatformAlertIds}
-        platformAlertExportFormat={platformAlertExportFormat}
-        exportingPlatformAlerts={exportingPlatformAlerts}
-        setPlatformAlertExportFormat={setPlatformAlertExportFormat}
-        exportPlatformAlerts={exportPlatformAlerts}
-        platformAlertPage={platformAlertPage}
-        platformAlertTotalPages={platformAlertTotalPages}
-        goToPreviousPlatformAlertsPage={goToPreviousPlatformAlertsPage}
-        goToNextPlatformAlertsPage={goToNextPlatformAlertsPage}
-        platformAlertCursorHistoryLength={platformAlertCursorHistory.length}
-        platformAlertMessage={platformAlertMessage}
-        allSelectablePlatformAlertsSelected={allSelectablePlatformAlertsSelected}
-        selectablePlatformAlertIds={selectablePlatformAlertIds}
-        toggleAllSelectablePlatformAlerts={toggleAllSelectablePlatformAlerts}
-        togglePlatformAlertSelection={togglePlatformAlertSelection}
-        translatePlatformSeverity={translatePlatformSeverity}
-        translatePlatformStatus={translatePlatformStatus}
-        translatePlatformTriage={translatePlatformTriage}
-        translatePlatformQueueStatus={translatePlatformQueueStatus}
-        translatePlatformContainmentStatus={translatePlatformContainmentStatus}
-        acknowledgingPlatformAlertId={acknowledgingPlatformAlertId}
-        acknowledgePlatformAlert={acknowledgePlatformAlert}
-        handlePlatformAlertStatusFilterChange={handlePlatformAlertStatusFilterChange}
-        handlePlatformAlertTriageFilterChange={handlePlatformAlertTriageFilterChange}
-        handlePlatformAlertServiceFilterChange={handlePlatformAlertServiceFilterChange}
-        handlePlatformAlertReceiverFilterChange={handlePlatformAlertReceiverFilterChange}
-        handlePlatformAlertSeverityFilterChange={handlePlatformAlertSeverityFilterChange}
-      />
+      {authResolved ? (
+        <PlatformAlertTriagePanel
+          t={t}
+          canReadPlatformAdmin={canReadPlatformAdmin}
+          canManagePlatformAdmin={canManagePlatformAdmin}
+          platformAlertStatusFilter={platformAlertStatusFilter}
+          platformAlertTriageFilter={platformAlertTriageFilter}
+          platformAlertServiceFilter={platformAlertServiceFilter}
+          platformAlertReceiverFilter={platformAlertReceiverFilter}
+          platformAlertSeverityFilter={platformAlertSeverityFilter}
+          platformAlertServiceOptions={platformAlertServiceOptions}
+          platformAlertReceiverOptions={platformAlertReceiverOptions}
+          refreshPlatformOperationalAlerts={refreshPlatformOperationalAlerts}
+          acknowledgeFilteredPlatformAlerts={acknowledgeFilteredPlatformAlerts}
+          acknowledgeSelectedPlatformAlerts={acknowledgeSelectedPlatformAlerts}
+          platformOperationalAlerts={platformOperationalAlerts}
+          platformAlertTrackedWorkItems={platformAlertTrackedWorkItems}
+          acknowledgingPlatformAlertsBatch={acknowledgingPlatformAlertsBatch}
+          selectedPlatformAlertIds={selectedPlatformAlertIds}
+          platformAlertExportFormat={platformAlertExportFormat}
+          exportingPlatformAlerts={exportingPlatformAlerts}
+          setPlatformAlertExportFormat={setPlatformAlertExportFormat}
+          exportPlatformAlerts={exportPlatformAlerts}
+          platformAlertPage={platformAlertPage}
+          platformAlertTotalPages={platformAlertTotalPages}
+          goToPreviousPlatformAlertsPage={goToPreviousPlatformAlertsPage}
+          goToNextPlatformAlertsPage={goToNextPlatformAlertsPage}
+          platformAlertCursorHistoryLength={platformAlertCursorHistory.length}
+          platformAlertMessage={platformAlertMessage}
+          allSelectablePlatformAlertsSelected={allSelectablePlatformAlertsSelected}
+          selectablePlatformAlertIds={selectablePlatformAlertIds}
+          toggleAllSelectablePlatformAlerts={toggleAllSelectablePlatformAlerts}
+          togglePlatformAlertSelection={togglePlatformAlertSelection}
+          translatePlatformSeverity={translatePlatformSeverity}
+          translatePlatformStatus={translatePlatformStatus}
+          translatePlatformTriage={translatePlatformTriage}
+          translatePlatformQueueStatus={translatePlatformQueueStatus}
+          translatePlatformContainmentStatus={translatePlatformContainmentStatus}
+          acknowledgingPlatformAlertId={acknowledgingPlatformAlertId}
+          acknowledgePlatformAlert={acknowledgePlatformAlert}
+          handlePlatformAlertStatusFilterChange={handlePlatformAlertStatusFilterChange}
+          handlePlatformAlertTriageFilterChange={handlePlatformAlertTriageFilterChange}
+          handlePlatformAlertServiceFilterChange={handlePlatformAlertServiceFilterChange}
+          handlePlatformAlertReceiverFilterChange={handlePlatformAlertReceiverFilterChange}
+          handlePlatformAlertSeverityFilterChange={handlePlatformAlertSeverityFilterChange}
+        />
+      ) : (
+        <Message data-testid="platform-alert-auth-loading">{t("common.loading")}</Message>
+      )}
 
       <DlqRemediationPanel
         t={t}

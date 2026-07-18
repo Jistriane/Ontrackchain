@@ -97,6 +97,7 @@ export function useMonitoringPlatformAlerts({
   const [platformAlertConfirmDialogState, setPlatformAlertConfirmDialogState] = useState<PlatformAlertConfirmDialogState>(null);
   const platformAlertsRequestIdRef = useRef(0);
   const platformAlertSelectionScopeRef = useRef<string | null>(null);
+  const platformAlertFiltersTouchedRef = useRef(false);
   const platformAlertFiltersRef = useRef<PlatformAlertFilterState>({
     status: "all",
     triageStatus: "all",
@@ -106,12 +107,22 @@ export function useMonitoringPlatformAlerts({
   });
   const standaloneShowcaseMode = isFrontendStandaloneShowcaseMode();
 
+  function currentPlatformAlertFiltersFromState(): PlatformAlertFilterState {
+    return {
+      status: platformAlertStatusFilter,
+      triageStatus: platformAlertTriageFilter,
+      service: platformAlertServiceFilter,
+      receiver: platformAlertReceiverFilter,
+      severity: platformAlertSeverityFilter
+    };
+  }
+
   function currentPlatformAlertFilters(
-    status = platformAlertFiltersRef.current.status,
-    triageStatus = platformAlertFiltersRef.current.triageStatus,
-    service = platformAlertFiltersRef.current.service,
-    receiver = platformAlertFiltersRef.current.receiver,
-    severity = platformAlertFiltersRef.current.severity
+    status = platformAlertStatusFilter,
+    triageStatus = platformAlertTriageFilter,
+    service = platformAlertServiceFilter,
+    receiver = platformAlertReceiverFilter,
+    severity = platformAlertSeverityFilter
   ): PlatformAlertFilterState {
     return { status, triageStatus, service, receiver, severity };
   }
@@ -203,10 +214,35 @@ export function useMonitoringPlatformAlerts({
       return;
     }
 
+    if (platformAlertFiltersTouchedRef.current) {
+      platformAlertFiltersRef.current = currentPlatformAlertFiltersFromState();
+      platformAlertSelectionScopeRef.current = null;
+      setPlatformAlertSelectionScope(null);
+      setPlatformAlertCursor(null);
+      setPlatformAlertCursorHistory([]);
+
+      loadPlatformOperationalAlertFilterOptions().catch(() => setError(t("monitoring.errors.loadPlatformFilterOptions")));
+      const filters = currentPlatformAlertFiltersFromState();
+      loadPlatformOperationalAlerts(filters.status, filters.triageStatus, filters.service, filters.receiver, filters.severity, null)
+        .catch(() => setError(t("monitoring.errors.loadPlatformAlerts")))
+        .finally(() => setPlatformAlertSelectionHydrated(true));
+      refreshMetricsPreview().catch(() => setError(t("monitoring.errors.loadMetrics")));
+      return;
+    }
+
     const initialSelection = resolveInitialPlatformAlertSelectionState(
       typeof window !== "undefined" ? window.sessionStorage : null
     );
-    setPlatformAlertStatusFilter(initialSelection.status);
+    const normalizedFilters: PlatformAlertFilterState = {
+      status: "all",
+      triageStatus: initialSelection.triageStatus,
+      service: initialSelection.service,
+      receiver: initialSelection.receiver,
+      severity: initialSelection.severity
+    };
+    const normalizedScope = buildPlatformAlertSelectionScope(normalizedFilters);
+
+    setPlatformAlertStatusFilter("all");
     setPlatformAlertTriageFilter(initialSelection.triageStatus);
     setPlatformAlertServiceFilter(initialSelection.service);
     setPlatformAlertReceiverFilter(initialSelection.receiver);
@@ -215,18 +251,18 @@ export function useMonitoringPlatformAlerts({
     setPlatformAlertCursorHistory(initialSelection.cursorHistory);
     setSelectedPlatformAlertIds(initialSelection.selectedIds);
     platformAlertFiltersRef.current = currentPlatformAlertFilters(
-      initialSelection.status,
+      "all",
       initialSelection.triageStatus,
       initialSelection.service,
       initialSelection.receiver,
       initialSelection.severity
     );
-    platformAlertSelectionScopeRef.current = initialSelection.selectionScope;
-    setPlatformAlertSelectionScope(initialSelection.selectionScope);
+    platformAlertSelectionScopeRef.current = normalizedScope;
+    setPlatformAlertSelectionScope(normalizedScope);
 
     loadPlatformOperationalAlertFilterOptions().catch(() => setError(t("monitoring.errors.loadPlatformFilterOptions")));
     loadPlatformOperationalAlerts(
-      initialSelection.status,
+      "all",
       initialSelection.triageStatus,
       initialSelection.service,
       initialSelection.receiver,
@@ -296,7 +332,7 @@ export function useMonitoringPlatformAlerts({
     setError(null);
     setPlatformAlertCursor(null);
     setPlatformAlertCursorHistory([]);
-    const filters = currentPlatformAlertFilters();
+    const filters = currentPlatformAlertFiltersFromState();
     await loadPlatformOperationalAlerts(
       filters.status,
       filters.triageStatus,
@@ -312,7 +348,7 @@ export function useMonitoringPlatformAlerts({
       return;
     }
     const targetIds = new Set(eventIds);
-    const filters = currentPlatformAlertFilters();
+    const filters = currentPlatformAlertFiltersFromState();
     const acknowledgedAt = new Date().toISOString();
     setPlatformOperationalAlerts((current) => {
       if (!current) {
@@ -356,7 +392,7 @@ export function useMonitoringPlatformAlerts({
     setError(null);
     setPlatformAlertCursorHistory((current) => [...current, platformAlertCursor]);
     setPlatformAlertCursor(nextCursor);
-    const filters = currentPlatformAlertFilters();
+    const filters = currentPlatformAlertFiltersFromState();
     await loadPlatformOperationalAlerts(
       filters.status,
       filters.triageStatus,
@@ -378,7 +414,7 @@ export function useMonitoringPlatformAlerts({
     const previousCursor = platformAlertCursorHistory[platformAlertCursorHistory.length - 1] ?? null;
     setPlatformAlertCursorHistory((current) => current.slice(0, -1));
     setPlatformAlertCursor(previousCursor);
-    const filters = currentPlatformAlertFilters();
+    const filters = currentPlatformAlertFiltersFromState();
     await loadPlatformOperationalAlerts(
       filters.status,
       filters.triageStatus,
@@ -439,17 +475,18 @@ export function useMonitoringPlatformAlerts({
     setPlatformAlertMessage(null);
     setAcknowledgingPlatformAlertsBatch(true);
     try {
+      const filters = currentPlatformAlertFiltersFromState();
       const res = await fetch("/api/app/monitoring/operational-alerts/acknowledge-batch", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           note: "ack_batch_from_monitoring_ui",
           triaged_by: "admin_ui",
-          status: currentPlatformAlertFilters().status === "all" ? null : currentPlatformAlertFilters().status,
-          triage_status: currentPlatformAlertFilters().triageStatus === "all" ? null : currentPlatformAlertFilters().triageStatus,
-          service: currentPlatformAlertFilters().service === "all" ? null : currentPlatformAlertFilters().service,
-          receiver: currentPlatformAlertFilters().receiver === "all" ? null : currentPlatformAlertFilters().receiver,
-          severity: currentPlatformAlertFilters().severity === "all" ? null : currentPlatformAlertFilters().severity
+          status: filters.status === "all" ? null : filters.status,
+          triage_status: filters.triageStatus === "all" ? null : filters.triageStatus,
+          service: filters.service === "all" ? null : filters.service,
+          receiver: filters.receiver === "all" ? null : filters.receiver,
+          severity: filters.severity === "all" ? null : filters.severity
         }),
         cache: "no-store"
       });
@@ -509,6 +546,7 @@ export function useMonitoringPlatformAlerts({
     setPlatformAlertMessage(null);
     setAcknowledgingPlatformAlertsBatch(true);
     try {
+      const filters = currentPlatformAlertFiltersFromState();
       const res = await fetch("/api/app/monitoring/operational-alerts/acknowledge-batch", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -516,11 +554,11 @@ export function useMonitoringPlatformAlerts({
           ids: selectedIds,
           note: "ack_selected_from_monitoring_ui",
           triaged_by: "admin_ui",
-          status: currentPlatformAlertFilters().status === "all" ? null : currentPlatformAlertFilters().status,
-          triage_status: currentPlatformAlertFilters().triageStatus === "all" ? null : currentPlatformAlertFilters().triageStatus,
-          service: currentPlatformAlertFilters().service === "all" ? null : currentPlatformAlertFilters().service,
-          receiver: currentPlatformAlertFilters().receiver === "all" ? null : currentPlatformAlertFilters().receiver,
-          severity: currentPlatformAlertFilters().severity === "all" ? null : currentPlatformAlertFilters().severity
+          status: filters.status === "all" ? null : filters.status,
+          triage_status: filters.triageStatus === "all" ? null : filters.triageStatus,
+          service: filters.service === "all" ? null : filters.service,
+          receiver: filters.receiver === "all" ? null : filters.receiver,
+          severity: filters.severity === "all" ? null : filters.severity
         }),
         cache: "no-store"
       });
@@ -634,6 +672,7 @@ export function useMonitoringPlatformAlerts({
     setPlatformAlertMessage(null);
     setExportingPlatformAlerts(scope);
     try {
+      const filters = currentPlatformAlertFiltersFromState();
       const res = await fetch("/api/app/monitoring/operational-alerts/export", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -641,11 +680,11 @@ export function useMonitoringPlatformAlerts({
           format: platformAlertExportFormat,
           scope,
           ids: scope === "selected" ? selectedPlatformAlertIds : [],
-          status: currentPlatformAlertFilters().status === "all" ? null : currentPlatformAlertFilters().status,
-          triage_status: currentPlatformAlertFilters().triageStatus === "all" ? null : currentPlatformAlertFilters().triageStatus,
-          service: currentPlatformAlertFilters().service === "all" ? null : currentPlatformAlertFilters().service,
-          receiver: currentPlatformAlertFilters().receiver === "all" ? null : currentPlatformAlertFilters().receiver,
-          severity: currentPlatformAlertFilters().severity === "all" ? null : currentPlatformAlertFilters().severity
+          status: filters.status === "all" ? null : filters.status,
+          triage_status: filters.triageStatus === "all" ? null : filters.triageStatus,
+          service: filters.service === "all" ? null : filters.service,
+          receiver: filters.receiver === "all" ? null : filters.receiver,
+          severity: filters.severity === "all" ? null : filters.severity
         })
       });
       if (!res.ok) {
@@ -687,30 +726,35 @@ export function useMonitoringPlatformAlerts({
   }
 
   function handlePlatformAlertStatusFilterChange(value: string) {
+    platformAlertFiltersTouchedRef.current = true;
     platformAlertFiltersRef.current = currentPlatformAlertFilters(value);
     setPlatformAlertStatusFilter(value);
     resetPlatformAlertViewState();
   }
 
   function handlePlatformAlertTriageFilterChange(value: string) {
+    platformAlertFiltersTouchedRef.current = true;
     platformAlertFiltersRef.current = currentPlatformAlertFilters(undefined, value);
     setPlatformAlertTriageFilter(value);
     resetPlatformAlertViewState();
   }
 
   function handlePlatformAlertServiceFilterChange(value: string) {
+    platformAlertFiltersTouchedRef.current = true;
     platformAlertFiltersRef.current = currentPlatformAlertFilters(undefined, undefined, value);
     setPlatformAlertServiceFilter(value);
     resetPlatformAlertViewState();
   }
 
   function handlePlatformAlertReceiverFilterChange(value: string) {
+    platformAlertFiltersTouchedRef.current = true;
     platformAlertFiltersRef.current = currentPlatformAlertFilters(undefined, undefined, undefined, value);
     setPlatformAlertReceiverFilter(value);
     resetPlatformAlertViewState();
   }
 
   function handlePlatformAlertSeverityFilterChange(value: string) {
+    platformAlertFiltersTouchedRef.current = true;
     platformAlertFiltersRef.current = currentPlatformAlertFilters(undefined, undefined, undefined, undefined, value);
     setPlatformAlertSeverityFilter(value);
     resetPlatformAlertViewState();

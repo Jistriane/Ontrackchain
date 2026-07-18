@@ -10,6 +10,11 @@ export type AuthConfigResponse = {
     authorization_url?: string | null;
     client_id?: string | null;
     token_url?: string | null;
+    claims?: {
+      org?: string | null;
+      plan?: string | null;
+      role?: string | null;
+    };
   };
 };
 
