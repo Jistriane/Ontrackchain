@@ -97,12 +97,18 @@ jobs:
         env:
           ONTRACKCHAIN_INCLUDE_OIDC_PLAYWRIGHT_CRITICAL: "true"
           ONTRACKCHAIN_REQUIRE_OIDC_PLAYWRIGHT_CRITICAL: "true"
+          OUTPUT_DIR: ci-artifacts/p0-05
         run: |
           set -o pipefail
-          python scripts/prepare_staging_window.py \
-            --window-id "${{ inputs.window_id }}" \
-            --mode "${{ inputs.mode }}" \
-            --run 2>&1 | tee ci-artifacts/prepare-staging-window-output.json
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+          LOCAL_RUN_NAME="Serious staging window / ${{ inputs.window_id }} / ${{ inputs.mode }} / ${{ inputs.environment_name }}" \
+          WORKFLOW_NAME="Staging Serious Window" \
+          make gate-p0-05-serious-window \
+            WINDOW_ID="${{ inputs.window_id }}" \
+            MODE="${{ inputs.mode }}" \
+            PRIVATE_ENV_FILE=.env.staging.private \
+            GOVERNANCE_WEEKLY_DIR=docs/governance-weekly \
+            2>&1 | tee ci-artifacts/p0-05-serious-window-gate.log
 
       - name: Publish workflow summary
         if: always()
@@ -125,7 +131,7 @@ jobs:
           import json
           from pathlib import Path
 
-          payload_file = Path("ci-artifacts/prepare-staging-window-output.json")
+          payload_file = Path("ci-artifacts/p0-05/p0-05-payload.json")
           summary_file = Path("ci-artifacts/prepare-staging-window-summary.md")
 
           if not payload_file.exists():
@@ -178,15 +184,6 @@ jobs:
           PY
           cat ci-artifacts/prepare-staging-window-summary.md >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Render sign-off draft from payload
-        if: always()
-        run: |
-          python scripts/render_staging_window_signoff.py \
-            --payload-file ci-artifacts/prepare-staging-window-output.json \
-            --output-file ci-artifacts/staging-serious-window-signoff.md \
-            --run-name "Serious staging window / ${{ inputs.window_id }} / ${{ inputs.mode }} / ${{ inputs.environment_name }}" \
-            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
       - name: Append sign-off draft summary
         if: always()
         run: |
@@ -194,7 +191,7 @@ jobs:
             echo
             echo "## Sign-off draft"
             echo
-            echo "- Draft file: \`ci-artifacts/staging-serious-window-signoff.md\`"
+            echo "- Draft file: \`ci-artifacts/p0-05/p0-05-staging-serious-window-signoff.md\`"
             echo "- Run URL: \`${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\`"
           } >> "${GITHUB_STEP_SUMMARY}"
 
@@ -214,6 +211,8 @@ jobs:
             ontrackchain/artifacts/staging/templates
             ontrackchain/artifacts/staging/window-packet-${{ inputs.window_id }}.md
             ontrackchain/artifacts/homologation
+            ontrackchain/docs/governance-weekly/generated/windows
+            ontrackchain/docs/governance-weekly/cycles
             ontrackchain/apps/frontend/playwright-report
             ontrackchain/apps/frontend/test-results
           if-no-files-found: warn

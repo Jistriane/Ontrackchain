@@ -70,13 +70,12 @@ Registrar:
 ## Gate Agregado `T-15 min`
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
-python3 scripts/prepare_staging_window.py \
-  --window-id stg-2026-07-13-a \
-  --mode baseline \
-  --private-env-file .env.staging.private \
-  --validate \
-  --preflight
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+make gate-p0-05-serious-window \
+  WINDOW_ID=stg-2026-07-13-a \
+  MODE=baseline \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  GOVERNANCE_WEEKLY_DIR=docs/governance-weekly
 ```
 
 Registrar:
@@ -91,7 +90,7 @@ Registrar:
 ## Execucao `P0-02`
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/preflight_external_integrations.py
 make check-compliance-provider-runtime \
   INTERNAL_BASE_URL=http://compliance-api:8002 \
@@ -115,10 +114,11 @@ Registrar:
 ## Execucao `P0-03`
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 make rerun-compliance-worker
-make run-eu-sanctions-window-local WINDOW_ID=stg-2026-07-13-a
-make check-eu-sanctions-window
+export REQUEST_ID="stg-2026-07-13-a-eu-check"
+make gate-p0-03-eu-live WINDOW_ID=stg-2026-07-13-a REQUEST_ID="$REQUEST_ID"
+make check-eu-sanctions-window REQUEST_ID="$REQUEST_ID"
 ```
 
 Registrar:
@@ -137,8 +137,14 @@ Registrar:
 ## Consolidacao `P0-04`
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
-make run-regulatory-readiness-bundle-local WINDOW_ID=stg-2026-07-13-a
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+make gate-p0-04-regulatory-bundle \
+  WINDOW_ID=stg-2026-07-13-a \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  CHECKS_DIR=artifacts/staging/checks \
+  DOSSIERS_DIR=artifacts/staging/dossiers \
+  COMPLIANCE_INTERNAL_BASE_URL=http://compliance-api:8002 \
+  COMPLIANCE_PUBLIC_BASE_URL=http://localhost:8080
 python3 scripts/validate_serious_window_artifact.py \
   --window-id stg-2026-07-13-a \
   --checks-dir artifacts/staging/checks \
@@ -160,7 +166,7 @@ Registrar:
 ## Reconciliacao Final
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID=stg-2026-07-13-a
 ```
 

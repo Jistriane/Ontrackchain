@@ -54,12 +54,13 @@ def derive_regulatory_scope_label(*, weekly_model: dict[str, str]) -> str:
     return "none"
 
 
-def replace_line(lines: list[str], prefix: str, new_line: str) -> None:
+def replace_line(lines: list[str], prefix: str, new_line: str, *, required: bool = True) -> None:
     for index, line in enumerate(lines):
         if line.startswith(prefix):
             lines[index] = new_line
             return
-    raise ValueError(f"linha_nao_encontrada: {prefix}")
+    if required:
+        raise ValueError(f"linha_nao_encontrada: {prefix}")
 
 
 def build_model(*, payload: dict[str, Any], payload_file: Path) -> dict[str, str]:
@@ -77,6 +78,8 @@ def build_model(*, payload: dict[str, Any], payload_file: Path) -> dict[str, str
         "window_id": weekly_model["window_id"],
         "regulatory_scope_label": regulatory_scope_label,
         "regulatory_scope_is_combined": "true" if regulatory_scope_label == "P0-02/P0-03" else "false",
+        "blocking_classification": weekly_model.get("blocking_classification", "unknown"),
+        "blocking_summary": weekly_model.get("blocking_summary", "indisponivel"),
         "p0_02_in_scope": weekly_model.get("p0_02_in_scope", "false"),
         "p0_03_in_scope": weekly_model.get("p0_03_in_scope", "false"),
         "p0_01_status": weekly_model["p0_01_status"],
@@ -118,31 +121,37 @@ def update_operational_board_markdown(content: str, model: dict[str, str]) -> st
             f"tentativa atual cobre `{regulatory_scope_label}`, mas `P0-04` ainda depende do fechamento combinado de `P0-02` e `P0-03`"
         )
     )
+    if model["blocking_classification"] == "regulatory_blocked":
+        p0_02_attempt_note = f"{p0_02_attempt_note}; bloqueio dominante atual: {model['blocking_summary']}"
+        p0_03_attempt_note = f"{p0_03_attempt_note}; bloqueio dominante atual: {model['blocking_summary']}"
+        p0_04_rationale = f"{p0_04_rationale}; bloqueio dominante atual: {model['blocking_summary']}"
+    elif model["blocking_classification"] == "technical_gate_blocked":
+        p0_04_rationale = f"{p0_04_rationale}; falha tecnica dominante: {model['blocking_summary']}"
     replace_line(
         lines,
-        "| `P0-01` | `blocked` | Homologar `OIDC + MFA serio` |",
+        "| `P0-01` |",
         "| `P0-01` | "
-        f"`{model['p0_01_status']}` | Homologar `OIDC + MFA serio` | Backend/Auth | owner IdP, ambiente serio, claims finais | "
+        f"`{model['p0_01_status']}` | Homologar `OIDC + MFA` serio | Backend/Auth | owner IdP, ambiente serio, claims finais | "
         "`preflight_oidc_serious_env.py` verde, `smoke_auth_oidc_mode.py` verde, bundle `<window>-oidc-readiness-bundle.json`, Playwright critico verde | muito alto | "
         "fluxos sensiveis exigem auth serio e MFA homologado sem fallback silencioso |",
     )
     replace_line(
         lines,
-        "| `P0-02` | `ready` | Homologar `AML/KYT live` |",
+        "| `P0-02` |",
         "| `P0-02` | "
         f"`{model['p0_02_status']}` | Homologar `AML/KYT live` | Backend/Compliance | credencial real do provider | "
         "`check_compliance_provider_runtime.py` verde + artefato JSON | muito alto | readiness interna e API publica convergem com provider `live` |",
     )
     replace_line(
         lines,
-        "| `P0-03` | `ready` | Ativar feed UE real |",
+        "| `P0-03` |",
         "| `P0-03` | "
         f"`{model['p0_03_status']}` | Ativar feed UE real | Backend/Compliance | URL tokenizada valida | "
         "JSONs da janela UE + `check_sanctions_sync_status.py` verde | muito alto | `EU_CONSOLIDATED` fica valido e os artefatos da janela sao persistidos |",
     )
     replace_line(
         lines,
-        "| `P0-04` | `todo` | Gerar bundle regulatorio oficial |",
+        "| `P0-04` |",
         "| `P0-04` | "
         f"`{model['p0_04_status']}` | Gerar bundle regulatorio oficial | Platform/SRE | {p0_04_dependencies} | "
         f"`<window>-regulatory-readiness-bundle.json` | muito alto | {p0_04_closure} |",
@@ -153,6 +162,7 @@ def update_operational_board_markdown(content: str, model: dict[str, str]) -> st
         "| `P0-01` | "
         f"`{model['p0_01_status']}` | ainda depende de owner IdP, ambiente serio e validacao externa de MFA | "
         "mover para `in_progress` so quando houver owner confirmado e trilho serio verificavel |",
+        required=False,
     )
     replace_line(
         lines,
@@ -160,6 +170,7 @@ def update_operational_board_markdown(content: str, model: dict[str, str]) -> st
         "| `P0-02` | "
         f"`{model['p0_02_status']}` | {p0_02_attempt_note} | "
         "mover para `in_progress` quando a credencial AML/KYT estiver disponivel para execucao |",
+        required=False,
     )
     replace_line(
         lines,
@@ -167,6 +178,7 @@ def update_operational_board_markdown(content: str, model: dict[str, str]) -> st
         "| `P0-03` | "
         f"`{model['p0_03_status']}` | {p0_03_attempt_note} | "
         "mover para `in_progress` quando a URL real estiver confirmada no ambiente |",
+        required=False,
     )
     replace_line(
         lines,
@@ -174,6 +186,7 @@ def update_operational_board_markdown(content: str, model: dict[str, str]) -> st
         "| `P0-04` | "
         f"`{model['p0_04_status']}` | {p0_04_rationale} | "
         "mover para `ready` apenas depois que `P0-02` e `P0-03` estiverem ao menos em `ready_for_validation` |",
+        required=False,
     )
     return "\n".join(lines) + "\n"
 
@@ -222,6 +235,8 @@ def main() -> int:
                 "payload_file": str(payload_file),
                 "board_file": str(board_file),
                 "window_id": model["window_id"],
+                "blocking_classification": model["blocking_classification"],
+                "blocking_summary": model["blocking_summary"],
                 "p0_01_status": model["p0_01_status"],
                 "p0_02_status": model["p0_02_status"],
                 "p0_03_status": model["p0_03_status"],

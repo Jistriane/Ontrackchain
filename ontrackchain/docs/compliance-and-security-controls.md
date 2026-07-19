@@ -139,7 +139,7 @@ Observacao operacional:
 ## Recomendacoes Imediatas
 
 - homologar `AML/KYT` live com `check-compliance-provider-runtime` verde e evidencias da janela seria
-- rodar a janela UE com `run-eu-sanctions-window-local` quando `EU_CONSOLIDATED` estiver no escopo
+- rodar a janela UE com `gate-p0-03-eu-live` e `REQUEST_ID` quando `EU_CONSOLIDATED` estiver no escopo
 - registrar formalmente sign-off de retention/recovery e owners operacionais
 - manter `manual_review_required` explicitamente documentado ate existir motor homologado para DD/SoF
 - endurecer a trilha de selagem DD/SoF ja entregue, homologando o provider institucional definitivo e formalizando o trust bundle versionado

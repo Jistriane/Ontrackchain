@@ -188,19 +188,22 @@ Fluxo recomendado:
 1. rodar localmente:
 
 ```bash
-python scripts/prepare_staging_window.py \
-  --window-id stg-YYYY-MM-DD-a \
-  --mode baseline
+make gate-p0-05-serious-window \
+  WINDOW_ID=stg-YYYY-MM-DD-a \
+  MODE=baseline \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  GOVERNANCE_WEEKLY_DIR=docs/governance-weekly
 ```
 
 1. preencher `.env.staging.private` em canal seguro
 1. validar localmente:
 
 ```bash
-python scripts/prepare_staging_window.py \
-  --window-id stg-YYYY-MM-DD-a \
-  --mode baseline \
-  --validate
+make gate-p0-05-serious-window \
+  WINDOW_ID=stg-YYYY-MM-DD-a \
+  MODE=baseline \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  GOVERNANCE_WEEKLY_DIR=docs/governance-weekly
 ```
 
 1. copiar o conteúdo final do `.env.staging.private`

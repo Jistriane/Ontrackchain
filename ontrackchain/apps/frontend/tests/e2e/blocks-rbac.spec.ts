@@ -135,4 +135,16 @@ test.describe("blocks RBAC", () => {
 
     await expect(page.getByText("Lift executado com sucesso. Status atual: LIFTED.")).toBeVisible();
   });
+
+  test("alias OTK_COMPLIANCE_OFFICER recebe painel e consegue executar o lift", async ({ page }) => {
+    await seedBlocksPage(page, "OTK_COMPLIANCE_OFFICER");
+
+    await fillAndEvaluate(page);
+
+    await expect(page.getByTestId("blocks-lift-panel")).toBeVisible();
+    await page.locator("textarea").fill("Liberacao aprovada apos validacao regulatoria.");
+    await page.getByTestId("blocks-lift-btn").click();
+
+    await expect(page.getByText("Lift executado com sucesso. Status atual: LIFTED.")).toBeVisible();
+  });
 });

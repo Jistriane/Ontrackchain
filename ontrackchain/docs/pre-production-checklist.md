@@ -98,7 +98,7 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 - [ ] o `GitHub Environment` da janela possui approvals coerentes e secret `STAGING_WINDOW_PRIVATE_ENV`
 - [ ] o artifact `serious-staging-window-<janela>` foi anexado ao sign-off da promocao
 - [ ] bundle OIDC foi gerado quando P0-01 estava no escopo: `make run-oidc-readiness-bundle-local WINDOW_ID=<janela> BASE_URL=<url>` produziu `<janela>-oidc-readiness-bundle.json` e `<janela>-oidc-readiness-bundle.md`
-- [ ] bundle regulatorio foi gerado quando P0-02/P0-03 estavam no escopo: `make run-regulatory-readiness-bundle-local WINDOW_ID=<janela>` produziu `<janela>-regulatory-readiness-bundle.json` e `<janela>-regulatory-readiness-bundle.md`
+- [ ] bundle regulatorio foi gerado quando P0-02/P0-03 estavam no escopo: `make gate-p0-04-regulatory-bundle WINDOW_ID=<janela>` produziu `<janela>-regulatory-readiness-bundle.json` e `<janela>-regulatory-readiness-bundle.md`
 - [ ] completude do artifact foi validada: `make validate-serious-window-artifact-local WINDOW_ID=<janela>` passou com status `ok`
 - [ ] rollback de aplicacao foi testado
 - [ ] rollback/restore de banco foi testado
@@ -124,7 +124,7 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 - [ ] `GET /api/v1/compliance/operations` retorna `kyc_wallet.capability_status=live`
 - [ ] `POST /api/v1/compliance/risk-check` foi executado com `X-Request-Id` dedicado e evidência auditável
 - [ ] bundle exportado de `/audit` foi anexado para a homologacao AML/KYT live
-- [ ] quando houver feed UE no escopo, `make run-eu-sanctions-window-local WINDOW_ID=<janela>` gera `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json`
+- [ ] quando houver feed UE no escopo, `make gate-p0-03-eu-live WINDOW_ID=<janela> REQUEST_ID=<eu_request_id>` gera `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json`
 - [ ] quando houver feed UE no escopo, `EU_CONSOLIDATED` converge para `ACTIVE/SUCCESS` com `source_url` persistido coerente com o override
 - [ ] RPC primario e fallback foram validados
 - [ ] `python3 scripts/preflight_external_integrations.py` passa com `ONTRACKCHAIN_EXPECT_RPC_MODE=live|fallback_only` antes da janela RPC

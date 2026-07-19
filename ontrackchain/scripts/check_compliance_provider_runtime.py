@@ -284,7 +284,20 @@ def build_payload(
         ),
     }
 
+    readiness = {
+        "technical_status": "ok" if not errors else "blocked",
+        "readiness_status": "prepared_for_homologation" if not errors else "blocked",
+        "formal_evidence_required": True,
+        "promotion_requires_manual_review": True,
+        "next_action": (
+            "Executar homologation_external_evidence.py --mode compliance e revisar a evidencia formal antes de promover P0-02."
+            if not errors
+            else "Corrigir a convergencia live do provider AML/KYT antes de gerar evidencia formal."
+        ),
+    }
+
     return {
+        "kind": "compliance_provider_runtime_check",
         "status": "failed" if errors else "ok",
         "request_id": request_id,
         "internal_base_url": internal_base_url,
@@ -295,6 +308,7 @@ def build_payload(
         "sample_chain": sample_chain,
         "checks": checks,
         "correlation": correlation,
+        "readiness": readiness,
         "errors": errors,
     }
 

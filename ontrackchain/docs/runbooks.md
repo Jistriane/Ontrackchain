@@ -631,7 +631,7 @@ curl -u admin:admin http://localhost:3001/api/dashboards/uid/ontrack-compliance-
    - esperado: override persistido antes do sync
 3. Executar o gate canônico da janela UE:
    - preferencialmente `make run-eu-sanctions-window WINDOW_ID=<janela>`
-   - ou, de forma pontual, `make check-eu-sanctions-window`
+   - ou, de forma pontual, `make check-eu-sanctions-window REQUEST_ID=<eu_request_id>`
    - esperado: `EU_CONSOLIDATED` em `status=ACTIVE`
    - esperado: `EU_CONSOLIDATED.last_sync_status=SUCCESS`
    - esperado: `sanctions_lists_meta.source_url` igual ao override configurado
@@ -644,7 +644,9 @@ curl -u admin:admin http://localhost:3001/api/dashboards/uid/ontrack-compliance-
 
 ```bash
 export WINDOW_ID=stg-$(date +%F)-eu
-make run-eu-sanctions-window-local WINDOW_ID=$WINDOW_ID
+export REQUEST_ID=${WINDOW_ID}-eu-check
+make gate-p0-03-eu-live WINDOW_ID=$WINDOW_ID REQUEST_ID=$REQUEST_ID
+make check-eu-sanctions-window REQUEST_ID=$REQUEST_ID
 ```
 
 Se o arquivo privado nao estiver no caminho padrao ou se voce quiser isolar a saida:
@@ -661,7 +663,7 @@ make run-eu-sanctions-window \
 ### Runbook 16C — Homologacao do feed UE tokenizado — Evidencias Minimas
 
 - `python3 scripts/preflight_external_integrations.py` com `status=ok`
-- `make check-eu-sanctions-window` com `status=ok`
+- `make check-eu-sanctions-window REQUEST_ID=<eu_request_id>` com `status=ok`
 - `EU_CONSOLIDATED` em `ACTIVE/SUCCESS`
 - `source_url` persistido igual ao valor de `COMPLIANCE_EU_SANCTIONS_SOURCE_URL`
 - `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` contendo `token=`

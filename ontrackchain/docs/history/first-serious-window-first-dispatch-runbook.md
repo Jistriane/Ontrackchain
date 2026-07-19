@@ -38,7 +38,7 @@ make run-oidc-readiness-bundle-local WINDOW_ID=<janela> BASE_URL=http://localhos
 Para `P0-02/P0-03`:
 
 ```bash
-make run-regulatory-readiness-bundle-local WINDOW_ID=<janela> INTERNAL_BASE_URL=http://compliance-api:8002 PUBLIC_BASE_URL=http://localhost:8080
+make gate-p0-04-regulatory-bundle WINDOW_ID=<janela> PRIVATE_ENV_FILE=.env.staging.private CHECKS_DIR=artifacts/staging/checks DOSSIERS_DIR=artifacts/staging/dossiers COMPLIANCE_INTERNAL_BASE_URL=http://compliance-api:8002 COMPLIANCE_PUBLIC_BASE_URL=http://localhost:8080
 ```
 
 ## Saídas Esperadas

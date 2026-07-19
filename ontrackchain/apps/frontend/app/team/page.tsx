@@ -9,7 +9,7 @@ import { canManageFederatedIdentity, canReadBilling } from "../lib/authz";
 import type { MessageKey } from "../lib/i18n";
 import { formatDateTime } from "../lib/date-format";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
-import { TEAM_ROLE_VALUES, isTeamRoleValue } from "../lib/team-catalog";
+import { TEAM_ROLE_VALUES, isTeamRoleValue, normalizeTeamRoleValue } from "../lib/team-catalog";
 
 type AuthContext = {
   org_id: string | null;
@@ -333,12 +333,24 @@ export default function TeamPage() {
   }, [confirmDialogState, tr]);
 
   function resolveTeamRoleLabel(value: TeamRole | string) {
-    return isTeamRoleValue(value) ? tr(`team.roster.roles.${value}` as MessageKey) : value;
+    const normalizedRole = normalizeTeamRoleValue(value);
+    return normalizedRole ? tr(`team.roster.roles.${normalizedRole}` as MessageKey) : value;
   }
 
   function formatTeamRoleValue(value: TeamRole | string) {
     const label = resolveTeamRoleLabel(value);
     return label === value ? value : `${label} (${value})`;
+  }
+
+  function resolveTeamRoleTone(value: TeamRole | string): "warning" | "danger" | undefined {
+    const normalizedRole = normalizeTeamRoleValue(value);
+    if (normalizedRole === "ADMIN") {
+      return "danger";
+    }
+    if (normalizedRole === "COMPLIANCE_OFFICER" || normalizedRole === "LEGAL_REVIEWER" || normalizedRole === "REVIEWER") {
+      return "warning";
+    }
+    return undefined;
   }
 
   function formatTeamTimestamp(value: string) {
@@ -1480,12 +1492,12 @@ export default function TeamPage() {
                               : tr("team.federatedDirectory.status.disabled" as MessageKey)}
                           </Pill>
                         </td>
-                        <td data-testid="team-federated-match-status">
+                        <td data-testid="team-federated-match-status-cell">
                           <Pill tone={resolveFederatedMatchTone(candidate.match_status)} data-testid="team-federated-match-status">
                             {resolveFederatedMatchLabel(candidate.match_status)}
                           </Pill>
                         </td>
-                        <td data-testid="team-federated-role-validation">
+                        <td data-testid="team-federated-role-validation-cell">
                           <Pill
                             tone={resolveFederatedRoleValidationTone(candidate.role_validation_status)}
                             data-testid="team-federated-role-validation"
@@ -1624,15 +1636,7 @@ export default function TeamPage() {
                   <td><strong>{record.name || record.email}</strong></td>
                   <td>{record.email}</td>
                   <td>
-                    <Pill
-                      tone={
-                        record.role === "ADMIN"
-                          ? "danger"
-                          : record.role === "COMPLIANCE_OFFICER" || record.role === "LEGAL_REVIEWER" || record.role === "REVIEWER"
-                            ? "warning"
-                            : undefined
-                      }
-                    >
+                    <Pill tone={resolveTeamRoleTone(record.role)} data-testid="team-row-role">
                       {formatTeamRoleValue(record.role)}
                     </Pill>
                   </td>

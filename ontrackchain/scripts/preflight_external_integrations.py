@@ -346,7 +346,20 @@ def main() -> int:
     )
     frontend_summary = _validate_frontend_runtime(app_env=app_env, errors=errors)
 
+    readiness = {
+        "technical_status": "ok" if not errors else "blocked",
+        "readiness_status": "prepared" if not errors else "blocked",
+        "formal_evidence_required": False,
+        "promotion_requires_manual_review": True,
+        "next_action": (
+            "Prosseguir para o gate tecnico seguinte preservando o mesmo request_id e validar os artefatos formais da janela."
+            if not errors
+            else "Corrigir variaveis, URLs ou placeholders do ambiente serio antes de executar o gate regulatorio."
+        ),
+    }
+
     summary = {
+        "kind": "external_integrations_preflight",
         "app_env": app_env,
         "allow_insecure_urls": allow_insecure_urls,
         "allow_localhost_urls": allow_localhost_urls,
@@ -354,6 +367,7 @@ def main() -> int:
         "rpc": rpc_summary,
         "frontend": frontend_summary,
         "status": "ok" if not errors else "failed",
+        "readiness": readiness,
         "errors": errors,
     }
 

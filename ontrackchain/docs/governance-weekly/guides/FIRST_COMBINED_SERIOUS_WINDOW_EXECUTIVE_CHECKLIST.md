@@ -82,8 +82,8 @@ Se falhar:
 ### `T+20 min` - `P0-03`
 
 - [ ] `make rerun-compliance-worker` executado no ambiente correto
-- [ ] `make run-eu-sanctions-window-local WINDOW_ID="$WINDOW_ID"` executado
-- [ ] `make check-eu-sanctions-window` verde
+- [ ] `make gate-p0-03-eu-live WINDOW_ID="$WINDOW_ID" REQUEST_ID="$REQUEST_ID"` executado
+- [ ] `make check-eu-sanctions-window REQUEST_ID="$REQUEST_ID"` verde
 - [ ] `EU_CONSOLIDATED.status=ACTIVE`
 - [ ] `EU_CONSOLIDATED.last_sync_status=SUCCESS`
 - [ ] `source_url_matches_expected=true`
@@ -97,7 +97,7 @@ Se falhar:
 
 ### `T+35 min` - `P0-04`
 
-- [ ] `make run-regulatory-readiness-bundle-local WINDOW_ID="$WINDOW_ID"`
+- [ ] `make gate-p0-04-regulatory-bundle WINDOW_ID="$WINDOW_ID"`
 - [ ] `readiness.compliance_runtime=ready_for_validation`
 - [ ] `readiness.eu_window=ready_for_validation`
 - [ ] `readiness.regulatory_bundle=ready_for_validation`

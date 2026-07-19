@@ -192,7 +192,7 @@ Usar esta secao como espelho rapido do estado da semana corrente, sem substituir
 | Bloco | Owner nominal | Status da semana | Ultima evidencia revisada | Bloqueio atual | Proxima acao verificavel | Data alvo | Semaforo |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `P0-02` `AML/KYT live` | Compliance Lead | `ready` sem evidencia real nova | gate `make check-compliance-provider-runtime` documentado e aguardando execucao com credenciais reais | credencial real do provider ainda nao anexada | executar checker com credenciais reais e persistir JSON em `artifacts/staging/checks/` | `2026-07-08` | `amarelo` |
-| `P0-03` feed UE real | Regulatory/Ops Lead | `ready` sem evidencia real nova | runner `make run-eu-sanctions-window-local` documentado e aguardando URL tokenizada valida | `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` real ainda nao confirmada | executar janela UE com URL valida e anexar JSONs de preflight/sync | `2026-07-08` | `amarelo` |
+| `P0-03` feed UE real | Regulatory/Ops Lead | `ready` sem evidencia real nova | gate `make gate-p0-03-eu-live` documentado e aguardando URL tokenizada valida | `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` real ainda nao confirmada | executar janela UE com `REQUEST_ID` e anexar JSONs de preflight/sync | `2026-07-08` | `amarelo` |
 | `P0-01` `OIDC + MFA` serio | Security Lead | `blocked` | nenhum artefato novo revisado; segue dependendo de homologacao externa | provider OIDC serio e aceite institucional ainda ausentes | confirmar credenciais/claims reais e rodar `preflight_oidc_serious_env.py` + `smoke_auth_oidc_mode.py` | `2026-07-15` | `vermelho` |
 | `RUN-STG-01` primeira janela seria | Release Manager Tecnico | `pending_execucao` | janela `stg-2026-07-06-a` aberta em `mode=baseline`, com war room e tracking ativos | war room ainda depende de sair de `no-go`; faltam handoff, canais e secrets reais | preencher folha manual, revisar unblock checklist e rerodar gate agregado antes do dispatch real | `2026-07-15` | `amarelo` |
 | `P1-03` ownership/SLA | COO / Ops Manager | `in_progress` com aceite pendente | matriz de owners, SLA base e runbooks publicados; estado em `ready_for_approval` | aceite formal de Platform/SRE e Security ainda pendente | atualizar status de aceite e registrar decisao escrita dos papeis pendentes | `2026-07-15` | `amarelo` |
@@ -380,7 +380,7 @@ sair de `87%` para `88%` ou `89%` com evidencias reais ou bloqueios formalmente 
 #### Sprint 7 - Dia 3
 
 - se credenciais AML chegaram: rodar `make check-compliance-provider-runtime`
-- se URL UE chegou: rodar `make run-eu-sanctions-window-local`
+- se URL UE chegou: exportar `REQUEST_ID="stg-$(date +%F)-eu-check"` e rodar `make gate-p0-03-eu-live WINDOW_ID=stg-$(date +%F)-eu REQUEST_ID="$REQUEST_ID"`
 - se OIDC serio chegou: rodar `python scripts/preflight_oidc_serious_env.py`
 - se OIDC serio chegou: rodar `python scripts/smoke_auth_oidc_mode.py`
 - persistir JSONs, bundles e logs produzidos

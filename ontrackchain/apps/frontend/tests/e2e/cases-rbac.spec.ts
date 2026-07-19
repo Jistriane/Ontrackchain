@@ -1,6 +1,8 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
-async function seedFrontendAuth(
+import { seedFrontendAuth } from "./seed-frontend-auth";
+
+async function seedCasesPageAuth(
   page: Page,
   role: string,
   options?: {
@@ -10,34 +12,12 @@ async function seedFrontendAuth(
     twoFactor?: string;
   }
 ) {
-  await page.context().addCookies([
-    {
-      name: "otc_token",
-      value: "pw-e2e-token",
-      domain: "localhost",
-      path: "/",
-      httpOnly: false,
-      secure: false,
-      sameSite: "Lax"
-    }
-  ]);
-
-  await page.route("**/api/app/auth/context", async (route: Route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        org_id: "org-e2e",
-        user_id: "user-e2e",
-        linked_user_id: "linked-e2e",
-        role,
-        plan: "professional",
-        auth_method: options?.authMethod ?? "jwt",
-        mfa_mode: options?.mfaMode ?? "totp",
-        mfa_provider_homologated: options?.mfaProviderHomologated ?? "true",
-        two_factor: options?.twoFactor ?? "ok"
-      })
-    });
+  await seedFrontendAuth(page, {
+    role,
+    authMethod: options?.authMethod,
+    mfaMode: options?.mfaMode,
+    mfaProviderHomologated: options?.mfaProviderHomologated,
+    secondFactor: options?.twoFactor
   });
 }
 
@@ -66,7 +46,7 @@ async function seedCaseReadApis(page: Page) {
 
 test.describe("cases RBAC", () => {
   test("viewer nao recebe ctas de geração e export sensível no case", async ({ page }) => {
-    await seedFrontendAuth(page, "VIEWER");
+    await seedCasesPageAuth(page, "VIEWER");
     await seedCaseReadApis(page);
 
     await page.goto("/cases/case-rbac-01");
@@ -83,7 +63,7 @@ test.describe("cases RBAC", () => {
 
   test("auditor mantém export sensível mas não gera relatório do case", async ({ page }) => {
     let exportCalled = false;
-    await seedFrontendAuth(page, "AUDITOR");
+    await seedCasesPageAuth(page, "AUDITOR");
     await seedCaseReadApis(page);
     await page.route("**/api/app/audit/evidence-export", async (route: Route) => {
       exportCalled = true;
@@ -110,7 +90,7 @@ test.describe("cases RBAC", () => {
   });
 
   test("analyst pode gerar legal_report, mas o download fica oculto sem strong auth administrativo", async ({ page }) => {
-    await seedFrontendAuth(page, "ANALYST");
+    await seedCasesPageAuth(page, "ANALYST");
     await seedCaseReadApis(page);
     await page.route("**/api/app/reports/generate", async (route: Route) => {
       await route.fulfill({
@@ -133,7 +113,7 @@ test.describe("cases RBAC", () => {
     await expect(page.getByTestId("report-status")).toContainText("completed");
     await expect(page.getByTestId("stored-report-hash")).toContainText("abc123legalhash");
     await expect(page.getByTestId("case-report-download-restricted")).toContainText(
-      "O download deste artefato está oculto nesta sessão porque a role atual não possui autorização operacional compatível com o tipo de relatório selecionado."
+      "O download de legal_report está oculto nesta sessão porque exige JWT local com papel ADMIN e segundo fator válido, ou MFA externo homologado com trilho JWT."
     );
     await expect(page.getByTestId("download-link")).toHaveCount(0);
   });

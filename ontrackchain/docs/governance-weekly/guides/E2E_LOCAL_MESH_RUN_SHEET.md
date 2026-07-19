@@ -72,7 +72,7 @@ Executar na ordem abaixo antes do rerun principal.
 ### 1. Confirmar servicos criticos
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 docker compose -f docker-compose.yml ps \
   traefik \
   frontend \
@@ -96,7 +96,7 @@ Esperado:
 ### 2. Corrigir malha incompleta, se necessario
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 docker compose -f docker-compose.yml up -d \
   traefik \
   frontend \
@@ -124,7 +124,7 @@ Esperado:
 ### 4. Preparar dependencias do `frontend`
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain/apps/frontend
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain/apps/frontend
 npm ci
 ```
 
@@ -145,7 +145,7 @@ npm ci
 ### 1. Smoke leve da base local
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain/apps/frontend
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain/apps/frontend
 npm run test:e2e:stack-real-light
 ```
 
@@ -158,7 +158,7 @@ Gate:
 ### 2. Suites `browser-mocked`
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain/apps/frontend
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain/apps/frontend
 npm run test:e2e:browser-mocked
 ```
 
@@ -167,7 +167,7 @@ Usar quando a validacao depender de `next dev` local e mocks diretos de browser,
 ### 3. Suites `ssr-mocked`
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain/apps/frontend
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain/apps/frontend
 npm run test:e2e:ssr-mocked
 ```
 
@@ -176,7 +176,7 @@ Usar quando a validacao depender de frontend local com backend SSR mockado, como
 ### 4. Suite real de `compliance-flows`
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain/apps/frontend
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain/apps/frontend
 npm run test:e2e:compliance-flows:real
 ```
 
@@ -189,7 +189,7 @@ Usar como canario primario para detectar:
 ### 5. Gate focal de export/download endurecido
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain/apps/frontend
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain/apps/frontend
 npm run test:e2e -- \
   tests/e2e/audit-labels.spec.ts \
   tests/e2e/reports-history.spec.ts \
@@ -206,7 +206,7 @@ Esperado:
 ### 6. Rerun ampliado da baseline endurecida
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain/apps/frontend
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain/apps/frontend
 npm run test:e2e -- \
   tests/e2e/compliance-flows.spec.ts \
   tests/e2e/audit-labels.spec.ts \
@@ -233,7 +233,7 @@ Causa mais provavel:
 Verificar:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 docker compose -f docker-compose.yml ps frontend traefik
 ```
 
@@ -252,7 +252,7 @@ Causa mais provavel:
 Verificar:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 docker compose -f docker-compose.yml ps -a \
   auth-service \
   compliance-api \

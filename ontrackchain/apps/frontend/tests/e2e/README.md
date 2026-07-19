@@ -114,6 +114,9 @@ Antes de duplicar logica em um spec, revisar estes arquivos:
   - setup e seeds auxiliares para OIDC e identidade federada
 - `oidc.ts`
   - helpers especificos de autenticacao OIDC
+- `seed-frontend-auth.ts`
+  - fonte compartilhada para cookie `otc_token`/`otc_2fa` e mock de `/api/app/auth/context`
+  - preferir este helper quando a suite precisar apenas de auth local mockada, com override de `role`, `two_factor` ou atraso artificial de `auth/context`
 - `totp.ts`
   - auxiliares de MFA/TOTP
 

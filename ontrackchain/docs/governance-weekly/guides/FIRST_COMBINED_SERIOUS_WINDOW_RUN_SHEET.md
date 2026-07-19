@@ -58,13 +58,12 @@ Registrar:
 Comando:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
-python3 scripts/prepare_staging_window.py \
-  --window-id "$WINDOW_ID" \
-  --mode baseline \
-  --private-env-file .env.staging.private \
-  --validate \
-  --preflight
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+make gate-p0-05-serious-window \
+  WINDOW_ID="$WINDOW_ID" \
+  MODE=baseline \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  GOVERNANCE_WEEKLY_DIR=docs/governance-weekly
 ```
 
 Registrar:
@@ -75,6 +74,7 @@ Registrar:
 - `preflight_oidc`: `ok | failed`
 - `preflight_external`: `ok | failed`
 - `output_json`: `preencher`
+- `postprocess_json`: `preencher`
 
 Decisao:
 
@@ -86,7 +86,7 @@ Decisao:
 ### Execucao `P0-02`
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/preflight_external_integrations.py
 make check-compliance-provider-runtime \
   INTERNAL_BASE_URL=http://compliance-api:8002 \
@@ -120,10 +120,11 @@ python3 scripts/homologation_external_evidence.py --mode compliance
 ### Execucao `P0-03`
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 make rerun-compliance-worker
-make run-eu-sanctions-window-local WINDOW_ID="$WINDOW_ID"
-make check-eu-sanctions-window
+export REQUEST_ID="${WINDOW_ID}-eu-check"
+make gate-p0-03-eu-live WINDOW_ID="$WINDOW_ID" REQUEST_ID="$REQUEST_ID"
+make check-eu-sanctions-window REQUEST_ID="$REQUEST_ID"
 ```
 
 ### Registro `P0-03`
@@ -153,8 +154,14 @@ make check-eu-sanctions-window
 ### Execucao `P0-04`
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
-make run-regulatory-readiness-bundle-local WINDOW_ID="$WINDOW_ID"
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+make gate-p0-04-regulatory-bundle \
+  WINDOW_ID="$WINDOW_ID" \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  CHECKS_DIR=artifacts/staging/checks \
+  DOSSIERS_DIR=artifacts/staging/dossiers \
+  COMPLIANCE_INTERNAL_BASE_URL=http://localhost:8002 \
+  COMPLIANCE_PUBLIC_BASE_URL=http://localhost:8080
 python3 scripts/validate_serious_window_artifact.py \
   --window-id "$WINDOW_ID" \
   --checks-dir artifacts/staging/checks \
@@ -169,6 +176,7 @@ python3 scripts/validate_serious_window_artifact.py \
 - `eu_readiness`: `preencher`
 - `regulatory_bundle_readiness`: `preencher`
 - `artifact_validation_status`: `preencher`
+- `bundle_summary_json`: `preencher`
 - `bundle_json`: `preencher`
 - `bundle_md`: `preencher`
 - `dossier_json`: `preencher`
@@ -180,6 +188,7 @@ python3 scripts/validate_serious_window_artifact.py \
 - [ ] `readiness.compliance_runtime=ready_for_validation`
 - [ ] `readiness.eu_window=ready_for_validation`
 - [ ] `readiness.regulatory_bundle=ready_for_validation`
+- [ ] `p0-04-gate-summary.json` preservado quando houver `OUTPUT_DIR`
 - [ ] validador de artifact com `status=ok`
 
 ## Reconciliacao Final
@@ -187,7 +196,7 @@ python3 scripts/validate_serious_window_artifact.py \
 Comando:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID="$WINDOW_ID"
 ```
 

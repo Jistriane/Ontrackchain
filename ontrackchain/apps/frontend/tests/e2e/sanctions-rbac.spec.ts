@@ -1,5 +1,7 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
+const SANCTIONS_ADDRESS = "0x1111111111111111111111111111111111111111";
+
 async function seedSanctionsPage(page: Page, role: string) {
   await page.context().addCookies([
     {
@@ -75,6 +77,13 @@ async function seedSanctionsPage(page: Page, role: string) {
   });
 }
 
+async function submitSanctionsCheck(page: Page) {
+  await page.getByTestId("sanctions-address").fill(SANCTIONS_ADDRESS);
+  await page.getByTestId("sanctions-chain").selectOption("ethereum");
+  await expect(page.getByTestId("sanctions-check-btn")).toBeEnabled();
+  await page.getByTestId("sanctions-check-btn").click();
+}
+
 test.describe("sanctions RBAC", () => {
   test("viewer nao recebe o CTA de sanctions-check", async ({ page }) => {
     await seedSanctionsPage(page, "VIEWER");
@@ -88,7 +97,9 @@ test.describe("sanctions RBAC", () => {
 
   test("analyst recebe erro semantico quando o BFF recusa a verificacao", async ({ page }) => {
     await seedSanctionsPage(page, "ANALYST");
-    await page.route("**/api/app/compliance/sanctions-check?**", async (route: Route) => {
+    let sanctionsCheckHits = 0;
+    await page.route("**/api/app/compliance/sanctions-check**", async (route: Route) => {
+      sanctionsCheckHits += 1;
       await route.fulfill({
         status: 403,
         contentType: "application/json",
@@ -97,21 +108,22 @@ test.describe("sanctions RBAC", () => {
     });
 
     await page.goto("/sanctions");
-    await page.getByTestId("sanctions-address").fill("0x1111111111111111111111111111111111111111");
-    await page.getByTestId("sanctions-chain").selectOption("ethereum");
-    await page.getByTestId("sanctions-check-btn").click();
+    await submitSanctionsCheck(page);
+    await expect.poll(() => sanctionsCheckHits).toBe(1);
 
     await expect(page.getByText("A verificação de sanções exige papel operacional de compliance: ADMIN, ANALYST ou COMPLIANCE_OFFICER.")).toBeVisible();
   });
 
   test("compliance officer continua conseguindo executar o screening", async ({ page }) => {
     await seedSanctionsPage(page, "COMPLIANCE_OFFICER");
-    await page.route("**/api/app/compliance/sanctions-check?**", async (route: Route) => {
+    let sanctionsCheckHits = 0;
+    await page.route("**/api/app/compliance/sanctions-check**", async (route: Route) => {
+      sanctionsCheckHits += 1;
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          address: "0x1111111111111111111111111111111111111111",
+          address: SANCTIONS_ADDRESS,
           chain: "ethereum",
           provider: "sanctions_lists_cache",
           provider_status: "live",
@@ -128,9 +140,43 @@ test.describe("sanctions RBAC", () => {
     });
 
     await page.goto("/sanctions");
-    await page.getByTestId("sanctions-address").fill("0x1111111111111111111111111111111111111111");
-    await page.getByTestId("sanctions-chain").selectOption("ethereum");
-    await page.getByTestId("sanctions-check-btn").click();
+    await submitSanctionsCheck(page);
+    await expect.poll(() => sanctionsCheckHits).toBe(1);
+
+    await expect(page.getByText("HIT detectado: revisão imediata recomendada.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Marcar em revisão" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Escalar" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Marcar clear" })).toBeVisible();
+  });
+
+  test("alias OTK_COMPLIANCE_OFFICER continua conseguindo executar o screening", async ({ page }) => {
+    await seedSanctionsPage(page, "OTK_COMPLIANCE_OFFICER");
+    let sanctionsCheckHits = 0;
+    await page.route("**/api/app/compliance/sanctions-check**", async (route: Route) => {
+      sanctionsCheckHits += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          address: SANCTIONS_ADDRESS,
+          chain: "ethereum",
+          provider: "sanctions_lists_cache",
+          provider_status: "live",
+          degraded_reason: null,
+          capability_status: "live",
+          lists: ["OFAC", "UN"],
+          hit: true,
+          matched_lists: ["OFAC"],
+          entity_name: "Entity QA",
+          designation_date: "2026-01-01",
+          checked_at: "2026-07-15T12:00:00Z"
+        })
+      });
+    });
+
+    await page.goto("/sanctions");
+    await submitSanctionsCheck(page);
+    await expect.poll(() => sanctionsCheckHits).toBe(1);
 
     await expect(page.getByText("HIT detectado: revisão imediata recomendada.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Marcar em revisão" })).toBeVisible();

@@ -1,40 +1,15 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
-async function seedFrontendAuth(page: Page, role: string) {
+import { seedFrontendAuth } from "./seed-frontend-auth";
+
+async function seedMonitoringPage(page: Page, role: string) {
   const calls = {
     watchlists: 0,
     watchlistItems: 0,
     alerts: 0
   };
 
-  await page.context().addCookies([
-    {
-      name: "otc_token",
-      value: "pw-e2e-token",
-      domain: "localhost",
-      path: "/",
-      httpOnly: false,
-      secure: false,
-      sameSite: "Lax"
-    }
-  ]);
-
-  await page.route("**/api/app/auth/context", async (route: Route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        org_id: "org-e2e",
-        user_id: "user-e2e",
-        linked_user_id: "linked-e2e",
-        role,
-        plan: "professional",
-        auth_method: "jwt",
-        mfa_mode: "totp",
-        mfa_provider_homologated: "true"
-      })
-    });
-  });
+  await seedFrontendAuth(page, { role });
 
   await page.route("**/api/app/monitoring/watchlists", async (route: Route) => {
     calls.watchlists += 1;
@@ -199,7 +174,7 @@ async function seedFrontendAuth(page: Page, role: string) {
 
 test.describe("monitoring RBAC", () => {
   test("analyst nao recebe superficies administrativas privilegiadas", async ({ page }) => {
-    await seedFrontendAuth(page, "ANALYST");
+    await seedMonitoringPage(page, "ANALYST");
     await page.goto("/monitoring");
 
     await expect(page.locator('[data-testid="watchlist-item"]')).toBeVisible();
@@ -218,7 +193,7 @@ test.describe("monitoring RBAC", () => {
   });
 
   test("reviewer recebe bloqueio preventivo antes de carregar o core de monitoring", async ({ page }) => {
-    const calls = await seedFrontendAuth(page, "REVIEWER");
+    const calls = await seedMonitoringPage(page, "REVIEWER");
     await page.goto("/monitoring");
 
     await expect(page.getByTestId("monitoring-core-read-restricted")).toContainText(
@@ -235,15 +210,31 @@ test.describe("monitoring RBAC", () => {
   });
 
   test("tester recebe CTA de trigger-alert", async ({ page }) => {
-    await seedFrontendAuth(page, "TESTER");
+    await seedMonitoringPage(page, "TESTER");
     await page.goto("/monitoring");
 
     await expect(page.locator('[data-testid="watchlist-item"]')).toBeVisible();
     await expect(page.locator('[data-testid="trigger-alert-btn"]')).toBeVisible();
   });
 
+  test("alias OTK_TESTER recebe CTA de trigger-alert", async ({ page }) => {
+    await seedMonitoringPage(page, "OTK_TESTER");
+    await page.goto("/monitoring");
+
+    await expect(page.locator('[data-testid="watchlist-item"]')).toBeVisible();
+    await expect(page.locator('[data-testid="trigger-alert-btn"]')).toBeVisible();
+  });
+
+  test("alias OTK_VIEWER recebe leitura core sem CTA de trigger-alert", async ({ page }) => {
+    await seedMonitoringPage(page, "OTK_VIEWER");
+    await page.goto("/monitoring");
+
+    await expect(page.locator('[data-testid="watchlist-item"]')).toBeVisible();
+    await expect(page.locator('[data-testid="trigger-alert-btn"]')).toHaveCount(0);
+  });
+
   test("auditor recebe leitura privilegiada read-only sem mutacoes administrativas", async ({ page }) => {
-    await seedFrontendAuth(page, "AUDITOR");
+    await seedMonitoringPage(page, "AUDITOR");
     await page.goto("/monitoring");
 
     await expect(page.getByTestId("worker-generated-at")).toContainText("snapshot:");

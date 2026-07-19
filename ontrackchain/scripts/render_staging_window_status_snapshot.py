@@ -30,6 +30,7 @@ def render_markdown(payload: dict[str, Any], snapshot_file: Path) -> str:
     run = payload.get("run") or {}
     artifact = payload.get("artifact_validation") or {}
     regulatory = payload.get("regulatory") or {}
+    blocking_state = payload.get("blocking_state") or {}
     operational = payload.get("operational_incidents") or {}
 
     lines = [
@@ -40,6 +41,8 @@ def render_markdown(payload: dict[str, Any], snapshot_file: Path) -> str:
         f"- window_id: `{format_value(payload.get('window_id'))}`",
         f"- gerado em: `{format_value(payload.get('generated_at'))}`",
         f"- status geral: `{format_value(payload.get('overall_status'))}`",
+        f"- classificacao dominante: `{format_value(blocking_state.get('classification'))}`",
+        f"- resumo do bloqueio dominante: {format_value(blocking_state.get('summary'))}",
         f"- arquivo fonte: `{snapshot_file}`",
         "",
         "## Steps",
@@ -65,6 +68,11 @@ def render_markdown(payload: dict[str, Any], snapshot_file: Path) -> str:
         f"- feed UE readiness: `{format_value(regulatory.get('eu_feed_readiness'))}`",
         f"- bundle regulatorio (`P0-04`) readiness: `{format_value(regulatory.get('p0_04_bundle_readiness'))}`",
         f"- leitura de promocao: {format_value(regulatory.get('promotion_note'))}",
+        "",
+        "## Classificacao Dominante",
+        "",
+        f"- classificacao: `{format_value(blocking_state.get('classification'))}`",
+        f"- resumo: {format_value(blocking_state.get('summary'))}",
         "",
         "## Incidentes Operacionais e RCA",
         "",
@@ -117,16 +125,27 @@ def render_markdown(payload: dict[str, Any], snapshot_file: Path) -> str:
     else:
         lines.append("- artifact: `none`")
 
-    lines.extend(
-        [
-            "",
-            "## Proximo Passo",
-            "",
-            "- preencher segredos reais no `.env.staging.private`",
-            "- atualizar `docs/staging-env-ownership.md` com `date/status` por dominio",
-            "- rerodar o snapshot para confirmar reducao de bloqueios",
+    next_steps = [
+        "- preencher segredos reais no `.env.staging.private`",
+        "- atualizar `docs/staging-env-ownership.md` com `date/status` por dominio",
+        "- rerodar o snapshot para confirmar reducao de bloqueios",
+    ]
+    classification = str(blocking_state.get("classification") or "")
+    if classification == "regulatory_blocked":
+        next_steps = [
+            "- corrigir primeiro o bloqueio regulatorio dominante antes de reexecutar a janela",
+            "- confirmar handoff de `Compliance/AML` e segredos reais da trilha em escopo",
+            "- rerodar o snapshot para confirmar que a classificacao saiu de `regulatory_blocked`",
         ]
-    )
+    elif classification == "technical_gate_blocked":
+        next_steps = [
+            "- investigar a falha tecnica dominante no gate agregado",
+            "- anexar RCA ou evidencia tecnica antes da proxima tentativa",
+            "- rerodar o snapshot apos a correcao para confirmar estabilizacao",
+        ]
+
+    lines.extend(["", "## Proximo Passo", ""])
+    lines.extend(next_steps)
 
     return "\n".join(lines).rstrip() + "\n"
 
@@ -173,6 +192,7 @@ def main() -> int:
                 "output_file": str(output_file),
                 "window_id": format_value(payload.get("window_id"), "unknown-window"),
                 "overall_status": format_value(payload.get("overall_status")),
+                "blocking_classification": format_value((payload.get("blocking_state") or {}).get("classification")),
             },
             ensure_ascii=True,
             indent=2,

@@ -6,6 +6,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 import shutil
 import sys
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
@@ -33,6 +34,7 @@ DEFAULT_REQUIRED_HANDOFF_GROUPS = [
     "Investigation/RPC",
     "Platform/Operations",
 ]
+PLACEHOLDER_PATTERN = re.compile(r"^__FILL_[A-Z0-9_]+__$")
 
 
 def utc_now() -> datetime:
@@ -76,6 +78,25 @@ def load_env_values(file_path: Path) -> dict[str, str]:
         key, value = line.split("=", 1)
         values[key.strip()] = value.strip().strip("\"'")
     return values
+
+
+def is_placeholder_value(value: str) -> bool:
+    return bool(PLACEHOLDER_PATTERN.match(value.strip()))
+
+
+def determine_regulatory_validation_scopes(private_env_values: dict[str, str]) -> list[str]:
+    scopes: list[str] = []
+    expect_compliance_mode = private_env_values.get("ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE", "").strip().lower()
+    eu_source_url = private_env_values.get("COMPLIANCE_EU_SANCTIONS_SOURCE_URL", "").strip()
+
+    if expect_compliance_mode == "live":
+        scopes.append("p0-02")
+    if eu_source_url and not is_placeholder_value(eu_source_url):
+        scopes.append("p0-03")
+    if "p0-02" in scopes and "p0-03" in scopes:
+        scopes.append("p0-04")
+
+    return scopes
 
 
 def run_module_main(relative_path: str, argv: list[str], module_name: str) -> tuple[int, dict[str, Any]]:
@@ -124,6 +145,7 @@ def run_validation_checks(
     private_env_file: Path,
     checks_dir: Path,
 ) -> dict[str, Any]:
+    private_env_values = load_env_values(private_env_file)
     ownership_module = load_module(
         "check_staging_env_ownership_coverage",
         "scripts/check_staging_env_ownership_coverage.py",
@@ -135,6 +157,10 @@ def run_validation_checks(
     placeholders_module = load_module(
         "check_staging_env_placeholders",
         "scripts/check_staging_env_placeholders.py",
+    )
+    regulatory_module = load_module(
+        "check_regulatory_window_readiness",
+        "scripts/check_regulatory_window_readiness.py",
     )
 
     check_specs = [
@@ -163,6 +189,19 @@ def run_validation_checks(
             },
         ),
     ]
+
+    for scope in determine_regulatory_validation_scopes(private_env_values):
+        check_specs.append(
+            (
+                f"regulatory_{scope}",
+                regulatory_module.build_payload,
+                {
+                    "scope": scope,
+                    "private_env_file": private_env_file,
+                    "ownership_file": ownership_file,
+                },
+            )
+        )
 
     results: list[dict[str, Any]] = []
     has_failures = False
@@ -489,7 +528,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--validate",
         action="store_true",
-        help="executa ownership, handoff e placeholders apos o preparo, persistindo JSONs em artifacts/staging/checks",
+        help="executa ownership, handoff, placeholders e checks regulatorios aplicaveis apos o preparo, persistindo JSONs em artifacts/staging/checks",
     )
     parser.add_argument(
         "--preflight",

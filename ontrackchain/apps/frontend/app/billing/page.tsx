@@ -7,6 +7,7 @@ import { canReadBilling } from "../lib/authz";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
 import { formatDateTime } from "../lib/date-format";
 import type { MessageKey } from "../lib/i18n";
+import { normalizeTeamRoleValue } from "../lib/team-catalog";
 
 type BillingBalanceResponse = {
   credits_available: number;
@@ -87,6 +88,21 @@ export default function BillingPage() {
       return t("common.notAvailable");
     }
     return formatDateTime(normalized, locale) ?? normalized;
+  }
+
+  function formatBillingRoleValue(value: string | null | undefined) {
+    const normalized = String(value ?? "").trim();
+    if (!normalized) {
+      return t("common.notAvailable");
+    }
+
+    const canonicalRole = normalizeTeamRoleValue(normalized);
+    if (!canonicalRole) {
+      return normalized;
+    }
+
+    const label = tr(`team.roster.roles.${canonicalRole}` as MessageKey);
+    return canonicalRole === normalized ? `${label} (${canonicalRole})` : `${label} (${normalized})`;
   }
 
   async function refresh() {
@@ -215,7 +231,9 @@ export default function BillingPage() {
           </div>
           <div className="otc-kv__row">
             <span className="otc-kv__key">{t("billing.summary.role")}</span>
-            <span className="otc-kv__value">{authContext?.role ?? t("common.notAvailable")}</span>
+            <span className="otc-kv__value" data-testid="billing-effective-role">
+              {formatBillingRoleValue(authContext?.role)}
+            </span>
           </div>
           <div className="otc-kv__row">
             <span className="otc-kv__key">{t("billing.summary.mfa")}</span>

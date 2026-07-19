@@ -180,6 +180,8 @@ def build_model(*, payload: dict[str, Any], payload_file: Path, run_url: str) ->
         "generated_at": generated_at,
         "decision": decision_model["decision"],
         "primary_reason": decision_model["primary_reason"],
+        "blocking_classification": weekly_model.get("blocking_classification", "unknown"),
+        "blocking_summary": weekly_model.get("blocking_summary", "indisponivel"),
         "tracking_status": tracking_status,
         "risk_residual": risk_residual,
         "run_url": weekly_model["run_url"],
@@ -224,9 +226,17 @@ def update_war_room_markdown(content: str, model: dict[str, str]) -> str:
     replace_line(lines, "- mode:", f"- mode: `{model['mode']}`")
     replace_line(lines, "- environment_name:", f"- environment_name: `{model['environment_name']}`")
     replace_line(lines, "- status atual:", f"- status atual: `{model['decision']}`")
-    replace_line(lines, "- motivo principal:", f"- motivo principal: {model['primary_reason']}")
+    replace_line(
+        lines,
+        "- motivo principal:",
+        f"- motivo principal: {model['primary_reason']} | classificacao dominante `{model['blocking_classification']}`",
+    )
     replace_line(lines, "- risco residual:", f"- risco residual: `{model['risk_residual']}`")
-    replace_line(lines, "- proximo checkpoint:", f"- proximo checkpoint: {model['next_evidence']}")
+    replace_line(
+        lines,
+        "- proximo checkpoint:",
+        f"- proximo checkpoint: {model['next_evidence']} | bloqueio dominante: {model['blocking_summary']}",
+    )
 
     replace_after_anchor(
         lines,
@@ -467,7 +477,11 @@ def update_live_tracking_markdown(content: str, model: dict[str, str]) -> str:
     replace_line(lines, "- mode:", f"- mode: `{model['mode']}`")
     replace_line(lines, "- environment_name:", f"- environment_name: `{model['environment_name']}`")
     replace_line(lines, "- status global:", f"- status global: `{model['tracking_status']}`")
-    replace_line(lines, "- checkpoint atual:", f"- checkpoint atual: `{model['primary_reason']}`")
+    replace_line(
+        lines,
+        "- checkpoint atual:",
+        f"- checkpoint atual: `{model['primary_reason']}` | classificacao `{model['blocking_classification']}`",
+    )
     replace_line(lines, "- ultima atualizacao:", f"- ultima atualizacao: `{model['generated_at']}`")
 
     for anchor_prefix, status, artifact_reviewed, next_evidence in (
@@ -561,7 +575,11 @@ def update_live_tracking_markdown(content: str, model: dict[str, str]) -> str:
         f"- artefato regulatorio esperado para `{model['regulatory_artifact_label']}`: `{model['regulatory_bundle_path']}`",
     )
     replace_line(lines, "- dossie executivo esperado:", f"- dossie executivo esperado: `{model['dossier_path']}`")
-    replace_line(lines, "- decisao recomendada:", f"- decisao recomendada: `{model['decision']}`")
+    replace_line(
+        lines,
+        "- decisao recomendada:",
+        f"- decisao recomendada: `{model['decision']}` | bloqueio dominante `{model['blocking_classification']}`",
+    )
     return "\n".join(lines) + "\n"
 
 
@@ -624,6 +642,7 @@ def main() -> int:
                 "live_tracking_file": str(live_tracking_file),
                 "window_id": model["window_id"],
                 "decision": model["decision"],
+                "blocking_classification": model["blocking_classification"],
                 "tracking_status": model["tracking_status"],
             },
             ensure_ascii=True,

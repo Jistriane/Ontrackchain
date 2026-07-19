@@ -375,6 +375,14 @@ python3 scripts/prepare_staging_window.py --window-id <janela> --mode baseline
 
 - [Ownership do `.env.staging`](staging-env-ownership.md)
 
+1. validar a prontidao regulatoria real antes do runtime:
+
+```bash
+make check-regulatory-window-readiness REGULATORY_SCOPE=p0-02 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md
+make check-regulatory-window-readiness REGULATORY_SCOPE=p0-03 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md
+make check-regulatory-window-readiness REGULATORY_SCOPE=p0-04 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md
+```
+
 1. executar o gate tecnico unico:
 
 ```bash
@@ -409,11 +417,11 @@ Saida executiva esperada do pós-processamento:
 
 Comandos auxiliares continuam canônicos para janelas com provedores reais:
 
+- `make check-regulatory-window-readiness REGULATORY_SCOPE=<p0-02|p0-03|p0-04>`
 - `make check-compliance-provider-runtime`
 - `make run-oidc-readiness-bundle-local`
-- `make run-eu-sanctions-window-local`
-- `make run-regulatory-readiness-bundle`
-- `make run-regulatory-readiness-bundle-local`
+- `make gate-p0-03-eu-live` com `WINDOW_ID` e `REQUEST_ID`
+- `make gate-p0-04-regulatory-bundle`
 - `python3 scripts/check_sanctions_sync_status.py`
 
 Se o checker rodar fora da rede do `docker compose`, substitua `INTERNAL_BASE_URL` por um endpoint interno realmente alcancavel no ambiente-alvo. O `compose` atual nao publica `8002` no host.
@@ -501,6 +509,7 @@ Observacao:
 
 - o baseline `local` do repositório usa `COMPLIANCE_TRM_ENABLED=false` e `INVESTIGATION_RPC_ENABLED=false`
 - por isso, `status=ok` para `homologation_external_evidence.py` e meta de `staging|production`, nao de scaffold local sem overrides serios
+- na execucao real local de `2026-07-19`, `P0-02`, `P0-03` e `P0-04` falharam antes do runtime por ausencia de `.env.staging.private` e handoff pendente de `Compliance/AML`
 
 ### Regressao opcional de auth local
 

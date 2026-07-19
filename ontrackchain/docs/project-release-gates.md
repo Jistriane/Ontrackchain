@@ -82,9 +82,11 @@ Observacoes de aceite:
 
 ### 4. Providers Externos
 
+- antes de qualquer tentativa `P0-02`, `P0-03` ou `P0-04`, `make check-regulatory-window-readiness REGULATORY_SCOPE=<p0-02|p0-03|p0-04>` deve ficar verde
+- esse checker deve falhar quando faltar `.env.staging.private` ou quando o handoff humano de `Compliance/AML` ainda estiver `pending`
 - `preflight_external_integrations.py` verde para o modo esperado da janela
 - se a janela exigir `AML/KYT live`, `make check-compliance-provider-runtime` deve ficar verde e produzir evidencia anexavel do runtime
-- se a janela exigir feed da UE, `make run-eu-sanctions-window-local` ou fluxo equivalente deve persistir os JSONs em `artifacts/staging/checks/`
+- se a janela exigir feed da UE, `make gate-p0-03-eu-live` com `WINDOW_ID` e `REQUEST_ID` deve persistir os JSONs em `artifacts/staging/checks/`
 - para janelas com `P0-02` e `P0-03` juntos, preferir `make run-regulatory-readiness-bundle`, que consolida os artefatos de runtime AML/KYT e da janela UE em um bundle unico anexavel
 - no rito consolidado via `run_staging_window.py`, esse bundle passa a ser executado automaticamente quando a janela estiver com `AML/KYT live` e/ou `EU_CONSOLIDATED` no escopo
 - `check_sanctions_sync_status.py` verde apos rebuild/reexecucao do worker quando a janela envolver feeds de sancoes fora do runner dedicado
@@ -93,8 +95,11 @@ Observacoes de aceite:
 
 Leitura operacional atual:
 
-- `P0-02` esta `ready`, mas nao pode ser promovido sem gate real do provider
-- `P0-03` esta `ready`, mas nao pode ser promovido sem URL tokenizada valida e JSONs anexados
+- a execucao real local de `2026-07-19` mostrou `P0-02`, `P0-03` e `P0-04` em `blocked`
+- o bloqueio dominante atual nao e tecnico de produto: faltam `.env.staging.private` e handoff humano de `Compliance/AML` (`date/status`)
+- `P0-02` nao pode seguir para o gate de runtime do provider enquanto o readiness check canônico falhar
+- `P0-03` nao pode seguir para a janela UE enquanto o readiness check canônico falhar
+- `P0-04` nao pode ser tratado como consolidacao futura neutra; ele tambem esta efetivamente bloqueado pelo mesmo prerequisito operacional
 
 ### 5. Reports e Evidencias
 
@@ -140,6 +145,8 @@ Podem permanecer abertos apenas com risco registrado, owner e prazo:
 - `legal_report`, `ROS/COAF` ou `block lift` sem enforcement serio de MFA
 - screening de sancoes sem cache local consistente e sem checker pos-sync
 - janelas de sancoes com feed UE exigido e sem URL tokenizada valida
+- tentativa `P0-02`, `P0-03` ou `P0-04` sem `.env.staging.private` materializado
+- tentativa `P0-02`, `P0-03` ou `P0-04` com `Compliance/AML` ainda em `pending` no handoff
 - promocao sem dossier, sem ownership/handoff ou sem evidencias anexaveis
 
 ## Checklist de Aprovacao

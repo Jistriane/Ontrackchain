@@ -38,6 +38,13 @@ Interpretacao honesta:
 - o gap principal deixou de ser ausencia de codigo
 - o gargalo atual esta em homologacao externa, prova operacional e aceite institucional
 
+Execucao real local mais recente, em `2026-07-19`:
+
+- `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-02` retornou `blocked`
+- `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-03` retornou `blocked`
+- `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-04` retornou `blocked`
+- o bloqueio dominante atual deixou de ser abstrato: falta materializar `.env.staging.private` e concluir o handoff humano de `Compliance/AML` (`date/status`)
+
 ## Regra de Taxonomia
 
 - `P0` representa o caminho mais curto e auditavel para cruzar `90%+`
@@ -68,24 +75,26 @@ Interpretacao honesta:
 Bloqueadores principais:
 
 1. `P0-01` homologar `OIDC + MFA` federado em trilho serio e recorrente
-2. `P0-02` fechar `AML/KYT` live com credencial real e evidencia anexavel
-3. `P0-03` ativar feed UE real com URL tokenizada e persistencia auditavel
-4. `P0-04` consolidar `P0-02 + P0-03` em bundle regulatorio revisavel; tentativas parciais ajudam a endurecer correlacao e dossier, mas nao fecham o item
-5. `P0-05` executar a primeira janela seria material com `go/no-go` formal
-6. `P0-06` formalizar o sign-off minimo de retention/recovery
-7. `P1-02` institucionalizar owners, SLA e rito recorrente da janela
+2. materializar `.env.staging.private` fora do repositorio e concluir o handoff de `Compliance/AML` para destravar a tentativa real
+3. `P0-02` fechar `AML/KYT` live com credencial real e evidencia anexavel
+4. `P0-03` ativar feed UE real com URL tokenizada e persistencia auditavel
+5. `P0-04` consolidar `P0-02 + P0-03` em bundle regulatorio revisavel; tentativas parciais ajudam a endurecer correlacao e dossier, mas nao fecham o item
+6. `P0-05` executar a primeira janela seria material com `go/no-go` formal
+7. `P0-06` formalizar o sign-off minimo de retention/recovery
+8. `P1-02` institucionalizar owners, SLA e rito recorrente da janela
 
 ## Ordem Recomendada
 
 Sequencia executiva de melhor retorno:
 
-1. fechar `P0-02`
-2. fechar `P0-03`
-3. consolidar `P0-04` apenas depois da prova combinada de `P0-02` e `P0-03`
-4. homologar `P0-01`
-5. executar `P0-05`
-6. formalizar `P0-06`
-7. publicar `P0-07`
+1. preencher `.env.staging.private` e concluir o handoff de `Compliance/AML`
+2. fechar `P0-02`
+3. fechar `P0-03`
+4. consolidar `P0-04` apenas depois da prova combinada de `P0-02` e `P0-03`
+5. homologar `P0-01`
+6. executar `P0-05`
+7. formalizar `P0-06`
+8. publicar `P0-07`
 
 ## Regra de Governanca
 
@@ -107,6 +116,7 @@ Promocao de status so e permitida quando houver:
 Leitura executiva adicional:
 
 - tentativa parcial de `P0-02` ou `P0-03` conta como progresso operacional e reduz risco de execucao
+- check real bloqueado por ausencia de `.env.staging.private` e handoff pendente conta como diagnostico valido de governanca, mas nao como progresso de homologacao
 - a promocao oficial para `90%+` continua exigindo prova combinada e revisavel, preferencialmente selada por `P0-04`
 - sinais de RCA cross-domain (`rca_attached_count`, `critical_open_count`, dominios afetados) ajudam a qualificar risco operacional e handoff executivo, mas nao substituem evidência de janela seria nem mudam KPI sozinhos
 

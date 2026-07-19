@@ -36,7 +36,7 @@ Complementa o [Guia de Execucao Assistida de `P0-01` OIDC + MFA serio](./P0-01_O
 Quando a janela estiver sendo ensaiada localmente (Keycloak + stack docker), executar o gate canônico:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 cp .env.oidc-local.example .env.oidc-local
 make gate-p0-01-oidc-local
 ```
@@ -51,7 +51,7 @@ Se a execucao ocorrer no GitHub Actions via `P0-01 OIDC Local Gate`, registrar t
 ### 1. Validar handoff e placeholders
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
 python3 scripts/check_staging_env_placeholders.py --file .env.staging.private
 ```
@@ -64,7 +64,7 @@ Resultado esperado:
 ### 2. Preflight OIDC serio
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/preflight_oidc_serious_env.py
 ```
 
@@ -76,7 +76,7 @@ Registrar:
 ### 3. Smoke auth serio
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/smoke_auth_oidc_mode.py
 ```
 
@@ -88,7 +88,7 @@ Registrar:
 ### 4. Gate critico do frontend
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain/apps/frontend
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain/apps/frontend
 npm ci
 npm run test:e2e:oidc-critical
 ```
@@ -101,7 +101,7 @@ Registrar:
 ### 5. Bundle OIDC
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 make run-oidc-readiness-bundle-local \
   WINDOW_ID=<window_id> \
   BASE_URL=http://localhost:8080
@@ -115,7 +115,7 @@ Registrar:
 ### 6. Homologacao externa quando aplicavel
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/homologation_external_evidence.py --mode both --include-oidc-legal-report
 ```
 
@@ -128,7 +128,7 @@ Registrar somente se aplicavel:
 ### 7. Reconciliar governanca
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID=<window_id>
 ```
 

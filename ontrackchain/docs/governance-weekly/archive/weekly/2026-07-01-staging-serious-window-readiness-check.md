@@ -11,12 +11,11 @@ Registrar o resultado da pre-validacao segura executada sobre `.env.staging.priv
 - comando executado:
 
 ```bash
-python scripts/prepare_staging_window.py \
-  --window-id stg-2026-07-06-precheck \
-  --mode baseline \
-  --private-env-file .env.staging.private \
-  --validate \
-  --preflight
+make gate-p0-05-serious-window \
+  WINDOW_ID=stg-2026-07-06-precheck \
+  MODE=baseline \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  GOVERNANCE_WEEKLY_DIR=docs/governance-weekly
 ```
 
 - resultado geral: `failed`

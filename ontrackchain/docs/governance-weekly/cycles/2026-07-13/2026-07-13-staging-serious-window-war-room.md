@@ -78,7 +78,7 @@
   - status: `ready`
   - ultima atualizacao: `2026-07-13T00:00:00Z`
   - dependencia critica: URL tokenizada real e sincronizacao coerente da janela UE
-  - comando: `make run-eu-sanctions-window-local WINDOW_ID=stg-2026-07-13-a` e `make check-eu-sanctions-window`
+  - comando: `export REQUEST_ID="stg-2026-07-13-a-eu-check"`, `make gate-p0-03-eu-live WINDOW_ID=stg-2026-07-13-a REQUEST_ID="$REQUEST_ID"` e `make check-eu-sanctions-window REQUEST_ID="$REQUEST_ID"`
   - evidencia minima: JSONs de `preflight` e `sync` + `source_url_matches_expected=true` + `request_id`
   - criterio de go/no-go: feed real validado com correlator e prova persistida
   - observacoes: segunda metade obrigatoria para promover `P0-04`
@@ -89,7 +89,7 @@
   - status: `pending`
   - ultima atualizacao: `2026-07-13T00:00:00Z`
   - dependencia critica: `P0-02` e `P0-03` com prova revisavel na mesma janela
-  - comando: `make run-regulatory-readiness-bundle-local WINDOW_ID=stg-2026-07-13-a`
+  - comando: `make gate-p0-04-regulatory-bundle WINDOW_ID=stg-2026-07-13-a PRIVATE_ENV_FILE=.env.staging.private CHECKS_DIR=artifacts/staging/checks DOSSIERS_DIR=artifacts/staging/dossiers COMPLIANCE_INTERNAL_BASE_URL=http://compliance-api:8002 COMPLIANCE_PUBLIC_BASE_URL=http://localhost:8080`
   - evidencia minima: bundle oficial em `ready_for_validation` + validacao final do artifact `ok`
   - criterio de go/no-go: consolidacao sem incoerencia de correlator
   - observacoes: principal ponte documental para `90%+`

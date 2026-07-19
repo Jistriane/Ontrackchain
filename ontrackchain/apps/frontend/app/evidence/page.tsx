@@ -21,7 +21,7 @@ import {
 import {
   canReadManualPackageSeal,
   canManageManualPackageSeal,
-  canRecordManualPackageSignoff,
+  getRecordableManualPackageSignerRoles,
   getPendingRequiredManualPackageSignerRoles,
   type ManualPackageSeal
 } from "../lib/manual-package-seal";
@@ -1018,8 +1018,8 @@ export default function EvidenceTrailPage() {
     [manualPackageSeal]
   );
   const availableManualPackageSignerRoles = useMemo(
-    () => pendingManualPackageSignerRoles.filter((role) => canRecordManualPackageSignoff(authContext?.role, role)),
-    [authContext?.role, pendingManualPackageSignerRoles]
+    () => getRecordableManualPackageSignerRoles(manualPackageSeal, authContext?.role),
+    [authContext?.role, manualPackageSeal]
   );
   const selectedHashContext = useMemo(() => {
     const dossierSha256 =

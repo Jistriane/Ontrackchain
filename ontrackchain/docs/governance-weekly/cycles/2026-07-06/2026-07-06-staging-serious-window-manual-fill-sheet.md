@@ -246,7 +246,8 @@ make check-compliance-provider-runtime \
 Validacao adicional quando `EU_CONSOLIDATED` estiver no escopo:
 
 ```bash
-make run-eu-sanctions-window-local WINDOW_ID=stg-2026-07-06-a
+export REQUEST_ID="stg-2026-07-06-a-eu-check"
+make gate-p0-03-eu-live WINDOW_ID=stg-2026-07-06-a REQUEST_ID="$REQUEST_ID"
 ```
 
 Evidencia minima:
@@ -271,12 +272,11 @@ Checklist rapido:
 Quando todos os grupos acima estiverem preenchidos:
 
 ```bash
-python scripts/prepare_staging_window.py \
-  --window-id stg-2026-07-06-a \
-  --mode baseline \
-  --private-env-file .env.staging.private \
-  --validate \
-  --preflight
+make gate-p0-05-serious-window \
+  WINDOW_ID=stg-2026-07-06-a \
+  MODE=baseline \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  GOVERNANCE_WEEKLY_DIR=docs/governance-weekly
 ```
 
 Seguir apenas se o resultado for:

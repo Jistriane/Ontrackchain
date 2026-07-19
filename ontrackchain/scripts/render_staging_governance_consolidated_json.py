@@ -106,6 +106,17 @@ def regulatory_summary(snapshot):
     }
 
 
+def blocking_summary(snapshot):
+    """Extract normalized blocking classification from snapshot."""
+    blocking = snapshot.get("blocking_state") if isinstance(snapshot, dict) else {}
+    if not isinstance(blocking, dict):
+        blocking = {}
+    return {
+        "classification": str(blocking.get("classification") or "unknown"),
+        "summary": str(blocking.get("summary") or "indisponivel"),
+    }
+
+
 def operational_summary(snapshot):
     operational = snapshot.get("operational_incidents") if isinstance(snapshot, dict) else {}
     if not isinstance(operational, dict):
@@ -200,6 +211,10 @@ def build_consolidated_json(window_id, checks_dir, dossiers_dir, docs_dir):
             "scope_label": "none",
             "p0_04_bundle_readiness": "unknown",
         },
+        "blocking": {
+            "classification": "unknown",
+            "summary": "indisponivel",
+        },
         "operational": {
             "status": "not_available",
             "rca_attached_count": 0,
@@ -231,6 +246,8 @@ def build_consolidated_json(window_id, checks_dir, dossiers_dir, docs_dir):
                 governance_state['regulatory']['scope_label'] = part.replace('escopo_regulatorio=', '').strip()
             elif part.startswith('p0_04='):
                 governance_state['regulatory']['p0_04_bundle_readiness'] = part.replace('p0_04=', '').strip()
+            elif part.startswith('classificacao='):
+                governance_state['blocking']['classification'] = part.replace('classificacao=', '').strip()
             elif part.startswith('rca='):
                 governance_state['operational']['rca_attached_count'] = _safe_int(part.replace('rca=', '').strip())
             elif part.startswith('criticos_abertos='):
@@ -246,8 +263,14 @@ def build_consolidated_json(window_id, checks_dir, dossiers_dir, docs_dir):
     # Build consolidated JSON
     current_regulatory = regulatory_summary(current_snapshot if current_snapshot else {})
     previous_regulatory = regulatory_summary(previous_snapshot_data if previous_snapshot_data else {})
+    current_blocking = blocking_summary(current_snapshot if current_snapshot else {})
+    previous_blocking = blocking_summary(previous_snapshot_data if previous_snapshot_data else {})
     current_operational = operational_summary(current_snapshot if current_snapshot else {})
     previous_operational = operational_summary(previous_snapshot_data if previous_snapshot_data else {})
+    if governance_state["blocking"]["classification"] == "unknown":
+        governance_state["blocking"] = current_blocking
+    elif governance_state["blocking"]["summary"] == "indisponivel":
+        governance_state["blocking"]["summary"] = current_blocking["summary"]
     consolidated = {
         "window_id": window_id,
         "generated_at": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
@@ -270,6 +293,10 @@ def build_consolidated_json(window_id, checks_dir, dossiers_dir, docs_dir):
         "regulatory_summary": {
             "current": current_regulatory,
             "previous": previous_regulatory,
+        },
+        "blocking_summary": {
+            "current": current_blocking,
+            "previous": previous_blocking,
         },
         "operational_summary": {
             "current": current_operational,

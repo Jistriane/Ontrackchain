@@ -180,6 +180,29 @@ def build_payload(
         )
         errors.extend(f"{list_name}: {message}" for message in row_errors)
 
+    eu_correlation = _build_eu_correlation(
+        checks=checks,
+        eu_override_url=eu_override_url,
+        require_eu_override=require_eu_override,
+    )
+    eu_window_ready = eu_correlation.get("eu_window_converges_ready") is True
+    readiness = {
+        "technical_status": "ok" if not errors else "blocked",
+        "readiness_status": (
+            "ready_for_validation"
+            if require_eu_override and not errors and eu_window_ready
+            else "ok" if not errors else "blocked"
+        ),
+        "promotion_requires_manual_review": True,
+        "next_action": (
+            "Revisar source_url, ACTIVE/SUCCESS e anexar a janela UE a governanca semanal antes de promover P0-03."
+            if require_eu_override and not errors and eu_window_ready
+            else "Corrigir o estado persistido ou o override esperado antes de promover a janela UE."
+            if errors
+            else "Usar este checker como validacao pontual do estado persistido e complementar com a janela UE formal quando aplicavel."
+        ),
+    }
+
     return {
         "kind": "sanctions_sync_status_check",
         "status": "failed" if errors else "ok",
@@ -194,11 +217,8 @@ def build_payload(
             "eu_tokenized": "token=" in eu_override_url.lower() if eu_override_url else False,
             "ofac_present": bool(ofac_override_url),
         },
-        "correlation": _build_eu_correlation(
-            checks=checks,
-            eu_override_url=eu_override_url,
-            require_eu_override=require_eu_override,
-        ),
+        "correlation": eu_correlation,
+        "readiness": readiness,
     }
 
 

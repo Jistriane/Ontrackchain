@@ -58,9 +58,9 @@ Este documento deve ser lido em conjunto com:
 | ID | Status | Iniciativa | Owner sugerido | Evidencia exigida | Criterio de fechamento |
 | --- | --- | --- | --- | --- | --- |
 | `P0-01` | `blocked` | Homologar `OIDC + MFA` serio | Backend/Auth | preflight + smoke + bundle OIDC + Playwright critico | fluxos sensiveis exigem auth serio e MFA homologado sem fallback |
-| `P0-02` | `ready` | Homologar `AML/KYT live` | Backend/Compliance | `check_compliance_provider_runtime.py` verde + artefato JSON | runtime e artefatos convergem com provider `live` |
-| `P0-03` | `ready` | Ativar feed UE real | Backend/Compliance | JSONs da janela UE + `check_sanctions_sync_status.py` verde | `EU_CONSOLIDATED` valido com source URL real |
-| `P0-04` | `todo` | Gerar bundle regulatorio oficial | Platform/SRE | bundle regulatorio consolidado | prova combinada de `P0-02` + `P0-03` sem erro residual nao classificado |
+| `P0-02` | `blocked` | Homologar `AML/KYT live` | Backend/Compliance | `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-02` verde + `check_compliance_provider_runtime.py` verde + artefato JSON | runtime e artefatos convergem com provider `live` sem handoff/segredos pendentes |
+| `P0-03` | `blocked` | Ativar feed UE real | Backend/Compliance | `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-03` verde + JSONs da janela UE + `check_sanctions_sync_status.py` verde | `EU_CONSOLIDATED` valido com source URL real e sem handoff/segredos pendentes |
+| `P0-04` | `blocked` | Gerar bundle regulatorio oficial | Platform/SRE | `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-04` verde + bundle regulatorio consolidado | prova combinada de `P0-02` + `P0-03` sem erro residual nao classificado |
 | `P0-05` | `todo` | Executar primeira janela seria material | Platform/SRE + Governanca | packet, dossier, war room e sign-off | janela ponta a ponta executada com decisao formal `go/no-go` |
 | `P0-06` | `todo` | Formalizar sign-off de retention/recovery | Platform/Security | politica, checklist e aceite formal | aceite sincronizado com docs e governanca |
 | `P0-07` | `todo` | Publicar nova baseline oficial | Arquitetura/Governanca | scorecard + maturity assessment + governanca semanal atualizados | baseline oficial revisada com evidencia coerente |
@@ -88,14 +88,16 @@ Este documento deve ser lido em conjunto com:
 
 ### Now
 
-- `P0-02` homologar `AML/KYT live`
-- `P0-03` ativar feed UE real
+- materializar `.env.staging.private` fora do repositorio
+- concluir `Compliance/AML.date/status` em `docs/staging-env-ownership.md`
 - `P0-01` executar `make gate-p0-01-oidc-local` e depois gerar bundle OIDC local enquanto o provider serio institucional segue bloqueado
 - `P1-02` converter capacidade tecnica em evidencia operacional recorrente
 
 ### Next
 
-- `P0-04` gerar bundle regulatorio oficial
+- `P0-02` homologar `AML/KYT live`
+- `P0-03` ativar feed UE real
+- `P0-04` gerar bundle regulatorio oficial depois dos readiness checks verdes
 - `P2-05` continuar RBAC fino pela proxima superficie de menor risco
 
 ### Then
@@ -115,9 +117,9 @@ Este documento deve ser lido em conjunto com:
 ### Gates P0
 
 - `P0-01`: `make gate-p0-01-oidc-local` verde como preparo local, mais `preflight_oidc_serious_env.py`, `smoke_auth_oidc_mode.py`, bundle `<window>-oidc-readiness-bundle.json` e Playwright critico verdes no trilho serio
-- `P0-02`: `check_compliance_provider_runtime.py` verde com artefato anexado
-- `P0-03`: `check_sanctions_sync_status.py` verde com JSONs da janela UE persistidos
-- `P0-04`: bundle regulatorio oficial coerente com `P0-02` + `P0-03`
+- `P0-02`: `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-02` verde antes de `check_compliance_provider_runtime.py` e do artefato anexado
+- `P0-03`: `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-03` verde antes de `check_sanctions_sync_status.py` e dos JSONs da janela UE persistidos
+- `P0-04`: `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-04` verde antes do bundle regulatorio oficial coerente com `P0-02` + `P0-03`
 - `P0-05`: `run_staging_window.py` concluido com packet, dossier, war room e sign-off
 - `P0-06`: politica e checklist de retention/recovery atualizados com aceite formal
 - `P0-07`: scorecard, maturity assessment e governanca semanal publicados

@@ -546,8 +546,19 @@ export function Message({
   );
 }
 
-export function Pill({ children, tone = "success" }: { children: ReactNode; tone?: "success" | "warning" | "danger" }) {
-  return <span className={joinClasses("otc-pill", tone === "warning" ? "otc-pill--warning" : undefined, tone === "danger" ? "otc-pill--danger" : undefined)}>{children}</span>;
+export function Pill({
+  children,
+  tone = "success",
+  ...props
+}: { children: ReactNode; tone?: "success" | "warning" | "danger" } & React.HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      className={joinClasses("otc-pill", tone === "warning" ? "otc-pill--warning" : undefined, tone === "danger" ? "otc-pill--danger" : undefined)}
+      {...props}
+    >
+      {children}
+    </span>
+  );
 }
 
 export function ConfirmDialog({

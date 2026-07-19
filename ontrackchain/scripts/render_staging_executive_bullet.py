@@ -30,6 +30,7 @@ def render_markdown(window_id: str, snapshot_file: Path, delta_file: Path, paylo
     status = str(payload.get("overall_status") or "unknown")
     signal = parse_delta_signal(delta_file)
     regulatory = payload.get("regulatory") or {}
+    blocking_state = payload.get("blocking_state") or {}
     operational = payload.get("operational_incidents") or {}
     placeholders = int(blockers.get("unresolved_placeholders_count") or 0)
     handoff = int(blockers.get("missing_handoff_fields_count") or 0)
@@ -41,6 +42,7 @@ def render_markdown(window_id: str, snapshot_file: Path, delta_file: Path, paylo
     line = (
         f"Ontrackchain | janela {window_id} | status={status} | semaforo={signal} | "
         f"escopo_regulatorio={scope_label} | p0_04={p0_04_readiness} | "
+        f"classificacao={blocking_state.get('classification', 'unknown')} | "
         f"rca={rca_attached} | criticos_abertos={critical_open} | "
         f"bloqueios={placeholders} placeholders/{handoff} handoff | decisao=recomendado_no_go"
     )

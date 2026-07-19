@@ -1,0 +1,134 @@
+name: P0-03 EU Live Gate
+
+run-name: >-
+  P0-03 EU live / ${{ inputs.window_id }} / ${{ inputs.environment_name }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      window_id:
+        description: "Window identifier, por exemplo stg-2026-07-18-eu"
+        required: true
+        type: string
+      environment_name:
+        description: "GitHub Environment com approvals e STAGING_WINDOW_PRIVATE_ENV"
+        required: true
+        default: "staging-serious"
+        type: string
+      checks_dir:
+        description: "Diretorio para os JSONs formais da janela UE"
+        required: true
+        default: "artifacts/staging/checks"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p0-03-eu-live-${{ inputs.environment_name }}
+  cancel-in-progress: false
+
+jobs:
+  eu-live-gate:
+    name: Executar gate hospedado P0-03
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: ${{ inputs.environment_name }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ontrackchain
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate workflow hygiene
+        run: make check-workflow-hygiene
+
+      - name: Prepare CI artifacts directory
+        run: mkdir -p ci-artifacts
+
+      - name: Validate required serious window secret
+        env:
+          STAGING_WINDOW_PRIVATE_ENV: ${{ secrets.STAGING_WINDOW_PRIVATE_ENV }}
+        run: |
+          if [ -z "${STAGING_WINDOW_PRIVATE_ENV}" ]; then
+            echo "Missing required environment secret STAGING_WINDOW_PRIVATE_ENV for '${{ inputs.environment_name }}'." >&2
+            exit 1
+          fi
+
+      - name: Materialize .env.staging.private
+        env:
+          STAGING_WINDOW_PRIVATE_ENV: ${{ secrets.STAGING_WINDOW_PRIVATE_ENV }}
+        run: |
+          umask 077
+          printf '%s\n' "${STAGING_WINDOW_PRIVATE_ENV}" > .env.staging.private
+          python - <<'PY'
+          from pathlib import Path
+          target = Path(".env.staging.private")
+          line_count = len(target.read_text(encoding="utf-8").splitlines())
+          print(f"Materialized {target} with {line_count} logical lines.")
+          PY
+
+      - name: Prepare request correlation
+        run: |
+          request_id="eu-window-gh-${{ github.run_id }}-${{ github.run_attempt }}"
+          echo "P0_03_REQUEST_ID=${request_id}" >> "${GITHUB_ENV}"
+          echo "P0_03_RUN_URL=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "${GITHUB_ENV}"
+
+      - name: Reset stale compliance stack
+        if: always()
+        run: docker compose --env-file .env.staging.private down --remove-orphans || true
+
+      - name: Run hosted P0-03 gate
+        env:
+          OUTPUT_DIR: ci-artifacts/p0-03
+        run: |
+          set -o pipefail
+          REQUEST_ID="${P0_03_REQUEST_ID}" make gate-p0-03-eu-live \
+            WINDOW_ID="${{ inputs.window_id }}" \
+            PRIVATE_ENV_FILE=.env.staging.private \
+            CHECKS_DIR="${{ inputs.checks_dir }}" \
+            2>&1 | tee ci-artifacts/p0-03-eu-live-gate.log
+
+      - name: Collect Docker diagnostics
+        if: always()
+        run: |
+          docker compose --env-file .env.staging.private ps > ci-artifacts/p0-03-docker-compose-ps.txt || true
+          docker compose --env-file .env.staging.private logs --tail=300 compliance-worker compliance-api postgres > ci-artifacts/p0-03-docker-compose-logs.txt || true
+
+      - name: Publish workflow summary
+        if: always()
+        run: |
+          {
+            echo "## P0-03 Feed UE real"
+            echo
+            echo "- Window ID: \`${{ inputs.window_id }}\`"
+            echo "- Environment: \`${{ inputs.environment_name }}\`"
+            echo "- Checks dir: \`${{ inputs.checks_dir }}\`"
+            echo "- Request ID: \`${P0_03_REQUEST_ID}\`"
+            echo "- Run URL: \`${P0_03_RUN_URL}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Tear down compliance stack
+        if: always()
+        run: docker compose --env-file .env.staging.private down --remove-orphans || true
+
+      - name: Remove ephemeral private env file
+        if: always()
+        run: rm -f .env.staging.private
+
+      - name: Upload P0-03 diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-03-eu-live-${{ inputs.window_id }}
+          path: |
+            ontrackchain/ci-artifacts
+            ontrackchain/${{ inputs.checks_dir }}
+          if-no-files-found: warn
+          retention-days: 30

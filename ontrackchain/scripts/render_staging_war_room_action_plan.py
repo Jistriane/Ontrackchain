@@ -76,6 +76,14 @@ def regulatory_summary(snapshot: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def blocking_summary(snapshot: dict[str, Any]) -> dict[str, str]:
+    blocking = snapshot.get("blocking_state") or {}
+    return {
+        "classification": str(blocking.get("classification") or "unknown"),
+        "summary": str(blocking.get("summary") or "indisponivel"),
+    }
+
+
 def resolve_file(checks_dir: Path, canonical: str, legacy: str | None = None) -> Path:
     preferred = checks_dir / canonical
     if preferred.exists():
@@ -147,6 +155,7 @@ def build_model(window_id: str, checks_dir: Path, snapshot_file: Path | None = N
             "snapshot": str(snapshot_file) if snapshot_file else "pending",
         },
         "regulatory": regulatory_summary(snapshot_payload),
+        "blocking_state": blocking_summary(snapshot_payload),
         "domains": by_domain,
     }
 
@@ -166,6 +175,8 @@ def render_markdown(model: dict[str, Any]) -> str:
     lines.append(f"- escopo regulatorio da tentativa: `{model['regulatory']['scope_label']}`")
     lines.append(f"- `P0-04` readiness: `{model['regulatory']['p0_04_bundle_readiness']}`")
     lines.append(f"- leitura regulatoria: {model['regulatory']['promotion_note']}")
+    lines.append(f"- classificacao dominante: `{model['blocking_state']['classification']}`")
+    lines.append(f"- resumo do bloqueio dominante: {model['blocking_state']['summary']}")
     lines.append("")
 
     domains = model["domains"]
@@ -201,11 +212,18 @@ def render_markdown(model: dict[str, Any]) -> str:
                 lines.append(
                     f"  - tentativa atual cobre `{model['regulatory']['scope_label']}`; endurece a trilha, mas `P0-04` ainda depende de convergencia combinada"
                 )
+            if model["blocking_state"]["classification"] == "regulatory_blocked":
+                lines.append(f"  - bloqueio dominante atual: {model['blocking_state']['summary']}")
         lines.append("")
 
     lines.append("## Fechamento")
     lines.append("")
-    lines.append("- atualizar `docs/staging-env-ownership.md` com `date` e `status` nos 4 grupos")
+    if model["blocking_state"]["classification"] == "regulatory_blocked":
+        lines.append("- corrigir primeiro o bloqueio regulatorio dominante antes de reexecutar a janela")
+        lines.append(f"- foco atual: {model['blocking_state']['summary']}")
+        lines.append("- atualizar `docs/staging-env-ownership.md` com `date` e `status` nos grupos regulatórios em escopo")
+    else:
+        lines.append("- atualizar `docs/staging-env-ownership.md` com `date` e `status` nos 4 grupos")
     lines.append(
         f"- rerodar `python scripts/prepare_staging_window.py --window-id {model['window_id']} --mode baseline --private-env-file .env.staging.private --validate --preflight`"
     )

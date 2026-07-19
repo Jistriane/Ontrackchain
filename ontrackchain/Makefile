@@ -1,4 +1,4 @@
-.PHONY: help help-serious-window start-oidc-local stop-oidc-local gate-p0-01-oidc-local gate-p0-01-oidc-ci prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle run-regulatory-readiness-bundle-local render-regulatory-readiness-bundle run-oidc-readiness-bundle run-oidc-readiness-bundle-local render-oidc-readiness-bundle validate-serious-window-artifact validate-serious-window-artifact-local render-staging-war-room-action-plan build-operational-alerts-rca-summary run-staging-window-status-snapshot-local render-staging-window-status-snapshot render-staging-window-status-snapshot-delta render-staging-governance-dashboard render-staging-unblock-checklist render-staging-comms-summary render-staging-executive-bullet render-staging-governance-consolidated-json notify-slack-governance evaluate-governance-gate track-governance-history render-governance-gate-history-dashboard update-governance-metrics refresh-staging-war-room-governance-local apply-regulatory-work-items-migration apply-regulatory-work-items-contract-guardrails-migration check-work-items-contracts validate-work-items-runtime-local smoke-work-items-ownership-backend alert-pagerduty-governance-blocks generate-environment-promotion-policy generate-compliance-report generate-compliance-reports-all evaluate-auto-promotion-readiness check-workflow-hygiene prune-governance-weekly-archive prune-governance-weekly-archive-dry-run
+.PHONY: help help-serious-window start-oidc-local stop-oidc-local gate-p0-01-oidc-local gate-p0-01-oidc-ci gate-p0-02-aml-live gate-p0-03-eu-live gate-p0-04-regulatory-bundle gate-p0-05-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle run-regulatory-readiness-bundle-local render-regulatory-readiness-bundle run-oidc-readiness-bundle run-oidc-readiness-bundle-local render-oidc-readiness-bundle validate-serious-window-artifact validate-serious-window-artifact-local render-staging-war-room-action-plan build-operational-alerts-rca-summary run-staging-window-status-snapshot-local render-staging-window-status-snapshot render-staging-window-status-snapshot-delta render-staging-governance-dashboard render-staging-unblock-checklist render-staging-comms-summary render-staging-executive-bullet render-staging-governance-consolidated-json notify-slack-governance evaluate-governance-gate track-governance-history render-governance-gate-history-dashboard update-governance-metrics refresh-staging-war-room-governance-local apply-regulatory-work-items-migration apply-regulatory-work-items-contract-guardrails-migration check-work-items-contracts validate-work-items-runtime-local smoke-work-items-ownership-backend alert-pagerduty-governance-blocks generate-environment-promotion-policy generate-compliance-report generate-compliance-reports-all evaluate-auto-promotion-readiness check-workflow-hygiene prune-governance-weekly-archive prune-governance-weekly-archive-dry-run
 
 PYTHON ?= python3
 GOVERNANCE_WEEKLY_ARCHIVE_RETENTION_DAYS ?= 90
@@ -39,6 +39,9 @@ GATE_OPERATION ?= merge
 OIDC_LOCAL_ENV_FILE ?= .env.oidc-local
 OIDC_LOCAL_BASE_URL ?= http://localhost:8080
 OIDC_CI_BASE_URL ?= http://localhost:8080
+COMPLIANCE_INTERNAL_BASE_URL ?= http://localhost:8002
+COMPLIANCE_PUBLIC_BASE_URL ?= http://localhost:8080
+REQUEST_ID ?=
 
 help:
 	@echo "Targets disponiveis:"
@@ -50,8 +53,8 @@ help:
 	@echo "  make help-serious-window"
 	@echo "  make postprocess-serious-window-dry-run RUN_URL=<github-actions-run-url> [PAYLOAD_FILE=...] [GOVERNANCE_WEEKLY_DIR=...] [SIGNOFF_OUTPUT_FILE=...]"
 	@echo "  make run-serious-window-local-dry-run [WINDOW_ID=...] [MODE=baseline] [PRIVATE_ENV_FILE=.env.staging.private] [PAYLOAD_FILE=...] [GOVERNANCE_WEEKLY_DIR=...]"
-	@echo "  make check-sanctions-sync-status"
-	@echo "  make check-eu-sanctions-window"
+	@echo "  make check-sanctions-sync-status [REQUEST_ID=...]"
+	@echo "  make check-eu-sanctions-window [REQUEST_ID=...]"
 	@echo "  make rerun-compliance-worker"
 	@echo "  make run-eu-sanctions-window [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...]"
 	@echo "  make run-eu-sanctions-window-local [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...]"
@@ -59,6 +62,7 @@ help:
 	@echo "  make run-regulatory-readiness-bundle [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...] [INTERNAL_BASE_URL=...] [PUBLIC_BASE_URL=...]"
 	@echo "  make run-regulatory-readiness-bundle-local [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...] [BUNDLE_OUTPUT_FILE=...] [BUNDLE_SUMMARY_FILE=...]"
 	@echo "  make render-regulatory-readiness-bundle [BUNDLE_OUTPUT_FILE=...] [BUNDLE_SUMMARY_FILE=...]"
+	@echo "  make check-regulatory-window-readiness [REGULATORY_SCOPE=p0-02|p0-03|p0-04] [PRIVATE_ENV_FILE=.env.staging.private] [OWNERSHIP_FILE=docs/staging-env-ownership.md]"
 	@echo "  make run-oidc-readiness-bundle [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...] [BASE_URL=...]"
 	@echo "  make run-oidc-readiness-bundle-local [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...] [OIDC_BUNDLE_OUTPUT_FILE=...] [OIDC_BUNDLE_SUMMARY_FILE=...] [BASE_URL=...]"
 	@echo "  make render-oidc-readiness-bundle [OIDC_BUNDLE_OUTPUT_FILE=...] [OIDC_BUNDLE_SUMMARY_FILE=...]"
@@ -66,6 +70,10 @@ help:
 	@echo "  make stop-oidc-local [OIDC_LOCAL_ENV_FILE=.env.oidc-local]"
 	@echo "  make gate-p0-01-oidc-local [OIDC_LOCAL_ENV_FILE=.env.oidc-local] [OIDC_LOCAL_BASE_URL=http://localhost:8080]"
 	@echo "  make gate-p0-01-oidc-ci [OIDC_CI_BASE_URL=http://localhost:8080]"
+	@echo "  make gate-p0-02-aml-live [PRIVATE_ENV_FILE=.env.staging.private] [COMPLIANCE_INTERNAL_BASE_URL=http://localhost:8002] [COMPLIANCE_PUBLIC_BASE_URL=http://localhost:8080]"
+	@echo "  make gate-p0-03-eu-live [WINDOW_ID=...] [PRIVATE_ENV_FILE=.env.staging.private] [CHECKS_DIR=artifacts/staging/checks]"
+	@echo "  make gate-p0-04-regulatory-bundle [WINDOW_ID=...] [PRIVATE_ENV_FILE=.env.staging.private] [CHECKS_DIR=artifacts/staging/checks] [DOSSIERS_DIR=artifacts/staging/dossiers]"
+	@echo "  make gate-p0-05-serious-window [WINDOW_ID=...] [MODE=baseline] [PRIVATE_ENV_FILE=.env.staging.private] [GOVERNANCE_WEEKLY_DIR=docs/governance-weekly]"
 	@echo "  make validate-serious-window-artifact [WINDOW_ID=...] [CHECKS_DIR=...] [DOSSIERS_DIR=...] [ART_SCOPE=P0-01,P0-02,P0-03]"
 	@echo "  make validate-serious-window-artifact-local [WINDOW_ID=...]"
 	@echo "  make render-staging-war-room-action-plan [WINDOW_ID=...] [CHECKS_DIR=...] [WAR_ROOM_ACTION_PLAN_OUTPUT_FILE=...]"
@@ -105,11 +113,15 @@ help-serious-window:
 	@echo " 11. Para artefato local da Sprint 7: make run-regulatory-readiness-bundle-local WINDOW_ID=$(WINDOW_ID)"
 	@echo " 12. Para P0-01 local: make gate-p0-01-oidc-local OIDC_LOCAL_ENV_FILE=$(OIDC_LOCAL_ENV_FILE) OIDC_LOCAL_BASE_URL=$(OIDC_LOCAL_BASE_URL)"
 	@echo "     depois gerar o bundle: make run-oidc-readiness-bundle-local WINDOW_ID=$(WINDOW_ID) BASE_URL=$(OIDC_LOCAL_BASE_URL)"
-	@echo " 13. Para execucao local ponta a ponta: make run-serious-window-local WINDOW_ID=$(WINDOW_ID)"
-	@echo " 14. Validar completude do artifact: make validate-serious-window-artifact-local WINDOW_ID=$(WINDOW_ID)"
-	@echo " 14.1 Opcional para RCA cross-domain: make build-operational-alerts-rca-summary WINDOW_ID=$(WINDOW_ID) OPERATIONAL_ALERTS_EXPORT_INPUT_FILE=<export-json>"
-	@echo " 15. Atualizar pacote local de governanca: make refresh-staging-war-room-governance-local WINDOW_ID=$(WINDOW_ID)"
-	@echo " 16. Revisar sign-off versionado e board semanal sincronizado"
+	@echo " 13. Para P0-02 local: make gate-p0-02-aml-live PRIVATE_ENV_FILE=$(PRIVATE_ENV_FILE) COMPLIANCE_INTERNAL_BASE_URL=$(COMPLIANCE_INTERNAL_BASE_URL) COMPLIANCE_PUBLIC_BASE_URL=$(COMPLIANCE_PUBLIC_BASE_URL)"
+	@echo " 14. Para P0-03 local: make gate-p0-03-eu-live WINDOW_ID=$(WINDOW_ID) PRIVATE_ENV_FILE=$(PRIVATE_ENV_FILE) CHECKS_DIR=$(CHECKS_DIR)"
+	@echo " 15. Para P0-04 local: make gate-p0-04-regulatory-bundle WINDOW_ID=$(WINDOW_ID) PRIVATE_ENV_FILE=$(PRIVATE_ENV_FILE) CHECKS_DIR=$(CHECKS_DIR) DOSSIERS_DIR=$(DOSSIERS_DIR)"
+	@echo " 16. Para P0-05 local: make gate-p0-05-serious-window WINDOW_ID=$(WINDOW_ID) MODE=$(MODE) PRIVATE_ENV_FILE=$(PRIVATE_ENV_FILE)"
+	@echo " 17. Para execucao local ponta a ponta: make run-serious-window-local WINDOW_ID=$(WINDOW_ID)"
+	@echo " 18. Validar completude do artifact: make validate-serious-window-artifact-local WINDOW_ID=$(WINDOW_ID)"
+	@echo " 18.1 Opcional para RCA cross-domain: make build-operational-alerts-rca-summary WINDOW_ID=$(WINDOW_ID) OPERATIONAL_ALERTS_EXPORT_INPUT_FILE=<export-json>"
+	@echo " 19. Atualizar pacote local de governanca: make refresh-staging-war-room-governance-local WINDOW_ID=$(WINDOW_ID)"
+	@echo " 20. Revisar sign-off versionado e board semanal sincronizado"
 
 start-oidc-local:
 	@bash scripts/start_oidc_local.sh "$(OIDC_LOCAL_ENV_FILE)"
@@ -122,6 +134,42 @@ gate-p0-01-oidc-local:
 
 gate-p0-01-oidc-ci:
 	@bash scripts/run_p0_01_oidc_ci_gate.sh "$(OIDC_CI_BASE_URL)"
+
+gate-p0-02-aml-live:
+	@ENV_FILE="$(PRIVATE_ENV_FILE)" \
+	INTERNAL_BASE_URL="$(COMPLIANCE_INTERNAL_BASE_URL)" \
+	PUBLIC_BASE_URL="$(COMPLIANCE_PUBLIC_BASE_URL)" \
+	bash scripts/run_p0_02_aml_live_gate.sh
+
+gate-p0-03-eu-live:
+	@ENV_FILE="$(PRIVATE_ENV_FILE)" \
+	WINDOW_ID="$(WINDOW_ID)" \
+	REQUEST_ID="$(REQUEST_ID)" \
+	CHECKS_DIR="$(CHECKS_DIR)" \
+	bash scripts/run_p0_03_eu_live_gate.sh
+
+gate-p0-04-regulatory-bundle:
+	@ENV_FILE="$(PRIVATE_ENV_FILE)" \
+	WINDOW_ID="$(WINDOW_ID)" \
+	CHECKS_DIR="$(CHECKS_DIR)" \
+	DOSSIERS_DIR="$(DOSSIERS_DIR)" \
+	INTERNAL_BASE_URL="$(COMPLIANCE_INTERNAL_BASE_URL)" \
+	PUBLIC_BASE_URL="$(COMPLIANCE_PUBLIC_BASE_URL)" \
+	bash scripts/run_p0_04_regulatory_bundle_gate.sh
+
+gate-p0-05-serious-window:
+	@ENV_FILE="$(PRIVATE_ENV_FILE)" \
+	WINDOW_ID="$(WINDOW_ID)" \
+	MODE="$(MODE)" \
+	GOVERNANCE_WEEKLY_DIR="$(GOVERNANCE_WEEKLY_DIR)" \
+	RUN_URL="$(LOCAL_RUN_URL)" \
+	bash scripts/run_p0_05_serious_window_gate.sh
+
+check-regulatory-window-readiness:
+	@$(PYTHON) scripts/check_regulatory_window_readiness.py \
+		--scope "$(REGULATORY_SCOPE)" \
+		--private-env-file "$(PRIVATE_ENV_FILE)" \
+		--ownership-file "$(OWNERSHIP_FILE)"
 
 prepare-serious-window-dispatch:
 	@$(MAKE) preflight-serious-window-dispatch \
@@ -189,10 +237,18 @@ run-serious-window-local-dry-run:
 	@printf '%s\n' "$(PYTHON) scripts/postprocess_staging_window_artifact.py --payload-file \"$(PAYLOAD_FILE)\" --governance-weekly-dir \"$(GOVERNANCE_WEEKLY_DIR)\" --run-url \"$(LOCAL_RUN_URL)\""
 
 check-sanctions-sync-status:
-	@$(PYTHON) scripts/check_sanctions_sync_status.py
+	@request_id_args=""; \
+	if [ -n "$(REQUEST_ID)" ]; then \
+		request_id_args=" --request-id \"$(REQUEST_ID)\""; \
+	fi; \
+	eval $(PYTHON) scripts/check_sanctions_sync_status.py$$request_id_args
 
 check-eu-sanctions-window:
-	@$(PYTHON) scripts/check_sanctions_sync_status.py --eu-window
+	@request_id_args=""; \
+	if [ -n "$(REQUEST_ID)" ]; then \
+		request_id_args=" --request-id \"$(REQUEST_ID)\""; \
+	fi; \
+	eval $(PYTHON) scripts/check_sanctions_sync_status.py --eu-window$$request_id_args
 
 rerun-compliance-worker:
 	@docker compose up -d compliance-worker

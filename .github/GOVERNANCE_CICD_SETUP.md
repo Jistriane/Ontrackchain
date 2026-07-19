@@ -8,6 +8,10 @@ O Ontrackchain agora integra automação de governança no pipeline CI/CD via Gi
 2. **governance-gate-refresh.yml** — Atualiza artefatos de governança diariamente (08:00 UTC) ou manualmente
 3. **governance-status-notify.yml** — Envia notificação Slack de status diário (09:00 UTC)
 4. **p0-01-oidc-local-gate.yml** — Executa o gate CI-friendly de `OIDC + MFA` com stack dockerizada local ao runner
+5. **p0-02-aml-live-gate.yml** — Executa o gate hospedado de `AML/KYT live` usando `GitHub Environment` e `STAGING_WINDOW_PRIVATE_ENV`
+6. **p0-03-eu-live-gate.yml** — Executa o gate hospedado do feed UE real usando `GitHub Environment`, stack local de compliance e artefatos da janela UE
+7. **p0-04-regulatory-bundle-gate.yml** — Executa o bundle regulatório oficial de `P0-02 + P0-03` com JSON e resumo markdown anexáveis
+8. **staging-serious-window.yml** — Executa a janela séria completa via gate canônico `P0-05`, incluindo postprocess de sign-off, decision packet, war room e live tracking
 
 ## Setup Inicial
 
@@ -33,6 +37,10 @@ Acesse seu repositório → Actions para ver:
 - Governance Artefacts Refresh (schedule: 08:00 UTC daily)
 - Governance Status Notification (schedule: 09:00 UTC daily)
 - P0-01 OIDC Local Gate (manual, para validar o rito local canônico em runner GitHub)
+- P0-02 AML Live Gate (manual, para validar `AML/KYT live` com segredo efêmero do environment)
+- P0-03 EU Live Gate (manual, para validar feed UE real com JSONs formais da janela)
+- P0-04 Regulatory Bundle Gate (manual, para consolidar `P0-02 + P0-03` em artefato executivo revisável)
+- Staging Serious Window (manual, para executar a janela séria ponta a ponta via gate `P0-05`)
 
 ### 3. Configurar Branch Protection (Opcional)
 
@@ -157,6 +165,125 @@ Repository → Actions → Governance Artefacts Refresh → Run workflow
 - `ontrackchain/ci-artifacts/frontend-env-snapshot.txt`
 - `ontrackchain/apps/frontend/playwright-report`
 - `ontrackchain/apps/frontend/test-results`
+
+### p0-02-aml-live-gate.yml
+
+**Quando roda:**
+- ✅ Manualmente via "Run workflow"
+
+**Pre-requisitos:**
+- o arquivo do workflow precisa estar commitado e presente no branch remoto selecionado no dispatch
+- o `GitHub Environment` selecionado precisa expor `STAGING_WINDOW_PRIVATE_ENV`
+- o environment deve conter os segredos reais de compliance para `COMPLIANCE_TRM_*`
+- o operador precisa informar um `window_id` correlacionavel com a janela seria
+
+**O que faz:**
+1. Materializa `.env.staging.private` de forma efemera
+2. Gera um `request_id` correlacionavel para a run hospedada
+3. Reseta stack residual de compliance do runner para evitar drift entre execucoes
+4. Executa `make gate-p0-02-aml-live`
+5. Coleta `docker compose ps/logs`
+6. Opcionalmente executa `python3 scripts/homologation_external_evidence.py --mode compliance`
+7. Publica `ci-artifacts/` e `artifacts/homologation/`
+
+**Artefatos esperados:**
+- `ontrackchain/ci-artifacts/p0-02-aml-live-gate.log`
+- `ontrackchain/ci-artifacts/p0-02/p0-02-preflight.json`
+- `ontrackchain/ci-artifacts/p0-02/p0-02-compliance-runtime.json`
+- `ontrackchain/ci-artifacts/p0-02/p0-02-smoke-runtime.json`
+- `ontrackchain/ci-artifacts/p0-02/p0-02-gate-summary.json`
+- `ontrackchain/ci-artifacts/p0-02-docker-compose-ps.txt`
+- `ontrackchain/ci-artifacts/p0-02-docker-compose-logs.txt`
+- `ontrackchain/ci-artifacts/p0-02-homologation.log`, quando `run_homologation=true`
+- `ontrackchain/artifacts/homologation`
+
+### p0-03-eu-live-gate.yml
+
+**Quando roda:**
+- ✅ Manualmente via "Run workflow"
+
+**Pre-requisitos:**
+- o arquivo do workflow precisa estar commitado e presente no branch remoto selecionado no dispatch
+- o `GitHub Environment` selecionado precisa expor `STAGING_WINDOW_PRIVATE_ENV`
+- o environment deve conter `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` real e `DATABASE_URL`
+- a execucao precisa poder subir `postgres`, `compliance-api` e `compliance-worker` via `docker compose`
+
+**O que faz:**
+1. Materializa `.env.staging.private` de forma efemera
+2. Gera um `request_id` correlacionavel para a run hospedada
+3. Reseta stack residual de compliance do runner
+4. Executa `make gate-p0-03-eu-live`
+5. Coleta `docker compose ps/logs`
+6. Publica `ci-artifacts/` e os JSONs formais da janela em `artifacts/staging/checks/`
+
+**Artefatos esperados:**
+- `ontrackchain/ci-artifacts/p0-03-eu-live-gate.log`
+- `ontrackchain/ci-artifacts/p0-03/p0-03-preflight.json`
+- `ontrackchain/ci-artifacts/p0-03/p0-03-eu-window.json`
+- `ontrackchain/ci-artifacts/p0-03/p0-03-eu-checker.json`
+- `ontrackchain/ci-artifacts/p0-03/p0-03-gate-summary.json`
+- `ontrackchain/ci-artifacts/p0-03-docker-compose-ps.txt`
+- `ontrackchain/ci-artifacts/p0-03-docker-compose-logs.txt`
+- `ontrackchain/artifacts/staging/checks/<window_id>-eu-sanctions-preflight.json`
+- `ontrackchain/artifacts/staging/checks/<window_id>-eu-sanctions-sync.json`
+
+### p0-04-regulatory-bundle-gate.yml
+
+**Quando roda:**
+- ✅ Manualmente via "Run workflow"
+
+**Pre-requisitos:**
+- o arquivo do workflow precisa estar commitado e presente no branch remoto selecionado no dispatch
+- o `GitHub Environment` selecionado precisa expor `STAGING_WINDOW_PRIVATE_ENV`
+- o environment deve conter os insumos reais de `P0-02` e `P0-03`
+- a execucao precisa poder subir a stack local de compliance via `docker compose`
+
+**O que faz:**
+1. Materializa `.env.staging.private` de forma efemera
+2. Gera correlacao explicita de `request_id` para as trilhas `P0-02` e `P0-03`
+3. Reseta stack residual de compliance do runner
+4. Executa `make gate-p0-04-regulatory-bundle`
+5. Gera o JSON oficial e o resumo markdown do bundle regulatorio
+6. Coleta `docker compose ps/logs`
+7. Publica `ci-artifacts/`, `artifacts/staging/checks/` e `artifacts/staging/dossiers/`
+
+**Artefatos esperados:**
+- `ontrackchain/ci-artifacts/p0-04-regulatory-bundle-gate.log`
+- `ontrackchain/ci-artifacts/p0-04-preflight.json`
+- `ontrackchain/ci-artifacts/p0-04-regulatory-readiness-bundle.json`
+- `ontrackchain/ci-artifacts/p0-04-regulatory-readiness-bundle.md`
+- `ontrackchain/ci-artifacts/p0-04-gate-summary.json`
+- `ontrackchain/ci-artifacts/p0-04-docker-compose-ps.txt`
+- `ontrackchain/ci-artifacts/p0-04-docker-compose-logs.txt`
+- `ontrackchain/artifacts/staging/checks/<window_id>-regulatory-readiness-bundle.json`
+- `ontrackchain/artifacts/staging/dossiers/<window_id>-regulatory-readiness-bundle.md`
+
+### staging-serious-window.yml
+
+**Quando roda:**
+- ✅ Manualmente via "Run workflow"
+
+**Pre-requisitos:**
+- o arquivo do workflow precisa estar commitado e presente no branch remoto selecionado no dispatch
+- o `GitHub Environment` selecionado precisa expor `STAGING_WINDOW_PRIVATE_ENV`
+- o environment deve conter insumos reais de `P0-01`, `P0-02`, `P0-03` e `P0-04`
+- o runner precisa conseguir instalar dependencias do frontend para o trilho critico de OIDC
+
+**O que faz:**
+1. Materializa `.env.staging.private` de forma efemera
+2. Instala dependencias do frontend e Playwright para `P0-01`
+3. Executa `make gate-p0-05-serious-window`
+4. Gera payload, postprocess JSON e draft de sign-off em `ci-artifacts/`
+5. Atualiza artefatos versionaveis da janela em `docs/governance-weekly/`
+6. Publica checks, dossiers, homologacao, templates, sign-off draft e rastros do frontend
+
+**Artefatos esperados:**
+- `ontrackchain/ci-artifacts/p0-05-serious-window-gate.log`
+- `ontrackchain/ci-artifacts/p0-05/p0-05-payload.json`
+- `ontrackchain/ci-artifacts/p0-05/p0-05-postprocess.json`
+- `ontrackchain/ci-artifacts/p0-05/p0-05-staging-serious-window-signoff.md`
+- `ontrackchain/docs/governance-weekly/generated/windows`
+- `ontrackchain/docs/governance-weekly/cycles`
 
 ## Exemplos de Uso
 

@@ -223,6 +223,65 @@ def derive_regulatory_item_model(
     }
 
 
+def derive_blocking_classification(
+    *,
+    overall_status: str,
+    validation_status: str,
+    preflight_status: str,
+    run_status: str,
+    p0_01_status: str,
+    p0_01_blocked_reason: str,
+    p0_02_status: str,
+    p0_02_blocked_reason: str,
+    p0_03_status: str,
+    p0_03_blocked_reason: str,
+    regulatory_scope_label: str,
+) -> dict[str, str]:
+    regulatory_reasons = [
+        reason
+        for status, reason in (
+            (p0_02_status, p0_02_blocked_reason),
+            (p0_03_status, p0_03_blocked_reason),
+        )
+        if status == "blocked" and str(reason).strip() and str(reason).strip() != "none"
+    ]
+    technical_failures = [
+        name
+        for name, status in (
+            ("validation", validation_status),
+            ("preflight", preflight_status),
+            ("run", run_status),
+        )
+        if status == "failed"
+    ]
+
+    if regulatory_scope_label != "none" and regulatory_reasons:
+        return {
+            "blocking_classification": "regulatory_blocked",
+            "blocking_summary": "; ".join(regulatory_reasons),
+        }
+    if p0_01_status == "blocked":
+        return {
+            "blocking_classification": "identity_blocked",
+            "blocking_summary": p0_01_blocked_reason,
+        }
+    if technical_failures or overall_status == "failed":
+        failed_label = ", ".join(technical_failures) if technical_failures else "overall"
+        return {
+            "blocking_classification": "technical_gate_blocked",
+            "blocking_summary": f"falha tecnica registrada em {failed_label}",
+        }
+    if overall_status == "ok":
+        return {
+            "blocking_classification": "ready_for_manual_review",
+            "blocking_summary": "gates tecnicos concluidos; pendente apenas revisao/aprovacao humana",
+        }
+    return {
+        "blocking_classification": "pending_execution",
+        "blocking_summary": "janela ainda nao convergiu na mesma tentativa",
+    }
+
+
 def upsert_blocked_item(
     lines: list[str],
     *,
@@ -361,6 +420,20 @@ def build_weekly_sync_model(
         run_stg_status = "pending_execucao"
         next_evidence = "sign-off preenchido com links, status e aprovadores humanos"
 
+    blocking_state = derive_blocking_classification(
+        overall_status=overall_status,
+        validation_status=validation_status,
+        preflight_status=preflight_status,
+        run_status=run_status,
+        p0_01_status=p0_01_status,
+        p0_01_blocked_reason=p0_01_blocked_reason,
+        p0_02_status=p0_02["status"],
+        p0_02_blocked_reason=p0_02["blocked_reason"],
+        p0_03_status=p0_03["status"],
+        p0_03_blocked_reason=p0_03["blocked_reason"],
+        regulatory_scope_label=regulatory_scope_label,
+    )
+
     return {
         "window_id": window_id,
         "mode": mode,
@@ -402,6 +475,8 @@ def build_weekly_sync_model(
         "regulatory_scope_is_combined": "true" if regulatory_scope_label == "P0-02/P0-03" else "false",
         "p0_02_in_scope": "true" if "P0-02" in regulatory_scope_items else "false",
         "p0_03_in_scope": "true" if "P0-03" in regulatory_scope_items else "false",
+        "blocking_classification": blocking_state["blocking_classification"],
+        "blocking_summary": blocking_state["blocking_summary"],
         "run_stg_status": run_stg_status,
         "next_evidence": next_evidence,
         "payload_json_path": str(payload_file),

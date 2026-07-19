@@ -41,6 +41,7 @@ def render_markdown(
     run = payload.get("run") or {}
     artifact = payload.get("artifact_validation") or {}
     regulatory = payload.get("regulatory") or {}
+    blocking_state = payload.get("blocking_state") or {}
     operational = payload.get("operational_incidents") or {}
 
     signal, reading = parse_delta_signal(delta_file)
@@ -52,6 +53,7 @@ def render_markdown(
         "",
         f"Janela {window_id}: status `{payload.get('overall_status', 'unknown')}` | semaforo `{signal}`.",
         f"Escopo regulatorio: `{regulatory.get('scope_label', 'unknown')}` | `P0-04` readiness: `{regulatory.get('p0_04_bundle_readiness', 'unknown')}`.",
+        f"Classificacao dominante: `{blocking_state.get('classification', 'unknown')}` | resumo: {blocking_state.get('summary', 'indisponivel')}",
         f"RCA cross-domain: `{operational.get('rca_attached_count', 0)}` RCA(s) em `{operational.get('tracked_work_items_count', 0)}` work-item(s) rastreado(s) | pendente `{operational.get('pending_triage_count', 0)}` | criticos `{operational.get('critical_open_count', 0)}`.",
         f"Bloqueios: `{blockers.get('unresolved_placeholders_count', 0)}` placeholders e `{blockers.get('missing_handoff_fields_count', 0)}` handoff.",
         f"Steps: prepare `{prepare.get('status', 'unknown')}`, run `{run.get('status', 'unknown')}`, artifact `{artifact.get('status', 'unknown')}`.",
@@ -70,6 +72,8 @@ def render_markdown(
         f"- scope validado no gate final: `{','.join(regulatory.get('validation_scope') or []) or 'none'}`",
         f"- `P0-04` readiness: `{regulatory.get('p0_04_bundle_readiness', 'unknown')}`",
         f"- leitura regulatoria: {regulatory.get('promotion_note', 'indisponivel')}",
+        f"- classificacao dominante: `{blocking_state.get('classification', 'unknown')}`",
+        f"- resumo do bloqueio dominante: {blocking_state.get('summary', 'indisponivel')}",
         f"- resumo RCA disponivel: `{operational.get('status', 'unknown')}`",
         f"- incidentes exportados no resumo: `{operational.get('exported_count', 0)}`",
         f"- work-items rastreados: `{operational.get('tracked_work_items_count', 0)}`",

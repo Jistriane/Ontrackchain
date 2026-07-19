@@ -56,6 +56,21 @@ def derive_regulatory_scope_label(regulatory_bundle: dict[str, Any]) -> str:
     return "/".join(scope_items) if scope_items else "none"
 
 
+def collect_regulatory_blockers(regulatory_readiness: dict[str, Any]) -> list[str]:
+    return [
+        *[
+            str(item)
+            for item in (((regulatory_readiness.get("compliance_runtime") or {}).get("blockers")) or [])
+            if str(item).strip()
+        ],
+        *[
+            str(item)
+            for item in (((regulatory_readiness.get("eu_window") or {}).get("blockers")) or [])
+            if str(item).strip()
+        ],
+    ]
+
+
 def build_decision(overall_status: str) -> str:
     if overall_status == "failed":
         return "blocked"
@@ -93,6 +108,7 @@ def build_signoff_model(
     oidc_bundle = run_steps.get("oidc_readiness_bundle") or {}
     regulatory_readiness = regulatory_bundle.get("readiness") or {}
     regulatory_scope_label = derive_regulatory_scope_label(regulatory_bundle)
+    regulatory_blockers = collect_regulatory_blockers(regulatory_readiness)
 
     model = {
         "window_id": window_id,
@@ -148,6 +164,24 @@ def build_signoff_model(
         "reports_evidence_status": safe_get_step_status(run_steps, "release_dossier", default=run_status),
         "ci_cd_status": overall_status,
         "restore_retention_status": safe_get_step_status(run_steps, "release_dossier", default=run_status),
+        "blocking_classification": (
+            "regulatory_blocked"
+            if regulatory_scope_label != "none"
+            and (
+                ((regulatory_readiness.get("compliance_runtime") or {}).get("readiness_status")) == "blocked"
+                or ((regulatory_readiness.get("eu_window") or {}).get("readiness_status")) == "blocked"
+            )
+            else ("technical_gate_blocked" if overall_status == "failed" else "pending_manual_review")
+        ),
+        "blocking_summary": (
+            "; ".join(regulatory_blockers)
+            if regulatory_scope_label != "none" and regulatory_blockers
+            else (
+                "falha tecnica no gate agregado da janela"
+                if overall_status == "failed"
+                else "pendente revisao humana final"
+            )
+        ),
         "decision": build_decision(overall_status),
     }
     return model
@@ -206,7 +240,8 @@ def render_signoff_markdown(model: dict[str, Any]) -> str:
         "",
         f"- bloqueios OIDC readiness: `{format_inline_value('; '.join(model['auth_oidc_readiness_blockers']) if model['auth_oidc_readiness_blockers'] else 'none_declared')}`",
         f"- proximo passo OIDC: `{format_inline_value(model['auth_oidc_next_action'])}`",
-        "- bloqueios externos: `none_declared`",
+        f"- classificacao do bloqueio dominante: `{format_inline_value(model['blocking_classification'])}`",
+        f"- bloqueios externos: `{format_inline_value(model['blocking_summary'], default='none_declared')}`",
         "- excecoes aceitas: `none_declared`",
         "- risco residual: `pending_human_review`",
         "",

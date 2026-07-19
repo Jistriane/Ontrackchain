@@ -99,7 +99,7 @@ Servir como pauta inicial e folha de preparação para a próxima reunião de go
 - confirmar `COMPLIANCE_TRM_API_KEY` e `COMPLIANCE_TRM_SCREENING_URL`
 - rodar `make check-compliance-provider-runtime`
 - confirmar `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` tokenizada
-- rodar `make run-eu-sanctions-window-local WINDOW_ID=stg-2026-07-06-a`
+- exportar `REQUEST_ID="stg-2026-07-06-a-eu-check"` e rodar `make gate-p0-03-eu-live WINDOW_ID=stg-2026-07-06-a REQUEST_ID="$REQUEST_ID"`
 
 ### `Backend Core` e `Platform/DBA` (`Investigation/RPC`)
 

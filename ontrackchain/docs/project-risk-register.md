@@ -28,7 +28,7 @@ Interpretacao:
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | R-01 | MFA federado ainda nao homologado como trilho oficial serio | Auth | mitigado parcialmente | Alta | P0 | Critica | Backend/Auth | homologar o fluxo em janela seria e anexar evidencia |
 | R-02 | Provider `AML/KYT` live ainda nao validado com credenciais reais | Compliance | aberto | Alta | P0 | Critica | Compliance/Backend | rodar `make check-compliance-provider-runtime` e a homologacao externa com provider real, anexando bundle e telemetria |
-| R-03 | Feed `EU_CONSOLIDATED` depender de URL tokenizada e travar homologacao | Integracao | aberto | Media | P1 | Alta | Compliance/Backend | preencher `COMPLIANCE_EU_SANCTIONS_SOURCE_URL`, reexecutar o worker e anexar os JSONs de `make run-eu-sanctions-window-local` |
+| R-03 | Feed `EU_CONSOLIDATED` depender de URL tokenizada e travar homologacao | Integracao | aberto | Media | P1 | Alta | Compliance/Backend | preencher `COMPLIANCE_EU_SANCTIONS_SOURCE_URL`, reexecutar o worker e anexar os JSONs de `make gate-p0-03-eu-live` com `REQUEST_ID` |
 | R-04 | Regressao futura no alinhamento entre catalogo `sanctions_check` e endpoint direto live | Produto/Contrato | mitigado | Baixa | P2 | Baixa | Backend | manter testes de contrato e revisar docs em mudancas de capability |
 | R-05 | `due_diligence` e `source_of_funds` seguirem somente em manual review | Compliance | aberto | Media | P1 | Media | Compliance/Product | manter degradacao honesta e definir roadmap de motor homologado |
 | R-06 | Novo drift futuro no inventario de eventos da `evidence_trail` voltar a surgir | Governanca | mitigado | Baixa | P2 | Baixa | Backend/Arquitetura | manter source of truth unico e o teste cruzado `test_evidence_event_catalog_sync.py` |
@@ -50,15 +50,17 @@ Interpretacao:
 Leitura executiva atual dos P0 associados:
 
 - `P0-01` permanece `blocked` enquanto a homologacao formal de identidade nao for anexada
-- `P0-02` permanece `ready`, mas ainda aberto como risco critico ate o gate real do provider ficar verde
-- `P0-03` permanece `ready`, mas ainda aberto como risco alto ate a janela UE produzir artefatos anexaveis
+- `P0-02` agora esta `blocked` no estado local real ate existir `.env.staging.private` e handoff de `Compliance/AML`
+- `P0-03` agora esta `blocked` no estado local real ate existir `.env.staging.private` e handoff de `Compliance/AML`
+- `P0-04` tambem esta `blocked` pelo mesmo prerequisito operacional, antes mesmo da correlacao combinada
 
 ## Mitigacoes Prioritarias
 
 ### Imediatas
 
 - homologar provider `AML/KYT` com `check_compliance_provider_runtime` e bundle externo anexado
-- ativar URL tokenizada real da UE com `run-eu-sanctions-window-local` e JSONs versionados
+- ativar URL tokenizada real da UE com `gate-p0-03-eu-live` e `REQUEST_ID`, preservando os JSONs versionados
+- materializar `.env.staging.private` em canal seguro e tirar `Compliance/AML` de `pending` no handoff antes de qualquer nova tentativa real
 
 ### Curto prazo
 

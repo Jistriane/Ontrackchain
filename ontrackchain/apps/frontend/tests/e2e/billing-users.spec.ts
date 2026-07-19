@@ -1,18 +1,6 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test, type Route } from "@playwright/test";
 
-async function seedFrontendAuth(page: Page) {
-  await page.context().addCookies([
-    {
-      name: "otc_token",
-      value: "pw-e2e-token",
-      domain: "localhost",
-      path: "/",
-      httpOnly: false,
-      secure: false,
-      sameSite: "Lax"
-    }
-  ]);
-}
+import { seedFrontendAuth } from "./seed-frontend-auth";
 
 test.describe("billing users table", () => {
   test("mantem o cockpit financeiro sem projetar roster lateral de team", async ({ page }) => {
@@ -92,7 +80,7 @@ test.describe("billing users table", () => {
           org_id: "org-e2e",
           user_id: "user-e2e",
           linked_user_id: "linked-e2e",
-          role: "BILLING_ADMIN",
+          role: "OTK_BILLING_ADMIN",
           plan: "professional",
           auth_method: "jwt",
           mfa_mode: "totp",
@@ -139,6 +127,7 @@ test.describe("billing users table", () => {
     await expect(page.getByTestId("billing-reconciliation-open-total")).toHaveText("6");
     await expect(page.getByTestId("billing-ledger-action-CONFIRMED")).toContainText("7.5");
     await expect(page.getByTestId("billing-ledger-row-ledger-1")).toContainText("req-1");
+    await expect(page.getByTestId("billing-effective-role")).toContainText("Administrador de Billing (OTK_BILLING_ADMIN)");
     await expect(page.getByTestId("billing-export-link")).toHaveAttribute("href", "/api/app/billing/reconciliation/export?limit=25");
     await expect(page.getByTestId("billing-open-team-action")).toBeVisible();
     await expect(page.getByTestId("billing-team-handoff-link")).toBeVisible();

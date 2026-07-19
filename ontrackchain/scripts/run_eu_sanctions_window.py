@@ -211,6 +211,12 @@ def run_window(
             request_id=request_id,
         )
         payload["status"] = "failed"
+        payload["readiness"] = {
+            "technical_status": "blocked",
+            "readiness_status": "blocked",
+            "promotion_requires_manual_review": True,
+            "next_action": "Corrigir o preflight externo antes de tentar a janela UE formal.",
+        }
         return 1, payload
 
     with temporary_environ(env_values):
@@ -234,6 +240,16 @@ def run_window(
 
     payload["status"] = "ok" if not payload["errors"] else "failed"
     payload["correlation"] = eu_correlation
+    payload["readiness"] = {
+        "technical_status": "ok" if not payload["errors"] else "blocked",
+        "readiness_status": "ready_for_validation" if eu_correlation.get("eu_window_converges_ready") is True else "blocked",
+        "promotion_requires_manual_review": True,
+        "next_action": (
+            "Anexar os JSONs da janela UE e revisar manualmente source_url, ACTIVE/SUCCESS e correlacao antes de promover P0-03."
+            if eu_correlation.get("eu_window_converges_ready") is True
+            else "Corrigir a janela UE ou o estado persistido antes de promover P0-03."
+        ),
+    }
     return (0 if payload["status"] == "ok" else 1), payload
 
 

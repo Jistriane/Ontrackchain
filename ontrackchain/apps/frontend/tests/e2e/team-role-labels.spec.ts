@@ -1,5 +1,7 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
+import { seedFrontendAuth } from "./seed-frontend-auth";
+
 type ExternalIdentityMutationPayload = {
   provider?: string;
   external_subject?: string;
@@ -48,35 +50,8 @@ function parseFederatedSuggestionPayload(route: Route): FederatedSuggestionPaylo
   };
 }
 
-async function seedFrontendAuth(page: Page) {
-  await page.context().addCookies([
-    {
-      name: "otc_token",
-      value: "pw-e2e-token",
-      domain: "localhost",
-      path: "/",
-      httpOnly: false,
-      secure: false,
-      sameSite: "Lax"
-    }
-  ]);
-
-  await page.route("**/api/app/auth/context", async (route: Route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        org_id: "org-e2e",
-        user_id: "user-e2e",
-        linked_user_id: "linked-e2e",
-        role: "ADMIN",
-        plan: "professional",
-        auth_method: "jwt",
-        mfa_mode: "totp",
-        mfa_provider_homologated: "true"
-      })
-    });
-  });
+async function seedTeamPage(page: Page) {
+  await seedFrontendAuth(page, { role: "ADMIN" });
 
   await page.route("**/api/app/team/users", async (route: Route) => {
     if (route.request().method() === "GET") {
@@ -109,7 +84,7 @@ async function seedFrontendAuth(page: Page) {
 
 test.describe("team role labels", () => {
   test("renderiza roles com label amigavel e permite busca pelo label traduzido", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedTeamPage(page);
     await page.goto("/team");
 
     await expect(page.locator('[data-testid="team-role-select"] option[value="COMPLIANCE_OFFICER"]')).toHaveText(
@@ -133,13 +108,73 @@ test.describe("team role labels", () => {
   });
 
   test("exibe os novos papeis canonicos incrementais no seletor", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedTeamPage(page);
     await page.goto("/team");
 
     await expect(page.locator('[data-testid="team-role-select"] option[value="REVIEWER"]')).toHaveText("Revisor (REVIEWER)");
     await expect(page.locator('[data-testid="team-role-select"] option[value="BILLING_ADMIN"]')).toHaveText(
       "Administrador de Billing (BILLING_ADMIN)"
     );
+  });
+
+  test("normaliza aliases OTK na roster sem perder label amigavel nem destaque regulatorio", async ({ page }) => {
+    await page.context().addCookies([
+      {
+        name: "otc_token",
+        value: "pw-e2e-token",
+        domain: "localhost",
+        path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax"
+      }
+    ]);
+
+    await page.route("**/api/app/auth/context", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-e2e",
+          user_id: "user-e2e",
+          linked_user_id: "linked-e2e",
+          role: "ADMIN",
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/team/users", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              member_id: "team-member-e2e-otk-legal-01",
+              name: "legal.otk@ontrackchain.local",
+              email: "legal.otk@ontrackchain.local",
+              role: "OTK_LEGAL_REVIEWER",
+              status: "active",
+              note: "",
+              linked_identity_count: 1,
+              last_identity_seen_at: "2026-07-06T12:13:00.000Z",
+              created_at: "2026-07-06T12:00:00.000Z",
+              updated_at: "2026-07-06T12:10:00.000Z"
+            }
+          ]
+        })
+      });
+    });
+
+    await page.goto("/team");
+
+    const rolePill = page.locator('[data-testid="team-row"]').first().getByTestId("team-row-role");
+    await expect(rolePill).toHaveText("Revisor Jurídico (OTK_LEGAL_REVIEWER)");
+    await expect(rolePill).toHaveClass(/otc-pill--warning/);
   });
 
   test("oculta vínculo manual e desvinculação para role sem permissão administrativa de diretório", async ({ page }) => {
@@ -208,7 +243,7 @@ test.describe("team role labels", () => {
   });
 
   test("humaniza a negação tardia da busca assistida quando o backend recusa o diretório federado", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedTeamPage(page);
 
     await page.route("**/api/app/team/users", async (route: Route) => {
       await route.fulfill({
@@ -261,7 +296,7 @@ test.describe("team role labels", () => {
   });
 
   test("humaniza a negação tardia da validação assistida quando o backend recusa a sugestão federada", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedTeamPage(page);
 
     await page.route("**/api/app/team/users", async (route: Route) => {
       await route.fulfill({
@@ -346,7 +381,7 @@ test.describe("team role labels", () => {
   });
 
   test("humaniza a negação tardia da criação de usuário quando o backend recusa a mutação administrativa", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedTeamPage(page);
 
     await page.route("**/api/app/team/users", async (route: Route) => {
       if (route.request().method() === "GET") {
@@ -374,7 +409,7 @@ test.describe("team role labels", () => {
   });
 
   test("humaniza a negação tardia da edição de usuário quando o backend recusa a mutação administrativa", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedTeamPage(page);
 
     await page.route("**/api/app/team/users", async (route: Route) => {
       if (route.request().method() === "GET") {
@@ -421,7 +456,7 @@ test.describe("team role labels", () => {
   });
 
   test("humaniza a negação tardia da desativação de usuário quando o backend recusa a mutação administrativa", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedTeamPage(page);
 
     await page.route("**/api/app/team/users", async (route: Route) => {
       await route.fulfill({
@@ -464,7 +499,7 @@ test.describe("team role labels", () => {
   test("humaniza a negação tardia da leitura detalhada de vínculos federados quando o backend recusa o carregamento", async ({
     page
   }) => {
-    await seedFrontendAuth(page);
+    await seedTeamPage(page);
 
     await page.route("**/api/app/team/users", async (route: Route) => {
       await route.fulfill({
@@ -842,7 +877,7 @@ test.describe("team role labels", () => {
       last_seen_at: string | null;
     }> = [];
 
-    await seedFrontendAuth(page);
+    await seedTeamPage(page);
 
     await page.route("**/api/app/team/users", async (route: Route) => {
       await route.fulfill({
@@ -987,7 +1022,7 @@ test.describe("team role labels", () => {
   });
 
   test("humaniza match status, validação de role e warnings do diretório federado", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedTeamPage(page);
 
     await page.route("**/api/app/team/users", async (route: Route) => {
       await route.fulfill({
@@ -1069,7 +1104,7 @@ test.describe("team role labels", () => {
   });
 
   test("humaniza a rejeição tardia da validação assistida quando o backend recusa o vínculo", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedTeamPage(page);
 
     await page.route("**/api/app/team/users", async (route: Route) => {
       await route.fulfill({
@@ -1166,7 +1201,7 @@ test.describe("team role labels", () => {
   });
 
   test("permite filtrar rapidamente candidatos prontos e em revisão manual no diretório federado", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedTeamPage(page);
 
     await page.route("**/api/app/team/users", async (route: Route) => {
       await route.fulfill({
@@ -1266,7 +1301,7 @@ test.describe("team role labels", () => {
   });
 
   test("ordena candidatos do diretório federado por prioridade operacional", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedTeamPage(page);
 
     await page.route("**/api/app/team/users", async (route: Route) => {
       await route.fulfill({
@@ -1365,7 +1400,7 @@ test.describe("team role labels", () => {
   });
 
   test("permite alternar entre prioridade operacional e ordem alfabética no diretório federado", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedTeamPage(page);
 
     await page.route("**/api/app/team/users", async (route: Route) => {
       await route.fulfill({
@@ -1474,7 +1509,7 @@ test.describe("team role labels", () => {
   });
 
   test("carrega e atualiza preferências locais de filtro e ordenação do diretório federado", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedTeamPage(page);
 
     await page.addInitScript(() => {
       window.localStorage.setItem("otc-team-federated-filter", "all");
@@ -1629,7 +1664,7 @@ test.describe("team role labels", () => {
   });
 
   test("bloqueia busca assistida vazia ou só com espaços antes de chamar o IdP", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedTeamPage(page);
 
     let federatedSearchCalls = 0;
 
@@ -1688,7 +1723,7 @@ test.describe("team role labels", () => {
   });
 
   test("mantém o contexto federado intacto quando o operador cancela a limpeza", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedTeamPage(page);
 
     await page.addInitScript(() => {
       window.localStorage.setItem("otc-team-federated-filter", "all");
@@ -1812,7 +1847,7 @@ test.describe("team role labels", () => {
   });
 
   test("limpa contexto local sem diálogo quando ainda não há resultados carregados", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedTeamPage(page);
 
     await page.addInitScript(() => {
       window.localStorage.setItem("otc-team-federated-filter", "review");

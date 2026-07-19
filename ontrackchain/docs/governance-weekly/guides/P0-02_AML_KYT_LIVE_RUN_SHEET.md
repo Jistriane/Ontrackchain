@@ -35,7 +35,7 @@ Complementa o [Guia de Execucao Assistida de `P0-02` AML/KYT live](./P0-02_AML_K
 ### 1. Validar handoff e placeholders
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
 python3 scripts/check_staging_env_placeholders.py --file .env.staging.private
 ```
@@ -48,7 +48,7 @@ Resultado esperado:
 ### 2. Preflight externo
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/preflight_external_integrations.py
 ```
 
@@ -60,10 +60,11 @@ Registrar:
 ### 3. Runtime gate AML/KYT
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
-make check-compliance-provider-runtime \
-  INTERNAL_BASE_URL=http://compliance-api:8002 \
-  PUBLIC_BASE_URL=http://localhost:8080
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+make gate-p0-02-aml-live \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  COMPLIANCE_INTERNAL_BASE_URL=http://localhost:8002 \
+  COMPLIANCE_PUBLIC_BASE_URL=http://localhost:8080
 ```
 
 Registrar:
@@ -73,10 +74,16 @@ Registrar:
 - `provider_status`: `preencher`
 - `request_id` principal: `preencher`
 
+Se a execucao for hospedada via GitHub Actions, preencher tambem:
+
+- `workflow`: `P0-02 AML Live Gate`
+- `run_url`: `preencher`
+- `artifact_name`: `p0-02-aml-live-<window_id>`
+
 ### 4. Smoke funcional
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/smoke_runtime.py
 ```
 
@@ -88,7 +95,7 @@ Registrar:
 ### 5. Evidencia externa
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/homologation_external_evidence.py --mode compliance
 ```
 
@@ -101,8 +108,14 @@ Registrar:
 ### 6. Bundle regulatorio se `P0-03` estiver junto
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
-make run-regulatory-readiness-bundle-local WINDOW_ID=<window_id>
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+make gate-p0-04-regulatory-bundle \
+  WINDOW_ID=<window_id> \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  CHECKS_DIR=artifacts/staging/checks \
+  DOSSIERS_DIR=artifacts/staging/dossiers \
+  COMPLIANCE_INTERNAL_BASE_URL=http://compliance-api:8002 \
+  COMPLIANCE_PUBLIC_BASE_URL=http://localhost:8080
 ```
 
 Registrar somente se aplicavel:
@@ -113,7 +126,7 @@ Registrar somente se aplicavel:
 ### 7. Reconciliar governanca
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID=<window_id>
 ```
 
@@ -125,6 +138,14 @@ Registrar:
 
 ## Artefatos a Preservar
 
+- `ci-artifacts/p0-02-aml-live-gate.log`, quando a execucao ocorrer via GitHub Actions
+- `ci-artifacts/p0-02/p0-02-preflight.json`, quando a execucao ocorrer via gate canônico novo
+- `ci-artifacts/p0-02/p0-02-compliance-runtime.json`, quando a execucao ocorrer via gate canônico novo
+- `ci-artifacts/p0-02/p0-02-smoke-runtime.json`, quando a execucao ocorrer via gate canônico novo
+- `ci-artifacts/p0-02/p0-02-gate-summary.json`, quando a execucao ocorrer via gate canônico novo
+- `ci-artifacts/p0-02-homologation.log`, quando `run_homologation=true` no workflow hospedado
+- `ci-artifacts/p0-02-docker-compose-ps.txt`, quando a execucao ocorrer via GitHub Actions
+- `ci-artifacts/p0-02-docker-compose-logs.txt`, quando a execucao ocorrer via GitHub Actions
 - `artifacts/homologation/<arquivo>.json`
 - `artifacts/homologation/<arquivo>.manifest.json`
 - `artifacts/staging/checks/<window_id>-regulatory-readiness-bundle.json`, quando aplicavel

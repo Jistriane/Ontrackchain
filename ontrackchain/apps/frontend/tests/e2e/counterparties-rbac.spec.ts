@@ -161,4 +161,24 @@ test.describe("counterparties RBAC", () => {
     await expect(page.getByTestId("counterparty-dd-review-panel")).toBeVisible();
     await expect(page.getByTestId("counterparty-dd-review-panel")).toContainText("Status da revisão DD");
   });
+
+  test("alias OTK_REVIEWER mantém o painel formal de DD review", async ({ page }) => {
+    await seedCounterpartiesPage(page, "OTK_REVIEWER");
+    await page.goto("/counterparties");
+
+    await expect(page.getByTestId(`counterparties-workspace-row-${COUNTERPARTY_ID}`)).toContainText("Counterparty QA");
+    await expect(page.getByTestId("counterparty-dd-review-panel")).toBeVisible();
+    await expect(page.getByTestId("counterparty-dd-review-panel")).toContainText("Status da revisão DD");
+  });
+
+  test("alias OTK_COMPLIANCE_OFFICER mantém o painel formal de DD review", async ({ page }) => {
+    await seedCounterpartiesPage(page, "OTK_COMPLIANCE_OFFICER");
+    await page.goto("/counterparties");
+
+    await expect(page.locator('aside a[href="/counterparties"]')).toHaveCount(1);
+    await expect(page.getByTestId("create-counterparty-btn")).toBeVisible();
+    await expect(page.getByTestId(`counterparties-workspace-row-${COUNTERPARTY_ID}`)).toContainText("Counterparty QA");
+    await expect(page.getByTestId("counterparty-dd-review-panel")).toBeVisible();
+    await expect(page.getByTestId("counterparty-dd-review-panel")).toContainText("Status da revisão DD");
+  });
 });

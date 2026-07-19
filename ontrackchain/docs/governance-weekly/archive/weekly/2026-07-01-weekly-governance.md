@@ -69,7 +69,7 @@
   - status anterior: `ready`
   - status atual: `ready`
   - owner nominal: `Compliance/Backend`
-  - artefato revisado: `make run-eu-sanctions-window-local` + JSONs da janela UE
+  - artefato revisado: `make gate-p0-03-eu-live` com `REQUEST_ID` + JSONs da janela UE
   - próxima evidência esperada: execução real da janela UE com `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` válida
 
 - ID: `RUN-STG-01`
@@ -105,7 +105,7 @@
 ## Ações da Próxima Semana
 
 - executar `make check-compliance-provider-runtime` com credenciais reais quando `P0-02` estiver liberado
-- executar `make run-eu-sanctions-window-local WINDOW_ID=stg-$(date +%F)-eu` quando `P0-03` estiver liberado
+- executar `export REQUEST_ID="stg-$(date +%F)-eu-check"` e `make gate-p0-03-eu-live WINDOW_ID=stg-$(date +%F)-eu REQUEST_ID="$REQUEST_ID"` quando `P0-03` estiver liberado
 - preparar a primeira janela séria real com artifact e sign-off anexáveis para mover `RUN-STG-01`
 
 ## Observações

@@ -1,67 +1,6 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
-async function seedFrontendAuth(page: Page, role: string) {
-  await page.context().addCookies([
-    {
-      name: "otc_token",
-      value: "pw-e2e-token",
-      domain: "localhost",
-      path: "/",
-      httpOnly: false,
-      secure: false,
-      sameSite: "Lax"
-    }
-  ]);
-
-  await page.route("**/api/app/auth/context", async (route: Route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        org_id: "org-e2e",
-        user_id: "user-e2e",
-        linked_user_id: "linked-e2e",
-        role,
-        plan: "professional",
-        auth_method: "jwt",
-        mfa_mode: "totp",
-        mfa_provider_homologated: "true"
-      })
-    });
-  });
-}
-
-async function seedDelayedFrontendAuth(page: Page, role: string, delayMs: number) {
-  await page.context().addCookies([
-    {
-      name: "otc_token",
-      value: "pw-e2e-token",
-      domain: "localhost",
-      path: "/",
-      httpOnly: false,
-      secure: false,
-      sameSite: "Lax"
-    }
-  ]);
-
-  await page.route("**/api/app/auth/context", async (route: Route) => {
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        org_id: "org-e2e",
-        user_id: "user-e2e",
-        linked_user_id: "linked-e2e",
-        role,
-        plan: "professional",
-        auth_method: "jwt",
-        mfa_mode: "totp",
-        mfa_provider_homologated: "true"
-      })
-    });
-  });
-}
+import { seedFrontendAuth } from "./seed-frontend-auth";
 
 async function seedAlertsReadApis(page: Page) {
   await page.route("**/api/app/monitoring/operational-alert-filter-options", async (route: Route) => {
@@ -182,7 +121,7 @@ async function seedAlertsReadApis(page: Page) {
 
 test.describe("alerts RBAC", () => {
   test("sidebar nao pisca link privilegiado antes de resolver auth", async ({ page }) => {
-    await seedDelayedFrontendAuth(page, "AUDITOR", 1200);
+    await seedFrontendAuth(page, { role: "AUDITOR", authContextDelayMs: 1200 });
     await seedAlertsReadApis(page);
 
     await page.goto("/alerts");
@@ -194,7 +133,7 @@ test.describe("alerts RBAC", () => {
   });
 
   test("analyst nao recebe leitura privilegiada da central de alertas", async ({ page }) => {
-    await seedFrontendAuth(page, "ANALYST");
+    await seedFrontendAuth(page, { role: "ANALYST" });
 
     await page.goto("/alerts");
 
@@ -211,7 +150,7 @@ test.describe("alerts RBAC", () => {
   });
 
   test("auditor recebe leitura read-only sem mutacoes administrativas", async ({ page }) => {
-    await seedFrontendAuth(page, "AUDITOR");
+    await seedFrontendAuth(page, { role: "AUDITOR" });
     await seedAlertsReadApis(page);
     await page.goto("/alerts");
 

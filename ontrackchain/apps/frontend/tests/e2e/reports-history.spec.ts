@@ -793,6 +793,128 @@ test.describe("reports history backend", () => {
     await expect(page.getByText("O download do artefato do relatório está oculto nesta sessão porque a role atual não possui autorização operacional ADMIN/AUDITOR/ANALYST.")).toHaveCount(0);
   });
 
+  test("alias OTK_ANALYST recebe CTA de download para report comum", async ({ page }) => {
+    await page.context().addCookies([
+      {
+        name: "otc_token",
+        value: "pw-e2e-token",
+        domain: "localhost",
+        path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax"
+      }
+    ]);
+
+    await page.route("**/api/app/auth/context", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-reports-e2e",
+          user_id: "user-reports-e2e",
+          linked_user_id: "linked-reports-e2e",
+          role: "OTK_ANALYST",
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/report-types?**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          generated_at: "2026-07-03T12:00:00.000Z",
+          types: [
+            {
+              canonical: "coaf_ready_report",
+              label: "COAF Ready",
+              available: true,
+              cost_credits: 2,
+              min_plan: "professional",
+              format: "pdf",
+              deprecated: false
+            }
+          ]
+        })
+      });
+    });
+
+    await page.route("**/api/app/investigation/cases?**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ page: 1, limit: 20, data: [] })
+      });
+    });
+
+    await page.route("**/api/app/operations/work-items?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] })
+      });
+    });
+
+    await page.route("**/api/app/reports/list?**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              report_id: "rep-all-05",
+              case_id: "55555555-5555-4555-8555-555555555555",
+              report_type_requested: "coaf",
+              report_type: "coaf_ready_report",
+              content_type: "application/pdf",
+              file_hash_sha256: "e".repeat(64),
+              onchain_hash: null,
+              created_at: "2026-07-03T08:00:00.000Z",
+              has_download_audit: false
+            }
+          ],
+          page: 1,
+          limit: 20,
+          total: 1,
+          has_more: false
+        })
+      });
+    });
+
+    await page.route("**/api/app/reports/rep-*", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          report_id: "rep-all-05",
+          case_id: "55555555-5555-4555-8555-555555555555",
+          report_type_requested: "coaf",
+          report_type: "coaf_ready_report",
+          created_at: "2026-07-03T08:00:00.000Z",
+          file_hash_sha256: "e".repeat(64),
+          onchain_hash: null,
+          content_type: "application/pdf"
+        })
+      });
+    });
+
+    await page.goto("/reports?history_report_id=rep-all-05");
+
+    await expect(page.getByTestId("reports-detail-table")).toContainText("rep-all-05");
+    await expect(page.getByTestId("reports-detail-download")).toBeVisible();
+    await expect(page.getByTestId("reports-detail-empty")).toHaveCount(0);
+    await expect(
+      page.getByText(
+        "O download do artefato do relatório está oculto nesta sessão porque a role atual não possui autorização operacional ADMIN/AUDITOR/ANALYST."
+      )
+    ).toHaveCount(0);
+  });
+
   test("admin recebe erro semântico ao exportar dossiê formal quando o bff recusa a operação", async ({ page }) => {
     await page.context().addCookies([
       {

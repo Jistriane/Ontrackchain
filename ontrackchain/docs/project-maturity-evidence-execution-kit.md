@@ -267,7 +267,7 @@ Regra complementar para incidentes e RCA cross-domain:
 - accountable sugerido: `Arquiteto / Tech Lead`
 - meta: executar sync real do feed UE e persistir evidencia
 - comandos principais:
-  - `make run-eu-sanctions-window-local WINDOW_ID=stg-$(date +%F)-eu`
+  - `make gate-p0-03-eu-live WINDOW_ID=stg-$(date +%F)-eu REQUEST_ID=stg-$(date +%F)-eu-check`
   - `python scripts/check_sanctions_sync_status.py`
 - gate de saida: URL real validada, JSONs persistidos e status coerente
 
@@ -276,7 +276,7 @@ Regra complementar para incidentes e RCA cross-domain:
 - owner sugerido: `Arquitetura + Compliance`
 - accountable sugerido: `Sponsor tecnico / Tech Lead`
 - meta: transformar `P0-02` e `P0-03` em pacote revisavel por governanca
-- comando principal: `make run-regulatory-readiness-bundle-local WINDOW_ID=stg-$(date +%F)-reg INTERNAL_BASE_URL=http://compliance-api:8002 PUBLIC_BASE_URL=http://localhost:8080`
+- comando principal: `make gate-p0-04-regulatory-bundle WINDOW_ID=stg-$(date +%F)-reg PRIVATE_ENV_FILE=.env.staging.private CHECKS_DIR=artifacts/staging/checks DOSSIERS_DIR=artifacts/staging/dossiers COMPLIANCE_INTERNAL_BASE_URL=http://compliance-api:8002 COMPLIANCE_PUBLIC_BASE_URL=http://localhost:8080`
 - gate de saida: bundle integro e revisavel
 - observacao: se apenas uma das trilhas regulatorias estiver disponivel, registrar o resultado como endurecimento parcial do dossier e remarcar a consolidacao oficial para a janela combinada
 

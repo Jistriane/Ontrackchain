@@ -2,6 +2,7 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 
 import { type PersistedPlatformAlertSelectionState } from "../../app/lib/monitoring-platform-alerts";
 import { LINKED_USER_ID, psqlExec, sqlLiteral } from "./federated-identity";
+import { seedFrontendAuth } from "./seed-frontend-auth";
 import { generateTotpCode } from "./totp";
 
 type WorkItemUpdateMetadata = {
@@ -59,47 +60,6 @@ type LegacyPersistedPlatformAlertSelectionState = PersistedPlatformAlertSelectio
 type DevSessionStartResponse = {
   require2fa?: boolean;
 };
-
-async function seedFrontendAuth(page: Page, options?: { role?: string }) {
-  const role = options?.role ?? "ADMIN";
-  await page.context().addCookies([
-    {
-      name: "otc_token",
-      value: "pw-e2e-token",
-      domain: "localhost",
-      path: "/",
-      httpOnly: false,
-      secure: false,
-      sameSite: "Lax"
-    },
-    {
-      name: "otc_2fa",
-      value: "ok",
-      domain: "localhost",
-      path: "/",
-      httpOnly: false,
-      secure: false,
-      sameSite: "Lax"
-    }
-  ]);
-
-  await page.route("**/api/app/auth/context", async (route: Route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        org_id: "org-e2e",
-        user_id: "user-e2e",
-        linked_user_id: "linked-e2e",
-          role,
-        plan: "professional",
-        auth_method: "jwt",
-        mfa_mode: "totp",
-        mfa_provider_homologated: "true"
-      })
-    });
-  });
-}
 
 async function loginAsDevRole(page: Page, role: "ADMIN" | "ANALYST") {
   const session = await page.request.post("/api/session/start", {

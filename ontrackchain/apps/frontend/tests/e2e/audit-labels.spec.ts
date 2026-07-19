@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
 import { expectDownloadLikeResponse } from "./download-helpers";
+import { seedFrontendAuth } from "./seed-frontend-auth";
 
 type AuditMetadata = {
   [key: string]: unknown;
@@ -47,41 +48,13 @@ type ManualPackageExportMetadata = AuditMetadata & {
 
 type ManualPackageMfaAuditRow = AuditLogRow<ManualPackageMfaViolationMetadata | ManualPackageExportMetadata>;
 
-async function seedFrontendAuth(page: Page, options?: { role?: string }) {
-  const role = options?.role ?? "AUDITOR";
-  await page.context().addCookies([
-    {
-      name: "otc_token",
-      value: "pw-e2e-token",
-      domain: "localhost",
-      path: "/",
-      httpOnly: false,
-      secure: false,
-      sameSite: "Lax"
-    }
-  ]);
-
-  await page.route("**/api/app/auth/context", async (route: Route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        org_id: "org-e2e",
-        user_id: "user-e2e",
-        linked_user_id: "linked-e2e",
-        role,
-        plan: "professional",
-        auth_method: "jwt",
-        mfa_mode: "totp",
-        mfa_provider_homologated: "true"
-      })
-    });
-  });
+async function seedAuditPage(page: Page, options?: { role?: string }) {
+  await seedFrontendAuth(page, { role: options?.role ?? "AUDITOR" });
 }
 
 test.describe("audit labels", () => {
   test("renderiza acao e tipo de recurso com label amigavel e codigo tecnico preservado", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedAuditPage(page);
 
     await page.route("**/api/app/audit/logs?**", async (route: Route) => {
       const url = new URL(route.request().url());
@@ -287,7 +260,7 @@ test.describe("audit labels", () => {
   });
 
   test("ativa preset de identidade federada e expõe contexto auditável com retorno ao Team", async ({ page }) => {
-    await seedFrontendAuth(page, { role: "ADMIN" });
+    await seedAuditPage(page, { role: "ADMIN" });
 
     await page.route("**/api/app/audit/logs?**", async (route: Route) => {
       const url = new URL(route.request().url());
@@ -396,7 +369,7 @@ test.describe("audit labels", () => {
   });
 
   test("renderiza contexto auditavel do pacote manual com hash principal do manifesto", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedAuditPage(page);
 
     await page.route("**/api/app/audit/logs?**", async (route: Route) => {
       await route.fulfill({
@@ -473,7 +446,7 @@ test.describe("audit labels", () => {
   });
 
   test("correlaciona evento de selagem ao contexto manual exportado e expõe resumo criptográfico", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedAuditPage(page);
 
     await page.route("**/api/app/audit/logs?**", async (route: Route) => {
       await route.fulfill({
@@ -571,7 +544,7 @@ test.describe("audit labels", () => {
   });
 
   test("expõe contexto de governança no detalhe de revogação do selo institucional", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedAuditPage(page);
 
     await page.route("**/api/app/audit/logs?**", async (route: Route) => {
       await route.fulfill({
@@ -651,7 +624,7 @@ test.describe("audit labels", () => {
   });
 
   test("expõe contexto de governança no detalhe de supersedência do selo institucional", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedAuditPage(page);
 
     await page.route("**/api/app/audit/logs?**", async (route: Route) => {
       await route.fulfill({
@@ -733,7 +706,7 @@ test.describe("audit labels", () => {
   });
 
   test("ativa preset dedicado do dossie regulatorio via query string", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedAuditPage(page);
 
     await page.route("**/api/app/audit/logs?**", async (route: Route) => {
       const url = new URL(route.request().url());
@@ -843,7 +816,7 @@ test.describe("audit labels", () => {
   });
 
   test("ativa preset dedicado do pacote manual via query string", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedAuditPage(page);
 
     await page.route("**/api/app/audit/logs?**", async (route: Route) => {
       const url = new URL(route.request().url());
@@ -985,7 +958,7 @@ test.describe("audit labels", () => {
   });
 
   test("ativa preset explicito de governanca pos-selagem via query string", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedAuditPage(page);
 
     await page.route("**/api/app/audit/logs?**", async (route: Route) => {
       const url = new URL(route.request().url());
@@ -1136,7 +1109,7 @@ test.describe("audit labels", () => {
   });
 
   test("resolve preset de governanca por seal_id e hidrata a familia completa do request", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedAuditPage(page);
 
     await page.route("**/api/app/audit/logs?**", async (route: Route) => {
       const url = new URL(route.request().url());
@@ -1320,7 +1293,7 @@ test.describe("audit labels", () => {
   });
 
   test("agrupa violacoes MFA por familia e permite drill-down no preset dedicado", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedAuditPage(page);
 
     await page.route("**/api/app/audit/logs?**", async (route: Route) => {
       const url = new URL(route.request().url());
@@ -1537,7 +1510,7 @@ test.describe("audit labels", () => {
   });
 
   test("monitoring navega para o preset MFA do audit e preserva o drill-down da familia", async ({ page }) => {
-    await seedFrontendAuth(page, { role: "ADMIN" });
+    await seedAuditPage(page, { role: "ADMIN" });
 
     const mfaRows: ManualPackageMfaAuditRow[] = [
       {
@@ -1788,7 +1761,7 @@ test.describe("audit labels", () => {
   });
 
   test("desempata familias MFA por criticidade quando o volume e igual", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedAuditPage(page);
 
     await page.route("**/api/app/audit/logs?**", async (route: Route) => {
       const mfaRows: ManualPackageMfaAuditRow[] = [
@@ -1910,7 +1883,7 @@ test.describe("audit labels", () => {
   });
 
   test("classifica familia MFA residual como outros tipos", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedAuditPage(page);
 
     await page.route("**/api/app/audit/logs?**", async (route: Route) => {
       const rows: ManualPackageMfaAuditRow[] = [
@@ -1964,7 +1937,7 @@ test.describe("audit labels", () => {
   });
 
   test("exporta dossie regulatorio ROS/COAF quando o ros_id e resolvido via report_id", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedAuditPage(page);
 
     await page.route("**/api/app/audit/logs?**", async (route: Route) => {
       await route.fulfill({
@@ -2052,7 +2025,7 @@ test.describe("audit labels", () => {
   });
 
   test("bloqueia export do dossie ROS/COAF na auditoria quando falta linked_user_id persistido", async ({ page }) => {
-    await seedFrontendAuth(page);
+    await seedAuditPage(page);
 
     await page.unroute("**/api/app/auth/context");
     await page.route("**/api/app/auth/context", async (route: Route) => {

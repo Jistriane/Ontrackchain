@@ -226,6 +226,8 @@ def main() -> int:
                 "go_no_go_decision": model["decision_packet_model"]["decision"],
                 "tracking_status": model["cycle_ops_model"]["tracking_status"],
                 "regulatory_scope_label": model["weekly_model"]["regulatory_scope_label"],
+                "blocking_classification": model["weekly_model"].get("blocking_classification"),
+                "blocking_summary": model["weekly_model"].get("blocking_summary"),
                 "p0_02_status": model["operational_board_model"]["p0_02_status"],
                 "p0_03_status": model["operational_board_model"]["p0_03_status"],
             },

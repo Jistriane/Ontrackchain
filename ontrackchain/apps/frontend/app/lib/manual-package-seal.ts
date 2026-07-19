@@ -51,15 +51,29 @@ function normalizeRole(role: string | null | undefined) {
   return String(role ?? "").trim().toUpperCase();
 }
 
+const MANUAL_PACKAGE_READ_ROLES = new Set([
+  "ADMIN",
+  "AUDITOR",
+  "COMPLIANCE_OFFICER",
+  "OTK_COMPLIANCE_OFFICER",
+  "LEGAL_REVIEWER",
+  "OTK_LEGAL_REVIEWER",
+  "REVIEWER",
+  "OTK_REVIEWER"
+]);
+
+const MANUAL_PACKAGE_SIGNER_ROLE_BINDINGS: Record<string, string[]> = {
+  ADMIN: ["compliance_owner", "ops_owner", "legal_owner_optional"],
+  COMPLIANCE_OFFICER: ["compliance_owner"],
+  OTK_COMPLIANCE_OFFICER: ["compliance_owner"],
+  LEGAL_REVIEWER: ["legal_owner_optional"],
+  OTK_LEGAL_REVIEWER: ["legal_owner_optional"],
+  REVIEWER: ["legal_owner_optional"],
+  OTK_REVIEWER: ["legal_owner_optional"]
+};
+
 export function canReadManualPackageSeal(role: string | null | undefined) {
-  const normalizedRole = normalizeRole(role);
-  return (
-    normalizedRole === "ADMIN" ||
-    normalizedRole === "AUDITOR" ||
-    normalizedRole === "COMPLIANCE_OFFICER" ||
-    normalizedRole === "LEGAL_REVIEWER" ||
-    normalizedRole === "REVIEWER"
-  );
+  return MANUAL_PACKAGE_READ_ROLES.has(normalizeRole(role));
 }
 
 export function canManageManualPackageSeal(role: string | null | undefined) {
@@ -72,16 +86,7 @@ export function canRecordManualPackageSignoff(role: string | null | undefined, s
   if (!normalizedSignerRole) {
     return false;
   }
-  if (normalizedRole === "ADMIN") {
-    return true;
-  }
-  if (normalizedRole === "COMPLIANCE_OFFICER") {
-    return normalizedSignerRole === "compliance_owner";
-  }
-  if (normalizedRole === "LEGAL_REVIEWER" || normalizedRole === "REVIEWER") {
-    return normalizedSignerRole === "legal_owner_optional";
-  }
-  return false;
+  return (MANUAL_PACKAGE_SIGNER_ROLE_BINDINGS[normalizedRole] ?? []).includes(normalizedSignerRole);
 }
 
 export function getPendingRequiredManualPackageSignerRoles(seal: ManualPackageSeal | null) {
@@ -91,4 +96,27 @@ export function getPendingRequiredManualPackageSignerRoles(seal: ManualPackageSe
 
   const recordedRoles = new Set(seal.signoffs.map((signoff) => signoff.signer_role));
   return seal.required_signers.filter((role) => !recordedRoles.has(role));
+}
+
+export function getRecordableManualPackageSignerRoles(
+  seal: ManualPackageSeal | null,
+  role: string | null | undefined
+) {
+  if (!seal) {
+    return [] as string[];
+  }
+
+  const normalizedRole = normalizeRole(role);
+  const eligibleRoles = MANUAL_PACKAGE_SIGNER_ROLE_BINDINGS[normalizedRole] ?? [];
+  if (!eligibleRoles.length) {
+    return [] as string[];
+  }
+
+  const recordedRoles = new Set(seal.signoffs.map((signoff) => signoff.signer_role));
+  const requiredSignerSet = new Set(seal.required_signers);
+
+  const pendingRequired = eligibleRoles.filter((signerRole) => requiredSignerSet.has(signerRole) && !recordedRoles.has(signerRole));
+  const optionalEligible = eligibleRoles.filter((signerRole) => !requiredSignerSet.has(signerRole) && !recordedRoles.has(signerRole));
+
+  return [...pendingRequired, ...optionalEligible];
 }

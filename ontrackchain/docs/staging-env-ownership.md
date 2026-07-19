@@ -141,6 +141,13 @@ Sign-off recomendado na janela:
 
 ## Sequencia Recomendada de Desbloqueio
 
+Estado real mais recente, em `2026-07-19`:
+
+- `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-02` falhou
+- `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-03` falhou
+- `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-04` falhou
+- o bloqueio dominante atual foi a combinacao de `.env.staging.private` ausente com `Compliance/AML.date/status` ainda em `pending`
+
 1. preencher o `Gate Agregado da Janela` e os placeholders transversais na folha manual e nos artefatos vivos
 2. destravar `Platform/Operations`
 3. destravar `Auth/OIDC`
@@ -155,19 +162,21 @@ Sequencia tecnica correspondente:
 3. executar `python3 scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md`
 4. gerar um pacote redigido da janela com `python3 scripts/render_staging_window_packet.py --window-id <janela> --output-file artifacts/staging/window-packet-<janela>.md`
 5. preencher os valores reais em canal seguro
-6. rerodar o gate agregado com `python3 scripts/prepare_staging_window.py --window-id <janela> --mode baseline --private-env-file .env.staging.private --validate --preflight`
-7. seguir para `python3 scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private` apenas se o gate agregado retornar `status=ok`
-8. anexar o `window packet`, os JSONs em `artifacts/staging/checks/`, a homologacao, o dossier final e, quando houver `P0-01`, o resumo `artifacts/staging/dossiers/<janela>-oidc-readiness-bundle.md`, alem do resumo `artifacts/staging/dossiers/<janela>-regulatory-readiness-bundle.md` quando houver `P0-02/P0-03`, ao sign-off da janela
+6. executar `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-02 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md` quando houver `AML/KYT live`
+7. executar `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-03 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md` quando houver feed UE real
+8. executar `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-04 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md` quando a janela quiser consolidar o bundle regulatorio
+9. rerodar o gate agregado com `make gate-p0-05-serious-window WINDOW_ID=<janela> MODE=baseline PRIVATE_ENV_FILE=.env.staging.private GOVERNANCE_WEEKLY_DIR=docs/governance-weekly`
+10. seguir para `python3 scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private` apenas se o gate agregado retornar `status=ok`
+11. anexar o `window packet`, os JSONs em `artifacts/staging/checks/`, a homologacao, o dossier final e, quando houver `P0-01`, o resumo `artifacts/staging/dossiers/<janela>-oidc-readiness-bundle.md`, alem do resumo `artifacts/staging/dossiers/<janela>-regulatory-readiness-bundle.md` quando houver `P0-02/P0-03`, ao sign-off da janela
 
 Atalho recomendado para o gate agregado:
 
 ```bash
-python3 scripts/prepare_staging_window.py \
-  --window-id stg-YYYY-MM-DD-a \
-  --mode baseline \
-  --private-env-file .env.staging.private \
-  --validate \
-  --preflight
+make gate-p0-05-serious-window \
+  WINDOW_ID=stg-YYYY-MM-DD-a \
+  MODE=baseline \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  GOVERNANCE_WEEKLY_DIR=docs/governance-weekly
 ```
 
 Atalho recomendado para execucao ponta a ponta, somente depois do gate agregado verde:
@@ -180,7 +189,9 @@ python3 scripts/run_staging_window.py \
 
 O gate agregado acima deve ser a ultima verificacao antes da execucao ponta a ponta.
 
-O runner acima encapsula, em ordem, os gates de `ownership coverage`, `window packet`, placeholders, handoff, `preflight_oidc_serious_env.py`, `preflight_external_integrations.py`, `run_oidc_readiness_bundle.py`, o resumo markdown do bundle OIDC, `run_regulatory_readiness_bundle.py`, o resumo markdown do bundle regulatório, `homologation_external_evidence.py` e `build_staging_release_dossier.py`.
+O runner acima encapsula, em ordem, os gates de `ownership coverage`, `window packet`, placeholders, handoff, checks regulatórios aplicáveis (`p0-02`, `p0-03`, `p0-04` quando o `.env` privado já sinalizar escopo real), `preflight_oidc_serious_env.py`, `preflight_external_integrations.py`, `run_oidc_readiness_bundle.py`, o resumo markdown do bundle OIDC, `run_regulatory_readiness_bundle.py`, o resumo markdown do bundle regulatório, `homologation_external_evidence.py` e `build_staging_release_dossier.py`.
+
+Na pratica, os checks regulatórios acima devem ser tratados como precondicao humana e tecnica do restante da janela. Se qualquer um deles falhar por `.env.staging.private` ausente ou por `Compliance/AML` ainda em `pending`, a execucao deve parar antes do runtime real.
 
 ## Registro de Handoff
 

@@ -305,9 +305,10 @@ def run_bundle(
         return 0, payload
 
     if include_compliance_runtime:
-        compliance_request_id = env_values.get(
-            "ONTRACKCHAIN_REGULATORY_COMPLIANCE_REQUEST_ID",
-            f"{window_id}-compliance-{uuid.uuid4().hex[:8]}",
+        compliance_request_id = (
+            os.environ.get("ONTRACKCHAIN_REGULATORY_COMPLIANCE_REQUEST_ID", "").strip()
+            or env_values.get("ONTRACKCHAIN_REGULATORY_COMPLIANCE_REQUEST_ID", "").strip()
+            or f"{window_id}-compliance-{uuid.uuid4().hex[:8]}"
         )
         runtime_output_file = build_output_file(
             window_id, "compliance-provider-runtime", checks_dir
@@ -348,9 +349,10 @@ def run_bundle(
         )
 
     if include_eu_window:
-        eu_request_id = env_values.get(
-            "ONTRACKCHAIN_REGULATORY_EU_REQUEST_ID",
-            f"{window_id}-eu-{uuid.uuid4().hex[:8]}",
+        eu_request_id = (
+            os.environ.get("ONTRACKCHAIN_REGULATORY_EU_REQUEST_ID", "").strip()
+            or env_values.get("ONTRACKCHAIN_REGULATORY_EU_REQUEST_ID", "").strip()
+            or f"{window_id}-eu-{uuid.uuid4().hex[:8]}"
         )
         eu_output_file = build_output_file(window_id, "eu-sanctions-window", checks_dir)
         eu_exit_code, eu_payload = run_module_main(

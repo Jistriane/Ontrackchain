@@ -86,6 +86,14 @@ def regulatory_summary(snapshot: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def blocking_summary(snapshot: dict[str, Any]) -> dict[str, str]:
+    blocking = snapshot.get("blocking_state") or {}
+    return {
+        "classification": str(blocking.get("classification") or "unknown"),
+        "summary": str(blocking.get("summary") or "indisponivel"),
+    }
+
+
 def render_markdown(window_id: str, snapshot_file: Path, snapshot: dict[str, Any]) -> str:
     blockers = snapshot.get("blockers") or {}
     generated_at = str(snapshot.get("generated_at") or "unknown")
@@ -93,6 +101,7 @@ def render_markdown(window_id: str, snapshot_file: Path, snapshot: dict[str, Any
     unresolved_count = int(blockers.get("unresolved_placeholders_count") or 0)
     handoff_count = int(blockers.get("missing_handoff_fields_count") or 0)
     regulatory = regulatory_summary(snapshot)
+    blocking = blocking_summary(snapshot)
 
     grouped = build_domain_map(snapshot)
 
@@ -104,6 +113,8 @@ def render_markdown(window_id: str, snapshot_file: Path, snapshot: dict[str, Any
         f"- gerado em: `{generated_at}`",
         f"- snapshot fonte: `{snapshot_file}`",
         f"- status geral: `{status}`",
+        f"- classificacao dominante: `{blocking['classification']}`",
+        f"- resumo do bloqueio dominante: {blocking['summary']}",
         f"- placeholders pendentes: `{unresolved_count}`",
         f"- handoff pendente: `{handoff_count}`",
         f"- escopo regulatorio da tentativa: `{regulatory['scope_label']}`",
@@ -119,6 +130,16 @@ def render_markdown(window_id: str, snapshot_file: Path, snapshot: dict[str, Any
         "4. Reexecutar o pacote completo com `make refresh-staging-war-room-governance-local WINDOW_ID=<window_id>`.",
         "5. Confirmar reducao objetiva de bloqueios no delta e no dashboard executivo.",
     ]
+    if blocking["classification"] == "regulatory_blocked":
+        lines.extend(
+            [
+                "",
+                "## Tratamento do Bloqueio Dominante",
+                "",
+                f"- bloquear qualquer tentativa de promocao ate resolver: {blocking['summary']}",
+                "- priorizar `Compliance/AML` e os insumos reais da trilha regulatoria antes do restante",
+            ]
+        )
 
     for domain in DOMAIN_ORDER:
         domain_placeholders = grouped[domain]["placeholders"]
@@ -139,6 +160,7 @@ def render_markdown(window_id: str, snapshot_file: Path, snapshot: dict[str, Any
                 f"- contexto regulatorio: escopo atual `{regulatory['scope_label']}` "
                 f"com `P0-04={regulatory['p0_04_bundle_readiness']}`"
             )
+            lines.append(f"- classificacao dominante atual: `{blocking['classification']}`")
 
         if domain_placeholders:
             for name in domain_placeholders:
@@ -205,6 +227,7 @@ def main() -> int:
                 "window_id": args.window_id,
                 "snapshot_file": str(snapshot_file),
                 "output_file": str(output_file),
+                "blocking_classification": blocking_summary(snapshot).get("classification"),
             },
             ensure_ascii=True,
             indent=2,

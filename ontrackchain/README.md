@@ -177,10 +177,13 @@ make check-compliance-provider-runtime \
   INTERNAL_BASE_URL=http://compliance-api:8002 \
   PUBLIC_BASE_URL=http://localhost:8080
 make run-oidc-readiness-bundle-local WINDOW_ID=stg-$(date +%F)-oidc BASE_URL=http://localhost:8080
-make run-regulatory-readiness-bundle-local \
+make gate-p0-04-regulatory-bundle \
   WINDOW_ID=stg-$(date +%F)-reg \
-  INTERNAL_BASE_URL=http://compliance-api:8002 \
-  PUBLIC_BASE_URL=http://localhost:8080
+  PRIVATE_ENV_FILE=.env.staging.private \
+  CHECKS_DIR=artifacts/staging/checks \
+  DOSSIERS_DIR=artifacts/staging/dossiers \
+  COMPLIANCE_INTERNAL_BASE_URL=http://compliance-api:8002 \
+  COMPLIANCE_PUBLIC_BASE_URL=http://localhost:8080
 ```
 
 ## Janela Seria

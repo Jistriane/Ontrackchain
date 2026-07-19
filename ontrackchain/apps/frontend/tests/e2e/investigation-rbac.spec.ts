@@ -1,39 +1,14 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
-async function seedFrontendAuth(page: Page, role: string) {
+import { seedFrontendAuth } from "./seed-frontend-auth";
+
+async function seedInvestigationPage(page: Page, role: string) {
   const calls = {
     estimate: 0,
     start: 0
   };
 
-  await page.context().addCookies([
-    {
-      name: "otc_token",
-      value: "pw-e2e-token",
-      domain: "localhost",
-      path: "/",
-      httpOnly: false,
-      secure: false,
-      sameSite: "Lax"
-    }
-  ]);
-
-  await page.route("**/api/app/auth/context", async (route: Route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        org_id: "org-e2e",
-        user_id: "user-e2e",
-        linked_user_id: "linked-e2e",
-        role,
-        plan: "professional",
-        auth_method: "jwt",
-        mfa_mode: "totp",
-        mfa_provider_homologated: "true"
-      })
-    });
-  });
+  await seedFrontendAuth(page, { role });
 
   await page.route("**/api/app/report-types?**", async (route: Route) => {
     await route.fulfill({
@@ -89,7 +64,7 @@ async function seedFrontendAuth(page: Page, role: string) {
 
 test.describe("investigation RBAC", () => {
   test("viewer recebe bloqueio preventivo antes de gerar quote", async ({ page }) => {
-    const calls = await seedFrontendAuth(page, "VIEWER");
+    const calls = await seedInvestigationPage(page, "VIEWER");
     await page.goto("/investigate");
 
     await page.fill('[data-testid="wallet-address"]', "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
@@ -105,10 +80,24 @@ test.describe("investigation RBAC", () => {
   });
 
   test("analyst continua conseguindo gerar quote", async ({ page }) => {
-    const calls = await seedFrontendAuth(page, "ANALYST");
+    const calls = await seedInvestigationPage(page, "ANALYST");
     await page.goto("/investigate");
 
     await page.fill('[data-testid="wallet-address"]', "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+    await page.selectOption('[data-testid="chain-select"]', "ethereum");
+    await page.selectOption('[data-testid="report-type"]', "technical_basic");
+    await page.click('[data-testid="start-investigation-btn"]');
+
+    await expect(page.locator('[data-testid="quote-preview"]')).toBeVisible();
+    await expect(page.locator('[data-testid="quote-credits"]')).toHaveText("12");
+    expect(calls.estimate).toBe(1);
+  });
+
+  test("alias OTK_ANALYST continua conseguindo gerar quote", async ({ page }) => {
+    const calls = await seedInvestigationPage(page, "OTK_ANALYST");
+    await page.goto("/investigate");
+
+    await page.fill('[data-testid="wallet-address"]', "0xcccccccccccccccccccccccccccccccccccccccc");
     await page.selectOption('[data-testid="chain-select"]', "ethereum");
     await page.selectOption('[data-testid="report-type"]', "technical_basic");
     await page.click('[data-testid="start-investigation-btn"]');

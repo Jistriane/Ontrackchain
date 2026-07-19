@@ -1,5 +1,7 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
+import { seedFrontendAuth } from "./seed-frontend-auth";
+
 type BlockEvaluationPayload = {
   address?: string;
   chain?: string;
@@ -25,44 +27,13 @@ function parseBlockEvaluationPayload(route: Route): BlockEvaluationPayload {
   };
 }
 
-async function seedFrontendAuth(page: Page) {
-  await page.context().addCookies([
-    {
-      name: "otc_token",
-      value: "pw-e2e-token",
-      domain: "localhost",
-      path: "/",
-      httpOnly: false,
-      secure: false,
-      sameSite: "Lax"
-    }
-  ]);
-
-  await page.route("**/api/app/auth/context", async (route: Route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        org_id: "org-e2e",
-        user_id: "user-e2e",
-        linked_user_id: "linked-e2e",
-        role: "ANALYST",
-        plan: "professional",
-        auth_method: "jwt",
-        mfa_mode: "totp",
-        mfa_provider_homologated: "true"
-      })
-    });
-  });
-}
-
 test.describe("operational context links", () => {
   test("sanctions deriva links contextuais no workspace e no resultado", async ({ page }: { page: Page }) => {
     const workspaceCaseId = "11111111-1111-4111-8111-111111111111";
     const resultCaseId = "22222222-2222-4222-8222-222222222222";
     const address = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
-    await seedFrontendAuth(page);
+    await seedFrontendAuth(page, { role: "ANALYST" });
 
     await page.route("**/api/app/operations/work-items?module=sanctions**", async (route: Route) => {
       await route.fulfill({
@@ -170,7 +141,7 @@ test.describe("operational context links", () => {
     const resultCaseId = "44444444-4444-4444-8444-444444444444";
     const address = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
-    await seedFrontendAuth(page);
+    await seedFrontendAuth(page, { role: "ANALYST" });
 
     await page.route("**/api/app/operations/work-items?module=blocks**", async (route: Route) => {
       await route.fulfill({

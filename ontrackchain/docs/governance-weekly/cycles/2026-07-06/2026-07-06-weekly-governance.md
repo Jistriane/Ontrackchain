@@ -74,7 +74,7 @@
   - status anterior: `ready`
   - status atual: `ready`
   - owner nominal: `Owner de Compliance/Sancoes`
-  - artefato revisado: runner `make run-eu-sanctions-window-local` e checker `EU_CONSOLIDATED`
+  - artefato revisado: gate `make gate-p0-03-eu-live` com `REQUEST_ID` e checker `EU_CONSOLIDATED`
   - próxima evidência esperada: `source_url` tokenizada válida + JSONs `<janela>-eu-sanctions-*.json`
 
 - ID: `RUN-STG-01`

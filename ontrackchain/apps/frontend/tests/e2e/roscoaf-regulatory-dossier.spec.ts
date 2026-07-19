@@ -320,6 +320,69 @@ test.describe("ros-coaf regulatory dossier", () => {
     await expect(page.getByTestId("roscoaf-submitted-access-denied")).toHaveCount(0);
   });
 
+  test("alias OTK_LEGAL_REVIEWER mantém trilha de aprovação sem ganhar submissão manual", async ({ page }) => {
+    const { rosId } = await seedRosCoafPage(page, "OTK_LEGAL_REVIEWER");
+
+    await page.goto(`/ros-coaf?ros_id=${encodeURIComponent(rosId)}`);
+
+    await expect(page.getByTestId("roscoaf-approve-btn")).toBeVisible();
+    await expect(page.getByTestId("roscoaf-submitted-btn")).toHaveCount(0);
+    await expect(page.getByTestId("roscoaf-submitted-access-denied")).toContainText(
+      "A submissão manual do ROS exige papel operacional: ADMIN ou COMPLIANCE_OFFICER."
+    );
+  });
+
+  test("alias OTK_REVIEWER mantém trilha de aprovação sem ganhar submissão manual", async ({ page }) => {
+    const { rosId } = await seedRosCoafPage(page, "OTK_REVIEWER");
+
+    await page.goto(`/ros-coaf?ros_id=${encodeURIComponent(rosId)}`);
+
+    await expect(page.getByTestId("roscoaf-approve-btn")).toBeVisible();
+    await expect(page.getByTestId("roscoaf-submitted-btn")).toHaveCount(0);
+    await expect(page.getByTestId("roscoaf-submitted-access-denied")).toContainText(
+      "A submissão manual do ROS exige papel operacional: ADMIN ou COMPLIANCE_OFFICER."
+    );
+  });
+
+  test("alinha a mensagem de geracao negada e aceita alias OTK_COMPLIANCE_OFFICER no trilho operacional", async ({ page }) => {
+    const { rosId } = await seedRosCoafPage(page, "VIEWER");
+
+    await page.goto(`/ros-coaf?ros_id=${encodeURIComponent(rosId)}`);
+
+    await expect(page.getByTestId("roscoaf-generate-btn")).toHaveCount(0);
+    await expect(page.getByTestId("roscoaf-generate-access-denied")).toContainText(
+      "A geração do draft do ROS exige papel operacional: ADMIN ou COMPLIANCE_OFFICER."
+    );
+    await expect(page.getByTestId("roscoaf-approve-btn")).toHaveCount(0);
+    await expect(page.getByTestId("roscoaf-submitted-btn")).toHaveCount(0);
+
+    await page.unroute("**/api/app/auth/context");
+    await page.route("**/api/app/auth/context", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-e2e",
+          user_id: "user-e2e",
+          linked_user_id: "linked-user-e2e",
+          role: "OTK_COMPLIANCE_OFFICER",
+          plan: "professional",
+          auth_method: "dev_jwt",
+          mfa_mode: "external_provider",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.goto(`/ros-coaf?ros_id=${encodeURIComponent(rosId)}`);
+
+    await expect(page.getByTestId("roscoaf-generate-btn")).toBeVisible();
+    await expect(page.getByTestId("roscoaf-approve-btn")).toBeVisible();
+    await expect(page.getByTestId("roscoaf-submitted-btn")).toBeVisible();
+    await expect(page.getByTestId("roscoaf-generate-access-denied")).toHaveCount(0);
+    await expect(page.getByTestId("roscoaf-submitted-access-denied")).toHaveCount(0);
+  });
+
   test("bloqueia cedo a trilha sensível quando falta linked_user_id persistido", async ({ page }) => {
     const { rosId } = await seedRosCoafPage(page, "COMPLIANCE_OFFICER");
 

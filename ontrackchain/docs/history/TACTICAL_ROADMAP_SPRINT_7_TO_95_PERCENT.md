@@ -55,7 +55,7 @@ Elevar o KPI consolidado de **87%** para **95%** em 9 semanas through:
   - [ ] Obter URL, validar reachability
   - [ ] Documentar em `.env.staging.example` como `__FILL_COMPLIANCE_EU_SANCTIONS_SOURCE_URL__`
   - [ ] Preencher em `.env.staging.private`
-  - [ ] Executar: `make run-eu-sanctions-window-local WINDOW_ID=validation-eu COMPLIANCE_EU_SANCTIONS_SOURCE_URL=<url>`
+  - [ ] Executar: `export REQUEST_ID="validation-eu-check"` e `make gate-p0-03-eu-live WINDOW_ID=validation-eu REQUEST_ID="$REQUEST_ID" COMPLIANCE_EU_SANCTIONS_SOURCE_URL=<url>`
 
 **Critério de Sucesso:**
 - `artifacts/staging/<janela>-eu-sanctions-preflight.json` retorna 0 errors

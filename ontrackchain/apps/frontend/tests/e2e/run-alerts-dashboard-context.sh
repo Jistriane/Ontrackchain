@@ -43,7 +43,15 @@ DASHBOARD_MOCK_API_PORT="${DASHBOARD_MOCK_API_PORT}" node tests/e2e/mock-dashboa
 MOCK_PID=$!
 
 wait_for_url "${MOCK_API_URL}/api/v1/investigation/admin/operations"
+wait_for_url "${MOCK_API_URL}/healthz"
 
+APP_ENV="local" \
+NEXT_PUBLIC_APP_ENV="local" \
+AUTH_MODE="dev" \
+NEXT_PUBLIC_AUTH_MODE="dev" \
+DEV_AUTH_ENABLED="true" \
+NEXT_PUBLIC_DEV_AUTH_ENABLED="true" \
+INTERNAL_AUTH_BASE_URL="${MOCK_API_URL}" \
 INTERNAL_API_BASE_URL="${MOCK_API_URL}" \
 NEXT_PUBLIC_API_BASE_URL="${MOCK_API_URL}" \
 npx next dev -H 0.0.0.0 -p "${FRONTEND_PORT}" >/tmp/ontrackchain-alerts-dashboard-dev.log 2>&1 &

@@ -410,7 +410,7 @@ Checklist:
 - bundle `AML/KYT live` e gate de runtime anexados quando o escopo exigir
 - JSONs da janela UE anexados quando o escopo exigir `EU_CONSOLIDATED`
 - quando houver `AML/KYT live`, `make check-compliance-provider-runtime` verde e anexado
-- quando houver feed UE, `make run-eu-sanctions-window-local` ou fluxo equivalente com JSONs anexados
+- quando houver feed UE, `make gate-p0-03-eu-live` com `WINDOW_ID` e `REQUEST_ID` ou fluxo equivalente com JSONs anexados
 
 ## Processo Recomendado de Release
 

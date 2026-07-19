@@ -112,6 +112,7 @@ Scripts canonicos:
 - `check_staging_env_placeholders.py`
 - `check_staging_env_handoff.py`
 - `check_staging_env_ownership_coverage.py`
+- `check_regulatory_window_readiness.py`
 - `run_staging_window.py`
 
 O que eles validam:
@@ -121,6 +122,7 @@ O que eles validam:
 - URLs, retries, timeouts e secrets de integracoes externas
 - ausencia de placeholders criticos
 - ownership e handoff do `.env.staging.private`
+- prontidao real de `P0-02`, `P0-03` e `P0-04` antes do runtime do provider, da janela UE ou do bundle regulatorio
 - consolidacao da janela em dossier e manifestos
 
 ### 5. Runtime do Provider AML/KYT
@@ -207,10 +209,14 @@ npm run test:e2e
 
 ```bash
 python scripts/preflight_external_integrations.py
+make check-regulatory-window-readiness REGULATORY_SCOPE=p0-02 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md
+make check-regulatory-window-readiness REGULATORY_SCOPE=p0-03 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md
+make check-regulatory-window-readiness REGULATORY_SCOPE=p0-04 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md
 make check-compliance-provider-runtime \
   INTERNAL_BASE_URL=http://compliance-api:8002 \
   PUBLIC_BASE_URL=http://localhost:8080
-make run-eu-sanctions-window-local WINDOW_ID=stg-YYYY-MM-DD-eu
+export REQUEST_ID=stg-YYYY-MM-DD-eu-check
+make gate-p0-03-eu-live WINDOW_ID=stg-YYYY-MM-DD-eu REQUEST_ID="$REQUEST_ID"
 python scripts/check_sanctions_sync_status.py
 ```
 
@@ -233,6 +239,7 @@ Pacote esperado quando aplicável:
 
 - `AML/KYT` live ainda depende de credenciais reais e homologacao recorrente; o checker novo valida runtime, mas nao substitui a evidencia institucional da janela seria
 - o feed da UE pode depender de URL tokenizada real para fechar a prova operacional
+- a execucao real de `2026-07-19` provou que o primeiro gargalo local atual e anterior ao runtime: `.env.staging.private` ausente e `Compliance/AML.date/status` pendentes bloqueiam `P0-02`, `P0-03` e `P0-04`
 - `due_diligence` e `source_of_funds` ainda nao possuem harness regulatorio equivalente ao screening local de sancoes
 - os runners e checkers atuais ainda precisam ser exercitados de forma recorrente nas janelas homologadas
 
@@ -246,7 +253,7 @@ Pacote esperado quando aplicável:
 - `report_downloaded` continua auditado
 - `coaf_report_*` deixa trilha em `audit_logs` e `evidence_trail`
 - `check_compliance_provider_runtime.py` e parte do rito quando houver janela de homologacao `AML/KYT live`
-- `make run-eu-sanctions-window-local` e parte do rito quando houver janela de sancoes da UE com persistencia de artefatos
+- `make gate-p0-03-eu-live` com `REQUEST_ID` e parte do rito quando houver janela de sancoes da UE com persistencia de artefatos
 - `make run-eu-sanctions-window` permanece disponivel para execucao mais controlada
-- `make check-eu-sanctions-window` permanece como validacao pontual do estado persistido
+- `make check-eu-sanctions-window REQUEST_ID=<eu_request_id>` permanece como validacao pontual do estado persistido
 - `check_sanctions_sync_status.py` continua como checker generico para o estado persistido das listas

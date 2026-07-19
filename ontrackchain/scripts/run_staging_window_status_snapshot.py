@@ -191,6 +191,61 @@ def build_regulatory_snapshot(run: dict[str, Any], validate: dict[str, Any]) -> 
     }
 
 
+def derive_blocking_classification(
+    *,
+    overall_status: str,
+    prepare_status: str,
+    run_status: str,
+    artifact_status: str,
+    blockers: dict[str, Any],
+    regulatory: dict[str, Any],
+) -> dict[str, str]:
+    regulatory_reason_parts: list[str] = []
+    if str(regulatory.get("aml_kyt_runtime_readiness") or "") == "blocked":
+        regulatory_reason_parts.append("P0-02 bloqueado")
+    if str(regulatory.get("eu_feed_readiness") or "") == "blocked":
+        regulatory_reason_parts.append("P0-03 bloqueado")
+    if str(regulatory.get("p0_04_bundle_readiness") or "") == "blocked":
+        regulatory_reason_parts.append("P0-04 bloqueado")
+    if regulatory_reason_parts:
+        return {
+            "classification": "regulatory_blocked",
+            "summary": "; ".join(regulatory_reason_parts) + f" | {regulatory.get('promotion_note', 'pendente')}",
+        }
+
+    handoff = int(blockers.get("missing_handoff_fields_count") or 0)
+    placeholders = int(blockers.get("unresolved_placeholders_count") or 0)
+    if handoff > 0 or placeholders > 0:
+        return {
+            "classification": "operational_readiness_blocked",
+            "summary": f"{placeholders} placeholder(s) e {handoff} campo(s) de handoff pendentes",
+        }
+
+    failed_steps = [
+        name
+        for name, status in (
+            ("prepare", prepare_status),
+            ("run", run_status),
+            ("artifact_validation", artifact_status),
+        )
+        if status == "failed"
+    ]
+    if overall_status == "failed" or failed_steps:
+        return {
+            "classification": "technical_gate_blocked",
+            "summary": f"falha tecnica registrada em {', '.join(failed_steps) if failed_steps else 'overall'}",
+        }
+    if overall_status == "ok":
+        return {
+            "classification": "ready_for_manual_review",
+            "summary": "janela tecnicamente concluida; pendente revisao e aprovacao humana",
+        }
+    return {
+        "classification": "pending_execution",
+        "summary": "janela ainda nao convergiu na mesma tentativa",
+    }
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Executa prepare+run+validate e gera snapshot consolidado da janela seria."
@@ -260,31 +315,43 @@ def main() -> int:
     blockers = collect_blockers(Path(args.checks_dir), args.window_id)
     operational_incidents = load_operational_alerts_rca_summary(Path(args.checks_dir), args.window_id)
 
+    prepare_status = prepare_result.get("payload", {}).get("status") or ("ok" if prepare_result["exit_code"] == 0 else "failed")
+    run_status = run_result.get("payload", {}).get("status") or ("ok" if run_result["exit_code"] == 0 else "failed")
+    artifact_status = validate_result.get("payload", {}).get("status") or ("ok" if validate_result["exit_code"] == 0 else "failed")
+    overall_status = compute_overall_status(prepare_result, run_result, validate_result)
+    regulatory_snapshot = build_regulatory_snapshot(run_result, validate_result)
+    blocking_state = derive_blocking_classification(
+        overall_status=overall_status,
+        prepare_status=prepare_status,
+        run_status=run_status,
+        artifact_status=artifact_status,
+        blockers=blockers,
+        regulatory=regulatory_snapshot,
+    )
+
     snapshot = {
         "kind": "staging_window_status_snapshot",
         "generated_at": utc_now_iso(),
         "window_id": args.window_id,
-        "overall_status": compute_overall_status(prepare_result, run_result, validate_result),
-        "regulatory": build_regulatory_snapshot(run_result, validate_result),
+        "overall_status": overall_status,
+        "regulatory": regulatory_snapshot,
+        "blocking_state": blocking_state,
         "operational_incidents": operational_incidents,
         "blockers": blockers,
         "prepare": {
             "exit_code": prepare_result["exit_code"],
-            "status": prepare_result.get("payload", {}).get("status")
-            or ("ok" if prepare_result["exit_code"] == 0 else "failed"),
+            "status": prepare_status,
             "generated_at": prepare_result.get("payload", {}).get("generated_at"),
         },
         "run": {
             "exit_code": run_result["exit_code"],
-            "status": run_result.get("payload", {}).get("status")
-            or ("ok" if run_result["exit_code"] == 0 else "failed"),
+            "status": run_status,
             "generated_at": run_result.get("payload", {}).get("generated_at"),
             "errors": run_result.get("payload", {}).get("errors", []),
         },
         "artifact_validation": {
             "exit_code": validate_result["exit_code"],
-            "status": validate_result.get("payload", {}).get("status")
-            or ("ok" if validate_result["exit_code"] == 0 else "failed"),
+            "status": artifact_status,
             "errors": validate_result.get("payload", {}).get("errors", []),
             "missing_artifacts": validate_result.get("payload", {}).get("missing_artifacts", []),
         },

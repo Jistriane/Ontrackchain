@@ -143,13 +143,15 @@ Preencha `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` com a URL XML tokenizada oficial e
 ```bash
 python3 scripts/preflight_external_integrations.py
 export WINDOW_ID=stg-$(date +%F)-eu
-make run-eu-sanctions-window-local WINDOW_ID=$WINDOW_ID
+export REQUEST_ID="${WINDOW_ID}-eu-check"
+make gate-p0-03-eu-live WINDOW_ID="$WINDOW_ID" REQUEST_ID="$REQUEST_ID"
 ```
 
 Ou, se quiser apenas a validacao pontual sem persistencia consolidada:
 
 ```bash
-make check-eu-sanctions-window
+export REQUEST_ID=stg-YYYY-MM-DD-eu-check
+make check-eu-sanctions-window REQUEST_ID=$REQUEST_ID
 ```
 
 ## Janela Seria de Staging
@@ -160,6 +162,9 @@ Fluxo recomendado:
 cp .env.staging.example .env.staging.private
 python3 scripts/check_staging_env_placeholders.py --file .env.staging.private
 python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
+make check-regulatory-window-readiness REGULATORY_SCOPE=p0-02 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md
+make check-regulatory-window-readiness REGULATORY_SCOPE=p0-03 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md
+make check-regulatory-window-readiness REGULATORY_SCOPE=p0-04 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md
 python3 scripts/run_staging_window.py \
   --window-id stg-YYYY-MM-DD-a \
   --private-env-file .env.staging.private
@@ -168,6 +173,13 @@ python3 scripts/run_staging_window.py \
 Antes desse fluxo, quando a janela ainda estiver em `no-go`, validar o handoff por dominio:
 
 - [Ownership do `.env.staging`](staging-env-ownership.md)
+
+Execucao real local mais recente, em `2026-07-19`:
+
+- os tres checks (`p0-02`, `p0-03`, `p0-04`) falharam antes do runtime
+- o bloqueio dominante atual foi `arquivo_ausente: .env.staging.private`
+- o segundo bloqueio dominante foi `Compliance/AML.date/status` ainda em `pending`
+- enquanto isso nao for corrigido, nao vale a pena tentar `check-compliance-provider-runtime`, janela UE ou bundle regulatorio como se fossem o primeiro gargalo
 
 ## Troubleshooting
 
@@ -228,9 +240,10 @@ Quando tocar compliance/regulatorio:
 - validar `smoke_runtime.py`
 - validar suites Playwright relevantes
 - rodar `preflight_external_integrations.py` quando a mudanca envolver providers
+- rodar `make check-regulatory-window-readiness REGULATORY_SCOPE=<p0-02|p0-03|p0-04>` antes de qualquer tentativa com provider real ou feed UE real
 - rodar `check_sanctions_sync_status.py` quando a mudanca envolver sync de sancoes
 - rodar `make check-compliance-provider-runtime` quando a mudanca envolver homologacao `AML/KYT live`
-- rodar `make run-eu-sanctions-window-local` quando a mudanca envolver a janela UE com artefatos persistidos
+- rodar `make gate-p0-03-eu-live` com `WINDOW_ID` e `REQUEST_ID` quando a mudanca envolver a janela UE com artefatos persistidos
 - aplicar `0013` e `0014` quando a mudanca envolver a fila operacional compartilhada
 - aplicar `0016_team_users_directory.sql` quando a mudanca envolver `team`, `billing` ou trilhas que dependem de atores federados persistidos
 - revisar `audit_logs` e `evidence_trail` no fluxo alterado

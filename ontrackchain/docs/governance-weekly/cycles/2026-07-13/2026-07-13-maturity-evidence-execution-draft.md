@@ -61,7 +61,7 @@ Estado deste arquivo:
 ### D3
 
 - objetivo: executar janela UE real
-- comando principal: `make run-eu-sanctions-window-local WINDOW_ID=stg-$(date +%F)-eu`
+- comando principal: `export REQUEST_ID="stg-$(date +%F)-eu-check"` seguido de `make gate-p0-03-eu-live WINDOW_ID=stg-$(date +%F)-eu REQUEST_ID="$REQUEST_ID"`
 - evidencia preservada: `pendente`
 - bloqueadores: URL tokenizada real
 - decisao do dia: `pendente`
@@ -70,7 +70,7 @@ Estado deste arquivo:
 ### D4
 
 - objetivo: consolidar `P0-02` e `P0-03`
-- comando principal: `make run-regulatory-readiness-bundle-local WINDOW_ID=stg-$(date +%F)-reg INTERNAL_BASE_URL=http://compliance-api:8002 PUBLIC_BASE_URL=http://localhost:8080`
+- comando principal: `make gate-p0-04-regulatory-bundle WINDOW_ID=stg-$(date +%F)-reg PRIVATE_ENV_FILE=.env.staging.private CHECKS_DIR=artifacts/staging/checks DOSSIERS_DIR=artifacts/staging/dossiers COMPLIANCE_INTERNAL_BASE_URL=http://compliance-api:8002 COMPLIANCE_PUBLIC_BASE_URL=http://localhost:8080`
 - evidencia preservada: `pendente`
 - bloqueadores: dependencia de `D2` e `D3`
 - decisao do dia: `pendente`

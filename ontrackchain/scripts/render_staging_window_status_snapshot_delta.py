@@ -33,10 +33,13 @@ def default_output_file(window_id: str) -> Path:
 
 def regulatory_summary(payload: dict[str, Any]) -> dict[str, str]:
     regulatory = payload.get("regulatory") or {}
+    blocking_state = payload.get("blocking_state") or {}
     return {
         "scope_label": str(regulatory.get("scope_label") or "none"),
         "p0_04_bundle_readiness": str(regulatory.get("p0_04_bundle_readiness") or "unknown"),
         "promotion_note": str(regulatory.get("promotion_note") or "indisponivel"),
+        "blocking_classification": str(blocking_state.get("classification") or "unknown"),
+        "blocking_summary": str(blocking_state.get("summary") or "indisponivel"),
     }
 
 
@@ -56,6 +59,11 @@ def regulatory_progress_note(
             "houve evolucao de readiness de `P0-04`: "
             f"`{previous['p0_04_bundle_readiness']}` -> `{current['p0_04_bundle_readiness']}`"
         )
+    if previous["blocking_classification"] != current["blocking_classification"]:
+        return (
+            "houve mudanca na classificacao dominante: "
+            f"`{previous['blocking_classification']}` -> `{current['blocking_classification']}`"
+        )
     return "sem mudanca regulatoria material"
 
 
@@ -72,6 +80,7 @@ def compute_executive_signal(
     regulatory_changed = (
         previous_regulatory["scope_label"] != current_regulatory["scope_label"]
         or previous_regulatory["p0_04_bundle_readiness"] != current_regulatory["p0_04_bundle_readiness"]
+        or previous_regulatory["blocking_classification"] != current_regulatory["blocking_classification"]
     )
     regulatory_note = regulatory_progress_note(previous_regulatory, current_regulatory)
 
@@ -152,6 +161,7 @@ def render_markdown(window_id: str, current: dict[str, Any], previous: dict[str,
         f"- handoff pendente: `{prev_count_h}` -> `{cur_count_h}` (delta `{delta_h:+d}`)",
         f"- escopo regulatorio: `{previous_regulatory['scope_label']}` -> `{current_regulatory['scope_label']}`",
         f"- `P0-04` readiness: `{previous_regulatory['p0_04_bundle_readiness']}` -> `{current_regulatory['p0_04_bundle_readiness']}`",
+        f"- classificacao dominante: `{previous_regulatory['blocking_classification']}` -> `{current_regulatory['blocking_classification']}`",
         "",
         "## Semaforo Executivo",
         "",
@@ -164,8 +174,12 @@ def render_markdown(window_id: str, current: dict[str, Any], previous: dict[str,
         f"- escopo atual: `{current_regulatory['scope_label']}`",
         f"- `P0-04` readiness anterior: `{previous_regulatory['p0_04_bundle_readiness']}`",
         f"- `P0-04` readiness atual: `{current_regulatory['p0_04_bundle_readiness']}`",
+        f"- classificacao anterior: `{previous_regulatory['blocking_classification']}`",
+        f"- classificacao atual: `{current_regulatory['blocking_classification']}`",
         f"- leitura anterior: {previous_regulatory['promotion_note']}",
         f"- leitura atual: {current_regulatory['promotion_note']}",
+        f"- resumo anterior: {previous_regulatory['blocking_summary']}",
+        f"- resumo atual: {current_regulatory['blocking_summary']}",
         "",
         "## Placeholders",
         "",

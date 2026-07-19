@@ -40,7 +40,7 @@ Referencias de apoio:
 | Bloco | Status atual | Ultima evidencia revisada | Bloqueio atual | Proxima acao verificavel | Data alvo | Semaforo |
 | --- | --- | --- | --- | --- | --- | --- |
 | `P0-02` `AML/KYT live` | `ready` salvo nova evidencia | gate `check-compliance-provider-runtime` documentado | credencial real do provider ainda pendente | executar checker com credencial real e persistir JSON | `2026-07-14` | `amarelo` |
-| `P0-03` feed UE real | `ready` salvo nova evidencia | runner `run-eu-sanctions-window-local` documentado | URL tokenizada real ainda pendente | executar janela UE e anexar JSONs de preflight/sync | `2026-07-14` | `amarelo` |
+| `P0-03` feed UE real | `ready` salvo nova evidencia | gate `gate-p0-03-eu-live` documentado | URL tokenizada real ainda pendente | executar janela UE com `REQUEST_ID` e anexar JSONs de preflight/sync | `2026-07-14` | `amarelo` |
 | `P0-01` `OIDC + MFA` serio | `blocked` salvo nova evidencia | nenhum bundle serio final revisado | provider OIDC serio e aceite institucional pendentes | rodar preflight + smoke + bundle OIDC com provider real | `2026-07-15` | `vermelho` |
 | `RUN-STG-01` primeira janela seria | `pending_execucao` salvo artifact novo | war room, tracking, sign-off e `decision packet` da janela `stg-2026-07-13-a` publicados | janela ainda depende de sair de `pending_no_go` | revisar `decision packet`, preencher owners/canais e disparar workflow so com `pending_go`, `go` ou `go_with_exception` formal | `2026-07-17` | `amarelo` |
 | ownership/SLA | `in_progress` com aceite pendente | matriz de owners, SLA base e runbooks publicados | aceite formal de Platform/SRE e Security pendente | registrar decisao escrita e fechar drill | `2026-07-15` | `amarelo` |

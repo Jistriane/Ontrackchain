@@ -125,7 +125,8 @@ Owners primarios:
 
 Criterio de saida:
 
-- `P0-02` e `P0-03` saem de `ready` para `in_progress`
+- `.env.staging.private` existe fora do repositorio com ownership/handoff concluido
+- `P0-02` e `P0-03` saem de `blocked` para `in_progress` somente depois do `check-regulatory-window-readiness` verde
 - `P0-01` sai de `blocked` para `ready` ou `in_progress`
 
 ### Fase 2 - Homologacao de Integracoes Vivas
@@ -332,9 +333,9 @@ Executar um kick-off de `D1-D2` com a seguinte pauta:
 
 | Bloco | Owner principal | Estado alvo | Evidencia de fechamento |
 | --- | --- | --- | --- |
-| `P0-02` `AML/KYT live` | Compliance Lead | `ready_for_validation` ou `done` | checker verde + JSON persistido |
-| `P0-03` feed UE real | Regulatory/Ops | `ready_for_validation` ou `done` | preflight/sync JSON + validacao |
-| `P0-04` bundle regulatorio oficial | Platform/SRE | `ready_for_validation` ou `done` | bundle regulatorio coerente + validador final; tentativa parcial alimenta o dossier, mas nao encerra o item |
+| `P0-02` `AML/KYT live` | Compliance Lead | `ready_for_validation` ou `done` | readiness `p0-02` verde + checker verde + JSON persistido |
+| `P0-03` feed UE real | Regulatory/Ops | `ready_for_validation` ou `done` | readiness `p0-03` verde + preflight/sync JSON + validacao |
+| `P0-04` bundle regulatorio oficial | Platform/SRE | `ready_for_validation` ou `done` | readiness `p0-04` verde + bundle regulatorio coerente + validador final; tentativa parcial alimenta o dossier, mas nao encerra o item |
 | `P0-01` `OIDC + MFA` | Security/Auth Lead | `ready_for_validation` ou `done` | preflight + smoke + E2E |
 | `P0-05` primeira janela seria material | Release Manager / Platform | `ready_for_validation` ou `done` | packet + dossier + war room + sign-off |
 | `P0-06` retention e recovery | CTO / Security / Compliance | `done` | restore evidenciado + aceite |
@@ -397,7 +398,7 @@ Fechamento minimo:
 - [ ] solicitar URL tokenizada real do feed UE
 - [ ] validar reachability e formato de resposta
 - [ ] preencher o segredo no ambiente privado correto
-- [ ] executar `make run-eu-sanctions-window-local`
+- [ ] executar `make gate-p0-03-eu-live` com `WINDOW_ID` e `REQUEST_ID`
 - [ ] validar `eu-sanctions-preflight.json`
 - [ ] validar `eu-sanctions-sync.json`
 - [ ] anexar os JSONs na trilha de governanca

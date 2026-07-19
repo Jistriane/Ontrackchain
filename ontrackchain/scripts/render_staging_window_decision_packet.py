@@ -105,6 +105,12 @@ def derive_primary_reason(
 ) -> str:
     if decision == "approved":
         return "todos os gates tecnicos e regulatorios obrigatorios estao verdes e coerentes"
+    if weekly_model.get("blocking_classification") == "regulatory_blocked":
+        return f"bloqueio regulatorio dominante: {weekly_model.get('blocking_summary', 'pendente')}"
+    if weekly_model.get("blocking_classification") == "identity_blocked":
+        return f"bloqueio de identidade/OIDC dominante: {weekly_model.get('blocking_summary', 'pendente')}"
+    if weekly_model.get("blocking_classification") == "technical_gate_blocked":
+        return weekly_model.get("blocking_summary") or "houve falha impeditiva no gate agregado da janela"
     if decision == "no_go":
         failed_parts = [
             name
@@ -220,6 +226,8 @@ def build_model(
         "workflow_name": signoff_model["workflow_name"],
         "run_name": signoff_model["run_name"],
         "decision": decision,
+        "blocking_classification": weekly_model.get("blocking_classification", "unknown"),
+        "blocking_summary": weekly_model.get("blocking_summary", "pending"),
         "primary_reason": derive_primary_reason(
             decision=decision,
             weekly_model=weekly_model,
@@ -284,6 +292,8 @@ def render_markdown(model: dict[str, Any]) -> str:
         f"- `modo`: `{format_inline_value(model['mode'])}`",
         f"- `escopo_regulatorio_desta_tentativa`: `{format_inline_value(model['regulatory_scope_label'])}`",
         f"- `decisao_atual`: `{format_inline_value(model['decision'])}`",
+        f"- `classificacao_do_bloqueio`: `{format_inline_value(model['blocking_classification'])}`",
+        f"- `resumo_do_bloqueio`: {format_inline_value(model['blocking_summary'])}",
         f"- `motivo_principal`: {format_inline_value(model['primary_reason'])}",
         f"- `owner_da_decisao`: `{format_inline_value(model['owner'])}`",
         f"- `proximo_checkpoint`: `{format_inline_value(model['next_checkpoint'])}`",

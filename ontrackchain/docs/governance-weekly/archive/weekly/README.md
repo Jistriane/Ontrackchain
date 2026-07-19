@@ -29,7 +29,7 @@ Quando houver conflito, use esta precedencia:
 Rodar a limpeza sob demanda pela raiz tecnica do workspace:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 make prune-governance-weekly-archive GOVERNANCE_WEEKLY_ARCHIVE_RETENTION_DAYS=90
 ```
 

@@ -31,7 +31,7 @@ Complementa o [Guia de Execucao Assistida de `P0-03` Feed UE real](./P0-03_EU_FE
 ### 1. Validar handoff e placeholders
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
 python3 scripts/check_staging_env_placeholders.py --file .env.staging.private
 ```
@@ -44,7 +44,7 @@ Resultado esperado:
 ### 2. Preflight externo
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/preflight_external_integrations.py
 ```
 
@@ -56,7 +56,7 @@ Registrar:
 ### 3. Reexecutar worker
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 make rerun-compliance-worker
 ```
 
@@ -68,8 +68,11 @@ Registrar:
 ### 4. Runner da janela UE
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
-make run-eu-sanctions-window-local WINDOW_ID=<window_id>
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+make gate-p0-03-eu-live \
+  WINDOW_ID=<window_id> \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  CHECKS_DIR=artifacts/staging/checks
 ```
 
 Registrar:
@@ -77,12 +80,13 @@ Registrar:
 - `runner_status`: `preencher`
 - `eu_preflight_json`: `preencher`
 - `eu_sync_json`: `preencher`
+- `eu_request_id`: `preencher`
 
 ### 5. Checker pos-sync
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
-make check-eu-sanctions-window
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+make check-eu-sanctions-window REQUEST_ID=<eu_request_id>
 ```
 
 Registrar:
@@ -92,11 +96,23 @@ Registrar:
 - `last_sync_status`: `preencher`
 - `source_url_match`: `preencher`
 
+Se a execucao for hospedada via GitHub Actions, preencher tambem:
+
+- `workflow`: `P0-03 EU Live Gate`
+- `run_url`: `preencher`
+- `artifact_name`: `p0-03-eu-live-<window_id>`
+
 ### 6. Bundle regulatorio se `P0-02` estiver junto
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
-make run-regulatory-readiness-bundle-local WINDOW_ID=<window_id>
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+make gate-p0-04-regulatory-bundle \
+  WINDOW_ID=<window_id> \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  CHECKS_DIR=artifacts/staging/checks \
+  DOSSIERS_DIR=artifacts/staging/dossiers \
+  COMPLIANCE_INTERNAL_BASE_URL=http://compliance-api:8002 \
+  COMPLIANCE_PUBLIC_BASE_URL=http://localhost:8080
 ```
 
 Registrar somente se aplicavel:
@@ -107,7 +123,7 @@ Registrar somente se aplicavel:
 ### 7. Reconciliar governanca
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID=<window_id>
 ```
 
@@ -119,6 +135,13 @@ Registrar:
 
 ## Artefatos a Preservar
 
+- `ci-artifacts/p0-03-eu-live-gate.log`, quando a execucao ocorrer via GitHub Actions
+- `ci-artifacts/p0-03/p0-03-preflight.json`, quando a execucao ocorrer via gate canônico novo
+- `ci-artifacts/p0-03/p0-03-eu-window.json`, quando a execucao ocorrer via gate canônico novo
+- `ci-artifacts/p0-03/p0-03-eu-checker.json`, quando a execucao ocorrer via gate canônico novo
+- `ci-artifacts/p0-03/p0-03-gate-summary.json`, quando a execucao ocorrer via gate canônico novo
+- `ci-artifacts/p0-03-docker-compose-ps.txt`, quando a execucao ocorrer via GitHub Actions
+- `ci-artifacts/p0-03-docker-compose-logs.txt`, quando a execucao ocorrer via GitHub Actions
 - `artifacts/staging/checks/<window_id>-eu-sanctions-preflight.json`
 - `artifacts/staging/checks/<window_id>-eu-sanctions-sync.json`
 - `artifacts/staging/checks/<window_id>-regulatory-readiness-bundle.json`, quando aplicavel

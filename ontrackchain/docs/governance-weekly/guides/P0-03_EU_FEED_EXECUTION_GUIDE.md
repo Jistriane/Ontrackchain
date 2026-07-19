@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Concentrar em um unico artefato o rito minimo para mover `P0-03` de `ready` para `in_progress`, executar a homologacao do feed UE tokenizado com evidencia preservada e devolver a trilha para a governanca semanal sem drift.
+Concentrar em um unico artefato o rito minimo para mover `P0-03` de `blocked` para `in_progress`, executando antes o readiness check canônico, depois a homologacao do feed UE tokenizado com evidencia preservada e devolvendo a trilha para a governanca semanal sem drift.
 
 ## Quando Usar
 
@@ -24,10 +24,11 @@ Concentrar em um unico artefato o rito minimo para mover `P0-03` de `ready` para
 
 ## Estado Inicial Esperado
 
-- `P0-03` ainda esta em `ready`
+- `P0-03` esta `blocked` no estado local atual ate o readiness check ficar verde
 - a URL `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` nao aparece em arquivo versionado
 - o baseline local nao prova feed UE real sem override serio de ambiente
 - a janela nao pode promover maturidade sem JSONs persistidos e checker pos-sync verde
+- a execucao real local de `2026-07-19` confirmou o bloqueio atual por `.env.staging.private` ausente e `Compliance/AML.date/status` pendentes
 
 ## Requisitos Minimos
 
@@ -53,18 +54,68 @@ Preencher apenas em `.env.staging.private` local ou no ambiente serio equivalent
 
 ## Sequencia de Execucao Segura
 
+### Gate Canônico Recomendado
+
+Antes do gate, validar se handoff + override tokenizado da trilha estao prontos:
+
+```bash
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+make check-regulatory-window-readiness \
+  REGULATORY_SCOPE=p0-03 \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  OWNERSHIP_FILE=docs/staging-env-ownership.md
+```
+
+Esperado:
+
+- `readiness.readiness_status=ready_for_execution`
+- grupo `Compliance/AML` sem `pending`
+- `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` em `https` e contendo `token=`
+
+Para a execucao local coordenada de preflight + restart do worker + runner da janela UE + checker pos-sync, preferir:
+
+```bash
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+make gate-p0-03-eu-live \
+  WINDOW_ID=<window_id> \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  CHECKS_DIR=artifacts/staging/checks
+```
+
+Esse alvo preserva o mesmo `request_id` entre o runner da janela UE e o checker final, reduzindo drift de correlacao executiva.
+
+### Workflow Hospedado Recomendado
+
+Quando houver GitHub Environment aprovado com `STAGING_WINDOW_PRIVATE_ENV`, preferir a execucao hospedada:
+
+```text
+GitHub -> Actions -> P0-03 EU Live Gate -> Run workflow
+  window_id: <window_id>
+  environment_name: staging-serious
+  checks_dir: artifacts/staging/checks
+```
+
+Esperado:
+
+- materializacao efemera de `.env.staging.private`
+- execucao de `make gate-p0-03-eu-live` com `request_id` correlacionavel
+- upload de `ci-artifacts/` e dos JSONs formais em `artifacts/staging/checks/`
+- `run_url` registravel no run sheet operacional
+
 ### 1. Preflight Externo
 
 Executar antes do sync:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/preflight_external_integrations.py
 ```
 
 Esperado:
 
 - `status=ok`
+- `kind=external_integrations_preflight`
+- `readiness.readiness_status=prepared`
 - URL UE reconhecida como presente e tokenizada
 - nenhum uso de URL local para ambiente serio
 
@@ -73,7 +124,7 @@ Esperado:
 Executar com a env privada atualizada:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 make rerun-compliance-worker
 ```
 
@@ -84,17 +135,22 @@ Esperado:
 
 ### 3. Executar a Janela UE
 
-Preferir o runner completo:
+Preferir o gate canônico completo:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
-make run-eu-sanctions-window-local WINDOW_ID=<window_id>
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+export REQUEST_ID=<eu_request_id>
+make gate-p0-03-eu-live \
+  WINDOW_ID=<window_id> \
+  REQUEST_ID=$REQUEST_ID \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  CHECKS_DIR=artifacts/staging/checks
 ```
 
 Alternativamente, se precisar isolar:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 make run-eu-sanctions-window \
   WINDOW_ID=<window_id> \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -105,15 +161,18 @@ Esperado:
 
 - `artifacts/staging/checks/<window_id>-eu-sanctions-preflight.json`
 - `artifacts/staging/checks/<window_id>-eu-sanctions-sync.json`
+- `ci-artifacts/p0-03/p0-03-gate-summary.json` ou `OUTPUT_DIR` equivalente quando o gate canônico for usado
 - preservar o `request_id` da janela UE para correlacao entre runner, bundle regulatorio, janela seria e dossier
+- o payload principal da janela deve expor `kind=eu_sanctions_window_run`
+- o payload principal da janela deve expor `readiness.readiness_status=ready_for_validation` somente quando a correlacao UE convergir para revisao
 
 ### 4. Checker Pos-Sync
 
 Confirmar a convergencia final:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
-make check-eu-sanctions-window
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+make check-eu-sanctions-window REQUEST_ID=<eu_request_id>
 ```
 
 Esperado:
@@ -126,14 +185,21 @@ Esperado:
 - o checker deve expor correlacao estruturada com `persisted_status_active=true`
 - o checker deve expor correlacao estruturada com `last_sync_status_success=true`
 - o checker deve expor correlacao estruturada com `eu_window_converges_ready=true`
+- o checker deve expor `readiness.readiness_status=ready_for_validation` quando a janela UE convergir de forma pronta para revisao
 
 ### 5. Bundle Regulatorio Quando `P0-02` Tambem Estiver no Escopo
 
 Se a mesma janela incluir `AML/KYT live`, preferir consolidar:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
-make run-regulatory-readiness-bundle-local WINDOW_ID=<window_id>
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+make gate-p0-04-regulatory-bundle \
+  WINDOW_ID=<window_id> \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  CHECKS_DIR=artifacts/staging/checks \
+  DOSSIERS_DIR=artifacts/staging/dossiers \
+  COMPLIANCE_INTERNAL_BASE_URL=http://compliance-api:8002 \
+  COMPLIANCE_PUBLIC_BASE_URL=http://localhost:8080
 ```
 
 Esperado:
@@ -148,7 +214,7 @@ Esperado:
 Depois que os artefatos existirem, sincronizar a janela:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID=<window_id>
 ```
 
@@ -163,7 +229,7 @@ Esperado:
 - saida verde do `preflight_external_integrations.py`
 - `artifacts/staging/checks/<window_id>-eu-sanctions-preflight.json`
 - `artifacts/staging/checks/<window_id>-eu-sanctions-sync.json`
-- `make check-eu-sanctions-window` verde
+- `make check-eu-sanctions-window REQUEST_ID=<eu_request_id>` verde
 - `EU_CONSOLIDATED` em `ACTIVE/SUCCESS`
 - `source_url` persistido igual ao override configurado
 - `request_id` da janela UE preservado nos artefatos executivos
@@ -173,8 +239,9 @@ Esperado:
 
 ## Criterio de Promocao de Status
 
-Mover `P0-03` de `ready` para `in_progress` somente quando:
+Mover `P0-03` de `blocked` para `in_progress` somente quando:
 
+- o gate `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-03 ...` estiver verde
 - a URL UE tokenizada real estiver disponivel
 - o owner `Compliance/AML` estiver confirmado
 - a janela de homologacao estiver reservada

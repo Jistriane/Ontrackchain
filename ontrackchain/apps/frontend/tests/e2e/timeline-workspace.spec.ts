@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { seedFrontendAuth } from "./seed-frontend-auth";
+
 type TimelineFixture = {
   workItemId: string;
   pagePath: string;
@@ -369,7 +371,7 @@ const timelineFixtures: TimelineFixture[] = [
             org_id: "org-e2e",
             user_id: "user-e2e",
             linked_user_id: "linked-e2e",
-            role: "ANALYST",
+            role: "ADMIN",
             plan: "professional",
             auth_method: "jwt",
             mfa_mode: "totp",
@@ -571,6 +573,7 @@ test.describe("timeline operacional compartilhada", () => {
   for (const fixture of timelineFixtures) {
     test(`${fixture.pagePath} carrega timeline local e persiste comentario`, async ({ page }) => {
       const state = buildTimelineState();
+      await seedFrontendAuth(page);
       await fixture.setupPageRoutes(page);
       await registerTimelineRoutes(page, fixture, state);
       await page.goto(fixture.pagePath);

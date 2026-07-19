@@ -36,6 +36,14 @@ def regulatory_summary(payload: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def blocking_summary(payload: dict[str, Any]) -> dict[str, str]:
+    blocking = payload.get("blocking_state") or {}
+    return {
+        "classification": str(blocking.get("classification") or "unknown"),
+        "summary": str(blocking.get("summary") or "indisponivel"),
+    }
+
+
 def operational_summary(payload: dict[str, Any]) -> dict[str, Any]:
     operational = payload.get("operational_incidents") or {}
     return {
@@ -61,11 +69,18 @@ def compute_signal(previous: dict[str, Any], current: dict[str, Any]) -> tuple[s
     status = str(current.get("overall_status") or "unknown")
     previous_regulatory = regulatory_summary(previous)
     current_regulatory = regulatory_summary(current)
+    current_blocking = blocking_summary(current)
+    previous_blocking = blocking_summary(previous)
     regulatory_changed = (
         previous_regulatory["scope_label"] != current_regulatory["scope_label"]
         or previous_regulatory["p0_04_bundle_readiness"] != current_regulatory["p0_04_bundle_readiness"]
+        or previous_blocking["classification"] != current_blocking["classification"]
     )
 
+    if current_blocking["classification"] == "regulatory_blocked":
+        if delta_p < 0 or delta_h < 0 or regulatory_changed:
+            return ("amarelo", f"progresso parcial, mas ainda com bloqueio regulatorio dominante: {current_blocking['summary']}")
+        return ("vermelho", f"janela ainda bloqueada por readiness regulatoria: {current_blocking['summary']}")
     if status == "ok" and delta_p <= 0 and delta_h <= 0:
         if (
             current_regulatory["scope_label"] == "P0-02/P0-03"
@@ -88,6 +103,7 @@ def render_markdown(window_id: str, current_snapshot_file: Path, previous_snapsh
     run = current.get("run") or {}
     artifact = current.get("artifact_validation") or {}
     regulatory = regulatory_summary(current)
+    blocking = blocking_summary(current)
     operational = operational_summary(current)
 
     signal, signal_note = compute_signal(previous, current)
@@ -101,6 +117,8 @@ def render_markdown(window_id: str, current_snapshot_file: Path, previous_snapsh
         f"- status geral: `{current.get('overall_status', 'unknown')}`",
         f"- semaforo executivo: `{signal}`",
         f"- leitura: {signal_note}",
+        f"- classificacao dominante: `{blocking['classification']}`",
+        f"- resumo do bloqueio dominante: {blocking['summary']}",
         f"- placeholders pendentes: `{blockers.get('unresolved_placeholders_count', 0)}`",
         f"- handoff pendente: `{blockers.get('missing_handoff_fields_count', 0)}`",
         f"- escopo regulatorio da tentativa: `{regulatory['scope_label']}`",
@@ -233,6 +251,7 @@ def main() -> int:
                 "output_file": str(output_file),
                 "current_snapshot_file": str(current_snapshot_file),
                 "previous_snapshot_file": str(previous_snapshot_file) if previous_snapshot_file else None,
+                "blocking_classification": blocking_summary(current).get("classification"),
             },
             ensure_ascii=True,
             indent=2,

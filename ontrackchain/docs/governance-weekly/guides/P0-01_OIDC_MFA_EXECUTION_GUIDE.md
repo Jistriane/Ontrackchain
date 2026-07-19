@@ -68,7 +68,7 @@ export NEXT_PUBLIC_DEV_AUTH_ENABLED=false
 Para validar a trilha `P0-01` em ambiente local com Keycloak (sem depender de staging hospedado), usar:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 cp .env.oidc-local.example .env.oidc-local
 make gate-p0-01-oidc-local
 ```
@@ -139,7 +139,7 @@ Sinais esperados para considerar a run aderente:
 Quando o gate local ficar verde, o proximo passo canonico continua sendo gerar o bundle:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 make run-oidc-readiness-bundle-local WINDOW_ID=stg-$(date +%F)-oidc BASE_URL=http://localhost:8080
 ```
 
@@ -150,7 +150,7 @@ make run-oidc-readiness-bundle-local WINDOW_ID=stg-$(date +%F)-oidc BASE_URL=htt
 Executar o preflight canonico de `OIDC`:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/preflight_oidc_serious_env.py
 ```
 
@@ -166,7 +166,7 @@ Esperado:
 Executar a verificacao curta de runtime:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/smoke_auth_oidc_mode.py
 ```
 
@@ -182,7 +182,7 @@ Esperado:
 Executar o gate funcional do frontend:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain/apps/frontend
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain/apps/frontend
 npm ci
 npm run test:e2e:oidc-critical
 ```
@@ -197,7 +197,7 @@ Esperado:
 Gerar o pacote operacional da trilha:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 make run-oidc-readiness-bundle-local \
   WINDOW_ID=<window_id> \
   BASE_URL=http://localhost:8080
@@ -216,7 +216,7 @@ Esperado:
 Executar somente quando houver homologacao externa real:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/homologation_external_evidence.py --mode both --include-oidc-legal-report
 ```
 
@@ -230,7 +230,7 @@ Esperado:
 Depois que os artefatos existirem, sincronizar a janela:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID=<window_id>
 ```
 

@@ -130,6 +130,9 @@ export default function CasePage({ params }: { params: { id: string } }) {
           })
         : canDownloadReportArtifact(authContext?.role)
       : null;
+  const generatedReportDownloadRestrictedMessage = generatedReportRequiresStrongAuth
+    ? tr("reports.detail.legalDownloadRestricted" as MessageKey)
+    : tr("cases.report.downloadRestricted" as MessageKey);
 
   useEffect(() => {
     fetchAuthContext()
@@ -295,7 +298,7 @@ export default function CasePage({ params }: { params: { id: string } }) {
                     {t("cases.report.download")}
                   </a>
                 ) : canDownloadGeneratedReport === false ? (
-                  <Message data-testid="case-report-download-restricted">{tr("cases.report.downloadRestricted" as MessageKey)}</Message>
+                  <Message data-testid="case-report-download-restricted">{generatedReportDownloadRestrictedMessage}</Message>
                 ) : null}
                 <a className="otc-link-button" href={`/reports?history_report_id=${encodeURIComponent(report.report_id)}`}>
                   {t("dashboard.cases.openReports")}

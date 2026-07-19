@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Concentrar em um unico artefato o rito minimo para mover `P0-02` de `ready` para `in_progress`, executar a homologacao `AML/KYT live` com evidencia preservada e devolver a trilha para a governanca semanal sem drift.
+Concentrar em um unico artefato o rito minimo para mover `P0-02` de `blocked` para `in_progress`, executando antes o readiness check canônico, depois a homologacao `AML/KYT live` com evidencia preservada e devolvendo a trilha para a governanca semanal sem drift.
 
 ## Quando Usar
 
@@ -24,10 +24,11 @@ Concentrar em um unico artefato o rito minimo para mover `P0-02` de `ready` para
 
 ## Estado Inicial Esperado
 
-- `P0-02` ainda esta em `ready`
+- `P0-02` esta `blocked` no estado local atual ate o readiness check ficar verde
 - o baseline local continua com `COMPLIANCE_TRM_ENABLED=false`
 - nenhuma credencial real aparece em arquivo versionado
 - a janela nao pode promover maturidade sem checker verde e artefato anexavel
+- a execucao real local de `2026-07-19` confirmou o bloqueio atual por `.env.staging.private` ausente e `Compliance/AML.date/status` pendentes
 
 ## Requisitos Minimos
 
@@ -59,18 +60,73 @@ export ONTRACKCHAIN_EXPECT_RPC_MODE=disabled
 
 ## Sequencia de Execucao Segura
 
+### Gate Canônico Recomendado
+
+Antes do gate, validar se handoff + secrets minimos da trilha estao prontos:
+
+```bash
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+make check-regulatory-window-readiness \
+  REGULATORY_SCOPE=p0-02 \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  OWNERSHIP_FILE=docs/staging-env-ownership.md
+```
+
+Esperado:
+
+- `readiness.readiness_status=ready_for_execution`
+- grupo `Compliance/AML` sem `pending`
+- `COMPLIANCE_TRM_ENABLED=true` e credenciais TRM sem placeholder
+
+Para a execucao local coordenada de preflight + checker AML/KYT + smoke, preferir:
+
+```bash
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+make gate-p0-02-aml-live \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  COMPLIANCE_INTERNAL_BASE_URL=http://localhost:8002 \
+  COMPLIANCE_PUBLIC_BASE_URL=http://localhost:8080
+```
+
+Esse alvo preserva um `request_id` unico entre o gate AML/KYT e a trilha subsequente de homologacao, reduzindo drift de correlacao no dossier.
+
+### Workflow Hospedado Recomendado
+
+Quando houver GitHub Environment aprovado com `STAGING_WINDOW_PRIVATE_ENV`, preferir a execucao hospedada:
+
+```text
+GitHub -> Actions -> P0-02 AML Live Gate -> Run workflow
+  window_id: <window_id>
+  environment_name: staging-serious
+  internal_base_url: http://localhost:8002
+  public_base_url: http://localhost:8080
+  run_homologation: true
+```
+
+Esperado:
+
+- materializacao efemera de `.env.staging.private`
+- reset explicito da stack residual de compliance no runner antes do gate
+- execucao de `make gate-p0-02-aml-live` com `request_id` correlacionavel
+- opcionalmente, execucao de `homologation_external_evidence.py --mode compliance`
+- coleta de `docker compose ps/logs` em `ci-artifacts/`
+- upload de `ci-artifacts/` e `artifacts/homologation/`
+- `run_url` registravel no run sheet operacional
+
 ### 1. Preflight Externo
 
 Executar antes de qualquer chamada real de homologacao:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/preflight_external_integrations.py
 ```
 
 Esperado:
 
 - `status=ok`
+- `kind=external_integrations_preflight`
+- `readiness.readiness_status=prepared`
 - modo de compliance coerente com `live`
 - URL e credencial reconhecidas como presentes no ambiente privado
 
@@ -79,10 +135,13 @@ Esperado:
 Executar o gate canonico de runtime:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
-make check-compliance-provider-runtime \
-  INTERNAL_BASE_URL=http://compliance-api:8002 \
-  PUBLIC_BASE_URL=http://localhost:8080
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+export REQUEST_ID=<compliance_request_id>
+make gate-p0-02-aml-live \
+  REQUEST_ID=$REQUEST_ID \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  COMPLIANCE_INTERNAL_BASE_URL=http://compliance-api:8002 \
+  COMPLIANCE_PUBLIC_BASE_URL=http://localhost:8080
 ```
 
 Esperado:
@@ -91,7 +150,9 @@ Esperado:
 - `details.operating_mode=live`
 - catalogo publico coerente com `kyc_wallet.provider=trm_labs`
 - correlacao estruturada do checker com `provider_converges_live=true`
-- evidencia JSON preservavel no terminal ou no arquivo de execucao da janela
+- artefatos em `ci-artifacts/p0-02/` ou `OUTPUT_DIR` equivalente, incluindo `p0-02-compliance-runtime.json` e `p0-02-gate-summary.json`
+- o JSON principal deve expor `kind=compliance_provider_runtime_check`
+- o JSON principal deve expor `request_id`, `correlation.provider_converges_live=true` e `readiness.readiness_status=prepared_for_homologation`
 - preservar o `request_id` do checker para correlacao posterior com homologacao externa, bundle regulatorio e dossier
 
 ### 3. Smoke Runtime
@@ -99,7 +160,7 @@ Esperado:
 Executar uma verificacao funcional curta:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/smoke_runtime.py
 ```
 
@@ -113,7 +174,7 @@ Esperado:
 Executar a coleta formal da trilha de homologacao:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 python3 scripts/homologation_external_evidence.py --mode compliance
 ```
 
@@ -129,8 +190,14 @@ Esperado:
 Se a mesma janela incluir feed UE real, preferir consolidar:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
-make run-regulatory-readiness-bundle-local WINDOW_ID=<window_id>
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+make gate-p0-04-regulatory-bundle \
+  WINDOW_ID=<window_id> \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  CHECKS_DIR=artifacts/staging/checks \
+  DOSSIERS_DIR=artifacts/staging/dossiers \
+  COMPLIANCE_INTERNAL_BASE_URL=http://compliance-api:8002 \
+  COMPLIANCE_PUBLIC_BASE_URL=http://localhost:8080
 ```
 
 Esperado:
@@ -145,7 +212,7 @@ Esperado:
 Depois que os artefatos existirem, sincronizar a janela:
 
 ```bash
-cd /home/jistriane/Ontrackchain/ontrackchain
+cd /home/jistriane/Ontrackchain/github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID=<window_id>
 ```
 
@@ -160,6 +227,7 @@ Esperado:
 - saida verde do `preflight_external_integrations.py`
 - gate verde de `make check-compliance-provider-runtime`
 - `steps.compliance_provider_runtime.correlation.provider_converges_live=true`
+- diagnosticos do runner (`docker compose ps/logs`) preservados quando a execucao ocorrer via GitHub Actions
 - artefato JSON de homologacao em `artifacts/homologation/`
 - bundle `/audit` correlacionado pelo mesmo `request_id`
 - bundle regulatorio preservando `steps.compliance_provider_runtime.request_id`
@@ -168,8 +236,9 @@ Esperado:
 
 ## Criterio de Promocao de Status
 
-Mover `P0-02` de `ready` para `in_progress` somente quando:
+Mover `P0-02` de `blocked` para `in_progress` somente quando:
 
+- o gate `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-02 ...` estiver verde
 - a credencial real do provider estiver disponivel
 - o owner `Compliance/AML` estiver confirmado
 - a janela de homologacao estiver reservada
