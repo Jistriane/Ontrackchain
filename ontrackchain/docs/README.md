@@ -85,6 +85,7 @@ Regras objetivas:
 
 ### Planejamento e Governanca
 
+- [Portal do Workspace](./workspace-root-readme.md): espelho documental do `README` raiz do workspace, com leitura executiva, mapa do workspace e diagramas de fluxo centrais
 - [Resumo Executivo de Readiness](./project-executive-readiness-brief.md): leitura curta para sponsors e diretoria
 - [Kit de Execucao por Evidencia](./project-maturity-evidence-execution-kit.md): templates, semaforo e plano `D1-D7`
 - [Scorecard Oficial](./project-kpi-scorecard.md): formula e baseline executiva

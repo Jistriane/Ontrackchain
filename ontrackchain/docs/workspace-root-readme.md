@@ -1,8 +1,8 @@
 # Ontrackchain
 
-![Ontrackchain](./ontrackchain/docs/assets/logo.jpeg)
+![Ontrackchain](./assets/logo.jpeg)
 
-Workspace agregador do projeto Ontrackchain. Esta raiz existe para onboarding, navegacao, leitura executiva, descoberta dos fluxos principais e orientacao inequívoca sobre qual arvore tecnica deve ser tratada como fonte ativa.
+Espelho documental do `README.md` da raiz do workspace. Este arquivo existe para preservar dentro da pasta `docs/` a mesma leitura executiva e de navegação do workspace agregador, sem depender de um arquivo fora do repositório ativo.
 
 ## Leitura Rapida
 
@@ -11,13 +11,13 @@ Se este e seu primeiro contato com o workspace, leia nesta ordem:
 1. [Snapshot Executivo](#snapshot-executivo)
 2. [Mapa do Workspace](#mapa-do-workspace)
 3. [Diagramas de Fluxo](#diagramas-de-fluxo)
-4. [README tecnico da arvore ativa](./ontrackchain/README.md)
-5. [Indice canonico da documentacao ativa](./ontrackchain/docs/README.md)
+4. [README tecnico da arvore ativa](../README.md)
+5. [Indice canonico da documentacao ativa](./README.md)
 
 Resumo em 30 segundos:
 
 - baseline oficial atual: `93%` tecnico, `79%` regulatorio/operacional, `89%` consolidado
-- a arvore tecnica ativa desta workspace e `ontrackchain/`
+- a arvore tecnica ativa desta workspace e `github_main/ontrackchain`
 - o principal gap nao e mais scaffold; agora e homologacao externa real, prova revisavel e aceite institucional
 - o ciclo ativo continua ancorado em `2026-07-13`, com a janela `stg-2026-07-13-a` ainda em `pending_no_go`
 - o blueprint padrao do Render passou a ser `frontend standalone showcase`; o staging real ficou isolado em `render.full-stack.yaml`
@@ -64,34 +64,41 @@ Resumo em 30 segundos:
 
 Esta raiz agrega mais de uma arvore. Para evitar drift de leitura, use esta interpretacao:
 
-- `ontrackchain/`: arvore tecnica ativa, com codigo, docs, blueprints e scripts mais recentes
-- `.github/`: workflows e materiais compartilhados do repositorio
+- `github_main/ontrackchain/`: arvore tecnica ativa, com codigo, docs, blueprints e scripts mais recentes
+- `github_main/.github/`: workflows e automacoes associados a essa arvore ativa
+- `.github/`: workflows e materiais compartilhados do workspace agregador
+- `ontrackchain/`: copia paralela ainda presente no workspace; pode servir como referencia historica/comparativa, mas nao deve ser tratada como fonte primaria quando houver divergencia
 
 ### Estrutura resumida
 
 ```text
-github_main/
+Ontrackchain/
 ├── .github/
 ├── README.md
+├── github_main/
+│   ├── .github/
+│   ├── README.md
+│   └── ontrackchain/
+│       ├── apps/
+│       ├── docs/
+│       ├── infra/
+│       ├── packages/
+│       ├── scripts/
+│       ├── tests/
+│       ├── docker-compose.yml
+│       ├── render.yaml
+│       ├── render.full-stack.yaml
+│       └── README.md
 └── ontrackchain/
-    ├── apps/
-    ├── docs/
-    ├── infra/
-    ├── packages/
-    ├── scripts/
-    ├── tests/
-    ├── docker-compose.yml
-    ├── render.yaml
-    ├── render.full-stack.yaml
-    └── README.md
+    └── ...
 ```
 
 ### Fluxo de leitura canonica
 
 ```mermaid
 flowchart TD
-    A[README raiz] --> B[ontrackchain/README.md]
-    A --> C[ontrackchain/docs/README.md]
+    A[README raiz] --> B[README tecnico da arvore ativa]
+    A --> C[docs/README.md]
     C --> D[Arquitetura, contratos e operacao]
     C --> E[governance-weekly/cycles]
     C --> F[docs/history]
@@ -114,8 +121,8 @@ flowchart TD
 
 Use quando a meta for publicar uma vitrine navegavel do frontend sem backend real e sem segredos.
 
-- blueprint: [render.yaml](./ontrackchain/render.yaml)
-- doc canonica: [Blueprint Render para Staging Full-Stack](./ontrackchain/docs/render-staging-blueprint.md)
+- blueprint: [render.yaml](../render.yaml)
+- doc canonica: [Blueprint Render para Staging Full-Stack](./render-staging-blueprint.md)
 - comportamento esperado:
   - `FRONTEND_STANDALONE_SHOWCASE_MODE=true`
   - `/api/healthz` responde sem depender de auth interna
@@ -126,8 +133,8 @@ Use quando a meta for publicar uma vitrine navegavel do frontend sem backend rea
 
 Use quando a meta for validar a arquitetura real do produto com `OIDC`, banco, workers, APIs e observabilidade.
 
-- blueprint: [render.full-stack.yaml](./ontrackchain/render.full-stack.yaml)
-- doc canonica: [Blueprint Render para Staging Full-Stack](./ontrackchain/docs/render-staging-blueprint.md)
+- blueprint: [render.full-stack.yaml](../render.full-stack.yaml)
+- doc canonica: [Blueprint Render para Staging Full-Stack](./render-staging-blueprint.md)
 - comportamento esperado:
   - `gateway`, `frontend`, `auth-service`, `Keycloak`, APIs e workers convergem
   - `/api/healthz` do frontend responde `render-full-stack-staging`
@@ -287,68 +294,68 @@ flowchart TD
 
 ### Portas de entrada
 
-- [README tecnico da arvore ativa](./ontrackchain/README.md)
-- [Indice canonico da documentacao ativa](./ontrackchain/docs/README.md)
+- [README tecnico da arvore ativa](../README.md)
+- [Indice canonico da documentacao ativa](./README.md)
 
 ### Documentos principais
 
-- [Arquitetura](./ontrackchain/docs/architecture.md)
-- [Contratos de API](./ontrackchain/docs/api-contracts.md)
-- [RBAC e Permissoes](./ontrackchain/docs/rbac-and-permissions.md)
-- [Deploy e Staging](./ontrackchain/docs/deploy-and-staging.md)
-- [Variaveis de Ambiente](./ontrackchain/docs/environment-variables.md)
-- [Runbooks Operacionais](./ontrackchain/docs/runbooks.md)
-- [Resumo Executivo de Readiness](./ontrackchain/docs/project-executive-readiness-brief.md)
-- [Readiness Regulatorio](./ontrackchain/docs/regulatory-readiness.md)
-- [Board Operacional](./ontrackchain/docs/project-operational-execution-board.md)
-- [Gates de Release](./ontrackchain/docs/project-release-gates.md)
-- [Governanca Semanal](./ontrackchain/docs/governance-weekly/README.md)
+- [Arquitetura](./architecture.md)
+- [Contratos de API](./api-contracts.md)
+- [RBAC e Permissoes](./rbac-and-permissions.md)
+- [Deploy e Staging](./deploy-and-staging.md)
+- [Variaveis de Ambiente](./environment-variables.md)
+- [Runbooks Operacionais](./runbooks.md)
+- [Resumo Executivo de Readiness](./project-executive-readiness-brief.md)
+- [Readiness Regulatorio](./regulatory-readiness.md)
+- [Board Operacional](./project-operational-execution-board.md)
+- [Gates de Release](./project-release-gates.md)
+- [Governanca Semanal](./governance-weekly/README.md)
 
 ### Evidencia datada e historico
 
-- [Ciclo ativo 2026-07-13](./ontrackchain/docs/governance-weekly/cycles/2026-07-13/README.md)
-- [Historico de apoio](./ontrackchain/docs/history/README.md)
-- [Arquivo historico da governanca](./ontrackchain/docs/governance-weekly/archive/README.md)
+- [Ciclo ativo 2026-07-13](./governance-weekly/cycles/2026-07-13/README.md)
+- [Historico de apoio](./history/README.md)
+- [Arquivo historico da governanca](./governance-weekly/archive/README.md)
 
 ## Leitura Recomendada por Perfil
 
 ### Arquiteto / lider tecnico
 
-1. [architecture.md](./ontrackchain/docs/architecture.md)
-2. [api-contracts.md](./ontrackchain/docs/api-contracts.md)
-3. [rbac-and-permissions.md](./ontrackchain/docs/rbac-and-permissions.md)
-4. [adrs/README.md](./ontrackchain/docs/adrs/README.md)
+1. [architecture.md](./architecture.md)
+2. [api-contracts.md](./api-contracts.md)
+3. [rbac-and-permissions.md](./rbac-and-permissions.md)
+4. [adrs/README.md](./adrs/README.md)
 
 ### Operacao / SRE / DevOps
 
-1. [operations.md](./ontrackchain/docs/operations.md)
-2. [deploy-and-staging.md](./ontrackchain/docs/deploy-and-staging.md)
-3. [render-staging-blueprint.md](./ontrackchain/docs/render-staging-blueprint.md)
-4. [runbooks.md](./ontrackchain/docs/runbooks.md)
-5. [staging-env-ownership.md](./ontrackchain/docs/staging-env-ownership.md)
+1. [operations.md](./operations.md)
+2. [deploy-and-staging.md](./deploy-and-staging.md)
+3. [render-staging-blueprint.md](./render-staging-blueprint.md)
+4. [runbooks.md](./runbooks.md)
+5. [staging-env-ownership.md](./staging-env-ownership.md)
 
 ### Compliance / regulacao
 
-1. [regulatory-readiness.md](./ontrackchain/docs/regulatory-readiness.md)
-2. [evidence-and-audit-matrix.md](./ontrackchain/docs/evidence-and-audit-matrix.md)
-3. [compliance-and-security-controls.md](./ontrackchain/docs/compliance-and-security-controls.md)
-4. [project-maturity-evidence-execution-kit.md](./ontrackchain/docs/project-maturity-evidence-execution-kit.md)
-5. [compliance-reports/README.md](./ontrackchain/docs/compliance-reports/README.md)
+1. [regulatory-readiness.md](./regulatory-readiness.md)
+2. [evidence-and-audit-matrix.md](./evidence-and-audit-matrix.md)
+3. [compliance-and-security-controls.md](./compliance-and-security-controls.md)
+4. [project-maturity-evidence-execution-kit.md](./project-maturity-evidence-execution-kit.md)
+5. [compliance-reports/README.md](./compliance-reports/README.md)
 
 ### Stakeholders executivos
 
-1. [project-executive-readiness-brief.md](./ontrackchain/docs/project-executive-readiness-brief.md)
-2. [project-kpi-scorecard.md](./ontrackchain/docs/project-kpi-scorecard.md)
-3. [project-priority-board.md](./ontrackchain/docs/project-priority-board.md)
-4. [project-risk-register.md](./ontrackchain/docs/project-risk-register.md)
-5. [ciclo ativo](./ontrackchain/docs/governance-weekly/cycles/2026-07-13/README.md)
+1. [project-executive-readiness-brief.md](./project-executive-readiness-brief.md)
+2. [project-kpi-scorecard.md](./project-kpi-scorecard.md)
+3. [project-priority-board.md](./project-priority-board.md)
+4. [project-risk-register.md](./project-risk-register.md)
+5. [ciclo ativo](./governance-weekly/cycles/2026-07-13/README.md)
 
 ## Quick Start
 
 ### 1. Entrar na arvore ativa
 
 ```bash
-cd ontrackchain
+cd github_main/ontrackchain
 ```
 
 ### 2. Subir a stack local
@@ -407,7 +414,7 @@ make gate-p0-04-regulatory-bundle WINDOW_ID=stg-$(date +%F)-reg PRIVATE_ENV_FILE
 Comandos principais:
 
 ```bash
-cd ontrackchain
+cd ..
 make help-serious-window
 make prepare-serious-window-dispatch WINDOW_ID=stg-2026-07-13-a
 make render-serious-window-dispatch-packet WINDOW_ID=stg-2026-07-13-a
@@ -440,18 +447,17 @@ Trilha de prova tecnica prioritaria:
 
 ## Politica Documental
 
-- este `README.md` da raiz existe para onboarding, navegacao e orientacao do repositorio
-- a porta de entrada tecnica da aplicacao e [ontrackchain/README.md](./ontrackchain/README.md)
-- o indice canonico da documentacao ativa e [ontrackchain/docs/README.md](./ontrackchain/docs/README.md)
-- artefatos datados ainda ativos devem viver em `ontrackchain/docs/governance-weekly/cycles/`
-- historico datado de apoio deve viver em `ontrackchain/docs/history/`
-- historico frio consolidado deve viver em `ontrackchain/docs/governance-weekly/archive/`
+- este arquivo espelha o `README.md` da raiz do workspace dentro da trilha `docs/`
+- a porta de entrada tecnica da aplicacao e [../README.md](../README.md)
+- o indice canonico da documentacao ativa e [README.md](./README.md)
+- artefatos datados ainda ativos devem viver em `governance-weekly/cycles/`
+- historico datado de apoio deve viver em `history/`
+- historico frio consolidado deve viver em `governance-weekly/archive/`
 - outputs gerados devem viver em suas pastas canonicas e nao devem ser editados manualmente
-- `.publish_repo/` foi aposentado e removido em `2026-07-15`
 - documentos paralelos, redundantes ou supersedidos devem ser consolidados, arquivados ou removidos
 
 ### Precedencia de leitura
 
-1. `ontrackchain/docs/README.md` e os documentos canonicamente indexados nele
-2. `ontrackchain/docs/governance-weekly/cycles/` para evidencia datada ainda navegavel
-3. `ontrackchain/docs/history/` e `ontrackchain/docs/governance-weekly/archive/` apenas como contexto historico
+1. `docs/README.md` e os documentos canonicamente indexados nele
+2. `docs/governance-weekly/cycles/` para evidencia datada ainda navegavel
+3. `docs/history/` e `docs/governance-weekly/archive/` apenas como contexto historico
