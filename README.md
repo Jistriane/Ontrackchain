@@ -273,14 +273,14 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Commit / PR / workflow manual] --> B[CI quality gates]
-    B --> C[Typecheck + testes + preflights]
-    C --> D[staging serious window ou gate dedicado]
-    D --> E[Render full-stack ou showcase]
-    E --> F[/api/healthz + checks de runtime]
-    F --> G[artefatos e dossier]
-    G --> H[decisao go/no-go]
-    H --> I[promocao ou no-go documentado]
+    A["Commit / PR / workflow manual"] --> B["CI quality gates"]
+    B --> C["Typecheck + testes + preflights"]
+    C --> D["staging serious window ou gate dedicado"]
+    D --> E["Render full-stack ou showcase"]
+    E --> F["healthcheck /api/healthz + checks de runtime"]
+    F --> G["artefatos e dossier"]
+    G --> H["decisao go/no-go"]
+    H --> I["promocao ou no-go documentado"]
 ```
 
 ## Portas Canonicas
