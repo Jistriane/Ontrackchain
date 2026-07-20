@@ -3,7 +3,7 @@ set -eu
 
 if command -v python3 >/dev/null 2>&1; then
   python3 /opt/keycloak/bin/render_realm.py
-else
+elif [ ! -f /opt/keycloak/data/import/realm-ontrackchain.json ]; then
   cp /opt/keycloak/data/import/realm-ontrackchain.base.json /opt/keycloak/data/import/realm-ontrackchain.json
 fi
 
