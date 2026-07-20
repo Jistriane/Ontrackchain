@@ -13,4 +13,5 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 EXPOSE 8001
 
-CMD ["uvicorn", "investigation_api.main:app", "--host", "0.0.0.0", "--port", "8001"]
+ENTRYPOINT ["/bin/sh", "-c"]
+CMD ["uvicorn investigation_api.main:app --host 0.0.0.0 --port 8001"]

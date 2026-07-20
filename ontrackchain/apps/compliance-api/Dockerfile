@@ -15,4 +15,5 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 EXPOSE 8002
 
-CMD ["uvicorn", "compliance_api.main:app", "--host", "0.0.0.0", "--port", "8002"]
+ENTRYPOINT ["/bin/sh", "-c"]
+CMD ["uvicorn compliance_api.main:app --host 0.0.0.0 --port 8002"]
