@@ -7,10 +7,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "packages" / "agents" / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "packages" / "shared" / "src"))
 
-from report_api.main import _build_report_platform_alerts, _normalize_reports_pagination, _serialize_report_list_row
-from report_api.main import _normalize_report_filter_datetime
+try:
+    from report_api.main import _build_report_platform_alerts, _normalize_reports_pagination, _serialize_report_list_row
+    from report_api.main import _normalize_report_filter_datetime
+    HAS_FASTAPI = True
+except ImportError:
+    HAS_FASTAPI = False
 
 
+@unittest.skipUnless(HAS_FASTAPI, "fastapi nao disponivel no interpretador local")
 class ReportListHelpersTests(unittest.TestCase):
     def test_normalize_reports_pagination_keeps_valid_values(self) -> None:
         page, limit, offset = _normalize_reports_pagination(page=3, limit=25)

@@ -8,10 +8,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "packages" / "agents" / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "packages" / "shared" / "src"))
 
-from fastapi import HTTPException
-from report_api.main import _require_strong_auth_for_legal_report
+try:
+    from fastapi import HTTPException
+    from report_api.main import _require_strong_auth_for_legal_report
+    HAS_FASTAPI = True
+except ImportError:
+    HAS_FASTAPI = False
 
 
+@unittest.skipUnless(HAS_FASTAPI, "fastapi nao disponivel no interpretador local")
 class StrongAuthMissingHeadersTests(unittest.TestCase):
     """Cobre os cenários de headers ausentes — os mais prováveis em misconfiguration de gateway."""
 
@@ -80,6 +85,7 @@ class StrongAuthMissingHeadersTests(unittest.TestCase):
         self.assertEqual(ctx.exception.detail, "2fa_required")
 
 
+@unittest.skipUnless(HAS_FASTAPI, "fastapi nao disponivel no interpretador local")
 class StrongAuthNormalizationTests(unittest.TestCase):
     """Cobre robustez de normalização (case-insensitive) nos headers."""
 
@@ -111,6 +117,7 @@ class StrongAuthNormalizationTests(unittest.TestCase):
         )
 
 
+@unittest.skipUnless(HAS_FASTAPI, "fastapi nao disponivel no interpretador local")
 class StrongAuthOidcEdgeCasesTests(unittest.TestCase):
     """Cobre edge cases do fluxo OIDC/external_provider."""
 
