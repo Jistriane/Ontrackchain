@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import os
 import py_compile
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -48,11 +50,13 @@ def main() -> int:
         return 1
 
     failures: list[str] = []
-    for file_path in python_files:
-        try:
-            py_compile.compile(str(file_path), doraise=True)
-        except py_compile.PyCompileError as exc:
-            failures.append(f"{file_path}: {exc.msg}")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        for idx, file_path in enumerate(python_files):
+            try:
+                dummy_cfile = os.path.join(tmpdir, f"out_{idx}.pyc")
+                py_compile.compile(str(file_path), cfile=dummy_cfile, doraise=True)
+            except py_compile.PyCompileError as exc:
+                failures.append(f"{file_path}: {exc.msg}")
 
     if failures:
         sys.stderr.write("\n".join(failures) + "\n")
