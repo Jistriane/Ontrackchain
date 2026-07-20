@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-ENV REBUILD_NONCE=20260720_v3
+ENV REBUILD_NONCE=20260720_v4
 
 COPY apps/auth-service/pyproject.toml /app/pyproject.toml
 COPY apps/auth-service/src /app/src
@@ -27,5 +27,5 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 EXPOSE 9000
 
-ENTRYPOINT ["/app/infra/render/scripts/docker-entrypoint.sh"]
+ENTRYPOINT ["/bin/sh", "-c"]
 CMD ["/app/infra/render/scripts/start-auth-service.sh"]
