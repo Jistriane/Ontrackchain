@@ -12,6 +12,7 @@ import {
 } from "../lib/operational-context";
 
 import { ensureHttpUrl } from "../lib/api-url";
+import { isFrontendStandaloneShowcaseMode } from "../lib/auth-runtime";
 
 type BillingBalanceResponse = {
   credits_available: number;
@@ -74,16 +75,23 @@ type PlatformOperationalAlertsSnapshot = {
 };
 
 async function validateDashboardRole(token: string, requestId: string): Promise<string | null> {
+  if (isFrontendStandaloneShowcaseMode()) {
+    return "ADMIN";
+  }
   const authBaseUrl = ensureHttpUrl(process.env.INTERNAL_AUTH_BASE_URL, "http://auth-service:9000");
-  const validateRes = await fetch(`${authBaseUrl}/validate`, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId },
-    cache: "no-store"
-  });
-  if (!validateRes.ok) {
+  try {
+    const validateRes = await fetch(`${authBaseUrl}/validate`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId },
+      cache: "no-store"
+    });
+    if (!validateRes.ok) {
+      return null;
+    }
+    return validateRes.headers.get("X-Role");
+  } catch {
     return null;
   }
-  return validateRes.headers.get("X-Role");
 }
 
 function buildDashboardOperationalContext(entry: OperationsSnapshot["recent_cases"][number]): OperationalContext {

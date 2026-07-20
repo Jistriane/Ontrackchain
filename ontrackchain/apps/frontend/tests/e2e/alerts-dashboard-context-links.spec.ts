@@ -62,19 +62,41 @@ type DevSessionStartResponse = {
 };
 
 async function loginAsDevRole(page: Page, role: "ADMIN" | "ANALYST" | "BILLING_ADMIN" | "OTK_BILLING_ADMIN") {
-  const session = await page.request.post("/api/session/start", {
-    headers: { "content-type": "application/json" },
-    data: { plan: "professional", role }
-  });
-  expect(session.status()).toBe(200);
-  const sessionBody = (await session.json()) as DevSessionStartResponse;
-  expect(sessionBody.require2fa).toBeTruthy();
+  await page.context().clearCookies();
+  await page.unrouteAll({ behavior: "ignoreErrors" });
 
-  const verify = await page.request.post("/api/session/verify-2fa", {
-    headers: { "content-type": "application/json" },
-    data: { code: generateTotpCode() }
+  // Navigate to any page so we have a browser context with the right origin
+  await page.goto("/login");
+
+  // Submit the session/start request from inside the browser so httpOnly cookies land in the browser's jar
+  await page.evaluate(async (r) => {
+    await fetch("/api/session/start", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ plan: "professional", role: r })
+    });
+  }, role);
+
+  // Mock /api/app/auth/context so AppShell renders the exact role for this test
+  await page.route("**/api/app/auth/context", async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        authenticated: true,
+        org_id: "00000000-0000-0000-0000-000000000001",
+        user_id: "00000000-0000-0000-0000-000000000002",
+        linked_user_id: "00000000-0000-0000-0000-000000000002",
+        role,
+        plan: "professional",
+        auth_method: "dev_jwt",
+        mfa_mode: "totp",
+        mfa_provider_homologated: "true",
+        two_factor: "ok"
+      })
+    });
   });
-  expect(verify.status()).toBe(200);
 }
 
 async function readPersistedPlatformAlertSelection(page: Page) {

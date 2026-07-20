@@ -434,6 +434,28 @@ As frentes que mais movem a maturidade comprovada continuam sendo:
 6. homologar `P0-01` com evidencias reais de `OIDC + MFA`
 7. executar a janela seria completa com `go/no-go` formal
 
+Atalho canonico para o passo 1, sem criar fluxo paralelo:
+
+```bash
+cd ontrackchain
+make materialize-staging-private-env \
+  WINDOW_ID=stg-YYYY-MM-DD-a \
+  MODE=baseline \
+  PRIVATE_ENV_FILE=.env.staging.private
+```
+
+Esse alvo reutiliza `prepare_staging_window.py`, gera o `window packet` redigido e materializa o scaffold privado com placeholders fora do runtime real; depois disso, o `check-regulatory-window-readiness` passa a devolver `blocking_summary` e `unblock_actions` por owner/variavel para acelerar o handoff de `Compliance/AML`.
+
+Atalho recomendado para consolidar o handoff regulatorio atual em um unico artefato por owner:
+
+```bash
+cd ontrackchain
+make run-regulatory-unblock-checklist-local \
+  WINDOW_ID=stg-YYYY-MM-DD-a \
+  PRIVATE_ENV_FILE=.env.staging.private \
+  OWNERSHIP_FILE=docs/staging-env-ownership.md
+```
+
 Trilha de prova tecnica prioritaria:
 
 - usar `ROS/COAF` como fluxo de validacao fim a fim do staging, porque ele exige identidade federada, usuario persistido, `report-api`, MFA e trilha auditavel coerentes

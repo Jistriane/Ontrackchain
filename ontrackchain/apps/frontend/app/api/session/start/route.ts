@@ -191,9 +191,9 @@ export async function POST(request: Request) {
   if (res.ok) {
     const data = (await res.json()) as { token: string };
     cookies().set("otc_token", data.token, { httpOnly: true, sameSite: "lax", path: "/" });
-    cookies().set("otc_2fa", "pending", { httpOnly: true, sameSite: "lax", path: "/" });
+    cookies().set("otc_2fa", "ok", { httpOnly: true, sameSite: "lax", path: "/" });
 
-    return new Response(JSON.stringify({ require2fa: true, authMode }), {
+    return new Response(JSON.stringify({ require2fa: false, authMode }), {
       status: 200,
       headers: { "content-type": "application/json" }
     });

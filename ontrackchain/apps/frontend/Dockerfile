@@ -4,6 +4,10 @@ WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Bump to force cache invalidation on Render when code changes but deps don't
+ARG REBUILD_NONCE=1
+ENV REBUILD_NONCE=${REBUILD_NONCE}
+
 FROM base AS deps
 
 COPY package.json /app/package.json

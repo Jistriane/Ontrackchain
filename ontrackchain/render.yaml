@@ -156,6 +156,12 @@ services:
         value: organization_id
       - key: KEYCLOAK_ADMIN_ROLE_ATTRIBUTE
         value: otk_role
+      - key: MFA_EXTERNAL_PROVIDER_HOMOLOGATED
+        value: "false"
+      - key: ONTRACKCHAIN_ALLOW_INSECURE_OIDC_URLS
+        value: "false"
+      - key: ONTRACKCHAIN_ALLOW_LOCALHOST_OIDC_URLS
+        value: "false"
       - key: POSTGRES_HOST
         fromDatabase:
           name: ontrackchain-postgres-staging
@@ -239,13 +245,15 @@ services:
       - key: INVESTIGATION_RPC_ENABLED
         value: "true"
       - key: INVESTIGATION_RPC_PRIMARY_URL
-        sync: false
+        value: ""
       - key: INVESTIGATION_RPC_FALLBACK_URL
-        sync: false
+        value: "https://ethereum-rpc.publicnode.com"
       - key: INVESTIGATION_RPC_TIMEOUT_MS
         value: "1500"
       - key: INVESTIGATION_RPC_MAX_RETRIES
         value: "1"
+      - key: CREDIT_VALUE_BRL
+        value: "1.0"
 
   - type: worker
     runtime: docker
@@ -296,20 +304,28 @@ services:
       - key: INVESTIGATION_RPC_ENABLED
         value: "true"
       - key: INVESTIGATION_RPC_PRIMARY_URL
-        sync: false
+        value: ""
       - key: INVESTIGATION_RPC_FALLBACK_URL
-        sync: false
+        value: "https://ethereum-rpc.publicnode.com"
       - key: INVESTIGATION_RPC_TIMEOUT_MS
         value: "1500"
       - key: INVESTIGATION_RPC_MAX_RETRIES
         value: "1"
+      - key: CREDIT_VALUE_BRL
+        value: "1.0"
       - key: INVESTIGATION_INTERNAL_BASE_URL
         fromService:
           type: pserv
           name: ontrackchain-investigation-api-staging
           property: hostport
       - key: INVESTIGATION_INTERNAL_WORKER_TOKEN
-        value: "investigation-local-token"
+        sync: false
+      - key: INVESTIGATION_WORKER_PROCESSING_SECONDS
+        value: "2"
+      - key: INVESTIGATION_WORKER_LOCAL_CONCURRENCY
+        value: "8"
+      - key: INVESTIGATION_WORKER_BASE_BACKOFF_SECONDS
+        value: "5"
 
   - type: pserv
     runtime: docker
@@ -366,6 +382,8 @@ services:
         value: "1500"
       - key: COMPLIANCE_TRM_MAX_RETRIES
         value: "1"
+      - key: CREDIT_VALUE_BRL
+        value: "1.0"
 
   - type: worker
     runtime: docker
@@ -595,6 +613,14 @@ services:
         value: oidc
       - key: NEXT_PUBLIC_DEV_AUTH_ENABLED
         value: "false"
+      - key: NEXT_PUBLIC_APP_URL
+        value: "https://ontrackchain-gateway-staging.onrender.com"
+      - key: NEXT_PUBLIC_FRONTEND_URL
+        value: "https://ontrackchain-frontend-staging.onrender.com"
+      - key: ONTRACKCHAIN_EXPECT_FRONTEND_DEPLOYMENT_MODEL
+        value: render-full-stack-staging
+      - key: ONTRACKCHAIN_ALLOW_FRONTEND_SHOWCASE_FALLBACK
+        value: "false"
       - key: INTERNAL_API_BASE_URL
         fromService:
           type: web
@@ -622,6 +648,12 @@ services:
         value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain"
       - key: OIDC_AUTHORIZATION_URL
         value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/auth"
+      - key: OIDC_JWKS_URL
+        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/certs"
+      - key: ONTRACKCHAIN_ALLOW_INSECURE_OIDC_URLS
+        value: "false"
+      - key: ONTRACKCHAIN_ALLOW_LOCALHOST_OIDC_URLS
+        value: "false"
 
 databases:
   - name: ontrackchain-postgres-staging

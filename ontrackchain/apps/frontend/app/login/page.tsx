@@ -14,8 +14,6 @@ export default function LoginPage() {
   const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [require2fa, setRequire2fa] = useState(false);
-  const [totp, setTotp] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const standaloneShowcaseMode = frontendStandaloneShowcaseMode;
@@ -79,7 +77,7 @@ export default function LoginPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload)
       });
-      const data = (await res.json().catch(() => null)) as { require2fa?: boolean; error?: string } | null;
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) {
         if (data?.error === "dev_auth_disabled") {
           setError(t("login.errorDevDisabled"));
@@ -88,41 +86,10 @@ export default function LoginPage() {
         setError(t("login.errorGeneric"));
         return;
       }
-      if (data?.require2fa) {
-        setRequire2fa(true);
-        return;
-      }
       router.push("/dashboard");
     } finally {
       setIsSubmitting(false);
     }
-  }
-
-  async function onVerify2fa() {
-    setError(null);
-    const res = await fetch("/api/session/verify-2fa", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ code: totp })
-    });
-    const data = (await res.json().catch(() => null)) as { error?: string } | null;
-    if (!res.ok) {
-      if (data?.error === "invalid_2fa") {
-        setError(t("login.errorInvalid2fa"));
-        return;
-      }
-      if (data?.error === "oidc_2fa_managed_externally") {
-        setError(t("login.errorOidc2faExternal"));
-        return;
-      }
-      if (data?.error === "not_authenticated") {
-        setError(t("login.errorNotAuthenticated"));
-        return;
-      }
-      setError(t("login.error2faGeneric"));
-      return;
-    }
-    router.push("/dashboard");
   }
 
   return (
@@ -132,9 +99,6 @@ export default function LoginPage() {
     >
       {!standaloneShowcaseMode && authMode === "oidc" && authConfig?.oidc?.authorization_url ? (
         <Message>{t("login.oidcActive", { provider: authConfig.oidc.provider ?? "generic" })}</Message>
-      ) : null}
-      {!standaloneShowcaseMode && authMode === "oidc" ? (
-        <Message>{t("login.oidc2fa")}</Message>
       ) : null}
       {!standaloneShowcaseMode && authConfig?.auth_mode === "dev" && authConfig.dev_auth_enabled === false ? (
         <Message tone="error">
@@ -216,28 +180,6 @@ export default function LoginPage() {
         </button>
         {error ? <Message tone="error">{error}</Message> : null}
       </div>
-
-      {require2fa && authMode !== "oidc" ? (
-        <section data-testid="2fa-modal" className="otc-panel">
-          <div className="otc-section__header">
-            <div>
-              <h2 className="otc-section__title">{t("login.secondFactor.title")}</h2>
-              <p className="otc-section__description">
-                {t("login.secondFactor.description", {
-                  issuer: authConfig?.mfa?.issuer ? ` (${authConfig.mfa.issuer})` : ""
-                })}
-              </p>
-            </div>
-          </div>
-          <label className="otc-field">
-            {t("login.secondFactor.code")}
-            <input className="otc-input" data-testid="totp-input" value={totp} onChange={(e) => setTotp(e.target.value)} />
-          </label>
-          <button className="otc-button" type="button" data-testid="verify-2fa-btn" onClick={onVerify2fa} style={{ marginTop: 12 }}>
-            {t("login.secondFactor.verify")}
-          </button>
-        </section>
-      ) : null}
     </AuthShell>
   );
 }

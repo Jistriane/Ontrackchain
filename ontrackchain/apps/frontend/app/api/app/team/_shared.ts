@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { ensureHttpUrl } from "../../../lib/api-url";
+import { isFrontendStandaloneShowcaseMode } from "../../../lib/auth-runtime";
 
 type TeamAuthContext = {
   token: string;
@@ -26,33 +27,51 @@ export function jsonResponse(body: string, status: number) {
 }
 
 export async function authenticateTeamRequest(requestId: string): Promise<TeamAuthContext | Response> {
+  if (isFrontendStandaloneShowcaseMode()) {
+    return {
+      token: "showcase-token",
+      orgId: "00000000-0000-0000-0000-000000000001",
+      userId: "00000000-0000-0000-0000-000000000002",
+      linkedUserId: "00000000-0000-0000-0000-000000000002",
+      role: "ADMIN",
+      authMethod: "dev",
+      mfaMode: "external_provider",
+      mfaProviderHomologated: "true",
+      twoFactor: "ok"
+    };
+  }
+
   const token = cookies().get("otc_token")?.value;
   if (!token) {
     return jsonResponse(JSON.stringify({ error: "not_authenticated" }), 401);
   }
 
   const authBaseUrl = ensureHttpUrl(process.env.INTERNAL_AUTH_BASE_URL, "http://auth-service:9000");
-  const validateRes = await fetch(`${authBaseUrl}/validate`, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId },
-    cache: "no-store"
-  });
+  try {
+    const validateRes = await fetch(`${authBaseUrl}/validate`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId },
+      cache: "no-store"
+    });
 
-  if (!validateRes.ok) {
+    if (!validateRes.ok) {
+      return jsonResponse(JSON.stringify({ error: "not_authenticated" }), 401);
+    }
+
+    return {
+      token,
+      orgId: validateRes.headers.get("X-Org-Id"),
+      userId: validateRes.headers.get("X-User-Id"),
+      linkedUserId: validateRes.headers.get("X-Linked-User-Id"),
+      role: validateRes.headers.get("X-Role") ?? "ANALYST",
+      authMethod: validateRes.headers.get("X-Auth-Method"),
+      mfaMode: validateRes.headers.get("X-MFA-Mode"),
+      mfaProviderHomologated: validateRes.headers.get("X-MFA-Provider-Homologated"),
+      twoFactor: cookies().get("otc_2fa")?.value ?? validateRes.headers.get("X-2FA")
+    };
+  } catch {
     return jsonResponse(JSON.stringify({ error: "not_authenticated" }), 401);
   }
-
-  return {
-    token,
-    orgId: validateRes.headers.get("X-Org-Id"),
-    userId: validateRes.headers.get("X-User-Id"),
-    linkedUserId: validateRes.headers.get("X-Linked-User-Id"),
-    role: validateRes.headers.get("X-Role") ?? "ANALYST",
-    authMethod: validateRes.headers.get("X-Auth-Method"),
-    mfaMode: validateRes.headers.get("X-MFA-Mode"),
-    mfaProviderHomologated: validateRes.headers.get("X-MFA-Provider-Homologated"),
-    twoFactor: cookies().get("otc_2fa")?.value ?? validateRes.headers.get("X-2FA")
-  };
 }
 
 export async function proxyTeamJsonRequest(auth: TeamAuthContext, options: ProxyRequestOptions) {
