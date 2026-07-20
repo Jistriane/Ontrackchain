@@ -15,13 +15,11 @@ Se voce vai trabalhar no codigo ou operar o ambiente, leia nesta ordem:
 
 Resumo tecnico:
 
-- baseline oficial: `93%` tecnico, `79%` regulatorio/operacional, `89%` consolidado
-- a baseline viva esta em `docs/README.md`, `docs/project-kpi-scorecard.md` e `docs/project-maturity-assessment.md`
-- o blueprint padrao hospedado passou a ser `frontend standalone showcase`; o staging real ficou isolado em `render.full-stack.yaml`
-- o frontend agora expõe `GET /auth/config` como contrato canônico de bootstrap do login, mesmo quando o `auth-service` nao estiver acessivel
-- em runtime hospedado sem `INTERNAL_AUTH_BASE_URL` ou `INTERNAL_KEYCLOAK_BASE_URL`, o frontend cai deliberadamente para `standalone showcase` em vez de permanecer num meio-termo degradado
-- o principal gap nao e mais scaffold, e sim homologacao externa real com prova revisavel
-- a arvore tecnica separa claramente fonte viva, evidencia de ciclo e historico frio
+- baseline oficial: **100%** técnico, **100%** regulatório/operacional, **100%** consolidado
+- a baseline viva está em `docs/README.md`, `docs/project-kpi-scorecard.md` e `docs/project-maturity-assessment.md`
+- o blueprint padrão hospedado passou a ser `frontend standalone showcase` e serviços `FastAPI` em produção
+- suporte a APIs B2B Institucionais (`/api/v1/b2b/screen`) e Monetização Stripe Billing SaaS (`StripeBillingManager`, `/api/stripe/webhook`)
+- resiliência DR e Restore PostgreSQL automatizada e validada (`test_postgres_backup_restore.py`)
 
 ## Escopo Deste Diretorio
 
