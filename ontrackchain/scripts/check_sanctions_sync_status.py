@@ -22,36 +22,37 @@ def _parse_csv(value: str) -> list[str]:
 
 
 def _load_rows(*, database_url: str, list_names: list[str]) -> list[dict[str, Any]]:
+    if not database_url or not list_names:
+        return []
     try:
         psycopg = importlib.import_module("psycopg")
-    except ImportError:
+        placeholders = ", ".join(["%s"] * len(list_names))
+        query = f"""
+            SELECT list_name, source_url, status, last_sync_status, status_reason, updated_at
+              FROM sanctions_lists_meta
+             WHERE list_name IN ({placeholders})
+             ORDER BY list_name
+        """
+        with psycopg.connect(database_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, list_names)
+                rows = cur.fetchall()
+
+        payload: list[dict[str, Any]] = []
+        for row in rows:
+            payload.append(
+                {
+                    "list_name": row[0],
+                    "source_url": row[1] or "",
+                    "status": row[2] or "",
+                    "last_sync_status": row[3] or "",
+                    "status_reason": row[4] or "",
+                    "updated_at": row[5].isoformat() if row[5] is not None else None,
+                }
+            )
+        return payload
+    except Exception:
         return []
-
-    placeholders = ", ".join(["%s"] * len(list_names))
-    query = f"""
-        SELECT list_name, source_url, status, last_sync_status, status_reason, updated_at
-          FROM sanctions_lists_meta
-         WHERE list_name IN ({placeholders})
-         ORDER BY list_name
-    """
-    with psycopg.connect(database_url) as conn:
-        with conn.cursor() as cur:
-            cur.execute(query, list_names)
-            rows = cur.fetchall()
-
-    payload: list[dict[str, Any]] = []
-    for row in rows:
-        payload.append(
-            {
-                "list_name": row[0],
-                "source_url": row[1] or "",
-                "status": row[2] or "",
-                "last_sync_status": row[3] or "",
-                "status_reason": row[4] or "",
-                "updated_at": row[5].isoformat() if row[5] is not None else None,
-            }
-        )
-    return payload
 
 
 def _build_eu_correlation(
