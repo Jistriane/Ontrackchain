@@ -871,23 +871,104 @@ VALUES (
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO users (id, organization_id, email, password_hash, display_name, role, status, note, updated_at)
-VALUES (
-  '00000000-0000-0000-0000-000000000002',
-  '00000000-0000-0000-0000-000000000001',
-  'demo@ontrackchain.local',
-  'not-a-real-hash',
-  'Demo Admin',
-  'ADMIN',
-  'active',
-  'Conta bootstrap local para desenvolvimento.',
-  NOW()
-)
+VALUES
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '00000000-0000-0000-0000-000000000001',
+    'system@ontrackchain.com',
+    'not-a-real-hash',
+    'System Admin',
+    'ADMIN',
+    'active',
+    'Conta de administracao do sistema.',
+    NOW()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '00000000-0000-0000-0000-000000000001',
+    'jibso@ontrackchain.com',
+    'not-a-real-hash',
+    'JIBSO Admin',
+    'ADMIN',
+    'active',
+    'Conta de administrador JIBSO.',
+    NOW()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '00000000-0000-0000-0000-000000000001',
+    'analyst@ontrackchain.com',
+    'not-a-real-hash',
+    'Ana Analyst',
+    'ANALYST',
+    'active',
+    'Conta de analista operacional e compliance.',
+    NOW()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000005',
+    '00000000-0000-0000-0000-000000000001',
+    'auditor@ontrackchain.com',
+    'not-a-real-hash',
+    'Alice Auditor',
+    'AUDITOR',
+    'active',
+    'Conta de auditoria e relatorios regulatorios.',
+    NOW()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000006',
+    '00000000-0000-0000-0000-000000000001',
+    'kmd@ontrackchain.com',
+    'not-a-real-hash',
+    'KMD Tester',
+    'TESTER',
+    'active',
+    'Conta de testes e integracao KMD.',
+    NOW()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000007',
+    '00000000-0000-0000-0000-000000000001',
+    'viewer@ontrackchain.com',
+    'not-a-real-hash',
+    'Vera Viewer',
+    'VIEWER',
+    'active',
+    'Conta de visualizacao sem permissoes de escrita.',
+    NOW()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000008',
+    '00000000-0000-0000-0000-000000000001',
+    'demo@ontrackchain.local',
+    'not-a-real-hash',
+    'Demo Admin',
+    'ADMIN',
+    'active',
+    'Conta bootstrap local para desenvolvimento.',
+    NOW()
+  )
 ON CONFLICT (id) DO UPDATE SET
+  email = EXCLUDED.email,
   display_name = EXCLUDED.display_name,
   role = EXCLUDED.role,
   status = EXCLUDED.status,
   note = EXCLUDED.note,
   updated_at = NOW();
+
+INSERT INTO external_identities (organization_id, provider, external_subject, user_id, email_snapshot, role_snapshot)
+VALUES
+  ('00000000-0000-0000-0000-000000000001', 'keycloak', 'system@ontrackchain.com', '00000000-0000-0000-0000-000000000002', 'system@ontrackchain.com', 'otk_admin'),
+  ('00000000-0000-0000-0000-000000000001', 'keycloak', 'jibso@ontrackchain.com', '00000000-0000-0000-0000-000000000003', 'jibso@ontrackchain.com', 'otk_admin'),
+  ('00000000-0000-0000-0000-000000000001', 'keycloak', 'analyst@ontrackchain.com', '00000000-0000-0000-0000-000000000004', 'analyst@ontrackchain.com', 'otk_analyst'),
+  ('00000000-0000-0000-0000-000000000001', 'keycloak', 'auditor@ontrackchain.com', '00000000-0000-0000-0000-000000000005', 'auditor@ontrackchain.com', 'otk_auditor'),
+  ('00000000-0000-0000-0000-000000000001', 'keycloak', 'kmd@ontrackchain.com', '00000000-0000-0000-0000-000000000006', 'kmd@ontrackchain.com', 'otk_tester'),
+  ('00000000-0000-0000-0000-000000000001', 'keycloak', 'viewer@ontrackchain.com', '00000000-0000-0000-0000-000000000007', 'viewer@ontrackchain.com', 'otk_viewer')
+ON CONFLICT (provider, external_subject, organization_id) DO UPDATE SET
+  email_snapshot = EXCLUDED.email_snapshot,
+  role_snapshot = EXCLUDED.role_snapshot,
+  last_seen_at = NOW();
 
 INSERT INTO api_keys (
   id,

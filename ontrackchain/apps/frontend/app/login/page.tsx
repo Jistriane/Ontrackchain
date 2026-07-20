@@ -146,6 +146,35 @@ export default function LoginPage() {
       <div className="otc-stack">
         {!standaloneShowcaseMode && authMode !== "oidc" ? (
           <>
+            <div className="otc-panel" style={{ padding: 12, marginBottom: 12, background: "rgba(255, 255, 255, 0.03)" }}>
+              <div style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: 8, color: "var(--otc-text-muted)" }}>
+                Contas Pré-configuradas (Dev Mode):
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {[
+                  { label: "Admin (System)", email: "system@ontrackchain.com", pass: "SystemPass123!" },
+                  { label: "Admin (JIBSO)", email: "jibso@ontrackchain.com", pass: "JIBSOPass123!" },
+                  { label: "Analista", email: "analyst@ontrackchain.com", pass: "AnalystPass123!" },
+                  { label: "Auditor", email: "auditor@ontrackchain.com", pass: "AuditorPass123!" },
+                  { label: "Tester", email: "kmd@ontrackchain.com", pass: "KmdPass123!" },
+                  { label: "Visualizador", email: "viewer@ontrackchain.com", pass: "ViewerPass123!" }
+                ].map((acc) => (
+                  <button
+                    key={acc.email}
+                    type="button"
+                    className="otc-button"
+                    style={{ fontSize: "0.75rem", padding: "4px 8px" }}
+                    onClick={() => {
+                      setEmail(acc.email);
+                      setPassword(acc.pass);
+                    }}
+                  >
+                    {acc.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <label className="otc-field">
               {t("login.email")}
               <input className="otc-input" data-testid="email-input" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -162,7 +191,19 @@ export default function LoginPage() {
             </label>
           </>
         ) : !standaloneShowcaseMode ? (
-          <Message>{t("login.devRedirectReplaced")}</Message>
+          <div className="otc-panel" style={{ padding: 14, marginBottom: 12, background: "rgba(255, 255, 255, 0.03)" }}>
+            <div style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: 8, color: "var(--otc-text-muted)" }}>
+              Contas de Acesso OIDC / Keycloak Cadastradas:
+            </div>
+            <ul style={{ fontSize: "0.8rem", margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
+              <li><strong>System Admin:</strong> <code>system@ontrackchain.com</code> / <code>SystemPass123!</code></li>
+              <li><strong>JIBSO Admin:</strong> <code>jibso@ontrackchain.com</code> / <code>JIBSOPass123!</code></li>
+              <li><strong>Analista:</strong> <code>analyst@ontrackchain.com</code> / <code>AnalystPass123!</code></li>
+              <li><strong>Auditor:</strong> <code>auditor@ontrackchain.com</code> / <code>AuditorPass123!</code></li>
+              <li><strong>KMD Tester:</strong> <code>kmd@ontrackchain.com</code> / <code>KmdPass123!</code></li>
+              <li><strong>Visualizador:</strong> <code>viewer@ontrackchain.com</code> / <code>ViewerPass123!</code></li>
+            </ul>
+          </div>
         ) : null}
         <button
           className="otc-button otc-button--accent"
