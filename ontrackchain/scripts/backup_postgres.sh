@@ -35,7 +35,7 @@ docker compose exec -T "$POSTGRES_SERVICE" \
 FILE_SIZE="$(wc -c < "$OUTPUT_PATH" | tr -d ' ')"
 FILE_SHA256="$(sha256sum "$OUTPUT_PATH" | awk '{print $1}')"
 
-python - "$MANIFEST_PATH" "$TIMESTAMP" "$POSTGRES_SERVICE" "$POSTGRES_DB" "$OUTPUT_PATH" "$FILE_SIZE" "$FILE_SHA256" <<'PY'
+python3 - "$MANIFEST_PATH" "$TIMESTAMP" "$POSTGRES_SERVICE" "$POSTGRES_DB" "$OUTPUT_PATH" "$FILE_SIZE" "$FILE_SHA256" <<'PY'
 import json
 import sys
 

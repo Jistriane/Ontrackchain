@@ -1794,9 +1794,35 @@ async def acknowledge_operational_alert(
 async def trigger_operational_alert(
     body: TriggerOperationalAlertRequest,
     pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> dict:
     if not settings.enable_test_endpoints:
         raise HTTPException(status_code=404, detail="not_found")
+
+    org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_role_with_audit(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles={"ADMIN"},
+        detail="admin_role_required",
+        resource_type="operational_alerts",
+        resource_id=None,
+        endpoint="/api/v1/monitoring/test/trigger-operational-alert",
+        method="POST",
+    )
 
     fingerprint = body.fingerprint or f"synthetic:{body.alertname}:{uuid.uuid4()}"
     now = datetime.now(timezone.utc)

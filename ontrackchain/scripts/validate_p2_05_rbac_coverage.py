@@ -69,7 +69,11 @@ def analyze_service(service_name: str) -> Dict[str, Any]:
                             "403" in snippet or
                             "authenticated" in snippet or
                             "auth_mode" in snippet or
-                            "X-Linked-User-Id" in snippet
+                            "X-Linked-User-Id" in snippet or
+                            "_require_auth" in snippet or
+                            "_require_team" in snippet or
+                            "_require_monitoring" in snippet or
+                            "_require_org_id" in snippet
                         )
                         
                         if has_rbac:

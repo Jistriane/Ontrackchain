@@ -20,19 +20,49 @@ else:
     main = None
 
 
+_VALID_ORG_ID = "org-test-trigger"
+_VALID_USER_ID = "22222222-2222-2222-2222-222222222222"
+
+
 class _TriggerCursor:
     """Fake cursor para o endpoint trigger-operational-alert.
 
-    Suporta apenas INSERT INTO operational_alert_events gerado por
-    _persist_operational_alert_event.
+    Suporta as queries emitidas por _require_role_with_audit, RLS e
+    _persist_operational_alert_event:
     """
 
     def __init__(self, state: dict[str, Any]) -> None:
         self.state = state
+        self._fetchone_value: Any = None
 
     def execute(self, query: str, params: tuple[Any, ...] | list[Any] = ()) -> None:
         normalized = " ".join(query.split())
         params_tuple = tuple(params)
+
+        if normalized.startswith("SELECT set_config("):
+            self._fetchone_value = {"set_config": params_tuple[0] if params_tuple else None}
+            return
+
+        if normalized == "SELECT 1 FROM users WHERE id = %s":
+            self._fetchone_value = (
+                {"exists": 1} if str(params_tuple[0]) in self.state["users"] else None
+            )
+            return
+
+        if normalized.startswith("INSERT INTO audit_logs"):
+            organization_id, user_id, action, resource_type, resource_id, metadata_json = params_tuple
+            self.state["audit_logs"].append(
+                {
+                    "organization_id": str(organization_id),
+                    "user_id": user_id,
+                    "action": action,
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                    "metadata": json.loads(metadata_json),
+                }
+            )
+            self._fetchone_value = None
+            return
 
         if normalized.startswith("INSERT INTO operational_alert_events"):
             self.state["persisted"].append(
@@ -53,6 +83,9 @@ class _TriggerCursor:
             return
 
         raise AssertionError(f"Query nao suportada no fake: {normalized}")
+
+    def fetchone(self) -> Any:
+        return self._fetchone_value
 
     def __enter__(self) -> "_TriggerCursor":
         return self
@@ -89,7 +122,11 @@ class _TriggerPool:
 
 
 def _build_state() -> tuple[dict[str, Any], _TriggerPool]:
-    state: dict[str, Any] = {"persisted": []}
+    state: dict[str, Any] = {
+        "users": {_VALID_USER_ID},
+        "audit_logs": [],
+        "persisted": [],
+    }
     return state, _TriggerPool(state)
 
 
@@ -108,6 +145,9 @@ class TriggerOperationalAlertTests(unittest.TestCase):
         summary: str = "Incidente sintetico de teste",
         description: str = "Incidente sintetico criado para validar a triagem operacional.",
         fingerprint: str | None = None,
+        x_role: str = "ADMIN",
+        x_org_id: str | None = _VALID_ORG_ID,
+        x_user_id: str | None = _VALID_USER_ID,
     ) -> Any:
         body = main.TriggerOperationalAlertRequest(
             alertname=alertname,
@@ -119,7 +159,15 @@ class TriggerOperationalAlertTests(unittest.TestCase):
             fingerprint=fingerprint,
         )
         return asyncio.run(
-            main.trigger_operational_alert(body=body, pool=pool)
+            main.trigger_operational_alert(
+                body=body,
+                pool=pool,
+                x_org_id=x_org_id,
+                x_user_id=x_user_id,
+                x_linked_user_id=None,
+                x_role=x_role,
+                x_request_id="req-trigger-test-1",
+            )
         )
 
     def test_trigger_returns_status_created(self) -> None:

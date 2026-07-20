@@ -1,0 +1,780 @@
+{
+  "overall_coverage_percentage": 95.19,
+  "total_endpoints": 104,
+  "total_protected_endpoints": 99,
+  "services": [
+    {
+      "service": "auth-service",
+      "total_endpoints": 14,
+      "rbac_protected": 14,
+      "coverage_percentage": 100.0,
+      "status": "PASS",
+      "endpoints": [
+        {
+          "file": "apps/auth-service/src/auth_service/main.py",
+          "line": 1172,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/health\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/auth-service/src/auth_service/main.py",
+          "line": 1177,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/validate/block-check\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/auth-service/src/auth_service/main.py",
+          "line": 1209,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/validate\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/auth-service/src/auth_service/main.py",
+          "line": 1246,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/auth/config\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/auth-service/src/auth_service/main.py",
+          "line": 1313,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/auth/issue-dev-token\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/auth-service/src/auth_service/main.py",
+          "line": 1333,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/auth/verify-2fa\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/auth-service/src/auth_service/main.py",
+          "line": 1346,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/team/users\", response_model=TeamUserListResponse)",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/auth-service/src/auth_service/main.py",
+          "line": 1379,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/team/users\", response_model=TeamUserRecord)",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/auth-service/src/auth_service/main.py",
+          "line": 1448,
+          "method": "PATCH",
+          "route_snippet": "@app.patch(\"/api/v1/team/users/{member_id}\", response_model=TeamUserRecord)",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/auth-service/src/auth_service/main.py",
+          "line": 1547,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/team/users/{member_id}/external-identities\", response_model=T",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/auth-service/src/auth_service/main.py",
+          "line": 1658,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/team/users/{member_id}/external-identities\", response_model=Te",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/auth-service/src/auth_service/main.py",
+          "line": 1681,
+          "method": "DELETE",
+          "route_snippet": "@app.delete(\"/api/v1/team/users/{member_id}/external-identities\", response_model",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/auth-service/src/auth_service/main.py",
+          "line": 1756,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/team/federated-directory/users\", response_model=FederatedDirec",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/auth-service/src/auth_service/main.py",
+          "line": 1855,
+          "method": "POST",
+          "route_snippet": "@app.post(",
+          "rbac_protected": true
+        }
+      ]
+    },
+    {
+      "service": "compliance-api",
+      "total_endpoints": 26,
+      "rbac_protected": 23,
+      "coverage_percentage": 88.46,
+      "status": "PASS",
+      "endpoints": [
+        {
+          "file": "apps/compliance-api/src/compliance_api/operations.py",
+          "line": 654,
+          "method": "POST",
+          "route_snippet": "@router.post(\"/work-items\", response_model=WorkItemResponse, status_code=201)",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/operations.py",
+          "line": 790,
+          "method": "GET",
+          "route_snippet": "@router.get(\"/work-items\", response_model=WorkItemListResponse)",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/operations.py",
+          "line": 894,
+          "method": "PATCH",
+          "route_snippet": "@router.patch(\"/work-items/{work_item_id}\", response_model=WorkItemResponse)",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/operations.py",
+          "line": 1025,
+          "method": "GET",
+          "route_snippet": "@router.get(\"/work-items/{work_item_id}/timeline\", response_model=WorkItemTimeli",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/operations.py",
+          "line": 1084,
+          "method": "POST",
+          "route_snippet": "@router.post(\"/work-items/{work_item_id}/comments\", response_model=WorkCommentRe",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 1881,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/health\")",
+          "rbac_protected": false
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 1886,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/internal/metrics/prometheus\")",
+          "rbac_protected": false
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 1899,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/internal/provider-readiness\")",
+          "rbac_protected": false
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 1919,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/compliance/operations\", response_model=ComplianceCatalogRespon",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 1945,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/compliance/operations/{operation_identifier}\", response_model=",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 1956,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/compliance/estimate\", response_model=EstimateComplianceRespon",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 2028,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/compliance/start\", response_model=StartComplianceResponse)",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 2358,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/compliance/cases/{case_id}/report\", response_model=GenerateCo",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 2479,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/compliance/kyc-wallet\", response_model=KycWalletResponse)",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 2555,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/compliance/risk-check\", response_model=RiskCheckResponse)",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 2639,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/compliance/due-diligence\", response_model=DueDiligenceRespons",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 2703,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/compliance/source-of-funds\", response_model=SourceOfFundsResp",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 2771,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/compliance/sanctions-check/{address}\", response_model=Sanction",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 2863,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/compliance/blocks/evaluate\", response_model=BlockEvaluateResp",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 3044,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/compliance/blocks\", response_model=BlockListResponse)",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 3130,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/compliance/blocks/{block_id}/lift\", response_model=BlockLiftR",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 3240,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/compliance/counterparties\", response_model=CounterpartyCreate",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 3410,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/compliance/counterparties\", response_model=CounterpartyListRes",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 3500,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/compliance/counterparties/{counterparty_id}\", response_model=C",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 3572,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/compliance/counterparties/{counterparty_id}/history\", response",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/compliance-api/src/compliance_api/main.py",
+          "line": 3655,
+          "method": "PATCH",
+          "route_snippet": "@app.patch(\"/api/v1/compliance/counterparties/{counterparty_id}/review\", respons",
+          "rbac_protected": true
+        }
+      ]
+    },
+    {
+      "service": "investigation-api",
+      "total_endpoints": 32,
+      "rbac_protected": 32,
+      "coverage_percentage": 100.0,
+      "status": "PASS",
+      "endpoints": [
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 2690,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/health\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 2695,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/report-types\", response_model=ReportTypeCatalogResponse)",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 2721,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/report-types/{type_identifier}\", response_model=ReportTypeCata",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 2732,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/investigation/estimate\", response_model=EstimateInvestigation",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 2811,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/investigation/start\", response_model=StartInvestigationRespon",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 3169,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/investigation/{case_id}/status\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 3228,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/investigation/{case_id}/result\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 3286,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/investigation/history\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 3327,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/billing/balance\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 3360,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/billing/reconciliation\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 3395,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/billing/reconciliation/export\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 3437,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/investigation/admin/operations\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 3473,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/investigation/admin/alerts\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 3522,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/investigation/admin/metrics\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 3564,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/internal/metrics/prometheus\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 3577,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/internal/rpc-readiness\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 3597,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/investigation/admin/dlq\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 3702,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/investigation/admin/dlq/{case_id}/requeue\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 3939,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/investigation/admin/dlq/{case_id}/acknowledge\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 4039,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/audit/logs\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 4143,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/audit/evidence-export\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 4358,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/audit/manual-package-export\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 4419,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/evidence/manual-package/signoff-requests\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 4532,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/evidence/manual-package/seals/{seal_id}/signoffs\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 4698,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/evidence/manual-package/seals/{seal_id}/finalize\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 4814,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/evidence/manual-package/seals/{seal_id}/revoke\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 4893,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/evidence/manual-package/seals/{seal_id}/supersede\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 4984,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/evidence/manual-package/seals/{seal_id}\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 5019,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/evidence/manual-package/seals/by-digest\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 5060,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/investigation/{case_id}/internal/complete\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 5254,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/investigation/{case_id}/internal/fail\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/investigation-api/src/investigation_api/main.py",
+          "line": 5370,
+          "method": "DELETE",
+          "route_snippet": "@app.delete(\"/api/v1/investigation/{case_id}\")",
+          "rbac_protected": true
+        }
+      ]
+    },
+    {
+      "service": "monitoring-api",
+      "total_endpoints": 19,
+      "rbac_protected": 17,
+      "coverage_percentage": 89.47,
+      "status": "PASS",
+      "endpoints": [
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 1262,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/health\")",
+          "rbac_protected": false
+        },
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 1267,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/internal/metrics/prometheus\")",
+          "rbac_protected": false
+        },
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 1280,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/internal/ops/alertmanager/webhook\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 1322,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/monitoring/admin/operational-alerts\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 1423,
+          "method": "GET",
+          "route_snippet": "@app.get(",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 1482,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/monitoring/admin/operational-alerts/export\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 1624,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/monitoring/admin/operational-alerts/acknowledge-batch\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 1724,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/monitoring/admin/operational-alerts/{event_id}/acknowledge\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 1793,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/monitoring/test/trigger-operational-alert\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 1874,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/monitoring/operations\", response_model=MonitoringCatalogRespon",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 1899,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/monitoring/operations/{operation_identifier}\", response_model=",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 1910,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/monitoring/estimate\", response_model=EstimateMonitoringRespon",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 1978,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/monitoring/watchlists\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 2023,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/monitoring/watchlists\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 2058,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/monitoring/start\", response_model=StartMonitoringResponse)",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 2298,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/monitoring/watchlists/{watchlist_id}/items\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 2350,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/monitoring/watchlists/{watchlist_id}/items\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 2408,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/monitoring/alerts\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/monitoring-api/src/monitoring_api/main.py",
+          "line": 2460,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/monitoring/test/trigger-alert\")",
+          "rbac_protected": true
+        }
+      ]
+    },
+    {
+      "service": "report-api",
+      "total_endpoints": 13,
+      "rbac_protected": 13,
+      "coverage_percentage": 100.0,
+      "status": "PASS",
+      "endpoints": [
+        {
+          "file": "apps/report-api/src/report_api/main.py",
+          "line": 1000,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/health\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/report-api/src/report_api/main.py",
+          "line": 1005,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/internal/metrics/prometheus\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/report-api/src/report_api/main.py",
+          "line": 1018,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/reports/generate\", response_model=GenerateReportResponse)",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/report-api/src/report_api/main.py",
+          "line": 1113,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/reports/ros-coaf\", response_model=GenerateRosCoafResponse)",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/report-api/src/report_api/main.py",
+          "line": 1258,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/reports/ros-coaf\", response_model=RosCoafListResponse)",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/report-api/src/report_api/main.py",
+          "line": 1399,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/reports/ros-coaf/{ros_id}\", response_model=RosCoafDetailRespon",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/report-api/src/report_api/main.py",
+          "line": 1550,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/reports/ros-coaf/{ros_id}/regulatory-dossier\")",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/report-api/src/report_api/main.py",
+          "line": 1913,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/reports/ros-coaf/{ros_id}/approve\", response_model=ApproveRos",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/report-api/src/report_api/main.py",
+          "line": 2028,
+          "method": "POST",
+          "route_snippet": "@app.post(\"/api/v1/reports/ros-coaf/{ros_id}/submitted\", response_model=SubmitRo",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/report-api/src/report_api/main.py",
+          "line": 2152,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/reports\", response_model=ReportListResponse)",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/report-api/src/report_api/main.py",
+          "line": 2285,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/reports/{report_id}\", response_model=GenerateReportResponse)",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/report-api/src/report_api/main.py",
+          "line": 2390,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/reports/{report_id}/ros-coaf-ref\", response_model=ReportRosCoa",
+          "rbac_protected": true
+        },
+        {
+          "file": "apps/report-api/src/report_api/main.py",
+          "line": 2450,
+          "method": "GET",
+          "route_snippet": "@app.get(\"/api/v1/reports/{report_id}/download\")",
+          "rbac_protected": true
+        }
+      ]
+    }
+  ]
+}
