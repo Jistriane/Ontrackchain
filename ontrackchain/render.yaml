@@ -50,7 +50,7 @@ services:
           property: hostport
       - key: FRONTEND_HOSTPORT
         fromService:
-          type: pserv
+          type: web
           name: ontrackchain-frontend-staging
           property: hostport
 
