@@ -13,7 +13,9 @@ RUN pip install --no-cache-dir --upgrade pip \
   && pip install --no-cache-dir hatchling \
   && pip install --no-cache-dir . \
   && chmod +x /app/infra/render/scripts/start-auth-service.sh \
+  && chmod +x /app/infra/render/scripts/docker-entrypoint.sh \
   && chmod +x /infra/render/scripts/start-auth-service.sh \
+  && chmod +x /infra/render/scripts/docker-entrypoint.sh \
   && ln -sf /usr/local/bin/python3 /usr/bin/python3 \
   && ln -sf /usr/local/bin/python3 /bin/python3 \
   && ln -sf /usr/local/bin/uvicorn /usr/bin/uvicorn \
@@ -21,5 +23,5 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 EXPOSE 9000
 
-ENTRYPOINT ["/bin/sh", "-c"]
+ENTRYPOINT ["/app/infra/render/scripts/docker-entrypoint.sh"]
 CMD ["/app/infra/render/scripts/start-auth-service.sh"]
