@@ -2,6 +2,8 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+ENV REBUILD_NONCE=20260720_v3
+
 COPY apps/auth-service/pyproject.toml /app/pyproject.toml
 COPY apps/auth-service/src /app/src
 COPY infra/postgres /app/infra/postgres
@@ -18,6 +20,8 @@ RUN pip install --no-cache-dir --upgrade pip \
   && chmod +x /infra/render/scripts/docker-entrypoint.sh \
   && ln -sf /usr/local/bin/python3 /usr/bin/python3 \
   && ln -sf /usr/local/bin/python3 /bin/python3 \
+  && ln -sf /usr/local/bin/python3 /usr/bin/python \
+  && ln -sf /usr/local/bin/python3 /bin/python \
   && ln -sf /usr/local/bin/uvicorn /usr/bin/uvicorn \
   && ln -sf /usr/local/bin/uvicorn /bin/uvicorn
 

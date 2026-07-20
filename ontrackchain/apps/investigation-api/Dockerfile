@@ -2,6 +2,8 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+ENV REBUILD_NONCE=20260720_v3
+
 COPY apps/investigation-api/pyproject.toml /app/pyproject.toml
 COPY apps/investigation-api/src /app/src
 COPY packages/agents /tmp/ontrackchain-agents

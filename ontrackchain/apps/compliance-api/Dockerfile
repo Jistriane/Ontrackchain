@@ -2,6 +2,8 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+ENV REBUILD_NONCE=20260720_v3
+
 COPY apps/compliance-api/pyproject.toml /app/pyproject.toml
 COPY apps/compliance-api/src /app/src
 COPY packages/shared /tmp/ontrackchain-shared
