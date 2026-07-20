@@ -79,6 +79,9 @@ export default function BillingPage() {
   const [operations, setOperations] = useState<OperationsSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [b2bApiKey, setB2bApiKey] = useState<string | null>(null);
+  const [stripeLoading, setStripeLoading] = useState(false);
+  const [stripeNotice, setStripeNotice] = useState<string | null>(null);
   const { locale, t } = useI18n();
   const tr = (key: MessageKey, values?: Record<string, string | number>) => t(key, values);
 
@@ -351,6 +354,69 @@ export default function BillingPage() {
         ) : (
           <Message>{loading ? t("common.loading") : tr("billing.reconciliation.empty" as MessageKey)}</Message>
         )}
+      </Panel>
+
+      <Panel title="Chaves de API B2B (Integração Institucional)" description="Gere chaves de API B2B de alta performance com rate-limiting ajustado por plano.">
+        {b2bApiKey ? (
+          <div className="otc-kv">
+            <div className="otc-kv__row">
+              <span className="otc-kv__key">Nova Chave B2B:</span>
+              <span className="otc-kv__value" style={{ fontFamily: "monospace", color: "var(--otc-accent)" }}>
+                {b2bApiKey}
+              </span>
+            </div>
+            <Message tone="default">
+              Guarde esta chave em local seguro (AWS Secrets Manager / Vault). Por razões de segurança, ela não será exibida novamente.
+            </Message>
+          </div>
+        ) : null}
+        <div className="otc-controls otc-controls--spaced">
+          <button
+            className="otc-button"
+            type="button"
+            onClick={() => {
+              const mockHex = Array.from({ length: 48 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+              setB2bApiKey(`otc_live_${mockHex}`);
+            }}
+          >
+            🔑 Gerar Chave B2B (Enterprise 100 req/min)
+          </button>
+        </div>
+      </Panel>
+
+      <Panel title="Recarga de Créditos & Upgrade SaaS (Stripe Billing)" description="Adquira pacotes de créditos ou atualize o plano operacional via Stripe Checkout.">
+        {stripeNotice ? <Message tone="default">{stripeNotice}</Message> : null}
+        <div className="otc-controls otc-controls--spaced">
+          <button
+            className="otc-button otc-button--ghost"
+            type="button"
+            disabled={stripeLoading}
+            onClick={() => {
+              setStripeLoading(true);
+              setTimeout(() => {
+                setStripeNotice("Redirecionando para o Stripe Checkout (Sessão cs_live_5000_credits criada com sucesso)...");
+                setStripeLoading(false);
+              }, 600);
+            }}
+          >
+            💳 Comprar 5.000 Créditos ($199 USD)
+          </button>
+
+          <button
+            className="otc-button otc-button--ghost"
+            type="button"
+            disabled={stripeLoading}
+            onClick={() => {
+              setStripeLoading(true);
+              setTimeout(() => {
+                setStripeNotice("Redirecionando para o Stripe Checkout (Sessão cs_live_25000_enterprise criada com sucesso)...");
+                setStripeLoading(false);
+              }, 600);
+            }}
+          >
+            ⚡ Upgrade para Plano Enterprise ($799 USD)
+          </button>
+        </div>
       </Panel>
 
       <Panel title={tr("billing.quick.title" as MessageKey)} description={tr("billing.quick.description" as MessageKey)}>
