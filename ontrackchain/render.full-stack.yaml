@@ -95,7 +95,7 @@ services:
     plan: starter
     dockerContext: .
     dockerfilePath: ./infra/render/auth-service/Dockerfile
-    dockerCommand: /app/infra/render/scripts/start-auth-service.sh
+    dockerCommand: sh -c "/app/infra/render/scripts/start-auth-service.sh"
     healthCheckPath: /health
     envVars:
       - key: APP_ENV

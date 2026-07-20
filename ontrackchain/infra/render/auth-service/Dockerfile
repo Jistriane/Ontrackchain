@@ -14,4 +14,5 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 EXPOSE 9000
 
+ENTRYPOINT ["/bin/sh", "-c"]
 CMD ["/app/infra/render/scripts/start-auth-service.sh"]
