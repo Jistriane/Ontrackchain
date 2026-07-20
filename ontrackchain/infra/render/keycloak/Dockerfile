@@ -2,8 +2,6 @@ FROM quay.io/keycloak/keycloak:25.0.6
 
 USER root
 
-RUN microdnf install -y python3 && microdnf clean all
-
 COPY infra/keycloak/realm-ontrackchain.json /opt/keycloak/data/import/realm-ontrackchain.base.json
 COPY infra/render/keycloak/render_realm.py /opt/keycloak/bin/render_realm.py
 COPY infra/render/keycloak/entrypoint.sh /opt/keycloak/bin/ontrackchain-render-entrypoint.sh

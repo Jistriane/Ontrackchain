@@ -759,17 +759,20 @@ class SanctionsSyncWorker:
         return "ORGANIZATION"
 
     def _get_source_url(self, list_name: str) -> Optional[str]:
-        with self._conn.cursor() as cur:
-            cur.execute(
-                "SELECT source_url FROM sanctions_lists_meta WHERE list_name = %s",
-                (list_name,),
-            )
-            row = cur.fetchone()
-            if not row:
-                return None
-            if isinstance(row, dict):
-                return row.get("source_url")
-            return row[0]
+        try:
+            with self._conn.cursor() as cur:
+                cur.execute(
+                    "SELECT source_url FROM sanctions_lists_meta WHERE list_name = %s",
+                    (list_name,),
+                )
+                row = cur.fetchone()
+                if not row:
+                    return None
+                if isinstance(row, dict):
+                    return row.get("source_url")
+                return row[0]
+        except Exception:
+            return None
 
     def _persist_working_source_url(self, list_name: str, source_url: str) -> None:
         current_source_url = self._get_source_url(list_name)
@@ -792,16 +795,19 @@ class SanctionsSyncWorker:
 
     def _is_same_hash(self, list_name: str, new_hash: str) -> bool:
         """Verifica se o arquivo baixado é idêntico ao último sync."""
-        with self._conn.cursor() as cur:
-            cur.execute(
-                "SELECT last_sync_hash FROM sanctions_lists_meta WHERE list_name = %s",
-                (list_name,),
-            )
-            row = cur.fetchone()
-            if not row:
-                return False
-            last_sync_hash = row.get("last_sync_hash") if isinstance(row, dict) else row[0]
-            return bool(last_sync_hash == new_hash)
+        try:
+            with self._conn.cursor() as cur:
+                cur.execute(
+                    "SELECT last_sync_hash FROM sanctions_lists_meta WHERE list_name = %s",
+                    (list_name,),
+                )
+                row = cur.fetchone()
+                if not row:
+                    return False
+                last_sync_hash = row.get("last_sync_hash") if isinstance(row, dict) else row[0]
+                return bool(last_sync_hash == new_hash)
+        except Exception:
+            return False
 
     def _skip(self, list_name: str, source_hash: str) -> SyncResult:
         """Registra skip (sem mudanças) na meta-tabela."""
