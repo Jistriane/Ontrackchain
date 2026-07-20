@@ -568,7 +568,7 @@ services:
       - key: REPORT_PERSISTED_WITHOUT_DOWNLOAD_WARN_THRESHOLD
         value: "3"
 
-  - type: pserv
+  - type: web
     runtime: docker
     name: ontrackchain-frontend-staging
     plan: starter
