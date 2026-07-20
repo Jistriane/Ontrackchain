@@ -734,6 +734,7 @@ check-investigation-api-tests:
 		--py-compile-file src/investigation_api/main.py \
 		--py-compile-file src/investigation_api/rpc_provider.py \
 		--py-compile-file tests/test_audit_logs.py \
+		--py-compile-file tests/test_billing_balance.py \
 		--py-compile-file tests/test_billing_rbac.py \
 		--py-compile-file tests/test_billing_reconciliation.py \
 		--py-compile-file tests/test_internal_rpc_metrics.py \
@@ -744,6 +745,7 @@ check-investigation-api-tests:
 		--py-compile-file tests/test_billing_reconciliation_extended.py \
 		--py-compile-file tests/test_dlq_operations.py \
 		--module tests.test_audit_logs \
+		--module tests.test_billing_balance \
 		--module tests.test_billing_rbac \
 		--module tests.test_billing_reconciliation \
 		--module tests.test_internal_rpc_metrics \
