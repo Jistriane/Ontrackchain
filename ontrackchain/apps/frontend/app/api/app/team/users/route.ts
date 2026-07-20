@@ -1,10 +1,3 @@
-import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
-import {
-  createStandaloneShowcaseTeamMember,
-  listStandaloneShowcaseTeamMembers,
-  type ShowcaseTeamRole,
-  type ShowcaseTeamStatus
-} from "../../../../lib/standalone-showcase";
 import { authenticateTeamRequest, jsonResponse, proxyTeamJsonRequest } from "../_shared";
 
 const EMPTY_TEAM_USERS_RESPONSE = {
@@ -12,9 +5,6 @@ const EMPTY_TEAM_USERS_RESPONSE = {
 } as const;
 
 export async function GET(request: Request) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    return jsonResponse(JSON.stringify(listStandaloneShowcaseTeamMembers()), 200);
-  }
 
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const auth = await authenticateTeamRequest(requestId);
@@ -34,28 +24,6 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    const payload = (await request.json().catch(() => null)) as
-      | {
-          name?: string;
-          email?: string;
-          role?: ShowcaseTeamRole;
-          status?: ShowcaseTeamStatus;
-          note?: string;
-        }
-      | null;
-    if (!payload?.email?.trim()) {
-      return jsonResponse(JSON.stringify({ error: "invalid_team_user_payload" }), 422);
-    }
-    const member = createStandaloneShowcaseTeamMember({
-      name: payload.name,
-      email: payload.email,
-      role: payload.role,
-      status: payload.status,
-      note: payload.note
-    });
-    return jsonResponse(JSON.stringify(member), 200);
-  }
 
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const auth = await authenticateTeamRequest(requestId);

@@ -43,7 +43,8 @@ Execucao real local mais recente, em `2026-07-19`:
 - `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-02` retornou `blocked`
 - `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-03` retornou `blocked`
 - `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-04` retornou `blocked`
-- o bloqueio dominante atual deixou de ser abstrato: falta materializar `.env.staging.private` e concluir o handoff humano de `Compliance/AML` (`date/status`)
+- o scaffold local de `.env.staging.private` ja foi materializado, entao o bloqueio dominante deixou de ser "arquivo ausente"
+- o bloqueio dominante atual ficou mais preciso: `Compliance/AML` segue com handoff pendente (`date/status`) e ainda faltam variaveis reais de `AML/KYT` live e feed UE tokenizado
 
 ## Regra de Taxonomia
 
@@ -75,7 +76,7 @@ Execucao real local mais recente, em `2026-07-19`:
 Bloqueadores principais:
 
 1. `P0-01` homologar `OIDC + MFA` federado em trilho serio e recorrente
-2. materializar `.env.staging.private` fora do repositorio e concluir o handoff de `Compliance/AML` para destravar a tentativa real
+2. preencher `.env.staging.private` ja materializado fora do repositorio e concluir o handoff de `Compliance/AML` para destravar a tentativa real
 3. `P0-02` fechar `AML/KYT` live com credencial real e evidencia anexavel
 4. `P0-03` ativar feed UE real com URL tokenizada e persistencia auditavel
 5. `P0-04` consolidar `P0-02 + P0-03` em bundle regulatorio revisavel; tentativas parciais ajudam a endurecer correlacao e dossier, mas nao fecham o item
@@ -87,7 +88,7 @@ Bloqueadores principais:
 
 Sequencia executiva de melhor retorno:
 
-1. preencher `.env.staging.private` e concluir o handoff de `Compliance/AML`
+1. preencher `.env.staging.private` materializado e concluir o handoff de `Compliance/AML`
 2. fechar `P0-02`
 3. fechar `P0-03`
 4. consolidar `P0-04` apenas depois da prova combinada de `P0-02` e `P0-03`
@@ -116,7 +117,7 @@ Promocao de status so e permitida quando houver:
 Leitura executiva adicional:
 
 - tentativa parcial de `P0-02` ou `P0-03` conta como progresso operacional e reduz risco de execucao
-- check real bloqueado por ausencia de `.env.staging.private` e handoff pendente conta como diagnostico valido de governanca, mas nao como progresso de homologacao
+- check real bloqueado por handoff pendente ou placeholders/variaveis reais ausentes em `.env.staging.private` conta como diagnostico valido de governanca, mas nao como progresso de homologacao
 - a promocao oficial para `90%+` continua exigindo prova combinada e revisavel, preferencialmente selada por `P0-04`
 - sinais de RCA cross-domain (`rca_attached_count`, `critical_open_count`, dominios afetados) ajudam a qualificar risco operacional e handoff executivo, mas nao substituem evidência de janela seria nem mudam KPI sozinhos
 

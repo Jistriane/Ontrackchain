@@ -24,6 +24,7 @@ TERMINAL_QUEUE_STATUSES = {"CLOSED", "REJECTED"}
 PRIORITY_VALUES = ("critical", "high", "normal")
 WRITABLE_ROLES = {"ADMIN", "ANALYST", "AUDITOR", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
 READABLE_ROLES = WRITABLE_ROLES | {"VIEWER"}
+PREVENTIVE_BLOCK_READABLE_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
 MODULE_VALUES = (
     "alerts",
     "sanctions",
@@ -410,6 +411,77 @@ def _require_role(x_role: Optional[str], allowed_roles: set[str], detail: str) -
     return normalized_role
 
 
+def _record_authorization_denial(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    request_id: Optional[str],
+    effective_role: Optional[str],
+    allowed_roles: set[str],
+    detail: str,
+    resource_type: str,
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> None:
+    try:
+        with pool.connection() as conn:
+            _apply_rls_context(conn, organization_id)
+            with conn.cursor() as cur:
+                _record_audit_log(
+                    cur,
+                    organization_id=organization_id,
+                    user_id=None,
+                    action="authorization_denied",
+                    resource_type=resource_type,
+                    resource_id=str(resource_id) if resource_id is not None else None,
+                    metadata={
+                        "request_id": request_id,
+                        "effective_role": effective_role or "UNSPECIFIED",
+                        "allowed_roles": sorted(allowed_roles),
+                        "detail": detail,
+                        "endpoint": endpoint,
+                        "method": method,
+                    },
+                )
+            conn.commit()
+    except Exception:
+        pass
+
+
+def _require_read_role_for_work_item_resource(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    request_id: Optional[str],
+    x_role: Optional[str],
+    resource_type: Optional[str],
+    module: Optional[str] = None,
+    resource_id: Optional[str | UUID] = None,
+    endpoint: str,
+    method: str,
+) -> str:
+    normalized_role = _require_role(x_role, READABLE_ROLES, "privileged_read_role_required")
+    normalized_resource_type = (resource_type or "").strip().lower() or None
+    normalized_module = (module or "").strip().lower() or None
+    if normalized_resource_type == "preventive_block" or normalized_module == "blocks":
+        if normalized_role not in PREVENTIVE_BLOCK_READABLE_ROLES:
+            _record_authorization_denial(
+                pool,
+                organization_id=organization_id,
+                request_id=request_id,
+                effective_role=normalized_role,
+                allowed_roles=PREVENTIVE_BLOCK_READABLE_ROLES,
+                detail="preventive_block_read_role_required",
+                resource_type="preventive_block",
+                resource_id=resource_id,
+                endpoint=endpoint,
+                method=method,
+            )
+            raise HTTPException(status_code=403, detail="preventive_block_read_role_required")
+    return normalized_role
+
+
 def _validate_transition(current_status: str, next_status: str, note: Optional[str]) -> None:
     if current_status == next_status:
         return
@@ -730,9 +802,20 @@ async def list_work_items(
     pool: ConnectionPool = Depends(get_pool),
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
     x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> WorkItemListResponse:
     org_id = _require_org_id(x_org_id)
-    _require_role(x_role, READABLE_ROLES, "privileged_read_role_required")
+    normalized_role = _require_read_role_for_work_item_resource(
+        pool,
+        organization_id=org_id,
+        request_id=x_request_id,
+        x_role=x_role,
+        resource_type=resource_type,
+        module=module,
+        resource_id=resource_type or module,
+        endpoint="/api/v1/operations/work-items",
+        method="GET",
+    )
     if module and module not in MODULE_VALUES:
         raise HTTPException(status_code=422, detail="invalid_module")
     if queue_status and queue_status not in QUEUE_STATUS_VALUES:
@@ -773,6 +856,9 @@ async def list_work_items(
             if resource_type:
                 base_query += " AND resource_type = %s"
                 params.append(resource_type)
+            elif normalized_role not in PREVENTIVE_BLOCK_READABLE_ROLES:
+                base_query += " AND resource_type <> %s"
+                params.append("preventive_block")
             if due_before:
                 base_query += " AND due_at IS NOT NULL AND due_at <= %s"
                 params.append(due_before)
@@ -942,9 +1028,9 @@ async def get_work_item_timeline(
     pool: ConnectionPool = Depends(get_pool),
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
     x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> WorkItemTimelineResponse:
     org_id = _require_org_id(x_org_id)
-    _require_role(x_role, READABLE_ROLES, "privileged_read_role_required")
     with pool.connection() as conn:
         _apply_rls_context(conn, org_id)
         with conn.cursor() as cur:
@@ -955,6 +1041,17 @@ async def get_work_item_timeline(
             item = cur.fetchone()
             if not item:
                 raise HTTPException(status_code=404, detail="work_item_not_found")
+            _require_read_role_for_work_item_resource(
+                pool,
+                organization_id=org_id,
+                request_id=x_request_id,
+                x_role=x_role,
+                resource_type=str(item.get("resource_type") or ""),
+                module=str(item.get("module") or ""),
+                resource_id=work_item_id,
+                endpoint="/api/v1/operations/work-items/{work_item_id}/timeline",
+                method="GET",
+            )
             cur.execute(
                 """
                 SELECT *

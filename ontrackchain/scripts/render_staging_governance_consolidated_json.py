@@ -134,6 +134,19 @@ def operational_summary(snapshot):
     }
 
 
+def regulatory_unblock_summary(payload):
+    if not isinstance(payload, dict):
+        payload = {}
+    summary = payload.get("summary") or {}
+    return {
+        "status": str(payload.get("status") or "unknown"),
+        "blocking_classification": str(payload.get("blocking_classification") or "unknown"),
+        "blocked_scopes": summary.get("blocked_scopes") or [],
+        "owner_action_groups_count": int(summary.get("owner_action_groups_count") or 0),
+        "dominant_blocking_summary": str(summary.get("dominant_blocking_summary") or "indisponivel"),
+    }
+
+
 def find_latest_history_file(checks_dir, window_id):
     """Find the latest status snapshot in history dir."""
     history_dir = os.path.join(checks_dir, 'history')
@@ -188,11 +201,14 @@ def build_consolidated_json(window_id, checks_dir, dossiers_dir, docs_dir):
     executive_bullet_file = os.path.join(docs_dir, f'{window_id}-executive-bullet.md')
     dashboard_file = os.path.join(docs_dir, f'{window_id}-governance-dashboard.md')
     status_snapshot_md_file = os.path.join(docs_dir, f'{window_id}-status-snapshot.md')
+    regulatory_unblock_file = os.path.join(checks_dir, f'{window_id}-regulatory-unblock-checklist.json')
+    regulatory_unblock_summary_file = os.path.join(dossiers_dir, f'{window_id}-regulatory-unblock-checklist.md')
     
     # Load JSONs
     current_snapshot = load_json_file(snapshot_file)
     current_snapshot_latest = load_json_file(latest_history)
     previous_snapshot_data = load_json_file(previous_snapshot)
+    regulatory_unblock_payload = load_json_file(regulatory_unblock_file)
     
     # Load markdown content
     comms_summary_content = extract_markdown_content(comms_summary_file)
@@ -267,6 +283,7 @@ def build_consolidated_json(window_id, checks_dir, dossiers_dir, docs_dir):
     previous_blocking = blocking_summary(previous_snapshot_data if previous_snapshot_data else {})
     current_operational = operational_summary(current_snapshot if current_snapshot else {})
     previous_operational = operational_summary(previous_snapshot_data if previous_snapshot_data else {})
+    current_regulatory_unblock = regulatory_unblock_summary(regulatory_unblock_payload)
     if governance_state["blocking"]["classification"] == "unknown":
         governance_state["blocking"] = current_blocking
     elif governance_state["blocking"]["summary"] == "indisponivel":
@@ -282,7 +299,12 @@ def build_consolidated_json(window_id, checks_dir, dossiers_dir, docs_dir):
         },
         "parsed_content": {
             "action_plan_items": action_plan_items,
-            "unblock_checklist_items": unblock_items
+            "unblock_checklist_items": unblock_items,
+            "regulatory_unblock_owner_actions": (
+                (regulatory_unblock_payload.get("owner_actions") or [])
+                if isinstance(regulatory_unblock_payload, dict)
+                else []
+            ),
         },
         "communications": {
             "executive_bullet": executive_bullet,
@@ -302,6 +324,7 @@ def build_consolidated_json(window_id, checks_dir, dossiers_dir, docs_dir):
             "current": current_operational,
             "previous": previous_operational,
         },
+        "regulatory_unblock_summary": current_regulatory_unblock,
         "artefact_files": {
             "war_room_action_plan": action_plan_file if os.path.exists(action_plan_file) else None,
             "status_snapshot": snapshot_file if os.path.exists(snapshot_file) else None,
@@ -309,6 +332,10 @@ def build_consolidated_json(window_id, checks_dir, dossiers_dir, docs_dir):
             "status_snapshot_delta": delta_file if os.path.exists(delta_file) else None,
             "governance_dashboard": dashboard_file if os.path.exists(dashboard_file) else None,
             "unblock_checklist": unblock_checklist_file if os.path.exists(unblock_checklist_file) else None,
+            "regulatory_unblock_checklist": regulatory_unblock_file if os.path.exists(regulatory_unblock_file) else None,
+            "regulatory_unblock_checklist_summary": (
+                regulatory_unblock_summary_file if os.path.exists(regulatory_unblock_summary_file) else None
+            ),
             "comms_summary": comms_summary_file if os.path.exists(comms_summary_file) else None,
             "executive_bullet": executive_bullet_file if os.path.exists(executive_bullet_file) else None
         },
@@ -317,7 +344,8 @@ def build_consolidated_json(window_id, checks_dir, dossiers_dir, docs_dir):
             "dossiers_dir": dossiers_dir,
             "docs_dir": docs_dir,
             "previous_snapshot_file": previous_snapshot,
-            "current_snapshot_latest_file": latest_history
+            "current_snapshot_latest_file": latest_history,
+            "regulatory_unblock_file": regulatory_unblock_file if os.path.exists(regulatory_unblock_file) else None,
         }
     }
     

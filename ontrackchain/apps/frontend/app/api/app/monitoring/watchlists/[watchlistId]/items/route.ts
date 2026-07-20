@@ -1,21 +1,10 @@
 import { cookies } from "next/headers";
-import { isFrontendStandaloneShowcaseMode } from "../../../../../../lib/auth-runtime";
-import { listStandaloneShowcaseMonitoringWatchlistItems } from "../../../../../../lib/standalone-showcase";
 
 const EMPTY_MONITORING_WATCHLIST_ITEMS_RESPONSE = {
   data: []
 } as const;
 
 export async function GET(request: Request, context: { params: Promise<{ watchlistId: string }> }) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    const { watchlistId } = await context.params;
-    const url = new URL(request.url);
-    const limit = Number(url.searchParams.get("limit") ?? 20);
-    return new Response(JSON.stringify(listStandaloneShowcaseMonitoringWatchlistItems(watchlistId, limit)), {
-      status: 200,
-      headers: { "content-type": "application/json" }
-    });
-  }
 
   const token = cookies().get("otc_token")?.value;
   if (!token) {

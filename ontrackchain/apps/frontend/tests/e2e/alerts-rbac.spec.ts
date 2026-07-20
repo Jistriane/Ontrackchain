@@ -163,10 +163,46 @@ test.describe("alerts RBAC", () => {
     await expect(page.getByTestId("platform-alerts-export-filtered-btn")).toHaveCount(0);
     await expect(page.getByTestId("platform-alert-track-btn-alert-rbac-01")).toHaveCount(0);
     await expect(page.getByTestId("platform-alert-ack-btn-alert-rbac-01")).toHaveCount(0);
+    await expect(page.getByTestId("platform-alert-open-incident-response-alert-rbac-01")).toHaveAttribute(
+      "href",
+      "/incident-response?alertId=alert-rbac-01&alertName=Alert%20RBAC&severity=critical"
+    );
     await page.getByRole("button", { name: "Ver timeline" }).click();
     await expect(page.getByTestId("platform-alert-rca-mutation-restricted")).toContainText(
       "As mutações e exportações administrativas de incidentes globais estão ocultas nesta sessão porque a role atual não possui papel administrativo ADMIN."
     );
     await expect(page.getByTestId("platform-alert-rca-save")).toHaveCount(0);
+  });
+
+  test("retorno contextual de incident-response reabre o alerta de origem no cockpit canônico", async ({ page }) => {
+    await seedFrontendAuth(page, { role: "AUDITOR" });
+    await seedAlertsReadApis(page);
+    await page.goto("/alerts?alertId=alert-rbac-01&alertName=Alert%20RBAC&severity=critical");
+
+    await expect(page.getByTestId("platform-alert-return-context")).toContainText("alert_id=alert-rbac-01");
+    await expect(page.getByTestId("platform-alert-return-marker-alert-rbac-01")).toContainText(
+      "Alerta de origem reaberto neste cockpit."
+    );
+    await expect(page.getByTestId("work-item-timeline-panel")).toBeVisible();
+  });
+
+  test("auditor recebe negacao semantica da fila rastreada em vez de silencio operacional", async ({ page }) => {
+    await seedFrontendAuth(page, { role: "AUDITOR" });
+    await seedAlertsReadApis(page);
+
+    await page.route("**/api/app/operations/work-items?module=alerts&resource_type=operational_alert&limit=100", async (route: Route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "not_authenticated" })
+      });
+    });
+
+    await page.goto("/alerts");
+
+    await expect(page.getByText("Sua sessão expirou ou não foi autenticada.").first()).toBeVisible();
+    await expect(page.getByTestId("platform-alert-row-alert-rbac-01")).toContainText("Alert RBAC");
+    await expect(page.getByTestId("platform-alert-queue-alert-rbac-01")).toHaveCount(0);
+    await expect(page.getByTestId("platform-alert-rca-summary-alert-rbac-01")).toHaveCount(0);
   });
 });

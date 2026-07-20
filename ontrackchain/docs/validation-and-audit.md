@@ -239,7 +239,8 @@ Pacote esperado quando aplicável:
 
 - `AML/KYT` live ainda depende de credenciais reais e homologacao recorrente; o checker novo valida runtime, mas nao substitui a evidencia institucional da janela seria
 - o feed da UE pode depender de URL tokenizada real para fechar a prova operacional
-- a execucao real de `2026-07-19` provou que o primeiro gargalo local atual e anterior ao runtime: `.env.staging.private` ausente e `Compliance/AML.date/status` pendentes bloqueiam `P0-02`, `P0-03` e `P0-04`
+- a execucao real mais recente de `2026-07-19` provou que o gargalo local atual continua anterior ao runtime, mas ja esta mais preciso: o scaffold de `.env.staging.private` existe e os bloqueios reais agora sao `Compliance/AML.date/status` pendentes, `COMPLIANCE_TRM_SCREENING_URL`, `COMPLIANCE_TRM_API_KEY`, `DATABASE_URL` e `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` tokenizada
+- usar `make run-regulatory-unblock-checklist-local WINDOW_ID=<janela> ...` para consolidar essa fila de handoff em um unico artefato antes de qualquer nova tentativa real
 - `due_diligence` e `source_of_funds` ainda nao possuem harness regulatorio equivalente ao screening local de sancoes
 - os runners e checkers atuais ainda precisam ser exercitados de forma recorrente nas janelas homologadas
 

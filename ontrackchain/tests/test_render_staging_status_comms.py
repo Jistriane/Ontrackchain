@@ -87,6 +87,7 @@ class RenderStagingStatusCommsTests(unittest.TestCase):
                 delta_file,
                 Path(tmp_dir) / "dashboard.md",
                 Path(tmp_dir) / "unblock.md",
+                Path(tmp_dir) / "regulatory-unblock.md",
                 self._payload(),
             )
 
@@ -97,6 +98,7 @@ class RenderStagingStatusCommsTests(unittest.TestCase):
         self.assertIn("- leitura regulatoria: tentativa parcial (P0-02); endurece a trilha", content)
         self.assertIn("- work-items rastreados: `3`", content)
         self.assertIn("- dominios RCA em destaque: `compliance,monitoring`", content)
+        self.assertIn("- checklist regulatorio consolidado: `", content)
 
 
 if __name__ == "__main__":

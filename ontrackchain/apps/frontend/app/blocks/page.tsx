@@ -10,12 +10,11 @@ import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel
 import type { MessageKey } from "../lib/i18n";
 import { canEvaluateBlock, canLiftBlock } from "../lib/authz";
 import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
-import { resolveApiErrorMessage } from "../lib/api-error-catalog";
+import { extractApiErrorCode, resolveApiErrorMessage } from "../lib/api-error-catalog";
 import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
 import { formatTimelineEvent } from "../lib/work-item-timeline";
 import { useWorkItemTimeline } from "../lib/use-work-item-timeline";
 import {
-  loadWorkspaceRecords,
   saveWorkspaceRecords,
   sortByLastActionAtDesc,
   toApiDueAt,
@@ -62,6 +61,32 @@ type BlockLiftResponse = {
   status: string;
   review_status: string;
   lifted_at: string;
+};
+
+type BlockListItemResponse = {
+  block_id: string;
+  case_id?: string | null;
+  address: string;
+  chain: string;
+  action: string;
+  review_status: string;
+  status: string;
+  regulatory_basis: string[];
+  matched_lists: string[];
+  decision_confidence: number;
+  requires_coaf_report: boolean;
+  evidence_hash: string;
+  screened_at: string;
+  lifted_at?: string | null;
+  lifted_reason?: string | null;
+  review_note?: string | null;
+};
+
+type BlockListResponse = {
+  items: BlockListItemResponse[];
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 type BlockWorkspacePriority = WorkItemPriority;
@@ -127,41 +152,6 @@ function normalizeLegacyStatus(value: unknown): BlockWorkspaceStatus {
     return value;
   }
   return "REVIEW";
-}
-
-function normalizeWorkspaceRecord(record: Partial<BlockWorkspaceRecord>): BlockWorkspaceRecord {
-  const resourceId = typeof record.resourceId === "string" && isUuidLike(record.resourceId) ? record.resourceId : "";
-  const blockId = typeof record.blockId === "string" ? record.blockId : "";
-  return {
-    workspaceId: typeof record.workspaceId === "string" && record.workspaceId ? record.workspaceId : blockId || crypto.randomUUID(),
-    resourceId,
-    workItemId: typeof record.workItemId === "string" ? record.workItemId : undefined,
-    source: record.source === "server" ? "server" : "local",
-    address: typeof record.address === "string" ? record.address : "",
-    chain: typeof record.chain === "string" && record.chain ? record.chain : "ethereum",
-    entityName: typeof record.entityName === "string" ? record.entityName : "",
-    entityDocument: typeof record.entityDocument === "string" ? record.entityDocument : "",
-    caseId: typeof record.caseId === "string" ? record.caseId : "",
-    owner: typeof record.owner === "string" ? record.owner : "",
-    priority: record.priority === "critical" || record.priority === "high" || record.priority === "normal" ? record.priority : "normal",
-    localDeadline: typeof record.localDeadline === "string" ? record.localDeadline : "",
-    action: typeof record.action === "string" ? record.action : "",
-    status: normalizeLegacyStatus(record.status),
-    requiresCoafReport: record.requiresCoafReport === true,
-    decisionConfidence: typeof record.decisionConfidence === "number" ? record.decisionConfidence : 0,
-    regulatoryBasis: Array.isArray(record.regulatoryBasis) ? record.regulatoryBasis.filter((entry): entry is string => typeof entry === "string") : [],
-    matchedLists: Array.isArray(record.matchedLists) ? record.matchedLists.filter((entry): entry is string => typeof entry === "string") : [],
-    evidenceHash: typeof record.evidenceHash === "string" ? record.evidenceHash : "",
-    blockId,
-    screenedAt: typeof record.screenedAt === "string" ? record.screenedAt : "",
-    liftedAt: typeof record.liftedAt === "string" ? record.liftedAt : "",
-    liftReason: typeof record.liftReason === "string" ? record.liftReason : "",
-    lastActionAt: typeof record.lastActionAt === "string" ? record.lastActionAt : ""
-  };
-}
-
-function loadWorkspace(): BlockWorkspaceRecord[] {
-  return loadWorkspaceRecords(STORAGE_KEY, normalizeWorkspaceRecord);
 }
 
 function saveWorkspace(records: BlockWorkspaceRecord[]) {
@@ -307,6 +297,121 @@ function toneForWorkspaceSource(source: BlockWorkspaceSource): "success" | "warn
   return source === "server" ? "success" : "warning";
 }
 
+function buildBlockLookupKeys(input: {
+  resourceId?: string | null;
+  blockId?: string | null;
+  address?: string | null;
+  chain?: string | null;
+}) {
+  const keys: string[] = [];
+  const resourceId = input.resourceId?.trim();
+  const blockId = input.blockId?.trim();
+  const address = input.address?.trim().toLowerCase();
+  const chain = input.chain?.trim().toLowerCase();
+  if (resourceId) keys.push(`resource:${resourceId}`);
+  if (blockId) keys.push(`block:${blockId}`);
+  if (address && chain) keys.push(`address:${address}:${chain}`);
+  return Array.from(new Set(keys));
+}
+
+function deriveOfficialBlockStatus(item: BlockListItemResponse): BlockWorkspaceStatus {
+  const normalizedStatus = item.status.trim().toUpperCase();
+  const normalizedReview = item.review_status.trim().toUpperCase();
+  const normalizedAction = item.action.trim().toUpperCase();
+
+  if (normalizedStatus === "LIFTED" || normalizedReview === "LIFTED" || item.lifted_at) {
+    return "LIFTED";
+  }
+  if (normalizedStatus === "FALSE_POSITIVE" || normalizedReview === "FALSE_POSITIVE") {
+    return "CLEARED";
+  }
+  if (normalizedReview === "PENDING_REVIEW" || normalizedReview === "ESCALATED") {
+    return "REVIEW";
+  }
+  if (
+    normalizedStatus === "ACTIVE" ||
+    normalizedStatus === "CONFIRMED" ||
+    normalizedStatus === "ESCALATED_COAF" ||
+    normalizedReview === "CONFIRMED"
+  ) {
+    return "BLOCKED";
+  }
+  if (normalizedAction.includes("CLEAR") || normalizedAction.includes("ALLOW")) {
+    return "CLEARED";
+  }
+  return "REVIEW";
+}
+
+function mapOfficialBlockToWorkspaceRecord(item: BlockListItemResponse): BlockWorkspaceRecord {
+  return {
+    workspaceId: item.block_id,
+    resourceId: item.block_id,
+    source: "server",
+    address: item.address,
+    chain: item.chain,
+    entityName: "",
+    entityDocument: "",
+    caseId: item.case_id?.trim() ?? "",
+    owner: "",
+    priority: "normal",
+    localDeadline: "",
+    action: item.action,
+    status: deriveOfficialBlockStatus(item),
+    requiresCoafReport: item.requires_coaf_report,
+    decisionConfidence: item.decision_confidence,
+    regulatoryBasis: item.regulatory_basis,
+    matchedLists: item.matched_lists,
+    evidenceHash: item.evidence_hash,
+    blockId: item.block_id,
+    screenedAt: item.screened_at,
+    liftedAt: item.lifted_at?.trim() ?? "",
+    liftReason: item.lifted_reason?.trim() || item.review_note?.trim() || "",
+    lastActionAt: item.lifted_at?.trim() || item.screened_at
+  };
+}
+
+function mergeOfficialAndOperationalRecords(
+  officialRecords: BlockWorkspaceRecord[],
+  operationalRecords: BlockWorkspaceRecord[]
+) {
+  const operationalByKey = new Map<string, BlockWorkspaceRecord>();
+  for (const record of operationalRecords) {
+    for (const key of buildBlockLookupKeys(record)) {
+      if (!operationalByKey.has(key)) {
+        operationalByKey.set(key, record);
+      }
+    }
+  }
+
+  const matchedOperationalIds = new Set<string>();
+  const mergedOfficialRecords = officialRecords.map((record) => {
+    const overlay = buildBlockLookupKeys(record)
+      .map((key) => operationalByKey.get(key) ?? null)
+      .find((candidate): candidate is BlockWorkspaceRecord => candidate !== null);
+    if (!overlay) {
+      return record;
+    }
+    matchedOperationalIds.add(overlay.workItemId ?? overlay.workspaceId);
+    return {
+      ...record,
+      workItemId: overlay.workItemId,
+      entityName: overlay.entityName || record.entityName,
+      entityDocument: overlay.entityDocument || record.entityDocument,
+      caseId: overlay.caseId || record.caseId,
+      owner: overlay.owner || record.owner,
+      priority: overlay.priority,
+      localDeadline: overlay.localDeadline,
+      liftReason: record.liftReason || overlay.liftReason,
+      lastActionAt: overlay.lastActionAt || record.lastActionAt
+    };
+  });
+
+  const unmatchedOperationalRecords = operationalRecords.filter(
+    (record) => !matchedOperationalIds.has(record.workItemId ?? record.workspaceId)
+  );
+  return sortByLastActionAtDesc([...mergedOfficialRecords, ...unmatchedOperationalRecords]);
+}
+
 function mapWorkItemToWorkspaceRecord(item: BlocksWorkItemResponse): BlockWorkspaceRecord {
   const metadata = item.metadata ?? {};
   const localStatus = normalizeLegacyStatus(resolveWorkItemWorkspaceStatus(metadata, "preventive_block"));
@@ -416,8 +521,12 @@ export default function BlocksPage() {
   const [authContext, setAuthContext] = useState<AuthContext | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [workspaceReadRestriction, setWorkspaceReadRestriction] = useState<string | null>(null);
   const canExecuteBlockEvaluate = canEvaluateBlock(authContext?.role);
   const canExecuteBlockLift = canLiftBlock(authContext?.role);
+  const blockWorkspaceRestrictionMessage =
+    workspaceReadRestriction ?? (!canExecuteBlockEvaluate ? tr("apiErrors.preventiveBlockReadRoleRequired" as MessageKey) : null);
 
   const [workspaceRecords, setWorkspaceRecords] = useState<BlockWorkspaceRecord[]>([]);
   const [workspaceFilter, setWorkspaceFilter] = useState("all");
@@ -502,29 +611,55 @@ export default function BlocksPage() {
       ]
     : [];
 
-  async function loadOperationalWorkspace(localRecords: BlockWorkspaceRecord[]) {
+  async function loadServerWorkspace(localRecords: BlockWorkspaceRecord[]) {
+    const blocksRes = await fetch(`/api/app/compliance/blocks?limit=${WORKSPACE_PAGE_LIMIT}`, { cache: "no-store" });
+    const blocksData = (await blocksRes.json().catch(() => null)) as
+      | BlockListResponse
+      | { error?: string; detail?: unknown }
+      | null;
+    if (!blocksRes.ok) {
+      setWorkspaceRecords(localRecords);
+      const message = resolveApiErrorMessage(t, blocksData, tr("blocks.workspace.errorSync" as MessageKey));
+      if (extractApiErrorCode(blocksData) === "preventive_block_read_role_required") {
+        setWorkspaceReadRestriction(message);
+        setWorkspaceError(null);
+      } else {
+        setWorkspaceReadRestriction(null);
+        setWorkspaceError(message);
+      }
+      return;
+    }
+
+    const officialItems = blocksData && "items" in blocksData && Array.isArray(blocksData.items) ? blocksData.items : [];
+    const officialRecords = officialItems.map((item) => mapOfficialBlockToWorkspaceRecord(item));
+
     const res = await fetch(
       `/api/app/operations/work-items?module=blocks&resource_type=preventive_block&limit=${WORKSPACE_PAGE_LIMIT}`,
       { cache: "no-store" }
     );
     const data = (await res.json().catch(() => null)) as BlocksWorkItemListResponse | { error?: string; detail?: unknown } | null;
     if (!res.ok) {
-      setWorkspaceRecords(localRecords);
-      setError(resolveApiErrorMessage(t, data, tr("blocks.workspace.errorSync" as MessageKey)));
+      setWorkspaceReadRestriction(null);
+      setWorkspaceError(resolveApiErrorMessage(t, data, tr("blocks.workspace.errorSync" as MessageKey)));
+      setWorkspaceRecords(mergeWorkspaceRecords(officialRecords, localRecords));
       return;
     }
 
+    setWorkspaceReadRestriction(null);
+    setWorkspaceError(null);
     const items = data && "data" in data && Array.isArray(data.data) ? data.data : [];
-    const serverRecords = items.map((item) => mapWorkItemToWorkspaceRecord(item));
+    const operationalRecords = items.map((item) => mapWorkItemToWorkspaceRecord(item));
+    const serverRecords = mergeOfficialAndOperationalRecords(officialRecords, operationalRecords);
     setWorkspaceRecords(mergeWorkspaceRecords(serverRecords, localRecords));
   }
 
   useEffect(() => {
     const localRecords: BlockWorkspaceRecord[] = [];
     setWorkspaceRecords(localRecords);
-    loadOperationalWorkspace(localRecords).catch(() => {
+    loadServerWorkspace(localRecords).catch(() => {
       setWorkspaceRecords(localRecords);
-      setError(tr("blocks.workspace.errorSync" as MessageKey));
+      setWorkspaceReadRestriction(null);
+      setWorkspaceError(tr("blocks.workspace.errorSync" as MessageKey));
     });
 
     fetchAuthContext()
@@ -950,6 +1085,12 @@ export default function BlocksPage() {
       </Panel>
 
       <Panel title={tr("blocks.workspace.title" as MessageKey)} description={tr("blocks.workspace.description" as MessageKey)}>
+        {blockWorkspaceRestrictionMessage ? <Message>{blockWorkspaceRestrictionMessage}</Message> : null}
+        {workspaceError ? (
+          <Message tone="error" data-testid="blocks-workspace-message">
+            {workspaceError}
+          </Message>
+        ) : null}
         {localWorkspaceCount > 0 && serverWorkspaceCount === 0 ? (
           <Message>
             {tr("blocks.workspace.mode.localOnly" as MessageKey, { count: localWorkspaceCount })}
@@ -963,24 +1104,26 @@ export default function BlocksPage() {
             })}
           </Message>
         ) : null}
-        <div className="otc-controls">
-          <label className="otc-field">
-            {tr("blocks.workspace.filterStatus" as MessageKey)}
-            <select className="otc-select" value={workspaceFilter} onChange={(event) => setWorkspaceFilter(event.target.value)}>
-              <option value="all">{tr("blocks.workspace.all" as MessageKey)}</option>
-              <option value="BLOCKED">{tr("blocks.workspace.status.blocked" as MessageKey)}</option>
-              <option value="REVIEW">{tr("blocks.workspace.status.review" as MessageKey)}</option>
-              <option value="CLEARED">{tr("blocks.workspace.status.cleared" as MessageKey)}</option>
-              <option value="LIFTED">{tr("blocks.workspace.status.lifted" as MessageKey)}</option>
-            </select>
-          </label>
-          <label className="otc-field">
-            {tr("blocks.workspace.search" as MessageKey)}
-            <input className="otc-input" value={workspaceSearch} onChange={(event) => setWorkspaceSearch(event.target.value)} />
-          </label>
-        </div>
+        {!blockWorkspaceRestrictionMessage ? (
+          <>
+            <div className="otc-controls">
+              <label className="otc-field">
+                {tr("blocks.workspace.filterStatus" as MessageKey)}
+                <select className="otc-select" value={workspaceFilter} onChange={(event) => setWorkspaceFilter(event.target.value)}>
+                  <option value="all">{tr("blocks.workspace.all" as MessageKey)}</option>
+                  <option value="BLOCKED">{tr("blocks.workspace.status.blocked" as MessageKey)}</option>
+                  <option value="REVIEW">{tr("blocks.workspace.status.review" as MessageKey)}</option>
+                  <option value="CLEARED">{tr("blocks.workspace.status.cleared" as MessageKey)}</option>
+                  <option value="LIFTED">{tr("blocks.workspace.status.lifted" as MessageKey)}</option>
+                </select>
+              </label>
+              <label className="otc-field">
+                {tr("blocks.workspace.search" as MessageKey)}
+                <input className="otc-input" value={workspaceSearch} onChange={(event) => setWorkspaceSearch(event.target.value)} />
+              </label>
+            </div>
 
-        {filteredWorkspaceRecords.length ? (
+            {filteredWorkspaceRecords.length ? (
           <table className="otc-table otc-table--spaced">
             <thead>
               <tr>
@@ -1070,9 +1213,11 @@ export default function BlocksPage() {
               })}
             </tbody>
           </table>
-        ) : (
-          <Message>{tr("blocks.workspace.empty" as MessageKey)}</Message>
-        )}
+            ) : workspaceError ? null : (
+              <Message>{tr("blocks.workspace.empty" as MessageKey)}</Message>
+            )}
+          </>
+        ) : null}
       </Panel>
 
       <Panel title={tr("blocks.result.title" as MessageKey)} description={tr("blocks.result.description" as MessageKey)}>
@@ -1242,7 +1387,13 @@ export default function BlocksPage() {
       />
 
       <Panel title={tr("blocks.history.title" as MessageKey)} description={tr("blocks.history.description" as MessageKey)}>
-        {workspaceRecords.length ? (
+        {blockWorkspaceRestrictionMessage ? (
+          <Message>{blockWorkspaceRestrictionMessage}</Message>
+        ) : workspaceError ? (
+          <Message tone="error" data-testid="blocks-history-message">
+            {workspaceError}
+          </Message>
+        ) : workspaceRecords.length ? (
           <table className="otc-table otc-table--spaced">
             <thead>
               <tr>

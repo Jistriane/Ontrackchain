@@ -179,17 +179,14 @@ test.describe("monitoring RBAC", () => {
 
     await expect(page.locator('[data-testid="watchlist-item"]')).toBeVisible();
     await expect(page.locator('[data-testid="trigger-alert-btn"]')).toHaveCount(0);
-    await expect(page.getByTestId("monitoring-worker-read-restricted")).toContainText(
-      "Os painéis administrativos de investigation estão ocultos nesta sessão porque a role atual não possui leitura privilegiada ADMIN/AUDITOR."
+    await expect(page.getByTestId("monitoring-incident-response-restricted")).toContainText(
+      "A resposta a incidentes dedicada está oculta nesta sessão porque a role atual não possui leitura privilegiada ADMIN/AUDITOR."
     );
-    await expect(page.getByTestId("platform-alert-read-restricted")).toContainText(
+    await expect(page.getByTestId("monitoring-global-alerts-restricted")).toContainText(
       "A triagem administrativa de incidentes globais está oculta nesta sessão porque a role atual não possui leitura privilegiada ADMIN/AUDITOR."
     );
-    await expect(page.getByTestId("dlq-read-restricted")).toContainText(
-      "A remediação administrativa da DLQ está oculta nesta sessão porque a role atual não possui leitura privilegiada ADMIN/AUDITOR."
-    );
     await expect(page.getByTestId("platform-alerts-ack-batch-btn")).toHaveCount(0);
-    await expect(page.getByTestId("dlq-requeue-btn-case-dlq-1")).toHaveCount(0);
+    await expect(page.locator('aside a[href="/incident-response"]')).toHaveCount(0);
   });
 
   test("reviewer recebe bloqueio preventivo antes de carregar o core de monitoring", async ({ page }) => {
@@ -207,6 +204,24 @@ test.describe("monitoring RBAC", () => {
     expect(calls.watchlists).toBe(0);
     expect(calls.watchlistItems).toBe(0);
     expect(calls.alerts).toBe(0);
+  });
+
+  test("auditor recebe negacao semantica nas watchlists em vez de vazio sintetico", async ({ page }) => {
+    await seedMonitoringPage(page, "AUDITOR");
+
+    await page.route("**/api/app/monitoring/watchlists", async (route: Route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "not_authenticated" })
+      });
+    });
+
+    await page.goto("/monitoring");
+
+    await expect(page.getByTestId("watchlist-load-error")).toContainText("Sua sessão expirou ou não foi autenticada.");
+    await expect(page.getByTestId("watchlist-empty")).toHaveCount(0);
+    await expect(page.getByTestId("watchlist-item")).toHaveCount(0);
   });
 
   test("tester recebe CTA de trigger-alert", async ({ page }) => {
@@ -237,20 +252,61 @@ test.describe("monitoring RBAC", () => {
     await seedMonitoringPage(page, "AUDITOR");
     await page.goto("/monitoring");
 
-    await expect(page.getByTestId("worker-generated-at")).toContainText("snapshot:");
-    await expect(page.getByTestId("platform-alert-row")).toHaveCount(1);
-    await expect(page.getByTestId("platform-alert-mutation-restricted")).toContainText(
-      "As mutações e exportações administrativas de incidentes globais estão ocultas nesta sessão porque a role atual não possui papel administrativo ADMIN."
-    );
-    await expect(page.getByTestId("platform-alerts-ack-batch-btn")).toHaveCount(0);
+    await expect(page.locator('aside a[href="/incident-response"]')).toHaveCount(1);
+    await expect(page.getByTestId("monitoring-open-incident-response")).toHaveAttribute("href", "/incident-response");
+    await expect(page.getByTestId("monitoring-open-global-alerts")).toHaveAttribute("href", "/alerts");
+    await expect(page.getByTestId("monitoring-open-alerts-from-incident-response")).toHaveAttribute("href", "/alerts");
+    await expect(page.getByTestId("monitoring-global-alerts-summary")).toBeVisible();
+    await expect(page.getByTestId("monitoring-global-alerts-total")).toContainText("1");
+    await expect(page.getByTestId("monitoring-global-alerts-pending")).toContainText("1");
+    await expect(page.getByTestId("monitoring-global-alerts-acknowledged")).toContainText("0");
+    await expect(page.getByTestId("monitoring-global-alerts-tracked")).toContainText("0");
     await expect(page.getByTestId("platform-alert-ack-btn-platform-alert-1")).toHaveCount(0);
-    await expect(page.getByTestId("platform-alert-select-all")).toHaveCount(0);
-    await expect(page.getByTestId("dlq-case-row")).toHaveCount(1);
-    await expect(page.getByTestId("dlq-mutation-restricted")).toContainText(
-      "As mutações administrativas da DLQ estão ocultas nesta sessão porque a role atual não possui papel administrativo ADMIN."
+  });
+
+  test("auditor recebe negacao semantica tardia na triagem global em vez de estado vazio", async ({ page }) => {
+    await seedMonitoringPage(page, "AUDITOR");
+
+    await page.route("**/api/app/monitoring/operational-alert-filter-options", async (route: Route) => {
+      await route.fulfill({
+        status: 403,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "monitoring_read_role_required" })
+      });
+    });
+
+    await page.route("**/api/app/monitoring/operational-alerts?**", async (route: Route) => {
+      await route.fulfill({
+        status: 403,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "monitoring_read_role_required" })
+      });
+    });
+
+    await page.goto("/monitoring");
+
+    await expect(page.getByTestId("monitoring-global-alerts-load-error")).toContainText(
+      "A leitura core de monitoring exige papel compatível: ADMIN, ANALYST, AUDITOR, VIEWER ou TESTER."
     );
-    await expect(page.getByTestId("dlq-requeue-btn-case-dlq-1")).toHaveCount(0);
-    await expect(page.getByTestId("dlq-ack-btn-case-dlq-1")).toHaveCount(0);
-    await expect(page.getByTestId("dlq-discard-btn-case-dlq-1")).toHaveCount(0);
+    await expect(page.getByTestId("monitoring-global-alerts-summary")).toHaveCount(0);
+  });
+
+  test("auditor recebe negacao semantica da fila rastreada em vez de lista vazia silenciosa", async ({ page }) => {
+    await seedMonitoringPage(page, "AUDITOR");
+
+    await page.route("**/api/app/operations/work-items?module=alerts&resource_type=operational_alert&limit=100", async (route: Route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "not_authenticated" })
+      });
+    });
+
+    await page.goto("/monitoring");
+
+    await expect(page.getByText("Sua sessão expirou ou não foi autenticada.").first()).toBeVisible();
+    await expect(page.getByTestId("monitoring-global-alerts-summary")).toBeVisible();
+    await expect(page.getByTestId("monitoring-global-alerts-total")).toContainText("1");
+    await expect(page.getByTestId("monitoring-global-alerts-tracked")).toContainText("0");
   });
 });

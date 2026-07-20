@@ -34,6 +34,7 @@ def render_markdown(
     delta_file: Path,
     dashboard_file: Path,
     unblock_file: Path,
+    regulatory_unblock_file: Path,
     payload: dict[str, Any],
 ) -> str:
     blockers = payload.get("blockers") or {}
@@ -88,6 +89,7 @@ def render_markdown(
         "Referencias para o war room:",
         f"- dashboard executivo: `{dashboard_file}`",
         f"- checklist de desbloqueio: `{unblock_file}`",
+        f"- checklist regulatorio consolidado: `{regulatory_unblock_file}`",
         f"- delta de status: `{delta_file}`",
         "",
         "Comando unico:",
@@ -104,6 +106,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--delta-file", required=True)
     parser.add_argument("--dashboard-file", required=True)
     parser.add_argument("--unblock-file", required=True)
+    parser.add_argument("--regulatory-unblock-file", required=True)
     parser.add_argument("--output-file", required=True)
     return parser.parse_args()
 
@@ -114,6 +117,7 @@ def main() -> int:
     delta_file = Path(args.delta_file)
     dashboard_file = Path(args.dashboard_file)
     unblock_file = Path(args.unblock_file)
+    regulatory_unblock_file = Path(args.regulatory_unblock_file)
     output_file = Path(args.output_file)
 
     payload = load_json(snapshot_file)
@@ -123,6 +127,7 @@ def main() -> int:
         delta_file,
         dashboard_file,
         unblock_file,
+        regulatory_unblock_file,
         payload,
     )
 

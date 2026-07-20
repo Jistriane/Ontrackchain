@@ -27,8 +27,13 @@ class OperationsCatalogCapabilityTests(unittest.TestCase):
             return_value=main.describe_provider_readiness(
                 provider_name="trm_labs",
                 trm_config=main.TrmRiskProviderConfig(
+                    enabled=True,
                     api_key="secret",
+                    api_key_header="Authorization",
+                    api_key_prefix="Bearer ",
                     screening_url="https://provider.example/screen",
+                    timeout_ms=1500,
+                    max_retries=1,
                 ),
             ),
         ):
@@ -45,7 +50,7 @@ class OperationsCatalogCapabilityTests(unittest.TestCase):
         response = asyncio.run(
             main.get_operations_catalog(
                 include_deprecated=False,
-                available_only=False,
+                include_unavailable=True,
                 x_plan="starter",
             )
         )

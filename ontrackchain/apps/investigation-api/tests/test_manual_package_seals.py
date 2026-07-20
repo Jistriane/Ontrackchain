@@ -431,7 +431,7 @@ class ManualPackageSealEndpointTests(unittest.TestCase):
         ]
 
         with (
-            patch.object(main, "_require_role_with_audit"),
+            patch.object(main, "_require_manual_package_signoff_role_binding", return_value="ADMIN"),
             patch.object(main, "_apply_rls_context"),
             patch.object(
                 main,
@@ -469,7 +469,7 @@ class ManualPackageSealEndpointTests(unittest.TestCase):
         pool = _FakePool(conn)
 
         with (
-            patch.object(main, "_require_role_with_audit"),
+            patch.object(main, "_require_manual_package_signoff_role_binding", return_value="ADMIN"),
             patch.object(main, "_apply_rls_context"),
             patch.object(
                 main,

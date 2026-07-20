@@ -1,6 +1,4 @@
 import { cookies } from "next/headers";
-import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
-import { getStandaloneShowcaseSanctionsCheck } from "../../../../lib/standalone-showcase";
 
 function jsonResponse(body: string, status: number) {
   return new Response(body, { status, headers: { "content-type": "application/json" } });
@@ -16,18 +14,6 @@ export async function GET(request: Request) {
     return jsonResponse(JSON.stringify({ error: "missing_address" }), 422);
   }
 
-  if (isFrontendStandaloneShowcaseMode()) {
-    return jsonResponse(
-      JSON.stringify(
-        getStandaloneShowcaseSanctionsCheck({
-          address,
-          chain,
-          lists
-        })
-      ),
-      200
-    );
-  }
 
   const token = cookies().get("otc_token")?.value;
   if (!token) {

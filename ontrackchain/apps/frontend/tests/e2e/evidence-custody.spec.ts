@@ -260,6 +260,117 @@ async function expectManualPackageExport(
 }
 
 test.describe("evidence custody flow", () => {
+  test("preserva a negacao semantica da trilha de evidencias quando a sessao esta ausente", async ({ page }: { page: Page }) => {
+    await page.route("**/api/app/auth/context", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-e2e",
+          user_id: "user-e2e",
+          linked_user_id: "linked-e2e",
+          role: EVIDENCE_PRIVILEGED_EXPORT_ROLE,
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/operations/work-items?module=evidence**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] })
+      });
+    });
+
+    await page.goto("/evidence");
+
+    await expect(page.getByText("Sua sessão expirou ou não foi autenticada.")).toBeVisible();
+    await expect(page.getByText("Nenhum evento encontrado para o recorte atual.")).toHaveCount(0);
+  });
+
+  test("preserva a negacao semantica do workspace compartilhado sem apagar a trilha principal", async ({ page }: { page: Page }) => {
+    await page.context().addCookies([
+      {
+        name: "otc_token",
+        value: "pw-e2e-token",
+        domain: "localhost",
+        path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax"
+      }
+    ]);
+
+    await page.route("**/api/app/auth/context", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-e2e",
+          user_id: "user-e2e",
+          linked_user_id: "linked-e2e",
+          role: EVIDENCE_PRIVILEGED_EXPORT_ROLE,
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/operations/work-items?module=evidence**", async (route: Route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "not_authenticated" })
+      });
+    });
+
+    await page.route("**/api/app/audit/logs?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "audit-evi-workspace-01",
+              user_id: "user-e2e",
+              action: "report_generated",
+              resource_type: "case",
+              resource_id: "11111111-1111-4111-8111-111111111111",
+              request_id: "req-evi-workspace-01",
+              report_id: null,
+              file_hash_sha256: "a".repeat(64),
+              created_at: "2026-07-04T10:00:00.000Z",
+              metadata: {
+                case_id: "11111111-1111-4111-8111-111111111111",
+                request_id: "req-evi-workspace-01",
+                file_hash_sha256: "a".repeat(64)
+              }
+            }
+          ],
+          page: 1,
+          count: 1,
+          limit: 50,
+          total: 1,
+          total_pages: 1,
+          has_more: false
+        })
+      });
+    });
+
+    await page.goto("/evidence");
+
+    await expect(page.getByRole("button", { name: /^Relatório gerado \(report_generated\)/i })).toBeVisible();
+    await expect(page.getByTestId("evidence-details-panel")).toContainText("Relatório gerado (report_generated)");
+    await expect(page.getByTestId("evidence-workspace-message")).toContainText("Sua sessão expirou ou não foi autenticada.");
+    await expect(page.getByText("Nenhum evento foi rastreado ainda no workspace compartilhado.")).toHaveCount(0);
+  });
+
   test("foca a cadeia correlacionada e exporta o bundle da seleção atual", async ({ page }: { page: Page }) => {
     await page.context().addCookies([
       {
@@ -1878,6 +1989,125 @@ test.describe("evidence custody flow", () => {
       "href",
       "/audit?preset=governanca&seal_id=seal-dd-01&report_id=rep-dd-seal-1"
     );
+  });
+
+  test("preserva negacao semantica ao ler a selagem institucional por package_sha256", async ({ page }: { page: Page }) => {
+    await page.context().addCookies([
+      {
+        name: "otc_token",
+        value: "pw-e2e-token",
+        domain: "localhost",
+        path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax"
+      }
+    ]);
+
+    await page.route("**/api/app/auth/context", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-e2e",
+          user_id: "user-e2e",
+          linked_user_id: "linked-e2e",
+          role: "COMPLIANCE_OFFICER",
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/operations/work-items?module=evidence**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] })
+      });
+    });
+
+    await page.route("**/api/app/audit/logs?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "audit-dd-seal-read-01",
+              user_id: "user-e2e",
+              action: "compliance_due_diligence_checked",
+              resource_type: "address",
+              resource_id: "0xsealdddddddddddddddddddddddddddddddddddddd",
+              request_id: "req-dd-seal-read-1",
+              report_id: "rep-dd-seal-read-1",
+              file_hash_sha256: "1".repeat(64),
+              created_at: "2026-07-08T10:00:00.000Z",
+              metadata: {
+                request_id: "req-dd-seal-read-1",
+                report_id: "rep-dd-seal-read-1",
+                address: "0xsealdddddddddddddddddddddddddddddddddddddd",
+                chain: "ethereum",
+                provider: "manual_review",
+                provider_status: "degraded",
+                degraded_reason: "manual_review_required",
+                capability_status: "degraded",
+                delivery_mode: "manual_review_pending",
+                requires_human_review: true
+              }
+            },
+            {
+              id: "audit-dd-seal-read-02",
+              user_id: "user-e2e",
+              action: "evidence_manual_review_package_exported",
+              resource_type: "audit_log",
+              resource_id: "audit-dd-seal-read-02",
+              request_id: "req-dd-seal-read-1",
+              report_id: "rep-dd-seal-read-1",
+              file_hash_sha256: null,
+              created_at: "2026-07-08T10:05:00.000Z",
+              metadata: {
+                request_id: "req-dd-seal-read-1",
+                report_id: "rep-dd-seal-read-1",
+                scope_id: "req-dd-seal-read-1",
+                filename: "ontrackchain-manual-review-due-diligence-req-dd-seal-read-1.json",
+                package_sha256: "1".repeat(64),
+                manual_review_action: "compliance_due_diligence_checked"
+              }
+            }
+          ],
+          page: 1,
+          count: 2,
+          limit: 50,
+          total: 2,
+          total_pages: 1,
+          has_more: false
+        })
+      });
+    });
+
+    await page.route("**/api/app/evidence/manual-package/seal?**", async (route: Route) => {
+      const url = new URL(route.request().url());
+      expect(url.searchParams.get("package_sha256")).toBe("1".repeat(64));
+      await route.fulfill({
+        status: 403,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "manual_package_read_role_required" })
+      });
+    });
+
+    await page.goto("/evidence?request_id=req-dd-seal-read-1&domain=due_diligence&action=compliance_due_diligence_checked&resource_type=address");
+
+    await expect(page.getByTestId("evidence-manual-package-export-hash")).toContainText("1".repeat(64));
+    await expect(page.getByTestId("evidence-manual-package-seal-panel")).toContainText(
+      "A leitura da selagem institucional exige papel regulatório: ADMIN, AUDITOR, COMPLIANCE_OFFICER, LEGAL_REVIEWER ou REVIEWER."
+    );
+    await expect(page.getByTestId("evidence-manual-package-seal-panel")).not.toContainText(
+      "Nenhum selo persistido para este pacote"
+    );
+    await expect(page.getByTestId("evidence-manual-package-init-signoff-request")).toHaveCount(0);
   });
 
   test("inicializa a trilha institucional e registra o primeiro sign-off obrigatório", async ({ page }: { page: Page }) => {

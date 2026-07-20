@@ -6,6 +6,7 @@ import importlib.util
 import json
 import sys
 import unittest
+from uuid import UUID
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -237,7 +238,7 @@ class AuditLogsPaginationTests(unittest.TestCase):
             [
                 "org-1",
                 "rep-1",
-                "11111111-1111-1111-1111-111111111111",
+                UUID("11111111-1111-1111-1111-111111111111"),
                 "org-1",
                 "req-export-1",
                 10,

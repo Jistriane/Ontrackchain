@@ -1,6 +1,4 @@
 import { cookies } from "next/headers";
-import { isFrontendStandaloneShowcaseMode } from "../../../lib/auth-runtime";
-import { STANDALONE_SHOWCASE_HOME_CATALOGS } from "../../../lib/standalone-showcase";
 
 const EMPTY_REPORT_TYPE_CATALOG = {
   authenticated: false,
@@ -12,12 +10,6 @@ const EMPTY_REPORT_TYPE_CATALOG = {
 } as const;
 
 export async function GET(request: Request) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    return new Response(JSON.stringify(STANDALONE_SHOWCASE_HOME_CATALOGS.reportTypes), {
-      status: 200,
-      headers: { "content-type": "application/json" }
-    });
-  }
 
   const token = cookies().get("otc_token")?.value;
   if (!token) {

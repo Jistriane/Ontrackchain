@@ -1,7 +1,5 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
-import { STANDALONE_SHOWCASE_AUTH_CONTEXT } from "../../../../lib/standalone-showcase";
 
 const ANONYMOUS_AUTH_CONTEXT = {
   authenticated: false,
@@ -17,9 +15,6 @@ const ANONYMOUS_AUTH_CONTEXT = {
 } as const;
 
 export async function GET(request: Request) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    return NextResponse.json(STANDALONE_SHOWCASE_AUTH_CONTEXT, { status: 200 });
-  }
 
   const token = cookies().get("otc_token")?.value;
   if (!token) {

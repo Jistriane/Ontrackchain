@@ -100,6 +100,34 @@ class RenderStagingGovernanceConsolidatedJsonTests(unittest.TestCase):
                 "# Comms\nEscopo regulatorio: `P0-02`\n",
                 encoding="utf-8",
             )
+            (checks_dir / "stg-2026-07-11-a-regulatory-unblock-checklist.json").write_text(
+                json.dumps(
+                    {
+                        "status": "failed",
+                        "blocking_classification": "regulatory_blocked",
+                        "summary": {
+                            "blocked_scopes": ["p0-02", "p0-03", "p0-04"],
+                            "owner_action_groups_count": 2,
+                            "dominant_blocking_summary": "Todos os escopos regulatórios seguem bloqueados.",
+                        },
+                        "owner_actions": [
+                            {
+                                "owner_group": "Compliance/AML",
+                                "owner": "Compliance/Backend",
+                                "kind": "fill_scope_env",
+                                "targets": ["COMPLIANCE_TRM_API_KEY"],
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            (dossiers_dir / "stg-2026-07-11-a-regulatory-unblock-checklist.md").write_text(
+                "# Regulatory Unblock\n",
+                encoding="utf-8",
+            )
 
             result = MODULE.build_consolidated_json(
                 "stg-2026-07-11-a",
@@ -117,6 +145,13 @@ class RenderStagingGovernanceConsolidatedJsonTests(unittest.TestCase):
         self.assertEqual(result["governance_state"]["operational"]["critical_open_count"], 1)
         self.assertEqual(result["operational_summary"]["current"]["status"], "available")
         self.assertEqual(result["operational_summary"]["current"]["rca_attached_count"], 2)
+        self.assertEqual(result["regulatory_unblock_summary"]["blocking_classification"], "regulatory_blocked")
+        self.assertEqual(result["regulatory_unblock_summary"]["owner_action_groups_count"], 2)
+        self.assertEqual(
+            result["parsed_content"]["regulatory_unblock_owner_actions"][0]["owner_group"],
+            "Compliance/AML",
+        )
+        self.assertTrue(result["artefact_files"]["regulatory_unblock_checklist"].endswith(".json"))
 
 
 if __name__ == "__main__":

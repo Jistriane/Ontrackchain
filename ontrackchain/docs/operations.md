@@ -159,12 +159,16 @@ make check-eu-sanctions-window REQUEST_ID=$REQUEST_ID
 Fluxo recomendado:
 
 ```bash
-cp .env.staging.example .env.staging.private
+make materialize-staging-private-env \
+  WINDOW_ID=stg-YYYY-MM-DD-a \
+  MODE=baseline \
+  PRIVATE_ENV_FILE=.env.staging.private
 python3 scripts/check_staging_env_placeholders.py --file .env.staging.private
 python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
 make check-regulatory-window-readiness REGULATORY_SCOPE=p0-02 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md
 make check-regulatory-window-readiness REGULATORY_SCOPE=p0-03 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md
 make check-regulatory-window-readiness REGULATORY_SCOPE=p0-04 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md
+make run-regulatory-unblock-checklist-local WINDOW_ID=stg-YYYY-MM-DD-a PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md
 python3 scripts/run_staging_window.py \
   --window-id stg-YYYY-MM-DD-a \
   --private-env-file .env.staging.private
@@ -177,8 +181,12 @@ Antes desse fluxo, quando a janela ainda estiver em `no-go`, validar o handoff p
 Execucao real local mais recente, em `2026-07-19`:
 
 - os tres checks (`p0-02`, `p0-03`, `p0-04`) falharam antes do runtime
-- o bloqueio dominante atual foi `arquivo_ausente: .env.staging.private`
+- o scaffold local de `.env.staging.private` ja foi materializado, entao o bloqueio dominante deixou de ser `arquivo_ausente`
 - o segundo bloqueio dominante foi `Compliance/AML.date/status` ainda em `pending`
+- os bloqueios tecnicos atuais passaram a ser variaveis reais por escopo: `COMPLIANCE_TRM_SCREENING_URL` + `COMPLIANCE_TRM_API_KEY` em `p0-02`, `DATABASE_URL` + `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` tokenizada em `p0-03`
+- o checker regulatorio agora devolve `blocking_summary` e `unblock_actions` para explicitar o owner e as variaveis pendentes antes de qualquer tentativa real
+- o novo artefato `regulatory-unblock-checklist` consolida `p0-02/p0-03/p0-04` em uma fila unica de handoff por owner
+- o alvo `make refresh-staging-war-room-governance-local WINDOW_ID=<janela>` agora passa a gerar e incorporar esse checklist regulatorio consolidado no pacote recorrente de governanca local (`comms` + `consolidated.json`)
 - enquanto isso nao for corrigido, nao vale a pena tentar `check-compliance-provider-runtime`, janela UE ou bundle regulatorio como se fossem o primeiro gargalo
 
 ## Troubleshooting

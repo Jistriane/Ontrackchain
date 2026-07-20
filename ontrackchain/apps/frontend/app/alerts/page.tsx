@@ -250,6 +250,9 @@ export default function AlertsPage() {
   const { locale, t } = useI18n();
   const searchParams = useSearchParams();
   const tr = (key: MessageKey, values?: Record<string, string | number>) => t(key, values);
+  const returningAlertId = searchParams.get("alertId")?.trim() || null;
+  const returningAlertName = searchParams.get("alertName")?.trim() || null;
+  const returningSeverity = searchParams.get("severity")?.trim() || null;
 
   const [platformOperationalAlerts, setPlatformOperationalAlerts] = useState<PlatformOperationalAlertsSnapshot | null>(null);
   const [platformAlertStatusFilter, setPlatformAlertStatusFilter] = useState("all");
@@ -294,6 +297,7 @@ export default function AlertsPage() {
   });
   const [error, setError] = useState<string | null>(null);
   const platformAlertsRequestIdRef = useRef(0);
+  const returningAlertFocusKeyRef = useRef<string | null>(null);
   const canReadPlatformAdmin = authResolved ? canReadMonitoringAdmin(authContext?.role) : null;
   const canManagePlatformAdmin = authResolved ? canManageMonitoringAdmin(authContext?.role) : null;
 
@@ -459,6 +463,8 @@ export default function AlertsPage() {
     );
     const data = (await res.json().catch(() => null)) as AlertsWorkItemListResponse | { error?: string; detail?: unknown } | null;
     if (!res.ok) {
+      setPlatformAlertWorkItems({});
+      setError(resolveApiErrorMessage(t, data, t("monitoring.errors.loadPlatformTrackedAlerts")));
       return;
     }
 
@@ -1065,6 +1071,30 @@ export default function AlertsPage() {
     : null;
 
   useEffect(() => {
+    if (!returningAlertId) {
+      returningAlertFocusKeyRef.current = null;
+      return;
+    }
+    if (canReadPlatformAdmin !== true || !platformOperationalAlerts) {
+      return;
+    }
+    const matchingEntry = platformOperationalAlerts.data.find((entry) => entry.id === returningAlertId);
+    if (!matchingEntry) {
+      return;
+    }
+    const matchingWorkItem = platformAlertWorkItems[returningAlertId] ?? null;
+    const focusKey = `${returningAlertId}:${matchingWorkItem?.id ?? "local"}`;
+    if (returningAlertFocusKeyRef.current === focusKey) {
+      return;
+    }
+    returningAlertFocusKeyRef.current = focusKey;
+    setTimelineAlertId(returningAlertId);
+    if (matchingWorkItem) {
+      void loadTimeline(matchingWorkItem.id);
+    }
+  }, [canReadPlatformAdmin, loadTimeline, platformAlertWorkItems, platformOperationalAlerts, returningAlertId]);
+
+  useEffect(() => {
     setRcaForm(buildAlertRcaForm(selectedTimelineWorkItem));
   }, [selectedTimelineWorkItem]);
 
@@ -1182,6 +1212,18 @@ export default function AlertsPage() {
 
   return (
     <AppShell title={tr("alerts.title" as MessageKey)} subtitle={tr("alerts.subtitle" as MessageKey)} activePath="/alerts" actions={<Pill>{tr("alerts.active" as MessageKey)}</Pill>}>
+      {returningAlertId || returningAlertName || returningSeverity ? (
+        <div data-testid="platform-alert-return-context" className="otc-monitoring-banner">
+          <Message>
+            {tr("alerts.returnContextSummary" as MessageKey, {
+              alertId: returningAlertId || tr("common.notAvailable" as MessageKey),
+              alertName: returningAlertName || tr("common.notAvailable" as MessageKey),
+              severity: returningSeverity || tr("common.notAvailable" as MessageKey)
+            })}
+          </Message>
+        </div>
+      ) : null}
+
       <MetricGrid>
         <MetricCard label={tr("alerts.stats.total" as MessageKey)} value={platformOperationalAlerts?.total_count ?? 0} meta={tr("alerts.stats.totalMeta" as MessageKey)} />
         <MetricCard label={tr("alerts.stats.firing" as MessageKey)} value={firingCount} meta={tr("alerts.stats.firingMeta" as MessageKey)} accent />
@@ -1464,6 +1506,11 @@ export default function AlertsPage() {
                               : ""}
                         </div>
                       ) : null}
+                      {returningAlertId === entry.id ? (
+                        <div className="otc-monitoring-detail--subtle" data-testid={`platform-alert-return-marker-${entry.id}`}>
+                          {tr("alerts.returnContextMarker" as MessageKey)}
+                        </div>
+                      ) : null}
                       {entry.annotations?.summary ? (
                         <div className="otc-monitoring-detail">{String(entry.annotations.summary)}</div>
                       ) : null}
@@ -1492,6 +1539,13 @@ export default function AlertsPage() {
                             )}
                           </a>
                         ))}
+                        <a
+                          className="otc-button otc-button--ghost"
+                          data-testid={`platform-alert-open-incident-response-${entry.id}`}
+                          href={`/incident-response?alertId=${encodeURIComponent(entry.id)}&alertName=${encodeURIComponent(entry.alertname)}&severity=${encodeURIComponent(entry.severity ?? "warning")}`}
+                        >
+                          {tr("alerts.openIncidentResponse" as MessageKey)}
+                        </a>
                         {canManagePlatformAdmin ? (
                           <>
                             <button

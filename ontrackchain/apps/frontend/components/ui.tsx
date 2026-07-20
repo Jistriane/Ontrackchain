@@ -2,7 +2,13 @@
 
 import { useEffect, useId, useMemo, useState, type HTMLAttributes, type ReactNode } from "react";
 import Image from "next/image";
-import { canManageFederatedIdentity, canReadBilling, canReadCounterparty, canReadMonitoringAdmin } from "../app/lib/authz";
+import {
+  canManageFederatedIdentity,
+  canReadBilling,
+  canReadCounterparty,
+  canReadInvestigationAdmin,
+  canReadMonitoringAdmin
+} from "../app/lib/authz";
 import type { Locale, MessageKey } from "../app/lib/i18n";
 import { fetchAuthContext } from "../app/lib/ownership";
 import { useI18n } from "./i18n-provider";
@@ -101,6 +107,17 @@ const NAV_ITEMS: NavItem[] = [
         <path d="M7 15V9" />
         <path d="M12 15V6" />
         <path d="M17 15v-3" />
+      </NavIcon>
+    )
+  },
+  {
+    href: "/incident-response",
+    label: "nav.incidentResponse" as MessageKey,
+    icon: (
+      <NavIcon>
+        <path d="M12 21s7-4.4 7-10V5l-7-2-7 2v6c0 5.6 7 10 7 10Z" />
+        <path d="M12 8v5" />
+        <path d="M12 16h.01" />
       </NavIcon>
     )
   },
@@ -222,7 +239,7 @@ const NAV_ITEMS: NavItem[] = [
   }
 ];
 
-const ROLE_GATED_NAV_ITEMS = new Set(["/billing", "/counterparties", "/alerts", "/team"]);
+const ROLE_GATED_NAV_ITEMS = new Set(["/billing", "/counterparties", "/incident-response", "/alerts", "/team"]);
 
 function joinClasses(...parts: Array<string | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -331,6 +348,9 @@ export function AppShell({ title, subtitle, activePath, eyebrow, actions, childr
         }
         if (item.href === "/alerts") {
           return canReadMonitoringAdmin(authRole);
+        }
+        if (item.href === "/incident-response") {
+          return canReadInvestigationAdmin(authRole) || canReadMonitoringAdmin(authRole);
         }
         if (item.href === "/team") {
           return canManageFederatedIdentity(authRole);

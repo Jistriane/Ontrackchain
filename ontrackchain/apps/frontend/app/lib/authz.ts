@@ -14,6 +14,14 @@ const COUNTERPARTY_READ_ROLES = new Set([
   "OTK_REVIEWER"
 ]);
 const SANCTIONS_CHECK_ROLES = new Set(["ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"]);
+const SANCTIONS_TRIAGE_ROLES = new Set([
+  "ADMIN",
+  "ANALYST",
+  "COMPLIANCE_OFFICER",
+  "OTK_COMPLIANCE_OFFICER",
+  "REVIEWER",
+  "OTK_REVIEWER"
+]);
 const PRIVILEGED_EXPORT_ROLES = new Set(["ADMIN", "AUDITOR"]);
 const REPORT_WRITE_ROLES = new Set(["ADMIN", "ANALYST", "OTK_ANALYST"]);
 const REPORT_DETAIL_ROLES = new Set(["ADMIN", "AUDITOR", "ANALYST", "OTK_ANALYST"]);
@@ -101,6 +109,10 @@ export function canReadCounterparty(role: string | null | undefined) {
 
 export function canCheckSanctions(role: string | null | undefined) {
   return SANCTIONS_CHECK_ROLES.has(normalizeAuthRole(role));
+}
+
+export function canTriageSanctions(role: string | null | undefined) {
+  return SANCTIONS_TRIAGE_ROLES.has(normalizeAuthRole(role));
 }
 
 export function canExportSensitiveEvidence(role: string | null | undefined) {

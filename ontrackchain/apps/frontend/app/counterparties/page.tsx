@@ -95,6 +95,58 @@ type CounterpartyReviewResponse = {
   last_reviewed_at?: string | null;
 };
 
+type CounterpartyDetailResponse = {
+  counterparty_id: string;
+  legal_name: string;
+  counterparty_type: string;
+  document_type: string;
+  document_number: string;
+  document_country: string;
+  registration_data: Record<string, string>;
+  beneficial_owners: Array<{ name: string; document: string; ownership_pct: number | null }>;
+  wallet_addresses: Array<{ chain: string; address: string; label: string }>;
+  risk_level: number;
+  risk_rationale: string;
+  onchain_risk_score?: number | null;
+  onchain_analysis: Record<string, unknown>;
+  is_pep: boolean;
+  pep_detail: Record<string, unknown>;
+  sanctions_cleared: boolean;
+  sanctions_hits: Array<Record<string, unknown>>;
+  kyc_status: string;
+  enhanced_dd_required: boolean;
+  next_review_date?: string | null;
+  status: string;
+  created_at: string;
+  review_snapshot: {
+    dd_review_status: string;
+    dd_review_note: string;
+    sof_description: string;
+    sof_document_ref: string;
+    last_reviewed_at?: string | null;
+  };
+};
+
+type CounterpartyHistoryItem = {
+  id: string;
+  counterparty_id: string;
+  changed_by_user_id: string;
+  change_type: string;
+  field_changed?: string | null;
+  old_value?: string | null;
+  new_value?: string | null;
+  change_reason?: string | null;
+  changed_at: string;
+  evidence_hash: string;
+};
+
+type CounterpartyHistoryResponse = {
+  items: CounterpartyHistoryItem[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 type CounterpartyFormState = {
   counterpartyType: string;
   legalName: string;
@@ -529,11 +581,18 @@ export default function CounterpartiesPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [form, setForm] = useState<CounterpartyFormState>(DEFAULT_FORM);
   const [workspaceRecords, setWorkspaceRecords] = useState<CounterpartyWorkspaceRecord[]>([]);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [ddReviewCounterpartyId, setDdReviewCounterpartyId] = useState<string>("");
   const [workspaceFilter, setWorkspaceFilter] = useState("all");
   const [workspaceSearch, setWorkspaceSearch] = useState("");
   const [workspaceNoteId, setWorkspaceNoteId] = useState<string>("");
   const [timelineCounterpartyId, setTimelineCounterpartyId] = useState<string>("");
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [counterpartyDetail, setCounterpartyDetail] = useState<CounterpartyDetailResponse | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [counterpartyHistory, setCounterpartyHistory] = useState<CounterpartyHistoryItem[]>([]);
   const canReadCounterpartyData = authResolved ? canReadCounterparty(authContext?.role) : null;
   const canCreateCounterpartyRecord = canCreateCounterparty(authContext?.role);
   const canEditCounterpartyReview = canReviewCounterparty(authContext?.role);
@@ -575,6 +634,15 @@ export default function CounterpartiesPage() {
     [workspaceRecords]
   );
   const selectedTimelineRecord = timelineCounterpartyId ? workspaceById.get(timelineCounterpartyId) ?? null : null;
+  const selectedDetailRecord = useMemo(() => {
+    if (timelineCounterpartyId) {
+      return workspaceById.get(timelineCounterpartyId) ?? null;
+    }
+    if (workspaceRecords.length) {
+      return workspaceRecords[0];
+    }
+    return items.length ? { counterpartyId: items[0].id } : null;
+  }, [items, timelineCounterpartyId, workspaceById, workspaceRecords]);
   const serverWorkspaceCount = useMemo(
     () => workspaceRecords.filter((record: CounterpartyWorkspaceRecord) => record.source === "server").length,
     [workspaceRecords]
@@ -610,6 +678,7 @@ export default function CounterpartiesPage() {
   async function loadOperationalWorkspace(localRecords: CounterpartyWorkspaceRecord[]) {
     if (canReadCounterpartyData !== true) {
       setWorkspaceRecords(localRecords);
+      setWorkspaceError(null);
       return;
     }
     const res = await fetch(
@@ -619,13 +688,14 @@ export default function CounterpartiesPage() {
     const data = (await res.json().catch(() => null)) as CounterpartyWorkItemListResponse | { error?: string; detail?: unknown } | null;
     if (!res.ok) {
       setWorkspaceRecords(localRecords);
-      setError(resolveApiErrorMessage(t, data, tr("counterparties.workspace.errorSync" as MessageKey)));
+      setWorkspaceError(resolveApiErrorMessage(t, data, tr("counterparties.workspace.errorSync" as MessageKey)));
       return;
     }
 
     const items = data && "data" in data && Array.isArray(data.data) ? data.data : [];
     const serverRecords = items.map((item) => mapWorkItemToWorkspaceRecord(item));
     setWorkspaceRecords(mergeWorkspaceRecords(serverRecords, localRecords));
+    setWorkspaceError(null);
   }
 
   async function loadCounterparties(nextOffset = offset) {
@@ -675,6 +745,7 @@ export default function CounterpartiesPage() {
       setItems([]);
       setTotal(0);
       setWorkspaceRecords([]);
+      setWorkspaceError(null);
       setLoading(false);
       return;
     }
@@ -689,9 +760,10 @@ export default function CounterpartiesPage() {
       return;
     }
     setWorkspaceRecords([]);
+    setWorkspaceError(null);
     loadOperationalWorkspace([]).catch(() => {
       setWorkspaceRecords([]);
-      setError(tr("counterparties.workspace.errorSync" as MessageKey));
+      setWorkspaceError(tr("counterparties.workspace.errorSync" as MessageKey));
     });
   }, [authResolved, canReadCounterpartyData, t]);
 
@@ -806,6 +878,94 @@ export default function CounterpartiesPage() {
     }
     void loadTimeline(currentRecord.workItemId);
   }, [loadTimeline, resetTimeline, timelineCounterpartyId, workspaceById]);
+
+  useEffect(() => {
+    if (canReadCounterpartyData !== true || !selectedDetailRecord?.counterpartyId || !isUuidLike(selectedDetailRecord.counterpartyId)) {
+      setCounterpartyDetail(null);
+      setDetailError(null);
+      setCounterpartyHistory([]);
+      setHistoryError(null);
+      return;
+    }
+
+    let active = true;
+    setDetailLoading(true);
+    setDetailError(null);
+    void fetch(`/api/app/compliance/counterparties/${encodeURIComponent(selectedDetailRecord.counterpartyId)}`, {
+      cache: "no-store"
+    })
+      .then(async (res) => {
+        const data = (await res.json().catch(() => null)) as CounterpartyDetailResponse | { error?: string; detail?: unknown } | null;
+        if (!active) {
+          return;
+        }
+        if (!res.ok) {
+          setCounterpartyDetail(null);
+          setDetailError(resolveApiErrorMessage(t, data, tr("counterparties.detail.errorLoad" as MessageKey)));
+          return;
+        }
+        setCounterpartyDetail(data as CounterpartyDetailResponse);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+        setCounterpartyDetail(null);
+        setDetailError(tr("counterparties.detail.errorLoad" as MessageKey));
+      })
+      .finally(() => {
+        if (active) {
+          setDetailLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [canReadCounterpartyData, selectedDetailRecord?.counterpartyId, t]);
+
+  useEffect(() => {
+    if (canReadCounterpartyData !== true || !selectedDetailRecord?.counterpartyId || !isUuidLike(selectedDetailRecord.counterpartyId)) {
+      setCounterpartyHistory([]);
+      setHistoryError(null);
+      return;
+    }
+
+    let active = true;
+    setHistoryLoading(true);
+    setHistoryError(null);
+    void fetch(`/api/app/compliance/counterparties/${encodeURIComponent(selectedDetailRecord.counterpartyId)}/history?limit=20&offset=0`, {
+      cache: "no-store"
+    })
+      .then(async (res) => {
+        const data = (await res.json().catch(() => null)) as CounterpartyHistoryResponse | { error?: string; detail?: unknown } | null;
+        if (!active) {
+          return;
+        }
+        if (!res.ok) {
+          setCounterpartyHistory([]);
+          setHistoryError(resolveApiErrorMessage(t, data, tr("counterparties.detail.history.errorLoad" as MessageKey)));
+          return;
+        }
+        setCounterpartyHistory(data && "items" in data && Array.isArray(data.items) ? data.items : []);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+        setCounterpartyHistory([]);
+        setHistoryError(tr("counterparties.detail.history.errorLoad" as MessageKey));
+      })
+      .finally(() => {
+        if (active) {
+          setHistoryLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [canReadCounterpartyData, selectedDetailRecord?.counterpartyId, t]);
 
   function updateForm<K extends keyof CounterpartyFormState>(key: K, value: CounterpartyFormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -1302,6 +1462,10 @@ export default function CounterpartiesPage() {
           <Message data-testid="counterparties-workspace-read-restricted">
             {tr("counterparties.workspace.restricted" as MessageKey)}
           </Message>
+        ) : workspaceError ? (
+          <Message tone="error" data-testid="counterparties-workspace-message">
+            {workspaceError}
+          </Message>
         ) : localWorkspaceCount > 0 && serverWorkspaceCount === 0 ? (
           <Message>{tr("counterparties.workspace.mode.localOnly" as MessageKey, { count: localWorkspaceCount })}</Message>
         ) : null}
@@ -1517,7 +1681,7 @@ export default function CounterpartiesPage() {
                 })}
             </tbody>
           </table>
-        ) : (
+        ) : workspaceError ? null : (
           <Message>{tr("counterparties.workspace.empty" as MessageKey)}</Message>
         )}
 
@@ -1629,6 +1793,94 @@ export default function CounterpartiesPage() {
           </div>
         ) : canReadCounterpartyData !== false && workspaceRecords.length ? (
           <Message>{tr("counterparties.workspace.ddReview.restricted" as MessageKey)}</Message>
+        ) : null}
+
+        {canReadCounterpartyData !== false && selectedDetailRecord ? (
+          <div className="otc-stack" data-testid="counterparty-official-detail-panel">
+            <strong>{tr("counterparties.detail.title" as MessageKey)}</strong>
+            <p className="otc-muted">{tr("counterparties.detail.description" as MessageKey)}</p>
+            {detailLoading ? (
+              <Message>{tr("counterparties.detail.loading" as MessageKey)}</Message>
+            ) : detailError ? (
+              <Message tone="error">{detailError}</Message>
+            ) : counterpartyDetail ? (
+              <>
+                <div className="otc-grid otc-grid--counterparty-form">
+                  <div className="otc-field">
+                    <strong>{tr("counterparties.list.legalName" as MessageKey)}</strong>
+                    <div data-testid="counterparty-official-detail-legal-name">{counterpartyDetail.legal_name}</div>
+                  </div>
+                  <div className="otc-field">
+                    <strong>{tr("counterparties.list.document" as MessageKey)}</strong>
+                    <div>{counterpartyDetail.document_type} - {counterpartyDetail.document_number}</div>
+                  </div>
+                  <div className="otc-field">
+                    <strong>{tr("counterparties.list.risk" as MessageKey)}</strong>
+                    <div>{counterpartyDetail.risk_level}</div>
+                  </div>
+                  <div className="otc-field">
+                    <strong>{tr("counterparties.list.kyc" as MessageKey)}</strong>
+                    <div>{counterpartyDetail.kyc_status}</div>
+                  </div>
+                  <div className="otc-field">
+                    <strong>{tr("counterparties.detail.riskRationale" as MessageKey)}</strong>
+                    <div>{counterpartyDetail.risk_rationale || t("common.notAvailable")}</div>
+                  </div>
+                  <div className="otc-field">
+                    <strong>{tr("counterparties.detail.wallets" as MessageKey)}</strong>
+                    <div>
+                      {counterpartyDetail.wallet_addresses.length
+                        ? counterpartyDetail.wallet_addresses.map((wallet) => `${wallet.chain}:${wallet.address}`).join(" • ")
+                        : t("common.notAvailable")}
+                    </div>
+                  </div>
+                  <div className="otc-field">
+                    <strong>{tr("counterparties.workspace.ddReview.status" as MessageKey)}</strong>
+                    <div>{tr(getDdReviewStatusLabelKey(normalizeDdReviewStatus(counterpartyDetail.review_snapshot.dd_review_status)))}</div>
+                  </div>
+                  <div className="otc-field">
+                    <strong>{tr("counterparties.detail.lastReviewedAt" as MessageKey)}</strong>
+                    <div>{formatDate(counterpartyDetail.review_snapshot.last_reviewed_at ?? null, locale) ?? t("common.notAvailable")}</div>
+                  </div>
+                  <div className="otc-field">
+                    <strong>{tr("counterparties.workspace.ddReview.sofDocumentRef" as MessageKey)}</strong>
+                    <div>{counterpartyDetail.review_snapshot.sof_document_ref || t("common.notAvailable")}</div>
+                  </div>
+                </div>
+                <label className="otc-field">
+                  {tr("counterparties.workspace.ddReview.sofDescription" as MessageKey)}
+                  <textarea className="otc-textarea" rows={3} value={counterpartyDetail.review_snapshot.sof_description || t("common.notAvailable")} readOnly />
+                </label>
+                <div className="otc-stack" data-testid="counterparty-official-history-panel">
+                  <strong>{tr("counterparties.detail.history.title" as MessageKey)}</strong>
+                  <p className="otc-muted">{tr("counterparties.detail.history.description" as MessageKey)}</p>
+                  {historyLoading ? (
+                    <Message>{tr("counterparties.detail.history.loading" as MessageKey)}</Message>
+                  ) : historyError ? (
+                    <Message data-testid="counterparty-official-history-message">{historyError}</Message>
+                  ) : counterpartyHistory.length ? (
+                    <ul className="otc-list">
+                      {counterpartyHistory.map((item) => (
+                        <li key={item.id} data-testid={`counterparty-official-history-item-${item.id}`}>
+                          <strong>{item.change_type}</strong>
+                          {" • "}
+                          {formatDate(item.changed_at, locale) ?? item.changed_at}
+                          {" • "}
+                          {(item.field_changed || tr("counterparties.detail.history.fieldGeneric" as MessageKey))}
+                          {" • "}
+                          {(item.new_value || t("common.notAvailable"))}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <Message data-testid="counterparty-official-history-message">
+                      {tr("counterparties.detail.history.empty" as MessageKey)}
+                    </Message>
+                  )}
+                </div>
+              </>
+            ) : null}
+          </div>
         ) : null}
 
         {canReadCounterpartyData === false ? null : <WorkItemTimelinePanel

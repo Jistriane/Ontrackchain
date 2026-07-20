@@ -28,4 +28,28 @@ test.describe("standalone showcase monitoring", () => {
     await page.click('[data-testid="platform-alerts-refresh-btn"]');
     await expect(row).toContainText("triagem=Reconhecido");
   });
+
+  test("permite rastrear incidente operacional via alerts no work-item compartilhado em modo showcase", async ({ page }) => {
+    await loginIntoShowcase(page);
+
+    await page.goto("/alerts");
+    await page.selectOption('[data-testid="platform-alert-filter-severity"]', "critical");
+    await page.click('[data-testid="platform-alerts-refresh-btn"]');
+
+    const row = page.locator('[data-testid^="platform-alert-row-"]').filter({ hasText: "IndexerLagHigh" }).first();
+    await expect(row).toBeVisible();
+
+    const trackButton = row.getByTestId(/platform-alert-track-btn-/).first();
+    await trackButton.click();
+
+    await expect(page.getByTestId("platform-alert-message")).toContainText("sincronizado na fila compartilhada");
+    await expect(row.getByTestId(/platform-alert-queue-/).first()).toBeVisible();
+
+    const openTimelineButton = row.getByRole("button", { name: "Ver timeline" });
+    await expect(openTimelineButton).toBeVisible();
+    await openTimelineButton.click();
+
+    await expect(page.getByText("Histórico operacional do alerta")).toBeVisible();
+    await expect(page.getByText("Histórico operacional do alerta platform-alert-showcase-001")).toBeVisible();
+  });
 });

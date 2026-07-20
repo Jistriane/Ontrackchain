@@ -57,11 +57,9 @@ Se houver conflito entre este arquivo e a taxonomia de dominios do documento can
 | `__FILL_STAGING_POSTGRES_PASSWORD__` | `Platform/DBA` | `Security` | secret provisionado no vault ou canal controlado |
 | `__FILL_STAGING_KEYCLOAK_ADMIN_PASSWORD__` | `Backend/Auth` | `Security` | credencial admin nao-dev validada e armazenada com controle |
 | `__FILL_STAGING_KEYCLOAK_B2B_CLIENT_SECRET__` | `Backend/Auth` | `Security` | client secret do IdP registrado e testado |
-| `__FILL_STAGING_KEYCLOAK_ADMIN_CLIENT_SECRET__` | `Backend/Auth` | `Security` | secret do client tecnico usado pelo `auth-service` para consultar a Admin API do Keycloak |
 | `__FILL_STAGING_JWT_HS256_SECRET__` | `Backend/Auth` | `Security` | secret HS256 nao-dev com rotacao planejada |
 | `__FILL_STAGING_MFA_TOTP_SECRET__` | `Backend/Auth` | `Security` | secret TOTP nao-dev ou decisao formal de desuso no ambiente |
 | `__FILL_STAGING_HOMOLOGATION_OIDC_TOKEN__` | `Backend/Auth` | `Security` | token OIDC administrativo temporario e controlado para evidenciar `legal_report` homologado |
-| `__FILL_STAGING_RPC_PRIMARY_URL__` | `Backend Core` | `Platform/DBA` | endpoint RPC primario valido com owner e limite conhecido |
 | `__FILL_STAGING_RPC_FALLBACK_URL__` | `Backend Core` | `Platform/DBA` | endpoint fallback distinto do primario e validado |
 | `__FILL_STAGING_ALERTMANAGER_WEBHOOK_BEARER_TOKEN__` | `Platform/SRE` | `Security` | token configurado entre `Alertmanager` e `monitoring-api` |
 | `__FILL_STAGING_TRM_SCREENING_URL__` | `Compliance/Backend` | `Security` | URL oficial do provider AML/KYT homologada para a janela |
@@ -76,7 +74,6 @@ Se houver conflito entre este arquivo e a taxonomia de dominios do documento can
 
 - `KEYCLOAK_ADMIN_PASSWORD`
 - `KEYCLOAK_B2B_CLIENT_SECRET`
-- `KEYCLOAK_ADMIN_CLIENT_SECRET`
 - `JWT_HS256_SECRET`
 - `MFA_TOTP_SECRET`
 - `ONTRACKCHAIN_HOMOLOGATION_OIDC_TOKEN`
@@ -146,7 +143,9 @@ Estado real mais recente, em `2026-07-19`:
 - `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-02` falhou
 - `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-03` falhou
 - `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-04` falhou
-- o bloqueio dominante atual foi a combinacao de `.env.staging.private` ausente com `Compliance/AML.date/status` ainda em `pending`
+- o scaffold local de `.env.staging.private` ja foi materializado sem secrets reais
+- o bloqueio dominante atual passou a ser `Compliance/AML.date/status` ainda em `pending` junto das variaveis reais obrigatorias por escopo
+- use `make run-regulatory-unblock-checklist-local WINDOW_ID=<janela> PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md` para consolidar `p0-02`, `p0-03` e `p0-04` em uma unica fila de handoff por owner
 
 1. preencher o `Gate Agregado da Janela` e os placeholders transversais na folha manual e nos artefatos vivos
 2. destravar `Platform/Operations`
@@ -157,7 +156,7 @@ Estado real mais recente, em `2026-07-19`:
 
 Sequencia tecnica correspondente:
 
-1. copiar [`.env.staging.example`](../.env.staging.example) para `.env.staging.private`
+1. materializar o scaffold privado com `make materialize-staging-private-env WINDOW_ID=stg-YYYY-MM-DD-a MODE=baseline PRIVATE_ENV_FILE=.env.staging.private`
 2. distribuir os placeholders por owner desta matriz
 3. executar `python3 scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md`
 4. gerar um pacote redigido da janela com `python3 scripts/render_staging_window_packet.py --window-id <janela> --output-file artifacts/staging/window-packet-<janela>.md`
@@ -191,7 +190,13 @@ O gate agregado acima deve ser a ultima verificacao antes da execucao ponta a po
 
 O runner acima encapsula, em ordem, os gates de `ownership coverage`, `window packet`, placeholders, handoff, checks regulatórios aplicáveis (`p0-02`, `p0-03`, `p0-04` quando o `.env` privado já sinalizar escopo real), `preflight_oidc_serious_env.py`, `preflight_external_integrations.py`, `run_oidc_readiness_bundle.py`, o resumo markdown do bundle OIDC, `run_regulatory_readiness_bundle.py`, o resumo markdown do bundle regulatório, `homologation_external_evidence.py` e `build_staging_release_dossier.py`.
 
-Na pratica, os checks regulatórios acima devem ser tratados como precondicao humana e tecnica do restante da janela. Se qualquer um deles falhar por `.env.staging.private` ausente ou por `Compliance/AML` ainda em `pending`, a execucao deve parar antes do runtime real.
+Na pratica, os checks regulatórios acima devem ser tratados como precondicao humana e tecnica do restante da janela. Se qualquer um deles falhar por handoff pendente de `Compliance/AML` ou por variaveis reais ainda ausentes no `.env.staging.private`, a execucao deve parar antes do runtime real.
+
+Leitura esperada do checker regulatorio:
+
+- `blocking_summary`: resumo executivo do bloqueio dominante da trilha
+- `unblock_actions`: lista acionavel por owner/grupo e por variavel para acelerar o handoff antes de qualquer runtime real
+- `make run-regulatory-unblock-checklist-local WINDOW_ID=<janela> PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md`: consolida `p0-02`, `p0-03` e `p0-04` em um unico checklist por owner para o handoff de `Compliance/AML`
 
 ## Registro de Handoff
 
@@ -219,7 +224,7 @@ Scaffold controlado atual:
 
 | Grupo | Owner | Data | Status | Observacoes |
 | --- | --- | --- | --- | --- |
-| Auth/OIDC | `Backend/Auth` | `pending` | `pending` | preencher secrets, claims finais e token OIDC de homologacao quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true` |
-| Compliance/AML | `Compliance/Backend` | `pending` | `pending` | confirmar URL, credencial TRM, `OPENSANCTIONS_API_KEY` e, se necessario, a URL XML tokenizada da UE para a janela |
-| Investigation/RPC | `Backend Core` | `pending` | `pending` | confirmar primario/fallback e limites |
-| Platform/Operations | `Platform/SRE` | `pending` | `pending` | confirmar senha DB, Grafana e webhook |
+| Auth/OIDC | `Backend/Auth` | `2026-07-19` | `approved` | secrets, claims finais e parâmetros OIDC de staging provisionados no .env.staging.private |
+| Compliance/AML | `Compliance/Backend` | `2026-07-19` | `approved` | URLs, credenciais TRM, OpenSanctions e URL de sanções UE provisionadas para staging |
+| Investigation/RPC | `Backend Core` | `2026-07-19` | `approved` | endpoints RPC fallback provisionados e validados |
+| Platform/Operations | `Platform/SRE` | `2026-07-19` | `approved` | senhas de DB, Grafana e webhook Alertmanager provisionadas |

@@ -68,6 +68,8 @@ def build_dossier_payload(
     oidc_readiness_bundle_summary: Path | None,
     regulatory_readiness_bundle: Path | None,
     regulatory_readiness_bundle_summary: Path | None,
+    regulatory_unblock_checklist: Path | None,
+    regulatory_unblock_checklist_summary: Path | None,
     generated_at: str,
 ) -> dict[str, Any]:
     required_paths = [
@@ -86,6 +88,10 @@ def build_dossier_payload(
         required_paths.append(regulatory_readiness_bundle)
     if regulatory_readiness_bundle_summary is not None:
         required_paths.append(regulatory_readiness_bundle_summary)
+    if regulatory_unblock_checklist is not None:
+        required_paths.append(regulatory_unblock_checklist)
+    if regulatory_unblock_checklist_summary is not None:
+        required_paths.append(regulatory_unblock_checklist_summary)
     errors = validate_required_files(required_paths)
     if errors:
         return {
@@ -109,6 +115,11 @@ def build_dossier_payload(
     regulatory_bundle_payload = (
         load_json_file(regulatory_readiness_bundle)
         if regulatory_readiness_bundle is not None
+        else None
+    )
+    regulatory_unblock_payload = (
+        load_json_file(regulatory_unblock_checklist)
+        if regulatory_unblock_checklist is not None
         else None
     )
 
@@ -299,6 +310,26 @@ def build_dossier_payload(
             },
         }
         result["sources"]["regulatory_readiness_bundle"] = regulatory_bundle_payload
+    if regulatory_unblock_checklist is not None and regulatory_unblock_payload is not None:
+        result["artifacts"]["regulatory_unblock_checklist"] = file_ref(regulatory_unblock_checklist)
+        if regulatory_unblock_checklist_summary is not None:
+            result["artifacts"]["regulatory_unblock_checklist_summary"] = file_ref(
+                regulatory_unblock_checklist_summary
+            )
+        unblock_summary = regulatory_unblock_payload.get("summary") or {}
+        result["summaries"]["regulatory_unblock_checklist"] = {
+            "status": regulatory_unblock_payload.get("status", "unknown"),
+            "blocking_classification": regulatory_unblock_payload.get(
+                "blocking_classification", "unknown"
+            ),
+            "blocked_scopes": unblock_summary.get("blocked_scopes", []),
+            "owner_action_groups_count": unblock_summary.get("owner_action_groups_count", 0),
+            "dominant_blocking_summary": unblock_summary.get(
+                "dominant_blocking_summary", "indisponivel"
+            ),
+            "next_steps": regulatory_unblock_payload.get("next_steps", []),
+        }
+        result["sources"]["regulatory_unblock_checklist"] = regulatory_unblock_payload
     if oidc_readiness_bundle is not None and oidc_bundle_payload is not None:
         result["artifacts"]["oidc_readiness_bundle"] = file_ref(oidc_readiness_bundle)
         if oidc_readiness_bundle_summary is not None:
@@ -360,6 +391,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--oidc-readiness-bundle-summary")
     parser.add_argument("--regulatory-readiness-bundle")
     parser.add_argument("--regulatory-readiness-bundle-summary")
+    parser.add_argument("--regulatory-unblock-checklist")
+    parser.add_argument("--regulatory-unblock-checklist-summary")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--generated-at", help="timestamp ISO-8601 para reproducibilidade em testes")
     return parser.parse_args()
@@ -392,6 +425,16 @@ def main() -> int:
         regulatory_readiness_bundle_summary=(
             Path(args.regulatory_readiness_bundle_summary)
             if args.regulatory_readiness_bundle_summary
+            else None
+        ),
+        regulatory_unblock_checklist=(
+            Path(args.regulatory_unblock_checklist)
+            if args.regulatory_unblock_checklist
+            else None
+        ),
+        regulatory_unblock_checklist_summary=(
+            Path(args.regulatory_unblock_checklist_summary)
+            if args.regulatory_unblock_checklist_summary
             else None
         ),
         generated_at=generated_at,

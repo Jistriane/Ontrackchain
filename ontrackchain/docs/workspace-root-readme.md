@@ -22,7 +22,7 @@ Resumo em 30 segundos:
 - o ciclo ativo continua ancorado em `2026-07-13`, com a janela `stg-2026-07-13-a` ainda em `pending_no_go`
 - o blueprint padrao do Render passou a ser `frontend standalone showcase`; o staging real ficou isolado em `render.full-stack.yaml`
 - o frontend ativo expõe `GET /auth/config` como bootstrap canonico do login
-- a execucao real local mais recente confirmou `P0-02`, `P0-03` e `P0-04` em `blocked` por `.env.staging.private` ausente e handoff pendente de `Compliance/AML`
+- a execucao real local mais recente confirmou `P0-02`, `P0-03` e `P0-04` em `blocked`, mas o motivo ja evoluiu: o scaffold de `.env.staging.private` existe e o bloqueio real agora esta no handoff pendente de `Compliance/AML` e nas variaveis reais por escopo
 
 ## Snapshot Executivo
 
@@ -47,7 +47,7 @@ Resumo em 30 segundos:
 ### Bloqueadores para o salto regulatorio
 
 - `P0-01`: homologar `OIDC + MFA` federado em trilho serio
-- materializar `.env.staging.private` fora do repositorio e concluir o handoff humano de `Compliance/AML`
+- preencher `.env.staging.private` ja materializado fora do repositorio e concluir o handoff humano de `Compliance/AML`
 - `P0-02`: fechar provider `AML/KYT live` com credencial real e artefato revisavel
 - `P0-03`: fechar feed UE com URL tokenizada real
 - `P0-04`: consolidar bundle regulatorio oficial com evidencias revisaveis
@@ -57,8 +57,8 @@ Resumo em 30 segundos:
 ### Leitura executiva do bloqueio atual
 
 - `P0-02`, `P0-03` e `P0-04` nao estao apenas "aguardando runtime"
-- a evidencia real mais recente mostrou que os tres estao `blocked` antes do runtime, por falta de `.env.staging.private` e `Compliance/AML.date/status`
-- isso significa que o proximo passo de maior valor nao e forcar `TRM`, feed UE ou bundle, e sim materializar os insumos privados e concluir o handoff humano
+- a evidencia real mais recente mostrou que os tres estao `blocked` antes do runtime, por handoff pendente de `Compliance/AML` e variaveis reais obrigatorias ainda ausentes no `.env.staging.private`
+- isso significa que o proximo passo de maior valor nao e forcar `TRM`, feed UE ou bundle, e sim preencher o scaffold privado ja materializado e concluir o handoff humano
 
 ## Mapa do Workspace
 

@@ -70,7 +70,7 @@ Este documento deve ser lido em conjunto com:
 | ID | Status | Iniciativa | Owner sugerido | Evidencia exigida | Criterio de fechamento |
 | --- | --- | --- | --- | --- | --- |
 | `P1-01` | `done` | Padronizar metadata de `work-items` | Backend/Compliance + Frontend | contrato comum aplicado em frontend, backend e docs | aliases tolerados e campos canonicos convergem sem drift |
-| `P1-02` | `in_progress` | Converter capacidade tecnica em evidencia operacional recorrente | Governanca + Platform/SRE | artefatos recorrentes, owners, handoff e sumarios coerentes | o que ja foi construído passa a aparecer como prova institucional repetivel |
+| `P1-02` | `in_progress` | Converter capacidade tecnica em evidencia operacional recorrente | Governanca + Platform/SRE | artefatos recorrentes, owners, handoff e sumarios coerentes | o que ja foi construído passa a aparecer como prova institucional repetivel; o pacote local agora inclui `regulatory-unblock-checklist` no `refresh-staging-war-room-governance-local` |
 
 ### P2 — Sustentacao e proximo degrau
 
@@ -91,7 +91,7 @@ Este documento deve ser lido em conjunto com:
 - materializar `.env.staging.private` fora do repositorio
 - concluir `Compliance/AML.date/status` em `docs/staging-env-ownership.md`
 - `P0-01` executar `make gate-p0-01-oidc-local` e depois gerar bundle OIDC local enquanto o provider serio institucional segue bloqueado
-- `P1-02` converter capacidade tecnica em evidencia operacional recorrente
+- `P1-02` converter capacidade tecnica em evidencia operacional recorrente e manter o `regulatory-unblock-checklist` acoplado ao pacote local de governanca
 
 ### Next
 

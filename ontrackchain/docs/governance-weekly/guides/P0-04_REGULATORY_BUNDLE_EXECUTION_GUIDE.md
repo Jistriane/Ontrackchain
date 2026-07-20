@@ -13,7 +13,7 @@ Consolidar em um unico artefato o gate oficial de `P0-04`, promovendo o bundle r
 Estado local atual:
 
 - `P0-04` esta `blocked`
-- a execucao real local de `2026-07-19` confirmou que o bloqueio dominante atual ainda e anterior ao bundle: `.env.staging.private` ausente e `Compliance/AML.date/status` pendentes
+- a execucao real local mais recente de `2026-07-19` confirmou que o bloqueio dominante atual ainda e anterior ao bundle, mas ja esta mais preciso: o scaffold privado existe e o bundle segue travado por `Compliance/AML.date/status` pendentes e pelas variaveis reais faltantes em `P0-02` + `P0-03`
 
 ## Contrato Canonico
 

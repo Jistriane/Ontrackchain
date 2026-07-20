@@ -27,7 +27,11 @@ Execucao real local mais recente, em `2026-07-19`:
 
 - `P0-02`, `P0-03` e `P0-04` foram exercitados via `make check-regulatory-window-readiness`
 - os tres retornaram `readiness_status=blocked`
-- o bloqueio dominante atual foi identico nos tres escopos: `Compliance/AML.date`, `Compliance/AML.status` e ausencia de `.env.staging.private`
+- o scaffold local de `.env.staging.private` ja foi materializado sem secrets reais, entao o bloqueio dominante deixou de ser "arquivo ausente"
+- o bloqueio dominante atual continua concentrado em `Compliance/AML.date`, `Compliance/AML.status` e nas variaveis reais pendentes do escopo regulatorio
+- em `P0-02`, faltam `COMPLIANCE_TRM_SCREENING_URL` e `COMPLIANCE_TRM_API_KEY`
+- em `P0-03`, faltam `DATABASE_URL` e uma `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` real, HTTPS e tokenizada
+- em `P0-04`, o bundle combinado segue bloqueado pela soma das pendencias de `P0-02` e `P0-03`
 - esta leitura substitui a interpretacao antiga de "`ready` aguardando apenas runtime", porque agora existe evidencia executada de bloqueio operacional real
 
 ## Mapa de Cobertura Atual
@@ -87,19 +91,19 @@ Execucao real local mais recente, em `2026-07-19`:
 
 - MFA federado ainda nao esta aceito institucionalmente como trilho serio concluido
 - `AML/KYT` live ainda depende de credenciais reais, `check-compliance-provider-runtime` verde e prova recorrente
-- leitura executiva atual: `P0-01` permanece `blocked` e `P0-02` agora esta `blocked` ate existir `.env.staging.private` real e handoff concluido de `Compliance/AML`
+- leitura executiva atual: `P0-01` permanece `blocked` e `P0-02` agora esta `blocked` ate `Compliance/AML` concluir handoff (`date/status`) e preencher `COMPLIANCE_TRM_SCREENING_URL` + `COMPLIANCE_TRM_API_KEY` reais
 
 ### 2. Feed da UE
 
 - o desenho tecnico esta pronto
 - falta ativacao da URL tokenizada real para fechar a prova em ambiente serio
-- leitura executiva atual: `P0-03` agora esta `blocked`, porque a tentativa real local confirmou ausencia de `.env.staging.private`, `Compliance/AML.status/date` pendentes e impossibilidade de emitir os JSONs da janela UE
+- leitura executiva atual: `P0-03` agora esta `blocked`, porque a tentativa real local confirmou `Compliance/AML.status/date` pendentes, `DATABASE_URL` ausente e `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` ainda placeholder/nao-tokenizada
 
 ### 2.1. Bundle regulatorio combinado
 
 - `P0-04` tambem esta `blocked` no estado atual local
 - o bundle combinado nao pode ser tratado como `todo` abstrato enquanto os dois prechecks reais seguem falhando no mesmo dominio de handoff/segredos
-- a tentativa local de `2026-07-19` confirmou que o prerequisito dominante do bundle e operacional: handoff humano + `.env.staging.private` materializado
+- a tentativa local de `2026-07-19` confirmou que o prerequisito dominante do bundle e operacional: handoff humano + preenchimento real das variaveis de `P0-02` e `P0-03` no scaffold privado ja materializado
 
 ### 3. Cadeia formal de custodia
 
@@ -126,7 +130,7 @@ Execucao real local mais recente, em `2026-07-19`:
 
 ## Caminho Mais Eficiente para 85%+
 
-1. materializar `.env.staging.private` em canal seguro e concluir o handoff de `Compliance/AML`
+1. preencher `.env.staging.private` materializado em canal seguro e concluir o handoff de `Compliance/AML`
 2. homologar `AML/KYT` live
 3. ativar feed UE tokenizado real
 4. homologar MFA federado como trilho serio oficial

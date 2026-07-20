@@ -8,6 +8,7 @@ type WatchlistAlertsPanelProps = {
   t: Translator;
   canReadMonitoringCore: boolean | null;
   watchlists: Watchlist[];
+  watchlistLoadError: string | null;
   alerts: Alert[];
   selectedAlert: Alert | null;
   setSelectedAlert: (alert: Alert | null) => void;
@@ -20,6 +21,7 @@ export function WatchlistAlertsPanel({
   t,
   canReadMonitoringCore,
   watchlists,
+  watchlistLoadError,
   alerts,
   selectedAlert,
   setSelectedAlert,
@@ -34,12 +36,18 @@ export function WatchlistAlertsPanel({
           <div data-testid="monitoring-core-read-restricted">
             <Message>{t("monitoring.watchlists.readRestricted" as MessageKey)}</Message>
           </div>
+        ) : watchlistLoadError ? (
+          <div data-testid="watchlist-load-error">
+            <Message tone="error">{watchlistLoadError}</Message>
+          </div>
         ) : watchlists.length ? (
           <div data-testid="watchlist-item" className="otc-monitoring-card">
             {watchlists[0].name} ({watchlists[0].priority})
           </div>
         ) : (
-          <Message>{t("monitoring.watchlists.empty")}</Message>
+          <div data-testid="watchlist-empty">
+            <Message>{t("monitoring.watchlists.empty")}</Message>
+          </div>
         )}
       </Panel>
 

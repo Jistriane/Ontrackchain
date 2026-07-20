@@ -1,6 +1,8 @@
 import importlib.util
+import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -84,6 +86,45 @@ class RunStagingWindowStatusSnapshotTests(unittest.TestCase):
         self.assertEqual(result["status"], "not_available")
         self.assertEqual(result["rca_attached_count"], 0)
         self.assertEqual(result["critical_open_count"], 0)
+
+    def test_main_uses_current_python_executable(self) -> None:
+        captured_commands: list[list[str]] = []
+
+        def fake_run_command(command: list[str]) -> dict:
+            captured_commands.append(command)
+            return {"exit_code": 0, "stdout": "{}", "stderr": "", "payload": {"status": "ok"}}
+
+        with patch.object(
+            MODULE,
+            "parse_args",
+            return_value=type(
+                "Args",
+                (),
+                {
+                    "window_id": "stg-2026-07-19-a",
+                    "private_env_file": ".env.staging.private",
+                    "checks_dir": "artifacts/staging/checks",
+                    "dossiers_dir": "artifacts/staging/dossiers",
+                    "scope": "P0-01,P0-02,P0-03",
+                    "output_file": "/tmp/status-snapshot.json",
+                    "history_dir": None,
+                },
+            )(),
+        ), patch.object(MODULE, "run_command", side_effect=fake_run_command), patch.object(
+            MODULE,
+            "collect_blockers",
+            return_value={"unresolved_placeholders_count": 0, "missing_handoff_fields_count": 0},
+        ), patch.object(
+            MODULE,
+            "load_operational_alerts_rca_summary",
+            return_value={"status": "not_available"},
+        ), patch("pathlib.Path.write_text"):
+            exit_code = MODULE.main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(captured_commands[0][0], sys.executable)
+        self.assertEqual(captured_commands[1][0], sys.executable)
+        self.assertEqual(captured_commands[2][0], sys.executable)
 
 
 if __name__ == "__main__":

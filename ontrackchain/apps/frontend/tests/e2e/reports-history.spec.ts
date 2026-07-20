@@ -675,6 +675,502 @@ test.describe("reports history backend", () => {
     await expect(page.getByTestId("reports-detail-download")).toHaveCount(0);
   });
 
+  test("tester recebe negacao semantica no historico em vez de lista vazia", async ({ page }) => {
+    await page.context().addCookies([
+      {
+        name: "otc_token",
+        value: "pw-e2e-token",
+        domain: "localhost",
+        path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax"
+      }
+    ]);
+
+    await page.route("**/api/app/auth/context", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-reports-e2e",
+          user_id: "user-reports-e2e",
+          linked_user_id: "linked-reports-e2e",
+          role: "TESTER",
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/report-types?**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          generated_at: "2026-07-03T12:00:00.000Z",
+          types: [
+            {
+              canonical: "coaf_ready_report",
+              label: "COAF Ready",
+              available: true,
+              cost_credits: 2,
+              min_plan: "professional",
+              format: "pdf",
+              deprecated: false
+            }
+          ]
+        })
+      });
+    });
+
+    await page.route("**/api/app/investigation/cases?**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ page: 1, limit: 20, data: [] })
+      });
+    });
+
+    await page.route("**/api/app/operations/work-items?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] })
+      });
+    });
+
+    await page.route("**/api/app/reports/list?**", async (route) => {
+      await route.fulfill({
+        status: 403,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "report_read_role_required" })
+      });
+    });
+
+    await page.goto("/reports");
+
+    await expect(page.getByTestId("reports-history-table")).toHaveCount(0);
+    await expect(page.getByTestId("reports-history-message")).toContainText(
+      "A leitura/listagem de relatórios exige papel operacional: ADMIN, AUDITOR, ANALYST ou VIEWER."
+    );
+    await expect(page.getByTestId("reports-history-message")).not.toContainText(
+      'Nenhum caso rastreado no workspace. Clique em "Rastrear" em um caso acima para iniciar.'
+    );
+  });
+
+  test("preserva a negacao semantica do workspace compartilhado sem apagar o historico oficial", async ({ page }) => {
+    await page.context().addCookies([
+      {
+        name: "otc_token",
+        value: "pw-e2e-token",
+        domain: "localhost",
+        path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax"
+      }
+    ]);
+
+    await page.route("**/api/app/auth/context", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-reports-e2e",
+          user_id: "user-reports-e2e",
+          linked_user_id: "linked-reports-e2e",
+          role: "AUDITOR",
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/report-types?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          generated_at: "2026-07-03T12:00:00.000Z",
+          types: [
+            {
+              canonical: "coaf_ready_report",
+              label: "COAF Ready",
+              available: true,
+              cost_credits: 2,
+              min_plan: "professional",
+              format: "pdf",
+              deprecated: false
+            }
+          ]
+        })
+      });
+    });
+
+    await page.route("**/api/app/investigation/cases?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ page: 1, limit: 20, data: [] })
+      });
+    });
+
+    await page.route("**/api/app/operations/work-items?**", async (route: Route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "not_authenticated" })
+      });
+    });
+
+    await page.route("**/api/app/reports/list?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              report_id: "rep-all-07",
+              case_id: "77777777-7777-4777-8777-777777777777",
+              report_type_requested: "coaf",
+              report_type: "coaf_ready_report",
+              content_type: "application/pdf",
+              file_hash_sha256: "g".repeat(64),
+              onchain_hash: null,
+              created_at: "2026-07-03T16:00:00.000Z",
+              has_download_audit: true
+            }
+          ],
+          page: 1,
+          limit: 20,
+          total: 1,
+          has_more: false
+        })
+      });
+    });
+
+    await page.route("**/api/app/reports/rep-all-07", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          report_id: "rep-all-07",
+          case_id: "77777777-7777-4777-8777-777777777777",
+          report_type_requested: "coaf",
+          report_type: "coaf_ready_report",
+          content_type: "application/pdf",
+          file_hash_sha256: "g".repeat(64),
+          onchain_hash: null,
+          created_at: "2026-07-03T16:00:00.000Z",
+          has_download_audit: true
+        })
+      });
+    });
+
+    await page.goto("/reports?history_report_id=rep-all-07");
+
+    await expect(page.getByTestId("reports-history-table")).toContainText("rep-all-07");
+    await expect(page.getByTestId("reports-detail-table")).toContainText("rep-all-07");
+    await expect(page.getByTestId("reports-workspace-message")).toContainText("Sua sessão expirou ou não foi autenticada.");
+    await expect(page.getByText("Nenhum caso foi rastreado ainda no workspace compartilhado.")).toHaveCount(0);
+  });
+
+  test("preserva a negacao semantica na carga do catalogo de tipos em vez de vazio sintetico", async ({ page }) => {
+    await page.context().addCookies([
+      {
+        name: "otc_token",
+        value: "pw-e2e-token",
+        domain: "localhost",
+        path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax"
+      }
+    ]);
+
+    await page.route("**/api/app/auth/context", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-reports-e2e",
+          user_id: "user-reports-e2e",
+          linked_user_id: "linked-reports-e2e",
+          role: "ANALYST",
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/report-types?**", async (route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "not_authenticated" })
+      });
+    });
+
+    await page.route("**/api/app/investigation/cases?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ page: 1, limit: 20, data: [] })
+      });
+    });
+
+    await page.route("**/api/app/operations/work-items?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] })
+      });
+    });
+
+    await page.route("**/api/app/reports/list?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [],
+          page: 1,
+          limit: 20,
+          total: 0,
+          has_more: false
+        })
+      });
+    });
+
+    await page.goto("/reports");
+
+    await expect(page.getByTestId("reports-catalog-message")).toContainText("Sua sessão expirou ou não foi autenticada.");
+    await expect(page.getByTestId("reports-catalog-message")).not.toContainText("Nenhum tipo encontrado para o recorte atual.");
+  });
+
+  test("preserva a negacao semantica na leitura dos casos oficiais em vez de workspace vazio", async ({ page }) => {
+    await page.context().addCookies([
+      {
+        name: "otc_token",
+        value: "pw-e2e-token",
+        domain: "localhost",
+        path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax"
+      }
+    ]);
+
+    await page.route("**/api/app/auth/context", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-reports-e2e",
+          user_id: "user-reports-e2e",
+          linked_user_id: "linked-reports-e2e",
+          role: "ANALYST",
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/report-types?**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          generated_at: "2026-07-03T12:00:00.000Z",
+          types: [
+            {
+              canonical: "legal_report",
+              label: "Legal Report",
+              available: true,
+              cost_credits: 3,
+              min_plan: "enterprise",
+              format: "pdf",
+              deprecated: false
+            }
+          ]
+        })
+      });
+    });
+
+    await page.route("**/api/app/investigation/cases?**", async (route: Route) => {
+      await route.fulfill({
+        status: 403,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "privileged_read_role_required" })
+      });
+    });
+
+    await page.route("**/api/app/operations/work-items?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] })
+      });
+    });
+
+    await page.route("**/api/app/reports/list?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [],
+          page: 1,
+          limit: 20,
+          total: 0,
+          has_more: false
+        })
+      });
+    });
+
+    await page.goto("/reports");
+
+    await expect(page.getByTestId("reports-cases-message")).toContainText("Esta leitura exige papel privilegiado ADMIN/AUDITOR.");
+    await expect(page.getByTestId("reports-cases-message")).not.toContainText(
+      'Nenhum caso rastreado no workspace. Clique em "Rastrear" em um caso acima para iniciar.'
+    );
+  });
+
+  test("preserva a negacao semantica ao resolver a referencia ROS/COAF do relatorio", async ({ page }) => {
+    await page.context().addCookies([
+      {
+        name: "otc_token",
+        value: "pw-e2e-token",
+        domain: "localhost",
+        path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax"
+      }
+    ]);
+
+    await page.route("**/api/app/auth/context", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-reports-e2e",
+          user_id: "user-reports-e2e",
+          linked_user_id: "linked-reports-e2e",
+          role: "ANALYST",
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/report-types?**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          generated_at: "2026-07-03T12:00:00.000Z",
+          types: [
+            {
+              canonical: "coaf_ready_report",
+              label: "COAF Ready",
+              available: true,
+              cost_credits: 2,
+              min_plan: "professional",
+              format: "pdf",
+              deprecated: false
+            }
+          ]
+        })
+      });
+    });
+
+    await page.route("**/api/app/investigation/cases?**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ page: 1, limit: 20, data: [] })
+      });
+    });
+
+    await page.route("**/api/app/operations/work-items?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] })
+      });
+    });
+
+    await page.route("**/api/app/reports/list?**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              report_id: "rep-all-06",
+              case_id: "66666666-6666-4666-8666-666666666666",
+              report_type_requested: "coaf",
+              report_type: "coaf_ready_report",
+              content_type: "application/pdf",
+              file_hash_sha256: "f".repeat(64),
+              onchain_hash: null,
+              created_at: "2026-07-03T15:00:00.000Z",
+              has_download_audit: true
+            }
+          ],
+          page: 1,
+          limit: 20,
+          total: 1,
+          has_more: false
+        })
+      });
+    });
+
+    await page.route("**/api/app/reports/rep-all-06", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          report_id: "rep-all-06",
+          case_id: "66666666-6666-4666-8666-666666666666",
+          report_type_requested: "coaf",
+          report_type: "coaf_ready_report",
+          content_type: "application/pdf",
+          file_hash_sha256: "f".repeat(64),
+          onchain_hash: null,
+          created_at: "2026-07-03T15:00:00.000Z",
+          has_download_audit: true
+        })
+      });
+    });
+
+    await page.route("**/api/app/reports/rep-all-06/ros-coaf-ref", async (route: Route) => {
+      await route.fulfill({
+        status: 403,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "report_read_role_required" })
+      });
+    });
+
+    await page.goto("/reports?history_report_id=rep-all-06");
+
+    await expect(page.getByTestId("reports-detail-table")).toContainText("rep-all-06");
+    await expect(page.getByTestId("reports-detail-linked-ros-message")).toContainText(
+      "A leitura/listagem de relatórios exige papel operacional: ADMIN, AUDITOR, ANALYST ou VIEWER."
+    );
+    await expect(page.getByRole("link", { name: "Abrir ROS/COAF" })).toHaveCount(0);
+  });
+
   test("analyst recebe CTA de download para report comum", async ({ page }) => {
     await page.context().addCookies([
       {

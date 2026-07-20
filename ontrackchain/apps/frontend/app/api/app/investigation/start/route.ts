@@ -1,30 +1,6 @@
 import { cookies } from "next/headers";
-import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
 
 export async function POST(request: Request) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    const payload = (await request.json().catch(() => null)) as { quote_id?: string; confirmed?: boolean } | null;
-    if (!payload?.quote_id || payload.confirmed !== true) {
-      return new Response(JSON.stringify({ error: "invalid_quote_confirmation" }), {
-        status: 422,
-        headers: { "content-type": "application/json" }
-      });
-    }
-
-    return new Response(
-      JSON.stringify({
-        case_id: "case-showcase-003",
-        status: "queued",
-        queue_state: "queued",
-        accepted: true,
-        mode: "standalone_showcase"
-      }),
-      {
-        status: 202,
-        headers: { "content-type": "application/json" }
-      }
-    );
-  }
 
   const token = cookies().get("otc_token")?.value;
   if (!token) {

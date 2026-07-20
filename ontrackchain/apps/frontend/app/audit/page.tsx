@@ -231,6 +231,7 @@ export default function AuditPage() {
   const [manualPresetLoading, setManualPresetLoading] = useState(false);
   const [linkedRosIdFromReport, setLinkedRosIdFromReport] = useState<string | null>(null);
   const [linkedRosLoading, setLinkedRosLoading] = useState(false);
+  const [linkedRosError, setLinkedRosError] = useState<string | null>(null);
   const latestRequestRef = useRef(0);
   const manualPresetRequestRef = useRef(0);
 
@@ -1454,27 +1455,36 @@ export default function AuditPage() {
     if (!reportId || Boolean(selectedContext?.rosId)) {
       setLinkedRosIdFromReport(null);
       setLinkedRosLoading(false);
+      setLinkedRosError(null);
       return;
     }
 
     setLinkedRosLoading(true);
+    setLinkedRosError(null);
     fetch(`/api/app/reports/${encodeURIComponent(reportId)}/ros-coaf-ref`, { cache: "no-store" })
       .then(async (res) => {
-        const data = (await res.json().catch(() => null)) as { ros_id?: string | null } | null;
+        const data = (await res.json().catch(() => null)) as
+          | { ros_id?: string | null; error?: string; detail?: unknown }
+          | null;
         if (!res.ok) {
           setLinkedRosIdFromReport(null);
+          setLinkedRosError(
+            res.status === 404 ? null : resolveApiErrorMessage(t, data, t("audit.details.errorLoadRosCoaf" as MessageKey))
+          );
           setLinkedRosLoading(false);
           return;
         }
         const rosIdValue = typeof data?.ros_id === "string" ? data.ros_id.trim() : "";
         setLinkedRosIdFromReport(rosIdValue ? rosIdValue : null);
+        setLinkedRosError(null);
         setLinkedRosLoading(false);
       })
       .catch(() => {
         setLinkedRosIdFromReport(null);
+        setLinkedRosError(t("audit.details.errorLoadRosCoaf" as MessageKey));
         setLinkedRosLoading(false);
       });
-  }, [selectedContext?.reportId, selectedContext?.rosId]);
+  }, [selectedContext?.reportId, selectedContext?.rosId, t]);
   const selectedContextForLinks = useMemo(() => {
     if (!selectedContext) {
       return null;
@@ -2408,7 +2418,7 @@ export default function AuditPage() {
                 );
               })}
             </div>
-          ) : (
+          ) : error ? null : (
             <div data-testid="audit-empty" className="otc-message">{t("audit.events.empty")}</div>
           )}
         </Panel>
@@ -2466,6 +2476,11 @@ export default function AuditPage() {
               {!authLoading && authError ? (
                 <Message tone="error">
                   <span data-testid="audit-auth-error">{authError}</span>
+                </Message>
+              ) : null}
+              {linkedRosError ? (
+                <Message tone="error">
+                  <span data-testid="audit-linked-ros-message">{linkedRosError}</span>
                 </Message>
               ) : null}
               {!authLoading && selectedContextForLinks?.rosId && !hasLinkedUser ? (

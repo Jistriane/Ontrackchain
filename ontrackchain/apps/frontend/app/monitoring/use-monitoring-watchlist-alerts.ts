@@ -29,6 +29,7 @@ export function useMonitoringWatchlistAlerts({
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([]);
+  const [watchlistLoadError, setWatchlistLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (canReadMonitoringCore !== true) {
@@ -36,11 +37,19 @@ export function useMonitoringWatchlistAlerts({
       setAlerts([]);
       setSelectedAlert(null);
       setWatchlistItems([]);
+      setWatchlistLoadError(null);
       return;
     }
     fetchMonitoringWatchlists()
-      .then((data) => setWatchlists(data))
-      .catch(() => setError(t("monitoring.errors.loadWatchlists")));
+      .then((data) => {
+        setWatchlists(data);
+        setWatchlistLoadError(null);
+      })
+      .catch((error) => {
+        const message = resolveApiErrorMessage(t, error, t("monitoring.errors.loadWatchlists"));
+        setWatchlistLoadError(message);
+        setError(message);
+      });
   }, [canReadMonitoringCore, setError, t]);
 
   useEffect(() => {
@@ -55,8 +64,15 @@ export function useMonitoringWatchlistAlerts({
     }
 
     fetchMonitoringWatchlistItems(primaryWatchlistId)
-      .then((items) => setWatchlistItems(items))
-      .catch(() => setError(t("monitoring.errors.loadWatchlists")));
+      .then((items) => {
+        setWatchlistItems(items);
+        setWatchlistLoadError(null);
+      })
+      .catch((error) => {
+        const message = resolveApiErrorMessage(t, error, t("monitoring.errors.loadWatchlists"));
+        setWatchlistLoadError(message);
+        setError(message);
+      });
   }, [canReadMonitoringCore, setError, t, watchlists]);
 
   async function refreshAlerts() {
@@ -68,8 +84,8 @@ export function useMonitoringWatchlistAlerts({
     try {
       const data = await fetchMonitoringAlerts(watchlists[0]?.id);
       setAlerts(data);
-    } catch {
-      setError(t("monitoring.errors.loadAlerts"));
+    } catch (error) {
+      setError(resolveApiErrorMessage(t, error, t("monitoring.errors.loadAlerts")));
     }
   }
 
@@ -83,8 +99,17 @@ export function useMonitoringWatchlistAlerts({
       setError(t("monitoring.errors.noWatchlist"));
       return;
     }
-    const resolvedWatchlistItems =
-      watchlistItems.length > 0 ? watchlistItems : await fetchMonitoringWatchlistItems(watchlist.id).catch(() => []);
+    let resolvedWatchlistItems = watchlistItems;
+    if (!resolvedWatchlistItems.length) {
+      try {
+        resolvedWatchlistItems = await fetchMonitoringWatchlistItems(watchlist.id);
+      } catch (error) {
+        const message = resolveApiErrorMessage(t, error, t("monitoring.errors.loadWatchlists"));
+        setWatchlistLoadError(message);
+        setError(message);
+        return;
+      }
+    }
     if (!watchlistItems.length && resolvedWatchlistItems.length) {
       setWatchlistItems(resolvedWatchlistItems);
     }
@@ -118,6 +143,7 @@ export function useMonitoringWatchlistAlerts({
 
   return {
     watchlists,
+    watchlistLoadError,
     alerts,
     selectedAlert,
     setSelectedAlert,

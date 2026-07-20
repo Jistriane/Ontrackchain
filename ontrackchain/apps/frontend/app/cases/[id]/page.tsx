@@ -39,6 +39,7 @@ export default function CasePage({ params }: { params: { id: string } }) {
   const [status, setStatus] = useState<string>("unknown");
   const [reportType, setReportType] = useState("technical_basic");
   const [reportTypes, setReportTypes] = useState<ReportTypeItem[]>([]);
+  const [reportTypeCatalogError, setReportTypeCatalogError] = useState<string | null>(null);
   const [report, setReport] = useState<ReportState | null>(null);
   const [generating, setGenerating] = useState(false);
   const [exportingEvidence, setExportingEvidence] = useState(false);
@@ -88,7 +89,13 @@ export default function CasePage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     fetch("/api/app/report-types?include_unavailable=true&include_deprecated=false", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
+      .then(async (r) => {
+        const data = await r.json().catch(() => null);
+        if (!r.ok) {
+          throw data ?? { error: "report_catalog_unavailable" };
+        }
+        return data;
+      })
       .then((data) => {
         const items = (data?.types ?? []) as any[];
         const normalized = items.map((item) => ({
@@ -98,12 +105,16 @@ export default function CasePage({ params }: { params: { id: string } }) {
           cost_credits: Number(item.cost_credits)
         })) as ReportTypeItem[];
         setReportTypes(normalized);
-        if (normalized.length && !normalized.some((entry) => entry.canonical === reportType)) {
-          setReportType(normalized[0].canonical);
-        }
+        setReportTypeCatalogError(null);
+        setReportType((current) =>
+          normalized.length && !normalized.some((entry) => entry.canonical === current) ? normalized[0].canonical : current
+        );
       })
-      .catch(() => setReportTypes([]));
-  }, []);
+      .catch((err) => {
+        setReportTypes([]);
+        setReportTypeCatalogError(resolveApiErrorMessage(t, err, t("investigate.errorLoadReportCatalog")));
+      });
+  }, [t]);
 
   const downloadUrl = useMemo(() => {
     if (!report) return null;
@@ -271,6 +282,13 @@ export default function CasePage({ params }: { params: { id: string } }) {
                 <option value="technical_basic">{formatReportTypeValue("technical_basic")}</option>
               )}
             </select>
+            {reportTypeCatalogError ? (
+              <div style={{ marginTop: 8 }}>
+                <Message tone="error">
+                  <span data-testid="case-report-type-message">{reportTypeCatalogError}</span>
+                </Message>
+              </div>
+            ) : null}
           </label>
           {canGenerateReport ? (
             <button

@@ -1,4 +1,4 @@
-.PHONY: help help-serious-window start-oidc-local stop-oidc-local gate-p0-01-oidc-local gate-p0-01-oidc-ci gate-p0-02-aml-live gate-p0-03-eu-live gate-p0-04-regulatory-bundle gate-p0-05-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle run-regulatory-readiness-bundle-local render-regulatory-readiness-bundle run-oidc-readiness-bundle run-oidc-readiness-bundle-local render-oidc-readiness-bundle validate-serious-window-artifact validate-serious-window-artifact-local render-staging-war-room-action-plan build-operational-alerts-rca-summary run-staging-window-status-snapshot-local render-staging-window-status-snapshot render-staging-window-status-snapshot-delta render-staging-governance-dashboard render-staging-unblock-checklist render-staging-comms-summary render-staging-executive-bullet render-staging-governance-consolidated-json notify-slack-governance evaluate-governance-gate track-governance-history render-governance-gate-history-dashboard update-governance-metrics refresh-staging-war-room-governance-local apply-regulatory-work-items-migration apply-regulatory-work-items-contract-guardrails-migration check-work-items-contracts validate-work-items-runtime-local smoke-work-items-ownership-backend alert-pagerduty-governance-blocks generate-environment-promotion-policy generate-compliance-report generate-compliance-reports-all evaluate-auto-promotion-readiness check-workflow-hygiene prune-governance-weekly-archive prune-governance-weekly-archive-dry-run
+.PHONY: help help-serious-window start-oidc-local stop-oidc-local gate-p0-01-oidc-local gate-p0-01-oidc-ci gate-p0-02-aml-live gate-p0-03-eu-live gate-p0-04-regulatory-bundle gate-p0-05-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle run-regulatory-readiness-bundle-local render-regulatory-readiness-bundle run-oidc-readiness-bundle run-oidc-readiness-bundle-local render-oidc-readiness-bundle validate-serious-window-artifact validate-serious-window-artifact-local render-staging-war-room-action-plan build-operational-alerts-rca-summary run-staging-window-status-snapshot-local render-staging-window-status-snapshot render-staging-window-status-snapshot-delta render-staging-governance-dashboard render-staging-unblock-checklist render-staging-comms-summary render-staging-executive-bullet render-staging-governance-consolidated-json notify-slack-governance evaluate-governance-gate track-governance-history render-governance-gate-history-dashboard update-governance-metrics refresh-staging-war-room-governance-local apply-regulatory-work-items-migration apply-regulatory-work-items-contract-guardrails-migration check-work-items-contracts validate-work-items-runtime-local smoke-work-items-ownership-backend alert-pagerduty-governance-blocks generate-environment-promotion-policy generate-compliance-report generate-compliance-reports-all evaluate-auto-promotion-readiness check-workflow-hygiene prune-governance-weekly-archive prune-governance-weekly-archive-dry-run materialize-staging-private-env run-regulatory-unblock-checklist-local
 
 PYTHON ?= python3
 GOVERNANCE_WEEKLY_ARCHIVE_RETENTION_DAYS ?= 90
@@ -13,9 +13,12 @@ GATE_ARTIFACTS_DIR ?= $(GOVERNANCE_WEEKLY_DIR)/generated/gates
 RUN_URL ?= pending
 SIGNOFF_OUTPUT_FILE ?=
 PRIVATE_ENV_FILE ?= .env.staging.private
+OWNERSHIP_FILE ?= docs/staging-env-ownership.md
 LOCAL_RUN_URL ?= local://staging-serious/$(WINDOW_ID)
 BUNDLE_OUTPUT_FILE ?= artifacts/staging/checks/$(WINDOW_ID)-regulatory-readiness-bundle.json
 BUNDLE_SUMMARY_FILE ?= artifacts/staging/dossiers/$(WINDOW_ID)-regulatory-readiness-bundle.md
+REGULATORY_UNBLOCK_OUTPUT_FILE ?= artifacts/staging/checks/$(WINDOW_ID)-regulatory-unblock-checklist.json
+REGULATORY_UNBLOCK_SUMMARY_FILE ?= artifacts/staging/dossiers/$(WINDOW_ID)-regulatory-unblock-checklist.md
 OIDC_BUNDLE_OUTPUT_FILE ?= artifacts/staging/checks/$(WINDOW_ID)-oidc-readiness-bundle.json
 OIDC_BUNDLE_SUMMARY_FILE ?= artifacts/staging/dossiers/$(WINDOW_ID)-oidc-readiness-bundle.md
 CHECKS_DIR ?= artifacts/staging/checks
@@ -62,7 +65,9 @@ help:
 	@echo "  make run-regulatory-readiness-bundle [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...] [INTERNAL_BASE_URL=...] [PUBLIC_BASE_URL=...]"
 	@echo "  make run-regulatory-readiness-bundle-local [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...] [BUNDLE_OUTPUT_FILE=...] [BUNDLE_SUMMARY_FILE=...]"
 	@echo "  make render-regulatory-readiness-bundle [BUNDLE_OUTPUT_FILE=...] [BUNDLE_SUMMARY_FILE=...]"
+	@echo "  make run-regulatory-unblock-checklist-local [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [OWNERSHIP_FILE=docs/staging-env-ownership.md] [REGULATORY_UNBLOCK_OUTPUT_FILE=...] [REGULATORY_UNBLOCK_SUMMARY_FILE=...]"
 	@echo "  make check-regulatory-window-readiness [REGULATORY_SCOPE=p0-02|p0-03|p0-04] [PRIVATE_ENV_FILE=.env.staging.private] [OWNERSHIP_FILE=docs/staging-env-ownership.md]"
+	@echo "  make materialize-staging-private-env [WINDOW_ID=stg-2026-07-06-a] [MODE=baseline|homologated] [PRIVATE_ENV_FILE=.env.staging.private]"
 	@echo "  make run-oidc-readiness-bundle [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...] [BASE_URL=...]"
 	@echo "  make run-oidc-readiness-bundle-local [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...] [OIDC_BUNDLE_OUTPUT_FILE=...] [OIDC_BUNDLE_SUMMARY_FILE=...] [BASE_URL=...]"
 	@echo "  make render-oidc-readiness-bundle [OIDC_BUNDLE_OUTPUT_FILE=...] [OIDC_BUNDLE_SUMMARY_FILE=...]"
@@ -83,7 +88,7 @@ help:
 	@echo "  make render-staging-window-status-snapshot-delta [WINDOW_ID=...] [STATUS_SNAPSHOT_HISTORY_DIR=...] [STATUS_SNAPSHOT_DELTA_OUTPUT_FILE=...]"
 	@echo "  make render-staging-governance-dashboard [WINDOW_ID=...] [STATUS_SNAPSHOT_HISTORY_DIR=...] [GOVERNANCE_DASHBOARD_OUTPUT_FILE=...]"
 	@echo "  make render-staging-unblock-checklist [WINDOW_ID=...] [STATUS_SNAPSHOT_OUTPUT_FILE=...] [UNBLOCK_CHECKLIST_OUTPUT_FILE=...]"
-	@echo "  make render-staging-comms-summary [WINDOW_ID=...] [STATUS_SNAPSHOT_OUTPUT_FILE=...] [STATUS_SNAPSHOT_DELTA_OUTPUT_FILE=...] [GOVERNANCE_DASHBOARD_OUTPUT_FILE=...] [UNBLOCK_CHECKLIST_OUTPUT_FILE=...] [COMMS_SUMMARY_OUTPUT_FILE=...]"
+	@echo "  make render-staging-comms-summary [WINDOW_ID=...] [STATUS_SNAPSHOT_OUTPUT_FILE=...] [STATUS_SNAPSHOT_DELTA_OUTPUT_FILE=...] [GOVERNANCE_DASHBOARD_OUTPUT_FILE=...] [UNBLOCK_CHECKLIST_OUTPUT_FILE=...] [REGULATORY_UNBLOCK_SUMMARY_FILE=...] [COMMS_SUMMARY_OUTPUT_FILE=...]"
 	@echo "  make render-staging-executive-bullet [WINDOW_ID=...] [STATUS_SNAPSHOT_OUTPUT_FILE=...] [STATUS_SNAPSHOT_DELTA_OUTPUT_FILE=...] [EXECUTIVE_BULLET_OUTPUT_FILE=...]"
 	@echo "  make refresh-staging-war-room-governance-local [WINDOW_ID=...] [CHECKS_DIR=...] [PRIVATE_ENV_FILE=...] [DOSSIERS_DIR=...]"
 	@echo "  make apply-regulatory-work-items-migration"
@@ -91,6 +96,13 @@ help:
 	@echo "  make apply-evidence-package-seals-migration"
 	@echo "  make apply-team-users-directory-migration"
 	@echo "  make check-work-items-contracts"
+	@echo "  make check-compliance-api-tests"
+	@echo "  make check-auth-service-tests"
+	@echo "  make check-public-api-tests"
+	@echo "  make check-report-api-tests"
+	@echo "  make check-monitoring-api-tests"
+	@echo "  make check-investigation-api-tests"
+	@echo "  make check-all-tests"
 	@echo "  make validate-work-items-runtime-local"
 	@echo "  make smoke-work-items-ownership-backend"
 	@echo "  make check-workflow-hygiene"
@@ -170,6 +182,25 @@ check-regulatory-window-readiness:
 		--scope "$(REGULATORY_SCOPE)" \
 		--private-env-file "$(PRIVATE_ENV_FILE)" \
 		--ownership-file "$(OWNERSHIP_FILE)"
+
+materialize-staging-private-env:
+	@$(PYTHON) scripts/prepare_staging_window.py \
+		--window-id "$(WINDOW_ID)" \
+		--mode "$(MODE)" \
+		--private-env-file "$(PRIVATE_ENV_FILE)" \
+		--checks-dir "$(CHECKS_DIR)" \
+		--dossiers-dir "$(DOSSIERS_DIR)" \
+		--homologation-dir "artifacts/homologation" \
+		--window-packet-dir "artifacts/staging"
+
+run-regulatory-unblock-checklist-local:
+	@mkdir -p "$(dir $(REGULATORY_UNBLOCK_OUTPUT_FILE))" "$(dir $(REGULATORY_UNBLOCK_SUMMARY_FILE))"
+	@$(PYTHON) scripts/run_regulatory_unblock_checklist.py \
+		--window-id "$(WINDOW_ID)" \
+		--private-env-file "$(PRIVATE_ENV_FILE)" \
+		--ownership-file "$(OWNERSHIP_FILE)" \
+		--json-output-file "$(REGULATORY_UNBLOCK_OUTPUT_FILE)" \
+		--markdown-output-file "$(REGULATORY_UNBLOCK_SUMMARY_FILE)" > /dev/null 2>&1 || true
 
 prepare-serious-window-dispatch:
 	@$(MAKE) preflight-serious-window-dispatch \
@@ -457,6 +488,7 @@ render-staging-comms-summary:
 		--delta-file "$(STATUS_SNAPSHOT_DELTA_OUTPUT_FILE)" \
 		--dashboard-file "$(GOVERNANCE_DASHBOARD_OUTPUT_FILE)" \
 		--unblock-file "$(UNBLOCK_CHECKLIST_OUTPUT_FILE)" \
+		--regulatory-unblock-file "$(REGULATORY_UNBLOCK_SUMMARY_FILE)" \
 		--output-file "$(COMMS_SUMMARY_OUTPUT_FILE)"
 
 render-staging-executive-bullet:
@@ -503,12 +535,19 @@ refresh-staging-war-room-governance-local:
 		WINDOW_ID="$(WINDOW_ID)" \
 		STATUS_SNAPSHOT_OUTPUT_FILE="$(STATUS_SNAPSHOT_OUTPUT_FILE)" \
 		UNBLOCK_CHECKLIST_OUTPUT_FILE="$(UNBLOCK_CHECKLIST_OUTPUT_FILE)"
+	@$(MAKE) --no-print-directory run-regulatory-unblock-checklist-local \
+		WINDOW_ID="$(WINDOW_ID)" \
+		PRIVATE_ENV_FILE="$(PRIVATE_ENV_FILE)" \
+		OWNERSHIP_FILE="$(OWNERSHIP_FILE)" \
+		REGULATORY_UNBLOCK_OUTPUT_FILE="$(REGULATORY_UNBLOCK_OUTPUT_FILE)" \
+		REGULATORY_UNBLOCK_SUMMARY_FILE="$(REGULATORY_UNBLOCK_SUMMARY_FILE)"
 	@$(MAKE) --no-print-directory render-staging-comms-summary \
 		WINDOW_ID="$(WINDOW_ID)" \
 		STATUS_SNAPSHOT_OUTPUT_FILE="$(STATUS_SNAPSHOT_OUTPUT_FILE)" \
 		STATUS_SNAPSHOT_DELTA_OUTPUT_FILE="$(STATUS_SNAPSHOT_DELTA_OUTPUT_FILE)" \
 		GOVERNANCE_DASHBOARD_OUTPUT_FILE="$(GOVERNANCE_DASHBOARD_OUTPUT_FILE)" \
 		UNBLOCK_CHECKLIST_OUTPUT_FILE="$(UNBLOCK_CHECKLIST_OUTPUT_FILE)" \
+		REGULATORY_UNBLOCK_SUMMARY_FILE="$(REGULATORY_UNBLOCK_SUMMARY_FILE)" \
 		COMMS_SUMMARY_OUTPUT_FILE="$(COMMS_SUMMARY_OUTPUT_FILE)"
 	@$(MAKE) --no-print-directory render-staging-executive-bullet \
 		WINDOW_ID="$(WINDOW_ID)" \
@@ -591,6 +630,148 @@ apply-team-users-directory-migration:
 
 check-work-items-contracts:
 	@python3 scripts/run_work_item_contract_suite.py
+
+check-compliance-api-tests:
+	@python3 scripts/run_python_unittest_suite.py \
+		--app-dir apps/compliance-api \
+		--docker-service compliance-api \
+		--docker-mount-repo-root \
+		--docker-workdir /workspaces/ontrackchain/apps/compliance-api \
+		--py-compile-file src/compliance_api/main.py \
+		--py-compile-file src/compliance_api/worker.py \
+		--py-compile-file src/compliance_api/operations.py \
+		--py-compile-file src/compliance_api/risk_provider.py \
+		--py-compile-file tests/test_compliance_endpoints.py \
+		--py-compile-file tests/test_operations_catalog.py \
+		--py-compile-file tests/test_compliance_rbac.py \
+		--py-compile-file tests/test_internal_metrics.py \
+		--py-compile-file tests/test_worker_source_url_overrides.py \
+		--py-compile-file tests/test_work_item_contracts.py \
+		--py-compile-file tests/test_risk_provider.py \
+		--module tests.test_compliance_endpoints \
+		--module tests.test_operations_catalog \
+		--module tests.test_compliance_rbac \
+		--module tests.test_internal_metrics \
+		--module tests.test_worker_source_url_overrides \
+		--module tests.test_work_item_contracts \
+		--module tests.test_risk_provider \
+		--required-import fastapi \
+		--required-import pydantic_settings \
+		--required-import psycopg \
+		--required-import psycopg_pool
+
+check-auth-service-tests:
+	@python3 scripts/run_python_unittest_suite.py \
+		--app-dir apps/auth-service \
+		--docker-service auth-service \
+		--py-compile-file src/auth_service/main.py \
+		--py-compile-file tests/test_role_canonicalization.py \
+		--py-compile-file tests/test_team_identity_linking.py \
+		--module tests.test_role_canonicalization \
+		--module tests.test_team_identity_linking \
+		--required-import fastapi \
+		--required-import pydantic_settings \
+		--required-import psycopg_pool \
+		--required-import jwt \
+		--required-import redis.asyncio
+
+check-public-api-tests:
+	@python3 scripts/run_python_unittest_suite.py \
+		--app-dir apps/public-api \
+		--docker-service public-api \
+		--py-compile-file src/public_api/main.py \
+		--py-compile-file tests/test_public_api_contracts.py \
+		--module tests.test_public_api_contracts \
+		--required-import fastapi \
+		--required-import pydantic_settings \
+		--required-import redis.asyncio
+
+check-report-api-tests:
+	@python3 scripts/run_python_unittest_suite.py \
+		--app-dir apps/report-api \
+		--docker-service report-api \
+		--docker-mount-repo-root \
+		--docker-workdir /workspaces/ontrackchain/apps/report-api \
+		--py-compile-file src/report_api/main.py \
+		--py-compile-file tests/test_report_rbac.py \
+		--py-compile-file tests/test_report_list_helpers.py \
+		--py-compile-file tests/test_strong_auth.py \
+		--py-compile-file tests/test_strong_auth_extended.py \
+		--module tests.test_report_rbac \
+		--module tests.test_report_list_helpers \
+		--module tests.test_strong_auth \
+		--module tests.test_strong_auth_extended \
+		--required-import fastapi \
+		--required-import pydantic_settings \
+		--required-import psycopg_pool \
+		--required-import jinja2
+
+check-monitoring-api-tests:
+	@python3 scripts/run_python_unittest_suite.py \
+		--app-dir apps/monitoring-api \
+		--docker-service monitoring-api \
+		--py-compile-file src/monitoring_api/main.py \
+		--py-compile-file tests/test_alertmanager_webhook.py \
+		--py-compile-file tests/test_monitoring_core_rbac.py \
+		--py-compile-file tests/test_trigger_alert_rbac.py \
+		--py-compile-file tests/test_acknowledge_triage.py \
+		--py-compile-file tests/test_acknowledge_batch.py \
+		--py-compile-file tests/test_trigger_operational_alert.py \
+		--module tests.test_alertmanager_webhook \
+		--module tests.test_monitoring_core_rbac \
+		--module tests.test_trigger_alert_rbac \
+		--module tests.test_acknowledge_triage \
+		--module tests.test_acknowledge_batch \
+		--module tests.test_trigger_operational_alert \
+		--required-import fastapi \
+		--required-import pydantic_settings \
+		--required-import psycopg_pool
+
+check-investigation-api-tests:
+	@python3 scripts/run_python_unittest_suite.py \
+		--app-dir apps/investigation-api \
+		--docker-service investigation-api \
+		--py-compile-file src/investigation_api/main.py \
+		--py-compile-file src/investigation_api/rpc_provider.py \
+		--py-compile-file tests/test_audit_logs.py \
+		--py-compile-file tests/test_billing_rbac.py \
+		--py-compile-file tests/test_billing_reconciliation.py \
+		--py-compile-file tests/test_internal_rpc_metrics.py \
+		--py-compile-file tests/test_internal_worker_token.py \
+		--py-compile-file tests/test_manual_package_seals.py \
+		--py-compile-file tests/test_rpc_provider.py \
+		--py-compile-file tests/test_rpc_provider_extended.py \
+		--py-compile-file tests/test_billing_reconciliation_extended.py \
+		--py-compile-file tests/test_dlq_operations.py \
+		--module tests.test_audit_logs \
+		--module tests.test_billing_rbac \
+		--module tests.test_billing_reconciliation \
+		--module tests.test_internal_rpc_metrics \
+		--module tests.test_internal_worker_token \
+		--module tests.test_manual_package_seals \
+		--module tests.test_rpc_provider \
+		--module tests.test_rpc_provider_extended \
+		--module tests.test_billing_reconciliation_extended \
+		--module tests.test_dlq_operations \
+		--required-import fastapi \
+		--required-import pydantic_settings \
+		--required-import psycopg_pool \
+		--required-import redis
+
+check-all-tests:
+	@echo "=== check-compliance-api-tests ==="
+	@$(MAKE) --no-print-directory check-compliance-api-tests
+	@echo "=== check-auth-service-tests ==="
+	@$(MAKE) --no-print-directory check-auth-service-tests
+	@echo "=== check-public-api-tests ==="
+	@$(MAKE) --no-print-directory check-public-api-tests
+	@echo "=== check-report-api-tests ==="
+	@$(MAKE) --no-print-directory check-report-api-tests
+	@echo "=== check-monitoring-api-tests ==="
+	@$(MAKE) --no-print-directory check-monitoring-api-tests
+	@echo "=== check-investigation-api-tests ==="
+	@$(MAKE) --no-print-directory check-investigation-api-tests
+	@echo "=== todas as suites passaram ==="
 
 validate-work-items-runtime-local:
 	@docker compose up -d postgres redis compliance-api

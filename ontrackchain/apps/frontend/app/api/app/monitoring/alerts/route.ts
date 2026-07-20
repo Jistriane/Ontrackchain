@@ -1,23 +1,6 @@
 import { cookies } from "next/headers";
-import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
-import { listStandaloneShowcaseMonitoringAlerts } from "../../../../lib/standalone-showcase";
 
 export async function GET(request: Request) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    const url = new URL(request.url);
-    return new Response(
-      JSON.stringify(
-        listStandaloneShowcaseMonitoringAlerts({
-          watchlistId: url.searchParams.get("watchlist_id"),
-          limit: Number(url.searchParams.get("limit") ?? 50)
-        })
-      ),
-      {
-        status: 200,
-        headers: { "content-type": "application/json" }
-      }
-    );
-  }
 
   const token = cookies().get("otc_token")?.value;
   if (!token) {

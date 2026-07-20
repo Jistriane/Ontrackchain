@@ -1,19 +1,6 @@
-import { isFrontendStandaloneShowcaseMode } from "../../../../../../lib/auth-runtime";
-import {
-  linkStandaloneShowcaseExternalIdentity,
-  listStandaloneShowcaseExternalIdentities,
-  unlinkStandaloneShowcaseExternalIdentity
-} from "../../../../../../lib/standalone-showcase";
 import { authenticateTeamRequest, proxyTeamJsonRequest } from "../../../_shared";
 
 export async function GET(request: Request, context: { params: Promise<{ memberId: string }> }) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    const { memberId } = await context.params;
-    return new Response(JSON.stringify(listStandaloneShowcaseExternalIdentities(memberId)), {
-      status: 200,
-      headers: { "content-type": "application/json" }
-    });
-  }
 
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const auth = await authenticateTeamRequest(requestId);
@@ -35,39 +22,6 @@ export async function GET(request: Request, context: { params: Promise<{ memberI
 }
 
 export async function POST(request: Request, context: { params: Promise<{ memberId: string }> }) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    const { memberId } = await context.params;
-    const payload = (await request.json().catch(() => null)) as
-      | {
-          provider?: string;
-          external_subject?: string;
-          email_snapshot?: string | null;
-          role_snapshot?: string | null;
-        }
-      | null;
-    if (!payload?.provider?.trim() || !payload.external_subject?.trim()) {
-      return new Response(JSON.stringify({ error: "invalid_external_identity_payload" }), {
-        status: 422,
-        headers: { "content-type": "application/json" }
-      });
-    }
-    const member = linkStandaloneShowcaseExternalIdentity(memberId, {
-      provider: payload.provider,
-      external_subject: payload.external_subject,
-      email_snapshot: payload.email_snapshot,
-      role_snapshot: payload.role_snapshot
-    });
-    if (!member) {
-      return new Response(JSON.stringify({ error: "team_member_not_found" }), {
-        status: 404,
-        headers: { "content-type": "application/json" }
-      });
-    }
-    return new Response(JSON.stringify(member), {
-      status: 200,
-      headers: { "content-type": "application/json" }
-    });
-  }
 
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const auth = await authenticateTeamRequest(requestId);
@@ -91,35 +45,6 @@ export async function POST(request: Request, context: { params: Promise<{ member
 }
 
 export async function DELETE(request: Request, context: { params: Promise<{ memberId: string }> }) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    const { memberId } = await context.params;
-    const payload = (await request.json().catch(() => null)) as
-      | {
-          provider?: string;
-          external_subject?: string;
-        }
-      | null;
-    if (!payload?.provider?.trim() || !payload.external_subject?.trim()) {
-      return new Response(JSON.stringify({ error: "invalid_external_identity_payload" }), {
-        status: 422,
-        headers: { "content-type": "application/json" }
-      });
-    }
-    const member = unlinkStandaloneShowcaseExternalIdentity(memberId, {
-      provider: payload.provider,
-      external_subject: payload.external_subject
-    });
-    if (!member) {
-      return new Response(JSON.stringify({ error: "team_member_not_found" }), {
-        status: 404,
-        headers: { "content-type": "application/json" }
-      });
-    }
-    return new Response(JSON.stringify(member), {
-      status: 200,
-      headers: { "content-type": "application/json" }
-    });
-  }
 
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const auth = await authenticateTeamRequest(requestId);

@@ -204,15 +204,33 @@ docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/pos
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0016_team_users_directory.sql
 ```
 
-## Validacao de Contrato dos Work-Items
+## Validacao de Suites do Compliance API
 
-Para a trilha de contrato do `compliance-api`, use:
+Para validar a suite canonica principal do `compliance-api`, use:
+
+```bash
+make check-compliance-api-tests
+```
+
+O alvo compila os modulos Python criticos (`main`, `worker`, `operations`) e roda as suites:
+
+- `tests.test_compliance_endpoints`
+- `tests.test_operations_catalog`
+- `tests.test_compliance_rbac`
+- `tests.test_internal_metrics`
+- `tests.test_worker_source_url_overrides`
+- `tests.test_work_item_contracts`
+
+Quando o runtime Python local nao possui as dependencias do `compliance-api`, o runner faz fallback automatico para `docker compose run --no-deps compliance-api`, montando a raiz do monorepo para preservar imports de `packages/agents` e `packages/shared` e validar a suite real em vez de retornar um falso verde por `skip`.
+
+Para a trilha focada apenas em `work-items`, use:
 
 ```bash
 make check-work-items-contracts
 ```
 
 O alvo executa `python3`, compila os arquivos Python criticos da trilha e roda a suite focada `tests.test_work_item_contracts`.
+Quando o runtime Python local nao possui as dependencias do `compliance-api`, o runner faz fallback automatico para `docker compose run --no-deps compliance-api`, montando o worktree atual para validar a suite real em vez de retornar um falso verde por `skip`.
 
 Para validacao operacional local ponta a ponta da trilha `work-items`, use:
 

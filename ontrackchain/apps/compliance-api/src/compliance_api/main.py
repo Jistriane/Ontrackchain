@@ -1582,6 +1582,32 @@ class BlockLiftResponse(BaseModel):
     lifted_at: str
 
 
+class BlockListItem(BaseModel):
+    block_id: uuid.UUID
+    case_id: Optional[uuid.UUID] = None
+    address: str
+    chain: str
+    action: str
+    review_status: str
+    status: str
+    regulatory_basis: list[str]
+    matched_lists: list[str]
+    decision_confidence: float
+    requires_coaf_report: bool
+    evidence_hash: str
+    screened_at: str
+    lifted_at: Optional[str] = None
+    lifted_reason: Optional[str] = None
+    review_note: Optional[str] = None
+
+
+class BlockListResponse(BaseModel):
+    items: list[BlockListItem]
+    total: int
+    limit: int
+    offset: int
+
+
 class CounterpartyCreateRequest(BaseModel):
     counterparty_type: str
     legal_name: str
@@ -1650,6 +1676,60 @@ class CounterpartyReviewResponse(BaseModel):
     last_reviewed_at: Optional[str] = None
 
 
+class CounterpartyReviewSnapshot(BaseModel):
+    dd_review_status: str
+    dd_review_note: str
+    sof_description: str
+    sof_document_ref: str
+    last_reviewed_at: Optional[str] = None
+
+
+class CounterpartyDetailResponse(BaseModel):
+    counterparty_id: uuid.UUID
+    legal_name: str
+    counterparty_type: str
+    document_type: str
+    document_number: str
+    document_country: str
+    registration_data: dict = Field(default_factory=dict)
+    beneficial_owners: list[dict] = Field(default_factory=list)
+    wallet_addresses: list[dict] = Field(default_factory=list)
+    risk_level: int
+    risk_rationale: str = ""
+    onchain_risk_score: Optional[int] = None
+    onchain_analysis: dict = Field(default_factory=dict)
+    is_pep: bool
+    pep_detail: dict = Field(default_factory=dict)
+    sanctions_cleared: bool
+    sanctions_hits: list[dict] = Field(default_factory=list)
+    kyc_status: str
+    enhanced_dd_required: bool
+    next_review_date: Optional[str] = None
+    status: str
+    created_at: str
+    review_snapshot: CounterpartyReviewSnapshot
+
+
+class CounterpartyHistoryItem(BaseModel):
+    id: uuid.UUID
+    counterparty_id: uuid.UUID
+    changed_by_user_id: uuid.UUID
+    change_type: str
+    field_changed: Optional[str] = None
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    change_reason: Optional[str] = None
+    changed_at: str
+    evidence_hash: str
+
+
+class CounterpartyHistoryResponse(BaseModel):
+    items: list[CounterpartyHistoryItem]
+    total: int
+    limit: int
+    offset: int
+
+
 def _normalize_counterparty_review_status(value: Optional[str]) -> str:
     normalized = (value or "").strip().lower()
     if normalized in {"pending", "in_progress", "completed", "escalated"}:
@@ -1684,6 +1764,118 @@ def _build_counterparty_review_snapshot(row: dict) -> dict[str, Optional[str]]:
         "sof_document_ref": payload["sof_document_ref"],
         "last_reviewed_at": row["last_reviewed_at"].isoformat() if row.get("last_reviewed_at") else None,
     }
+
+
+def _serialize_counterparty_detail(row: dict) -> CounterpartyDetailResponse:
+    review_snapshot = _build_counterparty_review_snapshot(row)
+    registration_data = row.get("registration_data")
+    beneficial_owners = row.get("beneficial_owners")
+    wallet_addresses = row.get("wallet_addresses")
+    onchain_analysis = row.get("onchain_analysis")
+    pep_detail = row.get("pep_detail")
+    sanctions_hits = row.get("sanctions_hits")
+    return CounterpartyDetailResponse(
+        counterparty_id=row["id"],
+        legal_name=row["legal_name"],
+        counterparty_type=row["counterparty_type"],
+        document_type=row["document_type"],
+        document_number=row["document_number"],
+        document_country=row["document_country"],
+        registration_data=registration_data if isinstance(registration_data, dict) else {},
+        beneficial_owners=beneficial_owners if isinstance(beneficial_owners, list) else [],
+        wallet_addresses=wallet_addresses if isinstance(wallet_addresses, list) else [],
+        risk_level=row["risk_level"],
+        risk_rationale=row.get("risk_rationale") or "",
+        onchain_risk_score=row.get("onchain_risk_score"),
+        onchain_analysis=onchain_analysis if isinstance(onchain_analysis, dict) else {},
+        is_pep=bool(row.get("is_pep")),
+        pep_detail=pep_detail if isinstance(pep_detail, dict) else {},
+        sanctions_cleared=bool(row.get("sanctions_cleared")),
+        sanctions_hits=sanctions_hits if isinstance(sanctions_hits, list) else [],
+        kyc_status=row["kyc_status"],
+        enhanced_dd_required=bool(row.get("enhanced_dd_required")),
+        next_review_date=row["next_review_date"].isoformat() if row.get("next_review_date") else None,
+        status=row["status"],
+        created_at=row["created_at"].isoformat(),
+        review_snapshot=CounterpartyReviewSnapshot(
+            dd_review_status=review_snapshot["dd_review_status"] or "pending",
+            dd_review_note=review_snapshot["dd_review_note"] or "",
+            sof_description=review_snapshot["sof_description"] or "",
+            sof_document_ref=review_snapshot["sof_document_ref"] or "",
+            last_reviewed_at=review_snapshot["last_reviewed_at"],
+        ),
+    )
+
+
+def _serialize_counterparty_history_item(row: dict) -> CounterpartyHistoryItem:
+    return CounterpartyHistoryItem(
+        id=row["id"],
+        counterparty_id=row["counterparty_id"],
+        changed_by_user_id=row["changed_by_user_id"],
+        change_type=row["change_type"],
+        field_changed=row.get("field_changed"),
+        old_value=row.get("old_value"),
+        new_value=row.get("new_value"),
+        change_reason=row.get("change_reason"),
+        changed_at=row["changed_at"].isoformat(),
+        evidence_hash=row["evidence_hash"],
+    )
+
+
+def _require_block_read_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=BLOCK_EVALUATE_ALLOWED_ROLES,
+        detail="preventive_block_read_role_required",
+        resource_type="preventive_block",
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _serialize_block_list_item(row: dict) -> BlockListItem:
+    sanctions_hits = row.get("sanctions_hits")
+    matched_lists = [
+        str(hit.get("list_name") or "").strip()
+        for hit in sanctions_hits
+        if isinstance(hit, dict) and str(hit.get("list_name") or "").strip()
+    ] if isinstance(sanctions_hits, list) else []
+    confidence = row.get("decision_confidence")
+    return BlockListItem(
+        block_id=row["id"],
+        case_id=row.get("case_id"),
+        address=row["target_address"],
+        chain=row["target_chain"],
+        action=row["block_action"],
+        review_status=row["review_status"],
+        status=row["status"],
+        regulatory_basis=list(row.get("regulatory_basis") or []),
+        matched_lists=matched_lists,
+        decision_confidence=float(confidence) if confidence is not None else 0.0,
+        requires_coaf_report=bool(row.get("coaf_ros_required")),
+        evidence_hash=row["evidence_hash"],
+        screened_at=row["block_timestamp"].isoformat(),
+        lifted_at=row["lifted_at"].isoformat() if row.get("lifted_at") else None,
+        lifted_reason=row.get("lifted_reason"),
+        review_note=row.get("review_note"),
+    )
 
 
 @app.get("/health")
@@ -2849,6 +3041,92 @@ async def evaluate_block(
     )
 
 
+@app.get("/api/v1/compliance/blocks", response_model=BlockListResponse)
+async def list_blocks(
+    pool: ConnectionPool = Depends(get_pool),
+    limit: int = Query(default=100, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    status: Optional[str] = Query(default=None),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> BlockListResponse:
+    org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_block_read_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_id=None,
+        endpoint="/api/v1/compliance/blocks",
+        method="GET",
+    )
+
+    normalized_status = status.strip().upper() if isinstance(status, str) and status.strip() else None
+    where_clauses = ["organization_id = %s"]
+    params: list[object] = [org_id]
+    if normalized_status:
+        where_clauses.append("status = %s")
+        params.append(normalized_status)
+
+    where_sql = " AND ".join(where_clauses)
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT COUNT(*) AS total
+                FROM preventive_blocks
+                WHERE {where_sql}
+                """,
+                tuple(params),
+            )
+            total = int(cur.fetchone()["total"])
+            cur.execute(
+                f"""
+                SELECT
+                    id,
+                    case_id,
+                    target_address,
+                    target_chain,
+                    block_action,
+                    review_status,
+                    status,
+                    regulatory_basis,
+                    sanctions_hits,
+                    decision_confidence,
+                    coaf_ros_required,
+                    evidence_hash,
+                    block_timestamp,
+                    lifted_at,
+                    lifted_reason,
+                    review_note
+                FROM preventive_blocks
+                WHERE {where_sql}
+                ORDER BY block_timestamp DESC, id DESC
+                LIMIT %s OFFSET %s
+                """,
+                tuple([*params, limit, offset]),
+            )
+            rows = cur.fetchall()
+
+    return BlockListResponse(
+        items=[_serialize_block_list_item(row) for row in rows],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
 @app.post("/api/v1/compliance/blocks/{block_id}/lift", response_model=BlockLiftResponse)
 async def lift_block(
     block_id: uuid.UUID,
@@ -3217,6 +3495,161 @@ async def list_counterparties(
             )
         )
     return CounterpartyListResponse(items=items, total=total)
+
+
+@app.get("/api/v1/compliance/counterparties/{counterparty_id}", response_model=CounterpartyDetailResponse)
+async def get_counterparty_detail(
+    counterparty_id: uuid.UUID,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> CounterpartyDetailResponse:
+    org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_counterparty_read_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_id=counterparty_id,
+        endpoint="/api/v1/compliance/counterparties/{counterparty_id}",
+        method="GET",
+    )
+
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    id,
+                    legal_name,
+                    counterparty_type,
+                    document_type,
+                    document_number,
+                    document_country,
+                    registration_data,
+                    beneficial_owners,
+                    wallet_addresses,
+                    risk_level,
+                    risk_rationale,
+                    onchain_risk_score,
+                    onchain_analysis,
+                    is_pep,
+                    pep_detail,
+                    sanctions_cleared,
+                    sanctions_hits,
+                    kyc_status,
+                    enhanced_dd_required,
+                    enhanced_dd_status,
+                    enhanced_dd_findings,
+                    enhanced_dd_checklist,
+                    next_review_date,
+                    last_reviewed_at,
+                    status,
+                    created_at
+                FROM counterparties
+                WHERE id = %s
+                  AND organization_id = %s
+                """,
+                (str(counterparty_id), org_id),
+            )
+            row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="counterparty_not_found")
+    return _serialize_counterparty_detail(row)
+
+
+@app.get("/api/v1/compliance/counterparties/{counterparty_id}/history", response_model=CounterpartyHistoryResponse)
+async def list_counterparty_history(
+    counterparty_id: uuid.UUID,
+    pool: ConnectionPool = Depends(get_pool),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> CounterpartyHistoryResponse:
+    org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_counterparty_review_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_id=counterparty_id,
+        endpoint="/api/v1/compliance/counterparties/{counterparty_id}/history",
+        method="GET",
+    )
+
+    rows: list[dict] = []
+    total = 0
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM counterparties WHERE id = %s AND organization_id = %s",
+                (str(counterparty_id), org_id),
+            )
+            if not cur.fetchone():
+                raise HTTPException(status_code=404, detail="counterparty_not_found")
+
+            cur.execute(
+                """
+                SELECT COUNT(*) AS total
+                FROM counterparty_history
+                WHERE counterparty_id = %s
+                  AND organization_id = %s
+                """,
+                (str(counterparty_id), org_id),
+            )
+            total = int(cur.fetchone()["total"])
+            cur.execute(
+                """
+                SELECT
+                    id,
+                    counterparty_id,
+                    changed_by_user_id,
+                    change_type,
+                    field_changed,
+                    old_value,
+                    new_value,
+                    change_reason,
+                    changed_at,
+                    evidence_hash
+                FROM counterparty_history
+                WHERE counterparty_id = %s
+                  AND organization_id = %s
+                ORDER BY changed_at DESC, id DESC
+                LIMIT %s OFFSET %s
+                """,
+                (str(counterparty_id), org_id, limit, offset),
+            )
+            rows = cur.fetchall()
+
+    return CounterpartyHistoryResponse(
+        items=[_serialize_counterparty_history_item(row) for row in rows],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @app.patch("/api/v1/compliance/counterparties/{counterparty_id}/review", response_model=CounterpartyReviewResponse)

@@ -1598,7 +1598,7 @@ export default function TeamPage() {
             </button>
           </div>
           {notice ? <Message tone="success">{notice}</Message> : null}
-          {rosterError ? <Message tone="error">{rosterError}</Message> : null}
+          {rosterError ? <Message tone="error" data-testid="team-roster-message">{rosterError}</Message> : null}
         </form>
 
         <div className="otc-controls otc-controls--spaced">
@@ -1687,9 +1687,9 @@ export default function TeamPage() {
             </tbody>
           </table>
         ) : rosterLoading ? (
-          <Message>{t("common.loading")}</Message>
-        ) : (
-          <Message>{tr("team.roster.table.empty" as MessageKey)}</Message>
+          <Message data-testid="team-roster-message">{t("common.loading")}</Message>
+        ) : rosterError ? null : (
+          <Message data-testid="team-roster-message">{tr("team.roster.table.empty" as MessageKey)}</Message>
         )}
       </Panel>
 

@@ -1,38 +1,6 @@
 import { cookies } from "next/headers";
-import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
-import { buildStandaloneShowcaseEvidenceExportBundle } from "../../../../lib/standalone-showcase";
 
 export async function POST(request: Request) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    const payload = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-    const resourceId = typeof payload?.resource_id === "string" ? payload.resource_id : "showcase-resource";
-    const bundle = buildStandaloneShowcaseEvidenceExportBundle({
-      format: typeof payload?.format === "string" ? payload.format : "json",
-      request_id: typeof payload?.request_id === "string" ? payload.request_id : null,
-      action: typeof payload?.action === "string" ? payload.action : null,
-      resource_type: typeof payload?.resource_type === "string" ? payload.resource_type : null,
-      report_id: typeof payload?.report_id === "string" ? payload.report_id : null,
-      resource_id: typeof payload?.resource_id === "string" ? payload.resource_id : null,
-      limit: typeof payload?.limit === "number" ? payload.limit : null,
-      include_audit_logs: payload?.include_audit_logs !== false,
-      include_credit_ledger: payload?.include_credit_ledger !== false,
-      include_reports: payload?.include_reports !== false
-    });
-    return new Response(
-      JSON.stringify(
-        bundle,
-        null,
-        2
-      ),
-      {
-        status: 200,
-        headers: {
-          "content-type": "application/json",
-          "content-disposition": `attachment; filename="ontrackchain-evidence-bundle-${resourceId}.json"`
-        }
-      }
-    );
-  }
 
   const token = cookies().get("otc_token")?.value;
   if (!token) {

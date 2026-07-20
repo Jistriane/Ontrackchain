@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -276,7 +277,7 @@ def main() -> int:
     args = parse_args()
 
     prepare_cmd = [
-        "python",
+        sys.executable,
         "scripts/prepare_staging_window.py",
         "--window-id",
         args.window_id,
@@ -288,7 +289,7 @@ def main() -> int:
         "--preflight",
     ]
     run_cmd = [
-        "python",
+        sys.executable,
         "scripts/run_staging_window.py",
         "--window-id",
         args.window_id,
@@ -296,7 +297,7 @@ def main() -> int:
         args.private_env_file,
     ]
     validate_cmd = [
-        "python",
+        sys.executable,
         "scripts/validate_serious_window_artifact.py",
         "--window-id",
         args.window_id,

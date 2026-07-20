@@ -277,11 +277,6 @@ Requisitos:
 
 Erros relevantes:
 
-- `403 counterparty_create_role_required`
-- `403 linked_user_required_for_counterparty_creation`
-
-Erros relevantes:
-
 - `403 block_evaluate_role_required`
 
 Request:
@@ -317,6 +312,59 @@ Response:
   "evidence_hash": "sha256",
   "block_id": "uuid",
   "screened_at": "2026-07-01T12:00:00+00:00"
+}
+```
+
+### `GET /api/v1/compliance/blocks`
+
+Uso:
+
+- listar o feed oficial backend-first de `preventive_blocks` para o cockpit `/blocks`
+- o frontend combina essa resposta com `operations/work-items` apenas para enriquecimento operacional (`owner`, prazo, timeline), sem substituir a fonte oficial do histórico
+
+Requisitos:
+
+- `X-Org-Id` valido
+- role `ADMIN|ANALYST|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`
+- quando a role nao atende, o backend persiste `authorization_denied` com `request_id`, `effective_role`, `allowed_roles` e endpoint
+
+Erros relevantes:
+
+- `403 preventive_block_read_role_required`
+
+Query:
+
+- `limit` opcional, default `100`, max `200`
+- `offset` opcional, default `0`
+- `status` opcional para filtrar snapshots por `preventive_blocks.status`
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "block_id": "bb86c0d1-1b7e-55dd-8e6b-a8f4318fb91f",
+      "case_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      "address": "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+      "chain": "ethereum",
+      "action": "BLOCK_AND_ALERT",
+      "review_status": "CONFIRMED",
+      "status": "CONFIRMED",
+      "regulatory_basis": ["OFAC corroborated hit", "Internal policy OTC-HIGH-RISK-07"],
+      "matched_lists": ["OFAC", "EU"],
+      "decision_confidence": 0.94,
+      "requires_coaf_report": true,
+      "evidence_hash": "hash-block-1",
+      "screened_at": "2026-07-15T18:35:00+00:00",
+      "lifted_at": null,
+      "lifted_reason": null,
+      "review_note": "Persistido no snapshot oficial do backend."
+    }
+  ],
+  "total": 1,
+  "limit": 100,
+  "offset": 0
 }
 ```
 
@@ -399,6 +447,34 @@ Comportamento atual:
 - exige `X-Role` regulatorio compativel (`ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `OTK_COMPLIANCE_OFFICER`, `REVIEWER`, `OTK_REVIEWER`)
 - retorna `403 counterparty_read_role_required` quando a sessao nao possui leitura operacional regulatoria
 - persiste `authorization_denied` auditado com `request_id`, `effective_role`, `allowed_roles` e endpoint quando a role nao atende
+
+### `GET /api/v1/compliance/counterparties/{counterparty_id}`
+
+Uso:
+
+- carregar o dossie oficial da contraparte, incluindo snapshot regulatorio e revisao DD/SoF consolidada
+
+Comportamento atual:
+
+- retorna identificacao, classificacao de risco, carteiras vinculadas, snapshot KYC/KYB, hits de sancoes e `review_snapshot`
+- exige `X-Role` compativel com leitura operacional (`ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `OTK_COMPLIANCE_OFFICER`, `REVIEWER`, `OTK_REVIEWER`)
+- retorna `404 counterparty_not_found` quando a contraparte nao existe no tenant
+- retorna `403 counterparty_read_role_required` quando a sessao nao possui leitura operacional regulatoria
+
+### `GET /api/v1/compliance/counterparties/{counterparty_id}/history`
+
+Uso:
+
+- listar a trilha formal DD/SoF persistida em `counterparty_history` para a contraparte selecionada
+
+Comportamento atual:
+
+- pagina por `limit/offset`
+- retorna `change_type`, `field_changed`, valores antigo/novo, motivo, `changed_at`, `changed_by_user_id` e `evidence_hash`
+- exige `X-Role` regulatorio de revisao (`ADMIN`, `COMPLIANCE_OFFICER`, `OTK_COMPLIANCE_OFFICER`, `REVIEWER`, `OTK_REVIEWER`)
+- `ANALYST` preserva a leitura operacional da carteira/detalhe, mas nao recebe o historico formal DD/SoF
+- retorna `404 counterparty_not_found` quando a contraparte nao existe no tenant
+- retorna `403 counterparty_review_role_required` quando a sessao nao possui autorizacao regulatoria de revisao
 
 ## Report API
 
@@ -1563,6 +1639,9 @@ Comportamento atual:
 - roda no `compliance-api`
 - aplica `RLS` por `organization_id`
 - suporta o bootstrap atual do frontend em `sanctions` e `alerts`
+- quando `module=blocks` ou `resource_type=preventive_block`, exige leitura operacional de compliance (`ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `OTK_COMPLIANCE_OFFICER`)
+- se a role nao pertencer a esse recorte, retorna `403 preventive_block_read_role_required` e persiste `authorization_denied`
+- quando a consulta nao filtra `resource_type`, roles fora do recorte de `preventive_block` recebem a lista compartilhada sem os itens de bloqueio preventivo
 
 Query params relevantes:
 
@@ -1676,6 +1755,11 @@ Uso:
 
 - recuperar timeline operacional de transicoes e eventos do work-item
 
+Comportamento atual:
+
+- aplica o mesmo gate semantico da listagem para `preventive_block`
+- retorna `403 preventive_block_read_role_required` quando a role nao pertence ao recorte operacional de compliance para o item solicitado
+
 ### `POST /api/v1/operations/work-items/{work_item_id}/comments`
 
 Uso:
@@ -1687,6 +1771,44 @@ Leitura canonica atual do frontend:
 - `/sanctions` consome `GET/POST/PATCH /work-items` como fonte primaria da fila operacional
 - `/alerts` consome `GET/POST/PATCH /work-items` para rastrear incidentes e encerrar o item compartilhado ao fazer `ack`
 - `/blocks`, `/reports`, `/evidence`, `/counterparties` e `/ros-coaf` agora compartilham a mesma base tipada de transporte de `work-items`, reduzindo drift de `metadata`
+
+## Public API
+
+### `GET /public/chains/supported`
+
+Uso:
+
+- consultar dinamicamente a lista de redes blockchain suportadas, tempos de bloco e recursos ativos
+
+Comportamento atual:
+
+- endpoint sem necessidade de autenticação privada
+- protegido por rate-limiter por IP (`rl:public:<ip>`, max 10 requisições/hora)
+- retorna lista estruturada com `chain`, `name`, `status`, `avg_block_time_seconds`, `is_evm` e `supported_features`
+- responde com cabeçalhos de cache CDN (`Cache-Control: public, max-age=300`)
+
+### `GET /public/sanctions/check/{address}`
+
+Uso:
+
+- triagem pública instantânea de sanções sem expor dados internos de tenant ou auditoria privada
+
+Comportamento atual:
+
+- consulta o cache local sincronizado de listas restritivas
+- responde `provider=sanctions_lists_cache` e `provider_status=live`
+- protegido por rate-limiter por IP (`rl:public:<ip>`)
+
+### `GET /public/wallet/{address}`
+
+Uso:
+
+- detalhamento básico de wallet para consulta pública pré-onboarding
+
+Comportamento atual:
+
+- retorna escopo `basic_bitcoin` para Bitcoin e `evm_first` para redes EVM
+- indica `provider_hint` apropriado (`blockchair_oklink` ou `alchemy_etherscan`)
 
 ## Erros Relevantes
 
@@ -1718,3 +1840,5 @@ Leitura canonica atual do frontend:
 
 - degradacao honesta e parte do contrato do produto atual; ausencia de score nao e bug quando a capability e manual ou depende de provider nao homologado
 - `sanctions-check` direto e o catalogo de operacoes agora convergem para `live` via cache local sincronizado
+- endpoints públicos sob `/public/*` aplicam rate limiting rigoroso e cabeçalhos de otimização CDN por padrão
+

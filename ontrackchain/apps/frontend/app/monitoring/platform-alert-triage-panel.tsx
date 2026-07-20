@@ -33,6 +33,7 @@ type PlatformAlertTriagePanelProps = {
   exportPlatformAlerts: (scope: "filtered" | "selected") => void;
   platformAlertPage: number;
   platformAlertTotalPages: number;
+  platformAlertLoadError: string | null;
   goToPreviousPlatformAlertsPage: () => void;
   goToNextPlatformAlertsPage: () => void;
   platformAlertCursorHistoryLength: number;
@@ -79,6 +80,7 @@ export function PlatformAlertTriagePanel({
   exportPlatformAlerts,
   platformAlertPage,
   platformAlertTotalPages,
+  platformAlertLoadError,
   goToPreviousPlatformAlertsPage,
   goToNextPlatformAlertsPage,
   platformAlertCursorHistoryLength,
@@ -274,7 +276,11 @@ export function PlatformAlertTriagePanel({
         </div>
       ) : null}
 
-      {platformOperationalAlerts ? (
+      {platformAlertLoadError ? (
+        <div data-testid="platform-alert-load-error" className="otc-monitoring-banner">
+          <Message tone="error">{platformAlertLoadError}</Message>
+        </div>
+      ) : platformOperationalAlerts ? (
         platformOperationalAlerts.data.length ? (
           <div className="otc-monitoring-grid otc-monitoring-banner">
             {canSelectPlatformAlerts ? (

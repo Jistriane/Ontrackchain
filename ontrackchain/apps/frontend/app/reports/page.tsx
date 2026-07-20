@@ -542,12 +542,14 @@ export default function ReportsPage() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const [catalog, setCatalog] = useState<ReportTypeItem[]>([]);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
   const [catalogFilterAvailability, setCatalogFilterAvailability] = useState("available");
   const [catalogFilterPlan, setCatalogFilterPlan] = useState("all");
   const [catalogSearch, setCatalogSearch] = useState("");
   const [selectedReportType, setSelectedReportType] = useState("");
 
   const [cases, setCases] = useState<CaseRow[]>([]);
+  const [casesError, setCasesError] = useState<string | null>(null);
   const [casesPage, setCasesPage] = useState(1);
   const [casesLimit, setCasesLimit] = useState(20);
   const [casesChainFilter, setCasesChainFilter] = useState("all");
@@ -555,6 +557,7 @@ export default function ReportsPage() {
   const [casesSearch, setCasesSearch] = useState("");
   const [openCaseId, setOpenCaseId] = useState("");
   const [workspace, setWorkspace] = useState<ReportWorkspaceRecord[]>([]);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [historySearch, setHistorySearch] = useState("");
   const [historyReportIdFilter, setHistoryReportIdFilter] = useState("");
   const [historyTypeFilter, setHistoryTypeFilter] = useState("all");
@@ -566,6 +569,7 @@ export default function ReportsPage() {
   const [loadingReportDetail, setLoadingReportDetail] = useState(false);
   const [linkedRosId, setLinkedRosId] = useState<string | null>(null);
   const [linkedRosLoading, setLinkedRosLoading] = useState(false);
+  const [linkedRosError, setLinkedRosError] = useState<string | null>(null);
   const [exportingEvidenceBundle, setExportingEvidenceBundle] = useState(false);
   const [exportingFormalDossier, setExportingFormalDossier] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
@@ -573,6 +577,7 @@ export default function ReportsPage() {
   const [historyTotal, setHistoryTotal] = useState(0);
   const [historyHasMore, setHistoryHasMore] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const canExportSensitiveReportArtifacts = canExportSensitiveEvidence(authContext?.role);
   const canReadSelectedReportDetail = canReadReportDetail(authContext?.role);
   const selectedReportRequiresStrongAuth = selectedReportDetail?.report_type === "legal_report";
@@ -939,13 +944,14 @@ export default function ReportsPage() {
     const data = (await res.json().catch(() => null)) as ReportWorkItemListResponse | { error?: string; detail?: unknown } | null;
     if (!res.ok) {
       setWorkspace(localRecords);
-      setError(resolveApiErrorMessage(t, data, tr("reports.workspace.errorSync" as MessageKey)));
+      setWorkspaceError(resolveApiErrorMessage(t, data, tr("reports.workspace.errorSync" as MessageKey)));
       return;
     }
 
     const items = data && "data" in data && Array.isArray(data.data) ? data.data : [];
     const serverRecords = items.map((item) => mapWorkItemToWorkspaceRecord(item));
     setWorkspace(mergeWorkspaceRecords(serverRecords, localRecords));
+    setWorkspaceError(null);
   }
 
   async function hydrateWorkspaceByReportExternalId(reportExternalId: string) {
@@ -961,12 +967,13 @@ export default function ReportsPage() {
   async function loadCatalog() {
     setLoadingCatalog(true);
     setError(null);
+    setCatalogError(null);
     setNotice(null);
     try {
       const res = await fetch("/api/app/report-types?include_unavailable=true&include_deprecated=true", { cache: "no-store" });
       const data = (await res.json().catch(() => null)) as ReportTypesResponse | { error?: string; detail?: unknown } | null;
       if (!res.ok) {
-        setError(resolveApiErrorMessage(t, data, tr("reports.errorLoadCatalog" as MessageKey)));
+        setCatalogError(resolveApiErrorMessage(t, data, tr("reports.errorLoadCatalog" as MessageKey)));
         setCatalog([]);
         setLoadingCatalog(false);
         return;
@@ -983,10 +990,11 @@ export default function ReportsPage() {
           deprecated: Boolean(item.deprecated)
         }))
       );
+      setCatalogError(null);
       setLoadingCatalog(false);
     } catch (err) {
       setCatalog([]);
-      setError(err instanceof Error ? err.message : tr("reports.errorLoadCatalog" as MessageKey));
+      setCatalogError(err instanceof Error ? err.message : tr("reports.errorLoadCatalog" as MessageKey));
       setLoadingCatalog(false);
     }
   }
@@ -1001,6 +1009,7 @@ export default function ReportsPage() {
   ) {
     setLoadingCases(true);
     setError(null);
+    setCasesError(null);
     setNotice(null);
     const effectiveLimit = overrides?.limit ?? casesLimit;
     const effectiveChainFilter = overrides?.chainFilter ?? casesChainFilter;
@@ -1014,7 +1023,7 @@ export default function ReportsPage() {
       const res = await fetch(`/api/app/investigation/cases?${params.toString()}`, { cache: "no-store" });
       const data = (await res.json().catch(() => null)) as CasesResponse | { error?: string; detail?: unknown } | null;
       if (!res.ok) {
-        setError(resolveApiErrorMessage(t, data, tr("reports.errorLoadCases" as MessageKey)));
+        setCasesError(resolveApiErrorMessage(t, data, tr("reports.errorLoadCases" as MessageKey)));
         setCases([]);
         setLoadingCases(false);
         return;
@@ -1023,10 +1032,11 @@ export default function ReportsPage() {
       setCases(rows);
       setCasesPage(Number((data as CasesResponse).page ?? page));
       setCasesLimit(Number((data as CasesResponse).limit ?? effectiveLimit));
+      setCasesError(null);
       setLoadingCases(false);
     } catch (err) {
       setCases([]);
-      setError(err instanceof Error ? err.message : tr("reports.errorLoadCases" as MessageKey));
+      setCasesError(err instanceof Error ? err.message : tr("reports.errorLoadCases" as MessageKey));
       setLoadingCases(false);
     }
   }
@@ -1043,7 +1053,7 @@ export default function ReportsPage() {
     }
   ) {
     setLoadingHistory(true);
-    setError(null);
+    setHistoryError(null);
     const effectiveLimit = overrides?.limit ?? historyLimit;
     const effectiveReportId = (overrides?.reportId ?? historyReportIdFilter).trim();
     const effectiveReportType = overrides?.reportType ?? historyTypeFilter;
@@ -1074,7 +1084,7 @@ export default function ReportsPage() {
       const res = await fetch(`/api/app/reports/list?${params.toString()}`, { cache: "no-store" });
       const data = (await res.json().catch(() => null)) as ReportHistoryResponse | { error?: string; detail?: unknown } | null;
       if (!res.ok) {
-        setError(resolveApiErrorMessage(t, data, tr("reports.history.empty" as MessageKey)));
+        setHistoryError(resolveApiErrorMessage(t, data, tr("reports.history.errorLoad" as MessageKey)));
         setHistoryRows([]);
         setLoadingHistory(false);
         return;
@@ -1089,7 +1099,7 @@ export default function ReportsPage() {
       setLoadingHistory(false);
     } catch (err) {
       setHistoryRows([]);
-      setError(err instanceof Error ? err.message : tr("reports.history.empty" as MessageKey));
+      setHistoryError(err instanceof Error ? err.message : tr("reports.history.errorLoad" as MessageKey));
       setLoadingHistory(false);
     }
   }
@@ -1242,9 +1252,10 @@ export default function ReportsPage() {
     void loadReportHistory(1);
     const localRecords: ReportWorkspaceRecord[] = [];
     setWorkspace(localRecords);
+    setWorkspaceError(null);
     loadOperationalWorkspace(localRecords).catch(() => {
       setWorkspace(localRecords);
-      setError(tr("reports.workspace.errorSync" as MessageKey));
+      setWorkspaceError(tr("reports.workspace.errorSync" as MessageKey));
     });
 
     fetchAuthContext()
@@ -1421,26 +1432,33 @@ export default function ReportsPage() {
     if (!reportId || reportType !== "coaf_ready_report") {
       setLinkedRosId(null);
       setLinkedRosLoading(false);
+      setLinkedRosError(null);
       return;
     }
 
     setLinkedRosLoading(true);
+    setLinkedRosError(null);
     fetch(`/api/app/reports/${encodeURIComponent(reportId)}/ros-coaf-ref`, { cache: "no-store" })
       .then(async (res) => {
         const data = (await res.json().catch(() => null)) as ReportRosCoafRefResponse | { error?: string; detail?: unknown } | null;
         if (!res.ok) {
           setLinkedRosId(null);
+          setLinkedRosError(
+            res.status === 404 ? null : resolveApiErrorMessage(t, data, tr("reports.detail.errorLoadRosCoaf" as MessageKey))
+          );
           setLinkedRosLoading(false);
           return;
         }
         setLinkedRosId(data && "ros_id" in data && typeof data.ros_id === "string" && data.ros_id.trim() ? data.ros_id.trim() : null);
+        setLinkedRosError(null);
         setLinkedRosLoading(false);
       })
       .catch(() => {
         setLinkedRosId(null);
+        setLinkedRosError(tr("reports.detail.errorLoadRosCoaf" as MessageKey));
         setLinkedRosLoading(false);
       });
-  }, [selectedReportDetail?.report_id, selectedReportDetail?.report_type]);
+  }, [selectedReportDetail?.report_id, selectedReportDetail?.report_type, t, tr]);
 
   useEffect(() => {
     if (!selectedTimelineRecord?.workItemId) {
@@ -1746,8 +1764,14 @@ export default function ReportsPage() {
               ))}
             </tbody>
           </table>
+        ) : catalogError ? (
+          <Message tone="error" data-testid="reports-catalog-message">
+            {catalogError}
+          </Message>
         ) : (
-          <Message>{loadingCatalog ? tr("reports.catalog.loading" as MessageKey) : tr("reports.catalog.empty" as MessageKey)}</Message>
+          <Message data-testid="reports-catalog-message">
+            {loadingCatalog ? tr("reports.catalog.loading" as MessageKey) : tr("reports.catalog.empty" as MessageKey)}
+          </Message>
         )}
 
         <details className="otc-panel otc-controls--spaced">
@@ -1872,6 +1896,11 @@ export default function ReportsPage() {
         </div>
 
         <Panel title={tr("reports.workspace.title" as MessageKey)} description={tr("reports.workspace.description" as MessageKey)}>
+          {workspaceError ? (
+            <Message tone="error" data-testid="reports-workspace-message">
+              {workspaceError}
+            </Message>
+          ) : null}
           {localWorkspaceCount > 0 && serverWorkspaceCount === 0 ? (
             <Message>{tr("reports.workspace.mode.localOnly" as MessageKey, { count: localWorkspaceCount })}</Message>
           ) : null}
@@ -1971,7 +2000,7 @@ export default function ReportsPage() {
                 ))}
               </tbody>
             </table>
-          ) : (
+          ) : workspaceError ? null : (
             <Message>{tr("reports.workspace.empty" as MessageKey)}</Message>
           )}
         </Panel>
@@ -2065,8 +2094,14 @@ export default function ReportsPage() {
               ))}
             </tbody>
           </table>
+        ) : casesError ? (
+          <Message tone="error" data-testid="reports-cases-message">
+            {casesError}
+          </Message>
         ) : (
-          <Message>{loadingCases ? tr("reports.cases.loading" as MessageKey) : tr("reports.cases.empty" as MessageKey)}</Message>
+          <Message data-testid="reports-cases-message">
+            {loadingCases ? tr("reports.cases.loading" as MessageKey) : tr("reports.cases.empty" as MessageKey)}
+          </Message>
         )}
 
         <div className="otc-controls otc-controls--spaced">
@@ -2170,8 +2205,19 @@ export default function ReportsPage() {
           </button>
         </div>
         {(() => {
+          if (historyError) {
+            return (
+              <Message tone="error" data-testid="reports-history-message">
+                {historyError}
+              </Message>
+            );
+          }
           if (!filteredHistoryRows.length) {
-            return <Message>{loadingHistory ? t("common.loading") : tr("reports.history.empty" as MessageKey)}</Message>;
+            return (
+              <Message data-testid="reports-history-message">
+                {loadingHistory ? t("common.loading") : tr("reports.history.empty" as MessageKey)}
+              </Message>
+            );
           }
           return (
             <table className="otc-table otc-table--spaced" data-testid="reports-history-table">
@@ -2287,6 +2333,11 @@ export default function ReportsPage() {
           </div>
         ) : (
           <>
+            {linkedRosError ? (
+              <Message tone="error" data-testid="reports-detail-linked-ros-message">
+                {linkedRosError}
+              </Message>
+            ) : null}
             <div className="otc-controls" data-testid="reports-detail-actions">
               {buildReportContextLinks(
                 buildReportOperationalContext({

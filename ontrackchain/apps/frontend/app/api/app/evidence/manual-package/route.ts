@@ -1,6 +1,4 @@
 import { authenticateRequest, jsonResponse } from "../../operations/_shared";
-import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
-import { exportStandaloneShowcaseEvidenceManualPackage } from "../../../../lib/standalone-showcase";
 import {
   buildEvidenceManualPackageAuditMetadata,
   buildEvidenceManualPackageDocument,
@@ -17,17 +15,6 @@ export async function POST(request: Request) {
     return jsonResponse(JSON.stringify({ error: "invalid_manual_package_payload" }), 422);
   }
 
-  if (isFrontendStandaloneShowcaseMode()) {
-    const exported = await exportStandaloneShowcaseEvidenceManualPackage(payload, requestId);
-    return new Response(JSON.stringify(exported.document, null, 2), {
-      status: 200,
-      headers: {
-        "content-type": "application/json",
-        "content-disposition": `attachment; filename="${exported.filename}"`,
-        "x-ontrack-manual-package-sha256": exported.packageSha256
-      }
-    });
-  }
 
   const auth = await authenticateRequest(requestId);
   if (auth instanceof Response) {

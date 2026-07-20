@@ -782,7 +782,9 @@ export default function EvidenceTrailPage() {
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
   const [linkedRosIdFromReport, setLinkedRosIdFromReport] = useState<string | null>(null);
   const [linkedRosLoading, setLinkedRosLoading] = useState(false);
+  const [linkedRosError, setLinkedRosError] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<EvidenceWorkspaceRecord[]>([]);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [owner, setOwner] = useState("");
   const [priority, setPriority] = useState<WorkspacePriority>("normal");
   const [localDeadline, setLocalDeadline] = useState("");
@@ -833,27 +835,36 @@ export default function EvidenceTrailPage() {
     if (!reportId || Boolean(selectedContext?.rosId)) {
       setLinkedRosIdFromReport(null);
       setLinkedRosLoading(false);
+      setLinkedRosError(null);
       return;
     }
 
     setLinkedRosLoading(true);
+    setLinkedRosError(null);
     fetch(`/api/app/reports/${encodeURIComponent(reportId)}/ros-coaf-ref`, { cache: "no-store" })
       .then(async (res) => {
-        const data = (await res.json().catch(() => null)) as { ros_id?: string | null } | null;
+        const data = (await res.json().catch(() => null)) as
+          | { ros_id?: string | null; error?: string; detail?: unknown }
+          | null;
         if (!res.ok) {
           setLinkedRosIdFromReport(null);
+          setLinkedRosError(
+            res.status === 404 ? null : resolveApiErrorMessage(t, data, tr("evidenceTrail.details.errorLoadRosCoaf" as MessageKey))
+          );
           setLinkedRosLoading(false);
           return;
         }
         const rosIdValue = typeof data?.ros_id === "string" ? data.ros_id.trim() : "";
         setLinkedRosIdFromReport(rosIdValue ? rosIdValue : null);
+        setLinkedRosError(null);
         setLinkedRosLoading(false);
       })
       .catch(() => {
         setLinkedRosIdFromReport(null);
+        setLinkedRosError(tr("evidenceTrail.details.errorLoadRosCoaf" as MessageKey));
         setLinkedRosLoading(false);
       });
-  }, [selectedContext?.reportId, selectedContext?.rosId]);
+  }, [selectedContext?.reportId, selectedContext?.rosId, t, tr]);
   const selectedContextForLinks = useMemo(() => {
     if (!selectedContext) {
       return null;
@@ -1209,13 +1220,14 @@ export default function EvidenceTrailPage() {
     const data = (await res.json().catch(() => null)) as EvidenceWorkItemListResponse | { error?: string; detail?: unknown } | null;
     if (!res.ok) {
       setWorkspace(localRecords);
-      setError(resolveApiErrorMessage(t, data, tr("evidenceTrail.workspace.errorSync" as MessageKey)));
+      setWorkspaceError(resolveApiErrorMessage(t, data, tr("evidenceTrail.workspace.errorSync" as MessageKey)));
       return;
     }
 
     const items = data && "data" in data && Array.isArray(data.data) ? data.data : [];
     const serverRecords = items.map((item) => mapWorkItemToWorkspaceRecord(item));
     setWorkspace(mergeWorkspaceRecords(serverRecords, localRecords));
+    setWorkspaceError(null);
   }
 
   useEffect(() => {
@@ -1223,9 +1235,10 @@ export default function EvidenceTrailPage() {
     setFilters(nextFilters);
     const localRecords: EvidenceWorkspaceRecord[] = [];
     setWorkspace(localRecords);
+    setWorkspaceError(null);
     loadOperationalWorkspace(localRecords).catch(() => {
       setWorkspace(localRecords);
-      setError(tr("evidenceTrail.workspace.errorSync" as MessageKey));
+      setWorkspaceError(tr("evidenceTrail.workspace.errorSync" as MessageKey));
     });
     fetchLogs(nextFilters).catch(() => {
       setError(tr("evidenceTrail.errorLoad" as MessageKey));
@@ -1264,13 +1277,17 @@ export default function EvidenceTrailPage() {
     setManualPackageSealError(null);
     fetch(`/api/app/evidence/manual-package/seal?package_sha256=${encodeURIComponent(packageSha256)}`, { cache: "no-store" })
       .then(async (res) => {
-        const data = (await res.json().catch(() => null)) as ManualPackageSeal | { error?: string } | null;
+        const data = (await res.json().catch(() => null)) as ManualPackageSeal | { error?: string; detail?: unknown } | null;
         if (!active) {
           return;
         }
         if (!res.ok) {
           setManualPackageSeal(null);
-          setManualPackageSealError(res.status === 404 ? null : tr("evidenceTrail.manualPackage.seal.errorLoad" as MessageKey));
+          setManualPackageSealError(
+            res.status === 404
+              ? null
+              : resolveApiErrorMessage(t, data, tr("evidenceTrail.manualPackage.seal.errorLoad" as MessageKey))
+          );
           setManualPackageSealLoading(false);
           return;
         }
@@ -2169,6 +2186,11 @@ export default function EvidenceTrailPage() {
       ) : null}
 
       <Panel title={tr("evidenceTrail.workspace.title" as MessageKey)} description={tr("evidenceTrail.workspace.description" as MessageKey)}>
+        {workspaceError ? (
+          <Message tone="error" data-testid="evidence-workspace-message">
+            {workspaceError}
+          </Message>
+        ) : null}
         {localWorkspaceCount > 0 && serverWorkspaceCount === 0 ? (
           <Message>{tr("evidenceTrail.workspace.mode.localOnly" as MessageKey, { count: localWorkspaceCount })}</Message>
         ) : null}
@@ -2276,7 +2298,7 @@ export default function EvidenceTrailPage() {
               ))}
             </tbody>
           </table>
-        ) : (
+        ) : workspaceError ? null : (
           <Message>{tr("evidenceTrail.workspace.empty" as MessageKey)}</Message>
         )}
       </Panel>
@@ -2353,7 +2375,7 @@ export default function EvidenceTrailPage() {
                 );
               })}
             </div>
-          ) : (
+          ) : error ? null : (
             <Message>{tr("evidenceTrail.events.empty" as MessageKey)}</Message>
           )}
         </Panel>
@@ -3113,6 +3135,11 @@ export default function EvidenceTrailPage() {
                     </a>
                   ))}
                 </div>
+              ) : null}
+              {linkedRosError ? (
+                <Message tone="error" data-testid="evidence-linked-ros-message">
+                  {linkedRosError}
+                </Message>
               ) : null}
               {selectedContext && !canExportEvidenceArtifacts ? <Message>{tr("evidenceTrail.exportsRestricted" as MessageKey)}</Message> : null}
               <CodeBlock>{JSON.stringify(selectedLog.metadata, null, 2)}</CodeBlock>

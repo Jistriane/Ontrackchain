@@ -35,11 +35,23 @@ async function parseJsonResponse(response: Response) {
   return response.json().catch(() => null);
 }
 
+function tryParseJsonText(text: string) {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function throwMonitoringPayload(data: unknown, fallbackCode: string): never {
+  throw (data ?? { detail: fallbackCode });
+}
+
 export async function fetchMonitoringWatchlists() {
   const response = await fetch("/api/app/monitoring/watchlists", { cache: "no-store" });
   const data = await parseJsonResponse(response);
   if (!response.ok) {
-    throw new Error("loadWatchlists");
+    throwMonitoringPayload(data, "loadWatchlists");
   }
   return (data?.data ?? []) as Watchlist[];
 }
@@ -49,7 +61,7 @@ export async function fetchMonitoringAlerts(watchlistId?: string | null) {
   const response = await fetch(`/api/app/monitoring/alerts${query}`, { cache: "no-store" });
   const data = await parseJsonResponse(response);
   if (!response.ok) {
-    throw new Error("loadAlerts");
+    throwMonitoringPayload(data, "loadAlerts");
   }
   return (data?.data ?? []) as Alert[];
 }
@@ -61,7 +73,7 @@ export async function fetchMonitoringWatchlistItems(watchlistId: string, limit =
   );
   const data = await parseJsonResponse(response);
   if (!response.ok) {
-    throw new Error("loadWatchlistItems");
+    throwMonitoringPayload(data, "loadWatchlistItems");
   }
   return (data?.data ?? []) as WatchlistItem[];
 }
@@ -70,7 +82,7 @@ export async function fetchMonitoringOperations() {
   const response = await fetch("/api/app/investigation/operations", { cache: "no-store" });
   const data = await parseJsonResponse(response);
   if (!response.ok) {
-    throw new Error("loadWorkerOperations");
+    throwMonitoringPayload(data, "loadWorkerOperations");
   }
   return data as OperationsSnapshot;
 }
@@ -79,7 +91,7 @@ export async function fetchMonitoringOperationalAlerts() {
   const response = await fetch("/api/app/investigation/alerts", { cache: "no-store" });
   const data = await parseJsonResponse(response);
   if (!response.ok) {
-    throw new Error("loadOperationalAlerts");
+    throwMonitoringPayload(data, "loadOperationalAlerts");
   }
   return data as OperationalAlertsSnapshot;
 }
@@ -88,7 +100,7 @@ export async function fetchMonitoringPlatformAlertFilterOptions() {
   const response = await fetch("/api/app/monitoring/operational-alert-filter-options", { cache: "no-store" });
   const data = await parseJsonResponse(response);
   if (!response.ok) {
-    throw new Error("loadPlatformFilterOptions");
+    throwMonitoringPayload(data, "loadPlatformFilterOptions");
   }
   return data as PlatformOperationalAlertFilterOptions;
 }
@@ -121,7 +133,7 @@ export async function fetchMonitoringPlatformOperationalAlerts(
   const response = await fetch(`/api/app/monitoring/operational-alerts?${params.toString()}`, { cache: "no-store" });
   const data = await parseJsonResponse(response);
   if (!response.ok) {
-    throw new Error("loadPlatformAlerts");
+    throwMonitoringPayload(data, "loadPlatformAlerts");
   }
   return data as PlatformOperationalAlertsSnapshot;
 }
@@ -130,7 +142,7 @@ export async function fetchMonitoringMetricsPreview() {
   const response = await fetch("/api/app/investigation/metrics", { cache: "no-store" });
   const text = await response.text();
   if (!response.ok) {
-    throw new Error("loadMetrics");
+    throwMonitoringPayload(tryParseJsonText(text), "loadMetrics");
   }
   return text;
 }

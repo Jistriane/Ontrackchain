@@ -83,7 +83,8 @@ Observacoes de aceite:
 ### 4. Providers Externos
 
 - antes de qualquer tentativa `P0-02`, `P0-03` ou `P0-04`, `make check-regulatory-window-readiness REGULATORY_SCOPE=<p0-02|p0-03|p0-04>` deve ficar verde
-- esse checker deve falhar quando faltar `.env.staging.private` ou quando o handoff humano de `Compliance/AML` ainda estiver `pending`
+- esse checker deve falhar quando o scaffold privado ainda nao existir ou quando o handoff humano de `Compliance/AML` ainda estiver `pending`, bem como quando as variaveis reais obrigatorias do escopo ainda estiverem ausentes
+- antes de redistribuir o handoff por chat ou runbook, preferir `make run-regulatory-unblock-checklist-local WINDOW_ID=<janela> ...` para consolidar as pendencias de `p0-02/p0-03/p0-04` em um unico artefato por owner
 - `preflight_external_integrations.py` verde para o modo esperado da janela
 - se a janela exigir `AML/KYT live`, `make check-compliance-provider-runtime` deve ficar verde e produzir evidencia anexavel do runtime
 - se a janela exigir feed da UE, `make gate-p0-03-eu-live` com `WINDOW_ID` e `REQUEST_ID` deve persistir os JSONs em `artifacts/staging/checks/`
@@ -96,7 +97,7 @@ Observacoes de aceite:
 Leitura operacional atual:
 
 - a execucao real local de `2026-07-19` mostrou `P0-02`, `P0-03` e `P0-04` em `blocked`
-- o bloqueio dominante atual nao e tecnico de produto: faltam `.env.staging.private` e handoff humano de `Compliance/AML` (`date/status`)
+- o bloqueio dominante atual nao e tecnico de produto: o scaffold privado ja existe, mas `Compliance/AML` segue sem handoff concluido (`date/status`) e sem preencher os valores reais obrigatorios do escopo
 - `P0-02` nao pode seguir para o gate de runtime do provider enquanto o readiness check canônico falhar
 - `P0-03` nao pode seguir para a janela UE enquanto o readiness check canônico falhar
 - `P0-04` nao pode ser tratado como consolidacao futura neutra; ele tambem esta efetivamente bloqueado pelo mesmo prerequisito operacional

@@ -53,6 +53,31 @@ async function seedAuditPage(page: Page, options?: { role?: string }) {
 }
 
 test.describe("audit labels", () => {
+  test("preserva a negacao semantica da leitura auditavel quando a sessao esta ausente", async ({ page }) => {
+    await page.route("**/api/app/auth/context", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-e2e",
+          user_id: "user-e2e",
+          linked_user_id: "linked-e2e",
+          role: "AUDITOR",
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true",
+          two_factor: "ok"
+        })
+      });
+    });
+
+    await page.goto("/audit");
+
+    await expect(page.getByText("Falha ao carregar auditoria: Sua sessão expirou ou não foi autenticada.")).toBeVisible();
+    await expect(page.getByTestId("audit-empty")).toHaveCount(0);
+  });
+
   test("renderiza acao e tipo de recurso com label amigavel e codigo tecnico preservado", async ({ page }) => {
     await seedAuditPage(page);
 
@@ -2022,6 +2047,58 @@ test.describe("audit labels", () => {
         await page.getByTestId("audit-export-ros-dossier").click();
       }
     );
+  });
+
+  test("preserva a negacao semantica ao resolver a referencia ROS/COAF do evento auditavel", async ({ page }) => {
+    await seedAuditPage(page);
+
+    await page.route("**/api/app/audit/logs?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "audit-ros-dossier-03",
+              organization_id: "org-e2e",
+              request_id: "req-audit-ros-03",
+              action: "report_generated",
+              resource_type: "report",
+              resource_id: "rep-audit-ros-03",
+              report_id: "rep-audit-ros-03",
+              actor_user_id: "user-e2e",
+              created_at: "2026-07-07T12:00:00.000Z",
+              metadata: {
+                report_id: "rep-audit-ros-03",
+                request_id: "req-audit-ros-03"
+              }
+            }
+          ],
+          page: 1,
+          count: 1,
+          limit: 50,
+          total: 1,
+          total_pages: 1,
+          has_more: false
+        })
+      });
+    });
+
+    await page.route("**/api/app/reports/rep-audit-ros-03/ros-coaf-ref", async (route: Route) => {
+      await route.fulfill({
+        status: 403,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "report_read_role_required" })
+      });
+    });
+
+    await page.goto("/audit");
+    await page.locator('[data-testid="audit-row"]').first().click();
+
+    await expect(page.getByTestId("audit-linked-ros-message")).toContainText(
+      "A leitura/listagem de relatórios exige papel operacional: ADMIN, AUDITOR, ANALYST ou VIEWER."
+    );
+    await expect(page.getByTestId("audit-export-ros-dossier")).toHaveCount(0);
   });
 
   test("bloqueia export do dossie ROS/COAF na auditoria quando falta linked_user_id persistido", async ({ page }) => {

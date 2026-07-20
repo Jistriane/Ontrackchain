@@ -408,6 +408,24 @@ test.describe("team role labels", () => {
     await expect(page.getByText("team_user_create_role_required")).toHaveCount(0);
   });
 
+  test("preserva a negação semântica da leitura da roster em vez de degradar para diretório vazio", async ({ page }) => {
+    await seedFrontendAuth(page, { role: "ADMIN" });
+
+    await page.route("**/api/app/team/users", async (route: Route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "not_authenticated" })
+      });
+    });
+
+    await page.goto("/team");
+
+    await expect(page.getByTestId("team-roster-message")).toContainText("Sua sessão expirou ou não foi autenticada.");
+    await expect(page.getByTestId("team-roster-message")).not.toContainText("Nenhum usuário retornado pelo diretório do tenant.");
+    await expect(page.getByTestId("team-row")).toHaveCount(0);
+  });
+
   test("humaniza a negação tardia da edição de usuário quando o backend recusa a mutação administrativa", async ({ page }) => {
     await seedTeamPage(page);
 

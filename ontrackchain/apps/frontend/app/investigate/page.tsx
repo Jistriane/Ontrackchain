@@ -34,10 +34,11 @@ export default function InvestigatePage() {
   useEffect(() => {
     fetch("/api/app/report-types?include_unavailable=true&include_deprecated=false", { cache: "no-store" })
       .then(async (r) => {
+        const data = await r.json().catch(() => null);
         if (!r.ok) {
-          throw new Error("report_catalog_unavailable");
+          throw data ?? { error: "report_catalog_unavailable" };
         }
-        return r.json();
+        return data;
       })
       .then((data) => {
         const items = (data?.types ?? []) as any[];
@@ -50,10 +51,10 @@ export default function InvestigatePage() {
         setCatalog(nextCatalog);
         setReportType((current) => (nextCatalog.some((item) => item.canonical === current) ? current : nextCatalog.find((item) => item.available)?.canonical ?? ""));
       })
-      .catch(() => {
+      .catch((err) => {
         setCatalog([]);
         setReportType("");
-        setError(t("investigate.errorLoadReportCatalog"));
+        setError(resolveApiErrorMessage(t, err, t("investigate.errorLoadReportCatalog")));
       });
   }, [t]);
 
@@ -224,7 +225,13 @@ export default function InvestigatePage() {
             </Message>
           )}
         </div>
-        {error ? <div style={{ marginTop: 14 }}><Message tone="error">{error}</Message></div> : null}
+        {error ? (
+          <div style={{ marginTop: 14 }}>
+            <Message tone="error">
+              <span data-testid="investigate-error-message">{error}</span>
+            </Message>
+          </div>
+        ) : null}
       </Panel>
 
       {quote ? (

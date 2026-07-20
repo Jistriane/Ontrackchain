@@ -1,7 +1,7 @@
 import { expect, test, type Route } from "@playwright/test";
 
 test.describe("case report type fallback", () => {
-  test("preserva fallback amigavel quando o catalogo de tipos nao carrega", async ({ page }) => {
+  test("preserva fallback amigavel e expõe negacao semantica quando o catalogo de tipos nao carrega", async ({ page }) => {
     await page.context().addCookies([
       {
         name: "otc_token",
@@ -24,9 +24,9 @@ test.describe("case report type fallback", () => {
 
     await page.route("**/api/app/report-types?**", async (route: Route) => {
       await route.fulfill({
-        status: 500,
+        status: 401,
         contentType: "application/json",
-        body: JSON.stringify({ error: "catalog_unavailable" })
+        body: JSON.stringify({ detail: "not_authenticated" })
       });
     });
 
@@ -35,6 +35,7 @@ test.describe("case report type fallback", () => {
     await expect(page.locator('[data-testid="case-report-type-select"] option[value="technical_basic"]')).toHaveText(
       "Technical Basic (technical_basic)"
     );
+    await expect(page.getByTestId("case-report-type-message")).toContainText("Sua sessão expirou ou não foi autenticada.");
     await expect(page.getByText("Technical Basic (technical_basic)").first()).toBeVisible();
   });
 });

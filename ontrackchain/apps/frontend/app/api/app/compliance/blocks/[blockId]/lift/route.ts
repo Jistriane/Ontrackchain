@@ -1,24 +1,8 @@
 import { cookies } from "next/headers";
-import { isFrontendStandaloneShowcaseMode } from "../../../../../../lib/auth-runtime";
-import { liftStandaloneShowcaseBlock } from "../../../../../../lib/standalone-showcase";
 
 export async function POST(request: Request, context: { params: Promise<{ blockId: string }> }) {
   const { blockId } = await context.params;
   const body = await request.text();
-  if (isFrontendStandaloneShowcaseMode()) {
-    const payload = JSON.parse(body || "{}") as { reason?: string | null };
-    const lifted = liftStandaloneShowcaseBlock(blockId, payload);
-    if (!lifted) {
-      return new Response(JSON.stringify({ error: "block_not_found" }), {
-        status: 404,
-        headers: { "content-type": "application/json" }
-      });
-    }
-    return new Response(JSON.stringify(lifted), {
-      status: 200,
-      headers: { "content-type": "application/json" }
-    });
-  }
 
   const token = cookies().get("otc_token")?.value;
   if (!token) {

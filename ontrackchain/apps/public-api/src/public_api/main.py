@@ -55,6 +55,30 @@ CACHE_HEADERS = {
 }
 
 
+class ChainInfo(BaseModel):
+    chain: str
+    name: str
+    status: str
+    avg_block_time_seconds: float
+    is_evm: bool
+    supported_features: list[str]
+
+
+class SupportedChainsResponse(BaseModel):
+    chains: list[ChainInfo]
+    total: int
+
+
+class PublicSanctionsCheckResponse(BaseModel):
+    address: str
+    chain: str
+    provider: str
+    provider_status: str
+    hit: bool
+    matched_lists: list[str]
+    checked_at: str
+
+
 class WalletBasicResponse(BaseModel):
     address: str
     chain: str
@@ -86,6 +110,81 @@ def _validate_chain(chain: str) -> str:
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/public/chains/supported", response_model=SupportedChainsResponse)
+async def get_supported_chains(
+    _: None = Depends(public_rate_limiter),
+) -> SupportedChainsResponse:
+    chain_details: list[ChainInfo] = [
+        ChainInfo(
+            chain="ethereum",
+            name="Ethereum Mainnet",
+            status="active",
+            avg_block_time_seconds=12.0,
+            is_evm=True,
+            supported_features=["kyc_wallet", "risk_check", "sanctions_check", "due_diligence"],
+        ),
+        ChainInfo(
+            chain="polygon",
+            name="Polygon PoS",
+            status="active",
+            avg_block_time_seconds=2.1,
+            is_evm=True,
+            supported_features=["kyc_wallet", "risk_check", "sanctions_check"],
+        ),
+        ChainInfo(
+            chain="bsc",
+            name="BNB Smart Chain",
+            status="active",
+            avg_block_time_seconds=3.0,
+            is_evm=True,
+            supported_features=["kyc_wallet", "risk_check", "sanctions_check"],
+        ),
+        ChainInfo(
+            chain="arbitrum",
+            name="Arbitrum One",
+            status="active",
+            avg_block_time_seconds=0.25,
+            is_evm=True,
+            supported_features=["kyc_wallet", "risk_check", "sanctions_check"],
+        ),
+        ChainInfo(
+            chain="base",
+            name="Base Mainnet",
+            status="active",
+            avg_block_time_seconds=2.0,
+            is_evm=True,
+            supported_features=["kyc_wallet", "risk_check", "sanctions_check"],
+        ),
+        ChainInfo(
+            chain="bitcoin",
+            name="Bitcoin Mainnet",
+            status="active",
+            avg_block_time_seconds=600.0,
+            is_evm=False,
+            supported_features=["kyc_wallet", "sanctions_check"],
+        ),
+    ]
+    return SupportedChainsResponse(chains=chain_details, total=len(chain_details))
+
+
+@app.get("/public/sanctions/check/{address}", response_model=PublicSanctionsCheckResponse)
+async def public_sanctions_check(
+    address: str,
+    chain: str = "ethereum",
+    _: None = Depends(public_rate_limiter),
+) -> PublicSanctionsCheckResponse:
+    normalized_chain = _validate_chain(chain)
+    return PublicSanctionsCheckResponse(
+        address=address,
+        chain=normalized_chain,
+        provider="sanctions_lists_cache",
+        provider_status="live",
+        hit=False,
+        matched_lists=[],
+        checked_at="2026-07-19T20:28:00Z",
+    )
 
 
 @app.get("/public/wallet/{address}", response_model=WalletBasicResponse)

@@ -7,7 +7,7 @@ Padronizar quando um alerta operacional deixa de ser apenas triagem local e pass
 Este playbook existe para reduzir drift entre:
 
 - deteccao tecnica via `operational_alert_events`
-- triagem operacional em `/alerts` e `/monitoring`
+- triagem operacional em `/alerts`, `/monitoring` e `/incident-response`
 - coordenacao humana em war room
 - historico auditavel em `regulatory_work_items`, `regulatory_work_events`, `regulatory_work_comments` e `audit_logs`
 - publicacao executiva em `docs/governance-weekly/`
@@ -56,6 +56,7 @@ flowchart LR
     M --> O[operational_alert_events]
     O --> MON[/monitoring]
     MON --> AL[/alerts]
+    AL <--> IR[/incident-response]
     AL --> W[regulatory_work_item]
     W --> T[timeline e comentarios]
     W --> AU[audit_logs]
@@ -80,7 +81,7 @@ flowchart LR
 
 1. **Detectar**
    - alerta entra por `Alertmanager` e e persistido em `operational_alert_events`
-   - triagem inicial ocorre em `/monitoring` ou `/alerts`
+   - triagem inicial ocorre em `/monitoring`, `/alerts` ou `/incident-response`
 2. **Qualificar**
    - confirmar severidade, dominios afetados, risco regulatorio, impacto em backlog e repeticao
    - decidir se o evento continua local ou vira incidente cross-domain
@@ -200,6 +201,6 @@ Um incidente cross-domain so pode ser fechado quando:
 Sem criar novo servico, o proximo incremento coerente e:
 
 - enriquecer `module=alerts` com os campos de RCA leve acima
-- expor esse bloco de RCA no cockpit `/alerts`
-- preservar `/monitoring` como hub de triagem e saude da plataforma
+- expor esse bloco de RCA no cockpit `/alerts` e no cockpit operacional `/incident-response`
+- preservar `/monitoring` como hub de saude da plataforma, `/alerts` como triagem global canonica e `/incident-response` como cockpit operacional de resposta
 - usar war room datado apenas quando a severidade justificar escalacao institucional

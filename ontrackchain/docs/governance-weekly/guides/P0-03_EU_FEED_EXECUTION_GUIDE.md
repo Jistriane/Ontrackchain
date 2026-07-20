@@ -28,7 +28,7 @@ Concentrar em um unico artefato o rito minimo para mover `P0-03` de `blocked` pa
 - a URL `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` nao aparece em arquivo versionado
 - o baseline local nao prova feed UE real sem override serio de ambiente
 - a janela nao pode promover maturidade sem JSONs persistidos e checker pos-sync verde
-- a execucao real local de `2026-07-19` confirmou o bloqueio atual por `.env.staging.private` ausente e `Compliance/AML.date/status` pendentes
+- a execucao real local mais recente de `2026-07-19` confirmou que o scaffold privado ja existe, mas `P0-03` segue `blocked` por `Compliance/AML.date/status` pendentes, `DATABASE_URL` ausente e `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` ainda placeholder/nao-tokenizada
 
 ## Requisitos Minimos
 

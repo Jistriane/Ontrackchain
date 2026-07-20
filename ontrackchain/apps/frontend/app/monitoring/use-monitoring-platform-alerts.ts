@@ -86,6 +86,7 @@ export function useMonitoringPlatformAlerts({
   const [platformAlertCursor, setPlatformAlertCursor] = useState<string | null>(null);
   const [platformAlertCursorHistory, setPlatformAlertCursorHistory] = useState<Array<string | null>>([]);
   const [platformAlertMessage, setPlatformAlertMessage] = useState<string | null>(null);
+  const [platformAlertLoadError, setPlatformAlertLoadError] = useState<string | null>(null);
   const [acknowledgingPlatformAlertId, setAcknowledgingPlatformAlertId] = useState<string | null>(null);
   const [acknowledgingPlatformAlertsBatch, setAcknowledgingPlatformAlertsBatch] = useState(false);
   const [exportingPlatformAlerts, setExportingPlatformAlerts] = useState<"filtered" | "selected" | null>(null);
@@ -131,8 +132,10 @@ export function useMonitoringPlatformAlerts({
     try {
       const data = await fetchMonitoringPlatformAlertFilterOptions();
       setPlatformAlertFilterOptions(data);
-    } catch {
-      setError(t("monitoring.errors.loadPlatformFilterOptions"));
+    } catch (error) {
+      const message = resolveApiErrorMessage(t, error, t("monitoring.errors.loadPlatformFilterOptions"));
+      setPlatformAlertLoadError(message);
+      setError(message);
     }
   }
 
@@ -147,6 +150,7 @@ export function useMonitoringPlatformAlerts({
     const requestId = platformAlertsRequestIdRef.current + 1;
     platformAlertsRequestIdRef.current = requestId;
     try {
+      setPlatformAlertLoadError(null);
       const data = await fetchMonitoringPlatformOperationalAlerts(
         currentPlatformAlertFilters(status, triageStatus, service, receiver, severity),
         cursor
@@ -170,20 +174,28 @@ export function useMonitoringPlatformAlerts({
       if (requestId !== platformAlertsRequestIdRef.current) {
         return;
       }
-      const workItemsData = (await workItemsResponse.json().catch(() => null)) as WorkItemListResponse<AlertsWorkItemMetadata> | null;
+      const workItemsData = (await workItemsResponse.json().catch(() => null)) as
+        | WorkItemListResponse<AlertsWorkItemMetadata>
+        | { error?: string; detail?: unknown }
+        | null;
       if (!workItemsResponse.ok) {
-        setError(t("monitoring.errors.loadPlatformTrackedAlerts" as MessageKey));
+        setPlatformAlertTrackedWorkItems({});
+        setError(resolveApiErrorMessage(t, workItemsData, t("monitoring.errors.loadPlatformTrackedAlerts" as MessageKey)));
       } else {
+        const trackedItems = (workItemsData as WorkItemListResponse<AlertsWorkItemMetadata> | null)?.data ?? [];
         const nextTrackedItems = Object.fromEntries(
-          (workItemsData?.data ?? []).map((item) => [item.resource_id, item] satisfies [string, WorkItemResponse<AlertsWorkItemMetadata>])
+          trackedItems.map((item) => [item.resource_id, item] satisfies [string, WorkItemResponse<AlertsWorkItemMetadata>])
         );
         setPlatformAlertTrackedWorkItems(nextTrackedItems);
       }
-    } catch {
+    } catch (error) {
       if (requestId !== platformAlertsRequestIdRef.current) {
         return;
       }
-      setError(t("monitoring.errors.loadPlatformAlerts"));
+      const message = resolveApiErrorMessage(t, error, t("monitoring.errors.loadPlatformAlerts"));
+      setPlatformAlertLoadError(message);
+      setPlatformOperationalAlerts(null);
+      setError(message);
       return;
     }
   }
@@ -193,8 +205,9 @@ export function useMonitoringPlatformAlerts({
     try {
       const text = await fetchMonitoringMetricsPreview();
       setMetricsText(text);
-    } catch {
-      setError(t("monitoring.errors.loadMetrics"));
+    } catch (error) {
+      setMetricsText("");
+      setError(resolveApiErrorMessage(t, error, t("monitoring.errors.loadMetrics")));
     }
   }
 
@@ -208,6 +221,7 @@ export function useMonitoringPlatformAlerts({
       setMetricsText("");
       setPlatformAlertFilterOptions(null);
       setPlatformAlertMessage(null);
+      setPlatformAlertLoadError(null);
       setPlatformAlertConfirmDialogState(null);
       setSelectedPlatformAlertIds([]);
       setPlatformAlertSelectionHydrated(true);
@@ -220,6 +234,7 @@ export function useMonitoringPlatformAlerts({
       setPlatformAlertSelectionScope(null);
       setPlatformAlertCursor(null);
       setPlatformAlertCursorHistory([]);
+      setPlatformAlertLoadError(null);
 
       loadPlatformOperationalAlertFilterOptions().catch(() => setError(t("monitoring.errors.loadPlatformFilterOptions")));
       const filters = currentPlatformAlertFiltersFromState();
@@ -250,6 +265,7 @@ export function useMonitoringPlatformAlerts({
     setPlatformAlertCursor(initialSelection.cursor);
     setPlatformAlertCursorHistory(initialSelection.cursorHistory);
     setSelectedPlatformAlertIds(initialSelection.selectedIds);
+    setPlatformAlertLoadError(null);
     platformAlertFiltersRef.current = currentPlatformAlertFilters(
       "all",
       initialSelection.triageStatus,
@@ -764,6 +780,7 @@ export function useMonitoringPlatformAlerts({
     metricsText,
     refreshMetricsPreview,
     platformOperationalAlerts,
+    platformAlertLoadError,
     platformAlertTrackedWorkItems,
     platformAlertStatusFilter,
     platformAlertTriageFilter,

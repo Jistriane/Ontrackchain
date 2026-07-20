@@ -1,6 +1,4 @@
 import { cookies } from "next/headers";
-import { isFrontendStandaloneShowcaseMode } from "../../../../../../lib/auth-runtime";
-import { requeueStandaloneShowcaseDlqCase } from "../../../../../../lib/standalone-showcase";
 
 type RouteContext = {
   params: Promise<{
@@ -9,21 +7,6 @@ type RouteContext = {
 };
 
 export async function POST(request: Request, context: RouteContext) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    const { caseId } = await context.params;
-    const payload = (await request.json().catch(() => null)) as { reason?: string | null } | null;
-    const requeued = requeueStandaloneShowcaseDlqCase(caseId, payload ?? {});
-    if (!requeued) {
-      return new Response(JSON.stringify({ error: "dlq_case_not_found" }), {
-        status: 404,
-        headers: { "content-type": "application/json" }
-      });
-    }
-    return new Response(JSON.stringify(requeued), {
-      status: 200,
-      headers: { "content-type": "application/json" }
-    });
-  }
 
   const token = cookies().get("otc_token")?.value;
   if (!token) {

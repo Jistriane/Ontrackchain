@@ -1,32 +1,6 @@
 import { cookies } from "next/headers";
-import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
-import { buildStandaloneShowcaseQuote } from "../../../../lib/standalone-showcase";
 
 export async function POST(request: Request) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    const payload = (await request.json().catch(() => null)) as
-      | { address?: string; chains?: string[]; report_type?: string }
-      | null;
-    if (!payload?.address?.trim()) {
-      return new Response(JSON.stringify({ error: "invalid_address" }), {
-        status: 422,
-        headers: { "content-type": "application/json" }
-      });
-    }
-    return new Response(
-      JSON.stringify(
-        buildStandaloneShowcaseQuote({
-          address: payload.address,
-          chains: payload.chains,
-          report_type: payload.report_type
-        })
-      ),
-      {
-      status: 200,
-      headers: { "content-type": "application/json" }
-      }
-    );
-  }
 
   const token = cookies().get("otc_token")?.value;
   if (!token) {

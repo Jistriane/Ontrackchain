@@ -10,13 +10,19 @@ ROOT = Path(__file__).resolve().parents[1]
 IGNORED_PARTS = {"node_modules", ".next", "__pycache__", "playwright-report", "test-results"}
 ALLOWED_EXACT_PATHS = {
     Path(".env.example"),
+    Path(".env.oidc-local.example"),
     Path("docker-compose.yml"),
+    Path("docker-compose.oidc-local.yml"),
     Path("apps/auth-service/src/auth_service/main.py"),
     Path("infra/keycloak/realm-ontrackchain.json"),
+    Path("infra/keycloak/README.md"),
     Path("scripts/smoke_runtime.py"),
     Path("scripts/smoke_work_items_ownership.py"),
     Path("scripts/smoke_work_items_ownership_backend.py"),
     Path("scripts/check_security_baseline.py"),
+    Path("scripts/preflight_external_integrations.py"),
+    Path("scripts/preflight_oidc_serious_env.py"),
+    Path("tests/test_preflight_guards.py"),
     Path("apps/frontend/tests/e2e/totp.ts"),
 }
 ALLOWED_PREFIXES = (Path("docs"),)

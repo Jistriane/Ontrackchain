@@ -1,7 +1,5 @@
 export type AuthMode = "dev" | "oidc";
-export type FrontendDeploymentModel = "render-full-stack-staging" | "render-frontend-only-demo" | "render-frontend-standalone-showcase";
-
-const HOSTED_SHOWCASE_FALLBACK_REQUIRED_KEYS = ["INTERNAL_AUTH_BASE_URL", "INTERNAL_KEYCLOAK_BASE_URL"] as const;
+export type FrontendDeploymentModel = "render-full-stack-staging" | "render-frontend-only-demo";
 
 function parseBoolean(value: string | undefined): boolean | null {
   if (!value) {
@@ -60,55 +58,22 @@ export function isConfiguredDevAuthButDisabled(env: NodeJS.ProcessEnv = process.
 }
 
 export function isFrontendStandaloneDemoMode(env: NodeJS.ProcessEnv = process.env): boolean {
-  const configured = parseBoolean(
-    env.FRONTEND_STANDALONE_DEMO_MODE ??
-      env.NEXT_PUBLIC_FRONTEND_STANDALONE_DEMO_MODE ??
-      env.NEXT_PUBLIC_FRONTEND_DEMO_MODE
-  );
-  return configured === true;
-}
-
-function isExplicitFrontendStandaloneShowcaseMode(env: NodeJS.ProcessEnv = process.env): boolean {
-  const configured = parseBoolean(
-    env.FRONTEND_STANDALONE_SHOWCASE_MODE ??
-      env.NEXT_PUBLIC_FRONTEND_STANDALONE_SHOWCASE_MODE ??
-      env.FRONTEND_STANDALONE_DEMO_MODE ??
-      env.NEXT_PUBLIC_FRONTEND_STANDALONE_DEMO_MODE ??
-      env.NEXT_PUBLIC_FRONTEND_DEMO_MODE
-  );
-  return configured === true;
+  return false;
 }
 
 export function isHostedStandaloneShowcaseFallback(env: NodeJS.ProcessEnv = process.env): boolean {
-  if (isExplicitFrontendStandaloneShowcaseMode(env) || isFrontendStandaloneDemoMode(env)) {
-    return false;
-  }
-
-  const appEnv = resolveAppEnv(env);
-  if (appEnv !== "test" && appEnv !== "staging" && appEnv !== "production") {
-    return false;
-  }
-
-  return HOSTED_SHOWCASE_FALLBACK_REQUIRED_KEYS.some((key) => {
-    const value = env[key];
-    return typeof value !== "string" || value.trim().length === 0;
-  });
+  return false;
 }
 
 export function isFrontendStandaloneShowcaseMode(env: NodeJS.ProcessEnv = process.env): boolean {
-  return isExplicitFrontendStandaloneShowcaseMode(env) || isHostedStandaloneShowcaseFallback(env);
+  return false;
 }
 
 export function isFrontendStandaloneRuntime(env: NodeJS.ProcessEnv = process.env): boolean {
-  return isFrontendStandaloneShowcaseMode(env) || isFrontendStandaloneDemoMode(env);
+  return false;
 }
 
 export function resolveFrontendDeploymentModel(env: NodeJS.ProcessEnv = process.env): FrontendDeploymentModel {
-  if (isFrontendStandaloneShowcaseMode(env)) {
-    return "render-frontend-standalone-showcase";
-  }
-  if (isFrontendStandaloneDemoMode(env)) {
-    return "render-frontend-only-demo";
-  }
   return "render-full-stack-staging";
 }
+

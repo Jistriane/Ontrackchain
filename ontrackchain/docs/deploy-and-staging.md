@@ -509,7 +509,7 @@ Observacao:
 
 - o baseline `local` do repositório usa `COMPLIANCE_TRM_ENABLED=false` e `INVESTIGATION_RPC_ENABLED=false`
 - por isso, `status=ok` para `homologation_external_evidence.py` e meta de `staging|production`, nao de scaffold local sem overrides serios
-- na execucao real local de `2026-07-19`, `P0-02`, `P0-03` e `P0-04` falharam antes do runtime por ausencia de `.env.staging.private` e handoff pendente de `Compliance/AML`
+- na execucao real local mais recente de `2026-07-19`, `P0-02`, `P0-03` e `P0-04` seguiram falhando antes do runtime, mas o bloqueio ja evoluiu: o scaffold de `.env.staging.private` foi materializado e agora os gargalos sao o handoff pendente de `Compliance/AML` e os placeholders/variaveis reais especificos de cada escopo
 
 ### Regressao opcional de auth local
 

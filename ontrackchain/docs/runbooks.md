@@ -752,7 +752,7 @@ curl -H 'X-API-Key: otc_live_demo_key' -H 'X-Role: ADMIN' http://localhost:8080/
 
 ### Runbook 19 — Triagem manual de incidente global nao persiste — Sinais
 
-- a UI `/monitoring` exibe incidente, mas o botao `Reconhecer` falha
+- a UI `/incident-response` exibe incidente, mas o botao `Reconhecer` falha
 - `GET /api/v1/monitoring/admin/operational-alerts` nao retorna `triage_status`
 - o incidente continua como `pending` mesmo apos acknowledge
 

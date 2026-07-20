@@ -49,6 +49,8 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
             oidc_bundle_summary = base / "oidc-bundle.md"
             regulatory_bundle = base / "regulatory-bundle.json"
             regulatory_bundle_summary = base / "regulatory-bundle.md"
+            regulatory_unblock = base / "regulatory-unblock.json"
+            regulatory_unblock_summary = base / "regulatory-unblock.md"
 
             window_packet.write_text("# Packet\n", encoding="utf-8")
             _write_json(
@@ -177,6 +179,21 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                 },
             )
             regulatory_bundle_summary.write_text("# Regulatory Bundle\n", encoding="utf-8")
+            _write_json(
+                regulatory_unblock,
+                {
+                    "kind": "regulatory_unblock_checklist",
+                    "status": "failed",
+                    "blocking_classification": "regulatory_blocked",
+                    "summary": {
+                        "blocked_scopes": ["p0-02", "p0-03", "p0-04"],
+                        "owner_action_groups_count": 2,
+                        "dominant_blocking_summary": "Todos os escopos regulatórios seguem bloqueados por handoff pendente e/ou variáveis reais ausentes.",
+                    },
+                    "next_steps": ["Atualizar handoff."],
+                },
+            )
+            regulatory_unblock_summary.write_text("# Regulatory Unblock\n", encoding="utf-8")
 
             payload = MODULE.build_dossier_payload(
                 window_id="stg-2026-06-29-a",
@@ -190,6 +207,8 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                 oidc_readiness_bundle_summary=oidc_bundle_summary,
                 regulatory_readiness_bundle=regulatory_bundle,
                 regulatory_readiness_bundle_summary=regulatory_bundle_summary,
+                regulatory_unblock_checklist=regulatory_unblock,
+                regulatory_unblock_checklist_summary=regulatory_unblock_summary,
                 generated_at="2026-06-29T12:00:00+00:00",
             )
 
@@ -248,6 +267,11 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
         )
         self.assertIn("oidc_readiness_bundle_summary", payload["artifacts"])
         self.assertIn("regulatory_readiness_bundle_summary", payload["artifacts"])
+        self.assertIn("regulatory_unblock_checklist", payload["artifacts"])
+        self.assertEqual(
+            payload["summaries"]["regulatory_unblock_checklist"]["owner_action_groups_count"],
+            2,
+        )
         self.assertIn("sha256", payload["artifacts"]["window_packet"])
 
     def test_build_payload_normalizes_partial_regulatory_scope(self) -> None:
@@ -323,6 +347,8 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                 oidc_readiness_bundle_summary=None,
                 regulatory_readiness_bundle=regulatory_bundle,
                 regulatory_readiness_bundle_summary=regulatory_bundle_summary,
+                regulatory_unblock_checklist=None,
+                regulatory_unblock_checklist_summary=None,
                 generated_at="2026-06-29T12:00:00+00:00",
             )
 
@@ -352,6 +378,8 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                 oidc_readiness_bundle_summary=base / "missing-oidc-bundle.md",
                 regulatory_readiness_bundle=base / "missing-regulatory-bundle.json",
                 regulatory_readiness_bundle_summary=base / "missing-regulatory-bundle.md",
+                regulatory_unblock_checklist=base / "missing-regulatory-unblock.json",
+                regulatory_unblock_checklist_summary=base / "missing-regulatory-unblock.md",
                 generated_at="2026-06-29T12:00:00+00:00",
             )
 
@@ -371,6 +399,8 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
             oidc_bundle_summary = base / "oidc-bundle.md"
             regulatory_bundle = base / "regulatory-bundle.json"
             regulatory_bundle_summary = base / "regulatory-bundle.md"
+            regulatory_unblock = base / "regulatory-unblock.json"
+            regulatory_unblock_summary = base / "regulatory-unblock.md"
             output_dir = base / "dossiers"
 
             window_packet.write_text("# Packet\n", encoding="utf-8")
@@ -383,6 +413,8 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
             oidc_bundle_summary.write_text("# OIDC Bundle\n", encoding="utf-8")
             _write_json(regulatory_bundle, {"kind": "regulatory_readiness_bundle", "status": "ok", "scope": {}, "steps": {}})
             regulatory_bundle_summary.write_text("# Regulatory Bundle\n", encoding="utf-8")
+            _write_json(regulatory_unblock, {"kind": "regulatory_unblock_checklist", "status": "failed", "summary": {}})
+            regulatory_unblock_summary.write_text("# Regulatory Unblock\n", encoding="utf-8")
 
             stdout = io.StringIO()
             with patch.object(
@@ -412,6 +444,10 @@ class BuildStagingReleaseDossierTests(unittest.TestCase):
                     str(regulatory_bundle),
                     "--regulatory-readiness-bundle-summary",
                     str(regulatory_bundle_summary),
+                    "--regulatory-unblock-checklist",
+                    str(regulatory_unblock),
+                    "--regulatory-unblock-checklist-summary",
+                    str(regulatory_unblock_summary),
                     "--output-dir",
                     str(output_dir),
                     "--generated-at",

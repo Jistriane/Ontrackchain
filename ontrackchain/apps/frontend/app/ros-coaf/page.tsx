@@ -891,8 +891,10 @@ export default function RosCoafPage() {
   const [authContext, setAuthContext] = useState<AuthContext | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-
+  const [workspaceOfficialError, setWorkspaceOfficialError] = useState<string | null>(null);
+  const [workspaceOperationalError, setWorkspaceOperationalError] = useState<string | null>(null);
   const [draft, setDraft] = useState<GenerateRosCoafResponse | null>(null);
+
   const [approval, setApproval] = useState<ApproveRosCoafResponse | null>(null);
   const [submission, setSubmission] = useState<SubmitRosCoafResponse | null>(null);
   const [workspaceRecords, setWorkspaceRecords] = useState<RosWorkspaceRecord[]>([]);
@@ -1102,34 +1104,43 @@ export default function RosCoafPage() {
     let mergedRecords = [...localRecords];
     let officialLoaded = false;
     let operationalLoaded = false;
+    let nextOfficialError: string | null = null;
+    let nextOperationalError: string | null = null;
 
     try {
       const officialRecords = await loadOfficialWorkspace();
       mergedRecords = mergeOfficialWorkspaceRecords(mergedRecords, officialRecords);
       officialLoaded = true;
-    } catch {
-      // Ignore official drift here; operational workspace can still provide the shared queue.
+    } catch (err) {
+      nextOfficialError =
+        err instanceof Error ? err.message : tr("rosCoaf.workspace.errorLoadOfficial" as MessageKey);
     }
 
     try {
       const operationalRecords = await loadOperationalWorkspace();
       mergedRecords = mergeWorkspaceRecords(operationalRecords, mergedRecords);
       operationalLoaded = true;
-    } catch {
-      // Shared queue unavailable; handled after both attempts complete.
+    } catch (err) {
+      nextOperationalError = err instanceof Error ? err.message : tr("rosCoaf.workspace.errorSync" as MessageKey);
     }
 
     setWorkspaceRecords(mergedRecords);
+    setWorkspaceOfficialError(nextOfficialError);
+    setWorkspaceOperationalError(nextOperationalError);
     if (!officialLoaded && !operationalLoaded) {
-      setError(tr("rosCoaf.workspace.errorSync" as MessageKey));
+      setError(nextOfficialError ?? nextOperationalError ?? tr("rosCoaf.workspace.errorSync" as MessageKey));
     }
   }
 
   useEffect(() => {
     const localRecords: RosWorkspaceRecord[] = [];
     setWorkspaceRecords(localRecords);
+    setWorkspaceOfficialError(null);
+    setWorkspaceOperationalError(null);
     hydrateWorkspace(localRecords).catch(() => {
       setWorkspaceRecords(localRecords);
+      setWorkspaceOfficialError(null);
+      setWorkspaceOperationalError(null);
       setError(tr("rosCoaf.workspace.errorSync" as MessageKey));
     });
 
@@ -1664,6 +1675,16 @@ export default function RosCoafPage() {
       </Panel>
 
       <Panel title={tr("rosCoaf.workspace.title" as MessageKey)} description={tr("rosCoaf.workspace.description" as MessageKey)}>
+        {workspaceOfficialError ? (
+          <Message tone="error" data-testid="roscoaf-workspace-message">
+            {workspaceOfficialError}
+          </Message>
+        ) : null}
+        {workspaceOperationalError ? (
+          <Message tone="error" data-testid="roscoaf-workspace-sync-message">
+            {workspaceOperationalError}
+          </Message>
+        ) : null}
         {localWorkspaceCount > 0 && serverWorkspaceCount === 0 ? (
           <Message>{tr("rosCoaf.workspace.mode.localOnly" as MessageKey, { count: localWorkspaceCount })}</Message>
         ) : null}

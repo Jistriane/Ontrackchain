@@ -15,6 +15,9 @@ type InvestigationOperationsPanelProps = {
   refreshOperationalAlerts: () => void;
   refreshMetricsPreview: () => void;
   metricsText: string;
+  handoffAlertId?: string | null;
+  handoffAlertName?: string | null;
+  handoffSeverity?: string | null;
 };
 
 const manualPackageMfaAuditHref =
@@ -34,8 +37,15 @@ export function InvestigationOperationsPanel({
   operationalAlerts,
   refreshOperationalAlerts,
   refreshMetricsPreview,
-  metricsText
+  metricsText,
+  handoffAlertId = null,
+  handoffAlertName = null,
+  handoffSeverity = null
 }: InvestigationOperationsPanelProps) {
+  const visibleOperationalAlerts = operationalAlerts
+    ? operationalAlerts.alerts.filter((alert) => alert.status === "open" && (!handoffSeverity || alert.severity === handoffSeverity))
+    : [];
+
   return (
     <>
       <Panel title={t("monitoring.worker.title")}>
@@ -166,6 +176,17 @@ export function InvestigationOperationsPanel({
           </Message>
         ) : (
           <>
+        {handoffAlertId || handoffAlertName || handoffSeverity ? (
+          <div className="otc-monitoring-banner" data-testid="worker-operational-alert-handoff">
+            <Message>
+              {t("incidentResponse.handoff.contextSummary" as MessageKey, {
+                alertId: handoffAlertId || t("common.notAvailable"),
+                alertName: handoffAlertName || t("common.notAvailable"),
+                severity: handoffSeverity || t("common.notAvailable")
+              })}
+            </Message>
+          </div>
+        ) : null}
         <div className="otc-controls">
           <button type="button" data-testid="worker-alerts-refresh-btn" onClick={refreshOperationalAlerts} className="otc-button otc-button--ghost">
             {t("monitoring.worker.refreshAlerts")}
@@ -185,14 +206,12 @@ export function InvestigationOperationsPanel({
         </div>
 
         {operationalAlerts ? (
-          operationalAlerts.alerts.filter((alert) => alert.status === "open").length ? (
+          visibleOperationalAlerts.length ? (
             <div className="otc-monitoring-grid otc-monitoring-banner">
-              {operationalAlerts.alerts
-                .filter((alert) => alert.status === "open")
-                .map((alert) => (
+              {visibleOperationalAlerts.map((alert) => (
                   <div
                     key={alert.code}
-                    data-testid="worker-operational-alert"
+                    data-testid={`worker-operational-alert-${alert.code}`}
                     className={`otc-monitoring-card ${alert.severity === "critical" ? "otc-monitoring-card--danger" : "otc-monitoring-card--warning"}`}
                   >
                     <div className="otc-monitoring-row">
@@ -215,7 +234,11 @@ export function InvestigationOperationsPanel({
           ) : (
             <div className="otc-monitoring-banner">
               <div data-testid="worker-operational-alert-empty">
-                <Message>{t("monitoring.worker.openAlertEmpty")}</Message>
+                <Message>
+                  {handoffSeverity
+                    ? t("incidentResponse.handoff.noSeverityMatch" as MessageKey, { severity: handoffSeverity })
+                    : t("monitoring.worker.openAlertEmpty")}
+                </Message>
               </div>
             </div>
           )

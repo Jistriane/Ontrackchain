@@ -17,6 +17,7 @@ Este diretorio concentra as Architectural Decision Records do scaffold atual.
 - [ADR-011 — Hardening Estatico de Contratos Visuais do Frontend](./ADR-011-hardening-estatico-de-contratos-visuais-do-frontend.md)
 - [ADR-012 — Selagem Institucional Forte para Pacotes Manuais DD/SoF](./ADR-012-selagem-institucional-forte-para-pacotes-manuais-dd-sof.md)
 - [ADR-013 — Digest Canonico do Export no Showcase E2E](./ADR-013-digest-canonico-do-export-no-showcase-e2e.md)
+- [ADR-014 — Expansão da Public API e Rate Limiting por IP com Cache CDN](./ADR-014-expansao-da-public-api-e-rate-limiting.md)
 
 ## Como usar
 

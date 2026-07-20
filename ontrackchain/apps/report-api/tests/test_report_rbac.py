@@ -64,6 +64,7 @@ class _FakeAuditCursor:
                 content_type,
                 file_hash,
                 onchain_hash,
+                created_at,
                 metadata_json,
             ) = params_tuple
             existing = next(
@@ -79,6 +80,7 @@ class _FakeAuditCursor:
                 "content_type": str(content_type),
                 "file_hash": str(file_hash),
                 "onchain_hash": onchain_hash,
+                "created_at": created_at,
                 "metadata": json.loads(metadata_json),
             }
             if existing is None:
@@ -86,6 +88,17 @@ class _FakeAuditCursor:
             else:
                 existing.update(payload)
             self._fetchone = None
+            return
+
+        if normalized_query == (
+            "SELECT case_id, external_report_id, report_type, report_type_requested, content_type, created_at, metadata "
+            "FROM reports WHERE external_report_id = %s"
+        ):
+            external_report_id = str(params_tuple[0])
+            self._fetchone = next(
+                (row for row in self.state["reports"] if row["external_report_id"] == external_report_id),
+                None,
+            )
             return
 
         raise AssertionError(f"Query nao suportada no fake: {normalized_query}")
@@ -180,6 +193,13 @@ class ReportRbacTests(unittest.TestCase):
                     x_user_id="11111111-1111-1111-1111-111111111111",
                     x_role="TESTER",
                     x_request_id="req-report-list-tester",
+                    page=1,
+                    limit=20,
+                    report_id=None,
+                    case_id=None,
+                    report_type=None,
+                    created_from=None,
+                    created_to=None,
                 )
             )
 
@@ -220,12 +240,12 @@ class ReportRbacTests(unittest.TestCase):
 
     def test_download_report_rejects_viewer_and_records_denial(self) -> None:
         state, pool = self._build_state()
-        report_id = main._compute_report_id("case-1", "technical")
+        report_id = main._compute_report_id("case-1", "technical_basic")
         state["reports"] = [
             {
                 "case_id": "case-1",
                 "external_report_id": report_id,
-                "report_type": "technical",
+                "report_type": "technical_basic",
                 "report_type_requested": "technical",
                 "content_type": "application/pdf",
                 "created_at": "2026-07-15T10:00:00Z",
@@ -258,7 +278,7 @@ class ReportRbacTests(unittest.TestCase):
         self.assertEqual(log_entry["metadata"]["request_id"], "req-report-download-viewer")
         self.assertEqual(log_entry["metadata"]["effective_role"], "VIEWER")
         self.assertEqual(log_entry["metadata"]["effective_role"], "VIEWER")
-        self.assertEqual(log_entry["metadata"]["resource_reference_id"], "case-1")
+        self.assertEqual(log_entry["metadata"]["resource_reference_id"], report_id)
 
     def test_get_report_rejects_viewer_and_records_denial(self) -> None:
         state, pool = self._build_state()
@@ -394,7 +414,8 @@ class ReportRbacTests(unittest.TestCase):
         log_entry = state["audit_logs"][0]
         self.assertEqual(log_entry["action"], "authorization_denied")
         self.assertEqual(log_entry["resource_type"], "ros_record")
-        self.assertEqual(log_entry["resource_id"], "ros-2")
+        self.assertIsNone(log_entry["resource_id"])
+        self.assertEqual(log_entry["metadata"]["resource_reference_id"], "ros-2")
         self.assertEqual(log_entry["metadata"]["effective_role"], "VIEWER")
         self.assertEqual(log_entry["metadata"]["detail"], "coaf_report_review_role_required")
 
@@ -422,7 +443,8 @@ class ReportRbacTests(unittest.TestCase):
         log_entry = state["audit_logs"][0]
         self.assertEqual(log_entry["action"], "authorization_denied")
         self.assertEqual(log_entry["resource_type"], "ros_record")
-        self.assertEqual(log_entry["resource_id"], "ros-3")
+        self.assertIsNone(log_entry["resource_id"])
+        self.assertEqual(log_entry["metadata"]["resource_reference_id"], "ros-3")
         self.assertEqual(log_entry["metadata"]["effective_role"], "REVIEWER")
         self.assertEqual(log_entry["metadata"]["detail"], "coaf_report_submission_role_required")
 

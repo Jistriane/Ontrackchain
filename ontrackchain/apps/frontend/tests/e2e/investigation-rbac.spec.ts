@@ -106,4 +106,25 @@ test.describe("investigation RBAC", () => {
     await expect(page.locator('[data-testid="quote-credits"]')).toHaveText("12");
     expect(calls.estimate).toBe(1);
   });
+
+  test("analyst recebe negacao semantica ao carregar o catalogo de tipos", async ({ page }) => {
+    await seedFrontendAuth(page, { role: "ANALYST" });
+
+    await page.route("**/api/app/report-types?**", async (route: Route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "not_authenticated" })
+      });
+    });
+
+    await page.goto("/investigate");
+
+    await expect(page.getByTestId("investigate-error-message")).toContainText(
+      "Sua sessão expirou ou não foi autenticada."
+    );
+    await expect(page.locator('[data-testid="report-type"] option[value=""]')).toHaveCount(1);
+    await expect(page.getByTestId("report-type")).toHaveValue("");
+    await expect(page.getByTestId("start-investigation-btn")).toBeDisabled();
+  });
 });

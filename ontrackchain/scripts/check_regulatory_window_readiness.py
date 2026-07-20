@@ -123,6 +123,214 @@ def is_placeholder(value: str) -> bool:
     return bool(PLACEHOLDER_PATTERN.match(value.strip()))
 
 
+def unique_preserve_order(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for item in items:
+        normalized = item.strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        ordered.append(normalized)
+    return ordered
+
+
+def build_owner_map(handoff_payload: dict[str, Any]) -> dict[str, str]:
+    rows = handoff_payload.get("groups") or []
+    owner_map: dict[str, str] = {}
+    for row in rows:
+        group = str(row.get("group") or "").strip()
+        owner = str(row.get("owner") or "").strip()
+        if group and owner:
+            owner_map[group] = owner
+    return owner_map
+
+
+def build_blocking_classification(*, blockers: list[str]) -> str:
+    return "regulatory_blocked" if blockers else "pending_execution"
+
+
+def build_blocking_context(handoff_payload: dict[str, Any], env_payload: dict[str, Any]) -> dict[str, Any]:
+    unresolved_placeholders = [
+        str(name)
+        for name in (env_payload.get("unresolved_placeholders") or [])
+        if str(name).strip()
+    ]
+    invalid_expected_values = [
+        {
+            "name": str(item.get("name") or "").strip(),
+            "expected": str(item.get("expected") or "").strip(),
+            "received": str(item.get("received") or "").strip(),
+        }
+        for item in (env_payload.get("invalid_expected_values") or [])
+        if str(item.get("name") or "").strip()
+    ]
+    invalid_contains_rules = [
+        {
+            "name": str(item.get("name") or "").strip(),
+            "required_fragment": str(item.get("required_fragment") or "").strip(),
+        }
+        for item in (env_payload.get("invalid_contains_rules") or [])
+        if str(item.get("name") or "").strip()
+    ]
+    return {
+        "missing_private_env_file": any(
+            str(error).startswith("arquivo_ausente: ") for error in (env_payload.get("errors") or [])
+        ),
+        "handoff_missing_groups": [
+            str(group)
+            for group in (handoff_payload.get("missing_groups") or [])
+            if str(group).strip()
+        ],
+        "handoff_incomplete_groups": handoff_payload.get("incomplete_groups") or [],
+        "env_missing_required": [
+            str(name)
+            for name in (env_payload.get("missing_required") or [])
+            if str(name).strip()
+        ],
+        "env_empty_required": [
+            str(name)
+            for name in (env_payload.get("empty_required") or [])
+            if str(name).strip()
+        ],
+        "env_unresolved_placeholders": unresolved_placeholders,
+        "env_invalid_expected_values": invalid_expected_values,
+        "env_invalid_https_values": [
+            str(name)
+            for name in (env_payload.get("invalid_https_values") or [])
+            if str(name).strip()
+        ],
+        "env_invalid_contains_rules": invalid_contains_rules,
+    }
+
+
+def build_unblock_actions(
+    *,
+    scope: str,
+    config: ScopeConfig,
+    private_env_file: Path,
+    handoff_payload: dict[str, Any],
+    env_payload: dict[str, Any],
+) -> list[dict[str, Any]]:
+    owner_map = build_owner_map(handoff_payload)
+    actions: list[dict[str, Any]] = []
+    missing_private_env = any(
+        str(error).startswith("arquivo_ausente: ") for error in (env_payload.get("errors") or [])
+    )
+
+    if missing_private_env:
+        actions.append(
+            {
+                "owner_group": "Gate Agregado da Janela",
+                "owner": "Arquiteto/Responsavel Tecnico",
+                "kind": "materialize_private_env",
+                "targets": [str(private_env_file)],
+                "action": (
+                    "Materializar o scaffold privado com "
+                    f"`make materialize-staging-private-env WINDOW_ID=<janela> MODE=baseline PRIVATE_ENV_FILE={private_env_file}` "
+                    "antes de preencher os segredos reais em canal seguro."
+                ),
+            }
+        )
+
+    for incomplete in (handoff_payload.get("incomplete_groups") or []):
+        group = str(incomplete.get("group") or "").strip()
+        missing_fields = [
+            str(field_name)
+            for field_name in (incomplete.get("missing_fields") or [])
+            if str(field_name).strip()
+        ]
+        if not group:
+            continue
+        actions.append(
+            {
+                "owner_group": group,
+                "owner": owner_map.get(group, "owner_nao_mapeado"),
+                "kind": "complete_handoff",
+                "targets": missing_fields,
+                "action": (
+                    "Atualizar `docs/staging-env-ownership.md` em `## Registro de Handoff` "
+                    f"para remover pendencias de `{group}` ({', '.join(missing_fields)})."
+                ),
+            }
+        )
+
+    env_targets = unique_preserve_order(
+        [
+            *[str(name) for name in (env_payload.get("missing_required") or [])],
+            *[str(name) for name in (env_payload.get("empty_required") or [])],
+            *[str(name) for name in (env_payload.get("unresolved_placeholders") or [])],
+            *[
+                str(item.get("name") or "")
+                for item in (env_payload.get("invalid_expected_values") or [])
+            ],
+            *[str(name) for name in (env_payload.get("invalid_https_values") or [])],
+            *[
+                str(item.get("name") or "")
+                for item in (env_payload.get("invalid_contains_rules") or [])
+            ],
+        ]
+    )
+    if env_targets:
+        for group in config["required_groups"]:
+            actions.append(
+                {
+                    "owner_group": group,
+                    "owner": owner_map.get(group, "owner_nao_mapeado"),
+                    "kind": "fill_scope_env",
+                    "targets": env_targets,
+                    "action": (
+                        f"Preencher/corrigir no `{private_env_file}` as variaveis obrigatorias da trilha `{scope}` "
+                        f"sob ownership de `{group}`: {', '.join(env_targets)}."
+                    ),
+                }
+            )
+    return actions
+
+
+def build_blocking_summary(
+    *,
+    scope: str,
+    blocking_context: dict[str, Any],
+    blockers: list[str],
+) -> str:
+    if not blockers:
+        return f"Trilha `{scope}` pronta para execucao; handoff e segredos obrigatorios estao coerentes."
+
+    reasons: list[str] = []
+    if blocking_context["missing_private_env_file"]:
+        reasons.append("`.env.staging.private` ainda nao foi materializado")
+
+    incomplete_groups = [
+        str(item.get("group") or "").strip()
+        for item in blocking_context["handoff_incomplete_groups"]
+        if str(item.get("group") or "").strip()
+    ]
+    if incomplete_groups:
+        reasons.append(f"handoff pendente em {', '.join(unique_preserve_order(incomplete_groups))}")
+    elif blocking_context["handoff_missing_groups"]:
+        reasons.append(
+            "grupos obrigatorios ausentes no handoff: "
+            + ", ".join(unique_preserve_order(blocking_context["handoff_missing_groups"]))
+        )
+
+    env_problem_count = sum(
+        len(blocking_context[key])
+        for key in (
+            "env_missing_required",
+            "env_empty_required",
+            "env_unresolved_placeholders",
+            "env_invalid_expected_values",
+            "env_invalid_https_values",
+            "env_invalid_contains_rules",
+        )
+    )
+    if env_problem_count and not blocking_context["missing_private_env_file"]:
+        reasons.append(f"{env_problem_count} pendencia(s) de configuracao no escopo regulatorio")
+
+    return f"Trilha `{scope}` bloqueada: {'; '.join(reasons)}."
+
+
 def build_env_check(file_path: Path, scope: str, config: ScopeConfig) -> tuple[int, dict[str, Any]]:
     values = parse_env_file(file_path)
     errors: list[str] = []
@@ -227,11 +435,27 @@ def build_payload(*, scope: str, private_env_file: Path, ownership_file: Path) -
     blockers: list[str] = []
     blockers.extend(str(error) for error in (handoff_payload.get("errors") or []) if str(error).strip())
     blockers.extend(str(error) for error in (env_payload.get("errors") or []) if str(error).strip())
+    blocking_context = build_blocking_context(handoff_payload, env_payload)
+    blocking_classification = build_blocking_classification(blockers=blockers)
+    unblock_actions = build_unblock_actions(
+        scope=scope,
+        config=config,
+        private_env_file=private_env_file,
+        handoff_payload=handoff_payload,
+        env_payload=env_payload,
+    )
+    blocking_summary = build_blocking_summary(
+        scope=scope,
+        blocking_context=blocking_context,
+        blockers=blockers,
+    )
 
     if blockers:
         readiness_status = "blocked"
         next_action = (
-            f"Corrigir handoff/segredos obrigatorios da trilha `{scope}` antes de executar o gate regulatorio correspondente."
+            unblock_actions[0]["action"]
+            if unblock_actions
+            else f"Corrigir handoff/segredos obrigatorios da trilha `{scope}` antes de executar o gate regulatorio correspondente."
         )
     else:
         readiness_status = "ready_for_execution"
@@ -243,6 +467,8 @@ def build_payload(*, scope: str, private_env_file: Path, ownership_file: Path) -
         "scope": scope,
         "status": "ok" if not blockers else "failed",
         "errors": blockers,
+        "blocking_classification": blocking_classification,
+        "blocking_summary": blocking_summary,
         "files": {
             "private_env_file": str(private_env_file),
             "ownership_file": str(ownership_file),
@@ -255,9 +481,14 @@ def build_payload(*, scope: str, private_env_file: Path, ownership_file: Path) -
             "handoff": handoff_payload,
             "env": env_payload,
         },
+        "blocking_context": blocking_context,
+        "unblock_actions": unblock_actions,
         "readiness": {
             "readiness_status": readiness_status,
             "blockers": blockers,
+            "blocking_classification": blocking_classification,
+            "blocking_summary": blocking_summary,
+            "unblock_actions": unblock_actions,
             "next_action": next_action,
         },
     }

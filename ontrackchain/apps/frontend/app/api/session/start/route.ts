@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 
 import {
   isConfiguredDevAuthButDisabled,
-  isFrontendStandaloneShowcaseMode,
   resolveEffectiveAuthMode
 } from "../../../lib/auth-runtime";
 
@@ -93,25 +92,6 @@ function resolveServerSideTokenUrl(publicTokenUrl: string): string {
 }
 
 export async function POST(request: Request) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    const body = (await request.json().catch(() => null)) as { role?: string; plan?: string } | null;
-    cookies().set("otc_token", "standalone-showcase", { httpOnly: true, sameSite: "lax", path: "/" });
-    cookies().set("otc_2fa", "managed_externally_homologated", { httpOnly: true, sameSite: "lax", path: "/" });
-    return new Response(
-      JSON.stringify({
-        require2fa: false,
-        authMode: "dev",
-        role: (body?.role ?? "ADMIN").trim().toUpperCase(),
-        plan: body?.plan ?? "enterprise",
-        mode: "standalone_showcase"
-      }),
-      {
-        status: 200,
-        headers: { "content-type": "application/json" }
-      }
-    );
-  }
-
   const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const authBaseUrl = process.env.INTERNAL_AUTH_BASE_URL ?? "http://auth-service:9000";
   const authMode = resolveEffectiveAuthMode();
@@ -126,7 +106,7 @@ export async function POST(request: Request) {
   };
   const plan = body.plan ?? "professional";
   const role = (body.role ?? "ADMIN").trim().toUpperCase();
-  const allowedRoles = new Set(["ADMIN", "AUDITOR", "ANALYST"]);
+  const allowedRoles = new Set(["ADMIN", "AUDITOR", "ANALYST", "BILLING_ADMIN", "OTK_BILLING_ADMIN"]);
 
   if (isConfiguredDevAuthButDisabled()) {
     return new Response(JSON.stringify({ error: "dev_auth_disabled" }), {

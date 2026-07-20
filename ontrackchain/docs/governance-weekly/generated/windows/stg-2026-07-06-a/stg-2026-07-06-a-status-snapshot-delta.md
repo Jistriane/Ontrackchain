@@ -2,20 +2,36 @@
 
 ## Fontes
 
-- anterior: `artifacts/staging/checks/history/stg-2026-07-06-a-status-snapshot-20260704T010933Z.json`
-- atual: `artifacts/staging/checks/history/stg-2026-07-06-a-status-snapshot-20260704T011632Z.json`
+- anterior: `artifacts/staging/checks/history/stg-2026-07-06-a-status-snapshot-20260719T235416Z.json`
+- atual: `artifacts/staging/checks/history/stg-2026-07-06-a-status-snapshot-20260719T235648Z.json`
 
 ## Resumo
 
 - status anterior: `failed`
 - status atual: `failed`
-- placeholders: `12` -> `12` (delta `+0`)
-- handoff pendente: `8` -> `8` (delta `+0`)
+- placeholders: `0` -> `0` (delta `+0`)
+- handoff pendente: `0` -> `0` (delta `+0`)
+- escopo regulatorio: `none` -> `none`
+- `P0-04` readiness: `unknown` -> `unknown`
+- classificacao dominante: `technical_gate_blocked` -> `technical_gate_blocked`
 
 ## Semaforo Executivo
 
 - sinal: `amarelo`
 - leitura: estado estavel sem progresso material; manter no-go
+
+## Delta Regulatorio
+
+- escopo anterior: `none`
+- escopo atual: `none`
+- `P0-04` readiness anterior: `unknown`
+- `P0-04` readiness atual: `unknown`
+- classificacao anterior: `technical_gate_blocked`
+- classificacao atual: `technical_gate_blocked`
+- leitura anterior: sem escopo regulatorio material nesta tentativa
+- leitura atual: sem escopo regulatorio material nesta tentativa
+- resumo anterior: falha tecnica registrada em prepare, run, artifact_validation
+- resumo atual: falha tecnica registrada em prepare, run, artifact_validation
 
 ## Placeholders
 

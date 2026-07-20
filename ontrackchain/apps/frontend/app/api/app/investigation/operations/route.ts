@@ -1,17 +1,9 @@
 import { cookies } from "next/headers";
-import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
-import { getStandaloneShowcaseInvestigationOperations } from "../../../../lib/standalone-showcase";
 import { EMPTY_OPERATIONS_SNAPSHOT } from "../../../../lib/monitoring-investigation-operations";
 
 const EMPTY_OPERATIONS_SNAPSHOT_RESPONSE = EMPTY_OPERATIONS_SNAPSHOT;
 
 export async function GET(request: Request) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    return new Response(JSON.stringify(getStandaloneShowcaseInvestigationOperations()), {
-      status: 200,
-      headers: { "content-type": "application/json" }
-    });
-  }
 
   const token = cookies().get("otc_token")?.value;
   if (!token) {

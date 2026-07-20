@@ -213,6 +213,8 @@ def run_window(
     oidc_bundle_summary_output_file = dossier_output_dir / f"{window_id}-oidc-readiness-bundle.md"
     regulatory_bundle_output_file = checks_dir / f"{window_id}-regulatory-readiness-bundle.json"
     regulatory_bundle_summary_output_file = dossier_output_dir / f"{window_id}-regulatory-readiness-bundle.md"
+    regulatory_unblock_output_file = checks_dir / f"{window_id}-regulatory-unblock-checklist.json"
+    regulatory_unblock_summary_output_file = dossier_output_dir / f"{window_id}-regulatory-unblock-checklist.md"
     homologation_output_file = checks_dir / f"homologation-{window_id}.json"
 
     ownership_module = load_module("check_staging_env_ownership_coverage", "scripts/check_staging_env_ownership_coverage.py")
@@ -523,6 +525,28 @@ def run_window(
         payload["status"] = "failed"
         return 1, payload
 
+    regulatory_unblock_module = load_module(
+        "run_regulatory_unblock_checklist",
+        "scripts/run_regulatory_unblock_checklist.py",
+    )
+    regulatory_unblock_payload = regulatory_unblock_module.build_payload(
+        window_id=window_id,
+        scopes=["p0-02", "p0-03", "p0-04"],
+        private_env_file=private_env_file,
+        ownership_file=ownership_file,
+    )
+    write_json_file(regulatory_unblock_output_file, regulatory_unblock_payload)
+    regulatory_unblock_summary_output_file.parent.mkdir(parents=True, exist_ok=True)
+    regulatory_unblock_summary_output_file.write_text(
+        regulatory_unblock_module.render_markdown(regulatory_unblock_payload),
+        encoding="utf-8",
+    )
+    payload["steps"]["regulatory_unblock_checklist"] = step_payload(
+        status=regulatory_unblock_payload.get("status", "unknown"),
+        output_file=str(regulatory_unblock_output_file),
+        summary_file=str(regulatory_unblock_summary_output_file),
+    )
+
     with temporary_environ(env_values):
         homologation_exit_code, homologation_payload = run_module_main(
             "scripts/homologation_external_evidence.py",
@@ -583,6 +607,8 @@ def run_window(
             if regulatory_bundle_summary_status == "ok"
             else None
         ),
+        regulatory_unblock_checklist=regulatory_unblock_output_file,
+        regulatory_unblock_checklist_summary=regulatory_unblock_summary_output_file,
         generated_at=generated_at,
     )
     dossier_artifact_file, dossier_manifest_file = dossier_module.write_dossier_artifacts(

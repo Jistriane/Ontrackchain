@@ -130,7 +130,7 @@ class ComplianceRbacTests(unittest.TestCase):
         self.assertEqual(log_entry["metadata"]["effective_role"], "VIEWER")
         self.assertEqual(
             log_entry["metadata"]["allowed_roles"],
-            ["ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"],
+            ["ADMIN", "ANALYST"],
         )
         self.assertEqual(log_entry["metadata"]["endpoint"], "/api/v1/compliance/counterparties")
 
@@ -155,26 +155,25 @@ class ComplianceRbacTests(unittest.TestCase):
             )
 
         self.assertEqual(ctx.exception.status_code, 403)
-        self.assertEqual(ctx.exception.detail, "compliance_write_role_required")
+        self.assertEqual(ctx.exception.detail, "counterparty_create_role_required")
         self.assertEqual(pool._connection.commit_calls, 1)
         self.assertEqual(len(state["audit_logs"]), 1)
         log_entry = state["audit_logs"][0]
         self.assertEqual(log_entry["action"], "authorization_denied")
-        self.assertEqual(log_entry["resource_type"], "counterparty")
+        self.assertEqual(log_entry["resource_type"], "counterparty_creation")
         self.assertEqual(log_entry["metadata"]["request_id"], "req-counterparty-viewer")
         self.assertEqual(log_entry["metadata"]["effective_role"], "VIEWER")
 
-    def test_compliance_write_role_accepts_compliance_officer(self) -> None:
+    def test_counterparty_create_role_direct_guard_accepts_compliance_officer(self) -> None:
         _state, pool = self._build_state()
 
-        normalized_role = main._require_compliance_write_role(
+        normalized_role = main._require_counterparty_create_role(
             pool,
             organization_id="org-1",
             user_id="11111111-1111-1111-1111-111111111111",
             external_user_id=None,
             request_id="req-co-role",
             x_role="COMPLIANCE_OFFICER",
-            resource_type="counterparty",
             resource_id="counterparty-1",
             endpoint="/api/v1/compliance/counterparties",
             method="POST",
@@ -183,17 +182,16 @@ class ComplianceRbacTests(unittest.TestCase):
         self.assertEqual(normalized_role, "COMPLIANCE_OFFICER")
         self.assertEqual(pool._connection.commit_calls, 0)
 
-    def test_compliance_write_role_accepts_legacy_otk_compliance_officer(self) -> None:
+    def test_counterparty_create_role_direct_guard_accepts_legacy_otk_compliance_officer(self) -> None:
         _state, pool = self._build_state()
 
-        normalized_role = main._require_compliance_write_role(
+        normalized_role = main._require_counterparty_create_role(
             pool,
             organization_id="org-1",
             user_id="11111111-1111-1111-1111-111111111111",
             external_user_id=None,
             request_id="req-legacy-co-role",
             x_role="OTK_COMPLIANCE_OFFICER",
-            resource_type="preventive_block",
             resource_id="block-1",
             endpoint="/api/v1/compliance/blocks/evaluate",
             method="POST",
@@ -729,6 +727,72 @@ class ComplianceRbacTests(unittest.TestCase):
         self.assertEqual(log_entry["resource_type"], "preventive_block_evaluation")
         self.assertEqual(log_entry["resource_id"], "block-eval-1")
         self.assertEqual(log_entry["metadata"]["detail"], "block_evaluate_role_required")
+        self.assertEqual(
+            log_entry["metadata"]["allowed_roles"],
+            ["ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"],
+        )
+
+    def test_block_read_role_accepts_analyst(self) -> None:
+        _state, pool = self._build_state()
+
+        normalized_role = main._require_block_read_role(
+            pool,
+            organization_id="org-1",
+            user_id="11111111-1111-1111-1111-111111111111",
+            external_user_id=None,
+            request_id="req-block-read-analyst",
+            x_role="ANALYST",
+            resource_id=None,
+            endpoint="/api/v1/compliance/blocks",
+            method="GET",
+        )
+
+        self.assertEqual(normalized_role, "ANALYST")
+        self.assertEqual(pool._connection.commit_calls, 0)
+
+    def test_block_read_role_accepts_legacy_otk_compliance_officer(self) -> None:
+        _state, pool = self._build_state()
+
+        normalized_role = main._require_block_read_role(
+            pool,
+            organization_id="org-1",
+            user_id="11111111-1111-1111-1111-111111111111",
+            external_user_id=None,
+            request_id="req-block-read-legacy-co",
+            x_role="OTK_COMPLIANCE_OFFICER",
+            resource_id=None,
+            endpoint="/api/v1/compliance/blocks",
+            method="GET",
+        )
+
+        self.assertEqual(normalized_role, "OTK_COMPLIANCE_OFFICER")
+        self.assertEqual(pool._connection.commit_calls, 0)
+
+    def test_block_read_role_rejects_viewer_and_records_denial(self) -> None:
+        state, pool = self._build_state()
+
+        with self.assertRaises(main.HTTPException) as ctx:
+            main._require_block_read_role(
+                pool,
+                organization_id="org-1",
+                user_id="11111111-1111-1111-1111-111111111111",
+                external_user_id=None,
+                request_id="req-block-read-viewer",
+                x_role="VIEWER",
+                resource_id=None,
+                endpoint="/api/v1/compliance/blocks",
+                method="GET",
+            )
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, "preventive_block_read_role_required")
+        self.assertEqual(pool._connection.commit_calls, 1)
+        self.assertEqual(len(state["audit_logs"]), 1)
+        log_entry = state["audit_logs"][0]
+        self.assertEqual(log_entry["action"], "authorization_denied")
+        self.assertEqual(log_entry["resource_type"], "preventive_block")
+        self.assertIsNone(log_entry["resource_id"])
+        self.assertEqual(log_entry["metadata"]["detail"], "preventive_block_read_role_required")
         self.assertEqual(
             log_entry["metadata"]["allowed_roles"],
             ["ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"],

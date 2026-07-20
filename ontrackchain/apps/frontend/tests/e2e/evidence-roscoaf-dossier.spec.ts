@@ -165,4 +165,93 @@ test.describe("evidence ros-coaf dossier", () => {
       `/ros-coaf?ros_id=${rosId}&report_id=rep-evi-02`
     );
   });
+
+  test("preserva a negacao semantica ao resolver a referencia ROS/COAF a partir do report_id", async ({ page }: { page: Page }) => {
+    await page.context().addCookies([
+      {
+        name: "otc_token",
+        value: "pw-e2e-token",
+        domain: "localhost",
+        path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax"
+      }
+    ]);
+
+    await page.route("**/api/app/auth/context", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          org_id: "org-e2e",
+          user_id: "user-e2e",
+          linked_user_id: "linked-e2e",
+          role: "ANALYST",
+          plan: "professional",
+          auth_method: "jwt",
+          mfa_mode: "totp",
+          mfa_provider_homologated: "true"
+        })
+      });
+    });
+
+    await page.route("**/api/app/operations/work-items?module=evidence**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] })
+      });
+    });
+
+    await page.route("**/api/app/audit/logs?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          generated_at: "2026-07-04T10:00:00.000Z",
+          page: 1,
+          limit: 50,
+          count: 1,
+          total: 1,
+          has_more: false,
+          data: [
+            {
+              id: "audit-evi-ros-02",
+              user_id: "user-e2e",
+              action: "report_generated",
+              resource_type: "case",
+              resource_id: "11111111-1111-4111-8111-111111111111",
+              request_id: "req-evi-ros-02",
+              report_id: "rep-evi-03",
+              file_hash_sha256: "a".repeat(64),
+              created_at: "2026-07-04T10:00:00.000Z",
+              metadata: {
+                case_id: "11111111-1111-4111-8111-111111111111",
+                request_id: "req-evi-ros-02",
+                report_id: "rep-evi-03",
+                file_hash_sha256: "a".repeat(64)
+              }
+            }
+          ]
+        })
+      });
+    });
+
+    await page.route("**/api/app/reports/rep-evi-03/ros-coaf-ref", async (route: Route) => {
+      await route.fulfill({
+        status: 403,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "report_read_role_required" })
+      });
+    });
+
+    await page.goto("/evidence?report_id=rep-evi-03");
+    await page.getByRole("button", { name: /^Relatório gerado \(report_generated\)/i }).click();
+
+    await expect(page.getByTestId("evidence-linked-ros-message")).toContainText(
+      "A leitura/listagem de relatórios exige papel operacional: ADMIN, AUDITOR, ANALYST ou VIEWER."
+    );
+    await expect(page.getByTestId("evidence-export-ros-dossier")).toHaveCount(0);
+  });
 });

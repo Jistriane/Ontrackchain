@@ -1,9 +1,4 @@
 import { cookies } from "next/headers";
-import { isFrontendStandaloneShowcaseMode } from "../../../../lib/auth-runtime";
-import {
-  createStandaloneShowcaseCounterparty,
-  listStandaloneShowcaseCounterparties
-} from "../../../../lib/standalone-showcase";
 
 function jsonResponse(body: string, status: number) {
   return new Response(body, { status, headers: { "content-type": "application/json" } });
@@ -15,18 +10,6 @@ const EMPTY_COUNTERPARTY_LIST_RESPONSE = {
 } as const;
 
 export async function GET(request: Request) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    const url = new URL(request.url);
-    return jsonResponse(
-      JSON.stringify(
-        listStandaloneShowcaseCounterparties({
-          limit: Number(url.searchParams.get("limit") ?? 20),
-          offset: Number(url.searchParams.get("offset") ?? 0)
-        })
-      ),
-      200
-    );
-  }
 
   const token = cookies().get("otc_token")?.value;
   if (!token) {
@@ -70,24 +53,6 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    const payload = (await request.json().catch(() => null)) as
-      | {
-          counterparty_type?: string | null;
-          legal_name?: string | null;
-          document_type?: string | null;
-          document_number?: string | null;
-          wallet_addresses?: Array<{ chain?: string | null; address?: string | null; label?: string | null }> | null;
-          declared_risk_context?: string | null;
-          onchain_risk_score?: number | null;
-        }
-      | null;
-    const created = createStandaloneShowcaseCounterparty(payload ?? {});
-    if (!created) {
-      return jsonResponse(JSON.stringify({ error: "invalid_counterparty_payload" }), 422);
-    }
-    return jsonResponse(JSON.stringify(created), 200);
-  }
 
   const token = cookies().get("otc_token")?.value;
   if (!token) {

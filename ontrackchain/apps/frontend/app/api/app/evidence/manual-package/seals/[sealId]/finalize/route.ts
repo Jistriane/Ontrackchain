@@ -1,23 +1,6 @@
 import { authenticateRequest, jsonResponse, proxyOperationsRequest } from "../../../../../operations/_shared";
-import { isFrontendStandaloneShowcaseMode } from "../../../../../../../lib/auth-runtime";
-import { finalizeStandaloneShowcaseManualPackageSeal } from "../../../../../../../lib/standalone-showcase";
 
 export async function POST(request: Request, context: { params: Promise<{ sealId: string }> }) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    const { sealId } = await context.params;
-    if (!sealId.trim()) {
-      return jsonResponse(JSON.stringify({ error: "missing_manual_package_seal_id" }), 422);
-    }
-    const payload = (await request.json().catch(() => null)) as { metadata?: Record<string, unknown> | null } | null;
-    const result = finalizeStandaloneShowcaseManualPackageSeal(sealId, payload ?? {});
-    if (!result) {
-      return jsonResponse(JSON.stringify({ error: "manual_package_seal_not_found" }), 404);
-    }
-    if (result === "seal_not_ready") {
-      return jsonResponse(JSON.stringify({ error: "manual_package_seal_not_ready" }), 409);
-    }
-    return jsonResponse(JSON.stringify(result), 200);
-  }
 
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const auth = await authenticateRequest(requestId);

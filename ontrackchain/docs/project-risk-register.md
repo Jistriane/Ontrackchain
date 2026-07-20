@@ -50,8 +50,8 @@ Interpretacao:
 Leitura executiva atual dos P0 associados:
 
 - `P0-01` permanece `blocked` enquanto a homologacao formal de identidade nao for anexada
-- `P0-02` agora esta `blocked` no estado local real ate existir `.env.staging.private` e handoff de `Compliance/AML`
-- `P0-03` agora esta `blocked` no estado local real ate existir `.env.staging.private` e handoff de `Compliance/AML`
+- `P0-02` agora esta `blocked` no estado local real ate `Compliance/AML` concluir handoff e preencher `COMPLIANCE_TRM_SCREENING_URL` + `COMPLIANCE_TRM_API_KEY` reais
+- `P0-03` agora esta `blocked` no estado local real ate `Compliance/AML` concluir handoff e preencher `DATABASE_URL` + `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` tokenizada
 - `P0-04` tambem esta `blocked` pelo mesmo prerequisito operacional, antes mesmo da correlacao combinada
 
 ## Mitigacoes Prioritarias
@@ -60,7 +60,7 @@ Leitura executiva atual dos P0 associados:
 
 - homologar provider `AML/KYT` com `check_compliance_provider_runtime` e bundle externo anexado
 - ativar URL tokenizada real da UE com `gate-p0-03-eu-live` e `REQUEST_ID`, preservando os JSONs versionados
-- materializar `.env.staging.private` em canal seguro e tirar `Compliance/AML` de `pending` no handoff antes de qualquer nova tentativa real
+- preencher `.env.staging.private` ja materializado em canal seguro, tirar `Compliance/AML` de `pending` e usar `make run-regulatory-unblock-checklist-local` como fila unica de handoff antes de qualquer nova tentativa real
 
 ### Curto prazo
 

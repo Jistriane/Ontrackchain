@@ -1,6 +1,5 @@
 import { cookies } from "next/headers";
-import { isConfiguredDevAuthButDisabled, isFrontendStandaloneShowcaseMode, resolveEffectiveAuthMode } from "./lib/auth-runtime";
-import { STANDALONE_SHOWCASE_HOME_CATALOGS } from "./lib/standalone-showcase";
+import { isConfiguredDevAuthButDisabled, resolveEffectiveAuthMode } from "./lib/auth-runtime";
 import { AppShell, CodeBlock, MetricCard, MetricGrid, ModuleCard, ModuleGrid, Panel, Pill } from "../components/ui";
 import { LOCALE_COOKIE_NAME, normalizeLocale, translate, type MessageKey } from "./lib/i18n";
 
@@ -95,12 +94,9 @@ export default async function Home() {
   const t = (key: MessageKey, values?: Record<string, string | number>) => translate(locale, key, values);
   const authMode = resolveEffectiveAuthMode();
   const devAuthDisabled = isConfiguredDevAuthButDisabled();
-  const standaloneShowcaseMode = isFrontendStandaloneShowcaseMode();
   const sessionToken = cookieStore.get("otc_token")?.value?.trim() ?? "";
-  const authenticated = standaloneShowcaseMode || sessionToken.length > 0;
-  const sessionBundle = standaloneShowcaseMode
-    ? STANDALONE_SHOWCASE_HOME_CATALOGS
-    : authenticated
+  const authenticated = sessionToken.length > 0;
+  const sessionBundle = authenticated
     ? await fetchDashboardBundle(sessionToken)
     : {
         reportTypes: null,
@@ -122,13 +118,8 @@ export default async function Home() {
       title={t("home.title")}
       subtitle={t("home.subtitle")}
       activePath="/dashboard"
-      actions={standaloneShowcaseMode ? <Pill tone="warning">{t("home.demo.badge" as MessageKey)}</Pill> : <a href="/dashboard" className="otc-link-button">{t("home.openDashboard")}</a>}
+      actions={<a href="/dashboard" className="otc-link-button">{t("home.openDashboard")}</a>}
     >
-      {standaloneShowcaseMode ? (
-        <Panel title={t("home.demo.title" as MessageKey)} description={t("home.demo.description" as MessageKey)}>
-          <div className="otc-message">{t("home.demo.notice" as MessageKey)}</div>
-        </Panel>
-      ) : null}
       <MetricGrid>
         <MetricCard label={t("home.stats.authMode")} value={authMode.toUpperCase()} meta={devAuthDisabled ? t("home.stats.authMetaDevBlocked") : t("home.stats.authMetaEffective")} />
         <MetricCard
@@ -142,10 +133,27 @@ export default async function Home() {
 
       <Panel title={t("home.summary.title")} description={t("home.summary.description")}>
         <ModuleGrid>
-          <ModuleCard href="/dashboard" title={t("home.summary.panel")} description={t("home.summary.panelDesc")} badge={<Pill>{standaloneShowcaseMode ? t("home.demo.badge" as MessageKey) : t("dashboard.modules.active")}</Pill>} />
-          <ModuleCard href="/investigate" title={t("home.summary.investigations")} description={t("home.summary.investigationsDesc")} badge={<Pill>{standaloneShowcaseMode ? t("home.demo.badge" as MessageKey) : t("dashboard.modules.active")}</Pill>} />
-          <ModuleCard href="/monitoring" title={t("home.summary.monitoring")} description={t("home.summary.monitoringDesc")} badge={<Pill>{standaloneShowcaseMode ? t("home.demo.badge" as MessageKey) : t("dashboard.modules.active")}</Pill>} />
-          <ModuleCard href="/audit" title={t("home.summary.audit")} description={t("home.summary.auditDesc")} badge={<Pill>{standaloneShowcaseMode ? t("home.demo.badge" as MessageKey) : t("dashboard.modules.active")}</Pill>} />
+          <ModuleCard href="/dashboard" title={t("home.summary.panel")} description={t("home.summary.panelDesc")} badge={<Pill>{t("dashboard.modules.active")}</Pill>} />
+          <ModuleCard href="/investigate" title={t("home.summary.investigations")} description={t("home.summary.investigationsDesc")} badge={<Pill>{t("dashboard.modules.active")}</Pill>} />
+          <ModuleCard href="/monitoring" title={t("home.summary.monitoring")} description={t("home.summary.monitoringDesc")} badge={<Pill>{t("dashboard.modules.active")}</Pill>} />
+          <ModuleCard href="/audit" title={t("home.summary.audit")} description={t("home.summary.auditDesc")} badge={<Pill>{t("dashboard.modules.active")}</Pill>} />
+        </ModuleGrid>
+      </Panel>
+
+      <Panel title="Public API & Redes Suportadas" description="Endpoints públicos de consulta instantânea de redes suportadas e triagem de sanções sem exigência de autenticação prévia.">
+        <ModuleGrid>
+          <ModuleCard
+            href="/api/app/public/chains/supported"
+            title="Redes Suportadas (GET /public/chains/supported)"
+            description="Consulta em tempo real de redes ativas (EVM/UTXO), capabilities e parâmetros operacionais."
+            badge={<Pill tone="success">Público (Rate Limited)</Pill>}
+          />
+          <ModuleCard
+            href="/sanctions"
+            title="Triagem de Sanções (GET /public/sanctions/check/{address})"
+            description="Verificação pública instantânea de endereços contra listas compiladas com suporte a cache de borda CDN."
+            badge={<Pill tone="success">Público (Rate Limited)</Pill>}
+          />
         </ModuleGrid>
       </Panel>
 
@@ -156,7 +164,7 @@ export default async function Home() {
       {!authenticated ? (
         <Panel title={t("home.authNotice.title")} description={t("home.authNotice.description")}>
           <div className="otc-message">
-            {standaloneShowcaseMode ? t("home.demo.authBlocked" as MessageKey) : devAuthDisabled ? t("home.authNotice.devBlocked") : t("home.authNotice.loginRequired")}
+            {devAuthDisabled ? t("home.authNotice.devBlocked") : t("home.authNotice.loginRequired")}
           </div>
         </Panel>
       ) : null}

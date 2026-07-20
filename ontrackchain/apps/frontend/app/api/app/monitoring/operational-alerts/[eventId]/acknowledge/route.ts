@@ -1,23 +1,6 @@
 import { cookies } from "next/headers";
-import { isFrontendStandaloneShowcaseMode } from "../../../../../../lib/auth-runtime";
-import { acknowledgeStandaloneShowcasePlatformAlert } from "../../../../../../lib/standalone-showcase";
 
 export async function POST(request: Request, context: { params: Promise<{ eventId: string }> }) {
-  if (isFrontendStandaloneShowcaseMode()) {
-    const { eventId } = await context.params;
-    const payload = (await request.json().catch(() => null)) as { note?: string | null; triaged_by?: string | null } | null;
-    const alert = acknowledgeStandaloneShowcasePlatformAlert(eventId, payload ?? {});
-    if (!alert) {
-      return new Response(JSON.stringify({ error: "platform_alert_not_found" }), {
-        status: 404,
-        headers: { "content-type": "application/json" }
-      });
-    }
-    return new Response(JSON.stringify(alert), {
-      status: 200,
-      headers: { "content-type": "application/json" }
-    });
-  }
 
   const token = cookies().get("otc_token")?.value;
   if (!token) {

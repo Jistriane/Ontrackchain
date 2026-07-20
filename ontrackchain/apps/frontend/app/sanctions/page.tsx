@@ -10,7 +10,7 @@ import { WorkItemTimelinePanel } from "../../components/work-item-timeline-panel
 import type { MessageKey } from "../lib/i18n";
 import { fetchAuthContext, resolveOwnerUserId, type AuthContext } from "../lib/ownership";
 import { resolveApiErrorMessage } from "../lib/api-error-catalog";
-import { canCheckSanctions } from "../lib/authz";
+import { canCheckSanctions, canTriageSanctions } from "../lib/authz";
 import { buildWorkItemTimelineLabels } from "../lib/work-item-timeline-labels";
 import { formatTimelineEvent } from "../lib/work-item-timeline";
 import { useWorkItemTimeline } from "../lib/use-work-item-timeline";
@@ -408,6 +408,7 @@ export default function SanctionsPage() {
   const [result, setResult] = useState<SanctionsCheckResponse | null>(null);
 
   const [workspaceRecords, setWorkspaceRecords] = useState<SanctionsWorkspaceRecord[]>([]);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [workspaceFilter, setWorkspaceFilter] = useState("all");
   const [workspaceSearch, setWorkspaceSearch] = useState("");
   const [historyAddressFilter, setHistoryAddressFilter] = useState("");
@@ -432,6 +433,7 @@ export default function SanctionsPage() {
 
   const isHit = Boolean(result?.hit);
   const canExecuteSanctionsCheck = canCheckSanctions(authContext?.role);
+  const canExecuteSanctionsTriage = canTriageSanctions(authContext?.role);
   const matchedCount = result?.matched_lists?.length ?? 0;
   const currentWorkspaceId = result ? buildWorkspaceId(result) : null;
   const filteredWorkspaceRecords = useMemo(() => {
@@ -464,6 +466,10 @@ export default function SanctionsPage() {
     () => new Map(workspaceRecords.map((record: SanctionsWorkspaceRecord) => [record.workspaceId, record])),
     [workspaceRecords]
   );
+  const serverHistoryRecords = useMemo(
+    () => workspaceRecords.filter((record: SanctionsWorkspaceRecord) => record.source === "server"),
+    [workspaceRecords]
+  );
   const selectedTimelineRecord = timelineWorkspaceId ? workspaceById.get(timelineWorkspaceId) ?? null : null;
 
   async function loadOperationalWorkspace(localRecords: SanctionsWorkspaceRecord[]) {
@@ -474,21 +480,23 @@ export default function SanctionsPage() {
     const data = (await res.json().catch(() => null)) as SanctionsWorkItemListResponse | { error?: string; detail?: unknown } | null;
     if (!res.ok) {
       setWorkspaceRecords(localRecords);
-      setError(resolveApiErrorMessage(t, data, tr("sanctions.workspace.errorSync" as MessageKey)));
+      setWorkspaceError(resolveApiErrorMessage(t, data, tr("sanctions.workspace.errorSync" as MessageKey)));
       return;
     }
 
     const items = data && "data" in data && Array.isArray(data.data) ? data.data : [];
     const serverRecords = items.map((item) => mapWorkItemToWorkspaceRecord(item));
     setWorkspaceRecords(mergeWorkspaceRecords(serverRecords, localRecords));
+    setWorkspaceError(null);
   }
 
   useEffect(() => {
     const localRecords = loadWorkspace();
     setWorkspaceRecords(localRecords);
+    setWorkspaceError(null);
     loadOperationalWorkspace(localRecords).catch(() => {
       setWorkspaceRecords(localRecords);
-      setError(tr("sanctions.workspace.errorSync" as MessageKey));
+      setWorkspaceError(tr("sanctions.workspace.errorSync" as MessageKey));
     });
 
     fetchAuthContext()
@@ -657,6 +665,7 @@ export default function SanctionsPage() {
     }
 
     const nextRecord = mapWorkItemToWorkspaceRecord(data as SanctionsWorkItemResponse);
+    setWorkspaceError(null);
     setWorkspaceRecords((current: SanctionsWorkspaceRecord[]) => upsertWorkspaceRecord(current, nextRecord));
     return nextRecord;
   }
@@ -846,6 +855,11 @@ export default function SanctionsPage() {
       </Panel>
 
       <Panel title={tr("sanctions.workspace.title" as MessageKey)} description={tr("sanctions.workspace.description" as MessageKey)}>
+        {workspaceError ? (
+          <Message tone="error" data-testid="sanctions-workspace-message">
+            {workspaceError}
+          </Message>
+        ) : null}
         <div className="otc-controls">
           <label className="otc-field">
             {tr("sanctions.workspace.filterStatus" as MessageKey)}
@@ -954,7 +968,7 @@ export default function SanctionsPage() {
               })}
             </tbody>
           </table>
-        ) : (
+        ) : workspaceError ? null : (
           <Message>{tr("sanctions.workspace.empty" as MessageKey)}</Message>
         )}
       </Panel>
@@ -1068,7 +1082,7 @@ export default function SanctionsPage() {
               ) : null}
             </div>
             <div className="otc-controls">
-              {canExecuteSanctionsCheck ? (
+              {canExecuteSanctionsTriage ? (
                 <>
                   <button type="button" className="otc-button otc-button--ghost" onClick={() => updateWorkspaceStatus("UNDER_REVIEW")}>
                     {tr("sanctions.triage.review" as MessageKey)}
@@ -1111,15 +1125,28 @@ export default function SanctionsPage() {
         </div>
         {(() => {
           const addressNormalized = historyAddressFilter.trim().toLowerCase();
-          const historyRows = workspaceRecords
+          const historyRows = serverHistoryRecords
             .filter((record) => !addressNormalized || record.address.toLowerCase().includes(addressNormalized))
             .sort((a, b) => b.lastActionAt.localeCompare(a.lastActionAt))
             .slice(0, 100);
+          if (workspaceError) {
+            return (
+              <Message tone="error" data-testid="sanctions-history-message">
+                {workspaceError}
+              </Message>
+            );
+          }
           if (!historyRows.length) {
-            return <Message>{tr("sanctions.history.empty" as MessageKey)}</Message>;
+            return (
+              <Message data-testid={workspaceRecords.some((record: SanctionsWorkspaceRecord) => record.source === "local") ? "sanctions-history-pending-sync" : "sanctions-history-empty"}>
+                {workspaceRecords.some((record: SanctionsWorkspaceRecord) => record.source === "local")
+                  ? tr("sanctions.history.pendingSync" as MessageKey)
+                  : tr("sanctions.history.empty" as MessageKey)}
+              </Message>
+            );
           }
           return (
-            <table className="otc-table otc-table--spaced">
+            <table className="otc-table otc-table--spaced" data-testid="sanctions-history-table">
               <thead>
                 <tr>
                   <th>{tr("sanctions.history.address" as MessageKey)}</th>

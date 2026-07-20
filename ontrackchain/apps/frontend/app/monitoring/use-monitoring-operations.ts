@@ -45,8 +45,9 @@ export function useMonitoringOperations({
     try {
       const data = await fetchMonitoringOperations();
       setOperations(normalizeOperationsSnapshot(data));
-    } catch {
-      setError(t("monitoring.errors.loadWorkerOperations"));
+    } catch (error) {
+      setOperations(null);
+      setError(resolveApiErrorMessage(t, error, t("monitoring.errors.loadWorkerOperations")));
     }
   }
 
@@ -54,8 +55,9 @@ export function useMonitoringOperations({
     try {
       const data = await fetchMonitoringOperationalAlerts();
       setOperationalAlerts(data);
-    } catch {
-      setError(t("monitoring.errors.loadOperationalAlerts"));
+    } catch (error) {
+      setOperationalAlerts(null);
+      setError(resolveApiErrorMessage(t, error, t("monitoring.errors.loadOperationalAlerts")));
     }
   }
 

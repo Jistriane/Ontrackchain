@@ -43,9 +43,13 @@ export function buildAuditLogQuery(filters: AuditLogQueryFilters, page: number) 
   return params.toString();
 }
 
-export function extractAuditApiError(payload: AuditLogsResponse | { error?: string } | null) {
+export function extractAuditApiError(payload: AuditLogsResponse | { error?: string; detail?: unknown } | null) {
   if (payload && "error" in payload && typeof payload.error === "string" && payload.error.trim()) {
     return payload.error;
+  }
+
+  if (payload && "detail" in payload && typeof payload.detail === "string" && payload.detail.trim()) {
+    return payload.detail;
   }
 
   return null;

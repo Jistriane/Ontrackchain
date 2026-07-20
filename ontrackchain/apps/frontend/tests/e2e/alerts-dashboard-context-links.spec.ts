@@ -61,7 +61,7 @@ type DevSessionStartResponse = {
   require2fa?: boolean;
 };
 
-async function loginAsDevRole(page: Page, role: "ADMIN" | "ANALYST") {
+async function loginAsDevRole(page: Page, role: "ADMIN" | "ANALYST" | "BILLING_ADMIN" | "OTK_BILLING_ADMIN") {
   const session = await page.request.post("/api/session/start", {
     headers: { "content-type": "application/json" },
     data: { plan: "professional", role }
@@ -802,5 +802,27 @@ test.describe("alerts and dashboard context links", () => {
     await expect(page.getByTestId("dashboard-module-team")).toBeVisible();
     await expect(page.locator('aside a[href="/billing"]')).toHaveCount(1);
     await expect(page.locator('aside a[href="/team"]')).toHaveCount(1);
+  });
+
+  test("dashboard expõe billing para BILLING_ADMIN sem projetar handoff administrativo de team", async ({ page }: { page: Page }) => {
+    await loginAsDevRole(page, "BILLING_ADMIN");
+    await page.goto("/dashboard");
+
+    await expect(page.getByTestId("dashboard-quick-action-billing")).toBeVisible();
+    await expect(page.getByTestId("dashboard-quick-action-team")).toHaveCount(0);
+    await expect(page.getByTestId("dashboard-module-team")).toHaveCount(0);
+    await expect(page.locator('aside a[href="/billing"]')).toHaveCount(1);
+    await expect(page.locator('aside a[href="/team"]')).toHaveCount(0);
+  });
+
+  test("dashboard expõe billing para alias OTK_BILLING_ADMIN sem projetar handoff administrativo de team", async ({ page }: { page: Page }) => {
+    await loginAsDevRole(page, "OTK_BILLING_ADMIN");
+    await page.goto("/dashboard");
+
+    await expect(page.getByTestId("dashboard-quick-action-billing")).toBeVisible();
+    await expect(page.getByTestId("dashboard-quick-action-team")).toHaveCount(0);
+    await expect(page.getByTestId("dashboard-module-team")).toHaveCount(0);
+    await expect(page.locator('aside a[href="/billing"]')).toHaveCount(1);
+    await expect(page.locator('aside a[href="/team"]')).toHaveCount(0);
   });
 });

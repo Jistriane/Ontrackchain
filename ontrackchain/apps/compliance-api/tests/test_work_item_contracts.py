@@ -5,7 +5,7 @@ import importlib
 import json
 import sys
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -46,6 +46,11 @@ class _FakeWorkItemCursor:
 
         if normalized_query == "SELECT 1":
             self._fetchone = {"exists": 1}
+            self._fetchall = []
+            return
+
+        if normalized_query == "SELECT 1 FROM preventive_blocks WHERE id = %s":
+            self._fetchone = {"exists": 1} if str(params_tuple[0]) in self.state["preventive_blocks"] else None
             self._fetchall = []
             return
 
@@ -130,17 +135,31 @@ class _FakeWorkItemCursor:
             return
 
         if normalized_query.startswith("INSERT INTO regulatory_work_events"):
-            (
-                work_item_id,
-                organization_id,
-                actor_user_id,
-                event_type,
-                from_status,
-                to_status,
-                payload_json,
-            ) = params_tuple
+            if len(params_tuple) == 7:
+                (
+                    work_item_id,
+                    organization_id,
+                    actor_user_id,
+                    event_type,
+                    from_status,
+                    to_status,
+                    payload_json,
+                ) = params_tuple
+            elif len(params_tuple) == 6:
+                (
+                    work_item_id,
+                    organization_id,
+                    actor_user_id,
+                    from_status,
+                    to_status,
+                    payload_json,
+                ) = params_tuple
+                event_type = "COMMENT_ADDED"
+            else:
+                raise AssertionError(f"Parametros inesperados para evento fake: {params_tuple!r}")
             self.state["events"].append(
                 {
+                    "id": uuid4(),
                     "work_item_id": str(work_item_id),
                     "organization_id": str(organization_id),
                     "actor_user_id": actor_user_id,
@@ -148,8 +167,81 @@ class _FakeWorkItemCursor:
                     "from_status": from_status,
                     "to_status": to_status,
                     "payload": json.loads(payload_json),
+                    "created_at": datetime.now(timezone.utc),
                 }
             )
+            self._fetchone = None
+            self._fetchall = []
+            return
+
+        if normalized_query == "SELECT queue_status FROM regulatory_work_items WHERE id = %s AND organization_id = %s":
+            work_item_id, organization_id = params_tuple
+            row = self.state["work_items"].get(str(work_item_id))
+            self._fetchone = (
+                {"queue_status": row["queue_status"]}
+                if row and row["organization_id"] == str(organization_id)
+                else None
+            )
+            self._fetchall = []
+            return
+
+        if normalized_query.startswith("SELECT * FROM regulatory_work_events"):
+            work_item_id, organization_id = params_tuple
+            rows = [
+                dict(row)
+                for row in self.state["events"]
+                if row["work_item_id"] == str(work_item_id)
+                and row["organization_id"] == str(organization_id)
+            ]
+            self._fetchall = sorted(
+                rows,
+                key=lambda row: (row["created_at"], str(row["id"])),
+                reverse=True,
+            )
+            self._fetchone = None
+            return
+
+        if normalized_query.startswith("SELECT * FROM regulatory_work_comments"):
+            work_item_id, organization_id = params_tuple
+            rows = [
+                dict(row)
+                for row in self.state["comments"]
+                if row["work_item_id"] == str(work_item_id)
+                and row["organization_id"] == str(organization_id)
+            ]
+            self._fetchall = sorted(
+                rows,
+                key=lambda row: (row["created_at"], str(row["id"])),
+                reverse=True,
+            )
+            self._fetchone = None
+            return
+
+        if normalized_query.startswith("INSERT INTO regulatory_work_comments"):
+            work_item_id, organization_id, actor_user_id, comment_type, body = params_tuple
+            row = {
+                "id": uuid4(),
+                "work_item_id": str(work_item_id),
+                "organization_id": str(organization_id),
+                "actor_user_id": actor_user_id,
+                "comment_type": comment_type,
+                "body": body,
+                "created_at": datetime.now(timezone.utc),
+            }
+            self.state["comments"].append(row)
+            self._fetchone = dict(row)
+            self._fetchall = []
+            return
+
+        if normalized_query.startswith(
+            "UPDATE regulatory_work_items SET updated_at = NOW(), last_activity_at = NOW() WHERE id = %s AND organization_id = %s"
+        ):
+            work_item_id, organization_id = params_tuple
+            current = self.state["work_items"].get(str(work_item_id))
+            if current and current["organization_id"] == str(organization_id):
+                now = datetime.now(timezone.utc)
+                current["updated_at"] = now
+                current["last_activity_at"] = now
             self._fetchone = None
             self._fetchall = []
             return
@@ -183,7 +275,7 @@ class _FakeWorkItemCursor:
             self._fetchall = []
             return
 
-        if normalized_query.startswith("SELECT * FROM regulatory_work_items FROM regulatory_work_items"):
+        if normalized_query.startswith("SELECT * FROM regulatory_work_items WHERE organization_id = %s"):
             rows, limit, offset = self._filter_work_items(normalized_query, params_tuple)
             sorted_rows = sorted(
                 rows,
@@ -278,6 +370,7 @@ class _FakeWorkItemCursor:
         consume_if("AND case_id = %s", lambda row, value: str(row["case_id"]) == str(value))
         consume_if("AND report_external_id = %s", lambda row, value: row["report_external_id"] == value)
         consume_if("AND resource_type = %s", lambda row, value: row["resource_type"] == value)
+        consume_if("AND resource_type <> %s", lambda row, value: row["resource_type"] != value)
         consume_if(
             "AND due_at IS NOT NULL AND due_at <= %s",
             lambda row, value: row["due_at"] is not None and row["due_at"] <= value,
@@ -334,7 +427,9 @@ class WorkItemContractTests(unittest.TestCase):
             "organization_id": org_id,
             "users": {linked_user_id, owner_user_id},
             "work_items": {},
+            "preventive_blocks": set(),
             "events": [],
+            "comments": [],
             "audit_logs": [],
             "linked_user_id": linked_user_id,
             "owner_user_id": owner_user_id,
@@ -640,7 +735,13 @@ class WorkItemContractTests(unittest.TestCase):
         response = asyncio.run(
             operations.list_work_items(
                 module="sanctions",
+                queue_status=None,
+                owner_user_id=None,
+                priority=None,
+                case_id=None,
+                report_external_id=None,
                 resource_type="sanctions_screening",
+                due_before=None,
                 page=1,
                 limit=20,
                 pool=pool,
@@ -707,8 +808,13 @@ class WorkItemContractTests(unittest.TestCase):
         response = asyncio.run(
             operations.list_work_items(
                 module="reports",
+                queue_status=None,
+                owner_user_id=None,
+                priority=None,
+                case_id=None,
                 resource_type="formal_report_case",
                 report_external_id="report-001",
+                due_before=None,
                 page=1,
                 limit=20,
                 pool=pool,
@@ -721,6 +827,152 @@ class WorkItemContractTests(unittest.TestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0].report_external_id, "report-001")
         self.assertEqual(str(response.data[0].case_id), str(shared_case_id))
+
+    def test_require_read_role_for_preventive_block_rejects_viewer_and_records_denial(self) -> None:
+        state, pool = self._build_state()
+
+        with self.assertRaises(HTTPException) as ctx:
+            operations._require_read_role_for_work_item_resource(
+                pool,
+                organization_id=state["organization_id"],
+                request_id="req-blocks-read-viewer",
+                x_role="VIEWER",
+                resource_type="preventive_block",
+                module="blocks",
+                resource_id="preventive-block-workspace",
+                endpoint="/api/v1/operations/work-items",
+                method="GET",
+            )
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, "preventive_block_read_role_required")
+        self.assertEqual(len(state["audit_logs"]), 1)
+        denial_log = state["audit_logs"][0]
+        self.assertEqual(denial_log["action"], "authorization_denied")
+        self.assertEqual(denial_log["resource_type"], "preventive_block")
+        self.assertEqual(denial_log["resource_id"], "preventive-block-workspace")
+        self.assertEqual(denial_log["metadata"]["detail"], "preventive_block_read_role_required")
+        self.assertEqual(denial_log["metadata"]["effective_role"], "VIEWER")
+
+    def test_list_work_items_excludes_preventive_block_for_viewer_without_explicit_filter(self) -> None:
+        state, pool = self._build_state()
+        now = datetime.now(timezone.utc)
+        preventive_block_id = uuid4()
+        sanctions_id = uuid4()
+        state["work_items"][str(preventive_block_id)] = {
+            "id": preventive_block_id,
+            "organization_id": state["organization_id"],
+            "module": "blocks",
+            "resource_type": "preventive_block",
+            "resource_id": uuid4(),
+            "case_id": None,
+            "report_external_id": None,
+            "owner_user_id": state["owner_user_id"],
+            "assigned_by_user_id": state["linked_user_id"],
+            "queue_status": "UNDER_REVIEW",
+            "priority": "high",
+            "due_at": now,
+            "sla_breached": False,
+            "title": "Preventive block item",
+            "note": None,
+            "metadata": {"workspace_status": "UNDER_REVIEW"},
+            "created_at": now,
+            "updated_at": now,
+            "last_activity_at": now,
+        }
+        state["work_items"][str(sanctions_id)] = {
+            "id": sanctions_id,
+            "organization_id": state["organization_id"],
+            "module": "sanctions",
+            "resource_type": "sanctions_screening",
+            "resource_id": uuid4(),
+            "case_id": None,
+            "report_external_id": None,
+            "owner_user_id": state["owner_user_id"],
+            "assigned_by_user_id": state["linked_user_id"],
+            "queue_status": "UNDER_REVIEW",
+            "priority": "normal",
+            "due_at": None,
+            "sla_breached": False,
+            "title": "Sanctions item",
+            "note": None,
+            "metadata": {"workspace_status": "UNDER_REVIEW"},
+            "created_at": now,
+            "updated_at": now,
+            "last_activity_at": now,
+        }
+
+        response = asyncio.run(
+            operations.list_work_items(
+                module=None,
+                queue_status=None,
+                owner_user_id=None,
+                priority=None,
+                case_id=None,
+                report_external_id=None,
+                resource_type=None,
+                due_before=None,
+                page=1,
+                limit=20,
+                pool=pool,
+                x_org_id=state["organization_id"],
+                x_role="VIEWER",
+            )
+        )
+
+        self.assertEqual(response.total, 1)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0].resource_type, "sanctions_screening")
+
+    def test_list_work_items_allows_preventive_block_for_analyst(self) -> None:
+        state, pool = self._build_state()
+        now = datetime.now(timezone.utc)
+        preventive_block_id = uuid4()
+        resource_id = uuid4()
+        state["work_items"][str(preventive_block_id)] = {
+            "id": preventive_block_id,
+            "organization_id": state["organization_id"],
+            "module": "blocks",
+            "resource_type": "preventive_block",
+            "resource_id": resource_id,
+            "case_id": None,
+            "report_external_id": None,
+            "owner_user_id": state["owner_user_id"],
+            "assigned_by_user_id": state["linked_user_id"],
+            "queue_status": "UNDER_REVIEW",
+            "priority": "high",
+            "due_at": now,
+            "sla_breached": False,
+            "title": "Preventive block item",
+            "note": None,
+            "metadata": {"workspace_status": "UNDER_REVIEW"},
+            "created_at": now,
+            "updated_at": now,
+            "last_activity_at": now,
+        }
+
+        response = asyncio.run(
+            operations.list_work_items(
+                module="blocks",
+                queue_status=None,
+                owner_user_id=None,
+                priority=None,
+                case_id=None,
+                report_external_id=None,
+                resource_type="preventive_block",
+                due_before=None,
+                page=1,
+                limit=20,
+                pool=pool,
+                x_org_id=state["organization_id"],
+                x_role="ANALYST",
+            )
+        )
+
+        self.assertEqual(response.total, 1)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0].resource_type, "preventive_block")
+        self.assertEqual(response.data[0].resource_id, resource_id)
 
     def test_update_work_item_merges_metadata_and_records_status_change(self) -> None:
         state, pool = self._build_state()
@@ -762,6 +1014,7 @@ class WorkItemContractTests(unittest.TestCase):
                     priority="critical",
                     note="escalado para compliance officer",
                     metadata={
+                        "workspace_status": "ESCALATED",
                         "local_workspace_status": "ESCALATED",
                         "triage_note": "manual escalation",
                     },
@@ -823,7 +1076,11 @@ class WorkItemContractTests(unittest.TestCase):
                 work_item_id=work_item_id,
                 body=operations.UpdateWorkItemRequest(
                     queue_status="READY",
-                    metadata={"local_block_status": "READY"},
+                    metadata={
+                        "workspace_status": "READY",
+                        "local_workspace_status": "READY",
+                        "local_block_status": "READY",
+                    },
                 ),
                 pool=pool,
                 x_org_id=state["organization_id"],
@@ -837,6 +1094,150 @@ class WorkItemContractTests(unittest.TestCase):
         self.assertEqual(response.metadata["workspace_status"], "READY")
         self.assertEqual(response.metadata["local_workspace_status"], "READY")
         self.assertEqual(response.metadata["local_block_status"], "READY")
+
+    def test_get_work_item_timeline_returns_events_and_comments_in_desc_order(self) -> None:
+        state, pool = self._build_state()
+        now = datetime.now(timezone.utc)
+        work_item_id = uuid4()
+        resource_id = uuid4()
+        state["work_items"][str(work_item_id)] = {
+            "id": work_item_id,
+            "organization_id": state["organization_id"],
+            "module": "sanctions",
+            "resource_type": "sanctions_screening",
+            "resource_id": resource_id,
+            "case_id": None,
+            "report_external_id": None,
+            "owner_user_id": state["owner_user_id"],
+            "assigned_by_user_id": state["linked_user_id"],
+            "queue_status": "UNDER_REVIEW",
+            "priority": "high",
+            "due_at": now,
+            "sla_breached": False,
+            "title": "Sanctions item",
+            "note": None,
+            "metadata": {"address": "0xabc", "chain": "ethereum", "workspace_status": "UNDER_REVIEW"},
+            "created_at": now,
+            "updated_at": now,
+            "last_activity_at": now,
+        }
+        older_event_id = uuid4()
+        newer_event_id = uuid4()
+        older_comment_id = uuid4()
+        newer_comment_id = uuid4()
+        state["events"] = [
+            {
+                "id": older_event_id,
+                "work_item_id": str(work_item_id),
+                "organization_id": state["organization_id"],
+                "actor_user_id": state["linked_user_id"],
+                "event_type": "WORK_ITEM_UPSERTED",
+                "from_status": None,
+                "to_status": "UNDER_REVIEW",
+                "payload": {"request_id": "req-older"},
+                "created_at": now.replace(microsecond=0),
+            },
+            {
+                "id": newer_event_id,
+                "work_item_id": str(work_item_id),
+                "organization_id": state["organization_id"],
+                "actor_user_id": state["linked_user_id"],
+                "event_type": "STATUS_CHANGED",
+                "from_status": "UNDER_REVIEW",
+                "to_status": "ESCALATED",
+                "payload": {"request_id": "req-newer"},
+                "created_at": now.replace(microsecond=0) + timedelta(minutes=5),
+            },
+        ]
+        state["comments"] = [
+            {
+                "id": older_comment_id,
+                "work_item_id": str(work_item_id),
+                "organization_id": state["organization_id"],
+                "actor_user_id": state["linked_user_id"],
+                "comment_type": "note",
+                "body": "comentario inicial",
+                "created_at": now.replace(microsecond=0),
+            },
+            {
+                "id": newer_comment_id,
+                "work_item_id": str(work_item_id),
+                "organization_id": state["organization_id"],
+                "actor_user_id": state["owner_user_id"],
+                "comment_type": "decision",
+                "body": "causa raiz confirmada",
+                "created_at": now.replace(microsecond=0) + timedelta(minutes=3),
+            },
+        ]
+
+        response = asyncio.run(
+            operations.get_work_item_timeline(
+                work_item_id=work_item_id,
+                pool=pool,
+                x_org_id=state["organization_id"],
+                x_role="ANALYST",
+                x_request_id="req-timeline-1",
+            )
+        )
+
+        self.assertEqual(response.item.id, work_item_id)
+        self.assertEqual([entry.id for entry in response.events], [newer_event_id, older_event_id])
+        self.assertEqual([entry.event_type for entry in response.events], ["STATUS_CHANGED", "WORK_ITEM_UPSERTED"])
+        self.assertEqual([entry.id for entry in response.comments], [newer_comment_id, older_comment_id])
+        self.assertEqual([entry.comment_type for entry in response.comments], ["decision", "note"])
+
+    def test_create_work_item_comment_persists_comment_event_and_audit_log(self) -> None:
+        state, pool = self._build_state()
+        now = datetime.now(timezone.utc)
+        work_item_id = uuid4()
+        resource_id = uuid4()
+        state["work_items"][str(work_item_id)] = {
+            "id": work_item_id,
+            "organization_id": state["organization_id"],
+            "module": "alerts",
+            "resource_type": "operational_alert",
+            "resource_id": resource_id,
+            "case_id": None,
+            "report_external_id": None,
+            "owner_user_id": state["owner_user_id"],
+            "assigned_by_user_id": state["linked_user_id"],
+            "queue_status": "UNDER_REVIEW",
+            "priority": "high",
+            "due_at": now,
+            "sla_breached": False,
+            "title": "Alert item",
+            "note": None,
+            "metadata": {"alertname": "HighErrorRate", "workspace_status": "UNDER_REVIEW"},
+            "created_at": now,
+            "updated_at": now,
+            "last_activity_at": now,
+        }
+
+        response = asyncio.run(
+            operations.create_work_item_comment(
+                work_item_id=work_item_id,
+                body=operations.CreateCommentRequest(comment_type="decision", body="  causa raiz documentada  "),
+                pool=pool,
+                x_org_id=state["organization_id"],
+                x_user_id=str(uuid4()),
+                x_linked_user_id=state["linked_user_id"],
+                x_role="ANALYST",
+                x_request_id="req-comment-1",
+            )
+        )
+
+        self.assertEqual(response.comment_type, "decision")
+        self.assertEqual(response.body, "causa raiz documentada")
+        self.assertEqual(len(state["comments"]), 1)
+        self.assertEqual(state["comments"][0]["body"], "causa raiz documentada")
+        self.assertEqual(len(state["events"]), 1)
+        self.assertEqual(state["events"][0]["event_type"], "COMMENT_ADDED")
+        self.assertEqual(state["events"][0]["payload"]["comment_type"], "decision")
+        self.assertEqual(len(state["audit_logs"]), 1)
+        self.assertEqual(state["audit_logs"][0]["action"], "regulatory_work_comment_added")
+        self.assertEqual(str(state["audit_logs"][0]["resource_id"]), str(work_item_id))
+        self.assertGreaterEqual(state["work_items"][str(work_item_id)]["last_activity_at"], now)
+        pool._connection.commit.assert_called_once()
 
 
 if __name__ == "__main__":

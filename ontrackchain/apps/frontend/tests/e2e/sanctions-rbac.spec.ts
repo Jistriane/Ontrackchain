@@ -2,7 +2,37 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 
 const SANCTIONS_ADDRESS = "0x1111111111111111111111111111111111111111";
 
-async function seedSanctionsPage(page: Page, role: string) {
+async function seedSanctionsPage(page: Page, role: string, options: { denyWorkspace?: boolean } = {}) {
+  const seededWorkspaceItem = {
+    id: "ws-sanctions-rbac-01",
+    module: "sanctions",
+    resource_type: "sanctions_screening",
+    resource_id: "resource-sanctions-rbac-01",
+    queue_status: "UNDER_REVIEW",
+    priority: "high",
+    due_at: null,
+    note: "seed",
+    owner_user_id: null,
+    case_id: "55555555-5555-4555-8555-555555555555",
+    metadata: {
+      workspace_id: "0x1111111111111111111111111111111111111111:ethereum:2026-07-15T12:00:00Z",
+      address: "0x1111111111111111111111111111111111111111",
+      chain: "ethereum",
+      lists: ["OFAC", "UN"],
+      provider: "sanctions_lists_cache",
+      provider_status: "live",
+      capability_status: "live",
+      matched_lists: ["OFAC"],
+      hit: true,
+      entity_name: "Entity QA",
+      designation_date: "2026-01-01",
+      checked_at: "2026-07-15T12:00:00Z",
+      local_workspace_status: "UNDER_REVIEW"
+    },
+    last_activity_at: "2026-07-15T12:00:00Z",
+    updated_at: "2026-07-15T12:00:00Z"
+  };
+
   await page.context().addCookies([
     {
       name: "otc_token",
@@ -33,10 +63,19 @@ async function seedSanctionsPage(page: Page, role: string) {
   });
 
   await page.route("**/api/app/operations/work-items?module=sanctions&resource_type=sanctions_screening&limit=100", async (route: Route) => {
+    if (options.denyWorkspace) {
+      await route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "not_authenticated" })
+      });
+      return;
+    }
+
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ data: [] })
+      body: JSON.stringify({ data: [seededWorkspaceItem] })
     });
   });
 
@@ -45,33 +84,7 @@ async function seedSanctionsPage(page: Page, role: string) {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        id: "ws-sanctions-rbac-01",
-        module: "sanctions",
-        resource_type: "sanctions_screening",
-        resource_id: "resource-sanctions-rbac-01",
-        queue_status: "UNDER_REVIEW",
-        priority: "high",
-        due_at: null,
-        note: "seed",
-        owner_user_id: null,
-        case_id: "55555555-5555-4555-8555-555555555555",
-        metadata: {
-          workspace_id: "0x1111111111111111111111111111111111111111:ethereum:2026-07-15T12:00:00Z",
-          address: "0x1111111111111111111111111111111111111111",
-          chain: "ethereum",
-          lists: ["OFAC", "UN"],
-          provider: "sanctions_lists_cache",
-          provider_status: "live",
-          capability_status: "live",
-          matched_lists: ["OFAC"],
-          hit: true,
-          entity_name: "Entity QA",
-          designation_date: "2026-01-01",
-          checked_at: "2026-07-15T12:00:00Z",
-          local_workspace_status: "UNDER_REVIEW"
-        },
-        last_activity_at: "2026-07-15T12:00:00Z",
-        updated_at: "2026-07-15T12:00:00Z"
+        ...seededWorkspaceItem
       })
     });
   });
@@ -82,6 +95,12 @@ async function submitSanctionsCheck(page: Page) {
   await page.getByTestId("sanctions-chain").selectOption("ethereum");
   await expect(page.getByTestId("sanctions-check-btn")).toBeEnabled();
   await page.getByTestId("sanctions-check-btn").click();
+}
+
+async function loadSeededWorkspaceResult(page: Page) {
+  await page.goto("/sanctions");
+  await page.getByRole("button", { name: "Carregar" }).click();
+  await expect(page.getByText("HIT detectado: revisão imediata recomendada.")).toBeVisible();
 }
 
 test.describe("sanctions RBAC", () => {
@@ -182,5 +201,103 @@ test.describe("sanctions RBAC", () => {
     await expect(page.getByRole("button", { name: "Marcar em revisão" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Escalar" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Marcar clear" })).toBeVisible();
+  });
+
+  test("reviewer nao executa sanctions-check, mas recebe a triagem formal do screening carregado", async ({ page }) => {
+    await seedSanctionsPage(page, "REVIEWER");
+
+    await loadSeededWorkspaceResult(page);
+
+    await expect(page.getByTestId("sanctions-check-btn")).toHaveCount(0);
+    await expect(page.getByTestId("sanctions-check-restricted")).toContainText(
+      "A verificação de sanções está oculta nesta sessão porque o papel atual não possui autorização operacional de compliance."
+    );
+    await expect(page.getByRole("button", { name: "Marcar em revisão" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Escalar" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Marcar clear" })).toBeVisible();
+    await expect(page.getByTestId("sanctions-triage-restricted")).toHaveCount(0);
+  });
+
+  test("alias OTK_REVIEWER nao executa sanctions-check, mas recebe a triagem formal do screening carregado", async ({ page }) => {
+    await seedSanctionsPage(page, "OTK_REVIEWER");
+
+    await loadSeededWorkspaceResult(page);
+
+    await expect(page.getByTestId("sanctions-check-btn")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Marcar em revisão" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Escalar" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Marcar clear" })).toBeVisible();
+    await expect(page.getByTestId("sanctions-triage-restricted")).toHaveCount(0);
+  });
+
+  test("preserva a negacao semantica do workspace compartilhado sem cair em historico vazio sintetico", async ({ page }) => {
+    await seedSanctionsPage(page, "ANALYST", { denyWorkspace: true });
+
+    await page.goto("/sanctions");
+
+    await expect(page.getByTestId("sanctions-workspace-message")).toContainText(
+      "Sua sessão expirou ou não foi autenticada."
+    );
+    await expect(page.getByTestId("sanctions-history-message")).toContainText(
+      "Sua sessão expirou ou não foi autenticada."
+    );
+    await expect(page.getByText("Nenhum item de sanções foi registrado ainda no workspace compartilhado.")).toHaveCount(0);
+    await expect(page.getByTestId("sanctions-history-empty")).toHaveCount(0);
+    await expect(page.getByTestId("sanctions-history-pending-sync")).toHaveCount(0);
+    await expect(page.getByTestId("sanctions-check-btn")).toBeVisible();
+  });
+
+  test("historico exibe apenas triagens sincronizadas e exclui rascunho local pendente", async ({ page }) => {
+    await seedSanctionsPage(page, "COMPLIANCE_OFFICER");
+    await page.route("**/api/app/operations/work-items?module=sanctions&resource_type=sanctions_screening&limit=100", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] })
+      });
+    });
+
+    await page.route("**/api/app/compliance/sanctions-check**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          address: SANCTIONS_ADDRESS,
+          chain: "ethereum",
+          provider: "sanctions_lists_cache",
+          provider_status: "live",
+          degraded_reason: null,
+          capability_status: "live",
+          lists: ["OFAC", "UN"],
+          hit: true,
+          matched_lists: ["OFAC"],
+          entity_name: "Entity QA",
+          designation_date: "2026-01-01",
+          checked_at: "2026-07-15T12:00:00Z"
+        })
+      });
+    });
+
+    await page.route("**/api/app/operations/work-items", async (route: Route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: "operations_unavailable" })
+        });
+        return;
+      }
+
+      await route.fallback();
+    });
+
+    await page.goto("/sanctions");
+    await submitSanctionsCheck(page);
+
+    await expect(page.getByText("Verificação concluída, mas mantida apenas no workspace local até a sincronização com o backend.")).toBeVisible();
+    await expect(page.getByTestId("sanctions-history-pending-sync")).toContainText(
+      "As triagens ainda locais nao entram neste historico ate serem sincronizadas com a fila compartilhada do backend."
+    );
+    await expect(page.getByTestId("sanctions-history-table")).toHaveCount(0);
   });
 });
