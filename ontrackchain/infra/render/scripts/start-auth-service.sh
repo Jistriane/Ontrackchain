@@ -2,4 +2,5 @@
 set -eu
 
 python3 /app/infra/render/scripts/apply_postgres_bootstrap.py
-exec uvicorn auth_service.main:app --host 0.0.0.0 --port 9000
+PORT_TO_USE="${PORT:-9000}"
+exec uvicorn auth_service.main:app --host 0.0.0.0 --port "$PORT_TO_USE"
