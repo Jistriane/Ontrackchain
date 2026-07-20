@@ -14,8 +14,8 @@ export async function GET(request: Request) {
 
   const token = cookies().get("otc_token")?.value;
   if (!token) {
-    return new Response(JSON.stringify(EMPTY_AUDIT_LOGS_RESPONSE), {
-      status: 200,
+    return new Response(JSON.stringify({ detail: "not_authenticated" }), {
+      status: 401,
       headers: { "content-type": "application/json" }
     });
   }

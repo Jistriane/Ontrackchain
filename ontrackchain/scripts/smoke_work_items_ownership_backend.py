@@ -9,7 +9,9 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 
-BASE_URL = "http://localhost:8002"
+import os
+
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8080")
 ORG_ID = "00000000-0000-0000-0000-000000000001"
 USER_ID = "00000000-0000-0000-0000-000000000002"
 
@@ -36,6 +38,31 @@ def request(method: str, path: str, payload: dict | None = None) -> tuple[int, d
         except Exception:
             parsed = {"raw": raw}
         return exc.code, parsed
+
+
+def get_auth_token() -> str | None:
+    token_req = urllib.request.Request(
+        f"{BASE_URL}/auth/issue-dev-token",
+        data=json.dumps({
+            "org_id": ORG_ID,
+            "user_id": USER_ID,
+            "role": "ADMIN",
+            "plan": "enterprise",
+            "expires_in_minutes": 60,
+        }).encode("utf-8"),
+        headers={"content-type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(token_req) as res:
+            data = json.loads(res.read().decode("utf-8"))
+            return data.get("token")
+    except Exception:
+        return None
+
+token = get_auth_token()
+if token:
+    HEADERS["authorization"] = f"Bearer {token}"
 
 
 def main() -> int:

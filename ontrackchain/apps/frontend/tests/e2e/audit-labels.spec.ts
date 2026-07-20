@@ -1733,7 +1733,7 @@ test.describe("audit labels", () => {
       });
     });
 
-    await page.goto("/monitoring");
+    await page.goto("/incident-response");
 
     const mfaCard = page.getByTestId("worker-metric-manual-package-mfa");
     await expect(mfaCard).toContainText("MFA manual-package 1h");
