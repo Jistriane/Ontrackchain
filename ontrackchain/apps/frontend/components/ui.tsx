@@ -353,7 +353,7 @@ export function AppShell({ title, subtitle, activePath, eyebrow, actions, childr
           return canReadInvestigationAdmin(authRole) || canReadMonitoringAdmin(authRole);
         }
         if (item.href === "/team") {
-          return canManageFederatedIdentity(authRole);
+          return authRole !== null;
         }
         return true;
       }),
@@ -381,7 +381,17 @@ export function AppShell({ title, subtitle, activePath, eyebrow, actions, childr
                 ))}
               </select>
             </label>
-            {frontendStandaloneShowcaseMode ? <span className="otc-ghost-pill">Showcase</span> : <a href="/login" className="otc-topbar__logout">{t("topbar.logout")}</a>}
+            {frontendStandaloneShowcaseMode ? (
+              <span className="otc-ghost-pill">Showcase</span>
+            ) : authRole === null ? (
+              <a href="/login" className="otc-button otc-button--accent" style={{ padding: "4px 12px", fontSize: "0.8rem" }}>
+                Login
+              </a>
+            ) : (
+              <a href="/login" className="otc-topbar__logout">
+                {t("topbar.logout")}
+              </a>
+            )}
           </div>
         </header>
 

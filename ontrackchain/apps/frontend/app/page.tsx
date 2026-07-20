@@ -118,7 +118,16 @@ export default async function Home() {
       title={t("home.title")}
       subtitle={t("home.subtitle")}
       activePath="/dashboard"
-      actions={<a href="/dashboard" className="otc-link-button">{t("home.openDashboard")}</a>}
+      actions={
+        <div className="otc-controls">
+          {!authenticated ? (
+            <a href="/login" className="otc-button otc-button--accent" data-testid="home-header-login-btn">
+              Fazer Login / OIDC
+            </a>
+          ) : null}
+          <a href="/dashboard" className="otc-link-button">{t("home.openDashboard")}</a>
+        </div>
+      }
     >
       <MetricGrid>
         <MetricCard label={t("home.stats.authMode")} value={authMode.toUpperCase()} meta={devAuthDisabled ? t("home.stats.authMetaDevBlocked") : t("home.stats.authMetaEffective")} />
@@ -136,6 +145,7 @@ export default async function Home() {
           <ModuleCard href="/dashboard" title={t("home.summary.panel")} description={t("home.summary.panelDesc")} badge={<Pill>{t("dashboard.modules.active")}</Pill>} />
           <ModuleCard href="/investigate" title={t("home.summary.investigations")} description={t("home.summary.investigationsDesc")} badge={<Pill>{t("dashboard.modules.active")}</Pill>} />
           <ModuleCard href="/monitoring" title={t("home.summary.monitoring")} description={t("home.summary.monitoringDesc")} badge={<Pill>{t("dashboard.modules.active")}</Pill>} />
+          <ModuleCard href="/team" title="Usuários & Equipe" description="Gestão de identidades federadas OIDC, papéis RBAC e membros da organização." badge={<Pill>{t("dashboard.modules.active")}</Pill>} />
           <ModuleCard href="/audit" title={t("home.summary.audit")} description={t("home.summary.auditDesc")} badge={<Pill>{t("dashboard.modules.active")}</Pill>} />
         </ModuleGrid>
       </Panel>
@@ -165,6 +175,11 @@ export default async function Home() {
         <Panel title={t("home.authNotice.title")} description={t("home.authNotice.description")}>
           <div className="otc-message">
             {devAuthDisabled ? t("home.authNotice.devBlocked") : t("home.authNotice.loginRequired")}
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <a href="/login" className="otc-button otc-button--accent" data-testid="home-notice-login-btn">
+              Ir para Login / Autenticação OIDC
+            </a>
           </div>
         </Panel>
       ) : null}

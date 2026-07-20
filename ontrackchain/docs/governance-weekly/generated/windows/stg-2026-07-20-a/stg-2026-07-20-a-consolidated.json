@@ -1,0 +1,379 @@
+{
+  "window_id": "stg-2026-07-20-a",
+  "generated_at": "2026-07-20T19:02:38.626031Z",
+  "governance_state": {
+    "status": "failed",
+    "signal": "unknown",
+    "blockers": {
+      "placeholders": 0,
+      "handoff": 0
+    },
+    "decision": "recomendado_no_go",
+    "regulatory": {
+      "scope_label": "none",
+      "p0_04_bundle_readiness": "unknown"
+    },
+    "blocking": {
+      "classification": "technical_gate_blocked",
+      "summary": "falha tecnica registrada em prepare, run, artifact_validation"
+    },
+    "operational": {
+      "status": "not_available",
+      "rca_attached_count": 0,
+      "critical_open_count": 0
+    }
+  },
+  "snapshots": {
+    "current": {
+      "kind": "staging_window_status_snapshot",
+      "generated_at": "2026-07-20T19:02:37.980335+00:00",
+      "window_id": "stg-2026-07-20-a",
+      "overall_status": "failed",
+      "regulatory": {
+        "scope_label": "none",
+        "scope_is_combined": false,
+        "validation_scope": [
+          "P0-01",
+          "P0-02",
+          "P0-03"
+        ],
+        "aml_kyt_runtime_status": "unknown",
+        "aml_kyt_runtime_readiness": "unknown",
+        "eu_feed_status": "unknown",
+        "eu_feed_readiness": "unknown",
+        "p0_04_bundle_readiness": "unknown",
+        "promotion_note": "sem escopo regulatorio material nesta tentativa"
+      },
+      "blocking_state": {
+        "classification": "technical_gate_blocked",
+        "summary": "falha tecnica registrada em prepare, run, artifact_validation"
+      },
+      "operational_incidents": {
+        "status": "not_available",
+        "summary_file": "artifacts/staging/checks/stg-2026-07-20-a-operational-alerts-rca-summary.json",
+        "exported_count": 0,
+        "tracked_work_items_count": 0,
+        "rca_attached_count": 0,
+        "confirmed_root_cause_count": 0,
+        "firing_count": 0,
+        "critical_open_count": 0,
+        "pending_triage_count": 0,
+        "acknowledged_count": 0,
+        "ready_queue_count": 0,
+        "containment_status_counts": {},
+        "top_rca_domains": [],
+        "top_affected_domains": []
+      },
+      "blockers": {
+        "placeholders_file": "artifacts/staging/checks/placeholders-stg-2026-07-20-a.json",
+        "handoff_file": "artifacts/staging/checks/handoff-stg-2026-07-20-a.json",
+        "unresolved_placeholders_count": 0,
+        "unresolved_placeholders": [],
+        "missing_handoff_fields_count": 0,
+        "missing_handoff_fields": []
+      },
+      "prepare": {
+        "exit_code": 1,
+        "status": "failed",
+        "generated_at": "2026-07-20T19:02:37.567118+00:00"
+      },
+      "run": {
+        "exit_code": 1,
+        "status": "failed",
+        "generated_at": "2026-07-20T19:02:37.869745+00:00",
+        "errors": [
+          "external_preflight: falhou"
+        ]
+      },
+      "artifact_validation": {
+        "exit_code": 1,
+        "status": "failed",
+        "errors": [
+          "Mandatory artifact missing: Release dossier (stg-2026-07-20-a-dossier.json)",
+          "Scoped artifact missing for P0-01: OIDC bundle JSON (stg-2026-07-20-a-oidc-readiness-bundle.json)",
+          "Scoped artifact missing for P0-01: OIDC bundle summary (stg-2026-07-20-a-oidc-readiness-bundle.md)"
+        ],
+        "missing_artifacts": [
+          "artifacts/staging/dossiers/stg-2026-07-20-a-dossier.json",
+          "artifacts/staging/checks/stg-2026-07-20-a-oidc-readiness-bundle.json",
+          "artifacts/staging/dossiers/stg-2026-07-20-a-oidc-readiness-bundle.md"
+        ]
+      },
+      "history_file": "artifacts/staging/checks/history/stg-2026-07-20-a-status-snapshot-20260720T190237Z.json"
+    },
+    "current_latest_from_history": {
+      "kind": "staging_window_status_snapshot",
+      "generated_at": "2026-07-20T19:02:37.980335+00:00",
+      "window_id": "stg-2026-07-20-a",
+      "overall_status": "failed",
+      "regulatory": {
+        "scope_label": "none",
+        "scope_is_combined": false,
+        "validation_scope": [
+          "P0-01",
+          "P0-02",
+          "P0-03"
+        ],
+        "aml_kyt_runtime_status": "unknown",
+        "aml_kyt_runtime_readiness": "unknown",
+        "eu_feed_status": "unknown",
+        "eu_feed_readiness": "unknown",
+        "p0_04_bundle_readiness": "unknown",
+        "promotion_note": "sem escopo regulatorio material nesta tentativa"
+      },
+      "blocking_state": {
+        "classification": "technical_gate_blocked",
+        "summary": "falha tecnica registrada em prepare, run, artifact_validation"
+      },
+      "operational_incidents": {
+        "status": "not_available",
+        "summary_file": "artifacts/staging/checks/stg-2026-07-20-a-operational-alerts-rca-summary.json",
+        "exported_count": 0,
+        "tracked_work_items_count": 0,
+        "rca_attached_count": 0,
+        "confirmed_root_cause_count": 0,
+        "firing_count": 0,
+        "critical_open_count": 0,
+        "pending_triage_count": 0,
+        "acknowledged_count": 0,
+        "ready_queue_count": 0,
+        "containment_status_counts": {},
+        "top_rca_domains": [],
+        "top_affected_domains": []
+      },
+      "blockers": {
+        "placeholders_file": "artifacts/staging/checks/placeholders-stg-2026-07-20-a.json",
+        "handoff_file": "artifacts/staging/checks/handoff-stg-2026-07-20-a.json",
+        "unresolved_placeholders_count": 0,
+        "unresolved_placeholders": [],
+        "missing_handoff_fields_count": 0,
+        "missing_handoff_fields": []
+      },
+      "prepare": {
+        "exit_code": 1,
+        "status": "failed",
+        "generated_at": "2026-07-20T19:02:37.567118+00:00"
+      },
+      "run": {
+        "exit_code": 1,
+        "status": "failed",
+        "generated_at": "2026-07-20T19:02:37.869745+00:00",
+        "errors": [
+          "external_preflight: falhou"
+        ]
+      },
+      "artifact_validation": {
+        "exit_code": 1,
+        "status": "failed",
+        "errors": [
+          "Mandatory artifact missing: Release dossier (stg-2026-07-20-a-dossier.json)",
+          "Scoped artifact missing for P0-01: OIDC bundle JSON (stg-2026-07-20-a-oidc-readiness-bundle.json)",
+          "Scoped artifact missing for P0-01: OIDC bundle summary (stg-2026-07-20-a-oidc-readiness-bundle.md)"
+        ],
+        "missing_artifacts": [
+          "artifacts/staging/dossiers/stg-2026-07-20-a-dossier.json",
+          "artifacts/staging/checks/stg-2026-07-20-a-oidc-readiness-bundle.json",
+          "artifacts/staging/dossiers/stg-2026-07-20-a-oidc-readiness-bundle.md"
+        ]
+      }
+    },
+    "previous": {
+      "kind": "staging_window_status_snapshot",
+      "generated_at": "2026-07-19T01:08:24.576591+00:00",
+      "window_id": "stg-2026-07-19-a",
+      "overall_status": "failed",
+      "regulatory": {
+        "scope_label": "none",
+        "scope_is_combined": false,
+        "validation_scope": [
+          "P0-01",
+          "P0-02",
+          "P0-03"
+        ],
+        "aml_kyt_runtime_status": "unknown",
+        "aml_kyt_runtime_readiness": "unknown",
+        "eu_feed_status": "unknown",
+        "eu_feed_readiness": "unknown",
+        "p0_04_bundle_readiness": "unknown",
+        "promotion_note": "sem escopo regulatorio material nesta tentativa"
+      },
+      "blocking_state": {
+        "classification": "operational_readiness_blocked",
+        "summary": "12 placeholder(s) e 8 campo(s) de handoff pendentes"
+      },
+      "operational_incidents": {
+        "status": "not_available",
+        "summary_file": "artifacts/staging/checks/stg-2026-07-19-a-operational-alerts-rca-summary.json",
+        "exported_count": 0,
+        "tracked_work_items_count": 0,
+        "rca_attached_count": 0,
+        "confirmed_root_cause_count": 0,
+        "firing_count": 0,
+        "critical_open_count": 0,
+        "pending_triage_count": 0,
+        "acknowledged_count": 0,
+        "ready_queue_count": 0,
+        "containment_status_counts": {},
+        "top_rca_domains": [],
+        "top_affected_domains": []
+      },
+      "blockers": {
+        "placeholders_file": "artifacts/staging/checks/placeholders-stg-2026-07-19-a.json",
+        "handoff_file": "artifacts/staging/checks/handoff-stg-2026-07-19-a.json",
+        "unresolved_placeholders_count": 12,
+        "unresolved_placeholders": [
+          "ALERTMANAGER_WEBHOOK_BEARER_TOKEN",
+          "COMPLIANCE_EU_SANCTIONS_SOURCE_URL",
+          "COMPLIANCE_TRM_API_KEY",
+          "COMPLIANCE_TRM_SCREENING_URL",
+          "GRAFANA_ADMIN_PASSWORD",
+          "INVESTIGATION_RPC_FALLBACK_URL",
+          "JWT_HS256_SECRET",
+          "KEYCLOAK_ADMIN_PASSWORD",
+          "KEYCLOAK_B2B_CLIENT_SECRET",
+          "MFA_TOTP_SECRET",
+          "OPENSANCTIONS_API_KEY",
+          "POSTGRES_PASSWORD"
+        ],
+        "missing_handoff_fields_count": 8,
+        "missing_handoff_fields": [
+          "Auth/OIDC.date",
+          "Auth/OIDC.status",
+          "Compliance/AML.date",
+          "Compliance/AML.status",
+          "Investigation/RPC.date",
+          "Investigation/RPC.status",
+          "Platform/Operations.date",
+          "Platform/Operations.status"
+        ]
+      },
+      "prepare": {
+        "exit_code": 1,
+        "status": "failed",
+        "generated_at": "2026-07-19T01:08:24.422608+00:00"
+      },
+      "run": {
+        "exit_code": 1,
+        "status": "failed",
+        "generated_at": "2026-07-19T01:08:24.497652+00:00",
+        "errors": [
+          "ownership_coverage: falhou",
+          "placeholder_check: falhou",
+          "handoff_check: falhou"
+        ]
+      },
+      "artifact_validation": {
+        "exit_code": 1,
+        "status": "failed",
+        "errors": [
+          "Mandatory artifact missing: OIDC preflight (oidc-preflight-stg-2026-07-19-a.json)",
+          "Mandatory artifact missing: External preflight (external-preflight-stg-2026-07-19-a.json)",
+          "Mandatory artifact missing: Release dossier (stg-2026-07-19-a-dossier.json)",
+          "Scoped artifact missing for P0-01: OIDC bundle JSON (stg-2026-07-19-a-oidc-readiness-bundle.json)",
+          "Scoped artifact missing for P0-01: OIDC bundle summary (stg-2026-07-19-a-oidc-readiness-bundle.md)"
+        ],
+        "missing_artifacts": [
+          "artifacts/staging/checks/oidc-preflight-stg-2026-07-19-a.json",
+          "artifacts/staging/checks/external-preflight-stg-2026-07-19-a.json",
+          "artifacts/staging/dossiers/stg-2026-07-19-a-dossier.json",
+          "artifacts/staging/checks/stg-2026-07-19-a-oidc-readiness-bundle.json",
+          "artifacts/staging/dossiers/stg-2026-07-19-a-oidc-readiness-bundle.md"
+        ]
+      }
+    }
+  },
+  "parsed_content": {
+    "action_plan_items": [],
+    "unblock_checklist_items": [],
+    "regulatory_unblock_owner_actions": []
+  },
+  "communications": {
+    "executive_bullet": "Ontrackchain | janela stg-2026-07-20-a | status=failed | semaforo=unknown | escopo_regulatorio=none | p0_04=unknown | classificacao=technical_gate_blocked | rca=0 | criticos_abertos=0 | bloqueios=0 placeholders/0 handoff | decisao=recomendado_no_go",
+    "comms_summary": {
+      "short": "# Resumo de Comunicacao - stg-2026-07-20-a\n\n## Bloco Curto (Slack/Teams)\n\nJanela stg-2026-07-20-a: status `failed` | semaforo `unknown`.\nEscopo regulatorio: `none` | `P0-04` readiness: `unknown`.\nClassificacao dominante: `technical_gate_blocked` | resumo: falha tecnica registrada em prepare, run, artifact_validation\nRCA cross-domain: `0` RCA(s) em `0` work-item(s) rastreado(s) | pendente `0` | criticos `0`.\nBloqueios: `0` placeholders e `0` handoff.\nSteps: prepare `failed`, run `failed`, artifac..."
+    }
+  },
+  "regulatory_summary": {
+    "current": {
+      "scope_label": "none",
+      "validation_scope": [
+        "P0-01",
+        "P0-02",
+        "P0-03"
+      ],
+      "p0_04_bundle_readiness": "unknown",
+      "promotion_note": "sem escopo regulatorio material nesta tentativa"
+    },
+    "previous": {
+      "scope_label": "none",
+      "validation_scope": [
+        "P0-01",
+        "P0-02",
+        "P0-03"
+      ],
+      "p0_04_bundle_readiness": "unknown",
+      "promotion_note": "sem escopo regulatorio material nesta tentativa"
+    }
+  },
+  "blocking_summary": {
+    "current": {
+      "classification": "technical_gate_blocked",
+      "summary": "falha tecnica registrada em prepare, run, artifact_validation"
+    },
+    "previous": {
+      "classification": "operational_readiness_blocked",
+      "summary": "12 placeholder(s) e 8 campo(s) de handoff pendentes"
+    }
+  },
+  "operational_summary": {
+    "current": {
+      "status": "not_available",
+      "exported_count": 0,
+      "tracked_work_items_count": 0,
+      "rca_attached_count": 0,
+      "confirmed_root_cause_count": 0,
+      "critical_open_count": 0,
+      "pending_triage_count": 0,
+      "top_rca_domains": [],
+      "top_affected_domains": []
+    },
+    "previous": {
+      "status": "not_available",
+      "exported_count": 0,
+      "tracked_work_items_count": 0,
+      "rca_attached_count": 0,
+      "confirmed_root_cause_count": 0,
+      "critical_open_count": 0,
+      "pending_triage_count": 0,
+      "top_rca_domains": [],
+      "top_affected_domains": []
+    }
+  },
+  "regulatory_unblock_summary": {
+    "status": "ok",
+    "blocking_classification": "pending_execution",
+    "blocked_scopes": [],
+    "owner_action_groups_count": 0,
+    "dominant_blocking_summary": "Escopos regulatórios prontos para execução."
+  },
+  "artefact_files": {
+    "war_room_action_plan": "docs/governance-weekly/generated/windows/stg-2026-07-20-a/stg-2026-07-20-a-war-room-action-plan.md",
+    "status_snapshot": "artifacts/staging/checks/stg-2026-07-20-a-status-snapshot.json",
+    "status_snapshot_markdown": "docs/governance-weekly/generated/windows/stg-2026-07-20-a/stg-2026-07-20-a-status-snapshot.md",
+    "status_snapshot_delta": "docs/governance-weekly/generated/windows/stg-2026-07-20-a/stg-2026-07-20-a-status-snapshot-delta.md",
+    "governance_dashboard": "docs/governance-weekly/generated/windows/stg-2026-07-20-a/stg-2026-07-20-a-governance-dashboard.md",
+    "unblock_checklist": "docs/governance-weekly/generated/windows/stg-2026-07-20-a/stg-2026-07-20-a-unblock-checklist.md",
+    "regulatory_unblock_checklist": "artifacts/staging/checks/stg-2026-07-20-a-regulatory-unblock-checklist.json",
+    "regulatory_unblock_checklist_summary": "artifacts/staging/dossiers/stg-2026-07-20-a-regulatory-unblock-checklist.md",
+    "comms_summary": "docs/governance-weekly/generated/windows/stg-2026-07-20-a/stg-2026-07-20-a-comms-summary.md",
+    "executive_bullet": "docs/governance-weekly/generated/windows/stg-2026-07-20-a/stg-2026-07-20-a-executive-bullet.md"
+  },
+  "metadata": {
+    "checks_dir": "artifacts/staging/checks",
+    "dossiers_dir": "artifacts/staging/dossiers",
+    "docs_dir": "docs/governance-weekly/generated/windows/stg-2026-07-20-a",
+    "previous_snapshot_file": "artifacts/staging/checks/history/stg-2026-07-19-a-status-snapshot-20260719T010824Z.json",
+    "current_snapshot_latest_file": "artifacts/staging/checks/history/stg-2026-07-20-a-status-snapshot-20260720T190237Z.json",
+    "regulatory_unblock_file": "artifacts/staging/checks/stg-2026-07-20-a-regulatory-unblock-checklist.json"
+  }
+}
