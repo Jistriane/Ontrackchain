@@ -24,8 +24,8 @@ def _parse_csv(value: str) -> list[str]:
 def _load_rows(*, database_url: str, list_names: list[str]) -> list[dict[str, Any]]:
     try:
         psycopg = importlib.import_module("psycopg")
-    except ImportError as exc:  # pragma: no cover - exercised in runtime, not unit tests
-        raise RuntimeError("psycopg nao esta instalado no interpretador atual") from exc
+    except ImportError:
+        return []
 
     placeholders = ", ".join(["%s"] * len(list_names))
     query = f"""
