@@ -303,6 +303,13 @@ services:
         value: "1500"
       - key: INVESTIGATION_RPC_MAX_RETRIES
         value: "1"
+      - key: INVESTIGATION_INTERNAL_BASE_URL
+        fromService:
+          type: pserv
+          name: ontrackchain-investigation-api-staging
+          property: hostport
+      - key: INVESTIGATION_INTERNAL_WORKER_TOKEN
+        value: "investigation-local-token"
 
   - type: pserv
     runtime: docker
