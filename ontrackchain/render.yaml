@@ -605,6 +605,16 @@ services:
           property: hostport
       - key: NEXT_PUBLIC_API_BASE_URL
         value: "https://ontrackchain-gateway-staging.onrender.com"
+      - key: OIDC_PROVIDER
+        value: keycloak
+      - key: OIDC_CLIENT_ID
+        value: ontrackchain-web
+      - key: OIDC_AUDIENCE
+        value: ontrackchain-api
+      - key: OIDC_ISSUER_URL
+        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain"
+      - key: OIDC_AUTHORIZATION_URL
+        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/auth"
 
 databases:
   - name: ontrackchain-postgres-staging
