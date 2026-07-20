@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { ensureHttpUrl } from "../../../lib/api-url";
 
 type AuthContext = {
   token: string;
@@ -30,7 +31,7 @@ export async function authenticateRequest(requestId: string): Promise<AuthContex
     return jsonResponse(JSON.stringify({ error: "not_authenticated" }), 401);
   }
 
-  const authBaseUrl = process.env.INTERNAL_AUTH_BASE_URL ?? "http://auth-service:9000";
+  const authBaseUrl = ensureHttpUrl(process.env.INTERNAL_AUTH_BASE_URL, "http://auth-service:9000");
   const validateRes = await fetch(`${authBaseUrl}/validate`, {
     method: "GET",
     headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId },
@@ -54,7 +55,7 @@ export async function authenticateRequest(requestId: string): Promise<AuthContex
 }
 
 export async function proxyOperationsRequest(auth: AuthContext, options: ProxyRequestOptions) {
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
+  const baseUrl = ensureHttpUrl(process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL, "http://traefik");
   const res = await fetch(`${baseUrl}${options.path}`, {
     method: options.method,
     headers: {

@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { ensureHttpUrl } from "../../../lib/api-url";
 
 type TeamAuthContext = {
   token: string;
@@ -30,7 +31,7 @@ export async function authenticateTeamRequest(requestId: string): Promise<TeamAu
     return jsonResponse(JSON.stringify({ error: "not_authenticated" }), 401);
   }
 
-  const authBaseUrl = process.env.INTERNAL_AUTH_BASE_URL ?? "http://auth-service:9000";
+  const authBaseUrl = ensureHttpUrl(process.env.INTERNAL_AUTH_BASE_URL, "http://auth-service:9000");
   const validateRes = await fetch(`${authBaseUrl}/validate`, {
     method: "GET",
     headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId },
@@ -55,7 +56,7 @@ export async function authenticateTeamRequest(requestId: string): Promise<TeamAu
 }
 
 export async function proxyTeamJsonRequest(auth: TeamAuthContext, options: ProxyRequestOptions) {
-  const authBaseUrl = process.env.INTERNAL_AUTH_BASE_URL ?? "http://auth-service:9000";
+  const authBaseUrl = ensureHttpUrl(process.env.INTERNAL_AUTH_BASE_URL, "http://auth-service:9000");
   const res = await fetch(`${authBaseUrl}${options.path}`, {
     method: options.method,
     headers: {

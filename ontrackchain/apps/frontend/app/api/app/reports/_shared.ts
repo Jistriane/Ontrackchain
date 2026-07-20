@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { ensureHttpUrl } from "../../../lib/api-url";
 
 type ReportAuthContext = {
   token: string;
@@ -31,7 +32,7 @@ export async function authenticateReportRequest(requestId: string): Promise<Repo
     return jsonResponse(JSON.stringify({ error: "not_authenticated" }), 401);
   }
 
-  const authBaseUrl = process.env.INTERNAL_AUTH_BASE_URL ?? "http://auth-service:9000";
+  const authBaseUrl = ensureHttpUrl(process.env.INTERNAL_AUTH_BASE_URL, "http://auth-service:9000");
   const validateRes = await fetch(`${authBaseUrl}/validate`, {
     method: "GET",
     headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId },
@@ -72,7 +73,7 @@ function buildProxyHeaders(auth: ReportAuthContext, options: Pick<ProxyRequestOp
 }
 
 export async function proxyReportJsonRequest(auth: ReportAuthContext, options: ProxyRequestOptions) {
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
+  const baseUrl = ensureHttpUrl(process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL, "http://traefik");
   const res = await fetch(`${baseUrl}${options.path}`, {
     method: options.method,
     headers: buildProxyHeaders(auth, options),
@@ -84,7 +85,7 @@ export async function proxyReportJsonRequest(auth: ReportAuthContext, options: P
 }
 
 export async function proxyReportBinaryRequest(auth: ReportAuthContext, options: ProxyRequestOptions) {
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
+  const baseUrl = ensureHttpUrl(process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL, "http://traefik");
   const res = await fetch(`${baseUrl}${options.path}`, {
     method: options.method,
     headers: buildProxyHeaders(auth, options),

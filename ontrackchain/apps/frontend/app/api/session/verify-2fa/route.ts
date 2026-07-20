@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { ensureHttpUrl } from "../../../lib/api-url";
 
 import {
   isConfiguredDevAuthButDisabled,
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
   }
 
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
-  const authBaseUrl = process.env.INTERNAL_AUTH_BASE_URL ?? "http://auth-service:9000";
+  const authBaseUrl = ensureHttpUrl(process.env.INTERNAL_AUTH_BASE_URL, "http://auth-service:9000");
   const res = await fetch(`${authBaseUrl}/auth/verify-2fa`, {
     method: "POST",
     headers: {

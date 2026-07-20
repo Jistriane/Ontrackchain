@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { ensureHttpUrl } from "../../../lib/api-url";
 
 import {
   isConfiguredDevAuthButDisabled,
@@ -92,8 +93,8 @@ function resolveServerSideTokenUrl(publicTokenUrl: string): string {
 }
 
 export async function POST(request: Request) {
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
-  const authBaseUrl = process.env.INTERNAL_AUTH_BASE_URL ?? "http://auth-service:9000";
+  const baseUrl = ensureHttpUrl(process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL, "http://traefik");
+  const authBaseUrl = ensureHttpUrl(process.env.INTERNAL_AUTH_BASE_URL, "http://auth-service:9000");
   const authMode = resolveEffectiveAuthMode();
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const body = (await request.json()) as {

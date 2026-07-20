@@ -589,11 +589,20 @@ services:
       - key: NEXT_PUBLIC_DEV_AUTH_ENABLED
         value: "false"
       - key: INTERNAL_API_BASE_URL
-        value: "https://ontrackchain-gateway-staging.onrender.com"
+        fromService:
+          type: web
+          name: ontrackchain-gateway-staging
+          property: hostport
       - key: INTERNAL_AUTH_BASE_URL
-        value: "https://ontrackchain-auth-service-staging.onrender.com"
+        fromService:
+          type: web
+          name: ontrackchain-auth-service-staging
+          property: hostport
       - key: INTERNAL_KEYCLOAK_BASE_URL
-        value: "https://ontrackchain-keycloak-staging.onrender.com"
+        fromService:
+          type: web
+          name: ontrackchain-keycloak-staging
+          property: hostport
       - key: NEXT_PUBLIC_API_BASE_URL
         value: "https://ontrackchain-gateway-staging.onrender.com"
 

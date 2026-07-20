@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { ensureHttpUrl } from "../../../../lib/api-url";
 
 const ANONYMOUS_AUTH_CONTEXT = {
   authenticated: false,
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
   }
 
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
-  const authBaseUrl = process.env.INTERNAL_AUTH_BASE_URL ?? "http://auth-service:9000";
+  const authBaseUrl = ensureHttpUrl(process.env.INTERNAL_AUTH_BASE_URL, "http://auth-service:9000");
   const validateRes = await fetch(`${authBaseUrl}/validate`, {
     method: "GET",
     headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId },

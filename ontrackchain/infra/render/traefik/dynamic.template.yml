@@ -26,6 +26,13 @@ http:
       service: "auth-service"
       priority: 200
 
+    team:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/api/v1/team`)"
+      middlewares: ["auth"]
+      service: "auth-service"
+      priority: 150
+
     public:
       entryPoints: ["web"]
       rule: "PathPrefix(`/public`)"

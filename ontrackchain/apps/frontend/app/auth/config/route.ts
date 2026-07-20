@@ -8,6 +8,8 @@ import {
   resolveEffectiveAuthMode
 } from "../../lib/auth-runtime";
 
+import { ensureHttpUrl } from "../../lib/api-url";
+
 function readTrimmed(value: string | undefined) {
   const normalized = value?.trim();
   return normalized ? normalized : null;
@@ -150,7 +152,8 @@ export async function GET(request: Request) {
     });
   }
 
-  const authBaseUrl = readTrimmed(process.env.INTERNAL_AUTH_BASE_URL);
+  const rawAuthBaseUrl = readTrimmed(process.env.INTERNAL_AUTH_BASE_URL);
+  const authBaseUrl = rawAuthBaseUrl ? ensureHttpUrl(rawAuthBaseUrl, "") : "";
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
 
   if (authBaseUrl) {
