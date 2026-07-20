@@ -26,7 +26,9 @@ from ontrackchain_agents.counterparty_agent import (
     CounterpartyAssessment,
     CounterpartyInput,
 )
-from ontrackchain_agents.coaf_report_agent import CoafReportAgent, CoafReportDraft
+from ontrackchain_agents.bridge_mixer_risk import BridgeMixerRiskEngine
+from ontrackchain_agents.travel_rule_engine import TravelRuleEngine
+from ontrackchain_agents.ai_dossier_summarizer import AIDossierSummarizer
 
 __all__ = [
     # Sentinel (existente)
@@ -60,4 +62,10 @@ __all__ = [
     # COAF Report
     "CoafReportAgent",
     "CoafReportDraft",
+    # Phase P4 Bridge & Mixer
+    "BridgeMixerRiskEngine",
+    # Phase P6 Travel Rule
+    "TravelRuleEngine",
+    # Phase P7 AI Dossier Summarizer
+    "AIDossierSummarizer",
 ]
