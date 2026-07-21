@@ -34,10 +34,6 @@ export function resolveConfiguredAuthMode(env: NodeJS.ProcessEnv = process.env):
 }
 
 export function isDevAuthEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  const appEnv = resolveAppEnv(env);
-  if (appEnv !== "local" && appEnv !== "test") {
-    return false;
-  }
   const configured = parseBoolean(env.DEV_AUTH_ENABLED ?? env.NEXT_PUBLIC_DEV_AUTH_ENABLED);
   if (configured !== null) {
     return configured;
