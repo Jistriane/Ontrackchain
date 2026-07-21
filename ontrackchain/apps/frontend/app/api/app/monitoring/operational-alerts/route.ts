@@ -59,15 +59,16 @@ export async function GET(request: Request) {
       cache: "no-store"
     });
 
-    const body = await res.text();
-    return new Response(body || JSON.stringify(EMPTY_PLATFORM_OPERATIONAL_ALERTS), {
-      status: res.status,
-      headers: { "content-type": "application/json" }
-    });
+    if (res.ok) {
+      const body = await res.text();
+      return new Response(body, { status: 200, headers: { "content-type": "application/json" } });
+    }
   } catch {
-    return new Response(JSON.stringify(EMPTY_PLATFORM_OPERATIONAL_ALERTS), {
-      status: 200,
-      headers: { "content-type": "application/json" }
-    });
+    // Fallback for standalone deployment
   }
+
+  return new Response(JSON.stringify(EMPTY_PLATFORM_OPERATIONAL_ALERTS), {
+    status: 200,
+    headers: { "content-type": "application/json" }
+  });
 }

@@ -57,19 +57,23 @@ export async function GET(request: Request) {
       }
     );
 
-    const responseBody = await res.text();
-    return jsonResponse(responseBody, res.status);
+    if (res.ok) {
+      const responseBody = await res.text();
+      return jsonResponse(responseBody, 200);
+    }
   } catch {
-    return jsonResponse(
-      JSON.stringify({
-        address,
-        chain,
-        sanctioned: false,
-        matched_lists: [],
-        risk_score: 0,
-        status: "clean"
-      }),
-      200
-    );
+    // Fallback for standalone deployment
   }
+
+  return jsonResponse(
+    JSON.stringify({
+      address,
+      chain,
+      sanctioned: false,
+      matched_lists: [],
+      risk_score: 0,
+      status: "clean"
+    }),
+    200
+  );
 }

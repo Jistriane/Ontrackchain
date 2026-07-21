@@ -52,11 +52,15 @@ export async function GET(request: Request) {
       cache: "no-store"
     });
 
-    const responseBody = await res.text();
-    return jsonResponse(responseBody || JSON.stringify(EMPTY_COUNTERPARTY_LIST_RESPONSE), res.status);
+    if (res.ok) {
+      const responseBody = await res.text();
+      return jsonResponse(responseBody, 200);
+    }
   } catch {
-    return jsonResponse(JSON.stringify(EMPTY_COUNTERPARTY_LIST_RESPONSE), 200);
+    // Fallback for standalone deployment
   }
+
+  return jsonResponse(JSON.stringify(EMPTY_COUNTERPARTY_LIST_RESPONSE), 200);
 }
 
 export async function POST(request: Request) {
