@@ -247,47 +247,49 @@ function buildReportWorkspaceIdentity(input: {
   reportExternalId?: string | null;
   workItemId?: string | null;
 }) {
-  return input.reportExternalId?.trim() || input.caseId?.trim() || input.workItemId?.trim() || "";
+  return input?.reportExternalId?.trim() || input?.caseId?.trim() || input?.workItemId?.trim() || "";
 }
 
 function isSameReportWorkspaceRecord(
   left: Pick<ReportWorkspaceRecord, "caseId" | "reportExternalId" | "workItemId">,
   right: Pick<ReportWorkspaceRecord, "caseId" | "reportExternalId" | "workItemId">
 ) {
-  const leftReportId = left.reportExternalId.trim();
-  const rightReportId = right.reportExternalId.trim();
+  const leftReportId = (left?.reportExternalId ?? "").trim();
+  const rightReportId = (right?.reportExternalId ?? "").trim();
   if (leftReportId && rightReportId) {
     return leftReportId === rightReportId;
   }
-  if (left.caseId.trim() && right.caseId.trim()) {
-    return left.caseId.trim() === right.caseId.trim();
+  const leftCaseId = (left?.caseId ?? "").trim();
+  const rightCaseId = (right?.caseId ?? "").trim();
+  if (leftCaseId && rightCaseId) {
+    return leftCaseId === rightCaseId;
   }
-  return Boolean(left.workItemId && right.workItemId && left.workItemId === right.workItemId);
+  return Boolean(left?.workItemId && right?.workItemId && left.workItemId === right.workItemId);
 }
 
 function findReportWorkspaceRecord(
   records: ReportWorkspaceRecord[],
   input: { caseId?: string | null; reportExternalId?: string | null; workItemId?: string | null }
 ) {
-  const reportExternalId = input.reportExternalId?.trim() ?? "";
+  const reportExternalId = input?.reportExternalId?.trim() ?? "";
   if (reportExternalId) {
-    const byReportId = records.find((entry) => entry.reportExternalId.trim() === reportExternalId);
+    const byReportId = (records ?? []).find((entry) => (entry?.reportExternalId ?? "").trim() === reportExternalId);
     if (byReportId) {
       return byReportId;
     }
   }
 
-  const workItemId = input.workItemId?.trim() ?? "";
+  const workItemId = input?.workItemId?.trim() ?? "";
   if (workItemId) {
-    const byWorkItemId = records.find((entry) => entry.workItemId === workItemId);
+    const byWorkItemId = (records ?? []).find((entry) => entry?.workItemId === workItemId);
     if (byWorkItemId) {
       return byWorkItemId;
     }
   }
 
-  const caseId = input.caseId?.trim() ?? "";
+  const caseId = input?.caseId?.trim() ?? "";
   if (caseId) {
-    return records.find((entry) => entry.caseId === caseId) ?? null;
+    return (records ?? []).find((entry) => entry?.caseId === caseId) ?? null;
   }
   return null;
 }

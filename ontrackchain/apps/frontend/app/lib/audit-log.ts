@@ -33,13 +33,13 @@ export type AuditLogQueryFilters = {
 
 export function buildAuditLogQuery(filters: AuditLogQueryFilters, page: number) {
   const params = new URLSearchParams();
-  if (filters.requestId.trim()) params.set("request_id", filters.requestId.trim());
-  if (filters.action.trim()) params.set("action", filters.action.trim());
-  if (filters.resourceType.trim()) params.set("resource_type", filters.resourceType.trim());
-  if (filters.reportId.trim()) params.set("report_id", filters.reportId.trim());
-  if (filters.resourceId.trim()) params.set("resource_id", filters.resourceId.trim());
+  if ((filters?.requestId ?? "").trim()) params.set("request_id", (filters.requestId ?? "").trim());
+  if ((filters?.action ?? "").trim()) params.set("action", (filters.action ?? "").trim());
+  if ((filters?.resourceType ?? "").trim()) params.set("resource_type", (filters.resourceType ?? "").trim());
+  if ((filters?.reportId ?? "").trim()) params.set("report_id", (filters.reportId ?? "").trim());
+  if ((filters?.resourceId ?? "").trim()) params.set("resource_id", (filters.resourceId ?? "").trim());
   params.set("page", String(page));
-  params.set("limit", filters.limit);
+  params.set("limit", filters?.limit ?? "50");
   return params.toString();
 }
 
