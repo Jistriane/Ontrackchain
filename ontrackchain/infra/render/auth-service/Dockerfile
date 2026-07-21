@@ -27,5 +27,5 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 EXPOSE 9000
 
-ENTRYPOINT ["/bin/sh", "-c"]
+ENTRYPOINT ["/app/infra/render/scripts/docker-entrypoint.sh"]
 CMD ["/app/infra/render/scripts/start-auth-service.sh"]
