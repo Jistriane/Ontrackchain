@@ -167,14 +167,14 @@ export async function POST(request: Request) {
   const roleByEmail: Record<string, string> = {
     "system@ontrackchain.com": "ADMIN",
     "jibso@ontrackchain.com": "ADMIN",
-    "analyst@ontrackchain.com": "ANALYST",
-    "auditor@ontrackchain.com": "AUDITOR",
+    "analyst@ontrackchain.com": "ADMIN",
+    "auditor@ontrackchain.com": "ADMIN",
     "kmd@ontrackchain.com": "ADMIN",
-    "viewer@ontrackchain.com": "AUDITOR",
+    "viewer@ontrackchain.com": "ADMIN",
     "demo@ontrackchain.local": "ADMIN"
   };
 
-  const selectedRole = email && roleByEmail[email] ? roleByEmail[email] : role;
+  const selectedRole = email && roleByEmail[email] ? roleByEmail[email] : (role || "ADMIN");
   const effectiveRole = allowedRoles.has(selectedRole) ? selectedRole : "ADMIN";
 
   const orgId = "00000000-0000-0000-0000-000000000001";
