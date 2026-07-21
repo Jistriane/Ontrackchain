@@ -156,7 +156,7 @@ export function inferAlertOperationalContext(entry: AlertOperationalEntry): Oper
 
 export function inferLogOperationalContext(entry: LogOperationalEntry): OperationalContext {
   const metadata = entry.metadata ?? {};
-  const resourceType = entry.resource_type.trim();
+  const resourceType = (entry.resource_type ?? "").trim();
   const resourceId = (entry.resource_id ?? "").trim() || readStringValue(metadata, ["resource_id"]);
 
   return {
@@ -179,12 +179,12 @@ export function inferLogOperationalContext(entry: LogOperationalEntry): Operatio
 }
 
 export function buildCaseHref(caseId: string) {
-  const normalized = caseId.trim();
+  const normalized = (caseId ?? "").trim();
   return normalized ? `/cases/${encodeURIComponent(normalized)}` : null;
 }
 
 export function buildCaseAuditHref(caseId: string, reportId?: string | null) {
-  const normalizedCaseId = caseId.trim();
+  const normalizedCaseId = (caseId ?? "").trim();
 
   return buildAuditHref(
     {
@@ -202,7 +202,7 @@ export function buildCaseAuditHref(caseId: string, reportId?: string | null) {
 }
 
 export function buildCaseEvidenceHref(caseId: string, reportId?: string | null) {
-  const normalizedCaseId = caseId.trim();
+  const normalizedCaseId = (caseId ?? "").trim();
 
   return buildEvidenceHref(
     {

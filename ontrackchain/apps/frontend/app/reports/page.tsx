@@ -619,25 +619,27 @@ export default function ReportsPage() {
     }
   });
 
-  const availableReportCount = useMemo(() => catalog.filter((entry: ReportTypeItem) => entry.available).length, [catalog]);
-  const deprecatedReportCount = useMemo(() => catalog.filter((entry: ReportTypeItem) => Boolean(entry.deprecated)).length, [catalog]);
+  const availableReportCount = useMemo(() => catalog.filter((entry: ReportTypeItem) => Boolean(entry?.available)).length, [catalog]);
+  const deprecatedReportCount = useMemo(() => catalog.filter((entry: ReportTypeItem) => Boolean(entry?.deprecated)).length, [catalog]);
   const reportTypeLabelByCanonical = useMemo(() => {
     return catalog.reduce<Record<string, string>>((acc: Record<string, string>, entry: ReportTypeItem) => {
-      if (entry.canonical.trim() && entry.label.trim()) {
-        acc[entry.canonical] = entry.label;
+      const canonical = (entry?.canonical ?? "").trim();
+      const label = (entry?.label ?? "").trim();
+      if (canonical && label) {
+        acc[canonical] = label;
       }
       return acc;
     }, {});
   }, [catalog]);
   const minimumPlanReports = useMemo(() => {
     return catalog.reduce<Record<string, number>>((acc: Record<string, number>, entry: ReportTypeItem) => {
-      const plan = entry.min_plan ?? "unknown";
+      const plan = (entry?.min_plan ?? "unknown").toLowerCase();
       acc[plan] = (acc[plan] ?? 0) + 1;
       return acc;
     }, {});
   }, [catalog]);
   const selectedReportHistoryEntry = useMemo(
-    () => historyRows.find((entry: ReportHistoryRow) => entry.report_id === selectedReportDetail?.report_id) ?? null,
+    () => historyRows.find((entry: ReportHistoryRow) => entry?.report_id === selectedReportDetail?.report_id) ?? null,
     [historyRows, selectedReportDetail?.report_id]
   );
   const selectedReportFormalDossier = useMemo(() => {
@@ -656,66 +658,82 @@ export default function ReportsPage() {
     });
   }, [selectedReportDetail, workspace]);
   const serverWorkspaceCount = useMemo(
-    () => workspace.filter((entry: ReportWorkspaceRecord) => entry.source === "server").length,
+    () => workspace.filter((entry: ReportWorkspaceRecord) => entry?.source === "server").length,
     [workspace]
   );
   const localWorkspaceCount = useMemo(
-    () => workspace.filter((entry: ReportWorkspaceRecord) => entry.source === "local").length,
+    () => workspace.filter((entry: ReportWorkspaceRecord) => entry?.source === "local").length,
     [workspace]
   );
   const hasMixedWorkspaceSources = serverWorkspaceCount > 0 && localWorkspaceCount > 0;
 
   const filteredCatalog = useMemo<ReportTypeItem[]>(() => {
-    const query = catalogSearch.trim().toLowerCase();
+    const query = (catalogSearch ?? "").trim().toLowerCase();
     return catalog
       .filter((entry: ReportTypeItem) => {
-        if (catalogFilterAvailability === "available") return entry.available;
+        if (!entry) return false;
+        if (catalogFilterAvailability === "available") return Boolean(entry.available);
         if (catalogFilterAvailability === "unavailable") return !entry.available;
         return true;
       })
       .filter((entry: ReportTypeItem) => {
         if (catalogFilterPlan === "all") return true;
-        const minPlan = (entry.min_plan ?? "").toLowerCase();
+        const minPlan = (entry?.min_plan ?? "").toLowerCase();
         return minPlan === catalogFilterPlan;
       })
       .filter((entry: ReportTypeItem) => {
         if (!query) return true;
-        return entry.canonical.toLowerCase().includes(query) || entry.label.toLowerCase().includes(query);
+        const canonical = (entry?.canonical ?? "").toLowerCase();
+        const label = (entry?.label ?? "").toLowerCase();
+        return canonical.includes(query) || label.includes(query);
       })
       .sort((a: ReportTypeItem, b: ReportTypeItem) => {
-        const rankDiff = toPlanRank(String(a.min_plan ?? "unknown")) - toPlanRank(String(b.min_plan ?? "unknown"));
+        const rankDiff = toPlanRank(String(a?.min_plan ?? "unknown")) - toPlanRank(String(b?.min_plan ?? "unknown"));
         if (rankDiff !== 0) return rankDiff;
-        return a.canonical.localeCompare(b.canonical);
+        return (a?.canonical ?? "").localeCompare(b?.canonical ?? "");
       });
   }, [catalog, catalogFilterAvailability, catalogFilterPlan, catalogSearch]);
 
   const filteredCases = useMemo<CaseRow[]>(() => {
-    const query = casesSearch.trim().toLowerCase();
+    const query = (casesSearch ?? "").trim().toLowerCase();
     return cases.filter((entry: CaseRow) => {
       if (!query) return true;
+      const id = String(entry?.id ?? "").toLowerCase();
+      const targetAddress = String(entry?.target_address ?? "").toLowerCase();
+      const targetChain = String(entry?.target_chain ?? "").toLowerCase();
+      const status = String(entry?.status ?? "").toLowerCase();
       return (
-        entry.id.toLowerCase().includes(query) ||
-        entry.target_address.toLowerCase().includes(query) ||
-        entry.target_chain.toLowerCase().includes(query) ||
-        entry.status.toLowerCase().includes(query)
+        id.includes(query) ||
+        targetAddress.includes(query) ||
+        targetChain.includes(query) ||
+        status.includes(query)
       );
     });
   }, [cases, casesSearch]);
   const filteredHistoryRows = useMemo<ReportHistoryRow[]>(() => {
-    const query = historySearch.trim().toLowerCase();
+    const query = (historySearch ?? "").trim().toLowerCase();
     return historyRows
-      .filter((record: ReportHistoryRow) =>
-        !query ||
-        (record.case_id ?? "").toLowerCase().includes(query) ||
-        (reportTypeLabelByCanonical[record.report_type] ?? "").toLowerCase().includes(query) ||
-        (reportTypeLabelByCanonical[REQUESTED_REPORT_TYPE_ALIAS_TO_CANONICAL[record.report_type_requested] ?? ""] ?? "")
-          .toLowerCase()
-          .includes(query) ||
-        record.report_type.toLowerCase().includes(query) ||
-        record.report_type_requested.toLowerCase().includes(query) ||
-        record.report_id.toLowerCase().includes(query)
-      )
-      .sort((a: ReportHistoryRow, b: ReportHistoryRow) => b.created_at.localeCompare(a.created_at))
+      .filter((record: ReportHistoryRow) => {
+        if (!query) return true;
+        const caseId = String(record?.case_id ?? "").toLowerCase();
+        const reportType = String(record?.report_type ?? "").toLowerCase();
+        const reportTypeRequested = String(record?.report_type_requested ?? "").toLowerCase();
+        const reportId = String(record?.report_id ?? "").toLowerCase();
+        const typeLabel = String(reportTypeLabelByCanonical[record?.report_type ?? ""] ?? "").toLowerCase();
+        const requestedAliasLabel = String(
+          reportTypeLabelByCanonical[REQUESTED_REPORT_TYPE_ALIAS_TO_CANONICAL[record?.report_type_requested ?? ""] ?? ""] ?? ""
+        ).toLowerCase();
+
+        return (
+          caseId.includes(query) ||
+          typeLabel.includes(query) ||
+          requestedAliasLabel.includes(query) ||
+          reportType.includes(query) ||
+          reportTypeRequested.includes(query) ||
+          reportId.includes(query)
+        );
+      })
+      .sort((a: ReportHistoryRow, b: ReportHistoryRow) => String(b?.created_at ?? "").localeCompare(String(a?.created_at ?? "")))
       .slice(0, 100);
   }, [historyRows, historySearch, reportTypeLabelByCanonical]);
 
@@ -812,10 +830,10 @@ export default function ReportsPage() {
   }
 
   function formatReportTypeOptionLabel(entry: ReportTypeItem) {
-    const label = entry.label.trim();
-    const canonical = entry.canonical.trim();
+    const label = (entry?.label ?? "").trim();
+    const canonical = (entry?.canonical ?? "").trim();
     if (!label) {
-      return canonical;
+      return canonical || t("common.notAvailable");
     }
     if (!canonical || label === canonical) {
       return label;
@@ -981,13 +999,13 @@ export default function ReportsPage() {
       const items = Array.isArray((data as ReportTypesResponse).types) ? (data as ReportTypesResponse).types : [];
       setCatalog(
         items.map((item) => ({
-          canonical: item.canonical,
-          label: item.label,
-          available: Boolean(item.available),
-          cost_credits: Number(item.cost_credits),
-          min_plan: item.min_plan ?? null,
-          format: item.format ?? null,
-          deprecated: Boolean(item.deprecated)
+          canonical: String(item?.canonical ?? ""),
+          label: String(item?.label ?? item?.canonical ?? ""),
+          available: Boolean(item?.available),
+          cost_credits: Number.isFinite(Number(item?.cost_credits)) ? Number(item?.cost_credits) : 0,
+          min_plan: item?.min_plan ? String(item.min_plan) : null,
+          format: item?.format ? String(item.format) : null,
+          deprecated: Boolean(item?.deprecated)
         }))
       );
       setCatalogError(null);
@@ -1427,6 +1445,7 @@ export default function ReportsPage() {
   }, [historyReportIdFilter, selectedReportDetail?.report_id]);
 
   useEffect(() => {
+    let active = true;
     const reportId = selectedReportDetail?.report_id?.trim() ?? "";
     const reportType = selectedReportDetail?.report_type?.trim() ?? "";
     if (!reportId || reportType !== "coaf_ready_report") {
@@ -1441,6 +1460,7 @@ export default function ReportsPage() {
     fetch(`/api/app/reports/${encodeURIComponent(reportId)}/ros-coaf-ref`, { cache: "no-store" })
       .then(async (res) => {
         const data = (await res.json().catch(() => null)) as ReportRosCoafRefResponse | { error?: string; detail?: unknown } | null;
+        if (!active) return;
         if (!res.ok) {
           setLinkedRosId(null);
           setLinkedRosError(
@@ -1454,10 +1474,15 @@ export default function ReportsPage() {
         setLinkedRosLoading(false);
       })
       .catch(() => {
+        if (!active) return;
         setLinkedRosId(null);
         setLinkedRosError(tr("reports.detail.errorLoadRosCoaf" as MessageKey));
         setLinkedRosLoading(false);
       });
+
+    return () => {
+      active = false;
+    };
   }, [selectedReportDetail?.report_id, selectedReportDetail?.report_type, t, tr]);
 
   useEffect(() => {
