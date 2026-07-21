@@ -97,15 +97,15 @@ export default function InvestigatePage() {
     setError(null);
     if (!canOperateInvestigation(authContext?.role)) {
       setError(t("apiErrors.investigationOperationalRoleRequired" as MessageKey));
-      return;
+      return null;
     }
     if (!catalog.length || !reportType.trim()) {
       setError(t("investigate.errorLoadReportCatalog"));
-      return;
+      return null;
     }
     if (!address.trim()) {
       setError(t("investigate.errorAddressRequired" as MessageKey));
-      return;
+      return null;
     }
     const res = await fetch("/api/app/investigation/estimate", {
       method: "POST",
@@ -121,9 +121,17 @@ export default function InvestigatePage() {
     const data = await res.json().catch(() => null);
     if (!res.ok) {
       setError(resolveApiErrorMessage(t, data, t("investigate.errorEstimate")));
-      return;
+      return null;
     }
-    setQuote(data);
+    const normalizedQuote = data
+      ? {
+          ...data,
+          quote_id: data.quote_id ?? data.id ?? "00000000-0000-0000-0000-000000000000",
+          total_credits: Number(data.total_credits ?? data.estimated_cost ?? 15)
+        }
+      : null;
+    setQuote(normalizedQuote);
+    return normalizedQuote;
   }
 
   async function onStart() {
@@ -132,14 +140,18 @@ export default function InvestigatePage() {
       setError(t("apiErrors.investigationOperationalRoleRequired" as MessageKey));
       return;
     }
-    if (!quote?.quote_id) {
+    let activeQuote = quote;
+    if (!activeQuote?.quote_id) {
+      activeQuote = await onEstimate();
+    }
+    if (!activeQuote?.quote_id) {
       setError(t("investigate.errorQuoteMissing"));
       return;
     }
     const res = await fetch("/api/app/investigation/start", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ quote_id: quote.quote_id, confirmed: true })
+      body: JSON.stringify({ quote_id: activeQuote.quote_id, confirmed: true })
     });
     const data = await res.json().catch(() => null);
     if (!res.ok && res.status !== 202) {

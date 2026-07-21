@@ -1,6 +1,16 @@
 import { cookies } from "next/headers";
 
 const DEFAULT_ESTIMATE_RESPONSE = {
+  quote_id: "00000000-0000-0000-0000-000000000000",
+  expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+  report_type_requested: "technical_basic",
+  report_type_canonical: "technical_basic",
+  breakdown: [],
+  subtotal_credits: 15.0,
+  plan_discount: 0.0,
+  total_credits: 15.0,
+  total_brl_estimate: 75.0,
+  credits_available: 10000.0,
   estimated_cost: 15.0,
   estimated_duration_ms: 1200,
   tier: "standard",
