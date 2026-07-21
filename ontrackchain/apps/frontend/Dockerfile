@@ -13,7 +13,7 @@ FROM base AS deps
 COPY package.json /app/package.json
 COPY package-lock.json /app/package-lock.json
 
-RUN npm ci --include=dev --no-audit --no-fund
+RUN npm install --include=dev --no-audit --no-fund
 
 FROM deps AS source
 
@@ -40,7 +40,7 @@ FROM base AS runtime-deps
 COPY package.json /app/package.json
 COPY package-lock.json /app/package-lock.json
 
-RUN npm ci --omit=dev --no-audit --no-fund
+RUN npm install --omit=dev --no-audit --no-fund
 
 FROM base AS runtime
 
