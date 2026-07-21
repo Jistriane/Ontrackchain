@@ -169,28 +169,28 @@ function toPlanRank(plan: string) {
   return 99;
 }
 
-function buildReportOperationalContext(input: {
-  caseId: string;
+function buildReportOperationalContext(input?: {
+  caseId?: string | null;
   reportId?: string | null;
   reportType?: string | null;
   address?: string | null;
   chain?: string | null;
-}): OperationalContext {
-  const caseId = input.caseId.trim();
+} | null): OperationalContext {
+  const caseId = (input?.caseId ?? "").trim();
   return {
     caseId,
     requestId: caseId,
-    reportId: input.reportId?.trim() ?? "",
+    reportId: (input?.reportId ?? "").trim(),
     fileHash: "",
     resourceType: "case",
     resourceId: caseId,
-    address: input.address?.trim() ?? "",
-    chain: input.chain?.trim() || "ethereum",
+    address: (input?.address ?? "").trim(),
+    chain: (input?.chain ?? "").trim() || "ethereum",
     counterpartyId: "",
     legalName: "",
     documentNumber: "",
     rosId: "",
-    reportType: input.reportType?.trim() ?? "",
+    reportType: (input?.reportType ?? "").trim(),
     blockId: ""
   };
 }
@@ -419,8 +419,8 @@ function toHistoryDateTimeInputValue(value: string | null) {
   return toDateTimeLocalValue(value) ?? "";
 }
 
-function toHistoryDateTimeQueryValue(value: string) {
-  const trimmed = value.trim();
+function toHistoryDateTimeQueryValue(value?: string | null) {
+  const trimmed = (value ?? "").trim();
   if (!trimmed) {
     return "";
   }
