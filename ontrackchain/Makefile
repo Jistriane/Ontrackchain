@@ -744,6 +744,7 @@ check-investigation-api-tests:
 		--py-compile-file tests/test_rpc_provider_extended.py \
 		--py-compile-file tests/test_billing_reconciliation_extended.py \
 		--py-compile-file tests/test_dlq_operations.py \
+		--py-compile-file tests/test_case_lifecycle.py \
 		--module tests.test_audit_logs \
 		--module tests.test_billing_balance \
 		--module tests.test_billing_rbac \
@@ -755,6 +756,7 @@ check-investigation-api-tests:
 		--module tests.test_rpc_provider_extended \
 		--module tests.test_billing_reconciliation_extended \
 		--module tests.test_dlq_operations \
+		--module tests.test_case_lifecycle \
 		--required-import fastapi \
 		--required-import pydantic_settings \
 		--required-import psycopg_pool \

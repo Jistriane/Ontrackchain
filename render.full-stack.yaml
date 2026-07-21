@@ -11,9 +11,9 @@ services:
     ipAllowList: []
 
   - type: web
-    runtime: docker
     name: ontrackchain-gateway-staging
     plan: starter
+    runtime: docker
     dockerContext: ./ontrackchain
     dockerfilePath: ./ontrackchain/infra/render/traefik/Dockerfile
     healthCheckPath: /login
@@ -50,14 +50,14 @@ services:
           property: hostport
       - key: FRONTEND_HOSTPORT
         fromService:
-          type: pserv
+          type: web
           name: ontrackchain-frontend-staging
           property: hostport
 
   - type: web
-    runtime: docker
     name: ontrackchain-keycloak-staging
     plan: starter
+    runtime: docker
     dockerContext: ./ontrackchain
     dockerfilePath: ./ontrackchain/infra/render/keycloak/Dockerfile
     healthCheckPath: /realms/ontrackchain
@@ -69,30 +69,30 @@ services:
       - key: KEYCLOAK_ADMIN
         value: admin
       - key: KEYCLOAK_ADMIN_PASSWORD
-        sync: false
+        value: StagingKeycloakAdmin_2026_Sec_#88
       - key: KEYCLOAK_REALM
         value: ontrackchain
       - key: KEYCLOAK_B2B_CLIENT_SECRET
-        sync: false
+        value: stg_b2b_sec_99a8b7c6d5e4f3a2b1c0d9e8
       - key: KEYCLOAK_SYSTEM_USER_PASSWORD
-        sync: false
+        value: StagingUserPass_2026_SecureKey_#99
       - key: KEYCLOAK_KMD_TESTER_PASSWORD
-        sync: false
+        value: StagingUserPass_2026_SecureKey_#99
       - key: KEYCLOAK_JIBSO_ADMIN_PASSWORD
-        sync: false
+        value: StagingUserPass_2026_SecureKey_#99
       - key: KEYCLOAK_AUDITOR_PASSWORD
-        sync: false
+        value: StagingUserPass_2026_SecureKey_#99
       - key: KEYCLOAK_ANALYST_PASSWORD
-        sync: false
+        value: StagingUserPass_2026_SecureKey_#99
       - key: KEYCLOAK_VIEWER_PASSWORD
-        sync: false
+        value: StagingUserPass_2026_SecureKey_#99
       - key: KEYCLOAK_SEM_ORG_PASSWORD
-        sync: false
+        value: StagingUserPass_2026_SecureKey_#99
 
   - type: web
-    runtime: docker
     name: ontrackchain-auth-service-staging
     plan: starter
+    runtime: docker
     dockerContext: ./ontrackchain
     dockerfilePath: ./ontrackchain/infra/render/auth-service/Dockerfile
     dockerCommand: /app/infra/render/scripts/start-auth-service.sh
@@ -111,9 +111,9 @@ services:
       - key: JWT_AUDIENCE
         value: ontrackchain-api
       - key: JWT_HS256_SECRET
-        sync: false
+        value: stg_jwt_secret_887766554433221100aabbccddeeff00112233445566778899
       - key: MFA_TOTP_SECRET
-        sync: false
+        value: HX3M9K2P4Q8V1W7Z
       - key: MFA_TOTP_ISSUER
         value: OnTrackChain
       - key: MFA_TOTP_ACCOUNT_NAME
@@ -140,6 +140,28 @@ services:
         value: plan
       - key: OIDC_ROLE_CLAIM
         value: otk_role
+      - key: KEYCLOAK_ADMIN_BASE_URL
+        value: "https://ontrackchain-keycloak-staging.onrender.com"
+      - key: KEYCLOAK_ADMIN_REALM
+        value: ontrackchain
+      - key: KEYCLOAK_ADMIN_CLIENT_ID
+        value: ontrackchain-b2b
+      - key: KEYCLOAK_ADMIN_CLIENT_SECRET
+        value: stg_b2b_sec_99a8b7c6d5e4f3a2b1c0d9e8
+      - key: KEYCLOAK_ADMIN_TIMEOUT_SECONDS
+        value: "5"
+      - key: KEYCLOAK_ADMIN_SEARCH_LIMIT
+        value: "20"
+      - key: KEYCLOAK_ADMIN_ORG_ATTRIBUTE
+        value: organization_id
+      - key: KEYCLOAK_ADMIN_ROLE_ATTRIBUTE
+        value: otk_role
+      - key: MFA_EXTERNAL_PROVIDER_HOMOLOGATED
+        value: "false"
+      - key: ONTRACKCHAIN_ALLOW_INSECURE_OIDC_URLS
+        value: "false"
+      - key: ONTRACKCHAIN_ALLOW_LOCALHOST_OIDC_URLS
+        value: "false"
       - key: POSTGRES_HOST
         fromDatabase:
           name: ontrackchain-postgres-staging
@@ -162,9 +184,9 @@ services:
           property: database
 
   - type: pserv
-    runtime: docker
     name: ontrackchain-public-api-staging
     plan: starter
+    runtime: docker
     dockerContext: ./ontrackchain/apps/public-api
     dockerfilePath: ./ontrackchain/apps/public-api/Dockerfile
     envVars:
@@ -180,9 +202,9 @@ services:
           property: port
 
   - type: pserv
-    runtime: docker
     name: ontrackchain-investigation-api-staging
     plan: starter
+    runtime: docker
     dockerContext: ./ontrackchain
     dockerfilePath: ./ontrackchain/apps/investigation-api/Dockerfile
     envVars:
@@ -223,18 +245,20 @@ services:
       - key: INVESTIGATION_RPC_ENABLED
         value: "true"
       - key: INVESTIGATION_RPC_PRIMARY_URL
-        sync: false
+        value: "https://mainnet.infura.io/v3/80e3d13ae0f14efbabc25eca4a4ec478"
       - key: INVESTIGATION_RPC_FALLBACK_URL
-        sync: false
+        value: "https://ethereum-rpc.publicnode.com"
       - key: INVESTIGATION_RPC_TIMEOUT_MS
         value: "1500"
       - key: INVESTIGATION_RPC_MAX_RETRIES
         value: "1"
+      - key: CREDIT_VALUE_BRL
+        value: "1.0"
 
   - type: worker
-    runtime: docker
     name: ontrackchain-investigation-worker-staging
     plan: starter
+    runtime: docker
     dockerContext: ./ontrackchain
     dockerfilePath: ./ontrackchain/apps/investigation-api/Dockerfile
     dockerCommand: python -m investigation_api.worker
@@ -280,18 +304,33 @@ services:
       - key: INVESTIGATION_RPC_ENABLED
         value: "true"
       - key: INVESTIGATION_RPC_PRIMARY_URL
-        sync: false
+        value: "https://mainnet.infura.io/v3/80e3d13ae0f14efbabc25eca4a4ec478"
       - key: INVESTIGATION_RPC_FALLBACK_URL
-        sync: false
+        value: "https://ethereum-rpc.publicnode.com"
       - key: INVESTIGATION_RPC_TIMEOUT_MS
         value: "1500"
       - key: INVESTIGATION_RPC_MAX_RETRIES
         value: "1"
+      - key: CREDIT_VALUE_BRL
+        value: "1.0"
+      - key: INVESTIGATION_INTERNAL_BASE_URL
+        fromService:
+          type: pserv
+          name: ontrackchain-investigation-api-staging
+          property: hostport
+      - key: INVESTIGATION_INTERNAL_WORKER_TOKEN
+        value: stg_investigation_internal_worker_token_secret_99
+      - key: INVESTIGATION_WORKER_PROCESSING_SECONDS
+        value: "2"
+      - key: INVESTIGATION_WORKER_LOCAL_CONCURRENCY
+        value: "8"
+      - key: INVESTIGATION_WORKER_BASE_BACKOFF_SECONDS
+        value: "5"
 
   - type: pserv
-    runtime: docker
     name: ontrackchain-compliance-api-staging
     plan: starter
+    runtime: docker
     dockerContext: ./ontrackchain
     dockerfilePath: ./ontrackchain/apps/compliance-api/Dockerfile
     envVars:
@@ -332,9 +371,9 @@ services:
       - key: COMPLIANCE_TRM_ENABLED
         value: "true"
       - key: COMPLIANCE_TRM_SCREENING_URL
-        sync: false
+        value: "https://api.trmlabs.com/public/v2/screening/addresses"
       - key: COMPLIANCE_TRM_API_KEY
-        sync: false
+        value: stg_trm_api_key_demo_staging_token_998877
       - key: COMPLIANCE_TRM_API_KEY_HEADER
         value: Authorization
       - key: COMPLIANCE_TRM_API_KEY_PREFIX
@@ -343,11 +382,13 @@ services:
         value: "1500"
       - key: COMPLIANCE_TRM_MAX_RETRIES
         value: "1"
+      - key: CREDIT_VALUE_BRL
+        value: "1.0"
 
   - type: worker
-    runtime: docker
     name: ontrackchain-compliance-worker-staging
     plan: starter
+    runtime: docker
     dockerContext: ./ontrackchain
     dockerfilePath: ./ontrackchain/apps/compliance-api/Dockerfile
     dockerCommand: python -m compliance_api.worker
@@ -373,11 +414,11 @@ services:
           name: ontrackchain-postgres-staging
           property: database
       - key: OPENSANCTIONS_API_KEY
-        sync: false
+        value: a02f5c18a6a06cf498c5c216a4f3b428
       - key: COMPLIANCE_OFAC_SDN_SOURCE_URL
         value: ""
       - key: COMPLIANCE_EU_SANCTIONS_SOURCE_URL
-        sync: false
+        value: "https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList_1_1/content?token=dG9rZW5fZGVtb19zdGFnaW5nXzIwMjY"
       - key: COMPLIANCE_WORKER_IDLE_WAIT_SECONDS
         value: "60"
       - key: COMPLIANCE_WORKER_OFAC_SYNC_SECONDS
@@ -392,9 +433,9 @@ services:
         value: "3600"
 
   - type: pserv
-    runtime: docker
     name: ontrackchain-monitoring-api-staging
     plan: starter
+    runtime: docker
     dockerContext: ./ontrackchain
     dockerfilePath: ./ontrackchain/apps/monitoring-api/Dockerfile
     envVars:
@@ -439,12 +480,12 @@ services:
       - key: MONITORING_OPEN_QUOTES_WARN_THRESHOLD
         value: "25"
       - key: ALERTMANAGER_WEBHOOK_BEARER_TOKEN
-        sync: false
+        value: stg_alertmanager_bearer_token_secret_998877
 
   - type: pserv
-    runtime: docker
     name: ontrackchain-alertmanager-staging
     plan: starter
+    runtime: docker
     dockerContext: ./ontrackchain
     dockerfilePath: ./ontrackchain/infra/render/alertmanager/Dockerfile
     envVars:
@@ -460,9 +501,9 @@ services:
           envVarKey: ALERTMANAGER_WEBHOOK_BEARER_TOKEN
 
   - type: pserv
-    runtime: docker
     name: ontrackchain-prometheus-staging
     plan: starter
+    runtime: docker
     dockerContext: ./ontrackchain
     dockerfilePath: ./ontrackchain/infra/render/prometheus/Dockerfile
     envVars:
@@ -493,9 +534,9 @@ services:
           property: hostport
 
   - type: web
-    runtime: docker
     name: ontrackchain-grafana-staging
     plan: starter
+    runtime: docker
     dockerContext: ./ontrackchain
     dockerfilePath: ./ontrackchain/infra/render/grafana/Dockerfile
     healthCheckPath: /api/health
@@ -508,16 +549,16 @@ services:
       - key: GRAFANA_ADMIN_USER
         value: admin
       - key: GRAFANA_ADMIN_PASSWORD
-        sync: false
+        value: StagingGrafanaAdmin_2026_Sec_#77
       - key: GRAFANA_ANONYMOUS_ENABLED
         value: "false"
       - key: GRAFANA_DISABLE_LOGIN_FORM
         value: "false"
 
   - type: pserv
-    runtime: docker
     name: ontrackchain-report-api-staging
     plan: starter
+    runtime: docker
     dockerContext: ./ontrackchain
     dockerfilePath: ./ontrackchain/apps/report-api/Dockerfile
     envVars:
@@ -552,10 +593,10 @@ services:
       - key: REPORT_PERSISTED_WITHOUT_DOWNLOAD_WARN_THRESHOLD
         value: "3"
 
-  - type: pserv
-    runtime: docker
+  - type: web
     name: ontrackchain-frontend-staging
     plan: starter
+    runtime: docker
     dockerContext: ./ontrackchain/apps/frontend
     dockerfilePath: ./ontrackchain/apps/frontend/Dockerfile
     healthCheckPath: /api/healthz
@@ -572,6 +613,14 @@ services:
         value: oidc
       - key: NEXT_PUBLIC_DEV_AUTH_ENABLED
         value: "false"
+      - key: NEXT_PUBLIC_APP_URL
+        value: "https://ontrackchain-gateway-staging.onrender.com"
+      - key: NEXT_PUBLIC_FRONTEND_URL
+        value: "https://ontrackchain-frontend-staging.onrender.com"
+      - key: ONTRACKCHAIN_EXPECT_FRONTEND_DEPLOYMENT_MODEL
+        value: render-full-stack-staging
+      - key: ONTRACKCHAIN_ALLOW_FRONTEND_SHOWCASE_FALLBACK
+        value: "false"
       - key: INTERNAL_API_BASE_URL
         value: "https://ontrackchain-gateway-staging.onrender.com"
       - key: INTERNAL_AUTH_BASE_URL
@@ -580,6 +629,22 @@ services:
         value: "https://ontrackchain-keycloak-staging.onrender.com"
       - key: NEXT_PUBLIC_API_BASE_URL
         value: "https://ontrackchain-gateway-staging.onrender.com"
+      - key: OIDC_PROVIDER
+        value: keycloak
+      - key: OIDC_CLIENT_ID
+        value: ontrackchain-web
+      - key: OIDC_AUDIENCE
+        value: ontrackchain-api
+      - key: OIDC_ISSUER_URL
+        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain"
+      - key: OIDC_AUTHORIZATION_URL
+        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/auth"
+      - key: OIDC_JWKS_URL
+        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/certs"
+      - key: ONTRACKCHAIN_ALLOW_INSECURE_OIDC_URLS
+        value: "false"
+      - key: ONTRACKCHAIN_ALLOW_LOCALHOST_OIDC_URLS
+        value: "false"
 
 databases:
   - name: ontrackchain-postgres-staging
