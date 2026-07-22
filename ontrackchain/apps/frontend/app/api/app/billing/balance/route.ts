@@ -1,4 +1,6 @@
 import { cookies } from "next/headers";
+export const dynamic = "force-dynamic";
+
 
 const EMPTY_BILLING_BALANCE_RESPONSE = {
   credits_available: 0,

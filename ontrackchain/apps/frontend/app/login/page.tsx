@@ -118,7 +118,7 @@ export default function LoginPage() {
         {!standaloneShowcaseMode && authMode !== "oidc" ? (
           <>
             <div className="otc-panel" style={{ padding: 12, marginBottom: 12, background: "rgba(255, 255, 255, 0.03)" }}>
-              <div style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: 8, color: "var(--otc-text-muted)" }}>
+              <div style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: 8, color: "var(--otc-text-soft)" }}>
                 Perfis de Acesso System Admin Total:
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -163,7 +163,7 @@ export default function LoginPage() {
           </>
         ) : !standaloneShowcaseMode ? (
           <div className="otc-panel" style={{ padding: 14, marginBottom: 12, background: "rgba(255, 255, 255, 0.03)" }}>
-            <div style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: 8, color: "var(--otc-text-muted)" }}>
+            <div style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: 8, color: "var(--otc-text-soft)" }}>
               Contas de Acesso OIDC / Keycloak Cadastradas:
             </div>
             <ul style={{ fontSize: "0.8rem", margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>

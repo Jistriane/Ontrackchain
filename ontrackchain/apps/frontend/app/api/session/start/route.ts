@@ -1,4 +1,6 @@
 import { cookies } from "next/headers";
+export const dynamic = "force-dynamic";
+
 import { ensureHttpUrl } from "../../../lib/api-url";
 
 import {
@@ -27,14 +29,18 @@ type ValidateErrorResponse = {
 };
 
 async function loadOidcConfig(authBaseUrl: string, requestId: string): Promise<AuthConfigResponse | null> {
-  const configRes = await fetch(`${authBaseUrl}/auth/config`, {
-    headers: { "X-Request-Id": requestId },
-    cache: "no-store"
-  });
-  if (!configRes.ok) {
+  try {
+    const configRes = await fetch(`${authBaseUrl}/auth/config`, {
+      headers: { "X-Request-Id": requestId },
+      cache: "no-store"
+    });
+    if (!configRes.ok) {
+      return null;
+    }
+    return (await configRes.json()) as AuthConfigResponse;
+  } catch {
     return null;
   }
-  return (await configRes.json()) as AuthConfigResponse;
 }
 
 async function exchangeAuthorizationCode(params: {
