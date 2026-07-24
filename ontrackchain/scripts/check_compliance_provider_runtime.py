@@ -102,6 +102,8 @@ def build_headers(
     api_key: str,
     plan: str,
     request_id: str,
+    org_id: str = "",
+    role: str = "",
 ) -> dict[str, str]:
     headers: dict[str, str] = {
         "accept": "application/json",
@@ -112,6 +114,10 @@ def build_headers(
         headers["Authorization"] = f"Bearer {bearer_token}"
     elif api_key:
         headers["X-API-Key"] = api_key
+    if org_id:
+        headers["X-Org-Id"] = org_id
+    if role:
+        headers["X-Role"] = role
     return headers
 
 
@@ -125,6 +131,8 @@ def build_payload(
     sample_chain: str,
     bearer_token: str,
     api_key: str,
+    org_id: str,
+    role: str,
     timeout_seconds: float,
     request_id: str,
 ) -> dict[str, Any]:
@@ -135,6 +143,8 @@ def build_payload(
         api_key=api_key,
         plan=plan,
         request_id=request_id,
+        org_id=org_id,
+        role=role,
     )
 
     internal_status, internal_payload, _ = request_json(
@@ -331,6 +341,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sample-chain", default=env_value("ONTRACKCHAIN_COMPLIANCE_SAMPLE_CHAIN", "ethereum"))
     parser.add_argument("--bearer-token", default=env_value("ONTRACKCHAIN_BEARER_TOKEN"))
     parser.add_argument("--api-key", default=env_value("ONTRACKCHAIN_API_KEY"))
+    parser.add_argument("--org-id", default=env_value("ONTRACKCHAIN_ORG_ID"))
+    parser.add_argument("--role", default=env_value("ONTRACKCHAIN_ROLE"))
     parser.add_argument("--timeout-seconds", type=float, default=float(env_value("ONTRACKCHAIN_HTTP_TIMEOUT_SECONDS", "10")))
     parser.add_argument(
         "--request-id",
@@ -350,6 +362,8 @@ def main() -> int:
         sample_chain=args.sample_chain,
         bearer_token=args.bearer_token,
         api_key=args.api_key,
+        org_id=args.org_id,
+        role=args.role,
         timeout_seconds=args.timeout_seconds,
         request_id=args.request_id,
     )
