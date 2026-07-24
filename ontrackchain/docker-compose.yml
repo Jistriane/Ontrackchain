@@ -365,6 +365,50 @@ services:
       - traefik.http.routers.reports.middlewares=auth@docker
       - traefik.http.services.reports.loadbalancer.server.port=8004
 
+  ai-service:
+    build:
+      context: .
+      dockerfile: apps/ai-service/Dockerfile
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:-ontrackchain}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ontrackchain}
+      POSTGRES_DB: ${POSTGRES_DB:-ontrackchain}
+    depends_on:
+      - postgres
+    networks:
+      - ontrackchain
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.ai.rule=PathPrefix(`/api/v1/ai`)
+      - traefik.http.routers.ai.entrypoints=web
+      - traefik.http.routers.ai.priority=100
+      - traefik.http.routers.ai.middlewares=auth@docker
+      - traefik.http.services.ai.loadbalancer.server.port=8005
+
+  case-management:
+    build:
+      context: .
+      dockerfile: apps/case-management/Dockerfile
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:-ontrackchain}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ontrackchain}
+      POSTGRES_DB: ${POSTGRES_DB:-ontrackchain}
+    depends_on:
+      - postgres
+    networks:
+      - ontrackchain
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.cases.rule=PathPrefix(`/api/v1/cases`)
+      - traefik.http.routers.cases.entrypoints=web
+      - traefik.http.routers.cases.priority=100
+      - traefik.http.routers.cases.middlewares=auth@docker
+      - traefik.http.services.cases.loadbalancer.server.port=8006
+
   frontend:
     build:
       context: ./apps/frontend
