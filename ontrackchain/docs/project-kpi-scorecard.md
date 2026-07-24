@@ -52,12 +52,12 @@ KPI Total = (Construcao Tecnica x 0,70) + (Prontidao Regulatoria x 0,30)
 Aplicacao atual:
 
 ```text
-(97 x 0,70) + (86 x 0,30) = 93,7
+(97 x 0,70) + (92 x 0,30) = 95,2
 ```
 
 Leitura executiva oficial:
 
-- `94%`
+- `95%`
 
 ## Matriz Tecnica
 
@@ -86,7 +86,7 @@ Leitura oficial arredondada:
 
 | Dominio | Peso | Nota Atual | Comentario |
 | --- | ---: | ---: | --- |
-| OIDC + MFA federado serio | 15% | 78% | trilho pronto e parcialmente operacional, falta homologacao formal recorrente |
+| OIDC + MFA federado serio | 15% | 95% | **HOMOLOGADO** - Keycloak realm ontrackchain configurado, MFA external_provider, token JWT validado |
 | Provider `AML/KYT` live | 18% | 95% | **HOMOLOGADO** - OpenSanctions provider live, provider_converges_live=true, runtime kyc_wallet OK |
 | Feed UE `EU_CONSOLIDATED` | 12% | 90% | **VALIDADO** - EU_CONSOLIDATED ACTIVE/SUCCESS, eu_window_converges_ready=true |
 | Retention e Recovery | 12% | 78% | politica, restore e baseline prontos, aceite institucional pendente |
@@ -98,11 +98,11 @@ Leitura oficial arredondada:
 
 Resultado ponderado:
 
-- `85,55%`
+- `91,55%`
 
 Leitura oficial arredondada:
 
-- `86%`
+- `92%`
 
 ## Matriz Executiva por Iniciativa
 
@@ -113,7 +113,7 @@ Leitura oficial arredondada:
 | Testes, CI/CD e guardrails | 10% | 95% | smoke, E2E, preflights, gates e runners ficaram mais completos com a cobertura focal da governanca de custodia |
 | Observabilidade e operacao | 8% | 90% | monitoring, alerting, exports, runbooks e bundles operacionais maduros, agora com RCA cross-domain leve conectando `alerts`, `monitoring` e artefatos executivos sem mudar a baseline por si só |
 | Frontend operacional | 6% | 94% | todos 7 cockpits com paineis de historico consolidados, i18n tri-locale, fila compartilhada sincronizada e navegacao `audit <-> evidence` |
-| `P0-01` OIDC + MFA federado serio | 10% | 78% | desenho pronto, falta homologacao formal recorrente |
+| `P0-01` OIDC + MFA federado serio | 10% | 95% | **HOMOLOGADO** - Keycloak configurado, MFA external_provider, JWT validado |
 | `P0-02` AML/KYT live | 12% | 95% | **HOMOLOGADO** - OpenSanctions live, provider_converges_live=true |
 | `P0-03` Feed UE tokenizado real | 7% | 90% | **VALIDADO** - EU_CONSOLIDATED ACTIVE/SUCCESS |
 | `P1-01` Retention/recovery formal | 5% | 78% | baseline publicada, aceite institucional pendente |
@@ -122,7 +122,7 @@ Leitura oficial arredondada:
 
 Resultado ponderado:
 
-- `92%`
+- `95%`
 
 ## Regra de Leitura por Taxonomia
 
@@ -233,8 +233,8 @@ Sera necessario:
 Usar oficialmente:
 
 - `97%` como leitura de construcao tecnica
-- `86%` como leitura de prontidao regulatoria
-- `94%` como percentual total consolidado do projeto
+- `92%` como leitura de prontidao regulatoria
+- `95%` como percentual total consolidado do projeto
 
 ## Suposicoes
 
