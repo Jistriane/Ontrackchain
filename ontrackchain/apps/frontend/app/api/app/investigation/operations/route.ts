@@ -1,21 +1,21 @@
-import { cookies } from "next/headers";
+import { validateAndGetRole } from "../../../../lib/auth-validate";
 import { EMPTY_OPERATIONS_SNAPSHOT } from "../../../../lib/monitoring-investigation-operations";
 
 const EMPTY_OPERATIONS_SNAPSHOT_RESPONSE = EMPTY_OPERATIONS_SNAPSHOT;
 
 export async function GET(request: Request) {
-  const token = cookies().get("otc_token")?.value ?? "system_admin_token";
+  const auth = await validateAndGetRole(request);
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
 
   try {
     const res = await fetch(`${baseUrl}/api/v1/investigation/admin/operations`, {
       method: "GET",
-      headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId, "X-Role": "ADMIN" },
+      headers: { Authorization: `Bearer ${auth.token}`, "X-Request-Id": requestId, "X-Role": auth.role },
       cache: "no-store"
     });
 
-    if (res.ok) {
+    if (res.ok || res.status === 403) {
       const body = await res.text();
       return new Response(body, { status: res.status, headers: { "content-type": "application/json" } });
     }

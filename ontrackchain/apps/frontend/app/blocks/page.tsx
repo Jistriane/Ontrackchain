@@ -995,7 +995,12 @@ export default function BlocksPage() {
       title={tr("blocks.title" as MessageKey)}
       subtitle={tr("blocks.subtitle" as MessageKey)}
       activePath="/blocks"
-      actions={<Pill>{tr("blocks.active" as MessageKey)}</Pill>}
+      actions={
+        <div className="otc-controls">
+          <a className="otc-link-button" href="/blocks/analytics">{tr("blocks.analytics.title" as MessageKey)}</a>
+          <Pill>{tr("blocks.active" as MessageKey)}</Pill>
+        </div>
+      }
     >
       <MetricGrid>
         <MetricCard label={tr("blocks.stats.action" as MessageKey)} value={result?.action ?? "--"} meta={tr("blocks.stats.actionMeta" as MessageKey)} accent />

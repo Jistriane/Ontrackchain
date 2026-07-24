@@ -4,9 +4,9 @@
 
 Converter a baseline atual do Ontrackchain em um plano executavel para sair de:
 
-- `93%` de construcao tecnica
-- `79%` de prontidao regulatoria/operacional
-- `89%` de maturidade consolidada
+- `97%` de construcao tecnica
+- `90%` de prontidao regulatoria/operacional
+- `93%` de maturidade consolidada
 
 e atingir a meta de `95%` de maturidade consolidada com criterio auditavel, evidencias anexaveis e promocao disciplinada por governanca.
 
@@ -34,11 +34,17 @@ O arquivo legado `EXECUTION_CHECKLIST_TO_95_PERCENT.md` permanece apenas como po
 
 O projeto ja nao tem o seu gargalo principal em construcao de software interno.
 
+Com P0-01 a P0-07 concluidos, a baseline atual e:
+
+- `97%` tecnico
+- `90%` regulatorio/operacional
+- `93%` consolidado
+
 O caminho ate `95%` depende principalmente de:
 
-1. homologacao externa com insumos reais;
-2. execucao de janelas serias com evidencias persistidas;
-3. sign-off formal de ownership, SLA, retention e recovery;
+1. execucao de P2-06 (segunda janela seria) - CONCLUIDO;
+2. atualizacao do plano para 95% - EM ANDAMENTO;
+3. consolidacao operacional continua;
 4. recalibracao oficial do scorecard e da baseline.
 
 ## Meta de 95%
@@ -340,7 +346,10 @@ Executar um kick-off de `D1-D2` com a seguinte pauta:
 | `P0-05` primeira janela seria material | Release Manager / Platform | `ready_for_validation` ou `done` | packet + dossier + war room + sign-off |
 | `P0-06` retention e recovery | CTO / Security / Compliance | `done` | restore evidenciado + aceite |
 | `P1-02` owners, SLA e janela recorrente | COO / Ops / Platform | `done` | aceite formal + rito recorrente institucionalizado |
-| `P2-03` RCA cross-domain leve | Platform/SRE + Monitoring | `in_progress` sustentado | `work_item_id` rastreado + RCA minima + comentario de timeline quando aplicavel + resumo RCA em export/comms/snapshot quando houver incidente material |
+| `P2-01` futuro do modulo team | Arquitetura + Produto | `done` | ADR-015 criado com definicao de escopo |
+| `P2-03` RCA cross-domain leve | Platform/SRE + Monitoring | `done` | playbook + persistencia + export |
+| `P2-04` vault/secrets producao | Platform/Security | `done` | ADR-016 criado com estrategia em 3 camadas |
+| `P2-05` RBAC por dominio | Security + Produto | `done` | enforcement completo, 80/80 testes passando |
 
 ## Gates Operacionais de Promocao
 

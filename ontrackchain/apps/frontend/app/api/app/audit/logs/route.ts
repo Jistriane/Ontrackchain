@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { validateAndGetRole } from "../../../../lib/auth-validate";
 
 const EMPTY_AUDIT_LOGS_RESPONSE = {
   data: [],
@@ -11,7 +11,7 @@ const EMPTY_AUDIT_LOGS_RESPONSE = {
 } as const;
 
 export async function GET(request: Request) {
-  const token = cookies().get("otc_token")?.value ?? "system_admin_token";
+  const auth = await validateAndGetRole(request);
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const url = new URL(request.url);
   const query = url.search ? url.search : "";
@@ -21,12 +21,12 @@ export async function GET(request: Request) {
   try {
     const res = await fetch(`${baseUrl}/api/v1/audit/logs${query}`, {
       method: "GET",
-      headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId, "X-Role": "ADMIN" },
+      headers: { Authorization: `Bearer ${auth.token}`, "X-Request-Id": requestId, "X-Role": auth.role },
       cache: "no-store"
     });
 
-    if (res.ok) {
-      const body = await res.text();
+    const body = await res.text();
+    if (res.ok || res.status === 403) {
       return new Response(body, { status: res.status, headers: { "content-type": "application/json" } });
     }
   } catch {

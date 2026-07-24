@@ -191,8 +191,8 @@ def _validate_compliance(
         if enabled:
             errors.append("COMPLIANCE_TRM_ENABLED: esperado=false quando ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=disabled")
     elif expect_mode == "live":
-        if provider != "trm_labs":
-            errors.append(f"COMPLIANCE_RISK_PROVIDER: esperado=trm_labs recebido={provider or '<vazio>'}")
+        if provider not in ("trm_labs", "opensanctions"):
+            errors.append(f"COMPLIANCE_RISK_PROVIDER: esperado=trm_labs ou opensanctions recebido={provider or '<vazio>'}")
         if not enabled:
             errors.append("COMPLIANCE_TRM_ENABLED: esperado=true para homologacao live")
         _validate_url(

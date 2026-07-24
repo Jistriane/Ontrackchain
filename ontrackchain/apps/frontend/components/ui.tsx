@@ -7,7 +7,13 @@ import {
   canReadBilling,
   canReadCounterparty,
   canReadInvestigationAdmin,
-  canReadMonitoringAdmin
+  canReadInvestigationData,
+  canReadMonitoringAdmin,
+  canReadMonitoringCore,
+  canCheckSanctions,
+  canEvaluateBlock,
+  canExportSensitiveEvidence,
+  canReadReportDetail
 } from "../app/lib/authz";
 import type { Locale, MessageKey } from "../app/lib/i18n";
 import { fetchAuthContext } from "../app/lib/ownership";
@@ -354,6 +360,27 @@ export function AppShell({ title, subtitle, activePath, eyebrow, actions, childr
         }
         if (item.href === "/team") {
           return authRole !== null;
+        }
+        if (item.href === "/investigate") {
+          return canReadInvestigationData(authRole);
+        }
+        if (item.href === "/monitoring") {
+          return canReadMonitoringCore(authRole);
+        }
+        if (item.href === "/audit") {
+          return canReadInvestigationAdmin(authRole) || canReadMonitoringAdmin(authRole);
+        }
+        if (item.href === "/sanctions") {
+          return canCheckSanctions(authRole);
+        }
+        if (item.href === "/blocks") {
+          return canEvaluateBlock(authRole);
+        }
+        if (item.href === "/evidence") {
+          return canExportSensitiveEvidence(authRole);
+        }
+        if (item.href === "/reports" || item.href === "/ros-coaf") {
+          return canReadReportDetail(authRole);
         }
         return true;
       }),

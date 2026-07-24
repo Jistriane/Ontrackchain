@@ -18,6 +18,8 @@ Este diretorio concentra as Architectural Decision Records do scaffold atual.
 - [ADR-012 — Selagem Institucional Forte para Pacotes Manuais DD/SoF](./ADR-012-selagem-institucional-forte-para-pacotes-manuais-dd-sof.md)
 - [ADR-013 — Digest Canonico do Export no Showcase E2E](./ADR-013-digest-canonico-do-export-no-showcase-e2e.md)
 - [ADR-014 — Expansão da Public API e Rate Limiting por IP com Cache CDN](./ADR-014-expansao-da-public-api-e-rate-limiting.md)
+- [ADR-015 — Futuro do Modulo Team](./ADR-015-futuro-do-modulo-team.md)
+- [ADR-016 — Estrategia de Vault e Secrets para Producao](./ADR-016-estrategia-de-vault-e-secrets-para-producao.md)
 
 ## Como usar
 

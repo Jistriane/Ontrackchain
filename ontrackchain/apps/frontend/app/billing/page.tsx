@@ -164,7 +164,7 @@ export default function BillingPage() {
   }, [t]);
 
   const billingAccessResolved = authContext !== undefined;
-  const canReadBillingSurface = authContext ? canReadBilling(authContext.role) : true;
+  const canReadBillingSurface = authContext ? canReadBilling(authContext.role) : null;
   const shouldRenderBillingData = !billingAccessResolved || canReadBillingSurface;
   const deniedBillingMessage = billingAccessResolved && !canReadBillingSurface ? error ?? t("billing.errorLoad") : null;
 

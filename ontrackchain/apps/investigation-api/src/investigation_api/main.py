@@ -141,6 +141,7 @@ MANUAL_PACKAGE_AUTH_ROLE_TO_SIGNER_ROLES = {
     "OTK_REVIEWER": {"legal_owner_optional"},
 }
 BILLING_READ_ALLOWED_ROLES = {"ADMIN", "BILLING_ADMIN", "OTK_BILLING_ADMIN"}
+INVESTIGATION_READ_ALLOWED_ROLES = {"ADMIN", "ANALYST", "OTK_ANALYST", "AUDITOR", "OTK_AUDITOR", "VIEWER", "OTK_VIEWER"}
 MANUAL_PACKAGE_SEAL_STATUSES = (
     "pending_signoff",
     "ready_to_seal",
@@ -427,6 +428,35 @@ def _require_investigation_operational_role(
         x_role=x_role,
         allowed_roles={"ADMIN", "ANALYST", "OTK_ANALYST"},
         detail="investigation_operational_role_required",
+        resource_type=resource_type,
+        resource_id=resource_id,
+        endpoint=endpoint,
+        method=method,
+    )
+
+
+def _require_investigation_read_role(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    resource_type: str,
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    return _require_role_with_audit(
+        pool,
+        organization_id=organization_id,
+        user_id=user_id,
+        external_user_id=external_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles=INVESTIGATION_READ_ALLOWED_ROLES,
+        detail="investigation_read_role_required",
         resource_type=resource_type,
         resource_id=resource_id,
         endpoint=endpoint,
@@ -3171,8 +3201,29 @@ async def get_status(
     case_id: UUID,
     pool: ConnectionPool = Depends(get_pool),
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> dict:
     org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_investigation_read_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_type="investigation_case",
+        resource_id=case_id,
+        endpoint="/api/v1/investigation/{case_id}/status",
+        method="GET",
+    )
     with pool.connection() as conn:
         _apply_rls_context(conn, org_id)
         with conn.cursor() as cur:
@@ -3230,8 +3281,29 @@ async def get_result(
     case_id: UUID,
     pool: ConnectionPool = Depends(get_pool),
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> dict:
     org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_investigation_read_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_type="investigation_case",
+        resource_id=case_id,
+        endpoint="/api/v1/investigation/{case_id}/result",
+        method="GET",
+    )
     with pool.connection() as conn:
         _apply_rls_context(conn, org_id)
         with conn.cursor() as cur:
@@ -3291,8 +3363,29 @@ async def history(
     status: Optional[str] = None,
     pool: ConnectionPool = Depends(get_pool),
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
 ) -> dict:
     org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_investigation_read_role(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        resource_type="investigation_history",
+        resource_id=None,
+        endpoint="/api/v1/investigation/history",
+        method="GET",
+    )
     offset = (page - 1) * limit
     where = []
     params: list[object] = []

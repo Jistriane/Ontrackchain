@@ -1,6 +1,9 @@
 export const TEAM_ROLE_VALUES = [
   "ADMIN",
   "ANALYST",
+  "AUDITOR",
+  "VIEWER",
+  "TESTER",
   "COMPLIANCE_OFFICER",
   "LEGAL_REVIEWER",
   "REVIEWER",

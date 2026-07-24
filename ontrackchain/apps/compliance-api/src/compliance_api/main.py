@@ -3822,3 +3822,100 @@ async def update_counterparty_review(
         sof_document_ref=review_snapshot["sof_document_ref"] or "",
         last_reviewed_at=review_snapshot["last_reviewed_at"],
     )
+
+
+# ---------------------------------------------------------------------------
+# Dashboard KPI Summary
+# ---------------------------------------------------------------------------
+
+DASHBOARD_SUMMARY_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER", "AUDITOR"}
+
+
+@app.get("/api/v1/dashboard/summary")
+async def dashboard_summary(
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+    x_request_id: Optional[str] = Header(default=None, alias="X-Request-Id"),
+) -> dict:
+    pool = get_pool()
+    org_id = _require_org_id(x_org_id)
+    effective_role = _normalized_role(x_role)
+    request_id = x_request_id or str(uuid.uuid4())
+
+    if effective_role not in DASHBOARD_SUMMARY_ALLOWED_ROLES:
+        _record_authorization_denial(
+            pool,
+            organization_id=org_id,
+            user_id=x_user_id,
+            external_user_id=None,
+            request_id=request_id,
+            effective_role=effective_role,
+            allowed_roles=DASHBOARD_SUMMARY_ALLOWED_ROLES,
+            detail="dashboard_summary_role_required",
+            resource_type="dashboard",
+            resource_id=None,
+            endpoint="/api/v1/dashboard/summary",
+            method="GET",
+        )
+        raise HTTPException(status_code=403, detail="dashboard_summary_role_required")
+
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) AS total FROM cases WHERE organization_id = %s", (org_id,))
+            total_cases = cur.fetchone()["total"]
+
+            cur.execute(
+                "SELECT COUNT(*) AS total FROM cases WHERE organization_id = %s AND status NOT IN ('closed','resolved')",
+                (org_id,),
+            )
+            active_cases = cur.fetchone()["total"]
+
+            cur.execute("SELECT COUNT(*) AS total FROM monitoring_alerts WHERE organization_id = %s", (org_id,))
+            total_alerts = cur.fetchone()["total"]
+
+            cur.execute(
+                "SELECT COUNT(*) AS total FROM monitoring_alerts WHERE organization_id = %s AND status = 'open'",
+                (org_id,),
+            )
+            open_alerts = cur.fetchone()["total"]
+
+            cur.execute("SELECT COUNT(*) AS total FROM counterparties WHERE organization_id = %s", (org_id,))
+            total_counterparties = cur.fetchone()["total"]
+
+            cur.execute(
+                "SELECT COUNT(*) AS total FROM counterparties WHERE organization_id = %s AND status = 'blocked'",
+                (org_id,),
+            )
+            blocked_counterparties = cur.fetchone()["total"]
+
+            cur.execute(
+                "SELECT COUNT(*) AS total FROM regulatory_work_items WHERE organization_id = %s AND resource_type = 'sanctions_screening'",
+                (org_id,),
+            )
+            total_sanctions_checks = cur.fetchone()["total"]
+
+            cur.execute(
+                "SELECT COUNT(*) AS total FROM regulatory_work_items WHERE organization_id = %s AND queue_status IN ('pending','in_progress')",
+                (org_id,),
+            )
+            pending_reviews = cur.fetchone()["total"]
+
+            cur.execute(
+                "SELECT COALESCE(SUM(amount), 0) AS total FROM credit_ledger WHERE organization_id = %s AND type = 'debit'",
+                (org_id,),
+            )
+            revenue = cur.fetchone()["total"]
+
+    return {
+        "total_cases": total_cases,
+        "active_cases": active_cases,
+        "total_alerts": total_alerts,
+        "open_alerts": open_alerts,
+        "total_counterparties": total_counterparties,
+        "blocked_counterparties": blocked_counterparties,
+        "total_sanctions_checks": total_sanctions_checks,
+        "pending_reviews": pending_reviews,
+        "revenue": float(revenue),
+    }

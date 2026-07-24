@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { validateAndGetRole } from "../../../../lib/auth-validate";
 
 const EMPTY_METRICS_PREVIEW = "# metrics_unavailable_anonymous 1\n";
 
@@ -12,21 +12,21 @@ ontrackchain_active_watchlists 5
 `;
 
 export async function GET(request: Request) {
-  const token = cookies().get("otc_token")?.value ?? "system_admin_token";
+  const auth = await validateAndGetRole(request);
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
 
   try {
     const res = await fetch(`${baseUrl}/api/v1/investigation/admin/metrics`, {
       method: "GET",
-      headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId, "X-Role": "ADMIN" },
+      headers: { Authorization: `Bearer ${auth.token}`, "X-Request-Id": requestId, "X-Role": auth.role },
       cache: "no-store"
     });
 
-    if (res.ok) {
+    if (res.ok || res.status === 403) {
       const body = await res.text();
       return new Response(body, {
-        status: 200,
+        status: res.status,
         headers: { "content-type": res.headers.get("content-type") ?? "text/plain; charset=utf-8" }
       });
     }

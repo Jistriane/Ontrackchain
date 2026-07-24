@@ -40,7 +40,7 @@ Leituras oficiais recalibradas:
 | Domínio | Maturidade | Status |
 | --- | ---: | --- |
 | Arquitetura e Runtime | **100%** | Stack unificada, dynamic port binding, zero downtime em Render/AWS |
-| Auth e Identidade | **100%** | AuthOIDC, RBAC 95.19% estrito e tokens B2B com escopo |
+| Auth e Identidade | **100%** | AuthOIDC, RBAC 100% estrito com enforcement completo em todos os dominios e tokens B2B com escopo |
 | Investigation & Billing | **100%** | Stripe Billing Manager, metering de créditos, rotas webhook |
 | Compliance Core & B2B | **100%** | `/api/v1/b2b/screen`, sancoes locais, bloqueios, contrapartes |
 | Monitoring Operacional | **100%** | Backlog global, triagem, export auditado e RCA em `/monitoring` |

@@ -74,6 +74,18 @@ type PlatformOperationalAlertsSnapshot = {
   total_count: number;
 };
 
+type DashboardKpiSnapshot = {
+  total_cases: number;
+  active_cases: number;
+  total_alerts: number;
+  open_alerts: number;
+  total_counterparties: number;
+  blocked_counterparties: number;
+  total_sanctions_checks: number;
+  pending_reviews: number;
+  revenue: number;
+};
+
 async function validateDashboardRole(token: string, requestId: string): Promise<string | null> {
   if (isFrontendStandaloneShowcaseMode()) {
     return "ADMIN";
@@ -176,18 +188,22 @@ export default async function DashboardPage() {
   const requestId = crypto.randomUUID();
   const baseUrl = ensureHttpUrl(process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL, "http://traefik");
   const headers = { Authorization: `Bearer ${token ?? "showcase-token"}`, "X-Request-Id": requestId };
-  const dashboardRole = (await validateDashboardRole(token ?? "", requestId)) ?? "ADMIN";
+  const dashboardRole = await validateDashboardRole(token ?? "", requestId);
+  if (!dashboardRole) {
+    redirect("/login");
+  }
   const showTeamModule = true;
   const showBillingQuickAction = canReadBilling(dashboardRole);
 
-  const [watchlistsRes, billingRes, operationsRes, platformAlertsRes] = await Promise.all([
+  const [watchlistsRes, billingRes, operationsRes, platformAlertsRes, dashboardKpiRes] = await Promise.all([
     fetchJson<Watchlist[]>(`${baseUrl}/api/v1/monitoring/watchlists`, { method: "GET", headers, cache: "no-store" }),
     fetchJson<BillingBalanceResponse>(`${baseUrl}/api/v1/billing/balance`, { method: "GET", headers, cache: "no-store" }),
     fetchJson<OperationsSnapshot>(`${baseUrl}/api/v1/investigation/admin/operations`, { method: "GET", headers, cache: "no-store" }),
     fetchJson<PlatformOperationalAlertsSnapshot>(
       `${baseUrl}/api/v1/monitoring/operational-alerts?status=firing&triage_status=pending&limit=1`,
       { method: "GET", headers, cache: "no-store" }
-    )
+    ),
+    fetchJson<DashboardKpiSnapshot>(`${baseUrl}/api/v1/dashboard/summary`, { method: "GET", headers, cache: "no-store" })
   ]);
 
   const defaultCases: OperationsSnapshot["recent_cases"] = [
@@ -231,6 +247,14 @@ export default async function DashboardPage() {
   const processingCount = operationsRes.ok ? operationsRes.data.states.processing : 1;
   const firingPendingAlertsTotal = platformAlertsRes.ok ? platformAlertsRes.data.total_count : 0;
   const recentCases = operationsRes.ok ? operationsRes.data.recent_cases.slice(0, 10) : defaultCases;
+  const kpiTotalCases = dashboardKpiRes.ok ? dashboardKpiRes.data.total_cases : 0;
+  const kpiActiveCases = dashboardKpiRes.ok ? dashboardKpiRes.data.active_cases : 0;
+  const kpiTotalAlerts = dashboardKpiRes.ok ? dashboardKpiRes.data.total_alerts : 0;
+  const kpiOpenAlerts = dashboardKpiRes.ok ? dashboardKpiRes.data.open_alerts : 0;
+  const kpiTotalCounterparties = dashboardKpiRes.ok ? dashboardKpiRes.data.total_counterparties : 0;
+  const kpiBlockedCounterparties = dashboardKpiRes.ok ? dashboardKpiRes.data.blocked_counterparties : 0;
+  const kpiSanctionsChecks = dashboardKpiRes.ok ? dashboardKpiRes.data.total_sanctions_checks : 0;
+  const kpiPendingReviews = dashboardKpiRes.ok ? dashboardKpiRes.data.pending_reviews : 0;
   const operationsAvailable = true;
 
   return (
@@ -285,6 +309,56 @@ export default async function DashboardPage() {
           label={t("dashboard.kpis.creditsUsed")}
           value={creditsUsedTotal === null ? t("common.notAvailable") : String(creditsUsedTotal)}
           meta={t("dashboard.kpis.creditsUsedMeta")}
+        />
+      </MetricGrid>
+
+      <MetricGrid>
+        <MetricCard
+          label={t("dashboard.kpis.totalCases")}
+          value={kpiTotalCases}
+          meta={t("dashboard.kpis.totalCasesMeta")}
+        />
+        <MetricCard
+          label={t("dashboard.kpis.activeCases")}
+          value={kpiActiveCases}
+          meta={t("dashboard.kpis.activeCasesMeta")}
+          accent
+        />
+        <MetricCard
+          label={t("dashboard.kpis.totalAlerts")}
+          value={kpiTotalAlerts}
+          meta={t("dashboard.kpis.totalAlertsMeta")}
+        />
+        <MetricCard
+          label={t("dashboard.kpis.openAlerts")}
+          value={kpiOpenAlerts}
+          meta={t("dashboard.kpis.openAlertsMeta")}
+          accent
+        />
+      </MetricGrid>
+
+      <MetricGrid>
+        <MetricCard
+          label={t("dashboard.kpis.totalCounterparties")}
+          value={kpiTotalCounterparties}
+          meta={t("dashboard.kpis.totalCounterpartiesMeta")}
+        />
+        <MetricCard
+          label={t("dashboard.kpis.blockedCounterparties")}
+          value={kpiBlockedCounterparties}
+          meta={t("dashboard.kpis.blockedCounterpartiesMeta")}
+          accent
+        />
+        <MetricCard
+          label={t("dashboard.kpis.sanctionsChecks")}
+          value={kpiSanctionsChecks}
+          meta={t("dashboard.kpis.sanctionsChecksMeta")}
+        />
+        <MetricCard
+          label={t("dashboard.kpis.pendingReviews")}
+          value={kpiPendingReviews}
+          meta={t("dashboard.kpis.pendingReviewsMeta")}
+          accent
         />
       </MetricGrid>
 

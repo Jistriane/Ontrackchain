@@ -281,6 +281,9 @@ check-eu-sanctions-window:
 	fi; \
 	eval $(PYTHON) scripts/check_sanctions_sync_status.py --eu-window$$request_id_args
 
+check-sanctions-sync-status-docker:
+	@bash scripts/run_p0_03_check_docker.sh
+
 rerun-compliance-worker:
 	@docker compose up -d compliance-worker
 
@@ -312,6 +315,9 @@ check-compliance-provider-runtime:
 		public_base_args=" --public-base-url \"$(PUBLIC_BASE_URL)\""; \
 	fi; \
 	eval $(PYTHON) scripts/check_compliance_provider_runtime.py$$internal_base_args$$public_base_args
+
+check-compliance-provider-runtime-docker:
+	@bash scripts/run_p0_02_check_docker.sh
 
 run-regulatory-readiness-bundle:
 	@internal_base_args=""; \

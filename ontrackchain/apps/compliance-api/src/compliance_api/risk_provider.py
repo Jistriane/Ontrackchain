@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 from dataclasses import dataclass
 from typing import Any, Optional
 
-SUPPORTED_RISK_PROVIDERS = frozenset({"trm_labs"})
+SUPPORTED_RISK_PROVIDERS = frozenset({"trm_labs", "opensanctions"})
 
 
 @dataclass(frozen=True)
@@ -260,6 +260,128 @@ def screen_address_with_trm(
     )
 
 
+def screen_address_with_opensanctions(
+    *,
+    config: TrmRiskProviderConfig,
+    address: str,
+    chain: str,
+    entity_name: Optional[str],
+    declared_source: Optional[str],
+    request_id: Optional[str] = None,
+) -> RiskProviderOutcome:
+    screening_host = urlparse(config.screening_url).netloc or None
+    request_id_forwarded = bool(request_id)
+    if not config.enabled:
+        return _build_degraded_outcome(
+            provider_name="opensanctions",
+            reason="provider_disabled",
+            latency_ms=0,
+            retries_used=0,
+            screening_host=screening_host,
+            request_id_forwarded=request_id_forwarded,
+        )
+
+    started_at = time.perf_counter()
+    last_raw_payload: dict[str, Any] = {}
+    retries_used = 0
+
+    for attempt in range(1, config.max_retries + 2):
+        try:
+            query_body = json.dumps({
+                "schema": "Thing",
+                "queries": {
+                    "name": {
+                        "schema": "Thing",
+                        "properties": {
+                            "name": [entity_name or address]
+                        }
+                    }
+                }
+            }).encode("utf-8")
+
+            headers = {
+                "Content-Type": "application/json",
+                config.api_key_header: f"{config.api_key_prefix} {config.api_key}" if config.api_key_prefix else config.api_key,
+            }
+            if request_id_forwarded:
+                headers["X-Request-Id"] = request_id
+
+            req = urllib.request.Request(
+                config.screening_url,
+                data=query_body,
+                headers=headers,
+                method="POST",
+            )
+
+            response = urllib.request.urlopen(req, timeout=config.timeout_ms / 1000)
+            raw = response.read().decode("utf-8")
+            last_raw_payload = json.loads(raw) if raw else {}
+
+            latency_ms = int(round((time.perf_counter() - started_at) * 1000))
+
+            responses = last_raw_payload.get("responses", {})
+            name_response = responses.get("name", {})
+            results = name_response.get("results", [])
+            total = name_response.get("total", {}).get("value", 0)
+
+            risk_score = 0
+            if total > 0:
+                risk_score = min(100, total * 25)
+
+            return RiskProviderOutcome(
+                provider_name="opensanctions",
+                provider_status="live",
+                degraded_reason=None,
+                risk_score=risk_score,
+                dimensions=None,
+                raw_payload=last_raw_payload,
+                latency_ms=latency_ms,
+                retries_used=retries_used,
+                score_source="provider_live",
+                upstream_status_code=getattr(response, "status", None),
+                screening_host=screening_host,
+                request_id_forwarded=request_id_forwarded,
+            )
+        except urllib.error.HTTPError as exc:
+            retries_used += 1
+            if attempt >= config.max_retries:
+                latency_ms = int(round((time.perf_counter() - started_at) * 1000))
+                return _build_degraded_outcome(
+                    provider_name="opensanctions",
+                    reason="provider_unavailable",
+                    latency_ms=latency_ms,
+                    retries_used=retries_used,
+                    raw_payload=last_raw_payload,
+                    upstream_status_code=exc.code,
+                    screening_host=screening_host,
+                    request_id_forwarded=request_id_forwarded,
+                )
+        except (TimeoutError, urllib.error.URLError, json.JSONDecodeError):
+            retries_used += 1
+            if attempt >= config.max_retries:
+                latency_ms = int(round((time.perf_counter() - started_at) * 1000))
+                return _build_degraded_outcome(
+                    provider_name="opensanctions",
+                    reason="provider_unavailable",
+                    latency_ms=latency_ms,
+                    retries_used=retries_used,
+                    raw_payload=last_raw_payload,
+                    screening_host=screening_host,
+                    request_id_forwarded=request_id_forwarded,
+                )
+
+    latency_ms = int(round((time.perf_counter() - started_at) * 1000))
+    return _build_degraded_outcome(
+        provider_name="opensanctions",
+        reason="provider_unavailable",
+        latency_ms=latency_ms,
+        retries_used=retries_used,
+        raw_payload=last_raw_payload,
+        screening_host=screening_host,
+        request_id_forwarded=request_id_forwarded,
+    )
+
+
 def screen_address(
     *,
     provider_name: str,
@@ -273,6 +395,15 @@ def screen_address(
     normalized_provider = provider_name.strip().lower()
     if normalized_provider == "trm_labs":
         return screen_address_with_trm(
+            config=trm_config,
+            address=address,
+            chain=chain,
+            entity_name=entity_name,
+            declared_source=declared_source,
+            request_id=request_id,
+        )
+    if normalized_provider == "opensanctions":
+        return screen_address_with_opensanctions(
             config=trm_config,
             address=address,
             chain=chain,
@@ -297,7 +428,7 @@ def screen_address(
 
 def describe_provider_readiness(*, provider_name: str, trm_config: TrmRiskProviderConfig) -> RiskProviderReadiness:
     normalized_provider = provider_name.strip().lower()
-    if normalized_provider != "trm_labs":
+    if normalized_provider not in SUPPORTED_RISK_PROVIDERS:
         return RiskProviderReadiness(
             provider_name=normalized_provider or "unknown",
             provider_supported=False,
@@ -325,7 +456,7 @@ def describe_provider_readiness(*, provider_name: str, trm_config: TrmRiskProvid
         operating_mode = "misconfigured"
 
     return RiskProviderReadiness(
-        provider_name="trm_labs",
+        provider_name=normalized_provider,
         provider_supported=True,
         enabled=enabled,
         configured=configured,

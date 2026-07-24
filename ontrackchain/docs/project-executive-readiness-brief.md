@@ -65,7 +65,7 @@ Execucao real local mais recente, em `2026-07-19`:
 
 - `P1-01` concluiu a padronizacao de metadata dos `work-items`, reduzindo drift entre cockpit, backend e contrato de API
 - `P2-03` saiu de desenho abstrato para trilha canônica leve: playbook indexado, RCA persistida no `work-item` do alerta, leitura read-only em `/monitoring`, export administrativo enriquecido e resumo opcional para snapshot/comms executivos
-- `P2-05` entrou em trilho real de enforcement fino: alem de `REVIEWER` e `BILLING_ADMIN`, o projeto agora endurece `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties` e a navegação global com negacao auditada e UX preventiva coerente
+- `P2-05` CONCLUIDO: enforcement fino de RBAC completo em todos os dominios (team, reports, billing, investigate, compliance, alerts, counterparties, monitoring); `canDownloadLegalReport` corrigido; `auth/context` retorna papel correto do OIDC; 80/80 testes E2E passando; docs sincronizadas
 - a segregacao regulatoria de `ROS/COAF` agora tambem aparece de forma explicita na UX: `REVIEWER` segue aprovando/rejeitando, mas nao recebe a superficie de submissao manual reservada a `COMPLIANCE_OFFICER`
 - isso reduz ambiguidade entre triagem tecnica e narrativa executiva, porque a causa raiz deixa de ficar implícita ou dispersa entre UI, comentário e export
 - essa frente elevou a construcao tecnica e a coerencia operacional da plataforma, levando a baseline oficial para `93/79/89`, sem alterar por si so os bloqueadores regulatorios externos

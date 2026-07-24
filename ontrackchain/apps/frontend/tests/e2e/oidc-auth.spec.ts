@@ -102,7 +102,7 @@ test("callback OIDC exibe erro explicito quando o usuario nao possui claims obri
   const appHost = escapedHost(baseURL ?? "http://localhost:8080");
 
   await page.goto("/login");
-  await page.getByTestId("login-btn").click();
+  await page.getByTestId("oidc-login-btn").click();
 
   await page.waitForURL(new RegExp(escapedHost(authorizationUrl!)), {
     timeout: 30_000

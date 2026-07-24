@@ -72,12 +72,14 @@ TEAM_USER_ALLOWED_ROLES = {
     "ANALYST",
     "AUDITOR",
     "VIEWER",
+    "TESTER",
     "COMPLIANCE_OFFICER",
     "LEGAL_REVIEWER",
     "REVIEWER",
     "BILLING_ADMIN",
 }
 TEAM_USER_ALLOWED_STATUSES = {"active", "invited", "disabled"}
+TEAM_USER_READ_ALLOWED_ROLES = {"ADMIN"}
 TEAM_USER_WRITE_ALLOWED_ROLES = {"ADMIN"}
 TEAM_USER_CREATE_ALLOWED_ROLES = {"ADMIN"}
 TEAM_USER_UPDATE_ALLOWED_ROLES = {"ADMIN"}
@@ -715,6 +717,11 @@ def _record_audit_log(
     )
 
 
+def _require_team_user_read_role(auth: dict) -> None:
+    if str(auth.get("role") or "").upper() not in TEAM_USER_READ_ALLOWED_ROLES:
+        raise HTTPException(status_code=403, detail="team_user_read_role_required")
+
+
 def _require_team_user_write_role(auth: dict) -> None:
     if str(auth.get("role") or "").upper() not in TEAM_USER_WRITE_ALLOWED_ROLES:
         raise HTTPException(status_code=403, detail="team_user_write_role_required")
@@ -1345,6 +1352,7 @@ async def verify_two_factor(body: VerifyTwoFactorRequest, auth: dict = Depends(_
 
 @app.get("/api/v1/team/users", response_model=TeamUserListResponse)
 async def list_team_users(auth: dict = Depends(_require_auth), pool: ConnectionPool = Depends(get_pool)) -> TeamUserListResponse:
+    _require_team_user_read_role(auth)
     organization_id = str(auth["org_id"])
     with pool.connection() as conn:
         with conn.cursor() as cur:

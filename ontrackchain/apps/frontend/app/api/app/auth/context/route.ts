@@ -51,7 +51,7 @@ export async function GET(request: Request) {
             org_id: validateRes.headers.get("X-Org-Id") ?? SYSTEM_ADMIN_AUTH_CONTEXT.org_id,
             user_id: validateRes.headers.get("X-User-Id") ?? SYSTEM_ADMIN_AUTH_CONTEXT.user_id,
             linked_user_id: validateRes.headers.get("X-Linked-User-Id") ?? SYSTEM_ADMIN_AUTH_CONTEXT.linked_user_id,
-            role: "ADMIN",
+            role: validateRes.headers.get("X-Role") ?? SYSTEM_ADMIN_AUTH_CONTEXT.role,
             plan: validateRes.headers.get("X-Plan") ?? "enterprise",
             auth_method: validateRes.headers.get("X-Auth-Method") ?? "jwt",
             mfa_mode: validateRes.headers.get("X-MFA-Mode") ?? "external_provider",

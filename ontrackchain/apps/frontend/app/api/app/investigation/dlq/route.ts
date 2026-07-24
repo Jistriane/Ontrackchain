@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { validateAndGetRole } from "../../../../lib/auth-validate";
 
 const DEFAULT_DLQ_LIMIT = 100;
 
@@ -23,7 +23,7 @@ function buildEmptyDlqResponse(request: Request) {
 }
 
 export async function GET(request: Request) {
-  const token = cookies().get("otc_token")?.value ?? "system_admin_token";
+  const auth = await validateAndGetRole(request);
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const url = new URL(request.url);
   const query = url.search ? url.search : "";
@@ -33,16 +33,16 @@ export async function GET(request: Request) {
     const res = await fetch(`${baseUrl}/api/v1/investigation/admin/dlq${query}`, {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${auth.token}`,
         "X-Request-Id": requestId,
-        "X-Role": "ADMIN"
+        "X-Role": auth.role
       },
       cache: "no-store"
     });
 
-    if (res.ok) {
+    if (res.ok || res.status === 403) {
       const body = await res.text();
-      return new Response(body, { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(body, { status: res.status, headers: { "content-type": "application/json" } });
     }
   } catch {
     // Fallback for offline/unreachable backend

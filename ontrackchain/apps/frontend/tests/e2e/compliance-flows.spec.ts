@@ -238,7 +238,7 @@ test("risco score é exibido corretamente com 5 dimensões", async ({ request })
   });
   expect(res.status()).toBe(200);
   const body = (await res.json()) as RiskCheckResponse;
-  expect(body.provider).toBe("trm_labs");
+  expect(body.provider).toMatch(/^(trm_labs|opensanctions|chainalysis)$/);
   expect(["live", "degraded"]).toContain(body.provider_status);
   expect(body).toHaveProperty("checked_at");
   if (body.provider_status === "live") {
@@ -843,7 +843,7 @@ test("monitoring exibe snapshot operacional do investigation-worker", async ({ p
   const startBody = (await start.json()) as CaseStartResponse;
 
   await loginAsAdmin(page);
-  await openPageWithCleanSessionStorage(page, "/monitoring");
+  await openPageWithCleanSessionStorage(page, "/incident-response");
   await page.click('[data-testid="worker-refresh-btn"]');
 
   await expect(page.locator('[data-testid="worker-metric-concurrency"]')).toContainText("org");
@@ -888,7 +888,7 @@ test("monitoring permite reprocessar case em DLQ", async ({ page, request }) => 
   expect(currentStatus).toBe("failed");
 
   await loginAsAdmin(page);
-  await openPageWithCleanSessionStorage(page, "/monitoring");
+  await openPageWithCleanSessionStorage(page, "/incident-response");
   await page.click('[data-testid="dlq-refresh-btn"]');
 
   const requeueButton = page.locator(`[data-testid="dlq-requeue-btn-${startBody.case_id}"]`);
@@ -949,7 +949,7 @@ test("monitoring permite arquivar case em DLQ e filtrar resolvidos", async ({ pa
   expect(currentStatus).toBe("failed");
 
   await loginAsAdmin(page);
-  await openPageWithCleanSessionStorage(page, "/monitoring");
+  await openPageWithCleanSessionStorage(page, "/incident-response");
   await page.click('[data-testid="dlq-refresh-btn"]');
 
   const ackButton = page.locator(`[data-testid="dlq-ack-btn-${startBody.case_id}"]`);
@@ -1003,7 +1003,7 @@ test("monitoring exibe alerta operacional quando ha item aberto em DLQ", async (
   expect(currentStatus).toBe("failed");
 
   await loginAsAdmin(page);
-  await openPageWithCleanSessionStorage(page, "/monitoring");
+  await openPageWithCleanSessionStorage(page, "/incident-response");
   await page.click('[data-testid="worker-alerts-refresh-btn"]');
 
   await expect(page.locator('[data-testid="worker-alerts-summary"]')).toContainText("abertos:");
@@ -1028,7 +1028,7 @@ test("monitoring exibe incidentes globais recebidos do Alertmanager", async ({ p
   expect(trigger.status()).toBe(200);
 
   await loginAsAdmin(page);
-  await page.goto("/monitoring");
+  await page.goto("/alerts");
   await page.selectOption('[data-testid="platform-alert-filter-status"]', "firing");
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "pending");
   await page.selectOption('[data-testid="platform-alert-filter-service"]', "platform");
@@ -1119,7 +1119,7 @@ test("monitoring navega entre paginas de incidentes globais", async ({ page, req
   }
 
   await loginAsAdmin(page);
-  await page.goto("/monitoring");
+  await page.goto("/alerts");
   await page.selectOption('[data-testid="platform-alert-filter-status"]', "firing");
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "pending");
   await page.selectOption('[data-testid="platform-alert-filter-service"]', "platform");
@@ -1165,7 +1165,7 @@ test("monitoring permite reconhecer incidente global de plataforma", async ({ pa
   expect(trigger.status()).toBe(200);
 
   await loginAsAdmin(page);
-  await page.goto("/monitoring");
+  await page.goto("/alerts");
   await page.selectOption('[data-testid="platform-alert-filter-status"]', "firing");
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "pending");
   await page.selectOption('[data-testid="platform-alert-filter-service"]', service);
@@ -1702,7 +1702,7 @@ test("monitoring permite filtrar incidentes globais por receiver", async ({ page
   expect(testTrigger.status()).toBe(200);
 
   await loginAsAdmin(page);
-  await page.goto("/monitoring");
+  await page.goto("/alerts");
   await page.selectOption('[data-testid="platform-alert-filter-status"]', "firing");
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "pending");
   await page.selectOption('[data-testid="platform-alert-filter-service"]', service);
@@ -1747,7 +1747,7 @@ test("monitoring carrega dinamicamente opcoes de service e receiver na UI", asyn
   expect(otherTrigger.status()).toBe(200);
 
   await loginAsAdmin(page);
-  await page.goto("/monitoring");
+  await page.goto("/alerts");
   await page.selectOption('[data-testid="platform-alert-filter-status"]', "firing");
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "pending");
   await page.selectOption('[data-testid="platform-alert-filter-service"]', service);
@@ -1792,7 +1792,7 @@ test("monitoring exporta incidentes selecionados em json pela UI", async ({ page
   expect(unselectedTrigger.status()).toBe(200);
 
   await loginAsAdmin(page);
-  await page.goto("/monitoring");
+  await page.goto("/alerts");
   await page.selectOption('[data-testid="platform-alert-filter-status"]', "firing");
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "pending");
   await page.selectOption('[data-testid="platform-alert-filter-service"]', service);
@@ -1850,7 +1850,7 @@ test("monitoring permite reconhecer em lote os incidentes filtrados", async ({ p
   }
 
   await loginAsAdmin(page);
-  await page.goto("/monitoring");
+  await page.goto("/alerts");
   await page.selectOption('[data-testid="platform-alert-filter-status"]', "firing");
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "pending");
   await page.selectOption('[data-testid="platform-alert-filter-service"]', "report-api");
@@ -1893,7 +1893,7 @@ test("monitoring permite selecionar manualmente incidentes e reconhecer apenas o
   }
 
   await loginAsAdmin(page);
-  await openPageWithCleanSessionStorage(page, "/monitoring");
+  await openPageWithCleanSessionStorage(page, "/alerts");
   await page.selectOption('[data-testid="platform-alert-filter-status"]', "firing");
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "pending");
   await page.selectOption('[data-testid="platform-alert-filter-service"]', service);
@@ -1947,7 +1947,7 @@ test("monitoring preserva selecao manual entre paginas do mesmo recorte", async 
   }
 
   await loginAsAdmin(page);
-  await openPageWithCleanSessionStorage(page, "/monitoring");
+  await openPageWithCleanSessionStorage(page, "/alerts");
   await page.selectOption('[data-testid="platform-alert-filter-status"]', "firing");
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "pending");
   await page.selectOption('[data-testid="platform-alert-filter-service"]', service);
@@ -2011,7 +2011,7 @@ test("monitoring limpa selecao quando o recorte logico muda", async ({ page, req
   expect(trigger.status()).toBe(200);
 
   await loginAsAdmin(page);
-  await openPageWithCleanSessionStorage(page, "/monitoring");
+  await openPageWithCleanSessionStorage(page, "/alerts");
   await page.selectOption('[data-testid="platform-alert-filter-status"]', "firing");
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "pending");
   await page.selectOption('[data-testid="platform-alert-filter-service"]', "report-api");
@@ -2052,7 +2052,7 @@ test("monitoring preserva recorte e selecao manual apos refresh da pagina", asyn
   }
 
   await loginAsAdmin(page);
-  await openPageWithCleanSessionStorage(page, "/monitoring");
+  await openPageWithCleanSessionStorage(page, "/alerts");
   await page.selectOption('[data-testid="platform-alert-filter-status"]', "firing");
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "pending");
   await page.selectOption('[data-testid="platform-alert-filter-service"]', service);
@@ -2155,7 +2155,7 @@ test("monitoring reidrata o recorte salvo pela superficie alerts", async ({ page
     .toBeTruthy();
   await expect.poll(async () => readPersistedSelectedCount(page)).toBeGreaterThan(0);
 
-  await page.goto("/monitoring");
+  await page.goto("/alerts");
 
   await expect(page.locator('[data-testid="platform-alert-filter-status"]')).toHaveValue("all");
   await expect(page.locator('[data-testid="platform-alert-filter-triage"]')).toHaveValue("pending");

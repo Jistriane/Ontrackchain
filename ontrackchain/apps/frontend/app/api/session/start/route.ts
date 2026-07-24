@@ -173,10 +173,10 @@ export async function POST(request: Request) {
   const roleByEmail: Record<string, string> = {
     "system@ontrackchain.com": "ADMIN",
     "jibso@ontrackchain.com": "ADMIN",
-    "analyst@ontrackchain.com": "ADMIN",
-    "auditor@ontrackchain.com": "ADMIN",
-    "kmd@ontrackchain.com": "ADMIN",
-    "viewer@ontrackchain.com": "ADMIN",
+    "analyst@ontrackchain.com": "ANALYST",
+    "auditor@ontrackchain.com": "AUDITOR",
+    "kmd@ontrackchain.com": "TESTER",
+    "viewer@ontrackchain.com": "VIEWER",
     "demo@ontrackchain.local": "ADMIN"
   };
 

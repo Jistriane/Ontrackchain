@@ -1,5 +1,6 @@
 const BILLING_READ_ROLES = new Set(["ADMIN", "OTK_ADMIN", "BILLING_ADMIN", "OTK_BILLING_ADMIN"]);
 const INVESTIGATION_OPERATION_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "OTK_ANALYST"]);
+const INVESTIGATION_READ_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "OTK_ANALYST", "AUDITOR", "OTK_AUDITOR", "VIEWER", "OTK_VIEWER"]);
 const MONITORING_CORE_READ_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "OTK_ANALYST", "AUDITOR", "OTK_AUDITOR", "VIEWER", "OTK_VIEWER", "TESTER", "OTK_TESTER"]);
 const PRIVILEGED_ADMIN_READ_ROLES = new Set(["ADMIN", "OTK_ADMIN", "AUDITOR", "OTK_AUDITOR"]);
 const PRIVILEGED_ADMIN_MUTATION_ROLES = new Set(["ADMIN", "OTK_ADMIN"]);
@@ -29,7 +30,7 @@ const REPORT_WRITE_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "OTK_ANALYS
 const REPORT_DETAIL_ROLES = new Set(["ADMIN", "OTK_ADMIN", "AUDITOR", "OTK_AUDITOR", "ANALYST", "OTK_ANALYST"]);
 const REPORT_DOWNLOAD_ROLES = new Set(["ADMIN", "OTK_ADMIN", "AUDITOR", "OTK_AUDITOR", "ANALYST", "OTK_ANALYST"]);
 const TEAM_FEDERATED_IDENTITY_MANAGE_ROLES = new Set(["ADMIN", "OTK_ADMIN"]);
-const BLOCK_EVALUATE_ROLES = new Set(["ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"]);
+const BLOCK_EVALUATE_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"]);
 const BLOCK_LIFT_ROLES = new Set(["ADMIN", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"]);
 const COUNTERPARTY_REVIEW_ROLES = new Set([
   "ADMIN",
@@ -75,6 +76,10 @@ export function canReadBilling(role: string | null | undefined) {
 
 export function canOperateInvestigation(role: string | null | undefined) {
   return INVESTIGATION_OPERATION_ROLES.has(normalizeAuthRole(role));
+}
+
+export function canReadInvestigationData(role: string | null | undefined) {
+  return INVESTIGATION_READ_ROLES.has(normalizeAuthRole(role));
 }
 
 export function canReadMonitoringCore(role: string | null | undefined) {
@@ -142,14 +147,18 @@ export function canDownloadLegalReport(context: LegalReportAccessContext | null 
     return true;
   }
   const role = normalizeAuthRole(context.role);
-  if (role === "ADMIN" || role === "OTK_ADMIN" || !role) {
-    return true;
+  if (role !== "ADMIN" && role !== "OTK_ADMIN") {
+    return false;
   }
-  if (!["jwt", "dev_jwt"].includes(normalizeAuthMethod(context.authMethod))) {
-    return true;
+  const authMethod = normalizeAuthMethod(context.authMethod);
+  if (!["jwt", "dev_jwt"].includes(authMethod)) {
+    return false;
   }
-
-  return true;
+  const mfaMode = normalizeFlag(context.mfaMode);
+  const mfaProviderHomologated = normalizeFlag(context.mfaProviderHomologated);
+  const twoFactor = normalizeFlag(context.twoFactor);
+  const isMfaVerified = twoFactor === "ok" || (mfaMode === "external_provider" && mfaProviderHomologated === "true");
+  return isMfaVerified;
 }
 
 export function canEvaluateBlock(role: string | null | undefined) {
