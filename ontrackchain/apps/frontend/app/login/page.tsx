@@ -196,6 +196,7 @@ export default function LoginPage() {
               <button
                 className="otc-button"
                 type="button"
+                data-testid="oidc-login-btn"
                 style={{ background: "rgba(255, 255, 255, 0.08)", border: "1px solid var(--otc-border)" }}
                 onClick={onOidcLogin}
                 disabled={isSubmitting}
