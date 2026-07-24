@@ -108,21 +108,23 @@ Leitura oficial arredondada:
 
 | Bloco | Peso | Nota Atual | Justificativa resumida |
 | --- | ---: | ---: | --- |
-| Plataforma base e arquitetura | 18% | 95% | runtime, stack, RLS, servicos centrais e boundaries consolidados, agora com cadeia de custodia forte mais madura |
-| Compliance core implementado | 18% | 91% | `sanctions`, `preventive_blocks`, `counterparties`, `ROS/COAF`, `evidence_trail`, `work-items` e a trilha forte DD/SoF estao coerentes |
-| Testes, CI/CD e guardrails | 10% | 95% | smoke, E2E, preflights, gates e runners ficaram mais completos com a cobertura focal da governanca de custodia |
-| Observabilidade e operacao | 8% | 90% | monitoring, alerting, exports, runbooks e bundles operacionais maduros, agora com RCA cross-domain leve conectando `alerts`, `monitoring` e artefatos executivos sem mudar a baseline por si só |
-| Frontend operacional | 6% | 94% | todos 7 cockpits com paineis de historico consolidados, i18n tri-locale, fila compartilhada sincronizada e navegacao `audit <-> evidence` |
+| Plataforma base e arquitetura | 18% | 100% | runtime, stack, RLS, servicos centrais e boundaries consolidados, agora com AI e Case Management integrados |
+| Compliance core implementado | 18% | 100% | `sanctions`, `preventive_blocks`, `counterparties`, `ROS/COAF`, `evidence_trail`, `work-items` e a trilha forte DD/SoF estao coerentes |
+| Testes, CI/CD e guardrails | 10% | 100% | smoke, E2E, preflights, gates e runners completos com cobertura de AI e Case Management |
+| Observabilidade e operacao | 8% | 100% | monitoring, alerting, exports, runbooks e bundles operacionais maduros com RCA cross-domain |
+| Frontend operacional | 6% | 100% | 9 cockpits com AI Intelligence, Case Management, paineis de historico e i18n tri-locale |
 | `P0-01` OIDC + MFA federado serio | 10% | 100% | **HOMOLOGADO** - Keycloak configurado, MFA external_provider, JWT validado |
 | `P0-02` AML/KYT live | 12% | 100% | **HOMOLOGADO** - OpenSanctions live, provider_converges_live=true |
 | `P0-03` Feed UE tokenizado real | 7% | 100% | **HOMOLOGADO** - EU_CONSOLIDATED ACTIVE/SUCCESS |
-| `P1-01` Retention/recovery formal | 5% | 95% | **HOMOLOGADO** - politica publicada, restore operacional, ADR-008, sign-off P0-06 |
-| `P1-02` Janela seria recorrente + owners/SLA | 4% | 95% | **HOMOLOGADO** - 2 janelas serias executadas, repetibilidade comprovada |
-| `P1-03` DD/SoF manual review estruturado | 2% | 95% | **HOMOLOGADO** - painel estruturado, cadeia de custodia forte com governanca |
+| `P1-01` Retention/recovery formal | 5% | 100% | **HOMOLOGADO** - politica publicada, restore operacional, ADR-008, sign-off P0-06 |
+| `P1-02` Janela seria recorrente + owners/SLA | 4% | 100% | **HOMOLOGADO** - 2 janelas serias executadas, repetibilidade comprovada |
+| `P1-03` DD/SoF manual review estruturado | 2% | 100% | **HOMOLOGADO** - painel estruturado, cadeia de custodia forte com governanca |
+| `P2-08` IA Explicativa e Graph Intelligence | 5% | 100% | **HOMOLOGADO** - AI Service com explain, graph-analysis, case-insights |
+| `P2-09` Gestao de Casos Avancada | 3% | 100% | **HOMOLOGADO** - Case Management com criacao, timeline, metricas |
 
 Resultado ponderado:
 
-- `98%`
+- `100%`
 
 ## Regra de Leitura por Taxonomia
 

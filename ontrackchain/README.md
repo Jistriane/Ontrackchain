@@ -68,10 +68,14 @@ flowchart LR
     F --> C[compliance-api]
     F --> M[monitoring-api]
     F --> R[report-api]
+    F --> AI[ai-service]
+    F --> CM[case-management]
     I --> P[(PostgreSQL RLS)]
     C --> P
     M --> P
     R --> P
+    AI --> P
+    CM --> P
     I --> X[(Redis)]
     C --> X
     M --> X
@@ -79,6 +83,8 @@ flowchart LR
     C --> CW[workers e readiness]
     M --> GW[governanca e RCA]
     R --> GW
+    AI --> GE[Graph Intelligence 4.0]
+    CM --> AI
 ```
 
 ## Servicos e Dominios
@@ -93,7 +99,9 @@ flowchart LR
 | `compliance-worker` | sync de listas, readiness regulatorio e checks de provider |
 | `monitoring-api` | webhooks do `Alertmanager`, triagem, RCA leve e export operacional |
 | `report-api` | relatorios deterministas, download sensivel e fluxo `ROS/COAF` |
-| `frontend` | cockpits operacionais, audit, monitoring, billing, evidence, reports e callbacks `OIDC` |
+| `ai-service` | IA Explicativa para decisoes de compliance e Graph Intelligence 4.0 |
+| `case-management` | gerenciamento avancado de casos de investigacao com integracao IA |
+| `frontend` | cockpits operacionais, audit, monitoring, billing, evidence, reports, AI e callbacks `OIDC` |
 
 ## Frontend Operacional
 
