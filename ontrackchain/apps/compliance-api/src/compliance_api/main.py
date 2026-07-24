@@ -3875,11 +3875,8 @@ async def dashboard_summary(
             cur.execute("SELECT COUNT(*) AS total FROM monitoring_alerts WHERE organization_id = %s", (org_id,))
             total_alerts = cur.fetchone()["total"]
 
-            cur.execute(
-                "SELECT COUNT(*) AS total FROM monitoring_alerts WHERE organization_id = %s AND status = 'open'",
-                (org_id,),
-            )
-            open_alerts = cur.fetchone()["total"]
+            # monitoring_alerts doesn't have a status column, count all as open
+            open_alerts = total_alerts
 
             cur.execute("SELECT COUNT(*) AS total FROM counterparties WHERE organization_id = %s", (org_id,))
             total_counterparties = cur.fetchone()["total"]
@@ -3903,7 +3900,7 @@ async def dashboard_summary(
             pending_reviews = cur.fetchone()["total"]
 
             cur.execute(
-                "SELECT COALESCE(SUM(amount), 0) AS total FROM credit_ledger WHERE organization_id = %s AND type = 'debit'",
+                "SELECT COALESCE(SUM(amount), 0) AS total FROM credit_ledger WHERE org_id = %s AND action = 'CONFIRMED'",
                 (org_id,),
             )
             revenue = cur.fetchone()["total"]
