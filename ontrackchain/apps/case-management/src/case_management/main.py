@@ -73,6 +73,37 @@ async def health_check():
     return {"status": "ok", "service": "case-management"}
 
 
+@app.get("/api/v1/cases/metrics", response_model=CaseMetricsResponse)
+async def get_case_metrics(
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+) -> CaseMetricsResponse:
+    """
+    Get case management metrics with AI-powered analytics.
+    """
+    if not x_org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id required")
+    
+    return CaseMetricsResponse(
+        total_cases=156,
+        open_cases=42,
+        closed_cases=114,
+        avg_resolution_time_hours=48.5,
+        cases_by_priority={
+            "low": 23,
+            "medium": 67,
+            "high": 45,
+            "critical": 21
+        },
+        cases_by_category={
+            "sanctions": 45,
+            "aml": 67,
+            "kyc": 23,
+            "investigation": 21
+        }
+    )
+
+
 @app.post("/api/v1/cases", response_model=CaseResponse)
 async def create_case(
     request: CaseCreateRequest,
@@ -201,37 +232,6 @@ async def get_case_timeline(
             timestamp=datetime.now(timezone.utc).isoformat()
         )
     ]
-
-
-@app.get("/api/v1/cases/metrics", response_model=CaseMetricsResponse)
-async def get_case_metrics(
-    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
-    x_role: Optional[str] = Header(default=None, alias="X-Role"),
-) -> CaseMetricsResponse:
-    """
-    Get case management metrics with AI-powered analytics.
-    """
-    if not x_org_id:
-        raise HTTPException(status_code=400, detail="X-Org-Id required")
-    
-    return CaseMetricsResponse(
-        total_cases=156,
-        open_cases=42,
-        closed_cases=114,
-        avg_resolution_time_hours=48.5,
-        cases_by_priority={
-            "low": 23,
-            "medium": 67,
-            "high": 45,
-            "critical": 21
-        },
-        cases_by_category={
-            "sanctions": 45,
-            "aml": 67,
-            "kyc": 23,
-            "investigation": 21
-        }
-    )
 
 
 def _calculate_risk_score(request: CaseCreateRequest) -> float:
