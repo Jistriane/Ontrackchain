@@ -74,6 +74,20 @@ http:
       service: "compliance-api"
       priority: 150
 
+    ai:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/api/v1/ai`)"
+      middlewares: ["auth"]
+      service: "ai-service"
+      priority: 150
+
+    cases:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/api/v1/cases`)"
+      middlewares: ["auth"]
+      service: "case-management"
+      priority: 150
+
     monitoring:
       entryPoints: ["web"]
       rule: "PathPrefix(`/api/v1/monitoring`)"
@@ -119,6 +133,16 @@ http:
       loadBalancer:
         servers:
           - url: "http://compliance-api:8002"
+
+    ai-service:
+      loadBalancer:
+        servers:
+          - url: "http://ai-service:8005"
+
+    case-management:
+      loadBalancer:
+        servers:
+          - url: "http://case-management:8006"
 
     monitoring-api:
       loadBalancer:
