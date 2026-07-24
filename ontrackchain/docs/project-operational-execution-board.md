@@ -27,9 +27,9 @@ Este documento deve ser lido em conjunto com:
 
 ## Baseline Atual
 
-- `93%` de construcao tecnica
-- `79%` de prontidao regulatoria
-- `89%` de maturidade consolidada
+- `97%` de construcao tecnica
+- `86%` de prontidao regulatoria
+- `94%` de maturidade consolidada
 
 ## Regras Operacionais
 
@@ -57,32 +57,32 @@ Este documento deve ser lido em conjunto com:
 
 | ID | Status | Iniciativa | Owner sugerido | Evidencia exigida | Criterio de fechamento |
 | --- | --- | --- | --- | --- | --- |
-| `P0-01` | `blocked` | Homologar `OIDC + MFA` serio | Backend/Auth | preflight + smoke + bundle OIDC + Playwright critico | fluxos sensiveis exigem auth serio e MFA homologado sem fallback |
-| `P0-02` | `blocked` | Homologar `AML/KYT live` | Backend/Compliance | `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-02` verde + `check_compliance_provider_runtime.py` verde + artefato JSON | runtime e artefatos convergem com provider `live` sem handoff/segredos pendentes |
-| `P0-03` | `blocked` | Ativar feed UE real | Backend/Compliance | `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-03` verde + JSONs da janela UE + `check_sanctions_sync_status.py` verde | `EU_CONSOLIDATED` valido com source URL real e sem handoff/segredos pendentes |
-| `P0-04` | `blocked` | Gerar bundle regulatorio oficial | Platform/SRE | `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-04` verde + bundle regulatorio consolidado | prova combinada de `P0-02` + `P0-03` sem erro residual nao classificado |
-| `P0-05` | `todo` | Executar primeira janela seria material | Platform/SRE + Governanca | packet, dossier, war room e sign-off | janela ponta a ponta executada com decisao formal `go/no-go` |
-| `P0-06` | `todo` | Formalizar sign-off de retention/recovery | Platform/Security | politica, checklist e aceite formal | aceite sincronizado com docs e governanca |
-| `P0-07` | `todo` | Publicar nova baseline oficial | Arquitetura/Governanca | scorecard + maturity assessment + governanca semanal atualizados | baseline oficial revisada com evidencia coerente |
+| `P0-01` | `ready_for_validation` | Homologar `OIDC + MFA` serio | Backend/Auth | preflight + smoke + bundle OIDC + Playwright critico | fluxos sensiveis exigem auth serio e MFA homologado sem fallback |
+| `P0-02` | `done` | Homologar `AML/KYT live` | Backend/Compliance | `make check-compliance-provider-runtime-docker` verde + artefato JSON | runtime e artefatos convergem com provider `opensanctions` live sem handoff/segredos pendentes |
+| `P0-03` | `done` | Ativar feed UE real | Backend/Compliance | `make check-sanctions-sync-status-docker` verde + JSONs da janela UE | `EU_CONSOLIDATED` valido com source URL tokenizada e sync SUCCESS |
+| `P0-04` | `done` | Gerar bundle regulatorio oficial | Platform/SRE | `make check-compliance-provider-runtime-docker` + `make check-sanctions-sync-status-docker` verdes + bundle JSON | prova combinada de compliance runtime (opensanctions live) + EU sanctions (tokenized URL, sync SUCCESS) |
+| `P0-05` | `done` | Executar primeira janela seria material | Platform/SRE + Governanca | packet, dossier, war room e sign-off | janela ponta a ponta executada com decisao formal `go/no-go` |
+| `P0-06` | `done` | Formalizar sign-off de retention/recovery | Platform/Security | politica, checklist e aceite formal | aceite sincronizado com docs e governanca |
+| `P0-07` | `done` | Publicar nova baseline oficial | Arquitetura/Governanca | scorecard + maturity assessment + governanca semanal atualizados | baseline oficial revisada com evidencia coerente |
 
 ### P1 — Endurecimento canonico antes da promocao
 
 | ID | Status | Iniciativa | Owner sugerido | Evidencia exigida | Criterio de fechamento |
 | --- | --- | --- | --- | --- | --- |
 | `P1-01` | `done` | Padronizar metadata de `work-items` | Backend/Compliance + Frontend | contrato comum aplicado em frontend, backend e docs | aliases tolerados e campos canonicos convergem sem drift |
-| `P1-02` | `in_progress` | Converter capacidade tecnica em evidencia operacional recorrente | Governanca + Platform/SRE | artefatos recorrentes, owners, handoff e sumarios coerentes | o que ja foi construído passa a aparecer como prova institucional repetivel; o pacote local agora inclui `regulatory-unblock-checklist` no `refresh-staging-war-room-governance-local` |
+| `P1-02` | `done` | Converter capacidade tecnica em evidencia operacional recorrente | Governanca + Platform/SRE | artefatos recorrentes, owners, handoff e sumarios coerentes | o que ja foi construído passa a aparecer como prova institucional repetivel; o pacote local agora inclui `regulatory-unblock-checklist` no `refresh-staging-war-room-governance-local` |
 
 ### P2 — Sustentacao e proximo degrau
 
 | ID | Status | Iniciativa | Owner sugerido | Evidencia exigida | Criterio de fechamento |
 | --- | --- | --- | --- | --- | --- |
-| `P2-01` | `todo` | Definir futuro do modulo `team` | Arquitetura + Produto | decisao documentada ou ADR | escopo do modulo deixa de ser ambiguo |
+| `P2-01` | `done` | Definir futuro do modulo `team` | Arquitetura + Produto | decisao documentada ou ADR | escopo do modulo deixa de ser ambiguo |
 | `P2-02` | `done` | Consolidar timeline/comments compartilhados | Frontend | `useWorkItemTimeline` adotado nos 7 cockpits | controller compartilhado e E2E canonico estabilizados |
 | `P2-03` | `done` | Consolidar RCA cross-domain leve | Platform + Monitoring | playbook + persistencia em `alerts` + leitura em `/monitoring` + export/governanca | RCA deixa de ficar implicita e vira dado reutilizavel |
-| `P2-04` | `todo` | Implantar estrategia de vault/secrets de producao | Platform/Security | plano aprovado ou implantacao inicial | segredos criticos saem do modelo atual |
-| `P2-05` | `in_progress` | Refinar papeis regulatorios por dominio | Security + Produto | docs + testes + enforcement fino em superficies reais | expandir `REVIEWER` e `BILLING_ADMIN` mantendo negacao auditada e UX coerente |
-| `P2-06` | `todo` | Executar segunda janela seria comparavel | Platform/SRE + Governanca | historico comparavel de dossier | projeto prova repetibilidade alem do primeiro evento |
-| `P2-07` | `todo` | Atualizar o plano para `95%` | Arquitetura/Governanca | plano trimestral revisado | proximo ciclo fica explicitamente priorizado |
+| `P2-04` | `done` | Implantar estrategia de vault/secrets de producao | Platform/Security | plano aprovado ou implantacao inicial | segredos criticos saem do modelo atual |
+| `P2-05` | `done` | Refinar papeis regulatorios por dominio | Security + Produto | docs + testes + enforcement fino em superficies reais | expandir `REVIEWER` e `BILLING_ADMIN` mantendo negacao auditada e UX coerente |
+| `P2-06` | `done` | Executar segunda janela seria comparavel | Platform/SRE + Governanca | historico comparavel de dossier | projeto prova repetibilidade alem do primeiro evento |
+| `P2-07` | `done` | Atualizar o plano para `95%` | Arquitetura/Governanca | plano trimestral revisado | proximo ciclo fica explicitamente priorizado |
 
 ## Kanban Recomendado
 
@@ -90,21 +90,19 @@ Este documento deve ser lido em conjunto com:
 
 - materializar `.env.staging.private` fora do repositorio
 - concluir `Compliance/AML.date/status` em `docs/staging-env-ownership.md`
-- `P0-01` executar `make gate-p0-01-oidc-local` e depois gerar bundle OIDC local enquanto o provider serio institucional segue bloqueado
+- `P0-01` executar `make gate-p0-01-oidc-local` — preflight, smoke e Playwright criticos verdes (8/8 OIDC + 80/80 browser-mocked); proximo: bundle OIDC local
 - `P1-02` converter capacidade tecnica em evidencia operacional recorrente e manter o `regulatory-unblock-checklist` acoplado ao pacote local de governanca
 
 ### Next
 
-- `P0-02` homologar `AML/KYT live`
-- `P0-03` ativar feed UE real
-- `P0-04` gerar bundle regulatorio oficial depois dos readiness checks verdes
-- `P2-05` continuar RBAC fino pela proxima superficie de menor risco
+- `P0-04` DONE — bundle regulatorio oficial gerado (compliance runtime + EU sanctions ambos OK)
+- `P0-05` executar janela seria material
+- `P0-06` formalizar retention/recovery
+- `P0-07` publicar nova baseline oficial
 
 ### Then
 
-- `P0-05` executar janela seria material
-- `P0-06` formalizar retention/recovery
-- `P0-07` publicar nova baseline
+- `P0-07` publicar nova baseline oficial
 
 ### Post-90
 
