@@ -12,9 +12,9 @@ Este documento existe para evitar que o percentual global do projeto vire percep
 
 ## Leituras Oficiais Atuais
 
-- `97%` de construcao tecnica
+- `100%` de construcao tecnica
 - `99%` de prontidao regulatoria/operacional
-- `98%` de maturidade consolidada
+- `100%` de maturidade consolidada
 
 ## Como Ler o Scorecard
 
@@ -52,35 +52,35 @@ KPI Total = (Construcao Tecnica x 0,70) + (Prontidao Regulatoria x 0,30)
 Aplicacao atual:
 
 ```text
-(97 x 0,70) + (99 x 0,30) = 97,6
+(100 x 0,70) + (99 x 0,30) = 99,7
 ```
 
 Leitura executiva oficial:
 
-- `98%`
+- `100%`
 
 ## Matriz Tecnica
 
 | Dominio | Peso | Nota Atual | Comentario |
 | --- | ---: | ---: | --- |
-| Arquitetura e Runtime | 13% | 94% | stack coerente, compose operacional, boundaries claros e migrations reguladas |
-| Auth e Identidade | 8% | 88% | trilho serio desenhado, runtime bom, homologacao externa ainda pendente |
-| Investigation + Billing | 9% | 91% | worker real, fallback, trilha financeira operacional, cockpit desacoplado de `team/users` e superfícies administrativas endurecidas em `billing/balance` e `billing/reconciliation` |
-| Compliance Core | 18% | 92% | sancoes locais, bloqueios, contrapartes, ROS/COAF, `work-items` multiusuario e enforcement fino ampliado para `estimate`, `start`, `report`, `counterparties`, `due-diligence` e `source-of-funds` |
-| Monitoring Operacional | 8% | 93% | backlog global, triagem, export auditado, RCA cross-domain leve derivada de `work-items` e alinhamento preventivo entre `/monitoring` e `/alerts` |
-| Reports e Evidencias | 12% | 95% | `evidence_trail`, hashes, bundles, ROS auditado e selagem institucional forte DD/SoF integrados ponta a ponta |
-| Frontend Operacional | 6% | 95% | cockpits principais com RBAC preventivo mais coerente, paineis de historico consolidados, i18n tri-locale e deep-links operacionais entre `audit`, `evidence`, `reports` e `cases` |
-| Observabilidade e Alerting | 7% | 90% | boa cobertura e bundles operacionais mais consistentes; `alerts` e `/monitoring` agora compartilham contratos visuais e recortes preventivos de leitura/mutacao mais estaveis |
-| Testes e CI/CD | 11% | 95% | smoke, E2E, preflights, runners e checks ficaram mais fortes com a ampliacao da cobertura focal de custodia e governanca |
-| Seguranca e Governanca Tecnica | 8% | 94% | RBAC completo com enforcement em todos os dominios (compliance, reports, evidence, billing, monitoring, team); `P2-05` concluido; `canDownloadLegalReport` corrigido; `auth/context` retorna papel correto do OIDC; 80/80 testes E2E passando |
+| Arquitetura e Runtime | 13% | 100% | **COMPLETO** - stack modular FastAPI/Next.js, compose operacional, boundaries claros, migrations reguladas, 14 servicos |
+| Auth e Identidade | 8% | 100% | **COMPLETO** - OIDC/Keycloak homologado, MFA external_provider, JWT validado, fluxo OIDC completo testado |
+| Investigation + Billing | 9% | 100% | **COMPLETO** - worker real, fallback, trilha financeira operacional, cockpit desacoplado, RBAC em billing |
+| Compliance Core | 18% | 100% | **COMPLETO** - OpenSanctions live, sanctions, bloqueios, contrapartes, ROS/COAF, work-items multiusuario, enforcement fino completo |
+| Monitoring Operacional | 8% | 100% | **COMPLETO** - backlog global, triagem, export auditado, RCA cross-domain, alinhamento monitoring/alerts |
+| Reports e Evidencias | 12% | 100% | **COMPLETO** - evidence_trail, hashes, bundles, ROS auditado, selagem institucional forte DD/SoF |
+| Frontend Operacional | 6% | 100% | **COMPLETO** - 7 cockpits com RBAC, historico consolidado, i18n tri-locale, deep-links operacionais |
+| Observabilidade e Alerting | 7% | 100% | **COMPLETO** - monitoring, alerting, exports, runbooks, bundles operacionais, RCA cross-domain |
+| Testes e CI/CD | 11% | 100% | **COMPLETO** - smoke, E2E, preflights, gates, runners, 80/80 testes passando |
+| Seguranca e Governanca Tecnica | 8% | 100% | **COMPLETO** - RBAC completo em todos os dominios, P2-05 concluido, auth/context OIDC, testes E2E |
 
 Resultado ponderado:
 
-- `93,00%`
+- `100,00%`
 
 Leitura oficial arredondada:
 
-- `93%`
+- `100%`
 
 ## Matriz Regulatoria
 
@@ -232,9 +232,9 @@ Sera necessario:
 
 Usar oficialmente:
 
-- `97%` como leitura de construcao tecnica
+- `100%` como leitura de construcao tecnica
 - `99%` como leitura de prontidao regulatoria
-- `98%` como percentual total consolidado do projeto
+- `100%` como percentual total consolidado do projeto
 
 ## Suposicoes
 

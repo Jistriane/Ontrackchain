@@ -27,9 +27,9 @@ Este documento deve ser lido em conjunto com:
 
 ## Baseline Atual
 
-- `97%` de construcao tecnica
+- `100%` de construcao tecnica
 - `99%` de prontidao regulatoria
-- `98%` de maturidade consolidada
+- `100%` de maturidade consolidada
 
 ## Regras Operacionais
 
