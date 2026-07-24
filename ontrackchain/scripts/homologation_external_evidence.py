@@ -269,8 +269,10 @@ def run_compliance_homologation(
         headers=headers,
         data={"address": address, "chain": chain},
     )
+    # evidence-export lives in investigation-api, accessed via traefik gateway
+    evidence_base_url = env_value("ONTRACKCHAIN_EVIDENCE_BASE_URL", "http://traefik:80")
     evidence_status, evidence_payload, _ = request_json(
-        base_url=base_url,
+        base_url=evidence_base_url,
         method="POST",
         path="/api/v1/audit/evidence-export",
         headers=headers,
@@ -299,8 +301,9 @@ def run_compliance_homologation(
     if not kyc_operation:
         errors.append("compliance-operations: operacao canonical=kyc_wallet nao encontrada")
     else:
-        if kyc_operation.get("provider") != "trm_labs":
-            errors.append(f"compliance-operations: esperado provider=trm_labs, recebido={kyc_operation.get('provider')}")
+        expected_provider = env_value("COMPLIANCE_RISK_PROVIDER", "trm_labs")
+        if kyc_operation.get("provider") != expected_provider:
+            errors.append(f"compliance-operations: esperado provider={expected_provider}, recebido={kyc_operation.get('provider')}")
         if kyc_operation.get("provider_status") != "live":
             errors.append(
                 f"compliance-operations: esperado provider_status=live, recebido={kyc_operation.get('provider_status')}"
