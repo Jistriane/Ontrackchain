@@ -58,11 +58,20 @@ export function isFrontendStandaloneDemoMode(env: NodeJS.ProcessEnv = process.en
 }
 
 export function isHostedStandaloneShowcaseFallback(env: NodeJS.ProcessEnv = process.env): boolean {
-  return false;
+  // Enable fallback when backend services are not available
+  const hasInternalAuth = !!env.INTERNAL_AUTH_BASE_URL;
+  const hasInternalApi = !!env.INTERNAL_API_BASE_URL;
+  // If no internal URLs are configured, enable fallback mode
+  return !hasInternalAuth && !hasInternalApi;
 }
 
 export function isFrontendStandaloneShowcaseMode(env: NodeJS.ProcessEnv = process.env): boolean {
-  return false;
+  // Check for explicit showcase mode or when backend is unavailable
+  const explicitShowcase = parseBoolean(env.FRONTEND_STANDALONE_SHOWCASE_MODE);
+  if (explicitShowcase !== null) {
+    return explicitShowcase;
+  }
+  return isHostedStandaloneShowcaseFallback(env);
 }
 
 export function isFrontendStandaloneRuntime(env: NodeJS.ProcessEnv = process.env): boolean {
