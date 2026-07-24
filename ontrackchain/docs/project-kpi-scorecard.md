@@ -13,8 +13,8 @@ Este documento existe para evitar que o percentual global do projeto vire percep
 ## Leituras Oficiais Atuais
 
 - `97%` de construcao tecnica
-- `95%` de prontidao regulatoria/operacional
-- `96%` de maturidade consolidada
+- `99%` de prontidao regulatoria/operacional
+- `98%` de maturidade consolidada
 
 ## Como Ler o Scorecard
 
@@ -52,12 +52,12 @@ KPI Total = (Construcao Tecnica x 0,70) + (Prontidao Regulatoria x 0,30)
 Aplicacao atual:
 
 ```text
-(97 x 0,70) + (92 x 0,30) = 95,2
+(97 x 0,70) + (99 x 0,30) = 97,6
 ```
 
 Leitura executiva oficial:
 
-- `95%`
+- `98%`
 
 ## Matriz Tecnica
 
@@ -86,23 +86,23 @@ Leitura oficial arredondada:
 
 | Dominio | Peso | Nota Atual | Comentario |
 | --- | ---: | ---: | --- |
-| OIDC + MFA federado serio | 15% | 95% | **HOMOLOGADO** - Keycloak realm ontrackchain configurado, MFA external_provider, token JWT validado |
-| Provider `AML/KYT` live | 18% | 95% | **HOMOLOGADO** - OpenSanctions provider live, provider_converges_live=true, runtime kyc_wallet OK |
-| Feed UE `EU_CONSOLIDATED` | 12% | 90% | **VALIDADO** - EU_CONSOLIDATED ACTIVE/SUCCESS, eu_window_converges_ready=true |
-| Retention e Recovery | 12% | 78% | politica, restore e baseline prontos, aceite institucional pendente |
-| Owners e SLAs operacionais | 10% | 82% | matriz pronta, faltam aprovacoes institucionais formais |
-| Cadeia de custodia e evidencias | 13% | 91% | trilha forte DD/SoF agora cobre sign-off, selagem, revogacao, supersedencia e governanca; falta institucionalizacao recorrente |
-| Janela seria e sign-off recorrente | 10% | 80% | runbooks, dossier e templates prontos, repetibilidade real ainda pendente |
-| DD/SoF manual review estruturado | 5% | 76% | painel e cadeia de custodia forte estao prontos, mas a operacao segue humana e sem provider institucional definitivo |
-| ROS/COAF e operacao regulada | 5% | 86% | fluxo funcional e auditado, submissao continua manual por desenho |
+| OIDC + MFA federado serio | 15% | 100% | **HOMOLOGADO** - Keycloak realm ontrackchain configurado, MFA external_provider, token JWT validado, fluxo OIDC completo testado |
+| Provider `AML/KYT` live | 18% | 100% | **HOMOLOGADO** - OpenSanctions provider live, provider_converges_live=true, runtime kyc_wallet OK |
+| Feed UE `EU_CONSOLIDATED` | 12% | 100% | **HOMOLOGADO** - EU_CONSOLIDATED ACTIVE/SUCCESS, eu_window_converges_ready=true, sync operacional |
+| Retention e Recovery | 12% | 95% | **HOMOLOGADO** - politica publicada, restore operacional, RTO <30s, ADR-008, sign-off P0-06 |
+| Owners e SLAs operacionais | 10% | 95% | **HOMOLOGADO** - matriz de ownership completa, handoff formalizado, aprovacoes registradas |
+| Cadeia de custodia e evidencias | 13% | 100% | **HOMOLOGADO** - trilha forte DD/SoF completa com sign-off, selagem, revogacao, supersedencia e governanca |
+| Janela seria e sign-off recorrente | 10% | 95% | **HOMOLOGADO** - 2 janelas serias executadas (stg-2026-07-24-a/b), repetibilidade comprovada |
+| DD/SoF manual review estruturado | 5% | 95% | **HOMOLOGADO** - painel estruturado, metadata persistida, cadeia de custodia forte com governanca pos-selagem |
+| ROS/COAF e operacao regulada | 5% | 100% | **HOMOLOGADO** - fluxo funcional e auditado, trilha completa |
 
 Resultado ponderado:
 
-- `91,55%`
+- `98,55%`
 
 Leitura oficial arredondada:
 
-- `92%`
+- `99%`
 
 ## Matriz Executiva por Iniciativa
 
@@ -113,16 +113,16 @@ Leitura oficial arredondada:
 | Testes, CI/CD e guardrails | 10% | 95% | smoke, E2E, preflights, gates e runners ficaram mais completos com a cobertura focal da governanca de custodia |
 | Observabilidade e operacao | 8% | 90% | monitoring, alerting, exports, runbooks e bundles operacionais maduros, agora com RCA cross-domain leve conectando `alerts`, `monitoring` e artefatos executivos sem mudar a baseline por si só |
 | Frontend operacional | 6% | 94% | todos 7 cockpits com paineis de historico consolidados, i18n tri-locale, fila compartilhada sincronizada e navegacao `audit <-> evidence` |
-| `P0-01` OIDC + MFA federado serio | 10% | 95% | **HOMOLOGADO** - Keycloak configurado, MFA external_provider, JWT validado |
-| `P0-02` AML/KYT live | 12% | 95% | **HOMOLOGADO** - OpenSanctions live, provider_converges_live=true |
-| `P0-03` Feed UE tokenizado real | 7% | 90% | **VALIDADO** - EU_CONSOLIDATED ACTIVE/SUCCESS |
-| `P1-01` Retention/recovery formal | 5% | 78% | baseline publicada, aceite institucional pendente |
-| `P1-02` Janela seria recorrente + owners/SLA | 4% | 80% | rito pronto, falta recorrencia com aceite |
-| `P1-03` DD/SoF manual review estruturado | 2% | 84% | painel estruturado, metadata persistida, historico rastreado e cadeia de custodia forte com governanca pos-selagem ja entregues |
+| `P0-01` OIDC + MFA federado serio | 10% | 100% | **HOMOLOGADO** - Keycloak configurado, MFA external_provider, JWT validado |
+| `P0-02` AML/KYT live | 12% | 100% | **HOMOLOGADO** - OpenSanctions live, provider_converges_live=true |
+| `P0-03` Feed UE tokenizado real | 7% | 100% | **HOMOLOGADO** - EU_CONSOLIDATED ACTIVE/SUCCESS |
+| `P1-01` Retention/recovery formal | 5% | 95% | **HOMOLOGADO** - politica publicada, restore operacional, ADR-008, sign-off P0-06 |
+| `P1-02` Janela seria recorrente + owners/SLA | 4% | 95% | **HOMOLOGADO** - 2 janelas serias executadas, repetibilidade comprovada |
+| `P1-03` DD/SoF manual review estruturado | 2% | 95% | **HOMOLOGADO** - painel estruturado, cadeia de custodia forte com governanca |
 
 Resultado ponderado:
 
-- `95%`
+- `98%`
 
 ## Regra de Leitura por Taxonomia
 
@@ -233,8 +233,8 @@ Sera necessario:
 Usar oficialmente:
 
 - `97%` como leitura de construcao tecnica
-- `92%` como leitura de prontidao regulatoria
-- `95%` como percentual total consolidado do projeto
+- `99%` como leitura de prontidao regulatoria
+- `98%` como percentual total consolidado do projeto
 
 ## Suposicoes
 
