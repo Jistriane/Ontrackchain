@@ -1,5 +1,7 @@
 const TEAM_READ_ROLES = new Set(["ADMIN", "OTK_ADMIN"]);
 const BILLING_READ_ROLES = new Set(["ADMIN", "OTK_ADMIN", "BILLING_ADMIN", "OTK_BILLING_ADMIN"]);
+const AI_INTELLIGENCE_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "OTK_ANALYST", "AUDITOR", "OTK_AUDITOR"]);
+const CASE_MANAGEMENT_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "OTK_ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"]);
 const INVESTIGATION_OPERATION_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "OTK_ANALYST"]);
 const INVESTIGATION_READ_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "OTK_ANALYST", "AUDITOR", "OTK_AUDITOR", "VIEWER", "OTK_VIEWER"]);
 const MONITORING_CORE_READ_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "OTK_ANALYST", "AUDITOR", "OTK_AUDITOR", "VIEWER", "OTK_VIEWER", "TESTER", "OTK_TESTER"]);
@@ -77,6 +79,14 @@ export function canReadBilling(role: string | null | undefined) {
 
 export function canReadTeam(role: string | null | undefined) {
   return TEAM_READ_ROLES.has(normalizeAuthRole(role));
+}
+
+export function canReadAIIntelligence(role: string | null | undefined) {
+  return AI_INTELLIGENCE_ROLES.has(normalizeAuthRole(role));
+}
+
+export function canManageCases(role: string | null | undefined) {
+  return CASE_MANAGEMENT_ROLES.has(normalizeAuthRole(role));
 }
 
 export function canOperateInvestigation(role: string | null | undefined) {

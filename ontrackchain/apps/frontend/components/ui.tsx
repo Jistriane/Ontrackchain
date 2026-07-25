@@ -84,6 +84,31 @@ function NavIcon({ children }: { children: ReactNode }) {
 
 const NAV_ITEMS: NavItem[] = [
   {
+    href: "/ai",
+    label: "nav.ai",
+    icon: (
+      <NavIcon>
+        <path d="M12 2a4 4 0 0 1 4 4c0 1.95-1.4 3.58-3.25 3.93L12 22" />
+        <path d="M12 2a4 4 0 0 0-4 4c0 1.95 1.4 3.58 3.25 3.93" />
+        <path d="M8.56 13a8 8 0 0 0-2.56 4" />
+        <path d="M15.44 13a8 8 0 0 1 2.56 4" />
+      </NavIcon>
+    )
+  },
+  {
+    href: "/cases",
+    label: "nav.cases",
+    icon: (
+      <NavIcon>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2v6h6" />
+        <path d="M16 13H8" />
+        <path d="M16 17H8" />
+        <path d="M10 9H8" />
+      </NavIcon>
+    )
+  },
+  {
     href: "/dashboard",
     label: "nav.dashboard",
     icon: (
