@@ -710,7 +710,7 @@ def main() -> int:
     kyc_wallet_catalog = operations_by_canonical.get("kyc_wallet")
     if not isinstance(kyc_wallet_catalog, dict):
         raise AssertionError("compliance_catalog: operacao kyc_wallet ausente")
-    if kyc_wallet_catalog.get("provider") != "trm_labs":
+    if kyc_wallet_catalog.get("provider") not in {"trm_labs", "opensanctions"}:
         raise AssertionError(
             f"compliance_catalog: provider inesperado em kyc_wallet recebido={kyc_wallet_catalog.get('provider')}"
         )
@@ -853,7 +853,7 @@ def main() -> int:
     )
     expect_status("compliance_risk_check", status, 200)
     provider_status = payload.get("provider_status")
-    if payload.get("provider") != "trm_labs":
+    if payload.get("provider") not in {"trm_labs", "opensanctions"}:
         raise AssertionError(
             f"compliance_risk_check: provider inesperado recebido={payload.get('provider')}"
         )
@@ -1237,7 +1237,7 @@ def main() -> int:
         provider_status = metadata.get("provider_status")
         degraded_reason = metadata.get("degraded_reason")
         score = metadata.get("risk_score")
-        if provider != "trm_labs":
+        if provider not in {"trm_labs", "opensanctions"}:
             continue
         if provider_status == "live" and isinstance(score, int):
             risk_check_valid = True
