@@ -124,9 +124,9 @@ export default function CasesPage() {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case "critical": return "error";
+      case "critical": return "danger";
       case "high": return "warning";
-      case "medium": return "info";
+      case "medium": return "success";
       default: return "success";
     }
   };
@@ -189,7 +189,7 @@ export default function CasesPage() {
                       <Pill tone={getPriorityColor(c.priority)}>{c.priority}</Pill>
                       <Pill>{c.status}</Pill>
                       {c.risk_score && (
-                        <Pill tone={c.risk_score > 70 ? "error" : c.risk_score > 40 ? "warning" : "success"}>
+                        <Pill tone={c.risk_score > 70 ? "danger" : c.risk_score > 40 ? "warning" : "success"}>
                           Risk: {c.risk_score}
                         </Pill>
                       )}

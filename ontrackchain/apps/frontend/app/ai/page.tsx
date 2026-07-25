@@ -139,7 +139,7 @@ export default function AIPage() {
                   <h3 style={{ margin: "0 0 8px 0", fontSize: "1rem" }}>Explanation</h3>
                   <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                     <Pill>Confidence: {(explainResult.confidence_score * 100).toFixed(0)}%</Pill>
-                    <Pill tone={explainResult.recommendation.includes("BLOCK") ? "error" : "info"}>
+                    <Pill tone={explainResult.recommendation.includes("BLOCK") ? "danger" : "success"}>
                       {explainResult.recommendation}
                     </Pill>
                   </div>
@@ -224,7 +224,7 @@ export default function AIPage() {
                     <strong>Clusters:</strong>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
                       {graphResult.clusters.map((cluster) => (
-                        <Pill key={cluster.id} tone={cluster.risk === "high" ? "error" : "info"}>
+                        <Pill key={cluster.id} tone={cluster.risk === "high" ? "danger" : "success"}>
                           {cluster.label}: {cluster.risk}
                         </Pill>
                       ))}
@@ -260,7 +260,7 @@ export default function AIPage() {
                 <div className="otc-panel" style={{ padding: 12, marginTop: 8 }}>
                   <h3 style={{ margin: "0 0 8px 0", fontSize: "1rem" }}>Case Insights</h3>
                   <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                    <Pill tone="error">Risk: HIGH</Pill>
+                    <Pill tone="danger">Risk: HIGH</Pill>
                     <Pill>Confidence: {(explainResult.confidence_score * 100).toFixed(0)}%</Pill>
                   </div>
                   <div style={{ fontSize: "0.85rem", marginBottom: 8 }}>
