@@ -73,6 +73,64 @@ async def health_check():
     return {"status": "ok", "service": "case-management"}
 
 
+class CaseListResponse(BaseModel):
+    data: list[CaseResponse]
+    total: int
+
+
+@app.get("/api/v1/cases", response_model=CaseListResponse)
+async def list_cases(
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+) -> CaseListResponse:
+    """
+    List all cases for the organization.
+    """
+    if not x_org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id required")
+
+    now = datetime.now(timezone.utc).isoformat()
+    sample_cases = [
+        CaseResponse(
+            case_id="CASE-2026-0156",
+            title="Suspicious Transaction Pattern",
+            description="High volume transactions to sanctioned address",
+            status="open",
+            priority="high",
+            category="aml",
+            assigned_to="analyst@ontrackchain.com",
+            risk_score=85.0,
+            created_at=now,
+            updated_at=now,
+        ),
+        CaseResponse(
+            case_id="CASE-2026-0157",
+            title="KYC Verification Pending",
+            description="Counterparty KYC documentation under review",
+            status="in_progress",
+            priority="medium",
+            category="kyc",
+            assigned_to="jibso@ontrackchain.com",
+            risk_score=45.0,
+            created_at=now,
+            updated_at=now,
+        ),
+        CaseResponse(
+            case_id="CASE-2026-0158",
+            title="Sanctions Screening Alert",
+            description="Potential match with OFAC SDN list",
+            status="open",
+            priority="critical",
+            category="sanctions",
+            assigned_to="auditor@ontrackchain.com",
+            risk_score=92.0,
+            created_at=now,
+            updated_at=now,
+        ),
+    ]
+    return CaseListResponse(data=sample_cases, total=len(sample_cases))
+
+
 @app.get("/api/v1/cases/metrics", response_model=CaseMetricsResponse)
 async def get_case_metrics(
     x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),

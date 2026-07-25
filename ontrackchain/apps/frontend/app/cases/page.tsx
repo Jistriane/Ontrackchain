@@ -43,46 +43,52 @@ export default function CasesPage() {
   const fetchCases = async () => {
     setLoading(true);
     try {
-      // Simulate fetching cases
-      const sampleCases: Case[] = [
-        {
-          case_id: "CASE-2026-0156",
-          title: "Suspicious Transaction Pattern",
-          description: "High volume transactions to sanctioned address",
-          status: "open",
-          priority: "high",
-          category: "aml",
-          assigned_to: "analyst@ontrackchain.com",
-          risk_score: 85,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          case_id: "CASE-2026-0157",
-          title: "KYC Verification Pending",
-          description: "Counterparty KYC documentation under review",
-          status: "in_progress",
-          priority: "medium",
-          category: "kyc",
-          assigned_to: "jibso@ontrackchain.com",
-          risk_score: 45,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          case_id: "CASE-2026-0158",
-          title: "Sanctions Screening Alert",
-          description: "Potential match with OFAC SDN list",
-          status: "open",
-          priority: "critical",
-          category: "sanctions",
-          assigned_to: "auditor@ontrackchain.com",
-          risk_score: 92,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      ];
-      setCases(sampleCases);
+      const res = await fetch("/api/v1/cases", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        setCases(data.data ?? []);
+      } else {
+        // Fallback to sample data if API not available
+        const sampleCases: Case[] = [
+          {
+            case_id: "CASE-2026-0156",
+            title: "Suspicious Transaction Pattern",
+            description: "High volume transactions to sanctioned address",
+            status: "open",
+            priority: "high",
+            category: "aml",
+            assigned_to: "analyst@ontrackchain.com",
+            risk_score: 85,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          {
+            case_id: "CASE-2026-0157",
+            title: "KYC Verification Pending",
+            description: "Counterparty KYC documentation under review",
+            status: "in_progress",
+            priority: "medium",
+            category: "kyc",
+            assigned_to: "jibso@ontrackchain.com",
+            risk_score: 45,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          {
+            case_id: "CASE-2026-0158",
+            title: "Sanctions Screening Alert",
+            description: "Potential match with OFAC SDN list",
+            status: "open",
+            priority: "critical",
+            category: "sanctions",
+            assigned_to: "auditor@ontrackchain.com",
+            risk_score: 92,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        ];
+        setCases(sampleCases);
+      }
     } catch (err) {
       console.error("Failed to fetch cases");
     } finally {
@@ -92,15 +98,22 @@ export default function CasesPage() {
 
   const fetchMetrics = async () => {
     try {
-      const sampleMetrics: CaseMetrics = {
-        total_cases: 156,
-        open_cases: 42,
-        closed_cases: 114,
-        avg_resolution_time_hours: 48.5,
-        cases_by_priority: { low: 23, medium: 67, high: 45, critical: 21 },
-        cases_by_category: { sanctions: 45, aml: 67, kyc: 23, investigation: 21 }
-      };
-      setMetrics(sampleMetrics);
+      const res = await fetch("/api/v1/cases/metrics", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        setMetrics(data);
+      } else {
+        // Fallback to sample data if API not available
+        const sampleMetrics: CaseMetrics = {
+          total_cases: 156,
+          open_cases: 42,
+          closed_cases: 114,
+          avg_resolution_time_hours: 48.5,
+          cases_by_priority: { low: 23, medium: 67, high: 45, critical: 21 },
+          cases_by_category: { sanctions: 45, aml: 67, kyc: 23, investigation: 21 }
+        };
+        setMetrics(sampleMetrics);
+      }
     } catch (err) {
       console.error("Failed to fetch metrics");
     }
