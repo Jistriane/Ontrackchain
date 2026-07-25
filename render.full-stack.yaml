@@ -48,6 +48,16 @@ services:
           type: pserv
           name: ontrackchain-report-api-staging
           property: hostport
+      - key: AI_SERVICE_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-ai-service-staging
+          property: hostport
+      - key: CASE_MANAGEMENT_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-case-management-staging
+          property: hostport
       - key: FRONTEND_HOSTPORT
         fromService:
           type: web
@@ -125,15 +135,15 @@ services:
       - key: MFA_TOTP_WINDOW
         value: "1"
       - key: OIDC_ISSUER_URL
-        value: "https://auth.staging.ontrackchain.com/realms/ontrackchain"
+        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain"
       - key: OIDC_AUDIENCE
         value: ontrackchain-api
       - key: OIDC_CLIENT_ID
         value: ontrackchain-web
       - key: OIDC_JWKS_URL
-        value: "https://auth.staging.ontrackchain.com/realms/ontrackchain/protocol/openid-connect/certs"
+        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/certs"
       - key: OIDC_AUTHORIZATION_URL
-        value: "https://auth.staging.ontrackchain.com/realms/ontrackchain/protocol/openid-connect/auth"
+        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/auth"
       - key: OIDC_ORG_CLAIM
         value: org
       - key: OIDC_PLAN_CLAIM
@@ -141,7 +151,7 @@ services:
       - key: OIDC_ROLE_CLAIM
         value: otk_role
       - key: KEYCLOAK_ADMIN_BASE_URL
-        value: "https://auth.staging.ontrackchain.com"
+        value: "https://ontrackchain-keycloak-staging.onrender.com"
       - key: KEYCLOAK_ADMIN_REALM
         value: ontrackchain
       - key: KEYCLOAK_ADMIN_CLIENT_ID
@@ -187,7 +197,7 @@ services:
     name: ontrackchain-public-api-staging
     plan: starter
     runtime: docker
-    dockerContext: ./ontrackchain/apps/public-api
+    dockerContext: ./ontrackchain
     dockerfilePath: ./ontrackchain/apps/public-api/Dockerfile
     envVars:
       - key: REDIS_HOST
@@ -320,12 +330,6 @@ services:
           property: hostport
       - key: INVESTIGATION_INTERNAL_WORKER_TOKEN
         sync: false
-      - key: INVESTIGATION_WORKER_PROCESSING_SECONDS
-        value: "2"
-      - key: INVESTIGATION_WORKER_LOCAL_CONCURRENCY
-        value: "8"
-      - key: INVESTIGATION_WORKER_BASE_BACKOFF_SECONDS
-        value: "5"
 
   - type: pserv
     name: ontrackchain-compliance-api-staging
@@ -483,6 +487,62 @@ services:
         sync: false
 
   - type: pserv
+    name: ontrackchain-ai-service-staging
+    plan: starter
+    runtime: docker
+    dockerContext: ./ontrackchain
+    dockerfilePath: ./ontrackchain/apps/ai-service/Dockerfile
+    envVars:
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: port
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: password
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: database
+
+  - type: pserv
+    name: ontrackchain-case-management-staging
+    plan: starter
+    runtime: docker
+    dockerContext: ./ontrackchain
+    dockerfilePath: ./ontrackchain/apps/case-management/Dockerfile
+    envVars:
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: port
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: password
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: database
+
+  - type: pserv
     name: ontrackchain-alertmanager-staging
     plan: starter
     runtime: docker
@@ -597,7 +657,7 @@ services:
     name: ontrackchain-frontend-staging
     plan: starter
     runtime: docker
-    dockerContext: ./ontrackchain/apps/frontend
+    dockerContext: ./ontrackchain
     dockerfilePath: ./ontrackchain/apps/frontend/Dockerfile
     healthCheckPath: /api/healthz
     envVars:
@@ -626,7 +686,7 @@ services:
       - key: INTERNAL_AUTH_BASE_URL
         value: "https://ontrackchain-auth-service-staging.onrender.com"
       - key: INTERNAL_KEYCLOAK_BASE_URL
-        value: "https://auth.staging.ontrackchain.com"
+        value: "https://ontrackchain-keycloak-staging.onrender.com"
       - key: NEXT_PUBLIC_API_BASE_URL
         value: "https://ontrackchain-gateway-staging.onrender.com"
       - key: OIDC_PROVIDER
@@ -636,11 +696,11 @@ services:
       - key: OIDC_AUDIENCE
         value: ontrackchain-api
       - key: OIDC_ISSUER_URL
-        value: "https://auth.staging.ontrackchain.com/realms/ontrackchain"
+        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain"
       - key: OIDC_AUTHORIZATION_URL
-        value: "https://auth.staging.ontrackchain.com/realms/ontrackchain/protocol/openid-connect/auth"
+        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/auth"
       - key: OIDC_JWKS_URL
-        value: "https://auth.staging.ontrackchain.com/realms/ontrackchain/protocol/openid-connect/certs"
+        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/certs"
       - key: ONTRACKCHAIN_ALLOW_INSECURE_OIDC_URLS
         value: "false"
       - key: ONTRACKCHAIN_ALLOW_LOCALHOST_OIDC_URLS
