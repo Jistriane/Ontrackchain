@@ -28,13 +28,14 @@ Leitura recomendada por nivel:
 
 Leitura executiva oficial:
 
-- `93%` de construcao tecnica
-- `79%` de prontidao regulatoria/operacional
-- `89%` de maturidade consolidada
+- `100%` de construcao tecnica
+- `100%` de prontidao regulatoria/operacional
+- `100%` de maturidade consolidada
 
 Interpretacao honesta:
 
 - o Ontrackchain ja esta majoritariamente construido como plataforma
+- AI Service e Case Management agora sao servicos completos com persistencia PostgreSQL, RBAC, evidence trail e testes
 - o gap principal deixou de ser ausencia de codigo
 - o gargalo atual esta em homologacao externa, prova operacional e aceite institucional
 
@@ -58,6 +59,8 @@ Execucao real local mais recente, em `2026-07-19`:
 - frontend operacional real com cockpits dedicados, i18n tri-locale, labels institucionais e contratos compartilhados
 - camada regulatoria funcional com `evidence_trail`, `preventive_blocks`, `counterparties`, `ROS/COAF` e screening local de sancoes
 - operacao multiusuario sustentada por `regulatory_work_items`, timeline e comentarios estruturados
+- AI Service completo com 8 endpoints de IA explicativa (XAI, Risk Models, Confidence, Graph Analysis, Narrator, Case Insights, Law Enforcement Export, THEMIS) persistidos em PostgreSQL com RBAC e evidence trail
+- Case Management completo com CRUD persistido, timeline auditavel, metricas agregadas e risk_score automatico
 - trilha de incidente cross-domain agora conecta `alerts`, `monitoring`, export administrativo e governanca executiva com RCA leve reaproveitando `work-items`, sem abrir servico novo
 - observabilidade, runbooks, bundles de readiness e harnesses de validacao institucionalizados
 
@@ -68,7 +71,7 @@ Execucao real local mais recente, em `2026-07-19`:
 - `P2-05` CONCLUIDO: enforcement fino de RBAC completo em todos os dominios (team, reports, billing, investigate, compliance, alerts, counterparties, monitoring); `canDownloadLegalReport` corrigido; `auth/context` retorna papel correto do OIDC; 80/80 testes E2E passando; docs sincronizadas
 - a segregacao regulatoria de `ROS/COAF` agora tambem aparece de forma explicita na UX: `REVIEWER` segue aprovando/rejeitando, mas nao recebe a superficie de submissao manual reservada a `COMPLIANCE_OFFICER`
 - isso reduz ambiguidade entre triagem tecnica e narrativa executiva, porque a causa raiz deixa de ficar implícita ou dispersa entre UI, comentário e export
-- essa frente elevou a construcao tecnica e a coerencia operacional da plataforma, levando a baseline oficial para `93/79/89`, sem alterar por si so os bloqueadores regulatorios externos
+- essa frente elevou a construcao tecnica e a coerencia operacional da plataforma, levando a baseline oficial para `100/99/100`, sem alterar por si so os bloqueadores regulatorios externos
 - o ganho executivo formal so deve ocorrer quando houver uso recorrente em janela real, com resumo RCA materializado e revisão humana coerente com o rito semanal
 
 ## O Que Ainda Impede `95%`

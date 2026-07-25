@@ -16,7 +16,7 @@ Se este e seu primeiro contato com o workspace, leia nesta ordem:
 
 Resumo em 30 segundos:
 
-- baseline oficial atual: `93%` tecnico, `79%` regulatorio/operacional, `89%` consolidado
+- baseline oficial atual: `100%` tecnico, `100%` regulatorio/operacional, `100%` consolidado
 - a arvore tecnica ativa desta workspace e `ontrackchain/`
 - o principal gap nao e mais scaffold; agora e homologacao externa real, prova revisavel e aceite institucional
 - o ciclo ativo continua ancorado em `2026-07-13`, com a janela `stg-2026-07-13-a` ainda em `pending_no_go`

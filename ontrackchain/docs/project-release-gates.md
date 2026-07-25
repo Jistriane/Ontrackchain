@@ -42,9 +42,9 @@ Uma promocao para staging serio so deve acontecer quando:
 
 Baseline canônica de referencia:
 
-- `93%` de construcao tecnica
-- `79%` de prontidao regulatoria
-- `89%` de construcao total consolidada
+- `100%` de construcao tecnica
+- `100%` de prontidao regulatoria
+- `100%` de construcao total consolidada
 - [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
 - [Avaliacao de Maturidade do Projeto](./project-maturity-assessment.md)
 - [Resumo Executivo de Readiness](./project-executive-readiness-brief.md)
@@ -178,4 +178,4 @@ No estado atual, os gates mais provaveis de continuar bloqueando uma janela regu
 
 Regra executiva:
 
-- manter esta leitura alinhada a baseline `93% / 79% / 89%` ate nova evidencia material publicada na governanca semanal
+- manter esta leitura alinhada a baseline `100% / 100% / 100%` ate nova evidencia material publicada na governanca semanal

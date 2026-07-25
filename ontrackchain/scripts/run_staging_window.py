@@ -204,6 +204,18 @@ def run_window(
         "steps": {},
     }
 
+    doc_drift_module = load_module("check_doc_drift", "scripts/check_doc_drift.py")
+    doc_drift_issues = doc_drift_module.check_drift()
+    if doc_drift_issues:
+        payload["steps"]["doc_drift"] = step_payload(
+            status="failed",
+            issues=doc_drift_issues,
+        )
+        payload["errors"].append("doc_drift: documentacao fora de sincronia com scorecard")
+        payload["status"] = "failed"
+        return 1, payload
+    payload["steps"]["doc_drift"] = step_payload(status="ok")
+
     ownership_output_file = checks_dir / f"ownership-coverage-{window_id}.json"
     placeholder_output_file = checks_dir / f"placeholders-{window_id}.json"
     handoff_output_file = checks_dir / f"handoff-{window_id}.json"

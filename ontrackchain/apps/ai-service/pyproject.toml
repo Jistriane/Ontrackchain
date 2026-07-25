@@ -4,13 +4,16 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ontrackchain-ai-service"
-version = "0.1.0"
-description = "AI Service for Explainable AI and Graph Intelligence"
+version = "0.2.0"
+description = "AI Service for Explainable AI and Graph Intelligence — Production"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.111.0",
     "uvicorn[standard]>=0.30.1",
     "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    "psycopg[binary]>=3.2.0",
+    "psycopg_pool>=3.2.0",
 ]
 
 [project.optional-dependencies]

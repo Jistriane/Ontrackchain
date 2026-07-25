@@ -634,6 +634,10 @@ apply-team-users-directory-migration:
 	@cat infra/postgres/migrations/0016_team_users_directory.sql | \
 		docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U ontrackchain -d ontrackchain
 
+apply-case-management-ai-service-migration:
+	@cat infra/postgres/migrations/0017_case_management_ai_service.sql | \
+		docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U ontrackchain -d ontrackchain
+
 check-work-items-contracts:
 	@python3 scripts/run_work_item_contract_suite.py
 

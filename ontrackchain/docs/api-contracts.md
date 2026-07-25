@@ -1810,6 +1810,319 @@ Comportamento atual:
 - retorna escopo `basic_bitcoin` para Bitcoin e `evm_first` para redes EVM
 - indica `provider_hint` apropriado (`blockchair_oklink` ou `alchemy_etherscan`)
 
+## AI Service
+
+Base: `/api/v1/ai` — microservico independente (porta 8005), exposto via Traefik.
+
+Headers obrigatórios: `X-Org-Id`, `X-Role`. Headers opcionais: `X-User-Id`.
+
+### `POST /api/v1/ai/explain`
+
+Uso:
+
+- gerar explicação XAI (Explainable AI) para decisões de compliance
+
+Request body:
+
+```json
+{
+  "case_id": "string",
+  "decision_type": "risk_score | block_recommendation | sanctions_match",
+  "context": {}
+}
+```
+
+Response 200:
+
+```json
+{
+  "explanation_id": "uuid",
+  "case_id": "string",
+  "decision_type": "string",
+  "confidence_score": 0.87,
+  "reasoning_steps": [{"step": 1, "action": "string", "result": "string"}],
+  "factors": [{"factor": "string", "weight": 0.25, "impact": "high|medium|low", "detail": "string"}],
+  "recommendation": "string",
+  "generated_at": "2026-07-25T00:00:00Z"
+}
+```
+
+RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `AUDITOR`
+
+Persistência: registra em `ai_analysis_results` e `evidence_trail`.
+
+### `POST /api/v1/ai/risk-model`
+
+Uso:
+
+- avaliação de risco por modelo regulatório (PLD/FT, Sanções, Ransomware, Scam, DeFi, Travel Rule)
+
+Request body:
+
+```json
+{
+  "address": "0x...",
+  "chain": "ethereum",
+  "model_type": "pld_ft | sanctions | ransomware | scam | defi | travel_rule",
+  "context": {}
+}
+```
+
+Response 200: `RiskModelResponse` com `risk_score`, `risk_level`, `factors`, `evidence`, `recommendation`, `confidence`, `classification` (FATO|INFERÊNCIA|HIPÓTESE|RECOMENDAÇÃO).
+
+RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `AUDITOR`
+
+### `POST /api/v1/ai/confidence`
+
+Uso:
+
+- engine de confiança que classifica dados em FATO / INFERÊNCIA / HIPÓTESE / RECOMENDAÇÃO
+
+Request body:
+
+```json
+{
+  "analysis_id": "string",
+  "factors": [{"type": "FATO", "count": 5, "reliability": 0.95}]
+}
+```
+
+Response 200: `ConfidenceResponse` com `overall_confidence`, `uncertainty_factors`, `classifications`.
+
+RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `AUDITOR`
+
+### `POST /api/v1/ai/case-insights`
+
+Uso:
+
+- gerar insights inteligentes para um caso de investigação
+
+Request body:
+
+```json
+{
+  "case_id": "string",
+  "include_history": true,
+  "include_recommendations": true
+}
+```
+
+Response 200: `CaseInsightResponse` com `summary`, `risk_level`, `key_findings`, `recommendations`, `similar_cases`.
+
+RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `AUDITOR`
+
+Dados reais: busca dados do caso em `cases` e `case_management_cases`, eventos em `regulatory_work_events`, evidências em `evidence_trail`.
+
+### `POST /api/v1/ai/graph-analysis`
+
+Uso:
+
+- análise de relacionamento de endereços blockchain (nós, arestas, clusters, indicadores de risco)
+
+Request body:
+
+```json
+{
+  "address": "0x...",
+  "chain": "ethereum",
+  "depth": 3,
+  "analysis_type": "relationship"
+}
+```
+
+Response 200: `GraphAnalysisResponse` com `nodes`, `edges`, `clusters`, `risk_indicators`.
+
+RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `AUDITOR`
+
+### `POST /api/v1/ai/graph-narrator`
+
+Uso:
+
+- narração automática do grafo blockchain em linguagem natural
+
+Request body:
+
+```json
+{
+  "address": "0x...",
+  "chain": "ethereum",
+  "profile": "analyst | legal | executive"
+}
+```
+
+Response 200: `NarratorResponse` com `narrative`, `risk_badges`, `smart_annotations`, `suggested_actions`.
+
+RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `AUDITOR`
+
+Perfis: `analyst` (técnico), `legal` (regulatório com base na Circular 3.978), `executive` (resumido).
+
+### `POST /api/v1/ai/law-enforcement-export`
+
+Uso:
+
+- exportação formatada para autoridades (COAF, VASP, Judiciário, FATF)
+
+Request body:
+
+```json
+{
+  "case_id": "string",
+  "format": "coaf | vasp | judicial | fatf",
+  "include_evidence_hash": true
+}
+```
+
+Response 200: `LawEnforcementExportResponse` com `document` (estrutura formatada) e `evidence_chain`.
+
+RBAC: `ADMIN`, `COMPLIANCE_OFFICER`, `LEGAL_REVIEWER` (roles restritas)
+
+### `POST /api/v1/ai/themis`
+
+Uso:
+
+- THEMIS — Case Intelligence Agent: orquestra todos os módulos de IA
+
+Request body:
+
+```json
+{
+  "case_id": "string",
+  "address": "0x...",
+  "chain": "ethereum",
+  "action": "build | narrate | export | review | full"
+}
+```
+
+Response 200: `THEMISResponse` com `case_card`, `graph_narrative`, `risk_assessment`, `law_enforcement_package`, `human_gate_required`.
+
+RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` (roles restritas)
+
+Dados reais: busca caso em `cases`/`case_management_cases`, orquestra todos os módulos AI internamente.
+
+## Case Management API
+
+Base: `/api/v1/cases` — microservico independente (porta 8006), exposto via Traefik.
+
+Headers obrigatórios: `X-Org-Id`, `X-Role`. Headers opcionais: `X-User-Id`.
+
+### `GET /api/v1/cases`
+
+Uso:
+
+- listar todos os casos da organização
+
+Response 200:
+
+```json
+{
+  "data": [
+    {
+      "case_id": "uuid",
+      "title": "string",
+      "description": "string",
+      "status": "open | in_progress | under_review | escalated | closed | archived",
+      "priority": "low | medium | high | critical",
+      "category": "sanctions | aml | kyc | investigation | fraud | ransomware | defi",
+      "assigned_to": "string | null",
+      "risk_score": 85.0,
+      "created_at": "2026-07-25T00:00:00Z",
+      "updated_at": "2026-07-25T00:00:00Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `AUDITOR`, `VIEWER`
+
+### `POST /api/v1/cases`
+
+Uso:
+
+- criar novo caso de investigação com risk_score automático
+
+Request body:
+
+```json
+{
+  "title": "string",
+  "description": "string",
+  "priority": "medium",
+  "category": "aml",
+  "assigned_to": "string | null",
+  "metadata": {}
+}
+```
+
+Response 200: `CaseResponse` com `case_id` gerado e `risk_score` calculado.
+
+RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`
+
+Cálculo de risk_score: base 50 + ajuste por prioridade (-10 a +30) + ajuste por categoria (+5 a +20).
+
+### `GET /api/v1/cases/{case_id}`
+
+Uso:
+
+- obter detalhes de um caso específico
+
+Response 200: `CaseResponse`
+
+RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `AUDITOR`, `VIEWER`
+
+### `PUT /api/v1/cases/{case_id}`
+
+Uso:
+
+- atualizar caso (status, prioridade, responsável, resolução, metadata)
+
+Request body:
+
+```json
+{
+  "status": "in_progress",
+  "priority": "high",
+  "assigned_to": "string",
+  "resolution": "string",
+  "metadata": {}
+}
+```
+
+Response 200: `CaseResponse` atualizado
+
+RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`
+
+### `GET /api/v1/cases/{case_id}/timeline`
+
+Uso:
+
+- obter timeline de eventos do caso
+
+Response 200: lista de `CaseTimelineEntry` com `action`, `actor`, `details`, `timestamp`.
+
+RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `AUDITOR`, `VIEWER`
+
+### `GET /api/v1/cases/metrics`
+
+Uso:
+
+- obter métricas agregadas de gestão de casos
+
+Response 200:
+
+```json
+{
+  "total_cases": 10,
+  "open_cases": 3,
+  "closed_cases": 7,
+  "avg_resolution_time_hours": 48.5,
+  "cases_by_priority": {"low": 2, "medium": 5, "high": 2, "critical": 1},
+  "cases_by_category": {"sanctions": 3, "aml": 4, "kyc": 2, "investigation": 1}
+}
+```
+
+RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `AUDITOR`, `VIEWER`
+
 ## Erros Relevantes
 
 ### Auth e RBAC

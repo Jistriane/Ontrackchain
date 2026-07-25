@@ -1,23 +1,165 @@
 """
 AI Service — ONTRACKCHAIN Graph Intelligence 4.0
 Modules: XAI Layer, Graph Narrator, Confidence Engine, Risk Models, THEMIS Agent
+PostgreSQL-backed with RBAC and Evidence Trail
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
+from uuid import UUID
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field
+from pydantic_settings import BaseSettings
+from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="OnTrackChain AI Service",
-    description="Explainable AI, Graph Intelligence 4.0, Case Intelligence",
-    version="4.0.0",
+    description="Explainable AI, Graph Intelligence 4.0, Case Intelligence — Production",
+    version="4.1.0",
 )
+
+
+class Settings(BaseSettings):
+    postgres_host: str = "postgres"
+    postgres_port: int = 5432
+    postgres_user: str = "ontrackchain"
+    postgres_password: str = "ontrackchain"
+    postgres_db: str = "ontrackchain"
+
+
+settings = Settings()
+
+
+def _dsn() -> str:
+    return (
+        f"host={settings.postgres_host} port={settings.postgres_port} "
+        f"dbname={settings.postgres_db} user={settings.postgres_user} password={settings.postgres_password}"
+    )
+
+
+@app.on_event("startup")
+async def _startup() -> None:
+    app.state.pool = ConnectionPool(conninfo=_dsn(), kwargs={"row_factory": dict_row})
+
+
+@app.on_event("shutdown")
+async def _shutdown() -> None:
+    pool: ConnectionPool = app.state.pool
+    pool.close()
+
+
+def get_pool(request: Request) -> ConnectionPool:
+    return request.app.state.pool
+
+
+def _apply_rls_context(conn, org_id: str) -> None:
+    with conn.cursor() as cur:
+        cur.execute("SELECT set_config('app.organization_id', %s, True)", (org_id,))
+
+
+def _require_role(x_role: Optional[str], allowed_roles: set[str], detail: str) -> str:
+    normalized = (x_role or "").strip().upper()
+    if normalized not in allowed_roles:
+        raise HTTPException(status_code=403, detail=detail)
+    return normalized
+
+
+def _resolve_persisted_user_id(cur, user_id: Optional[str]) -> Optional[str]:
+    if not user_id:
+        return None
+    try:
+        candidate = str(UUID(str(user_id)))
+        cur.execute("SELECT 1 FROM users WHERE id = %s", (candidate,))
+        if cur.fetchone():
+            return candidate
+    except (TypeError, ValueError):
+        return None
+    return None
+
+
+def _record_audit_log(
+    cur,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    action: str,
+    resource_type: str,
+    resource_id: Optional[str],
+    metadata: dict[str, Any],
+) -> None:
+    normalized = dict(metadata)
+    persisted_user_id = _resolve_persisted_user_id(cur, user_id)
+    if user_id and not persisted_user_id:
+        normalized.setdefault("external_user_id", str(user_id))
+    cur.execute(
+        """
+        INSERT INTO audit_logs (organization_id, user_id, action, resource_type, resource_id, metadata)
+        VALUES (%s, %s, %s, %s, %s, %s::jsonb)
+        """,
+        (organization_id, persisted_user_id, action, resource_type, resource_id, json.dumps(normalized)),
+    )
+
+
+def _record_evidence_event(
+    cur,
+    *,
+    organization_id: str,
+    event_type: str,
+    event_payload: dict[str, Any],
+    actor_user_id: Optional[str],
+    actor_agent_id: str,
+    case_id: Optional[str],
+    regulatory_basis: list[str],
+) -> str:
+    event_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    canonical = {
+        "event_type": event_type,
+        "org_id": organization_id,
+        "case_id": case_id,
+        "payload": event_payload,
+        "actor_user_id": actor_user_id,
+        "actor_agent_id": actor_agent_id,
+        "timestamp": now,
+    }
+    serialized = json.dumps(canonical, sort_keys=True, ensure_ascii=False)
+    event_hash = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+    cur.execute(
+        """
+        INSERT INTO evidence_trail
+            (id, organization_id, case_id, event_type, event_payload,
+             actor_user_id, actor_agent_id, event_hash, regulatory_basis, recorded_at)
+        VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s)
+        """,
+        (
+            event_id, organization_id,
+            UUID(case_id) if case_id else None,
+            event_type, json.dumps(event_payload),
+            actor_user_id, actor_agent_id, event_hash,
+            json.dumps(regulatory_basis), now,
+        ),
+    )
+    return event_hash
+
+
+# ── RBAC constants ──
+
+AI_READ_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER", "AUDITOR", "OTK_AUDITOR"}
+AI_WRITE_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
+AI_EXPORT_ALLOWED_ROLES = {"ADMIN", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER", "LEGAL_REVIEWER", "OTK_LEGAL_REVIEWER"}
+AI_THEMIS_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
+
 
 # ──────────────────────────────────────────────
 #  MODELS
@@ -25,7 +167,7 @@ app = FastAPI(
 
 class ExplanationRequest(BaseModel):
     case_id: str
-    decision_type: str  # risk_score | block_recommendation | sanctions_match
+    decision_type: str
     context: dict[str, Any] = {}
 
 
@@ -75,12 +217,10 @@ class CaseInsightResponse(BaseModel):
     generated_at: str
 
 
-# ── XAI Layer models ──
-
 class RiskModelRequest(BaseModel):
     address: str
     chain: str = "ethereum"
-    model_type: str  # pld_ft | sanctions | ransomware | scam | defi | travel_rule
+    model_type: str
     context: dict[str, Any] = {}
 
 
@@ -90,12 +230,12 @@ class RiskModelResponse(BaseModel):
     address: str
     chain: str
     risk_score: float
-    risk_level: str  # LOW | MEDIUM | HIGH | CRITICAL
+    risk_level: str
     factors: list[dict[str, Any]]
     evidence: list[dict[str, Any]]
     recommendation: str
     confidence: float
-    classification: str  # FATO | INFERÊNCIA | HIPÓTESE | RECOMENDAÇÃO
+    classification: str
     limitations: list[str]
     generated_at: str
 
@@ -118,7 +258,7 @@ class NarratorRequest(BaseModel):
     address: str
     chain: str = "ethereum"
     graph_data: dict[str, Any] = {}
-    profile: str = "analyst"  # analyst | legal | executive
+    profile: str = "analyst"
 
 
 class NarratorResponse(BaseModel):
@@ -135,7 +275,7 @@ class NarratorResponse(BaseModel):
 
 class LawEnforcementExportRequest(BaseModel):
     case_id: str
-    format: str = "coaf"  # coaf | vasp | judicial | fatf
+    format: str = "coaf"
     include_evidence_hash: bool = True
 
 
@@ -152,7 +292,7 @@ class THEMISRequest(BaseModel):
     case_id: str
     address: str
     chain: str = "ethereum"
-    action: str  # build | narrate | export | review | full
+    action: str
 
 
 class THEMISResponse(BaseModel):
@@ -172,7 +312,7 @@ class THEMISResponse(BaseModel):
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "service": "ai-service", "version": "4.0.0"}
+    return {"status": "ok", "service": "ai-service", "version": "4.1.0"}
 
 
 # ──────────────────────────────────────────────
@@ -182,14 +322,63 @@ async def health_check():
 @app.post("/api/v1/ai/explain", response_model=ExplanationResponse)
 async def explain_decision(
     request: ExplanationRequest,
+    req: Request,
     x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
     x_role: Optional[str] = Header(default=None, alias="X-Role"),
 ) -> ExplanationResponse:
     if not x_org_id:
         raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
+
+    pool = get_pool(req)
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            _record_audit_log(
+                cur,
+                organization_id=x_org_id,
+                user_id=x_user_id,
+                action="ai_explain_requested",
+                resource_type="ai_explanation",
+                resource_id=None,
+                metadata={"case_id": request.case_id, "decision_type": request.decision_type},
+            )
+        conn.commit()
+
     explanation = _generate_explanation(request)
+
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            explanation_id = str(uuid.uuid4())
+            cur.execute(
+                """
+                INSERT INTO ai_analysis_results
+                    (id, organization_id, case_id, analysis_type, input_data, result_data, generated_at)
+                VALUES (%s, %s, %s, 'explain', %s::jsonb, %s::jsonb, %s)
+                """,
+                (
+                    explanation_id, x_org_id, request.case_id,
+                    json.dumps({"decision_type": request.decision_type, "context": request.context}),
+                    json.dumps(explanation),
+                    datetime.now(timezone.utc),
+                ),
+            )
+            _record_evidence_event(
+                cur,
+                organization_id=x_org_id,
+                event_type="AI_EXPLAIN_GENERATED",
+                event_payload={"explanation_id": explanation_id, "case_id": request.case_id, "decision_type": request.decision_type},
+                actor_user_id=x_user_id,
+                actor_agent_id="AI-XAI-Service",
+                case_id=request.case_id,
+                regulatory_basis=["BCB Circular 3.978", "Res. 520/2022"],
+            )
+        conn.commit()
+
     return ExplanationResponse(
-        explanation_id=str(uuid.uuid4()),
+        explanation_id=explanation_id,
         case_id=request.case_id,
         decision_type=request.decision_type,
         confidence_score=explanation["confidence"],
@@ -203,15 +392,48 @@ async def explain_decision(
 @app.post("/api/v1/ai/risk-model", response_model=RiskModelResponse)
 async def risk_model_assessment(
     request: RiskModelRequest,
+    req: Request,
     x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
     x_role: Optional[str] = Header(default=None, alias="X-Role"),
 ) -> RiskModelResponse:
-    """Avaliação de risco por modelo regulatório (PLD/FT, Sanções, Ransomware, etc.)"""
     if not x_org_id:
         raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
+
+    pool = get_pool(req)
     result = _run_risk_model(request)
+
+    assessment_id = str(uuid.uuid4())
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO ai_analysis_results
+                    (id, organization_id, case_id, analysis_type, input_data, result_data, generated_at)
+                VALUES (%s, %s, %s, 'risk_model', %s::jsonb, %s::jsonb, %s)
+                """,
+                (
+                    assessment_id, x_org_id, request.context.get("case_id", ""),
+                    json.dumps({"address": request.address, "chain": request.chain, "model_type": request.model_type}),
+                    json.dumps(result),
+                    datetime.now(timezone.utc),
+                ),
+            )
+            _record_audit_log(
+                cur,
+                organization_id=x_org_id,
+                user_id=x_user_id,
+                action="ai_risk_model_assessed",
+                resource_type="ai_risk_assessment",
+                resource_id=assessment_id,
+                metadata={"address": request.address, "model_type": request.model_type, "score": result["score"], "level": result["level"]},
+            )
+        conn.commit()
+
     return RiskModelResponse(
-        assessment_id=str(uuid.uuid4()),
+        assessment_id=assessment_id,
         model_type=request.model_type,
         address=request.address,
         chain=request.chain,
@@ -230,14 +452,39 @@ async def risk_model_assessment(
 @app.post("/api/v1/ai/confidence", response_model=ConfidenceResponse)
 async def confidence_engine(
     request: ConfidenceRequest,
+    req: Request,
     x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
 ) -> ConfidenceResponse:
-    """Engine de confiança — distingue FATO / INFERÊNCIA / HIPÓTESE / RECOMENDAÇÃO"""
     if not x_org_id:
         raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
+
+    pool = get_pool(req)
     result = _compute_confidence(request)
+
+    confidence_id = str(uuid.uuid4())
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO ai_analysis_results
+                    (id, organization_id, case_id, analysis_type, input_data, result_data, generated_at)
+                VALUES (%s, %s, %s, 'confidence', %s::jsonb, %s::jsonb, %s)
+                """,
+                (
+                    confidence_id, x_org_id, request.analysis_id,
+                    json.dumps({"analysis_id": request.analysis_id, "factors": request.factors}),
+                    json.dumps(result),
+                    datetime.now(timezone.utc),
+                ),
+            )
+        conn.commit()
+
     return ConfidenceResponse(
-        confidence_id=str(uuid.uuid4()),
+        confidence_id=confidence_id,
         overall_confidence=result["overall"],
         uncertainty_factors=result["uncertainty"],
         classifications=result["classifications"],
@@ -253,14 +500,50 @@ async def confidence_engine(
 @app.post("/api/v1/ai/case-insights", response_model=CaseInsightResponse)
 async def get_case_insights(
     request: CaseInsightRequest,
+    req: Request,
     x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
     x_role: Optional[str] = Header(default=None, alias="X-Role"),
 ) -> CaseInsightResponse:
     if not x_org_id:
         raise HTTPException(status_code=400, detail="X-Org-Id required")
-    insights = _generate_case_insights(request)
+    _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
+
+    pool = get_pool(req)
+    case_data = _fetch_case_data(pool, x_org_id, request.case_id)
+    insights = _generate_case_insights(request, case_data)
+
+    insight_id = str(uuid.uuid4())
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO ai_analysis_results
+                    (id, organization_id, case_id, analysis_type, input_data, result_data, generated_at)
+                VALUES (%s, %s, %s, 'case_insights', %s::jsonb, %s::jsonb, %s)
+                """,
+                (
+                    insight_id, x_org_id, request.case_id,
+                    json.dumps({"include_history": request.include_history}),
+                    json.dumps(insights),
+                    datetime.now(timezone.utc),
+                ),
+            )
+            _record_evidence_event(
+                cur,
+                organization_id=x_org_id,
+                event_type="AI_CASE_INSIGHTS_GENERATED",
+                event_payload={"insight_id": insight_id, "case_id": request.case_id, "risk_level": insights["risk_level"]},
+                actor_user_id=x_user_id,
+                actor_agent_id="AI-CaseInsights-Service",
+                case_id=request.case_id,
+                regulatory_basis=["BCB Circular 3.978"],
+            )
+        conn.commit()
+
     return CaseInsightResponse(
-        insight_id=str(uuid.uuid4()),
+        insight_id=insight_id,
         case_id=request.case_id,
         summary=insights["summary"],
         risk_level=insights["risk_level"],
@@ -278,14 +561,48 @@ async def get_case_insights(
 @app.post("/api/v1/ai/graph-analysis", response_model=GraphAnalysisResponse)
 async def analyze_graph(
     request: GraphAnalysisRequest,
+    req: Request,
     x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
     x_role: Optional[str] = Header(default=None, alias="X-Role"),
 ) -> GraphAnalysisResponse:
     if not x_org_id:
         raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
+
+    pool = get_pool(req)
     analysis = _generate_graph_analysis(request)
+
+    analysis_id = str(uuid.uuid4())
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO ai_analysis_results
+                    (id, organization_id, case_id, analysis_type, input_data, result_data, generated_at)
+                VALUES (%s, %s, %s, 'graph_analysis', %s::jsonb, %s::jsonb, %s)
+                """,
+                (
+                    analysis_id, x_org_id, request.context.get("case_id", ""),
+                    json.dumps({"address": request.address, "chain": request.chain, "depth": request.depth}),
+                    json.dumps({"nodes_count": len(analysis["nodes"]), "edges_count": len(analysis["edges"])}),
+                    datetime.now(timezone.utc),
+                ),
+            )
+            _record_audit_log(
+                cur,
+                organization_id=x_org_id,
+                user_id=x_user_id,
+                action="ai_graph_analysis_completed",
+                resource_type="ai_graph_analysis",
+                resource_id=analysis_id,
+                metadata={"address": request.address, "chain": request.chain, "nodes": len(analysis["nodes"])},
+            )
+        conn.commit()
+
     return GraphAnalysisResponse(
-        analysis_id=str(uuid.uuid4()),
+        analysis_id=analysis_id,
         address=request.address,
         chain=request.chain,
         nodes=analysis["nodes"],
@@ -299,15 +616,39 @@ async def analyze_graph(
 @app.post("/api/v1/ai/graph-narrator", response_model=NarratorResponse)
 async def graph_narrator(
     request: NarratorRequest,
+    req: Request,
     x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
     x_role: Optional[str] = Header(default=None, alias="X-Role"),
 ) -> NarratorResponse:
-    """Narração automática do grafo blockchain em linguagem natural"""
     if not x_org_id:
         raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
+
+    pool = get_pool(req)
     result = _narrate_graph(request)
+
+    narrator_id = str(uuid.uuid4())
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO ai_analysis_results
+                    (id, organization_id, case_id, analysis_type, input_data, result_data, generated_at)
+                VALUES (%s, %s, %s, 'graph_narrator', %s::jsonb, %s::jsonb, %s)
+                """,
+                (
+                    narrator_id, x_org_id, request.context.get("case_id", ""),
+                    json.dumps({"address": request.address, "chain": request.chain, "profile": request.profile}),
+                    json.dumps({"narrative_length": len(result["narrative"])}),
+                    datetime.now(timezone.utc),
+                ),
+            )
+        conn.commit()
+
     return NarratorResponse(
-        narrative_id=str(uuid.uuid4()),
+        narrative_id=narrator_id,
         address=request.address,
         chain=request.chain,
         narrative=result["narrative"],
@@ -326,15 +667,50 @@ async def graph_narrator(
 @app.post("/api/v1/ai/law-enforcement-export", response_model=LawEnforcementExportResponse)
 async def law_enforcement_export(
     request: LawEnforcementExportRequest,
+    req: Request,
     x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
     x_role: Optional[str] = Header(default=None, alias="X-Role"),
 ) -> LawEnforcementExportResponse:
-    """Exportação formatada para COAF / VASP / Judiciário / FATF"""
     if not x_org_id:
         raise HTTPException(status_code=400, detail="X-Org-Id required")
-    result = _generate_law_enforcement_package(request)
+    _require_role(x_role, AI_EXPORT_ALLOWED_ROLES, "ai_export_role_required")
+
+    pool = get_pool(req)
+    case_data = _fetch_case_data(pool, x_org_id, request.case_id)
+    result = _generate_law_enforcement_package(request, case_data)
+
+    export_id = str(uuid.uuid4())
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO ai_analysis_results
+                    (id, organization_id, case_id, analysis_type, input_data, result_data, generated_at)
+                VALUES (%s, %s, %s, 'law_enforcement_export', %s::jsonb, %s::jsonb, %s)
+                """,
+                (
+                    export_id, x_org_id, request.case_id,
+                    json.dumps({"format": request.format}),
+                    json.dumps({"document_type": result["document"].get("type", ""), "evidence_count": len(result["evidence_chain"])}),
+                    datetime.now(timezone.utc),
+                ),
+            )
+            _record_evidence_event(
+                cur,
+                organization_id=x_org_id,
+                event_type="AI_LAW_ENFORCEMENT_EXPORT_GENERATED",
+                event_payload={"export_id": export_id, "case_id": request.case_id, "format": request.format},
+                actor_user_id=x_user_id,
+                actor_agent_id="AI-LEExport-Service",
+                case_id=request.case_id,
+                regulatory_basis=["Lei 9.613/98", "Res. 520/2022", "Res. 739/2023"],
+            )
+        conn.commit()
+
     return LawEnforcementExportResponse(
-        export_id=str(uuid.uuid4()),
+        export_id=export_id,
         case_id=request.case_id,
         format=request.format,
         document=result["document"],
@@ -350,15 +726,50 @@ async def law_enforcement_export(
 @app.post("/api/v1/ai/themis", response_model=THEMISResponse)
 async def themis_case_intelligence(
     request: THEMISRequest,
+    req: Request,
     x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
     x_role: Optional[str] = Header(default=None, alias="X-Role"),
 ) -> THEMISResponse:
-    """THEMIS — Case Intelligence Agent: orquestra todos os módulos de IA"""
     if not x_org_id:
         raise HTTPException(status_code=400, detail="X-Org-Id required")
-    result = _run_themis(request)
+    _require_role(x_role, AI_THEMIS_ALLOWED_ROLES, "ai_themis_role_required")
+
+    pool = get_pool(req)
+    case_data = _fetch_case_data(pool, x_org_id, request.case_id)
+    result = _run_themis(request, case_data)
+
+    themis_id = str(uuid.uuid4())
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO ai_analysis_results
+                    (id, organization_id, case_id, analysis_type, input_data, result_data, generated_at)
+                VALUES (%s, %s, %s, 'themis', %s::jsonb, %s::jsonb, %s)
+                """,
+                (
+                    themis_id, x_org_id, request.case_id,
+                    json.dumps({"address": request.address, "chain": request.chain, "action": request.action}),
+                    json.dumps({"risk_score": result["case_card"].get("risk_score"), "human_gate": result["human_gate"]}),
+                    datetime.now(timezone.utc),
+                ),
+            )
+            _record_evidence_event(
+                cur,
+                organization_id=x_org_id,
+                event_type="AI_THEMIS_CASE_INTELLIGENCE_GENERATED",
+                event_payload={"themis_id": themis_id, "case_id": request.case_id, "human_gate_required": result["human_gate"]},
+                actor_user_id=x_user_id,
+                actor_agent_id="AI-THEMIS-Service",
+                case_id=request.case_id,
+                regulatory_basis=["BCB Circular 3.978", "Res. 520/2022", "Lei 9.613/98"],
+            )
+        conn.commit()
+
     return THEMISResponse(
-        themis_id=str(uuid.uuid4()),
+        themis_id=themis_id,
         case_id=request.case_id,
         case_card=result["case_card"],
         graph_narrative=result["graph_narrative"],
@@ -373,60 +784,156 @@ async def themis_case_intelligence(
 #  INTERNAL ENGINES
 # ══════════════════════════════════════════════
 
+def _fetch_case_data(pool: ConnectionPool, org_id: str, case_id: str) -> dict[str, Any]:
+    with pool.connection() as conn:
+        _apply_rls_context(conn, org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, title, description, status, priority, category,
+                       target_address, target_chain, metadata
+                FROM cases
+                WHERE id = %s AND organization_id = %s
+                """,
+                (case_id, org_id),
+            )
+            case_row = cur.fetchone()
+            if not case_row:
+                cur.execute(
+                    "SELECT id, title, description, status, priority, category FROM case_management_cases WHERE id = %s AND organization_id = %s",
+                    (case_id, org_id),
+                )
+                case_row = cur.fetchone()
+
+            cur.execute(
+                """
+                SELECT action, actor, details, created_at
+                FROM regulatory_work_events
+                WHERE work_item_id IN (
+                    SELECT id FROM regulatory_work_items WHERE case_id = %s AND organization_id = %s
+                )
+                ORDER BY created_at DESC
+                LIMIT 20
+                """,
+                (case_id, org_id),
+            )
+            events = cur.fetchall()
+
+            cur.execute(
+                """
+                SELECT event_type, event_payload, recorded_at
+                FROM evidence_trail
+                WHERE case_id = %s AND organization_id = %s
+                ORDER BY recorded_at DESC
+                LIMIT 10
+                """,
+                (case_id, org_id),
+            )
+            evidence = cur.fetchall()
+
+    return {
+        "case": dict(case_row) if case_row else None,
+        "events": [dict(e) for e in events],
+        "evidence": [dict(e) for e in evidence],
+    }
+
+
 def _generate_explanation(request: ExplanationRequest) -> dict[str, Any]:
     ctx = request.context
     if request.decision_type == "risk_score":
-        return {
-            "confidence": 0.87,
-            "steps": [
-                {"step": 1, "action": "Análise de histórico transacional", "result": f"{ctx.get('tx_count', 150)} transações nos últimos 30 dias"},
-                {"step": 2, "action": "Verificação em listas de sanções", "result": "Nenhuma correspondência direta encontrada"},
-                {"step": 3, "action": "Avaliação de indicadores de risco", "result": "Risco médio por volume elevado e exposição a mixers"},
-                {"step": 4, "action": "Análise de padrão comportamental", "result": "Desvio do perfil esperado detectado"},
-                {"step": 5, "action": "Cálculo do score final", "result": f"Risk score: {ctx.get('score', 67)}/100"},
-            ],
-            "factors": [
-                {"factor": "Volume Transacional", "weight": 0.25, "impact": "high", "detail": "Acima do percentil 80 para o perfil"},
-                {"factor": "Exposição a Mixer", "weight": 0.30, "impact": "high", "detail": "3 transações via Tornado Cash"},
-                {"factor": "Correspondência Sanções", "weight": 0.20, "impact": "none", "detail": "Sem match em OFAC/ONU/COAF"},
-                {"factor": "Padrão Comportamental", "weight": 0.15, "impact": "medium", "detail": "Horários atípicos detectados"},
-                {"factor": "Rede de Contrapartes", "weight": 0.10, "impact": "medium", "detail": "2 contrapartes de risco médio"},
-            ],
-            "recommendation": "REVISÃO — Revisão manual recomendada devido ao volume elevado e exposição a mixers",
-        }
+        tx_count = ctx.get("tx_count", 0)
+        mixer_txs = ctx.get("mixer_transactions", 0)
+        sanctioned_matches = ctx.get("sanctions_matches", 0)
+        score = ctx.get("score", 50)
+
+        factors = []
+        steps = []
+        step_num = 1
+        total_weight = 0.0
+        weighted_score = 0.0
+
+        if tx_count > 0:
+            tx_impact = "high" if tx_count > 200 else "medium" if tx_count > 50 else "low"
+            weight = 0.25
+            factors.append({"factor": "Volume Transacional", "weight": weight, "impact": tx_impact, "detail": f"{tx_count} transações nos últimos 30 dias"})
+            steps.append({"step": step_num, "action": "Análise de histórico transacional", "result": f"{tx_count} transações nos últimos 30 dias"})
+            step_num += 1
+            total_weight += weight
+            weighted_score += weight * min(1.0, tx_count / 300)
+
+        if mixer_txs > 0:
+            weight = 0.30
+            factors.append({"factor": "Exposição a Mixer", "weight": weight, "impact": "high", "detail": f"{mixer_txs} transações via mixer"})
+            steps.append({"step": step_num, "action": "Verificação de exposição a mixers", "result": f"{mixer_txs} transações via mixer detectadas"})
+            step_num += 1
+            total_weight += weight
+            weighted_score += weight * min(1.0, mixer_txs / 10)
+
+        weight = 0.20
+        factors.append({"factor": "Correspondência Sanções", "weight": weight, "impact": "high" if sanctioned_matches > 0 else "none", "detail": f"{sanctioned_matches} matches em listas de sanções"})
+        steps.append({"step": step_num, "action": "Verificação em listas de sanções", "result": f"{sanctioned_matches} correspondências encontradas"})
+        step_num += 1
+        total_weight += weight
+        weighted_score += weight * min(1.0, sanctioned_matches / 5)
+
+        if score > 0:
+            weight = 0.15
+            score_impact = "high" if score > 70 else "medium" if score > 40 else "low"
+            factors.append({"factor": "Score de Risco Calculado", "weight": weight, "impact": score_impact, "detail": f"Score: {score}/100"})
+            steps.append({"step": step_num, "action": "Cálculo do score final", "result": f"Risk score: {score}/100"})
+            total_weight += weight
+            weighted_score += weight * (score / 100)
+
+        confidence = round(weighted_score / total_weight, 2) if total_weight > 0 else 0.5
+
+        if score >= 70:
+            recommendation = "BLOQUEAR — Risco elevado. Bloqueio imediato e reporte ao COAF conforme Res. 520/2022"
+        elif score >= 40:
+            recommendation = "REVISÃO — Revisão manual recomendada devido aos indicadores de risco identificados"
+        else:
+            recommendation = "LIMPO — Sem indicadores significativos de risco. Monitoramento de rotina"
+
+        return {"confidence": confidence, "steps": steps, "factors": factors, "recommendation": recommendation}
+
     elif request.decision_type == "block_recommendation":
-        return {
-            "confidence": 0.93,
-            "steps": [
-                {"step": 1, "action": "Verificação de status da contraparte", "result": "Contraparte ativa com histórico"},
-                {"step": 2, "action": "Avaliação de score de risco", "result": "Risk score: 78/100"},
-                {"step": 3, "action": "Verificação de regras de compliance", "result": "Violação de regra detectada: exposição a endereço sancionado"},
-                {"step": 4, "action": "Verificação de PEP", "result": "Nenhum PEP identificado"},
-                {"step": 5, "action": "Geração de recomendação", "result": "BLOQUEIO recomendado"},
-            ],
-            "factors": [
-                {"factor": "Score de Risco", "weight": 0.40, "impact": "high", "detail": "78/100 — acima do limiar de bloqueio"},
-                {"factor": "Regras de Compliance", "weight": 0.35, "impact": "high", "detail": "Exposição a endereço da lista OFAC SDN"},
-                {"factor": "Padrão Histórico", "weight": 0.15, "impact": "medium", "detail": "Mudança recente de comportamento"},
-                {"factor": "Conexão com Entidade de Risco", "weight": 0.10, "impact": "high", "detail": "Vínculo com cluster de risco"},
-            ],
-            "recommendation": "BLOQUEAR — Bloqueio imediato recomendado por violação de compliance com exposição a endereço sancionado",
-        }
+        score = ctx.get("score", 50)
+        sanctions_hit = ctx.get("sanctions_hit", False)
+        pep_flag = ctx.get("pep_flag", False)
+
+        factors = [
+            {"factor": "Score de Risco", "weight": 0.40, "impact": "high" if score > 70 else "medium", "detail": f"{score}/100"},
+        ]
+        steps = [
+            {"step": 1, "action": "Verificação de status da contraparte", "result": "Contraparte verificada"},
+            {"step": 2, "action": "Avaliação de score de risco", "result": f"Risk score: {score}/100"},
+        ]
+        step_num = 3
+        if sanctions_hit:
+            factors.append({"factor": "Match em Sanções", "weight": 0.35, "impact": "high", "detail": "Correspondência com lista de sanções"})
+            steps.append({"step": step_num, "action": "Verificação de sanções", "result": "Match detectado em lista de sanções"})
+            step_num += 1
+        if pep_flag:
+            factors.append({"factor": "Vinculação PEP", "weight": 0.15, "impact": "high", "detail": "Pessoa Politicamente Exposta identificada"})
+            steps.append({"step": step_num, "action": "Verificação PEP", "result": "PEP identificado na rede de contrapartes"})
+            step_num += 1
+
+        confidence = 0.93 if sanctions_hit else 0.75
+        recommendation = "BLOQUEAR — Bloqueio recomendado" if score > 70 or sanctions_hit else "REVISÃO — Revisão manual antes de decidir"
+
+        return {"confidence": confidence, "steps": steps, "factors": factors, "recommendation": recommendation}
+
     else:
         return {
             "confidence": 0.79,
             "steps": [
-                {"step": 1, "action": "Análise de correspondência em sanções", "result": "Possível match parcial encontrado"},
-                {"step": 2, "action": "Verificação de identidade", "result": "Verificação de identidade pendente"},
-                {"step": 3, "action": "Análise de endereços vinculados", "result": "3 endereços associados sob investigação"},
-                {"step": 4, "action": "Geração de recomendação", "result": "INVESTIGAR recomendado"},
+                {"step": 1, "action": "Análise de correspondência em sanções", "result": "Verificação realizada"},
+                {"step": 2, "action": "Verificação de identidade", "result": "Status verificado"},
+                {"step": 3, "action": "Geração de recomendação", "result": "Análise concluída"},
             ],
             "factors": [
-                {"factor": "Match em Sanções", "weight": 0.50, "impact": "high", "detail": "Match parcial — 85% similaridade"},
-                {"factor": "Verificação de Identidade", "weight": 0.30, "impact": "medium", "detail": "KYC pendente"},
-                {"factor": "Rede de Endereços", "weight": 0.20, "impact": "medium", "detail": "3 endereços vinculados"},
+                {"factor": "Análise Geral", "weight": 1.0, "impact": "medium", "detail": "Análise de decisão padrão"},
             ],
-            "recommendation": "INVESTIGAR — Investigação adicional necessária devido a possível correspondência parcial com lista de sanções",
+            "recommendation": "ANALISAR — Revisão manual recomendada para esta decisão",
         }
 
 
@@ -569,7 +1076,6 @@ def _compute_confidence(request: ConfidenceRequest) -> dict[str, Any]:
 
 
 def _generate_graph_analysis(request: GraphAnalysisRequest) -> dict[str, Any]:
-    addr = request.address[:10] + "..."
     nodes = [
         {"id": request.address, "type": "source", "label": "Endereço Alvo", "risk": "medium", "balance": "12.5 ETH", "tx_count": 342},
         {"id": "0x1234...5678", "type": "exchange", "label": "Binance Hot Wallet", "risk": "low", "balance": "15,420 ETH", "tx_count": 89234},
@@ -604,10 +1110,9 @@ def _narrate_graph(request: NarratorRequest) -> dict[str, Any]:
                 f"O endereço {request.address[:10]}... apresenta um padrão de movimentação "
                 f"que merece atenção. Nos últimos 90 dias, foram identificadas 15 transações "
                 f"de saída, das quais 3 passaram por um mixer (Tornado Cash), totalizando "
-                f"15.8 ETH. O endereço manteve interação regular com a Binance (12 depósitos, "
-                f"5.2 ETH total) e realizou 5 swaps no Uniswap V3. O score de risco calculado "
-                f"é de 67/100, classificado como MÉDIO. A principal preocupação é a exposição "
-                f"ao mixer e a conexão indireta com um endereço vinculado a atividades suspeitas."
+                f"15.8 ETH. O score de risco calculado é de 67/100, classificado como MÉDIO. "
+                f"A principal preocupação é a exposição ao mixer e a conexão indireta com "
+                f"um endereço vinculado a atividades suspeitas."
             ),
             "badges": [
                 {"label": "Risco Médio", "color": "warning", "score": 67},
@@ -632,32 +1137,25 @@ def _narrate_graph(request: NarratorRequest) -> dict[str, Any]:
                 f"movimentação compatível com tentativa de obfuscação de origem de recursos, "
                 f"por meio de utilização de mixer de privacidade. Conforme art. 11 da Res. 520, "
                 f"a instituição deve avaliar se a operação apresenta indícios de lavagem de "
-                f"dinheiro ou financiamento do terrorismo. O score de risco de 67/100 indica "
-                f"necessidade de due diligence reforçada. Recomenda-se a abertura de "
-                f"comunicação de operação suspeita ao COAF conforme art. 9 da Lei 9.613/98."
+                f"dinheiro ou financiamento do terrorismo."
             ),
             "badges": [
                 {"label": "Risco Médio", "color": "warning", "score": 67},
                 {"label": "PLD/FT Aplicável", "color": "danger", "detail": "Circular 3.978"},
-                {"label": "Due Diligence Reforçada", "color": "warning", "detail": "Obrigatória"},
             ],
             "annotations": [
                 {"node": request.address, "text": "Indício de obfuscação — art. 11 Res. 520/2022"},
-                {"node": "0x8765...4321", "text": "Uso de mixer configura indício de lavagem"},
             ],
             "actions": [
                 "Solicitar origem documentada dos fundos ao cliente",
                 "Avaliar necessidade de declaração de ops suspeita ao COAF",
-                "Documentar toda a cadeia de evidências para cadeia de custódia",
             ],
         },
         "executive": {
             "narrative": (
-                f"Carteira analisada: risco MÉDIO (67/100). A carteira interage com exchanges "
+                f"Carteira analisada: risco MÉDIO (67/10). A carteira interage com exchanges "
                 f"legítimas mas utiliza mixer de privacidade, o que gera risco regulatório. "
-                f"Recomendação: due diligence reforçada antes de permitir novas operações. "
-                f"Potencial impacto regulatório: MÉDIO. Nenhuma ação imediata de bloqueio "
-                f"necessária, mas monitoramento contínuo é mandatório."
+                f"Recomendação: due diligence reforçada antes de permitir novas operações."
             ),
             "badges": [
                 {"label": "Risco Médio", "color": "warning", "score": 67},
@@ -673,67 +1171,73 @@ def _narrate_graph(request: NarratorRequest) -> dict[str, Any]:
     return profiles.get(request.profile, profiles["analyst"])
 
 
-def _generate_case_insights(request: CaseInsightRequest) -> dict[str, Any]:
+def _generate_case_insights(request: CaseInsightRequest, case_data: dict[str, Any]) -> dict[str, Any]:
+    case = case_data.get("case")
+    events = case_data.get("events", [])
+    evidence = case_data.get("evidence", [])
+
+    if case:
+        title = case.get("title", "Caso não identificado")
+        priority = case.get("priority", "medium")
+        category = case.get("category", "aml")
+        status = case.get("status", "open")
+        findings = [f"Caso '{title}' com prioridade {priority} e categoria {category}"]
+        risk_level = "HIGH" if priority in ("high", "critical") else "MEDIUM" if priority == "medium" else "LOW"
+    else:
+        findings = ["Caso não encontrado no banco de dados — usando dados de contexto"]
+        risk_level = "UNKNOWN"
+
+    if events:
+        findings.append(f"{len(events)} eventos regulatórios registrados no caso")
+    if evidence:
+        findings.append(f"{len(evidence)} eventos de cadeia de evidências vinculados")
+
+    recommendations = [
+        "Escalar para officer de compliance sênior para revisão",
+        "Solicitar documentação complementar de origem dos fundos",
+        "Monitorar conta por 30 dias com vigilância reforçada",
+    ]
+    if risk_level == "HIGH":
+        recommendations.append("Considerar declaração de operação suspeita ao COAF conforme Circular 3.978")
+
     return {
-        "summary": f"Caso {request.case_id} envolve risco de compliance com múltiplos indicadores que requerem atenção. Análise XAI identificou 4 fatores de risco, 2 inferências e 1 hipótese pendente de confirmação.",
-        "risk_level": "HIGH",
-        "findings": [
-            "Padrão transacional com desvio significativo detectado nos últimos 7 dias",
-            "Vinculação com 2 contrapartes classificadas como high-risk identificada",
-            "Screening de sanções retornou correspondências parciais que requerem verificação",
-            "Análise comportamental indica desvio de 2.3 desvios-padrão do perfil declarado",
-            "Score de confiança: 87% — classificação: INFERÊNCIA",
-        ],
-        "recommendations": [
-            "Escalar para officer de compliance sênior para revisão",
-            "Solicitar documentação complementar de origem dos fundos ao contraparte",
-            "Monitorar conta por 30 dias com vigilância reforçada",
-            "Considerar declaração de operação suspeita ao COAF conforme Circular 3.978",
-            "Documentar cadeia de evidências no ARQUIVO para cadeia de custódia",
-        ],
-        "similar_cases": [
-            {"case_id": "CASE-2026-0156", "similarity": 0.84, "outcome": "BLOQUEADO", "reason": "Mesmo padrão de mixer + exchange"},
-            {"case_id": "CASE-2026-0089", "similarity": 0.76, "outcome": "INVESTIGADO", "reason": "Exposição similar a Tornado Cash"},
-            {"case_id": "CASE-2026-0234", "similarity": 0.69, "outcome": "LIMPO", "reason": "Mixer usage com justificativa legítima"},
-            {"case_id": "CASE-2026-0312", "similarity": 0.62, "outcome": "REPORTADO", "reason": "Declaração COAF por layering"},
-        ],
+        "summary": f"Caso analisado com risco {risk_level}. {len(findings)} achados identificados, {len(recommendations)} recomendações geradas.",
+        "risk_level": risk_level,
+        "findings": findings,
+        "recommendations": recommendations,
+        "similar_cases": [],
     }
 
 
-def _generate_law_enforcement_package(request: LawEnforcementExportRequest) -> dict[str, Any]:
+def _generate_law_enforcement_package(request: LawEnforcementExportRequest, case_data: dict[str, Any]) -> dict[str, Any]:
+    case = case_data.get("case")
+    case_title = case.get("title", "Caso não identificado") if case else "Caso não identificado"
+    case_desc = case.get("description", "") if case else ""
+
     formats = {
         "coaf": {
             "document": {
                 "type": "Comunicação de Operação Suspeita",
                 "authority": "COAF",
                 "legal_basis": "Lei 9.613/98, Art. 9; Res. 520/2022",
-                "institution": "Instituição Financeira Cadastrada",
                 "case_reference": request.case_id,
+                "case_title": case_title,
+                "case_description": case_desc,
                 "sections": {
                     "identificacao": {
                         "instituicao": "[RAZÃO SOCIAL]",
                         "cnpj": "[CNPJ]",
                         "responsavel": "[NOME DO RESPONSÁVEL]",
-                        "cargo": "[CARGO]",
-                        "contato": "[TELEFONE/EMAIL]",
                     },
                     "dados_da_operacao": {
                         "tipo": "Transferência de ativos virtuais",
-                        "valor": "15.8 ETH (~R$ 285.000,00)",
-                        "data_inicio": "2026-03-01",
-                        "data_fim": "2026-07-20",
-                        "partes_envolvidas": [
-                            {"endereco": request.case_id, "tipo": " originador"},
-                            {"endereco": "0x8765...4321", "tipo": "destinatário"},
-                        ],
+                        "case_title": case_title,
                     },
                     "motivo_suspeita": [
-                        "Utilização de mixer de privacidade (Tornado Cash)",
-                        "Movimentação rápida de fundos (< 2 horas)",
-                        "Vinculação com endereço classificado como ransomware",
-                        "Volume incompatível com perfil declarado",
+                        "Análise XAI identificou indicadores de risco",
+                        "Verificação em listas de sanções retornou alertas",
+                        "Padrão transacional desviante detectado",
                     ],
-                    "classificacao_tipologia": "Lavagem de dinheiro via obfuscação em blockchain",
                     "normas_aplicaveis": [
                         "Circular 3.978/2019 (PLD/FT)",
                         "Resolução 520/2022 (Regulamento PLD/FT)",
@@ -743,19 +1247,16 @@ def _generate_law_enforcement_package(request: LawEnforcementExportRequest) -> d
                 },
             },
             "evidence_chain": [
-                {"item": "Captura de tela da transação", "hash": "sha256:abc123...", "timestamp": "2026-07-24T10:00:00Z"},
-                {"item": "Exportação JSON do grafo", "hash": "sha256:def456...", "timestamp": "2026-07-24T10:01:00Z"},
-                {"item": "Relatório XAI completo", "hash": "sha256:ghi789...", "timestamp": "2026-07-24T10:02:00Z"},
+                {"item": f"Caso: {case_title}", "hash": f"sha256:{hashlib.sha256(request.case_id.encode()).hexdigest()[:16]}...", "timestamp": datetime.now(timezone.utc).isoformat()},
             ],
         },
         "vasp": {
             "document": {
                 "type": "Ofício para VASP/Exchange",
-                "recipient": "[NOME DA EXCHANGE]",
                 "legal_basis": "Res. 739/2023, Art. 12; Travel Rule",
+                "case_reference": request.case_id,
                 "sections": {
                     "solicitacao": "Solicitação de informações sobre titular da conta",
-                    "endereco_suspeito": "0x8765...4321",
                     "motivo": "Vinculação com atividade suspeita identificada",
                     "informacoes_solicitadas": [
                         "Nome completo do titular",
@@ -772,13 +1273,13 @@ def _generate_law_enforcement_package(request: LawEnforcementExportRequest) -> d
         "judicial": {
             "document": {
                 "type": "Relatório Técnico para Autoridade Judiciária",
-                "authority": "Delegacia / Ministério Público",
                 "legal_basis": "Lei 9.613/98; CPP Art. 13",
+                "case_reference": request.case_id,
                 "sections": {
                     "objeto": "Relatório técnico de análise forense de ativos virtuais",
                     "metodologia": "Análise on-chain com Graph Intelligence 4.0 e XAI Layer",
-                    "conclusao_tecnica": "Identificada movimentação compatível com lavagem de dinheiro via obfuscação em mixer de privacidade",
-                    "cadeia_custodia": "Todas as evidências havebeen hasheadas e versionadas conforme protocolo ARQUIVO",
+                    "conclusao_tecnica": f"Análise do caso '{case_title}' — movimentação investigada",
+                    "cadeia_custodia": "Todas as evidências hasheadas e versionadas conforme protocolo ARQUIVO",
                 },
             },
             "evidence_chain": [],
@@ -787,6 +1288,7 @@ def _generate_law_enforcement_package(request: LawEnforcementExportRequest) -> d
             "document": {
                 "type": "Relatório FATF/GAFILAT",
                 "standard": "Recomendação 15 (Novas Tecnologias) e 20 (Relatórios de Transações Suspeitas)",
+                "case_reference": request.case_id,
                 "sections": {
                     "typology": "Abuse of Decentralized Mixers for ML/TF",
                     "red_flags": [
@@ -803,12 +1305,13 @@ def _generate_law_enforcement_package(request: LawEnforcementExportRequest) -> d
     return formats.get(request.format, formats["coaf"])
 
 
-def _run_themis(request: THEMISRequest) -> dict[str, Any]:
+def _run_themis(request: THEMISRequest, case_data: dict[str, Any]) -> dict[str, Any]:
     risk_result = _run_risk_model(RiskModelRequest(address=request.address, chain=request.chain, model_type="pld_ft"))
     graph = _generate_graph_analysis(GraphAnalysisRequest(address=request.address, chain=request.chain))
     narrator = _narrate_graph(NarratorRequest(address=request.address, chain=request.chain, profile="analyst"))
-    le_export = _generate_law_enforcement_package(LawEnforcementExportRequest(case_id=request.case_id, format="coaf"))
+    le_export = _generate_law_enforcement_package(LawEnforcementExportRequest(case_id=request.case_id, format="coaf"), case_data)
     human_gate = risk_result["score"] > 70 or risk_result["level"] in ("HIGH", "CRITICAL")
+
     return {
         "case_card": {
             "case_id": request.case_id,

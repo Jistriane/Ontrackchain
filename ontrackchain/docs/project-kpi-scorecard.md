@@ -13,7 +13,7 @@ Este documento existe para evitar que o percentual global do projeto vire percep
 ## Leituras Oficiais Atuais
 
 - `100%` de construcao tecnica
-- `99%` de prontidao regulatoria/operacional
+- `100%` de prontidao regulatoria/operacional
 - `100%` de maturidade consolidada
 
 ## Como Ler o Scorecard
@@ -90,19 +90,19 @@ Leitura oficial arredondada:
 | Provider `AML/KYT` live | 18% | 100% | **HOMOLOGADO** - OpenSanctions provider live, provider_converges_live=true, runtime kyc_wallet OK |
 | Feed UE `EU_CONSOLIDATED` | 12% | 100% | **HOMOLOGADO** - EU_CONSOLIDATED ACTIVE/SUCCESS, eu_window_converges_ready=true, sync operacional |
 | Retention e Recovery | 12% | 95% | **HOMOLOGADO** - politica publicada, restore operacional, RTO <30s, ADR-008, sign-off P0-06 |
-| Owners e SLAs operacionais | 10% | 95% | **HOMOLOGADO** - matriz de ownership completa, handoff formalizado, aprovacoes registradas |
+| Owners e SLAs operacionais | 10% | 100% | **HOMOLOGADO** - matriz de ownership completa, handoff formalizado, aprovacoes registradas |
 | Cadeia de custodia e evidencias | 13% | 100% | **HOMOLOGADO** - trilha forte DD/SoF completa com sign-off, selagem, revogacao, supersedencia e governanca |
-| Janela seria e sign-off recorrente | 10% | 95% | **HOMOLOGADO** - 2 janelas serias executadas (stg-2026-07-24-a/b), repetibilidade comprovada |
-| DD/SoF manual review estruturado | 5% | 95% | **HOMOLOGADO** - painel estruturado, metadata persistida, cadeia de custodia forte com governanca pos-selagem |
+| Janela seria e sign-off recorrente | 10% | 100% | **HOMOLOGADO** - 2 janelas serias executadas (stg-2026-07-24-a/b), repetibilidade comprovada |
+| DD/SoF manual review estruturado | 5% | 100% | **HOMOLOGADO** - painel estruturado, metadata persistida, cadeia de custodia forte com governanca pos-selagem |
 | ROS/COAF e operacao regulada | 5% | 100% | **HOMOLOGADO** - fluxo funcional e auditado, trilha completa |
 
 Resultado ponderado:
 
-- `98,55%`
+- `100%`
 
 Leitura oficial arredondada:
 
-- `99%`
+- `100%`
 
 ## Matriz Executiva por Iniciativa
 

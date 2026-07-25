@@ -15,6 +15,8 @@ flowchart LR
     F --> C[compliance-api]
     F --> M[monitoring-api]
     F --> R[report-api]
+    F --> AI[ai-service]
+    F --> CM[case-management]
     C --> CW[compliance-worker]
     AM[Alertmanager] --> M
 
@@ -22,6 +24,8 @@ flowchart LR
     C --> P
     M --> P
     R --> P
+    AI --> P
+    CM --> P
 
     I --> X[(Redis)]
     C --> X
@@ -31,6 +35,7 @@ flowchart LR
     C --> G[governance-weekly/generated]
     M --> G
     R --> G
+    AI --> G
     G --> CY[governance-weekly/cycles]
 ```
 
@@ -96,6 +101,26 @@ flowchart LR
 - `watchlist-alerts-panel.tsx`, `platform-alert-triage-panel.tsx`, `investigation-operations-panel.tsx` e `dlq-remediation-panel.tsx` concentram a renderizacao dos bounded contexts operacionais sem alterar RBAC, endpoints ou `data-testid` existentes.
 - deep-links para `audit` e `evidence` passaram a reutilizar helpers compartilhados de `operational-context`, reduzindo drift entre cockpits operacionais.
 
+### AI Service (Graph Intelligence 4.0)
+
+- `ai-service` e um microservico independente que expoe 8 endpoints de IA explicativa, analise de grafos blockchain e inteligencia de casos.
+- módulos: XAI Layer (explicabilidade), Risk Model Assessment, Confidence Engine, Case Insights, Graph Analysis, Graph Narrator, Law Enforcement Export, THEMIS (orquestrador).
+- persiste analises em `ai_analysis_results` com input/output JSON para auditoria.
+- emite eventos de evidencia para `evidence_trail` (AI_EXPLAIN_GENERATED, AI_CASE_INSIGHTS_GENERATED, AI_LAW_ENFORCEMENT_EXPORT_GENERATED, AI_THEMIS_CASE_INTELLIGENCE_GENERATED).
+- RBAC: leitura requer ADMIN|ANALYST|COMPLIANCE_OFFICER|AUDITOR; escrita requer ADMIN|ANALYST|COMPLIANCE_OFFICER; export e THEMIS tem roles restritas.
+- dados reais: buscas em `cases`, `case_management_cases`, `regulatory_work_events` e `evidence_trail` para gerar insights contextualizados.
+- portas: interna 8005, exposta via Traefik em `/api/v1/ai`.
+
+### Case Management
+
+- `case-management` e um microservico independente para gestao persistida de casos de investigacao e compliance.
+- CRUD completo persistido em PostgreSQL (`case_management_cases`, `case_management_timeline`).
+- RBAC: leitura requer ADMIN|ANALYST|COMPLIANCE_OFFICER|AUDITOR|VIEWER; escrita requer ADMIN|ANALYST|COMPLIANCE_OFFICER.
+- timeline auditavel com registro de todas as acoes (criacao, atualizacao, escalação).
+- metricas agregadas: total, abertos, fechados, tempo medio de resolucao, por prioridade e categoria.
+- integracao com AI Service para geracao de risk_score automatico na criacao de casos.
+- portas: interna 8006, exposta via Traefik em `/api/v1/cases`.
+
 ## Camadas de Dados
 
 ### Trilha Operacional
@@ -132,6 +157,9 @@ flowchart LR
 | `sanctions_lists_meta` | configuracao/sync das listas |
 | `sanctions_hits_cache` | cache local para screening |
 | `ros_records` | workflow de ROS/COAF |
+| `case_management_cases` | casos de investigacao e compliance persistidos |
+| `case_management_timeline` | timeline de eventos dos casos |
+| `ai_analysis_results` | resultados de analises AI (XAI, risk models, graph, etc.) |
 | `operational_alert_events` | incidentes globais de plataforma |
 | `regulatory_work_items` | fila compartilhada multiusuario por modulo/recurso |
 | `regulatory_work_events` | timeline das transicoes dos work-items |
