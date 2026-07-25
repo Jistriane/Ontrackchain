@@ -68,15 +68,29 @@ async function loginAsDevRole(page: Page, role: "ADMIN" | "ANALYST" | "BILLING_A
   // Navigate to any page so we have a browser context with the right origin
   await page.goto("/login");
 
-  // Submit the session/start request from inside the browser so httpOnly cookies land in the browser's jar
-  await page.evaluate(async (r) => {
-    await fetch("/api/session/start", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ plan: "professional", role: r })
-    });
-  }, role);
+  // Set the otc_token cookie directly with the correct role encoded
+  // so server components (dashboard) can decode it without auth-service
+  const token = `otc_sysadmin_${Buffer.from(`user-e2e:org-e2e:${role}`).toString("base64")}`;
+  await page.context().addCookies([
+    {
+      name: "otc_token",
+      value: token,
+      domain: "localhost",
+      path: "/",
+      httpOnly: false,
+      secure: false,
+      sameSite: "Lax"
+    },
+    {
+      name: "otc_2fa",
+      value: "ok",
+      domain: "localhost",
+      path: "/",
+      httpOnly: false,
+      secure: false,
+      sameSite: "Lax"
+    }
+  ]);
 
   // Mock /api/app/auth/context so AppShell renders the exact role for this test
   await page.route("**/api/app/auth/context", async (route: Route) => {

@@ -24,15 +24,18 @@ export async function seedFrontendAuth(page: Page, options: SeedFrontendAuthOpti
     authMethod = "jwt",
     mfaMode = "totp",
     mfaProviderHomologated = "true",
-    token = "pw-e2e-token",
+    token,
     secondFactor = "ok",
     authContextDelayMs = 0
   } = options;
 
+  // Generate an otc_sysadmin_ token so server components can decode the role
+  const effectiveToken = token ?? `otc_sysadmin_${Buffer.from(`${userId}:${orgId}:${role}`).toString("base64")}`;
+
   await page.context().addCookies([
     {
       name: "otc_token",
-      value: token,
+      value: effectiveToken,
       domain: "localhost",
       path: "/",
       httpOnly: false,

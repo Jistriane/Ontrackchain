@@ -10,6 +10,7 @@ import {
   canReadInvestigationData,
   canReadMonitoringAdmin,
   canReadMonitoringCore,
+  canReadTeam,
   canCheckSanctions,
   canEvaluateBlock,
   canExportSensitiveEvidence,
@@ -359,7 +360,7 @@ export function AppShell({ title, subtitle, activePath, eyebrow, actions, childr
           return canReadInvestigationAdmin(authRole) || canReadMonitoringAdmin(authRole);
         }
         if (item.href === "/team") {
-          return authRole !== null;
+          return canReadTeam(authRole);
         }
         if (item.href === "/investigate") {
           return canReadInvestigationData(authRole);

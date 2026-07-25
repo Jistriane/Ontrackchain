@@ -1,3 +1,4 @@
+const TEAM_READ_ROLES = new Set(["ADMIN", "OTK_ADMIN"]);
 const BILLING_READ_ROLES = new Set(["ADMIN", "OTK_ADMIN", "BILLING_ADMIN", "OTK_BILLING_ADMIN"]);
 const INVESTIGATION_OPERATION_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "OTK_ANALYST"]);
 const INVESTIGATION_READ_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "OTK_ANALYST", "AUDITOR", "OTK_AUDITOR", "VIEWER", "OTK_VIEWER"]);
@@ -72,6 +73,10 @@ type LegalReportAccessContext = {
 
 export function canReadBilling(role: string | null | undefined) {
   return BILLING_READ_ROLES.has(normalizeAuthRole(role));
+}
+
+export function canReadTeam(role: string | null | undefined) {
+  return TEAM_READ_ROLES.has(normalizeAuthRole(role));
 }
 
 export function canOperateInvestigation(role: string | null | undefined) {
