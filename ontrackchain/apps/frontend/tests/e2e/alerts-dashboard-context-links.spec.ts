@@ -700,6 +700,45 @@ test.describe("alerts and dashboard context links", () => {
       });
     });
 
+    await page.route("**/api/app/operations/work-items?**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "work-item-monitoring-rca-01",
+              module: "alerts",
+              resource_type: "operational_alert",
+              resource_id: "alert-monitoring-rca-01",
+              case_id: null,
+              owner_user_id: "incident-commander-01",
+              assigned_by_user_id: null,
+              queue_status: "READY",
+              priority: "critical",
+              due_at: null,
+              sla_breached: false,
+              title: "Alert Monitoring RCA",
+              note: "seed monitoring",
+              metadata: {
+                domain: "compliance",
+                affected_domains: ["compliance", "monitoring"],
+                incident_commander: "Compliance QA",
+                containment_status: "contained",
+                suspected_root_cause: "Webhook intermitente.",
+                confirmed_root_cause: "Retry insuficiente no receiver.",
+                corrective_actions: ["Aumentar retentativas"],
+                evidence_refs: []
+              },
+              created_at: "2026-07-06T12:00:00.000Z",
+              updated_at: "2026-07-06T12:10:00.000Z",
+              comments: []
+            }
+          ]
+        })
+      });
+    });
+
     await page.route("**/api/app/operations/work-items?module=alerts**", async (route: Route) => {
       await route.fulfill({
         status: 200,
