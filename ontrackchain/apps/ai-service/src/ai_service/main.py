@@ -259,6 +259,7 @@ class GraphAnalysisRequest(BaseModel):
     chain: Literal["ethereum", "polygon", "bsc", "arbitrum", "base", "optimism", "bitcoin", "solana", "stellar"] = "ethereum"
     depth: int = 3
     analysis_type: str = "relationship"
+    context: dict[str, Any] = {}
 
 
 class GraphAnalysisResponse(BaseModel):
@@ -331,6 +332,7 @@ class NarratorRequest(BaseModel):
     chain: Literal["ethereum", "polygon", "bsc", "arbitrum", "base", "optimism", "bitcoin", "solana", "stellar"] = "ethereum"
     graph_data: dict[str, Any] = {}
     profile: str = "analyst"
+    context: dict[str, Any] = {}
 
 
 class NarratorResponse(BaseModel):
