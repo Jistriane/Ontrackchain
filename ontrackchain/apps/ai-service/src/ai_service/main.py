@@ -14,7 +14,7 @@ import logging
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 from uuid import UUID
 
 from fastapi import FastAPI, Header, HTTPException, Request
@@ -256,7 +256,7 @@ class ExplanationResponse(BaseModel):
 
 class GraphAnalysisRequest(BaseModel):
     address: str
-    chain: str = "ethereum"
+    chain: Literal["ethereum", "polygon", "bsc", "arbitrum", "base", "optimism", "bitcoin", "solana", "stellar"] = "ethereum"
     depth: int = 3
     analysis_type: str = "relationship"
 
@@ -291,7 +291,7 @@ class CaseInsightResponse(BaseModel):
 
 class RiskModelRequest(BaseModel):
     address: str
-    chain: str = "ethereum"
+    chain: Literal["ethereum", "polygon", "bsc", "arbitrum", "base", "optimism", "bitcoin", "solana", "stellar"] = "ethereum"
     model_type: str
     context: dict[str, Any] = {}
 
@@ -328,7 +328,7 @@ class ConfidenceResponse(BaseModel):
 
 class NarratorRequest(BaseModel):
     address: str
-    chain: str = "ethereum"
+    chain: Literal["ethereum", "polygon", "bsc", "arbitrum", "base", "optimism", "bitcoin", "solana", "stellar"] = "ethereum"
     graph_data: dict[str, Any] = {}
     profile: str = "analyst"
 
@@ -363,7 +363,7 @@ class LawEnforcementExportResponse(BaseModel):
 class THEMISRequest(BaseModel):
     case_id: str
     address: str
-    chain: str = "ethereum"
+    chain: Literal["ethereum", "polygon", "bsc", "arbitrum", "base", "optimism", "bitcoin", "solana", "stellar"] = "ethereum"
     action: str
 
 

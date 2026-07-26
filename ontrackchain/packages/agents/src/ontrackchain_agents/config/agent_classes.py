@@ -470,8 +470,8 @@ _register(AgentConfig(
                 "type": "object",
                 "properties": {
                     "address": {"type": "string", "description": "Wallet address"},
-                    "chain": {"type": "string", "enum": ["ethereum", "bitcoin", "polygon", "bsc"]},
-                    "limit": {"type": "integer", "default": 100, "maximum": 1000},
+                    "chain": {"type": "string", "enum": ["ethereum", "polygon", "bsc", "arbitrum", "base", "optimism", "bitcoin", "solana", "stellar"]},
+                    "limit": {"type": "integer", "default": 100, "maximum": 100},
                 },
                 "required": ["address", "chain"],
             },

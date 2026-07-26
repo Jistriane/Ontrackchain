@@ -21,6 +21,13 @@ class ToolDefinition:
     fallback_result: Any = None
 
 
+# Canonical chain list — single source of truth for all tool schemas.
+SUPPORTED_CHAINS = [
+    "ethereum", "polygon", "bsc", "arbitrum", "base",
+    "optimism", "bitcoin", "solana", "stellar",
+]
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TOOL DEFINITIONS — Blockchain & On-Chain
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -37,7 +44,7 @@ TOOL_GET_WALLET_TRANSACTIONS = ToolDefinition(
             },
             "chain": {
                 "type": "string",
-                "enum": ["ethereum", "bitcoin", "polygon", "bsc", "arbitrum", "optimism"],
+                "enum": SUPPORTED_CHAINS,
                 "description": "Blockchain network",
             },
             "limit": {
@@ -76,11 +83,11 @@ TOOL_GET_BRIDGE_EVENTS = ToolDefinition(
             },
             "source_chain": {
                 "type": "string",
-                "enum": ["ethereum", "bitcoin", "polygon", "bsc", "arbitrum", "optimism"],
+                "enum": SUPPORTED_CHAINS,
             },
             "dest_chain": {
                 "type": "string",
-                "enum": ["ethereum", "bitcoin", "polygon", "bsc", "arbitrum", "optimism"],
+                "enum": SUPPORTED_CHAINS,
             },
         },
         "required": [],
@@ -301,7 +308,7 @@ TOOL_GET_WALLET_CONTEXT = ToolDefinition(
             },
             "chain": {
                 "type": "string",
-                "enum": ["ethereum", "bitcoin", "polygon", "bsc", "arbitrum", "optimism"],
+                "enum": SUPPORTED_CHAINS,
                 "description": "Blockchain network",
             },
         },
