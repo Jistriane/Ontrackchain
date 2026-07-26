@@ -209,6 +209,10 @@ class AgentFramework:
             output = self._evidence_linker(input_data)
         elif agent_id == "CONFIDENCE_ENGINE":
             output = self._confidence_engine(input_data)
+        elif agent_id == "SENTINEL":
+            output = self._sentinel_scheduler(input_data)
+        elif agent_id == "ORION_OPS":
+            output = self._orion_ops(input_data)
         else:
             output = {"status": "deterministic_execution", "agent": agent_id}
 
@@ -481,6 +485,85 @@ class AgentFramework:
             "uncertainty": uncertainty,
             "classification": "FATO" if overall >= 0.85 else "INFERÊNCIA",
             "regulatory_basis": ["IN BCB 739 item II", "IN BCB 739 item VI"],
+        }
+
+    # ─── SENTINEL — Deterministic Scheduler ─────────────────────────────────
+    # Schedules monitoring intervals based on risk level.
+    # Fully auditable — schedule formula is versioned and deterministic.
+
+    def _sentinel_scheduler(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Deterministic scheduling based on risk level."""
+        risk_level = data.get("risk_level", "LOW").upper()
+        address = data.get("address", "")
+        chain = data.get("chain", "")
+
+        schedule_map = {
+            "CRITICAL": {"interval_minutes": 5, "priority": "IMMEDIATE", "recurrence": "continuous"},
+            "HIGH": {"interval_minutes": 30, "priority": "URGENT", "recurrence": "hourly"},
+            "MEDIUM": {"interval_minutes": 240, "priority": "NORMAL", "recurrence": "every_4h"},
+            "LOW": {"interval_minutes": 1440, "priority": "ROUTINE", "recurrence": "daily"},
+        }
+
+        schedule = schedule_map.get(risk_level, schedule_map["LOW"])
+
+        return {
+            "status": "scheduled",
+            "agent": "SENTINEL",
+            "address": address,
+            "chain": chain,
+            "risk_level": risk_level,
+            "schedule": schedule,
+            "classification": "INFERÊNCIA",
+            "regulatory_basis": ["IN BCB 739 item IV", "BCB 520 Art. 43"],
+            "fato_inferencia": f"Risco {risk_level} detectado — monitoramento {schedule['recurrence']} ativado",
+            "narrative": f"FATO: Risco {risk_level} detectado para o endereço {address} na chain {chain}. INFERÊNCIA: Monitoramento {schedule['recurrence']} ativado com intervalo de {schedule['interval_minutes']} minutos, conforme IN BCB 739 item IV.",
+        }
+
+    # ─── ORION_OPS — Deterministic Operations ───────────────────────────────
+    # Handles operational decisions based on transaction parameters.
+    # Fully auditable — every decision is a deterministic rule.
+
+    def _orion_ops(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Deterministic operational decision engine."""
+        operation_type = data.get("operation_type", "UNKNOWN").upper()
+        amount = float(data.get("amount", 0))
+        parties = data.get("parties", "")
+
+        # Deterministic rules based on operation type and amount
+        rules = []
+        requires_review = False
+        action = "APPROVE"
+
+        # Rule 1: Large transactions require review (BCB 520 Art. 43)
+        if amount > 100000:
+            rules.append("LARGE_TRANSACTION")
+            requires_review = True
+            action = "REVIEW"
+
+        # Rule 2: TRANSFER operations above threshold
+        if operation_type == "TRANSFER" and amount > 50000:
+            rules.append("TRANSFER_THRESHOLD")
+            requires_review = True
+            action = "REVIEW"
+
+        # Rule 3: Default approval for small amounts
+        if amount <= 10000 and not requires_review:
+            action = "AUTO_APPROVE"
+            rules.append("SMALL_AMOUNT")
+
+        return {
+            "status": "processed",
+            "agent": "ORION_OPS",
+            "operation_type": operation_type,
+            "amount": amount,
+            "parties": parties,
+            "action": action,
+            "requires_review": requires_review,
+            "rules_applied": rules,
+            "classification": "INFERÊNCIA",
+            "regulatory_basis": ["BCB 520 Art. 43", "IN BCB 739 item IV"],
+            "fato_inferencia": f"Operação {operation_type} de ${amount:,.0f} — {action} (regras: {', '.join(rules) or 'nenhuma'})",
+            "narrative": f"FATO: Operação {operation_type} de ${amount:,.0f} entre {parties}. INFERÊNCIA: Ação {action} determinada com base nas regras: {', '.join(rules) or 'nenhuma'}. Conforme BCB 520 Art. 43.",
         }
 
     async def _run_llm_rag(

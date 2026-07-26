@@ -121,7 +121,7 @@ GOLDEN_CASES: list[dict[str, Any]] = [
 
     # ═══ GraphNarrator — Narrative Generator (Class B) ═══
     {
-        "agent_id": "GraphNarrator",
+        "agent_id": "GRAPH_NARRATOR",
         "case_id": "GN-001",
         "input_data": {
             "address": "0xdeadbeef",
@@ -134,8 +134,8 @@ GOLDEN_CASES: list[dict[str, Any]] = [
             },
         },
         "expected_output": {
-            "tem_risco": True,
-            "perfil": "analyst",
+            "has_fato_inferencia": True,
+            "has_confidence_score": True,
         },
         "expected_classification": "INFERÊNCIA",
         "expected_citations": [],
@@ -151,8 +151,8 @@ GOLDEN_CASES: list[dict[str, Any]] = [
             "format": "coaf",
         },
         "expected_output": {
-            "formato": "coaf",
-            "deve_conter": ["identificação", "motivo_suspeita", "normas_aplicaveis"],
+            "has_legal_basis": True,
+            "has_fato_inferencia": True,
         },
         "expected_classification": "FATO",
         "expected_citations": ["Lei 9.613/98 Art. 9", "BCB 520 Art. 20"],
@@ -242,11 +242,11 @@ GOLDEN_CASES: list[dict[str, Any]] = [
             "query_type": "company_search",
         },
         "expected_output": {
-            "tools_invoked": ["search_regulatory_databases"],
+            "has_fato_inferencia": True,
         },
         "expected_classification": "",
         "expected_citations": [],
-        "expected_tool_calls": ["search_regulatory_databases"],
+        "expected_tool_calls": ["search_osint_sources"],
         "difficulty": "medium",
     },
 
@@ -324,6 +324,225 @@ GOLDEN_CASES: list[dict[str, Any]] = [
         "expected_citations": [],
         "expected_tool_calls": ["get_wallet_transactions", "check_mixer_exposure"],
         "difficulty": "easy",
+    },
+
+    # ═══ GRAPH_NARRATOR — Multi-profile Narration (Class B) ═══
+    {
+        "agent_id": "GRAPH_NARRATOR",
+        "case_id": "GN-001",
+        "input_data": {
+            "address": "0xabc123",
+            "chain": "ethereum",
+            "graph_data": "A -> B ($50K) -> C (Tornado Cash) -> D (exchange)",
+            "profile": "executivo",
+        },
+        "expected_output": {
+            "has_fato_inferencia": True,
+            "has_confidence_score": True,
+        },
+        "expected_classification": "INFERÊNCIA",
+        "expected_citations": [],
+        "difficulty": "easy",
+    },
+
+    # ═══ SIMULATOR — Scenario Simulation (Class B) ═══
+    {
+        "agent_id": "SIMULATOR",
+        "case_id": "SIM-001",
+        "input_data": {
+            "scenario": "Exchange detecta transação de $1M de endereço associado a mixing service",
+            "context": "Cliente history: 30 dias, volume $2M total",
+        },
+        "expected_output": {
+            "has_fato_inferencia": True,
+            "has_confidence_score": True,
+        },
+        "expected_classification": "INFERÊNCIA",
+        "expected_citations": [],
+        "difficulty": "medium",
+    },
+
+    # ═══ ATLAS — Digital Twin (Class B) ═══
+    {
+        "agent_id": "ATLAS",
+        "case_id": "ATLAS-001",
+        "input_data": {
+            "institution_name": "CryptoBank Brasil",
+            "sector": "VASP",
+            "risk_profile": "HIGH",
+            "operational_data": "Volume mensal: $50M. Clientes: 10K. Endereços monitorados: 500.",
+        },
+        "expected_output": {
+            "has_legal_basis": True,
+            "has_fato_inferencia": True,
+        },
+        "expected_classification": "INFERÊNCIA",
+        "expected_citations": ["BCB 520", "IN BCB 739"],
+        "difficulty": "hard",
+    },
+
+    # ═══ CASE_REVIEW — Case Quality Review (Class B) ═══
+    {
+        "agent_id": "CASE_REVIEW",
+        "case_id": "CR-001",
+        "input_data": {
+            "case_id": "CASE-TEST-001",
+            "findings": "Endereço com exposição a mixer. Volume $500K em 7 dias.",
+            "conclusion": "ALTO RISCO — investigação reforçada recomendada",
+            "evidence": "AEGIS score=85, TRACER mixer=true",
+        },
+        "expected_output": {
+            "has_fato_inferencia": True,
+        },
+        "expected_classification": "INFERÊNCIA",
+        "expected_citations": [],
+        "difficulty": "medium",
+    },
+
+    # ═══ HERMES — Counterparty Due Diligence (Class C) ═══
+    {
+        "agent_id": "HERMES",
+        "case_id": "HERMES-001",
+        "input_data": {
+            "entity_name": "CryptoExchange Ltda",
+            "document_id": "12.345.678/0001-90",
+            "jurisdiction": "Brazil",
+        },
+        "expected_output": {
+            "tools_invoked": ["check_sanctions_list"],
+        },
+        "expected_classification": "",
+        "expected_citations": [],
+        "expected_tool_calls": ["check_sanctions_list", "search_osint_sources"],
+        "difficulty": "easy",
+    },
+
+    # ═══ CLUSTER — Graph Analysis (Class C) ═══
+    {
+        "agent_id": "CLUSTER",
+        "case_id": "CLUSTER-001",
+        "input_data": {
+            "address": "0xabcdef1234567890abcdef1234567890abcdef12",
+            "chain": "ethereum",
+            "depth": 3,
+        },
+        "expected_output": {
+            "tools_invoked": ["query_neo4j_graph"],
+        },
+        "expected_classification": "",
+        "expected_citations": [],
+        "expected_tool_calls": ["query_neo4j_graph", "calculate_cluster_similarity"],
+        "difficulty": "medium",
+    },
+
+    # ═══ OSINT — Open Source Intelligence (Class C) ═══
+    {
+        "agent_id": "OSINT",
+        "case_id": "OSINT-001",
+        "input_data": {
+            "entity_name": "CryptoExchange Ltd",
+            "entity_type": "company",
+            "jurisdiction": "Brazil",
+        },
+        "expected_output": {
+            "has_fato_inferencia": True,
+        },
+        "expected_classification": "",
+        "expected_citations": [],
+        "expected_tool_calls": ["search_osint_sources"],
+        "difficulty": "easy",
+    },
+
+    # ═══ FORENSIC_MIND — Forensic Analysis (Class C) ═══
+    {
+        "agent_id": "FORENSIC_MIND",
+        "case_id": "FM-001",
+        "input_data": {
+            "address": "0xdeadbeef1234567890deadbeef1234567890dead",
+            "chain": "ethereum",
+            "start_date": "2025-01-01",
+            "end_date": "2025-01-31",
+        },
+        "expected_output": {
+            "tools_invoked": ["get_wallet_transactions"],
+        },
+        "expected_classification": "",
+        "expected_citations": [],
+        "expected_tool_calls": ["get_wallet_transactions", "analyze_transaction_pattern"],
+        "difficulty": "medium",
+    },
+
+    # ═══ SENTINEL — Scheduler (Class A+C) ═══
+    {
+        "agent_id": "SENTINEL",
+        "case_id": "SENT-001",
+        "input_data": {
+            "address": "0xabc123def456",
+            "chain": "ethereum",
+            "risk_level": "HIGH",
+        },
+        "expected_output": {
+            "has_fato_inferencia": True,
+        },
+        "expected_classification": "INFERÊNCIA",
+        "expected_citations": [],
+        "difficulty": "easy",
+    },
+
+    # ═══ ORION_OPS — Operations (Class A+C) ═══
+    {
+        "agent_id": "ORION_OPS",
+        "case_id": "OPS-001",
+        "input_data": {
+            "operation_type": "TRANSFER",
+            "amount": "500000",
+            "parties": "Exchange A -> Exchange B",
+        },
+        "expected_output": {
+            "has_fato_inferencia": True,
+        },
+        "expected_classification": "INFERÊNCIA",
+        "expected_citations": [],
+        "difficulty": "medium",
+    },
+
+    # ═══ CASE_BUILDER — Case Assembly (Class C) ═══
+    {
+        "agent_id": "CASE_BUILDER",
+        "case_id": "CB-001",
+        "input_data": {
+            "case_id": "CASE-TEST-003",
+            "address": "0xabcdef1234567890abcdef1234567890abcdef12",
+            "chain": "ethereum",
+        },
+        "expected_output": {
+            "tools_invoked": ["get_case_evidence"],
+        },
+        "expected_classification": "",
+        "expected_citations": [],
+        "expected_tool_calls": ["get_case_evidence", "get_wallet_context"],
+        "difficulty": "easy",
+    },
+
+    # ═══ LAW_ENFORCEMENT — Report Export (Class B) ═══
+    {
+        "agent_id": "LAW_ENFORCEMENT",
+        "case_id": "LE-001",
+        "input_data": {
+            "report_type": "COAF_RIF",
+            "authority": "COAF",
+            "case_id": "CASE-TEST-004",
+            "case_data": "Operação suspeita: $2M via mixing service. Endereço OFAC-proximate.",
+            "evidence": "AEGIS score=92, TRACER mixer=true, OFAC proximity=true",
+        },
+        "expected_output": {
+            "has_legal_basis": True,
+            "has_fato_inferencia": True,
+            "has_disclaimer": True,
+        },
+        "expected_classification": "INFERÊNCIA",
+        "expected_citations": ["Lei 9.613/98", "Res. 520/2022"],
+        "difficulty": "hard",
     },
 ]
 

@@ -43,8 +43,8 @@ TOOL_GET_WALLET_TRANSACTIONS = ToolDefinition(
             "limit": {
                 "type": "integer",
                 "default": 100,
-                "maximum": 1000,
-                "description": "Maximum number of transactions to return",
+                "maximum": 100,
+                "description": "Maximum number of transactions to return. MUST NOT exceed 100.",
             },
             "start_block": {
                 "type": "integer",
@@ -166,7 +166,8 @@ TOOL_QUERY_NEO4J = ToolDefinition(
             "limit": {
                 "type": "integer",
                 "default": 100,
-                "maximum": 500,
+                "maximum": 100,
+                "description": "Max results to return. MUST NOT exceed 100.",
             },
         },
         "required": ["cypher_query"],
@@ -268,6 +269,47 @@ TOOL_SEARCH_OSINT = ToolDefinition(
 
 TOOL_REGISTRY: dict[str, ToolDefinition] = {}
 
+TOOL_GET_CASE_EVIDENCE = ToolDefinition(
+    name="get_case_evidence",
+    description="Retrieve evidence items linked to a compliance case (alerts, transactions, risk scores, regulatory refs).",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "case_id": {
+                "type": "string",
+                "description": "Case identifier (e.g., CASE-2026-0001)",
+            },
+            "evidence_type": {
+                "type": "string",
+                "enum": ["transaction", "risk_score", "alert", "regulatory_ref", "all"],
+                "description": "Type of evidence to retrieve",
+            },
+        },
+        "required": ["case_id"],
+    },
+)
+
+TOOL_GET_WALLET_CONTEXT = ToolDefinition(
+    name="get_wallet_context",
+    description="Get enriched context for a wallet address: known owner tags, exchange attribution, risk flags, and historical patterns.",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "address": {
+                "type": "string",
+                "description": "Wallet address to look up",
+            },
+            "chain": {
+                "type": "string",
+                "enum": ["ethereum", "bitcoin", "polygon", "bsc", "arbitrum", "optimism"],
+                "description": "Blockchain network",
+            },
+        },
+        "required": ["address", "chain"],
+    },
+)
+
+
 def _register_tool(tool: ToolDefinition) -> None:
     TOOL_REGISTRY[tool.name] = tool
 
@@ -279,6 +321,8 @@ _register_tool(TOOL_QUERY_NEO4J)
 _register_tool(TOOL_CALCULATE_CLUSTER_SIMILARITY)
 _register_tool(TOOL_ANALYZE_TX_PATTERN)
 _register_tool(TOOL_SEARCH_OSINT)
+_register_tool(TOOL_GET_CASE_EVIDENCE)
+_register_tool(TOOL_GET_WALLET_CONTEXT)
 
 
 def get_tool_schema(tool_name: str) -> dict[str, Any] | None:

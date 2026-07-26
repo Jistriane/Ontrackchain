@@ -41,7 +41,7 @@ class LLMConfig:
     temperature: float = 0.1            # Low for regulatory precision
     timeout_ms: int = 3500              # Hard timeout
     fallback_provider: str = "groq"     # Fallback provider
-    fallback_model: str = "llama-3.3-70b"  # Fallback model
+    fallback_model: str = "llama-3.1-8b-instant"  # Fallback model (separate rate limit from 70b)
     fallback_enabled: bool = True
     cache_results: bool = True          # Redis cache for identical queries
     cache_ttl_seconds: int = 3600

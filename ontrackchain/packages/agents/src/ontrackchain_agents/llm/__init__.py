@@ -211,9 +211,16 @@ class GroqProvider(LLMProvider):
                 "messages": messages,
             }
             if tools:
-                kwargs["tools"] = tools
+                kwargs["tools"] = self._convert_tools_to_openai(tools)
 
-            response = await client.chat.completions.create(**kwargs)
+            try:
+                response = await client.chat.completions.create(**kwargs)
+            except Exception as e:
+                if tools and "tool_use_failed" in str(e):
+                    kwargs.pop("tools", None)
+                    response = await client.chat.completions.create(**kwargs)
+                else:
+                    raise
             latency_ms = int((time.monotonic() - start) * 1000)
 
             content = response.choices[0].message.content or ""
@@ -253,11 +260,31 @@ class GroqProvider(LLMProvider):
                 error=str(e),
             )
 
+    @staticmethod
+    def _convert_tools_to_openai(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Convert Anthropic-format tools to OpenAI-compatible format."""
+        converted = []
+        for tool in tools:
+            if "function" in tool:
+                converted.append(tool)
+            elif "input_schema" in tool:
+                converted.append({
+                    "type": "function",
+                    "function": {
+                        "name": tool["name"],
+                        "description": tool.get("description", ""),
+                        "parameters": tool["input_schema"],
+                    },
+                })
+            else:
+                converted.append(tool)
+        return converted
+
     async def health_check(self) -> bool:
         try:
             client = await self._get_client()
             await client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="llama-3.1-8b-instant",
                 max_tokens=10,
                 messages=[{"role": "user", "content": "ping"}],
             )

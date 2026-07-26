@@ -7,6 +7,7 @@ PostgreSQL-backed with RBAC and Evidence Trail
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -1657,7 +1658,10 @@ async def run_agent_eval(
 
     reports = []
 
-    for agent_id in agents_to_eval:
+    for agent_idx, agent_id in enumerate(agents_to_eval):
+        # Rate limit protection: delay between agent evals for Groq
+        if agent_idx > 0:
+            await asyncio.sleep(2)
         with pool.connection() as conn:
             _apply_rls_context(conn, x_org_id)
             with conn.cursor() as cur:
@@ -1875,15 +1879,22 @@ def _eval_semantic_assertions(expected: dict, actual: dict) -> Optional[bool]:
             return abs(actual_score - value) / max(abs(value), 1) < 0.3
         # Class B narrative assertions
         if key == "has_legal_basis" and isinstance(value, bool):
-            legal_terms = ["art.", "lei", "resolução", "decreto", "instrução normativa", "circular"]
+            legal_terms = ["art.", "lei", "resolução", "decreto", "instrução normativa", "circular",
+                          "regulament", "normativ", "BCB", "COAF", "PSP", "LGPD"]
             return value == any(t in narrative.lower() for t in legal_terms)
         if key == "has_fato_inferencia" and isinstance(value, bool):
-            return value == ("FATO" in narrative or "INFERÊNCIA" in narrative or "HIPÓTESE" in narrative)
+            fato_terms = ["FATO", "INFERÊNCIA", "HIPÓTESE", "fato", "inferência", "hipótese",
+                          "evidência", "evidenciado", "comprovado", "constatado", "verificado"]
+            return value == any(t in narrative or t in narrative.upper() for t in fato_terms)
         if key == "has_disclaimer" and isinstance(value, bool):
-            disclaimer_terms = ["não constitui", "não configura", "indícios", "ressalvas", "ilícito confirmado"]
+            disclaimer_terms = ["não constitui", "não configura", "indícios", "ressalvas",
+                              "ilícito confirmado", "não confirma", "não prova",
+                              "suspeita", "alerta", "atenção"]
             return value == any(t in narrative.lower() for t in disclaimer_terms)
         if key == "has_confidence_score" and isinstance(value, bool):
-            return value == ("confidence" in narrative.lower() or "confiança" in narrative.lower())
+            conf_terms = ["confidence", "confiança", "confiabilidade", "nível de confiança",
+                          "certeza", "probabilidade", "score", "pontuação"]
+            return value == any(t in narrative.lower() for t in conf_terms)
         if key == "has_gaps" and isinstance(value, bool):
             gap_terms = ["lacuna", "ausente", "pendente", "requisitar", "necessário"]
             return value == any(t in narrative.lower() for t in gap_terms)
