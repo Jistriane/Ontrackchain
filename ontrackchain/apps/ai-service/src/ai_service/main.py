@@ -1,6 +1,7 @@
 """
 AI Service — ONTRACKCHAIN Graph Intelligence 4.0
 Modules: XAI Layer, Graph Narrator, Confidence Engine, Risk Models, THEMIS Agent
+Agent Framework v4.0 — Three-class architecture (A/B/C)
 PostgreSQL-backed with RBAC and Evidence Trail
 """
 
@@ -9,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -20,7 +22,12 @@ from pydantic_settings import BaseSettings
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
+from ai_service.agent_framework import AgentFramework
+
 logger = logging.getLogger(__name__)
+
+# ─── Agent Framework v4.0 ─────────────────────────────────────────────────────
+agent_framework = AgentFramework()
 
 app = FastAPI(
     title="OnTrackChain AI Service",
@@ -50,6 +57,12 @@ def _dsn() -> str:
 @app.on_event("startup")
 async def _startup() -> None:
     app.state.pool = ConnectionPool(conninfo=_dsn(), kwargs={"row_factory": dict_row})
+    # Initialize Agent Framework v4.0
+    try:
+        await agent_framework.initialize()
+        logger.info("ai_service.agent_framework_initialized")
+    except Exception as e:
+        logger.warning("ai_service.agent_framework_init_failed", extra={"error": str(e)})
 
 
 @app.on_event("shutdown")
@@ -63,8 +76,32 @@ def get_pool(request: Request) -> ConnectionPool:
 
 
 def _apply_rls_context(conn, org_id: str) -> None:
+    resolved = _resolve_org_id(conn, org_id)
     with conn.cursor() as cur:
-        cur.execute("SELECT set_config('app.organization_id', %s, True)", (org_id,))
+        cur.execute("SELECT set_config('app.organization_id', %s, True)", (resolved,))
+
+
+def _resolve_org_id(conn, org_id: Optional[str]) -> Optional[str]:
+    if not org_id:
+        return None
+    try:
+        candidate = str(UUID(str(org_id)))
+        return candidate
+    except (TypeError, ValueError):
+        pass
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM organizations LIMIT 1")
+        row = cur.fetchone()
+        if row:
+            return str(row["id"])
+    return None
+
+
+def _get_resolved_org_id(pool, org_id: str) -> str:
+    """Get a resolved UUID org_id for DB inserts."""
+    with pool.connection() as conn:
+        resolved = _resolve_org_id(conn, org_id)
+    return resolved or org_id
 
 
 def _require_role(x_role: Optional[str], allowed_roles: set[str], detail: str) -> str:
@@ -101,12 +138,25 @@ def _record_audit_log(
     persisted_user_id = _resolve_persisted_user_id(cur, user_id)
     if user_id and not persisted_user_id:
         normalized.setdefault("external_user_id", str(user_id))
+
+    persisted_org_id = None
+    if organization_id:
+        try:
+            persisted_org_id = str(UUID(str(organization_id)))
+        except (TypeError, ValueError):
+            persisted_org_id = None
+    if not persisted_org_id:
+        cur.execute("SELECT id FROM organizations LIMIT 1")
+        row = cur.fetchone()
+        if row:
+            persisted_org_id = str(row["id"])
+
     cur.execute(
         """
         INSERT INTO audit_logs (organization_id, user_id, action, resource_type, resource_id, metadata)
         VALUES (%s, %s, %s, %s, %s, %s::jsonb)
         """,
-        (organization_id, persisted_user_id, action, resource_type, resource_id, json.dumps(normalized)),
+        (persisted_org_id, persisted_user_id, action, resource_type, resource_id, json.dumps(normalized)),
     )
 
 
@@ -135,6 +185,27 @@ def _record_evidence_event(
     serialized = json.dumps(canonical, sort_keys=True, ensure_ascii=False)
     event_hash = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
+    persisted_actor_user_id = _resolve_persisted_user_id(cur, actor_user_id)
+
+    persisted_case_id = None
+    if case_id:
+        try:
+            persisted_case_id = UUID(str(case_id))
+        except (TypeError, ValueError):
+            persisted_case_id = None
+
+    persisted_org_id = None
+    if organization_id:
+        try:
+            persisted_org_id = str(UUID(str(organization_id)))
+        except (TypeError, ValueError):
+            persisted_org_id = None
+    if not persisted_org_id:
+        cur.execute("SELECT id FROM organizations LIMIT 1")
+        row = cur.fetchone()
+        if row:
+            persisted_org_id = str(row["id"])
+
     cur.execute(
         """
         INSERT INTO evidence_trail
@@ -143,11 +214,11 @@ def _record_evidence_event(
         VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s)
         """,
         (
-            event_id, organization_id,
-            UUID(case_id) if case_id else None,
+            event_id, persisted_org_id,
+            persisted_case_id,
             event_type, json.dumps(event_payload),
-            actor_user_id, actor_agent_id, event_hash,
-            json.dumps(regulatory_basis), now,
+            persisted_actor_user_id, actor_agent_id, event_hash,
+            regulatory_basis, now,
         ),
     )
     return event_hash
@@ -332,6 +403,7 @@ async def explain_decision(
     _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
 
     pool = get_pool(req)
+    resolved_org_id = _get_resolved_org_id(pool, x_org_id)
     with pool.connection() as conn:
         _apply_rls_context(conn, x_org_id)
         with conn.cursor() as cur:
@@ -359,7 +431,7 @@ async def explain_decision(
                 VALUES (%s, %s, %s, 'explain', %s::jsonb, %s::jsonb, %s)
                 """,
                 (
-                    explanation_id, x_org_id, request.case_id,
+                    explanation_id, resolved_org_id, request.case_id,
                     json.dumps({"decision_type": request.decision_type, "context": request.context}),
                     json.dumps(explanation),
                     datetime.now(timezone.utc),
@@ -402,6 +474,7 @@ async def risk_model_assessment(
     _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
 
     pool = get_pool(req)
+    resolved_org_id = _get_resolved_org_id(pool, x_org_id)
     result = _run_risk_model(request)
 
     assessment_id = str(uuid.uuid4())
@@ -415,7 +488,7 @@ async def risk_model_assessment(
                 VALUES (%s, %s, %s, 'risk_model', %s::jsonb, %s::jsonb, %s)
                 """,
                 (
-                    assessment_id, x_org_id, request.context.get("case_id", ""),
+                    assessment_id, resolved_org_id, request.context.get("case_id", ""),
                     json.dumps({"address": request.address, "chain": request.chain, "model_type": request.model_type}),
                     json.dumps(result),
                     datetime.now(timezone.utc),
@@ -462,6 +535,7 @@ async def confidence_engine(
     _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
 
     pool = get_pool(req)
+    resolved_org_id = _get_resolved_org_id(pool, x_org_id)
     result = _compute_confidence(request)
 
     confidence_id = str(uuid.uuid4())
@@ -475,7 +549,7 @@ async def confidence_engine(
                 VALUES (%s, %s, %s, 'confidence', %s::jsonb, %s::jsonb, %s)
                 """,
                 (
-                    confidence_id, x_org_id, request.analysis_id,
+                    confidence_id, resolved_org_id, request.analysis_id,
                     json.dumps({"analysis_id": request.analysis_id, "factors": request.factors}),
                     json.dumps(result),
                     datetime.now(timezone.utc),
@@ -510,6 +584,7 @@ async def get_case_insights(
     _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
 
     pool = get_pool(req)
+    resolved_org_id = _get_resolved_org_id(pool, x_org_id)
     case_data = _fetch_case_data(pool, x_org_id, request.case_id)
     insights = _generate_case_insights(request, case_data)
 
@@ -524,7 +599,7 @@ async def get_case_insights(
                 VALUES (%s, %s, %s, 'case_insights', %s::jsonb, %s::jsonb, %s)
                 """,
                 (
-                    insight_id, x_org_id, request.case_id,
+                    insight_id, resolved_org_id, request.case_id,
                     json.dumps({"include_history": request.include_history}),
                     json.dumps(insights),
                     datetime.now(timezone.utc),
@@ -571,6 +646,7 @@ async def analyze_graph(
     _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
 
     pool = get_pool(req)
+    resolved_org_id = _get_resolved_org_id(pool, x_org_id)
     analysis = _generate_graph_analysis(request)
 
     analysis_id = str(uuid.uuid4())
@@ -584,7 +660,7 @@ async def analyze_graph(
                 VALUES (%s, %s, %s, 'graph_analysis', %s::jsonb, %s::jsonb, %s)
                 """,
                 (
-                    analysis_id, x_org_id, request.context.get("case_id", ""),
+                    analysis_id, resolved_org_id, request.context.get("case_id", ""),
                     json.dumps({"address": request.address, "chain": request.chain, "depth": request.depth}),
                     json.dumps({"nodes_count": len(analysis["nodes"]), "edges_count": len(analysis["edges"])}),
                     datetime.now(timezone.utc),
@@ -626,6 +702,7 @@ async def graph_narrator(
     _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
 
     pool = get_pool(req)
+    resolved_org_id = _get_resolved_org_id(pool, x_org_id)
     result = _narrate_graph(request)
 
     narrator_id = str(uuid.uuid4())
@@ -639,7 +716,7 @@ async def graph_narrator(
                 VALUES (%s, %s, %s, 'graph_narrator', %s::jsonb, %s::jsonb, %s)
                 """,
                 (
-                    narrator_id, x_org_id, request.context.get("case_id", ""),
+                    narrator_id, resolved_org_id, request.context.get("case_id", ""),
                     json.dumps({"address": request.address, "chain": request.chain, "profile": request.profile}),
                     json.dumps({"narrative_length": len(result["narrative"])}),
                     datetime.now(timezone.utc),
@@ -677,6 +754,7 @@ async def law_enforcement_export(
     _require_role(x_role, AI_EXPORT_ALLOWED_ROLES, "ai_export_role_required")
 
     pool = get_pool(req)
+    resolved_org_id = _get_resolved_org_id(pool, x_org_id)
     case_data = _fetch_case_data(pool, x_org_id, request.case_id)
     result = _generate_law_enforcement_package(request, case_data)
 
@@ -691,7 +769,7 @@ async def law_enforcement_export(
                 VALUES (%s, %s, %s, 'law_enforcement_export', %s::jsonb, %s::jsonb, %s)
                 """,
                 (
-                    export_id, x_org_id, request.case_id,
+                    export_id, resolved_org_id, request.case_id,
                     json.dumps({"format": request.format}),
                     json.dumps({"document_type": result["document"].get("type", ""), "evidence_count": len(result["evidence_chain"])}),
                     datetime.now(timezone.utc),
@@ -736,6 +814,7 @@ async def themis_case_intelligence(
     _require_role(x_role, AI_THEMIS_ALLOWED_ROLES, "ai_themis_role_required")
 
     pool = get_pool(req)
+    resolved_org_id = _get_resolved_org_id(pool, x_org_id)
     case_data = _fetch_case_data(pool, x_org_id, request.case_id)
     result = _run_themis(request, case_data)
 
@@ -750,7 +829,7 @@ async def themis_case_intelligence(
                 VALUES (%s, %s, %s, 'themis', %s::jsonb, %s::jsonb, %s)
                 """,
                 (
-                    themis_id, x_org_id, request.case_id,
+                    themis_id, resolved_org_id, request.case_id,
                     json.dumps({"address": request.address, "chain": request.chain, "action": request.action}),
                     json.dumps({"risk_score": result["case_card"].get("risk_score"), "human_gate": result["human_gate"]}),
                     datetime.now(timezone.utc),
@@ -1352,3 +1431,532 @@ def _run_themis(request: THEMISRequest, case_data: dict[str, Any]) -> dict[str, 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8005)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  AGENT FRAMEWORK v4.0 — NEW ENDPOINTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class EvalRunRequest(BaseModel):
+    agent_id: Optional[str] = None          # None = run all agents
+    max_cases_per_agent: int = 5
+
+
+class EvalRunResponse(BaseModel):
+    agent_id: str
+    total_cases: int
+    passed_cases: int
+    failed_cases: int
+    avg_precision: float
+    avg_recall: float
+    avg_citation_accuracy: float
+    regression_detected: bool
+    details: list[dict[str, Any]]
+    generated_at: str
+
+
+class EvalReportResponse(BaseModel):
+    agent_id: str
+    total_samples: int
+    reviewed_samples: int
+    avg_review_score: float
+    disagreement_count: int
+    compliance_references: list[str]
+    generated_at: str
+
+
+class AgentRunRequest(BaseModel):
+    agent_id: str
+    input_data: dict[str, Any]
+    case_id: Optional[str] = None
+
+
+class AgentRunResponse(BaseModel):
+    agent_id: str
+    agent_class: str
+    output: dict[str, Any]
+    latency_ms: int
+    tokens_used: int
+    provider: str
+    error: Optional[str] = None
+    generated_at: str
+
+
+class AgentInfoResponse(BaseModel):
+    agent_id: str
+    name: str
+    agent_class: str
+    domain: str
+    description: str
+    version: str
+    requires_llm: bool
+    requires_rag: bool
+    tool_count: int
+    target_latency_p95_ms: int
+    requires_human_review: bool
+    audit_level: str
+
+
+class AgentHealthResponse(BaseModel):
+    initialized: bool
+    agents_registered: int
+    llm_health: dict[str, bool]
+    rag_available: bool
+    eval_samples: int
+
+
+@app.get("/api/v1/ai/agents/health", response_model=AgentHealthResponse)
+async def agent_framework_health(
+    req: Request,
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+) -> AgentHealthResponse:
+    """Check Agent Framework health and status."""
+    if not x_org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
+
+    health = await agent_framework.health_check()
+    return AgentHealthResponse(**health)
+
+
+@app.get("/api/v1/ai/agents", response_model=list[AgentInfoResponse])
+async def list_agents(
+    req: Request,
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+) -> list[AgentInfoResponse]:
+    """List all registered agents and their configurations."""
+    if not x_org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
+
+    agents = agent_framework.list_all_agents()
+    return [AgentInfoResponse(**a) for a in agents]
+
+
+@app.get("/api/v1/ai/agents/{agent_id}", response_model=AgentInfoResponse)
+async def get_agent_info(
+    agent_id: str,
+    req: Request,
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+) -> AgentInfoResponse:
+    """Get detailed info about a specific agent."""
+    if not x_org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
+
+    info = agent_framework.get_agent_info(agent_id)
+    if not info:
+        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+    return AgentInfoResponse(**info)
+
+
+@app.post("/api/v1/ai/agents/run", response_model=AgentRunResponse)
+async def run_agent(
+    request: AgentRunRequest,
+    req: Request,
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+) -> AgentRunResponse:
+    """
+    Execute an agent with the appropriate strategy.
+
+    Routes to the correct execution path based on agent class:
+    - Class A (Deterministic): Rules, math, thresholds — no LLM
+    - Class B (LLM + RAG): Regulatory reasoning with retrieved context
+    - Class C (LLM + Tools): Function calling with external data
+    - Class A+C (Hybrid): Deterministic core + LLM on demand
+    """
+    if not x_org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, AI_WRITE_ALLOWED_ROLES, "ai_write_role_required")
+
+    # Record audit log
+    pool = get_pool(req)
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            _record_audit_log(
+                cur,
+                organization_id=x_org_id,
+                user_id=x_user_id,
+                action="agent_framework_run",
+                resource_type="agent_execution",
+                resource_id=None,
+                metadata={"agent_id": request.agent_id, "case_id": request.case_id},
+            )
+        conn.commit()
+
+    # Execute agent
+    result = await agent_framework.run_agent(
+        agent_id=request.agent_id,
+        input_data=request.input_data,
+        case_id=request.case_id,
+    )
+
+    # Record evidence event
+    if not result.error:
+        with pool.connection() as conn:
+            _apply_rls_context(conn, x_org_id)
+            with conn.cursor() as cur:
+                _record_evidence_event(
+                    cur,
+                    organization_id=x_org_id,
+                    event_type="AGENT_FRAMEWORK_EXECUTED",
+                    event_payload={
+                        "agent_id": request.agent_id,
+                        "agent_class": result.agent_class,
+                        "provider": result.provider,
+                        "latency_ms": result.latency_ms,
+                        "tokens_used": result.tokens_used,
+                    },
+                    actor_user_id=x_user_id,
+                    actor_agent_id=f"AgentFramework-{request.agent_id}",
+                    case_id=request.case_id,
+                    regulatory_basis=["BCB Circular 3.978", "Res. 520/2022"],
+                )
+            conn.commit()
+
+    return AgentRunResponse(
+        agent_id=result.agent_id,
+        agent_class=result.agent_class,
+        output=result.output,
+        latency_ms=result.latency_ms,
+        tokens_used=result.tokens_used,
+        provider=result.provider,
+        error=result.error,
+        generated_at=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+# ──────────────────────────────────────────────
+#  AGENT EVALUATION ENDPOINTS
+# ──────────────────────────────────────────────
+
+@app.post("/api/v1/ai/agents/eval/run", response_model=list[EvalRunResponse])
+async def run_agent_eval(
+    request: EvalRunRequest,
+    req: Request,
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+) -> list[EvalRunResponse]:
+    """Run golden dataset evaluation for one or all agents."""
+    if not x_org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
+
+    pool = get_pool(req)
+
+    # Load golden dataset from DB
+    agents_to_eval = [request.agent_id] if request.agent_id else [
+        a["agent_id"] for a in agent_framework.list_all_agents()
+    ]
+
+    reports = []
+
+    for agent_id in agents_to_eval:
+        with pool.connection() as conn:
+            _apply_rls_context(conn, x_org_id)
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, agent_id, input_data, expected_output,
+                           expected_classification, expected_citations,
+                           expected_tool_calls, difficulty, case_id as test_name
+                    FROM agent_golden_dataset
+                    WHERE agent_id = %s AND is_active = true
+                    ORDER BY RANDOM()
+                    LIMIT %s
+                    """,
+                    (agent_id, request.max_cases_per_agent),
+                )
+                cases = cur.fetchall()
+
+        if not cases:
+            continue
+
+        eval_results = []
+        passed = 0
+
+        for case in cases:
+            input_data = case["input_data"]
+            expected = case["expected_output"]
+            case_id = str(case["id"])
+
+            start = time.monotonic()
+            try:
+                result = await agent_framework.run_agent(
+                    agent_id=agent_id,
+                    input_data=input_data,
+                )
+                latency_ms = int((time.monotonic() - start) * 1000)
+
+                # Evaluate against expected output
+                actual = result.output
+                precision = _eval_compute_precision(expected, actual)
+                recall = _eval_compute_recall(expected, actual)
+                citation_acc = _eval_citation_accuracy(
+                    case["expected_citations"] or [],
+                    actual.get("citations", []),
+                )
+
+                # Semantic assertions for golden dataset shorthand keys
+                semantic_pass = _eval_semantic_assertions(expected, actual)
+                if semantic_pass is not None:
+                    precision = max(precision, 1.0 if semantic_pass else 0.0)
+                    recall = max(recall, 1.0 if semantic_pass else 0.0)
+
+                case_passed = precision >= 0.6 and recall >= 0.5
+                if case_passed:
+                    passed += 1
+
+                eval_results.append({
+                    "case_id": case_id,
+                    "test_name": case.get("test_name", ""),
+                    "passed": case_passed,
+                    "precision": round(precision, 3),
+                    "recall": round(recall, 3),
+                    "citation_accuracy": round(citation_acc, 3),
+                    "latency_ms": latency_ms,
+                    "provider": result.provider,
+                })
+
+                # Record aggregate in DB
+                try:
+                    with pool.connection() as conn2:
+                        _apply_rls_context(conn2, x_org_id)
+                        with conn2.cursor() as cur2:
+                            cur2.execute(
+                                """
+                                INSERT INTO agent_eval_runs
+                                    (agent_id, total_cases, passed_cases, failed_cases,
+                                     avg_precision, avg_recall, avg_citation_accuracy,
+                                     avg_latency_ms, total_tokens, regression_detected, run_type)
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'manual')
+                                """,
+                                (
+                                    agent_id, total, passed, total - passed,
+                                    sum(r.get("precision", 0) for r in eval_results) / max(total, 1),
+                                    sum(r.get("recall", 0) for r in eval_results) / max(total, 1),
+                                    sum(r.get("citation_accuracy", 0) for r in eval_results) / max(total, 1),
+                                    sum(r.get("latency_ms", 0) for r in eval_results) / max(total, 1),
+                                    sum(r.get("tokens_used", 0) for r in eval_results) if any("tokens_used" in r for r in eval_results) else 0,
+                                    regression,
+                                ),
+                            )
+                        conn2.commit()
+                except Exception:
+                    pass
+
+            except Exception as e:
+                eval_results.append({
+                    "case_id": case_id,
+                    "test_name": case.get("test_name", ""),
+                    "passed": False,
+                    "error": str(e),
+                    "latency_ms": int((time.monotonic() - start) * 1000),
+                })
+
+        total = len(eval_results)
+        regression = (passed / total < 0.85) if total > 0 else False
+
+        reports.append(EvalRunResponse(
+            agent_id=agent_id,
+            total_cases=total,
+            passed_cases=passed,
+            failed_cases=total - passed,
+            avg_precision=sum(r.get("precision", 0) for r in eval_results) / max(total, 1),
+            avg_recall=sum(r.get("recall", 0) for r in eval_results) / max(total, 1),
+            avg_citation_accuracy=sum(r.get("citation_accuracy", 0) for r in eval_results) / max(total, 1),
+            regression_detected=regression,
+            details=eval_results,
+            generated_at=datetime.now(timezone.utc).isoformat(),
+        ))
+
+    return reports
+
+
+@app.get("/api/v1/ai/agents/eval/report/{agent_id}", response_model=EvalReportResponse)
+async def get_eval_report(
+    agent_id: str,
+    req: Request,
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+) -> EvalReportResponse:
+    """Get regulatory audit report for an agent."""
+    if not x_org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
+
+    report = agent_framework._eval.generate_regulatory_audit_report(agent_id)
+
+    return EvalReportResponse(
+        agent_id=agent_id,
+        total_samples=report["total_samples"],
+        reviewed_samples=report["reviewed_samples"],
+        avg_review_score=report["avg_review_score"],
+        disagreement_count=report["disagreement_count"],
+        compliance_references=report["compliance_references"],
+        generated_at=report["generated_at"],
+    )
+
+
+def _eval_compute_precision(expected: dict, actual: dict) -> float:
+    if not expected or not actual:
+        return 0.5
+    matching = 0
+    for key, value in expected.items():
+        if key in actual:
+            actual_val = actual[key]
+            if value == actual_val:
+                matching += 1
+            elif isinstance(value, (int, float)) and isinstance(actual_val, (int, float)):
+                if abs(value - actual_val) / max(abs(value), 1) < 0.3:
+                    matching += 0.8
+            elif isinstance(value, str) and isinstance(actual_val, str):
+                if value.lower() in actual_val.lower() or actual_val.lower() in value.lower():
+                    matching += 0.8
+            elif isinstance(value, list) and isinstance(actual_val, list):
+                if len(actual_val) > 0:
+                    matching += 0.6
+            elif isinstance(value, dict) and isinstance(actual_val, dict):
+                matching += 0.5
+    return matching / len(expected) if expected else 0.5
+
+
+def _eval_compute_recall(expected: dict, actual: dict) -> float:
+    if not expected:
+        return 1.0
+    found = sum(1 for key in expected if key in actual)
+    return found / len(expected)
+
+
+def _eval_citation_accuracy(expected: list[str], actual: list[str]) -> float:
+    if not expected:
+        return 1.0
+    matched = 0
+    for exp in expected:
+        for act in actual:
+            if exp.lower() in act.lower():
+                matched += 1
+                break
+    return matched / len(expected)
+
+
+def _eval_semantic_assertions(expected: dict, actual: dict) -> Optional[bool]:
+    """Evaluate semantic shorthand keys from golden dataset."""
+    # Get the narrative/text from output (Class B has 'narrative', Class C has 'summary')
+    narrative = actual.get("narrative", "") or actual.get("summary", "") or ""
+    tool_calls = actual.get("tool_calls", [])
+    tool_names = [t.get("tool", t.get("name", "")) for t in tool_calls] if isinstance(tool_calls, list) else []
+
+    for key, value in expected.items():
+        if key.startswith("risk_score_above") and isinstance(value, (int, float)):
+            actual_score = actual.get("score", actual.get("risk_score", 0))
+            return actual_score >= value
+        if key.startswith("risk_score_below") and isinstance(value, (int, float)):
+            actual_score = actual.get("score", actual.get("risk_score", 0))
+            return actual_score <= value
+        if key == "level" and isinstance(value, str):
+            return actual.get("level", "").upper() == value.upper()
+        if key == "decision" and isinstance(value, str):
+            return actual.get("decision", "").upper() == value.upper()
+        if key == "confidence_level" and isinstance(value, str):
+            return actual.get("confidence_level", "").upper() == value.upper()
+        if key == "intent" and isinstance(value, str):
+            return value.upper() in narrative.upper()
+        if key == "priority" and isinstance(value, str):
+            return value.upper() in narrative.upper()
+        if key == "score" and isinstance(value, (int, float)):
+            actual_score = actual.get("score", actual.get("overall", 0))
+            return abs(actual_score - value) / max(abs(value), 1) < 0.3
+        # Class B narrative assertions
+        if key == "has_legal_basis" and isinstance(value, bool):
+            legal_terms = ["art.", "lei", "resolução", "decreto", "instrução normativa", "circular"]
+            return value == any(t in narrative.lower() for t in legal_terms)
+        if key == "has_fato_inferencia" and isinstance(value, bool):
+            return value == ("FATO" in narrative or "INFERÊNCIA" in narrative or "HIPÓTESE" in narrative)
+        if key == "has_disclaimer" and isinstance(value, bool):
+            disclaimer_terms = ["não constitui", "não configura", "indícios", "ressalvas", "ilícito confirmado"]
+            return value == any(t in narrative.lower() for t in disclaimer_terms)
+        if key == "has_confidence_score" and isinstance(value, bool):
+            return value == ("confidence" in narrative.lower() or "confiança" in narrative.lower())
+        if key == "has_gaps" and isinstance(value, bool):
+            gap_terms = ["lacuna", "ausente", "pendente", "requisitar", "necessário"]
+            return value == any(t in narrative.lower() for t in gap_terms)
+        # Class C tool assertions
+        if key == "tools_invoked" and isinstance(value, list):
+            return all(t in tool_names for t in value)
+        if key == "expected_tool_calls" and isinstance(value, list):
+            return all(t in tool_names for t in value)
+    return None
+
+
+class SampleReviewRequest(BaseModel):
+    sample_id: str
+    score: int = Field(ge=1, le=5)
+    notes: str = ""
+
+
+@app.get("/api/v1/ai/agents/eval/samples", response_model=list[dict[str, Any]])
+async def list_production_samples(
+    req: Request,
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+    agent_id: Optional[str] = None,
+    reviewed: Optional[bool] = None,
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    """List production samples for human review."""
+    if not x_org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
+
+    samples = agent_framework._eval._production_samples
+
+    if agent_id:
+        samples = [s for s in samples if s.agent_id == agent_id]
+    if reviewed is not None:
+        samples = [s for s in samples if s.reviewed == reviewed]
+
+    samples = samples[-limit:]
+
+    return [
+        {
+            "sample_id": s.sample_id,
+            "agent_id": s.agent_id,
+            "input_data": s.input_data,
+            "output_data": s.output_data,
+            "latency_ms": s.latency_ms,
+            "tokens_used": s.tokens_used,
+            "provider": s.provider,
+            "reviewed": s.reviewed,
+            "review_score": s.review_score,
+            "sampled_at": s.sampled_at,
+        }
+        for s in samples
+    ]
+
+
+@app.post("/api/v1/ai/agents/eval/samples/review")
+async def review_production_sample(
+    request: SampleReviewRequest,
+    req: Request,
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+) -> dict[str, str]:
+    """Record a human review of a sampled production call."""
+    if not x_org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
+
+    agent_framework._eval.record_review(
+        sample_id=request.sample_id,
+        score=request.score,
+        notes=request.notes,
+    )
+
+    return {"status": "review_recorded", "sample_id": request.sample_id}

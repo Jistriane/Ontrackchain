@@ -1,0 +1,10 @@
+# OnTrackChain Code Owners
+# Agent Framework & AI Service
+packages/agents/     @jistriane
+apps/ai-service/     @jistriane
+scripts/             @jistriane
+infra/postgres/      @jistriane
+
+# Infrastructure
+docker-compose.yml   @jistriane
+.github/             @jistriane
