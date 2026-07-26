@@ -48,6 +48,16 @@ services:
           type: pserv
           name: ontrackchain-report-api-staging
           property: hostport
+      - key: AI_SERVICE_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-ai-service-staging
+          property: hostport
+      - key: CASE_MANAGEMENT_HOSTPORT
+        fromService:
+          type: pserv
+          name: ontrackchain-case-management-staging
+          property: hostport
       - key: FRONTEND_HOSTPORT
         fromService:
           type: web
@@ -592,6 +602,62 @@ services:
         value: "1"
       - key: REPORT_PERSISTED_WITHOUT_DOWNLOAD_WARN_THRESHOLD
         value: "3"
+
+  - type: pserv
+    name: ontrackchain-ai-service-staging
+    plan: starter
+    runtime: docker
+    dockerContext: ./ontrackchain
+    dockerfilePath: ./ontrackchain/apps/ai-service/Dockerfile
+    envVars:
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: port
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: password
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: database
+
+  - type: pserv
+    name: ontrackchain-case-management-staging
+    plan: starter
+    runtime: docker
+    dockerContext: ./ontrackchain
+    dockerfilePath: ./ontrackchain/apps/case-management/Dockerfile
+    envVars:
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: port
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: password
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: ontrackchain-postgres-staging
+          property: database
 
   - type: web
     name: ontrackchain-frontend-staging
