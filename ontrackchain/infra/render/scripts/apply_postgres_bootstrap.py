@@ -61,6 +61,8 @@ def _load_sanitized_init_sql(db_user: str) -> str:
             skip_role_block = False
         if "CREATE ROLE db_owner NOLOGIN;" in stripped:
             skip_role_block = True
+            while sanitized and sanitized[-1].strip() in ("DO $$", "BEGIN"):
+                sanitized.pop()
             continue
         if skip_role_block:
             if stripped == "$$;":

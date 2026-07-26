@@ -8,6 +8,7 @@ fi
 
 config_file=/etc/grafana/provisioning/datasources/datasource.yml
 cp /etc/grafana/provisioning/datasources/datasource.template.yml "$config_file"
+rm -f /etc/grafana/provisioning/datasources/datasource.template.yml
 
 escaped_value=$(printf '%s' "${PROMETHEUS_HOSTPORT}" | sed 's/[\/&]/\\&/g')
 sed -i "s|\${PROMETHEUS_HOSTPORT}|$escaped_value|g" "$config_file"
