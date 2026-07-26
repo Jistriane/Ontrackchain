@@ -1,5 +1,7 @@
 FROM grafana/grafana:11.2.0
 
+ENV REBUILD_NONCE=20260726_v1
+
 USER root
 
 RUN rm -f /etc/grafana/provisioning/datasources/datasource.yaml
