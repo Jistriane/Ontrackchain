@@ -56,6 +56,15 @@ const DEFAULT_SUPPORTED_CHAINS = {
       capabilities: ["compliance_screening", "tracing", "monitoring"]
     },
     {
+      id: "optimism",
+      name: "Optimism",
+      symbol: "ETH",
+      is_evm: true,
+      block_time_seconds: 2,
+      status: "active",
+      capabilities: ["compliance_screening", "tracing", "monitoring"]
+    },
+    {
       id: "bitcoin",
       name: "Bitcoin",
       symbol: "BTC",
@@ -63,10 +72,28 @@ const DEFAULT_SUPPORTED_CHAINS = {
       block_time_seconds: 600,
       status: "active",
       capabilities: ["compliance_screening", "tracing", "reports"]
+    },
+    {
+      id: "solana",
+      name: "Solana",
+      symbol: "SOL",
+      is_evm: false,
+      block_time_seconds: 0.4,
+      status: "active",
+      capabilities: ["compliance_screening", "tracing"]
+    },
+    {
+      id: "stellar",
+      name: "Stellar",
+      symbol: "XLM",
+      is_evm: false,
+      block_time_seconds: 5,
+      status: "active",
+      capabilities: ["compliance_screening", "tracing"]
     }
   ],
-  total_chains: 6,
-  active_chains: 6,
+  total_chains: 9,
+  active_chains: 9,
   updated_at: new Date().toISOString()
 };
 

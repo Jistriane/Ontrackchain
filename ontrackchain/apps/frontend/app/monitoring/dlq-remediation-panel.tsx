@@ -74,9 +74,14 @@ export function DlqRemediationPanel({
         >
           <option value="all">{t("monitoring.dlq.chainAll")}</option>
           <option value="ethereum">Ethereum</option>
-          <option value="bitcoin">Bitcoin</option>
+          <option value="polygon">Polygon</option>
+          <option value="bsc">BSC</option>
           <option value="arbitrum">Arbitrum</option>
           <option value="base">Base</option>
+          <option value="optimism">Optimism</option>
+          <option value="bitcoin">Bitcoin</option>
+          <option value="solana">Solana</option>
+          <option value="stellar">Stellar</option>
         </select>
         <button type="button" data-testid="dlq-refresh-btn" onClick={refreshDlq} className="otc-button otc-button--ghost">
           {t("monitoring.dlq.refresh")}

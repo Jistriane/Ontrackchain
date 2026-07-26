@@ -1025,7 +1025,10 @@ export default function BlocksPage() {
                   <option value="bsc">BSC</option>
                   <option value="arbitrum">Arbitrum</option>
                   <option value="base">Base</option>
+                  <option value="optimism">Optimism</option>
                   <option value="bitcoin">Bitcoin</option>
+                  <option value="solana">Solana</option>
+                  <option value="stellar">Stellar</option>
                 </select>
               </label>
               <label className="otc-field">

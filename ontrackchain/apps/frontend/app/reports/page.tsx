@@ -475,7 +475,7 @@ function toneForSla(record: ReportWorkspaceRecord): "success" | "danger" {
 }
 
 const REPORT_PLAN_OPTIONS = ["free", "starter", "professional", "enterprise"] as const;
-const REPORT_CASE_CHAIN_OPTIONS = ["ethereum", "bitcoin", "arbitrum", "base"] as const;
+const REPORT_CASE_CHAIN_OPTIONS = ["ethereum", "polygon", "bsc", "arbitrum", "base", "optimism", "bitcoin", "solana", "stellar"] as const;
 const REPORT_CASE_STATUS_OPTIONS = ["QUEUED", "PROCESSING", "COMPLETED", "FAILED"] as const;
 const REQUESTED_REPORT_TYPE_ALIAS_TO_CANONICAL: Record<string, string> = {
   technical: "technical_basic",

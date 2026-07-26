@@ -276,8 +276,14 @@ export default function AIPage() {
                   Chain
                   <select className="otc-input" value={chain} onChange={(e) => setChain(e.target.value)}>
                     <option value="ethereum">Ethereum</option>
-                    <option value="bitcoin">Bitcoin</option>
                     <option value="polygon">Polygon</option>
+                    <option value="bsc">BSC</option>
+                    <option value="arbitrum">Arbitrum</option>
+                    <option value="base">Base</option>
+                    <option value="optimism">Optimism</option>
+                    <option value="bitcoin">Bitcoin</option>
+                    <option value="solana">Solana</option>
+                    <option value="stellar">Stellar</option>
                   </select>
                 </label>
               </div>
@@ -369,8 +375,14 @@ export default function AIPage() {
                   Chain
                   <select className="otc-input" value={chain} onChange={(e) => setChain(e.target.value)}>
                     <option value="ethereum">Ethereum</option>
-                    <option value="bitcoin">Bitcoin</option>
                     <option value="polygon">Polygon</option>
+                    <option value="bsc">BSC</option>
+                    <option value="arbitrum">Arbitrum</option>
+                    <option value="base">Base</option>
+                    <option value="optimism">Optimism</option>
+                    <option value="bitcoin">Bitcoin</option>
+                    <option value="solana">Solana</option>
+                    <option value="stellar">Stellar</option>
                   </select>
                 </label>
               </div>
