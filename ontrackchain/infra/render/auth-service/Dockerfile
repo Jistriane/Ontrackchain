@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-ENV REBUILD_NONCE=20260720_v4
+ENV REBUILD_NONCE=20260726_v5
 
 COPY apps/auth-service/pyproject.toml /app/pyproject.toml
 COPY apps/auth-service/src /app/src
