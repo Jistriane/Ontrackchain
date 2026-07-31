@@ -161,7 +161,7 @@ Servicos que usam:
 | `OIDC_PLAN_CLAIM` | `plan` | override manual da claim usada como plano |
 | `OIDC_ROLE_CLAIM` | `otk_role` | override manual da claim usada como papel |
 
-observação atual de planejamento:
+Observação atual de planejamento:
 
 - para a `Sprint 1` o preset arquitetural escolhido e `OIDC_PROVIDER=keycloak`
 - `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=false` continua sendo o default conservador; so deve virar `true` apos validação formal do MFA federado no ambiente serio
@@ -214,7 +214,7 @@ Servico principal:
 | `NEXT_PUBLIC_APP_ENV` | `local` | ambiente refletido na UI para fallback seguro |
 | `NEXT_PUBLIC_DEV_AUTH_ENABLED` | vazio ou `true` em local | informa ao frontend se o login dev pode permanecer habilitado |
 
-observação critica:
+Observação critica:
 
 - no container do frontend, o Traefik deve ser acessado como `http://traefik`, nao `http://traefik:8080`
 - o proxy de export administrativo dos incidentes globais usa `INTERNAL_AUTH_BASE_URL` quando presente; no compose local o fallback direto para `auth-service:9000` e suficiente
@@ -224,7 +224,7 @@ observação critica:
 - o `hostedShowcaseFallback` e um mecanismo de contingencia operacional para evitar um estado hibrido quebrado; ele nao substitui o blueprint `full-stack` quando a meta for validar `OIDC`, `MFA`, `RBAC` e APIs reais
 - o preflight serio de integrações externas agora consulta `/api/healthz` do frontend hospedado e falha se o deployment esperado nao for observado ou se `hostedShowcaseFallback=true`, salvo override explicito via `ONTRACKCHAIN_ALLOW_FRONTEND_SHOWCASE_FALLBACK=true`
 
-observação de escopo:
+Observação de escopo:
 
 - thresholds especificos de backlog/DLQ de `investigation` ainda nao sao configurados por env no runtime atual; quando forem promovidos para configuração real, devem entrar simultaneamente em `.env.example`, `docker-compose.yml` e nesta tabela
 
@@ -320,7 +320,7 @@ Variaveis observadas em [main.py](../apps/compliance-api/src/compliance_api/main
 - `CREDIT_VALUE_BRL`
 - `REPORT_API_BASE_URL`
 
-observação:
+Observação:
 
 - `REPORT_API_BASE_URL` tem default `http://report-api:8004`
 - o worker de compliance tambem observa `OPENSANCTIONS_API_KEY`, `COMPLIANCE_OFAC_SDN_SOURCE_URL` e `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` para enriquecimento e para sobrescrever o `source_url` persistido antes da sincronizacao das listas
@@ -352,7 +352,7 @@ Variaveis observadas em [main.py](../apps/monitoring-api/src/monitoring_api/main
 - `REPORT_LEGAL_DOWNLOAD_SECURITY_VIOLATION_THRESHOLD`
 - `REPORT_PERSISTED_WITHOUT_DOWNLOAD_WARN_THRESHOLD`
 
-observação:
+Observação:
 
 - `ENABLE_TEST_ENDPOINTS=true` e util para smoke/E2E, mas deve ser revisto em staging regulado
 

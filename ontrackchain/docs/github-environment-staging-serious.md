@@ -16,7 +16,7 @@ Este documento complementa:
 - [Checklist Pré-Produção](pre-production-checklist.md)
 - [governança Semanal](./governance-weekly/README.md)
 
-observação importante:
+Observação importante:
 
 - este documento cobre o workflow manual `Staging Serious Window`
 - o workflow separado [deploy-to-production.yml](../../.github/workflows/deploy-to-production.yml) usa hooks de deploy do Render e `healthz` hospedado; ele nao consome `STAGING_WINDOW_PRIVATE_ENV`

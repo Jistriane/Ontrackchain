@@ -311,7 +311,7 @@ Do que de uma matriz RBAC fina por papel.
 | `evidence/manual-package` `signoffs` | Sim | Nao | Nao | Nao | Nao | `COMPLIANCE_OFFICER -> compliance_owner`, `LEGAL_REVIEWER -> legal_owner_optional`, `REVIEWER -> legal_owner_optional` |
 | `evidence/manual-package` `finalize/revoke/supersede/signoff-request` | Sim | Nao | Nao | Nao | Nao | `rbac_enforced`; `AUDITOR` saiu da mutacao |
 
-observação importante:
+Observação importante:
 
 - `Sim` nos fluxos core nao significa privilégio fino por papel; significa apenas que o backend atual nao diferencia esses papeis quando o acesso ja esta autenticado dentro da organizacao correta
 - por isso, `ANALYST`, `TESTER` e `VIEWER` ainda nao podem ser tratados como papeis plenamente definidos do ponto de vista regulatório

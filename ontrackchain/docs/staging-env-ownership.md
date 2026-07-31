@@ -101,7 +101,7 @@ Sign-off recomendado na janela:
 
 - `Security`
 
-observação:
+Observação:
 
 - `OPENSANCTIONS_API_KEY` passa a ser obrigatoria quando o escopo incluir o worker de sancoes com enriquecimento via OpenSanctions ou quando o blueprint `full-stack` do Render for usado como baseline serio de compliance
 
@@ -118,7 +118,7 @@ Sign-off recomendado na janela:
 
 - `Platform/DBA`
 
-observação:
+Observação:
 
 - quando a janela for aprovada em modo `fallback_only`, o owner de `Backend Core` deve preencher apenas `INVESTIGATION_RPC_FALLBACK_URL` e manter `INVESTIGATION_RPC_PRIMARY_URL` vazio
 

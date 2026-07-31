@@ -28,7 +28,7 @@ Controles ativos:
 - `ROS/COAF` exige `external_provider` homologado
 - `block lift` exige `external_provider` homologado
 
-observação operacional:
+Observação operacional:
 
 - o trilho `TOTP` local continua valido apenas para o scaffold `dev`
 - o trilho serio depende de MFA federado homologado

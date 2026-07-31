@@ -56,8 +56,17 @@ REF_LINK_DEF_LINE_RE = re.compile(r"^\[[^\]]+\]:\s+\S+")
 
 def _apply_replacements(text: str) -> str:
     updated = text
+
+    def _preserve_case(match: re.Match[str], replacement: str) -> str:
+        token = match.group(0)
+        if token.isupper():
+            return replacement.upper()
+        if token[:1].isupper():
+            return replacement[:1].upper() + replacement[1:]
+        return replacement
+
     for pattern, replacement in REPLACEMENTS:
-        updated = pattern.sub(replacement, updated)
+        updated = pattern.sub(lambda m, r=replacement: _preserve_case(m, r), updated)
     return updated
 
 
@@ -91,7 +100,11 @@ def _normalize_non_code(text: str) -> str:
             normalized_segments.append("".join(normalized_auto))
 
         out_lines.append("".join(normalized_segments))
-    return "".join(out_lines)
+
+    merged = "".join(out_lines)
+    merged = re.sub(r"(?m)^observação\b", "Observação", merged)
+    merged = re.sub(r"(?m)^(\#{1,6}\s+)validação\b", r"\1Validação", merged)
+    return merged
 
 
 def normalize_markdown(content: str) -> str:

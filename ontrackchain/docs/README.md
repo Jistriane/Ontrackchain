@@ -73,7 +73,7 @@ Regras objetivas:
 - [Playbook de Incidente Cross-Domain e RCA](./cross-domain-incident-rca-playbook.md): escalacao leve, ownership e fechamento de causa raiz sem abrir um servico novo
 - [Pre-Production Checklist](./pre-production-checklist.md): validações obrigatorias antes de promover
 
-### validação, Compliance e Auditoria
+### Validação, Compliance e Auditoria
 
 - [validação e Auditoria](./validation-and-audit.md): smoke, Playwright, preflights e evidências
 - [Catálogo de Eventos — evidence_trail](./evidence-event-catalog.md): lista consolidada de `event_type` para trilha regulatória

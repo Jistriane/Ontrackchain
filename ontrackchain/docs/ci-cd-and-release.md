@@ -189,7 +189,7 @@ Comando:
 npm run test:e2e:dev-auth
 ```
 
-observação operacional:
+Observação operacional:
 
 - o comando agora executa preflight explicito de `baseURL` e `/auth/config`
 - falha cedo se o ambiente nao estiver em `AUTH_MODE=dev`

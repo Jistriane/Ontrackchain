@@ -19,7 +19,7 @@ Esta pasta contem migrations incrementais para ambientes que ja possuem volume p
 
 ### `0001_align_reports_table.sql`
 
-Alinha a tabela `reports` para o fluxo atual de relatorios:
+Alinha a tabela `reports` para o fluxo atual de relatórios:
 
 - `external_report_id`
 - `report_type_requested`
@@ -238,9 +238,9 @@ docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/pos
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0020_extend_cases_for_ai.sql
 ```
 
-## Validacao de Suites do Compliance API
+## Validação de Suites do Compliance API
 
-Para validar a suite canonica principal do `compliance-api`, use:
+Para validar a suite canônica principal do `compliance-api`, use:
 
 ```bash
 make check-compliance-api-tests
@@ -266,7 +266,7 @@ make check-work-items-contracts
 O alvo executa `python3`, compila os arquivos Python criticos da trilha e roda a suite focada `tests.test_work_item_contracts`.
 Quando o runtime Python local nao possui as dependencias do `compliance-api`, o runner faz fallback automatico para `docker compose run --no-deps compliance-api`, montando o worktree atual para validar a suite real em vez de retornar um falso verde por `skip`.
 
-Para validacao operacional local ponta a ponta da trilha `work-items`, use:
+Para validação operacional local ponta a ponta da trilha `work-items`, use:
 
 ```bash
 make validate-work-items-runtime-local
@@ -274,7 +274,7 @@ make validate-work-items-runtime-local
 
 O alvo sobe `postgres`, `redis` e `compliance-api`, aplica a migration `0014` e executa o smoke backend de ownership/work-items.
 
-Se a validacao envolver `team`, `billing` ou resolucao de `linked_user_id` para atores persistidos,
+Se a validação envolver `team`, `billing` ou resolucao de `linked_user_id` para atores persistidos,
 aplique tambem a `0016` antes do smoke funcional correspondente.
 
 ## Quando Usar

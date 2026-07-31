@@ -214,7 +214,7 @@ Parametros nao sensiveis ja declarados no blueprint para o diretório federado:
 - `KEYCLOAK_ADMIN_ORG_ATTRIBUTE=organization_id`
 - `KEYCLOAK_ADMIN_ROLE_ATTRIBUTE=otk_role`
 
-observação operacional deste corte:
+Observação operacional deste corte:
 
 - enquanto nao existir um client read-only dedicado para a Admin API, `KEYCLOAK_ADMIN_CLIENT_SECRET` pode espelhar o mesmo valor de `KEYCLOAK_B2B_CLIENT_SECRET`, desde que o client `ontrackchain-b2b` receba escopo minimo suficiente apenas para leitura do diretório
 

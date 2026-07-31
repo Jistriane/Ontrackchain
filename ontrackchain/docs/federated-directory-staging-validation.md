@@ -1,4 +1,4 @@
-# validação em Staging - Diretorio Federado
+# Validação em Staging - Diretorio Federado
 
 ## Objetivo
 

@@ -243,7 +243,7 @@ Repository → Actions → Governance Artefacts Refresh → Run workflow
 2. Gera correlacao explicita de `request_id` para as trilhas `P0-02` e `P0-03`
 3. Reseta stack residual de compliance do runner
 4. Executa `make gate-p0-04-regulatory-bundle`
-5. Gera o JSON oficial e o resumo markdown do bundle regulatorio
+5. Gera o JSON oficial e o resumo markdown do bundle regulatório
 6. Coleta `docker compose ps/logs`
 7. Publica `ci-artifacts/`, `artifacts/staging/checks/` e `artifacts/staging/dossiers/`
 

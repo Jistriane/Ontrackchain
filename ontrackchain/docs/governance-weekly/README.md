@@ -88,7 +88,7 @@ Esse comando atualiza:
 - resumo executivo de uma linha
 - **JSON consolidado machine-readable** com toda a governança (para CI/CD gates, bots, dashboards)
 
-observação importante:
+Observação importante:
 
 - este comando atualiza apenas o pacote gerado em `docs/governance-weekly/generated/windows/<window_id>/`
 - ele nao gera sozinho o `sign-off` versionado do ciclo nem o `go/no-go decision packet`

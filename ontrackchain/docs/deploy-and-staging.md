@@ -493,7 +493,7 @@ Saida esperada:
 - resumo `.md` do bundle regulatório em `artifacts/staging/dossiers/` quando `AML/KYT live` e/ou feed UE estiverem no escopo
 - status consolidado `ok` apenas quando checks e homologacao estiverem verdes
 
-observação:
+Observação:
 
 - o baseline `local` do repositório usa `COMPLIANCE_TRM_ENABLED=false` e `INVESTIGATION_RPC_ENABLED=false`
 - por isso, `status=ok` para `homologation_external_evidence.py` e meta de `staging|production`, nao de scaffold local sem overrides serios
@@ -564,7 +564,7 @@ python3 scripts/smoke_auth_oidc_mode.py
 - backup disponivel antes de mudanca estrutural
 - RLS preservado
 
-### validação
+### Validação
 
 - smoke verde
 - Playwright verde

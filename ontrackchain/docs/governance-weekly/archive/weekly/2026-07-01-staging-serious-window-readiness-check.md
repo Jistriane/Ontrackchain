@@ -43,7 +43,7 @@ O checker `check_staging_env_handoff.py` falhou porque os grupos obrigatorios ai
 - `Investigation/RPC`
 - `Platform/Operations`
 
-observação:
+Observação:
 
 - o `owner` nominal foi scaffoldado em `docs/staging-env-ownership.md`
 - a janela continua bloqueada ate cada grupo preencher `Data` e `Status` com `reviewed`, `approved` ou `waived`

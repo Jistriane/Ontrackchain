@@ -175,7 +175,7 @@ compliance-worker -> sanctions_lists_meta/sanctions_hits_cache
   -> audit_logs + evidence_trail
 ```
 
-observação importante:
+Observação importante:
 
 - o endpoint direto `sanctions-check` e o catalogo de operações agora convergem para `provider=sanctions_lists_cache`, `provider_status=live` e `delivery_mode=local_cache`
 - a UI `/sanctions` agora sincroniza o resultado em `regulatory_work_items` como fila compartilhada primaria e falha explicitamente quando a fila compartilhada nao estiver disponivel

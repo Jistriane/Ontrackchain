@@ -491,7 +491,7 @@ Fechamento minimo:
 
 ### Tech Lead / QA
 
-#### validação cruzada da trilha P0
+#### Validação cruzada da trilha P0
 
 - [ ] consolidar `.env` privado apenas no ambiente correto
 - [ ] executar bundle regulatório quando `P0-02` e `P0-03` estiverem prontos
