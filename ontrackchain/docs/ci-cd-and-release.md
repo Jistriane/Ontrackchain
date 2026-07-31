@@ -457,6 +457,22 @@ Regras:
 - `v4.0.7` (produto)
 - `v4.0.8-docs.2` (docs-only subsequente, quando houver mais de uma rodada editorial)
 
+### Higiene de tags (evitar duplicidade)
+
+Antes de criar uma nova tag docs-only, valide se a tag base ja aponta para o commit correto:
+
+```bash
+git rev-parse HEAD
+git rev-parse vX.Y.Z-docs || true
+git ls-remote --tags origin vX.Y.Z-docs || true
+```
+
+Regras praticas:
+
+- se `vX.Y.Z-docs` ja existir e apontar para o `HEAD`, nao crie `.1`
+- se `vX.Y.Z-docs` ja existir e apontar para outro commit, use `vX.Y.Z-docs.1` (ou incremente `.N`) em vez de mover a tag existente
+- se existir `vX.Y.Z-docs.1` e a base nao existir, mantenha o sufixo `.1` e siga com o proximo numero apenas quando houver nova rodada
+
 ## Criterios Minimos de Aprovacao
 
 - CI verde
