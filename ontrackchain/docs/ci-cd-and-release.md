@@ -423,7 +423,7 @@ PR -> CI -> merge -> staging tecnico -> staging regulatorio -> aprovacao -> prod
 Objetivo:
 
 - evitar colisao de tags em releases editoriais (docs-only)
-- garantir que `Latest` permaneça representando releases de produto
+- garantir que `Latest` continue representando releases de produto
 - preservar rastreabilidade entre tag, commit e release notes
 
 ### Tipos de tag
@@ -442,8 +442,8 @@ Regras:
 
 Nota (escopo):
 
-- tags/releases `docs-only` sao informativas: servem para rastrear navegacao, guias operacionais e consolidacoes de documentacao
-- elas nao representam mudanca de produto/semantica de runtime, e nao devem substituir a release `Latest` de produto
+- tags/releases `docs-only` sao informativas: servem para rastrear navegacao, guias operacionais e consolidacoes de documentacao.
+- elas nao representam mudanca de produto/semantica de runtime e nao devem substituir a release de produto marcada como `Latest`.
 
 ### Fluxo recomendado (docs-only)
 
