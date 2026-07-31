@@ -418,6 +418,45 @@ Checklist:
 PR -> CI -> merge -> staging tecnico -> staging regulatorio -> aprovacao -> producao
 ```
 
+## Convencao de Tags e Releases
+
+Objetivo:
+
+- evitar colisao de tags em releases editoriais (docs-only)
+- garantir que `Latest` permaneça representando releases de produto
+- preservar rastreabilidade entre tag, commit e release notes
+
+### Tipos de tag
+
+| Tipo | Quando usar | Nome recomendado | Deve ser `Latest`? |
+| --- | --- | --- | --- |
+| release de produto | mudanca funcional/regulatoria/codigo | `vX.Y.Z` | sim |
+| release docs-only | mudanca editorial/documentacao | `vX.Y.Z-docs.N` | nao |
+
+Regras:
+
+- nunca reaproveitar ou mover uma tag existente
+- se o nome base ja existir, incremente apenas o sufixo `.N` (`.1`, `.2`, ...)
+- releases docs-only devem ser publicadas como `None` (nao `Latest`)
+- a tag deve apontar para um commit da `main` (ou branch alvo explicitamente acordada) e o texto da release deve citar o hash curto do commit
+
+### Fluxo recomendado (docs-only)
+
+1. merge/commit na `main` com a mudanca documental
+2. criar tag anotada `vX.Y.Z-docs.N` apontando para o `HEAD` atual
+3. publicar release com:
+   - titulo igual a tag
+   - `Set as the latest release`: **None**
+   - release notes curtas com:
+     - lista do que mudou
+     - commit hash
+     - portas canônicas (`docs/README.md`, `TECHNICAL_APPENDIX.md`, `operations.md`)
+
+### Exemplo de nomenclatura
+
+- `v4.0.7` (produto)
+- `v4.0.8-docs.2` (docs-only subsequente, quando houver mais de uma rodada editorial)
+
 ## Criterios Minimos de Aprovacao
 
 - CI verde
