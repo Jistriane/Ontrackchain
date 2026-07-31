@@ -440,6 +440,11 @@ Regras:
 - releases docs-only devem ser publicadas como `None` (nao `Latest`)
 - a tag deve apontar para um commit da `main` (ou branch alvo explicitamente acordada) e o texto da release deve citar o hash curto do commit
 
+Nota (escopo):
+
+- tags/releases `docs-only` sao informativas: servem para rastrear navegacao, guias operacionais e consolidacoes de documentacao
+- elas nao representam mudanca de produto/semantica de runtime, e nao devem substituir a release `Latest` de produto
+
 ### Fluxo recomendado (docs-only)
 
 1. merge/commit na `main` com a mudanca documental
