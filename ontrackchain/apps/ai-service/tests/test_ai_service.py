@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from ai_service.main import app
+from ai_service.worker import process_next_job
 
 client = TestClient(app)
 
@@ -8,6 +9,8 @@ ORG_ID = "00000000-0000-0000-0000-000000000001"
 ADMIN_HEADERS = {"X-Org-Id": ORG_ID, "X-User-Id": "00000000-0000-0000-0000-000000000002", "X-Role": "ADMIN"}
 ANALYST_HEADERS = {"X-Org-Id": ORG_ID, "X-User-Id": "00000000-0000-0000-0000-000000000004", "X-Role": "ANALYST"}
 VIEWER_HEADERS = {"X-Org-Id": ORG_ID, "X-User-Id": "00000000-0000-0000-0000-000000000007", "X-Role": "VIEWER"}
+COMPLIANCE_HEADERS = {"X-Org-Id": ORG_ID, "X-User-Id": "00000000-0000-0000-0000-000000000010", "X-Role": "COMPLIANCE_OFFICER"}
+LEGAL_HEADERS = {"X-Org-Id": ORG_ID, "X-User-Id": "00000000-0000-0000-0000-000000000011", "X-Role": "LEGAL_REVIEWER"}
 
 
 def test_health_check():
@@ -195,12 +198,19 @@ def test_law_enforcement_export_coaf():
         json={"case_id": "test-case", "format": "coaf"},
         headers=ADMIN_HEADERS,
     )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["format"] == "coaf"
-    assert data["document"]["type"] == "Comunicação de Operação Suspeita"
-    assert data["document"]["authority"] == "COAF"
-    assert len(data["evidence_chain"]) > 0
+    assert response.status_code == 202
+    job_id = response.json()["job_id"]
+
+    assert process_next_job(app.state.pool, ORG_ID) is not None
+    status = client.get(f"/api/v1/ai/jobs/{job_id}", headers=ADMIN_HEADERS).json()
+    assert status["status"] == "awaiting_human_gate"
+    assert status["required_approvals"] == 2
+
+    status = client.post(f"/api/v1/ai/jobs/{job_id}/approve", json={}, headers=COMPLIANCE_HEADERS).json()
+    assert status["status"] == "awaiting_human_gate"
+
+    status = client.post(f"/api/v1/ai/jobs/{job_id}/approve", json={}, headers=LEGAL_HEADERS).json()
+    assert status["status"] == "completed"
 
 
 def test_law_enforcement_export_vasp():
@@ -209,9 +219,14 @@ def test_law_enforcement_export_vasp():
         json={"case_id": "test-case", "format": "vasp"},
         headers=ADMIN_HEADERS,
     )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["document"]["type"] == "Ofício para VASP/Exchange"
+    assert response.status_code == 202
+    job_id = response.json()["job_id"]
+    assert process_next_job(app.state.pool, ORG_ID) is not None
+    status = client.get(f"/api/v1/ai/jobs/{job_id}", headers=ADMIN_HEADERS).json()
+    assert status["status"] == "awaiting_human_gate"
+    client.post(f"/api/v1/ai/jobs/{job_id}/approve", json={}, headers=COMPLIANCE_HEADERS)
+    status = client.post(f"/api/v1/ai/jobs/{job_id}/approve", json={}, headers=LEGAL_HEADERS).json()
+    assert status["status"] == "completed"
 
 
 def test_law_enforcement_export_judicial():
@@ -220,9 +235,14 @@ def test_law_enforcement_export_judicial():
         json={"case_id": "test-case", "format": "judicial"},
         headers=ADMIN_HEADERS,
     )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["document"]["type"] == "Relatório Técnico para Autoridade Judiciária"
+    assert response.status_code == 202
+    job_id = response.json()["job_id"]
+    assert process_next_job(app.state.pool, ORG_ID) is not None
+    status = client.get(f"/api/v1/ai/jobs/{job_id}", headers=ADMIN_HEADERS).json()
+    assert status["status"] == "awaiting_human_gate"
+    client.post(f"/api/v1/ai/jobs/{job_id}/approve", json={}, headers=COMPLIANCE_HEADERS)
+    status = client.post(f"/api/v1/ai/jobs/{job_id}/approve", json={}, headers=LEGAL_HEADERS).json()
+    assert status["status"] == "completed"
 
 
 def test_law_enforcement_export_fatf():
@@ -231,9 +251,14 @@ def test_law_enforcement_export_fatf():
         json={"case_id": "test-case", "format": "fatf"},
         headers=ADMIN_HEADERS,
     )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["document"]["type"] == "Relatório FATF/GAFILAT"
+    assert response.status_code == 202
+    job_id = response.json()["job_id"]
+    assert process_next_job(app.state.pool, ORG_ID) is not None
+    status = client.get(f"/api/v1/ai/jobs/{job_id}", headers=ADMIN_HEADERS).json()
+    assert status["status"] == "awaiting_human_gate"
+    client.post(f"/api/v1/ai/jobs/{job_id}/approve", json={}, headers=COMPLIANCE_HEADERS)
+    status = client.post(f"/api/v1/ai/jobs/{job_id}/approve", json={}, headers=LEGAL_HEADERS).json()
+    assert status["status"] == "completed"
 
 
 def test_law_enforcement_rbac_viewer():
@@ -256,15 +281,16 @@ def test_themis_case_intelligence():
         },
         headers=ADMIN_HEADERS,
     )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["case_id"] == "test-case"
-    assert "case_card" in data
-    assert "graph_narrative" in data
-    assert "risk_assessment" in data
-    assert "law_enforcement_package" in data
-    assert "human_gate_required" in data
-    assert isinstance(data["human_gate_required"], bool)
+    assert response.status_code == 202
+    job_id = response.json()["job_id"]
+
+    assert process_next_job(app.state.pool, ORG_ID) is not None
+    status = client.get(f"/api/v1/ai/jobs/{job_id}", headers=ADMIN_HEADERS).json()
+    assert status["analysis_type"] == "themis"
+    assert status["status"] in ("awaiting_human_gate", "completed")
+    if status["status"] == "awaiting_human_gate":
+        status = client.post(f"/api/v1/ai/jobs/{job_id}/approve", json={}, headers=COMPLIANCE_HEADERS).json()
+        assert status["status"] == "completed"
 
 
 def test_themis_rbac_analyst():
@@ -278,7 +304,7 @@ def test_themis_rbac_analyst():
         },
         headers=ANALYST_HEADERS,
     )
-    assert response.status_code == 200
+    assert response.status_code == 202
 
 
 def test_themis_rbac_viewer_forbidden():

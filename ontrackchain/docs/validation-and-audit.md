@@ -155,6 +155,7 @@ O que valida:
 Guia operacional complementar para a trilha federada em `staging`:
 
 - [Validacao em Staging - Diretorio Federado](federated-directory-staging-validation.md)
+- [Catálogo de Eventos — evidence_trail](evidence-event-catalog.md)
 
 ### `audit_logs`
 
@@ -190,6 +191,15 @@ Eventos relevantes em uso:
 - `COAF_ROS_APPROVED`
 - `COAF_ROS_REJECTED`
 - `COAF_ROS_SUBMITTED_MANUAL`
+- `AI_EXPLAIN_GENERATED`
+- `AI_CASE_INSIGHTS_GENERATED`
+- `AI_LAW_ENFORCEMENT_EXPORT_GENERATED`
+- `AI_THEMIS_CASE_INTELLIGENCE_GENERATED`
+- `AI_JOB_AWAITING_HUMAN_GATE`
+- `AI_JOB_APPROVAL_RECORDED`
+- `AI_JOB_DEGRADED`
+- `AI_JOB_FAILED`
+- `AI_DEGRADED_*`
 
 ## Comandos Recomendados
 

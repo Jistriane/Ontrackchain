@@ -23,6 +23,10 @@ Toda evidencia relevante deve permitir correlacao entre:
 
 ## Matriz Atual
 
+Referência de `event_type` (fonte única):
+
+- [Catálogo de Eventos — evidence_trail](./evidence-event-catalog.md)
+
 | Fluxo | `audit_logs` | `evidence_trail` | Chaves | Artefato | Validacao |
 | --- | --- | --- | --- | --- | --- |
 | Investigation start | `case_started` | opcional por integracao | `request_id`, `case_id` | case | smoke |
@@ -44,6 +48,29 @@ Toda evidencia relevante deve permitir correlacao entre:
 | Export administrativo global | `operational_alerts_exported` | nao obrigatoria | `request_id`, `scope`, `format` | CSV/JSON | Playwright |
 | Bundle de evidencia | `evidence_bundle_exported` | `EVIDENCE_EXPORTED` quando aplicavel | `request_id`, `report_id`, filtros | bundle JSON | UI/API |
 | Negacao administrativa | `authorization_denied` | nao obrigatoria | `request_id`, `effective_role`, endpoint | tentativa negada | Playwright |
+
+## IA (Jobs, Human Gate e Degradação)
+
+| Fluxo | `audit_logs` | `evidence_trail` | Chaves | Artefato | Validacao |
+| --- | --- | --- | --- | --- | --- |
+| AI explain solicitado | `ai_explain_requested` (implementado) | `AI_EXPLAIN_GENERATED` | `request_id`, `case_id` | `ai_analysis_results` + evidência | testes |
+| AI risk model avaliado | `ai_risk_model_assessed` (implementado) | (não obrigatório no baseline atual) | `request_id`, `address`, `chain` | `ai_analysis_results` | testes |
+| AI confidence | `ai_confidence_generated` (implementado) | (não obrigatório no baseline atual) | `request_id`, `analysis_id` | `ai_analysis_results` | testes |
+| AI graph analysis | `ai_graph_analysis_completed` (implementado) | (não obrigatório no baseline atual) | `request_id`, `address`, `chain` | `ai_analysis_results` | testes |
+| AI graph narrator | `ai_graph_narrator_generated` (implementado) | (não obrigatório no baseline atual) | `request_id`, `address`, `chain` | `ai_analysis_results` | testes |
+| AI case insights | `ai_case_insights_generated` (implementado) | `AI_CASE_INSIGHTS_GENERATED` | `request_id`, `case_id` | `ai_analysis_results` + evidência | testes |
+| AI export autoridades | `ai_law_enforcement_export_generated` (implementado) | `AI_LAW_ENFORCEMENT_EXPORT_GENERATED` | `request_id`, `case_id`, `format` | `ai_analysis_results` + evidência | testes |
+| AI THEMIS | `ai_themis_case_intelligence_generated` (implementado) | `AI_THEMIS_CASE_INTELLIGENCE_GENERATED` | `request_id`, `case_id` | `ai_analysis_results` + evidência | testes |
+
+### IA (Job assíncrono — proposto)
+
+| Fluxo | `audit_logs` | `evidence_trail` | Chaves | Artefato | Validacao |
+| --- | --- | --- | --- | --- | --- |
+| AI job enfileirado | `ai_job_queued` (implementado) | opcional | `request_id`, `job_id`, `analysis_type` | job | testes |
+| AI job aguardando gate | `ai_job_awaiting_human_gate` (sugerido) | `AI_JOB_AWAITING_HUMAN_GATE` | `request_id`, `job_id`, `analysis_type`, `case_id` | job + referência `ai_analysis_results` | testes |
+| Aprovação registrada | `ai_job_approval_recorded` (sugerido) | `AI_JOB_APPROVAL_RECORDED` | `job_id`, `role`, `approved_by` | job | testes |
+| Job degradado | `ai_job_degraded` (sugerido) | `AI_JOB_DEGRADED` + `AI_DEGRADED_*` quando aplicável | `job_id`, `degradation_reason`, `result_analysis_id` | resultado parcial | testes |
+| Job falhou | `ai_job_failed` (sugerido) | `AI_JOB_FAILED` quando impactar decisão sensível | `job_id`, `error.code`, `request_id` | erro estruturado | testes |
 
 ## Evidencias por Dominio
 

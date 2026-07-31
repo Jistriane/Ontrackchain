@@ -12,7 +12,8 @@ Esta pasta contem migrations incrementais para ambientes que ja possuem volume p
 
 - prefixo numerico crescente: `0001_*.sql`, `0002_*.sql`, ...
 - uma migration por mudanca coerente de schema
-- sempre refletir a mesma mudanca tambem em `init.sql`
+- `infra/postgres/init.sql` deve conter apenas o bootstrap minimo; a fonte de verdade do schema evolutivo sao as migrations
+- em `docker-compose.yml`, o servico `postgres-bootstrap` aplica automaticamente `init.sql` (se necessario) e depois todas as migrations em ordem
 
 ## Migrations Atuais
 
@@ -181,6 +182,35 @@ resolucao consistente do ator persistido.
 - faz backfill idempotente dos novos campos a partir de `email` e `created_at`
 - alvo operacional no `Makefile`: `make apply-team-users-directory-migration`
 
+### `0017_case_management_ai_service.sql`
+
+Camada de `case_management` e persistencia canônica de resultados de IA:
+
+- tabelas `case_management_cases` e `case_management_timeline`
+- tabela `ai_analysis_results` (outputs canônicos, indexáveis e auditáveis)
+- RLS por `organization_id` + índices operacionais
+
+### `0018_agent_framework_rag_eval.sql`
+
+Fundacao de RAG + avaliação do Agent Framework:
+
+- tabela `regulatory_corpus_chunks` com embedding `pgvector`
+- tabelas `agent_golden_dataset`, `agent_production_samples`, `agent_eval_runs`
+- índices para busca vetorial e governança de regressão
+
+### `0019_ai_service_jobs.sql`
+
+Infraestrutura de jobs assíncronos para o `ai-service`:
+
+- tabela `ai_service_jobs` com estados, idempotência por `request_id` e trilha de aprovações
+- RLS por `organization_id` + índices por status/tipo/created_at
+
+### `0020_extend_cases_for_ai.sql`
+
+Compatibiliza o bootstrap de `cases` com o consumer do `ai-worker`:
+
+- adiciona `description` e `category` em `cases` (idempotente)
+
 ## Aplicacao Local
 
 Rode as migrations em ordem:
@@ -202,6 +232,10 @@ docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/pos
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0014_regulatory_work_items_contract_guardrails.sql
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0015_evidence_package_seals.sql
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0016_team_users_directory.sql
+docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0017_case_management_ai_service.sql
+docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0018_agent_framework_rag_eval.sql
+docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0019_ai_service_jobs.sql
+docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0020_extend_cases_for_ai.sql
 ```
 
 ## Validacao de Suites do Compliance API

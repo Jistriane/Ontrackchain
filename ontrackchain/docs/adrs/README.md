@@ -20,6 +20,7 @@ Este diretorio concentra as Architectural Decision Records do scaffold atual.
 - [ADR-014 — Expansão da Public API e Rate Limiting por IP com Cache CDN](./ADR-014-expansao-da-public-api-e-rate-limiting.md)
 - [ADR-015 — Futuro do Modulo Team](./ADR-015-futuro-do-modulo-team.md)
 - [ADR-016 — Estrategia de Vault e Secrets para Producao](./ADR-016-estrategia-de-vault-e-secrets-para-producao.md)
+- [ADR-017 — Nomeação de Eventos de Evidência para IA (AI_DEGRADED)](./ADR-017-evidence-event-naming-ai-degraded.md)
 
 ## Como usar
 

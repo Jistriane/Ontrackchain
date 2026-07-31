@@ -75,6 +75,7 @@ Regras objetivas:
 ### Validacao, Compliance e Auditoria
 
 - [Validacao e Auditoria](./validation-and-audit.md): smoke, Playwright, preflights e evidencias
+- [Catálogo de Eventos — evidence_trail](./evidence-event-catalog.md): lista consolidada de `event_type` para trilha regulatória
 - [Validacao em Staging - Diretorio Federado](./federated-directory-staging-validation.md): trilha complementar do diretorio federado em `staging`, usada por guias e validacoes ativas
 - [Compliance e Controles de Seguranca](./compliance-and-security-controls.md): enforcement e gaps residuais
 - [Relatorios de Compliance (Gerados)](./compliance-reports/README.md): outputs gerados a partir das metricas de governanca, usados como apoio para revisao operacional
