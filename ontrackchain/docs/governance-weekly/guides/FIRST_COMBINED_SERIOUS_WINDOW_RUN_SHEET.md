@@ -58,7 +58,7 @@ Registrar:
 Comando:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-05-serious-window \
   WINDOW_ID="$WINDOW_ID" \
   MODE=baseline \
@@ -86,7 +86,7 @@ Decisao:
 ### Execucao `P0-02`
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/preflight_external_integrations.py
 make check-compliance-provider-runtime \
   INTERNAL_BASE_URL=http://compliance-api:8002 \
@@ -120,7 +120,7 @@ python3 scripts/homologation_external_evidence.py --mode compliance
 ### Execucao `P0-03`
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make rerun-compliance-worker
 export REQUEST_ID="${WINDOW_ID}-eu-check"
 make gate-p0-03-eu-live WINDOW_ID="$WINDOW_ID" REQUEST_ID="$REQUEST_ID"
@@ -154,7 +154,7 @@ make check-eu-sanctions-window REQUEST_ID="$REQUEST_ID"
 ### Execucao `P0-04`
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-04-regulatory-bundle \
   WINDOW_ID="$WINDOW_ID" \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -196,7 +196,7 @@ python3 scripts/validate_serious_window_artifact.py \
 Comando:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID="$WINDOW_ID"
 ```
 

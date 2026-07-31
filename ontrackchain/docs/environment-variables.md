@@ -276,6 +276,26 @@ Variaveis observadas em [main.py](../apps/public-api/src/public_api/main.py):
 - `REDIS_HOST`
 - `REDIS_PORT`
 
+### AI Service
+
+Variaveis observadas em [main.py](../apps/ai-service/src/ai_service/main.py):
+
+- `POSTGRES_HOST`
+- `POSTGRES_PORT`
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `POSTGRES_DB`
+
+Variaveis de runtime do worker (compose):
+
+- `AI_WORKER_ORG_ID` (UUID): contexto de RLS para o `ai-worker` processar `ai_service_jobs`.
+
+Providers de LLM/embeddings (usadas pelo Agent Framework v4.0; ver [`.env.example`](../.env.example)):
+
+- `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_DEFAULT_MODEL`, `ANTHROPIC_HAIKU_MODEL`, `ANTHROPIC_TIMEOUT_MS`
+- `GROQ_API_KEY`, `GROQ_DEFAULT_MODEL`, `GROQ_TIMEOUT_MS`
+- `VOYAGE_API_KEY`
+
 ### Investigation API
 
 Variaveis observadas em [main.py](../apps/investigation-api/src/investigation_api/main.py):

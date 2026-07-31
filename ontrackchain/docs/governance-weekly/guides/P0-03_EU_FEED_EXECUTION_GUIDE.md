@@ -59,7 +59,7 @@ Preencher apenas em `.env.staging.private` local ou no ambiente serio equivalent
 Antes do gate, validar se handoff + override tokenizado da trilha estao prontos:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make check-regulatory-window-readiness \
   REGULATORY_SCOPE=p0-03 \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -75,7 +75,7 @@ Esperado:
 Para a execucao local coordenada de preflight + restart do worker + runner da janela UE + checker pos-sync, preferir:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-03-eu-live \
   WINDOW_ID=<window_id> \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -107,7 +107,7 @@ Esperado:
 Executar antes do sync:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/preflight_external_integrations.py
 ```
 
@@ -124,7 +124,7 @@ Esperado:
 Executar com a env privada atualizada:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make rerun-compliance-worker
 ```
 
@@ -138,7 +138,7 @@ Esperado:
 Preferir o gate canônico completo:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 export REQUEST_ID=<eu_request_id>
 make gate-p0-03-eu-live \
   WINDOW_ID=<window_id> \
@@ -150,7 +150,7 @@ make gate-p0-03-eu-live \
 Alternativamente, se precisar isolar:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make run-eu-sanctions-window \
   WINDOW_ID=<window_id> \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -171,7 +171,7 @@ Esperado:
 Confirmar a convergencia final:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make check-eu-sanctions-window REQUEST_ID=<eu_request_id>
 ```
 
@@ -192,7 +192,7 @@ Esperado:
 Se a mesma janela incluir `AML/KYT live`, preferir consolidar:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-04-regulatory-bundle \
   WINDOW_ID=<window_id> \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -214,7 +214,7 @@ Esperado:
 Depois que os artefatos existirem, sincronizar a janela:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID=<window_id>
 ```
 

@@ -31,7 +31,7 @@ Complementa o [Guia de Execucao Assistida de `P0-03` Feed UE real](./P0-03_EU_FE
 ### 1. Validar handoff e placeholders
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
 python3 scripts/check_staging_env_placeholders.py --file .env.staging.private
 ```
@@ -44,7 +44,7 @@ Resultado esperado:
 ### 2. Preflight externo
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/preflight_external_integrations.py
 ```
 
@@ -56,7 +56,7 @@ Registrar:
 ### 3. Reexecutar worker
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make rerun-compliance-worker
 ```
 
@@ -68,7 +68,7 @@ Registrar:
 ### 4. Runner da janela UE
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-03-eu-live \
   WINDOW_ID=<window_id> \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -85,7 +85,7 @@ Registrar:
 ### 5. Checker pos-sync
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make check-eu-sanctions-window REQUEST_ID=<eu_request_id>
 ```
 
@@ -105,7 +105,7 @@ Se a execucao for hospedada via GitHub Actions, preencher tambem:
 ### 6. Bundle regulatorio se `P0-02` estiver junto
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-04-regulatory-bundle \
   WINDOW_ID=<window_id> \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -123,7 +123,7 @@ Registrar somente se aplicavel:
 ### 7. Reconciliar governanca
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID=<window_id>
 ```
 

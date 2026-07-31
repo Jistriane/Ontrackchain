@@ -15,8 +15,8 @@ Se voce vai trabalhar no codigo ou operar o ambiente, leia nesta ordem:
 
 Resumo tecnico:
 
-- baseline oficial: **100%** técnico, **100%** regulatório/operacional, **100%** consolidado
-- a baseline viva está em `docs/README.md`, `docs/project-kpi-scorecard.md` e `docs/project-maturity-assessment.md`
+- baseline executivo oficial: **100%** técnico, **100%** regulatório/operacional, **100%** consolidado (fonte: `docs/project-executive-readiness-brief.md`)
+- a baseline viva e os detalhes técnicos estão em `docs/README.md` e no [Apêndice técnico](./docs/TECHNICAL_APPENDIX.md)
 - o blueprint padrão hospedado passou a ser `frontend standalone showcase` e serviços `FastAPI` em produção
 - suporte a APIs B2B Institucionais (`/api/v1/b2b/screen`) e Monetização Stripe Billing SaaS (`StripeBillingManager`, `/api/stripe/webhook`)
 - resiliência DR e Restore PostgreSQL automatizada e validada (`test_postgres_backup_restore.py`)
@@ -34,7 +34,7 @@ Aqui vivem:
 
 Nota de workspace:
 
-- alguns artefatos operacionais, especialmente workflows do GitHub Actions, vivem no repositorio agregador pai `/home/jistriane/Ontrackchain`; quando um documento desta arvore apontar para `../.github/workflows/`, trate isso como referencia intencional ao workspace agregado e nao como drift tecnico
+- alguns artefatos operacionais, especialmente workflows do GitHub Actions, vivem no workspace agregador pai (diretório acima deste repositório canônico); quando um documento desta arvore apontar para `../.github/workflows/`, trate isso como referencia intencional ao workspace agregado e nao como drift tecnico
 
 ## Snapshot Tecnico
 
@@ -43,7 +43,8 @@ Nota de workspace:
 - `P1-01` consolidou metadata de `work-items` entre frontend, backend e contrato canonico
 - `P2-02` consolidou `timeline/comments` compartilhados nos cockpits operacionais
 - `P2-03` consolidou RCA cross-domain leve entre `alerts`, `/monitoring` e governanca
-- `P2-05` segue em expansao incremental com enforcement fino em `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties` e navegacao global
+- `P2-05` concluido com enforcement fino em `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties`, `monitoring` e navegacao global
+- `v4.0.7`: AI Service opera `themis` e `law-enforcement-export` via jobs assíncronos (`202 Accepted`) processados pelo serviço `ai-worker` (PostgreSQL `FOR UPDATE SKIP LOCKED` + RLS via `AI_WORKER_ORG_ID`)
 - a taxonomia documental ja foi saneada para separar documento vivo, ciclo ativo, historico de apoio e historico arquivado
 
 ### Gargalos tecnicos atuais
@@ -173,6 +174,7 @@ Observacoes:
 
 - use `npm run test:e2e:dev-auth` apenas com `AUTH_MODE=dev`
 - use `npm run test:e2e:oidc-critical` apenas quando o runtime real estiver em `AUTH_MODE=oidc`
+- para exercitar jobs do AI Service, defina `AI_WORKER_ORG_ID` (UUID) no `.env` para manter o `ai-worker` ativo (ver `docs/operations.md`)
 - para mudancas server-side no frontend, prefira `docker compose up -d --build frontend`
 
 ### 3. Validar readiness serio

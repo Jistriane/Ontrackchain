@@ -58,7 +58,7 @@ Estado local atual:
 Antes do gate, validar se a mesma janela ja pode sustentar `P0-02 + P0-03`:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make check-regulatory-window-readiness \
   REGULATORY_SCOPE=p0-04 \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -75,7 +75,7 @@ Esperado:
 Para a execucao local coordenada de preflight + bundle JSON + resumo markdown, preferir:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-04-regulatory-bundle \
   WINDOW_ID=<window_id> \
   PRIVATE_ENV_FILE=.env.staging.private \

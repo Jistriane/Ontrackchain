@@ -168,26 +168,14 @@ python3 scripts/run_staging_window.py \
 
 ### 2. Verificar drift de schema
 
-Se o banco alvo ja existe:
+Em staging (e também em local), o padrão é executar o runner `postgres-bootstrap`, que aplica `init.sql` (quando necessário) e depois executa todas as migrations em ordem.
 
 ```bash
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0001_align_reports_table.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0002_add_monitoring_alerts.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0003_add_audit_logs.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0004_add_audit_log_filter_indexes.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0005_add_operational_alert_events.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0006_add_operational_alert_triage.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0007_add_operational_alert_cursor_index.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0008_add_external_identities.sql
+docker compose up -d postgres
+docker compose run --rm postgres-bootstrap
 ```
 
-Continue a reconciliacao com as migrations incrementais posteriores ja documentadas em [operations.md](operations.md), com atencao especial para:
-
-- `0014_regulatory_work_items_contract_guardrails.sql`
-- `0015_evidence_package_seals.sql`
-- `0016_team_users_directory.sql`
-
-Mesmo com bootstrap idempotente no `auth-service`, trate bancos ja provisionados como alvo de reconciliacao deliberada antes da janela.
+Referência canônica: [infra/postgres/migrations/README.md](../infra/postgres/migrations/README.md).
 
 ### 3. Subir servicos
 

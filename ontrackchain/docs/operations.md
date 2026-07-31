@@ -29,6 +29,10 @@ Variaveis que merecem revisao imediata:
 docker compose up -d --build
 ```
 
+Observação (AI worker):
+
+- o serviço `ai-worker` exige `AI_WORKER_ORG_ID` (UUID) para setar o contexto de RLS; sem isso, ele encerra ao iniciar.
+
 ## Verificacoes Minimas
 
 ### Containers
@@ -62,28 +66,19 @@ npm run test:e2e:oidc-critical
 
 ## Migrations
 
-Ambientes novos usam `infra/postgres/init.sql`.
+O `docker-compose.yml` inclui o serviço `postgres-bootstrap`, que aplica automaticamente:
 
-Ambientes com volume persistido devem aplicar as migrations incrementais:
+1) `infra/postgres/init.sql` (quando necessário)  
+2) todas as migrations em `infra/postgres/migrations/` em ordem
+
+Para reexecutar manualmente o bootstrap (casos raros: drift em volume persistido ou troubleshooting):
 
 ```bash
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0001_align_reports_table.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0002_add_monitoring_alerts.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0003_add_audit_logs.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0004_add_audit_log_filter_indexes.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0005_add_operational_alert_events.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0006_add_operational_alert_triage.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0007_add_operational_alert_cursor_index.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0008_add_external_identities.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0009_evidence_trail.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0010_preventive_blocks.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0011_counterparties.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0012_sanctions_cache_ros_records.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0013_regulatory_work_items.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0014_regulatory_work_items_contract_guardrails.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0015_evidence_package_seals.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0016_team_users_directory.sql
+docker compose up -d postgres
+docker compose run --rm postgres-bootstrap
 ```
+
+Referência canônica: [infra/postgres/migrations/README.md](../infra/postgres/migrations/README.md).
 
 ## Compliance e Sancoes
 

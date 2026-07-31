@@ -4,18 +4,19 @@
 
 Centralizar a documentacao viva do Ontrackchain em um unico indice, reduzindo drift entre codigo, runtime, operacao e narrativa executiva.
 
+## Portas de Entrada
+
+- Sumário Executivo (fonte): [README.md](../../README.md)
+- Readiness canônico: [project-executive-readiness-brief.md](./project-executive-readiness-brief.md)
+- Apêndice técnico: [TECHNICAL_APPENDIX.md](./TECHNICAL_APPENDIX.md)
+
 ## Snapshot Atual
 
-- baseline oficial: `93%` tecnico, `79%` regulatorio/operacional, `89%` consolidado
-- frontend operacional com tri-locale, contratos compartilhados e 7 cockpits convergidos ao mesmo modelo de workspace
-- `monitoring` modularizado em loaders, hooks e paineis dedicados
-- `P1-01` consolidado para metadata de `work-items`
-- `P2-03` consolidado com RCA cross-domain leve
-- `P2-05` segue em execucao incremental, com enforcement fino ja expandido por `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties` e navegacao global sensivel
-- Playwright institucionalizado por classes: `stack real leve`, `browser-mocked`, `ssr-mocked`, `dev-auth` e `oidc-critical`
-- o blueprint padrao do Render passou a ser o recorte `frontend standalone showcase`, enquanto o `full-stack` ficou isolado em arquivo dedicado
-- o frontend expõe `GET /auth/config` como bootstrap canônico do login e do preflight `OIDC`
-- o runtime hospedado agora pode entrar em `hostedShowcaseFallback` quando faltarem `INTERNAL_AUTH_BASE_URL` ou `INTERNAL_KEYCLOAK_BASE_URL`
+- baseline executivo oficial: `100%` técnico, `100%` regulatório/operacional, `100%` consolidado (fonte: [Resumo Executivo de Readiness](./project-executive-readiness-brief.md))
+- gap principal deixou de ser ausência de código; hoje é homologação externa, prova operacional revisável e aceite institucional
+- RBAC fino consolidado (`P2-05` concluído) e RCA cross-domain leve institucionalizado (`P2-03`)
+- AI Service e Case Management consolidados com persistência PostgreSQL, RBAC e trilha regulatória (`evidence_trail`)
+- release `v4.0.7` adiciona jobs assíncronos com worker dedicado (reduz acoplamento, melhora resiliência e rastreabilidade)
 
 ## Precedencia Documental
 
@@ -86,7 +87,7 @@ Regras objetivas:
 
 ### Planejamento e Governanca
 
-- [Portal do Workspace](./workspace-root-readme.md): espelho documental do `README` raiz do workspace, com leitura executiva, mapa do workspace e diagramas de fluxo centrais
+- [Portal do Workspace](./workspace-root-readme.md): redirect para as fontes canônicas, evitando duplicação e drift
 - [Resumo Executivo de Readiness](./project-executive-readiness-brief.md): leitura curta para sponsors e diretoria
 - [Kit de Execucao por Evidencia](./project-maturity-evidence-execution-kit.md): templates, semaforo e plano `D1-D7`
 - [Scorecard Oficial](./project-kpi-scorecard.md): formula e baseline executiva

@@ -65,7 +65,7 @@ export ONTRACKCHAIN_EXPECT_RPC_MODE=disabled
 Antes do gate, validar se handoff + secrets minimos da trilha estao prontos:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make check-regulatory-window-readiness \
   REGULATORY_SCOPE=p0-02 \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -81,7 +81,7 @@ Esperado:
 Para a execucao local coordenada de preflight + checker AML/KYT + smoke, preferir:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-02-aml-live \
   PRIVATE_ENV_FILE=.env.staging.private \
   COMPLIANCE_INTERNAL_BASE_URL=http://localhost:8002 \
@@ -118,7 +118,7 @@ Esperado:
 Executar antes de qualquer chamada real de homologacao:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/preflight_external_integrations.py
 ```
 
@@ -135,7 +135,7 @@ Esperado:
 Executar o gate canonico de runtime:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 export REQUEST_ID=<compliance_request_id>
 make gate-p0-02-aml-live \
   REQUEST_ID=$REQUEST_ID \
@@ -160,7 +160,7 @@ Esperado:
 Executar uma verificacao funcional curta:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/smoke_runtime.py
 ```
 
@@ -174,7 +174,7 @@ Esperado:
 Executar a coleta formal da trilha de homologacao:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/homologation_external_evidence.py --mode compliance
 ```
 
@@ -190,7 +190,7 @@ Esperado:
 Se a mesma janela incluir feed UE real, preferir consolidar:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-04-regulatory-bundle \
   WINDOW_ID=<window_id> \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -212,7 +212,7 @@ Esperado:
 Depois que os artefatos existirem, sincronizar a janela:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID=<window_id>
 ```
 

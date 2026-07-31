@@ -70,7 +70,7 @@ Registrar:
 ## Gate Agregado `T-15 min`
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-05-serious-window \
   WINDOW_ID=stg-2026-07-13-a \
   MODE=baseline \
@@ -90,7 +90,7 @@ Registrar:
 ## Execucao `P0-02`
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/preflight_external_integrations.py
 make check-compliance-provider-runtime \
   INTERNAL_BASE_URL=http://compliance-api:8002 \
@@ -114,7 +114,7 @@ Registrar:
 ## Execucao `P0-03`
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make rerun-compliance-worker
 export REQUEST_ID="stg-2026-07-13-a-eu-check"
 make gate-p0-03-eu-live WINDOW_ID=stg-2026-07-13-a REQUEST_ID="$REQUEST_ID"
@@ -137,7 +137,7 @@ Registrar:
 ## Consolidacao `P0-04`
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-04-regulatory-bundle \
   WINDOW_ID=stg-2026-07-13-a \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -166,7 +166,7 @@ Registrar:
 ## Reconciliacao Final
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID=stg-2026-07-13-a
 ```
 

@@ -35,7 +35,7 @@ Complementa o [Guia de Execucao Assistida de `P0-02` AML/KYT live](./P0-02_AML_K
 ### 1. Validar handoff e placeholders
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
 python3 scripts/check_staging_env_placeholders.py --file .env.staging.private
 ```
@@ -48,7 +48,7 @@ Resultado esperado:
 ### 2. Preflight externo
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/preflight_external_integrations.py
 ```
 
@@ -60,7 +60,7 @@ Registrar:
 ### 3. Runtime gate AML/KYT
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-02-aml-live \
   PRIVATE_ENV_FILE=.env.staging.private \
   COMPLIANCE_INTERNAL_BASE_URL=http://localhost:8002 \
@@ -83,7 +83,7 @@ Se a execucao for hospedada via GitHub Actions, preencher tambem:
 ### 4. Smoke funcional
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/smoke_runtime.py
 ```
 
@@ -95,7 +95,7 @@ Registrar:
 ### 5. Evidencia externa
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/homologation_external_evidence.py --mode compliance
 ```
 
@@ -108,7 +108,7 @@ Registrar:
 ### 6. Bundle regulatorio se `P0-03` estiver junto
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-04-regulatory-bundle \
   WINDOW_ID=<window_id> \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -126,7 +126,7 @@ Registrar somente se aplicavel:
 ### 7. Reconciliar governanca
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID=<window_id>
 ```
 

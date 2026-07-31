@@ -9,20 +9,19 @@ Workspace agregador do projeto Ontrackchain. Esta raiz existe para onboarding, n
 Se este e seu primeiro contato com o workspace, leia nesta ordem:
 
 1. [Snapshot Executivo](#snapshot-executivo)
-2. [Mapa do Workspace](#mapa-do-workspace)
-3. [Diagramas de Fluxo](#diagramas-de-fluxo)
-4. [README tecnico da arvore ativa](./ontrackchain/README.md)
-5. [Indice canonico da documentacao ativa](./ontrackchain/docs/README.md)
+2. [Resumo Executivo de Readiness (canônico)](./ontrackchain/docs/project-executive-readiness-brief.md)
+3. [Apêndice técnico](./ontrackchain/docs/TECHNICAL_APPENDIX.md)
+4. [README técnico da árvore ativa](./ontrackchain/README.md)
+5. [Índice canônico da documentação](./ontrackchain/docs/README.md)
 
 Resumo em 30 segundos:
 
-- baseline oficial atual: `100%` tecnico, `100%` regulatorio/operacional, `100%` consolidado
-- a arvore tecnica ativa desta workspace e `ontrackchain/`
+- baseline executivo oficial: `100%` técnico, `100%` regulatório/operacional, `100%` consolidado (fonte: [Resumo Executivo de Readiness](./ontrackchain/docs/project-executive-readiness-brief.md))
+- a arvore tecnica ativa deste repositório e `ontrackchain/`
 - o principal gap nao e mais scaffold; agora e homologacao externa real, prova revisavel e aceite institucional
-- o ciclo ativo continua ancorado em `2026-07-13`, com a janela `stg-2026-07-13-a` ainda em `pending_no_go`
-- o blueprint padrao do Render passou a ser `frontend standalone showcase`; o staging real ficou isolado em `render.full-stack.yaml`
-- o frontend ativo expõe `GET /auth/config` como bootstrap canonico do login
-- a execucao real local mais recente confirmou `P0-02`, `P0-03` e `P0-04` em `blocked` por `.env.staging.private` ausente e handoff pendente de `Compliance/AML`
+- release atual: `v4.0.7` (jobs assíncronos de IA + worker dedicado + bootstrap automático de migrations)
+- o scaffold de `.env.staging.private` ja existe; o bloqueio dominante hoje e handoff pendente de `Compliance/AML` e variaveis reais obrigatorias (AML/KYT live + feed UE tokenizado)
+- staging full-stack continua isolado em `render.full-stack.yaml`; o blueprint padrao de vitrine segue `render.yaml` (frontend standalone showcase)
 
 ## Snapshot Executivo
 
@@ -42,7 +41,7 @@ Resumo em 30 segundos:
 | `P1-01` metadata de work-items | `done` | contrato canonico unificado entre frontend, backend e `api-contracts.md` |
 | `P2-02` timeline/comments compartilhados | `done` | modelo comum consolidado nos cockpits operacionais |
 | `P2-03` RCA cross-domain | `done` | RCA leve persistida, lida por `monitoring` e refletida em governanca |
-| `P2-05` RBAC incremental | `in_progress` | enforcement fino expandido por `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties` e navegacao global sensivel |
+| `P2-05` RBAC incremental | `done` | enforcement fino expandido por `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties` e navegacao global sensivel |
 
 ### Bloqueadores para o salto regulatorio
 
@@ -115,7 +114,7 @@ flowchart TD
 Use quando a meta for publicar uma vitrine navegavel do frontend sem backend real e sem segredos.
 
 - blueprint: [render.yaml](./ontrackchain/render.yaml)
-- doc canonica: [Blueprint Render para Staging Full-Stack](./ontrackchain/docs/render-staging-blueprint.md)
+- doc canonica: [Blueprint Render - Frontend Standalone Showcase](./ontrackchain/docs/render-frontend-only-demo.md)
 - comportamento esperado:
   - `FRONTEND_STANDALONE_SHOWCASE_MODE=true`
   - `/api/healthz` responde sem depender de auth interna
@@ -348,7 +347,7 @@ flowchart TD
 ### 1. Entrar na arvore ativa
 
 ```bash
-cd ontrackchain
+cd github_main/ontrackchain
 ```
 
 ### 2. Subir a stack local
@@ -407,7 +406,7 @@ make gate-p0-04-regulatory-bundle WINDOW_ID=stg-$(date +%F)-reg PRIVATE_ENV_FILE
 Comandos principais:
 
 ```bash
-cd ontrackchain
+cd github_main/ontrackchain
 make help-serious-window
 make prepare-serious-window-dispatch WINDOW_ID=stg-2026-07-13-a
 make render-serious-window-dispatch-packet WINDOW_ID=stg-2026-07-13-a
@@ -437,7 +436,7 @@ As frentes que mais movem a maturidade comprovada continuam sendo:
 Atalho canonico para o passo 1, sem criar fluxo paralelo:
 
 ```bash
-cd ontrackchain
+cd github_main/ontrackchain
 make materialize-staging-private-env \
   WINDOW_ID=stg-YYYY-MM-DD-a \
   MODE=baseline \
@@ -449,7 +448,7 @@ Esse alvo reutiliza `prepare_staging_window.py`, gera o `window packet` redigido
 Atalho recomendado para consolidar o handoff regulatorio atual em um unico artefato por owner:
 
 ```bash
-cd ontrackchain
+cd github_main/ontrackchain
 make run-regulatory-unblock-checklist-local \
   WINDOW_ID=stg-YYYY-MM-DD-a \
   PRIVATE_ENV_FILE=.env.staging.private \

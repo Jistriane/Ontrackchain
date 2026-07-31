@@ -76,7 +76,7 @@ Executar na ordem abaixo, sem pular validacoes.
 ### 1. Gate agregado inicial
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 export WINDOW_ID=stg-YYYY-MM-DD-serious-a
 make gate-p0-05-serious-window \
   WINDOW_ID="$WINDOW_ID" \
@@ -90,7 +90,7 @@ Esse gate canônico encapsula `prepare_staging_window.py --run` e o `postprocess
 ### 2. Validacoes de handoff e placeholders
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
 python3 scripts/check_staging_env_placeholders.py --file .env.staging.private
 ```
@@ -98,15 +98,15 @@ python3 scripts/check_staging_env_placeholders.py --file .env.staging.private
 ### 3. Execucao `P0-01`
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/preflight_oidc_serious_env.py
 python3 scripts/smoke_auth_oidc_mode.py
 
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain/apps/frontend
+cd github_main/ontrackchain/apps/frontend
 npm ci
 npm run test:e2e:oidc-critical
 
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make run-oidc-readiness-bundle-local \
   WINDOW_ID="$WINDOW_ID" \
   BASE_URL=http://localhost:8080
@@ -115,7 +115,7 @@ make run-oidc-readiness-bundle-local \
 ### 4. Execucao `P0-02`
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/preflight_external_integrations.py
 make check-compliance-provider-runtime \
   INTERNAL_BASE_URL=http://compliance-api:8002 \
@@ -127,7 +127,7 @@ python3 scripts/homologation_external_evidence.py --mode compliance
 ### 5. Execucao `P0-03`
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make rerun-compliance-worker
 export REQUEST_ID="${WINDOW_ID}-eu-check"
 make gate-p0-03-eu-live WINDOW_ID="$WINDOW_ID" REQUEST_ID="$REQUEST_ID"
@@ -143,7 +143,7 @@ Esperado ao fim da etapa:
 ### 6. Consolidacao `P0-02 + P0-03`
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-04-regulatory-bundle \
   WINDOW_ID="$WINDOW_ID" \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -167,7 +167,7 @@ Esperado ao fim da etapa:
 ### 6.1 Validacao objetiva do pacote combinado
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/validate_serious_window_artifact.py \
   --window-id "$WINDOW_ID" \
   --checks-dir artifacts/staging/checks \
@@ -185,14 +185,14 @@ Esperado:
 ### 7. Reconciliacao final da governanca
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID="$WINDOW_ID"
 ```
 
 Se a janela tiver payload consolidado (`ci-artifacts/prepare-staging-window-output.json`), sincronizar a camada executiva com:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make postprocess-serious-window \
   RUN_URL="https://github.com/<org>/<repo>/actions/runs/<run_id>"
 ```
