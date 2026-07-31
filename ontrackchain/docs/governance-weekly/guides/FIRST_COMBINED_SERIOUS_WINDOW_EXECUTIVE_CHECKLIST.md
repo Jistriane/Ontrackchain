@@ -15,7 +15,7 @@ Este documento complementa:
 - [Pacote Final de Execucao - Janela Seria Integrada](./SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md)
 - [Guia `P0-02` AML/KYT live](./P0-02_AML_KYT_LIVE_EXECUTION_GUIDE.md)
 - [Guia `P0-03` Feed UE real](./P0-03_EU_FEED_EXECUTION_GUIDE.md)
-- [Guia `P0-04` Bundle Regulatorio Oficial](./P0-04_REGULATORY_BUNDLE_EXECUTION_GUIDE.md)
+- [Guia `P0-04` Bundle regulatório Oficial](./P0-04_REGULATORY_BUNDLE_EXECUTION_GUIDE.md)
 - [Matriz de Execucao por Owner para Janela Seria](../../staging-serious-window-war-room-matrix.md)
 
 ## Identificacao da Janela
@@ -29,13 +29,13 @@ Este documento complementa:
 
 ## Matriz Executiva de Owners
 
-| Frente | Owner primario | Backup / escalacao | Evidencia minima para seguir |
+| Frente | Owner primario | Backup / escalacao | evidência minima para seguir |
 | --- | --- | --- | --- |
 | Gate agregado | `Arquiteto/Responsavel Tecnico` | `Platform/SRE` | `prepare_staging_window --validate --preflight` com `status=ok` |
 | `P0-02` AML/KYT | `Compliance/Backend` | `Security` | runtime AML/KYT verde + homologacao externa preservada + `request_id` |
 | `P0-03` Feed UE | `Compliance/Backend` | `Security` | JSON `preflight` + JSON `sync` + `EU_CONSOLIDATED=ACTIVE/SUCCESS` + `request_id` |
-| `P0-04` consolidado | `Release Manager Tecnico` | `Arquiteto/Responsavel Tecnico` | bundle regulatorio com `readiness.regulatory_bundle=ready_for_validation` |
-| Governanca / sign-off | `Release Manager Tecnico` | `Tech Lead` | snapshot, delta, consolidated e sign-off coerentes |
+| `P0-04` consolidado | `Release Manager Tecnico` | `Arquiteto/Responsavel Tecnico` | bundle regulatório com `readiness.regulatory_bundle=ready_for_validation` |
+| governança / sign-off | `Release Manager Tecnico` | `Tech Lead` | snapshot, delta, consolidated e sign-off coerentes |
 
 ## Gating por Horario
 
@@ -51,7 +51,7 @@ Use os horarios como janelas relativas a partir do inicio da sessao, nao como ho
 
 Saida esperada:
 
-- autorizacao para iniciar o gate agregado
+- autorização para iniciar o gate agregado
 
 ### `T-15 min` - Gate agregado
 
@@ -127,19 +127,19 @@ Usar somente quando todos forem verdadeiros:
 - `P0-03` verde com feed UE coerente
 - `P0-04` em `ready_for_validation`
 - validador de artifact retorna `status=ok`
-- sign-off e governanca sincronizados
+- sign-off e governança sincronizados
 
 ### `go_with_exception`
 
 Usar apenas se:
 
-- a janela teve evidencia material valida
+- a janela teve evidência material valida
 - a excecao nao invalida correlators nem bundle oficial
 - existe owner, waiver e prazo curto formal
 
 Exemplos aceitaveis:
 
-- atraso administrativo de publicacao em governanca, apos artefatos tecnicos revisados
+- atraso administrativo de publicacao em governança, apos artefatos tecnicos revisados
 
 Exemplos nao aceitaveis:
 
@@ -171,7 +171,7 @@ Usar imediatamente se qualquer um ocorrer:
 - nao rerodar a mesma tentativa depois de alterar secrets, endpoints ou token UE sem registrar isso explicitamente
 - se a falha exigir mudanca material de insumo, criar novo `window_id`
 - se a falha for apenas de governanca/renderizacao sem mudar evidência tecnica, o mesmo `window_id` pode ser reaproveitado
-- nunca sobrescrever artefato anterior sem manter trilha revisavel da tentativa anterior
+- nunca sobrescrever artefato anterior sem manter trilha revisável da tentativa anterior
 
 ## Politica de Troca de `window_id`
 
@@ -184,7 +184,7 @@ Trocar o `window_id` quando houver:
 
 Pode manter o `window_id` quando houver apenas:
 
-- rerender de governanca
+- rerender de governança
 - ajuste de markdown/sign-off
 - reconciliacao documental sem alterar a prova tecnica
 

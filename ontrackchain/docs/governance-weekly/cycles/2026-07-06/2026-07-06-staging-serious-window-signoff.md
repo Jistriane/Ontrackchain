@@ -36,7 +36,7 @@
 - MFA/2FA: `pending`
 - compliance: `pending`
 - investigation/RPC: `pending`
-- reports e evidencias: `pending`
+- reports e evidências: `pending`
 - CI/CD: `pending`
 - restore/retention: `pending`
 
@@ -56,8 +56,8 @@
 ## Decisao Final
 
 - decisao: `pending_no_go`
-- proximo passo: resolver os bloqueadores do war room e rerodar o gate agregado antes de qualquer execucao real
-- owner do proximo passo: `owners nominais por trilha com coordenacao do facilitador/Release Manager Tecnico`
+- próximo passo: resolver os bloqueadores do war room e rerodar o gate agregado antes de qualquer execucao real
+- owner do próximo passo: `owners nominais por trilha com coordenacao do facilitador/Release Manager Tecnico`
 
 ## Regras de Atualizacao
 

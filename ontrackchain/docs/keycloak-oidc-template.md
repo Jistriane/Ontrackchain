@@ -1,4 +1,4 @@
-# Template de Configuracao Keycloak para OIDC
+# Template de configuração Keycloak para OIDC
 
 ## Objetivo
 
@@ -10,7 +10,7 @@ Este documento assume a arquitetura decidida para a `Sprint 1`:
 - `AUTH_MODE=oidc` nos ambientes serios
 - `Keycloak` exposto por subdominio dedicado, preferencialmente `auth.ontrackchain.com`
 - fluxo iniciado pelo frontend via redirecionamento para o `authorization_endpoint`
-- validacao de token no `auth-service` via `issuer` + `JWKS`
+- validação de token no `auth-service` via `issuer` + `JWKS`
 - `audience` das APIs validada contra `ontrackchain-api`
 
 ## Escopo do Primeiro Corte
@@ -18,7 +18,7 @@ Este documento assume a arquitetura decidida para a `Sprint 1`:
 Inclui:
 
 - login OIDC iniciado pelo navegador
-- validacao de token pelo `auth-service`
+- validação de token pelo `auth-service`
 - propagacao de contexto (`org`, `plan`, `role`)
 - bloqueio do fluxo `dev` fora de `local|test`
 
@@ -31,7 +31,7 @@ Nao inclui ainda:
 
 ## Topologia Esperada
 
-O diagrama abaixo resume o fluxo esperado de autenticacao federada, do redirect inicial ate o enforcement efetivo nas APIs.
+O diagrama abaixo resume o fluxo esperado de autenticação federada, do redirect inicial ate o enforcement efetivo nas APIs.
 
 ```mermaid
 sequenceDiagram
@@ -131,7 +131,7 @@ Configuracoes minimas:
 Sugestao:
 
 - client id: `ontrackchain-api`
-- tipo: `bearer-only` ou `confidential`, conforme a estrategia de validacao escolhida
+- tipo: `bearer-only` ou `confidential`, conforme a estrategia de validação escolhida
 - papel arquitetural: audience das APIs e superficie reservada ao backend FastAPI
 
 Configuracoes minimas:
@@ -147,7 +147,7 @@ Sugestao:
 - client id: `ontrackchain-b2b`
 - tipo: `confidential`
 - `service accounts enabled=ON`
-- uso exclusivo para integracoes B2B e automacoes
+- uso exclusivo para integrações B2B e automacoes
 
 ## Template de Claims
 
@@ -201,7 +201,7 @@ Roles recomendadas:
 - `redirect URIs` cadastradas
 - `web origins` cadastradas
 
-### Claims e Autorizacao
+### Claims e autorização
 
 - claim de organizacao definida
 - claim de plano definida
@@ -261,7 +261,7 @@ Contrato esperado do usuario negativo:
 | Redirect URI incorreta bloquear login | alta | P1 | cadastrar `localhost` e `staging` antes do primeiro smoke |
 | Token vir sem contexto de negocio suficiente | media | P0 | definir mapper explicito no Keycloak antes da homologacao |
 
-## Proximo Passo Imediato
+## próximo Passo Imediato
 
 Assim que os valores reais estiverem disponiveis, preencher este template e aplicar o corte em:
 

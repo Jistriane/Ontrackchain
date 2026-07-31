@@ -31,7 +31,7 @@ Preencher primeiro aqui, depois refletir os dados finais em:
 | `auth-service` / OIDC | `Backend/Auth` | `preencher` | `preencher` | `preencher` | `preencher` |
 | `Team` / Frontend | `Frontend Lead` | `preencher` | `preencher` | `preencher` | `preencher` |
 | `Audit` / observabilidade funcional | `Frontend Lead` | `preencher` | `preencher` | `preencher` | `preencher` |
-| Banco / evidencias SQL | `Platform/SRE` | `preencher` | `preencher` | `preencher` | `preencher` |
+| Banco / evidências SQL | `Platform/SRE` | `preencher` | `preencher` | `preencher` | `preencher` |
 
 ## T-30
 
@@ -55,7 +55,7 @@ Registrar:
 - [ ] `auth-service` pronto para leitura do diretório
 - [ ] `Team` apto a executar a busca assistida
 - [ ] acesso ao `Audit` confirmado
-- [ ] rota de evidencia SQL confirmada
+- [ ] rota de evidência SQL confirmada
 
 Registrar:
 
@@ -70,7 +70,7 @@ Registrar:
 - [ ] busca assistida disparada ou bloqueada explicitamente
 - [ ] sugestao de vinculo disparada ou bloqueada explicitamente
 - [ ] `link` efetuado ou bloqueado explicitamente
-- [ ] proximo checkpoint definido
+- [ ] próximo checkpoint definido
 
 Registrar:
 

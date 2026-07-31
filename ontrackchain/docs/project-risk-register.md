@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Consolidar os principais riscos tecnicos, operacionais e regulatorios do Ontrackchain com base no runtime real atual e na documentacao canonica atualizada.
+Consolidar os principais riscos tecnicos, operacionais e regulatórios do Ontrackchain com base no runtime real atual e na documentação canônica atualizada.
 
 ## Resumo Executivo
 
@@ -12,7 +12,7 @@ Leituras oficiais:
 - `100%` de prontidao regulatoria
 - `100%` de construcao total consolidada conforme o [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
 
-Referencias canonicas da baseline atual:
+Referencias canônicas da baseline atual:
 
 - [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
 - [Avaliacao de Maturidade do Projeto](./project-maturity-assessment.md)
@@ -26,18 +26,18 @@ Interpretacao:
 
 | ID | Risco | Categoria | Status Atual | Probabilidade | Impacto | Severidade | Owner Sugerido | Mitigacao |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| R-01 | MFA federado ainda nao homologado como trilho oficial serio | Auth | mitigado parcialmente | Alta | P0 | Critica | Backend/Auth | homologar o fluxo em janela seria e anexar evidencia |
+| R-01 | MFA federado ainda nao homologado como trilho oficial serio | Auth | mitigado parcialmente | Alta | P0 | Critica | Backend/Auth | homologar o fluxo em janela seria e anexar evidência |
 | R-02 | Provider `AML/KYT` live ainda nao validado com credenciais reais | Compliance | aberto | Alta | P0 | Critica | Compliance/Backend | rodar `make check-compliance-provider-runtime` e a homologacao externa com provider real, anexando bundle e telemetria |
-| R-03 | Feed `EU_CONSOLIDATED` depender de URL tokenizada e travar homologacao | Integracao | aberto | Media | P1 | Alta | Compliance/Backend | preencher `COMPLIANCE_EU_SANCTIONS_SOURCE_URL`, reexecutar o worker e anexar os JSONs de `make gate-p0-03-eu-live` com `REQUEST_ID` |
+| R-03 | Feed `EU_CONSOLIDATED` depender de URL tokenizada e travar homologacao | integração | aberto | Media | P1 | Alta | Compliance/Backend | preencher `COMPLIANCE_EU_SANCTIONS_SOURCE_URL`, reexecutar o worker e anexar os JSONs de `make gate-p0-03-eu-live` com `REQUEST_ID` |
 | R-04 | Regressao futura no alinhamento entre catalogo `sanctions_check` e endpoint direto live | Produto/Contrato | mitigado | Baixa | P2 | Baixa | Backend | manter testes de contrato e revisar docs em mudancas de capability |
 | R-05 | `due_diligence` e `source_of_funds` seguirem somente em manual review | Compliance | aberto | Media | P1 | Media | Compliance/Product | manter degradacao honesta e definir roadmap de motor homologado |
-| R-06 | Novo drift futuro no inventario de eventos da `evidence_trail` voltar a surgir | Governanca | mitigado | Baixa | P2 | Baixa | Backend/Arquitetura | manter source of truth unico e o teste cruzado `test_evidence_event_catalog_sync.py` |
-| R-07 | Sign-off de retention/recovery nao ser institucionalizado | Governanca | mitigado parcialmente | Media | P0 | Alta | Security/Platform | obter aceite formal e repetir restore evidenciado |
-| R-08 | Janela seria ser executada sem dossier ou ownership completo | Operacao | mitigado parcialmente | Baixa | P1 | Media | Platform/SRE | manter `run_staging_window.py` e checkers como gate obrigatorio |
+| R-06 | Novo drift futuro no inventario de eventos da `evidence_trail` voltar a surgir | governança | mitigado | Baixa | P2 | Baixa | Backend/Arquitetura | manter source of truth unico e o teste cruzado `test_evidence_event_catalog_sync.py` |
+| R-07 | Sign-off de retention/recovery nao ser institucionalizado | governança | mitigado parcialmente | Media | P0 | Alta | Security/Platform | obter aceite formal e repetir restore evidenciado |
+| R-08 | Janela seria ser executada sem dossier ou ownership completo | operação | mitigado parcialmente | Baixa | P1 | Media | Platform/SRE | manter `run_staging_window.py` e checkers como gate obrigatorio |
 | R-09 | Screening local de sancoes divergir do estado persistido em `sanctions_lists_meta` | Dados/Integracao | mitigado parcialmente | Media | P1 | Alta | Compliance/Backend | executar `check_sanctions_sync_status.py` apos sync relevante |
-| R-10 | Drift documental voltar a subestimar ou superestimar o runtime real | Governanca | mitigado parcialmente | Baixa | P1 | Baixa | Arquitetura/Engenharia | revalidar docs a cada corte regulatorio relevante |
+| R-10 | Drift documental voltar a subestimar ou superestimar o runtime real | governança | mitigado parcialmente | Baixa | P1 | Baixa | Arquitetura/Engenharia | revalidar docs a cada corte regulatório relevante |
 | R-11 | Trilha DD/SoF permanecer sem endurecimento institucional final da selagem forte | Custodia/Compliance | mitigado parcialmente | Media | P1 | Alta | Compliance/Security/Arquitetura | consolidar provider institucional definitivo, trust bundle versionado e eventual prova temporal complementar, preservando a baseline `Opcao B` ja entregue |
-| R-12 | RCA cross-domain permanecer eventual e nao entrar no rito recorrente de governanca | Operacao/Governanca | mitigado parcialmente | Media | P2 | Media | Platform/Monitoring + Governanca | usar o playbook canonico, materializar resumo RCA em artefato executivo quando houver incidente e revisar semanalmente sem inflar baseline |
+| R-12 | RCA cross-domain permanecer eventual e nao entrar no rito recorrente de governança | Operacao/Governanca | mitigado parcialmente | Media | P2 | Media | Platform/Monitoring + governança | usar o playbook canônico, materializar resumo RCA em artefato executivo quando houver incidente e revisar semanalmente sem inflar baseline |
 
 ## Top Riscos Atuais
 
@@ -70,18 +70,18 @@ Leitura executiva atual dos P0 associados:
 - endurecer a baseline ja entregue da selagem forte DD/SoF e fechar a cadeia de confianca institucional final
 - revisar semanalmente se incidentes cross-domain relevantes tiveram RCA minima registrada, export enriquecido e leitura executiva coerente
 
-## Riscos Emergentes de Operacao Cross-Domain
+## Riscos Emergentes de operação Cross-Domain
 
 ### R-12. RCA cross-domain ainda sem recorrencia institucional
 
-- estado atual: playbook canonico indexado, RCA leve persistida em `alerts`/`work-items`, leitura read-only em `/monitoring`, export administrativo enriquecido e resumo opcional para governanca executiva
-- impacto real: reduz ambiguidade operacional e melhora handoff, mas ainda nao serve como prova recorrente de maturidade enquanto nao aparecer de forma revisavel no ciclo semanal
+- estado atual: playbook canônico indexado, RCA leve persistida em `alerts`/`work-items`, leitura read-only em `/monitoring`, export administrativo enriquecido e resumo opcional para governança executiva
+- impacto real: reduz ambiguidade operacional e melhora handoff, mas ainda nao serve como prova recorrente de maturidade enquanto nao aparecer de forma revisável no ciclo semanal
 - bloqueadores atuais:
   - ausencia de serie historica com incidentes reais tratados pelo novo rito
   - falta de uso recorrente do resumo RCA em snapshot/comms de semanas reais
   - dependencia de disciplina operacional para nao deixar a RCA apenas na UI
 - mitigacao recomendada:
-  - manter o [Playbook Canonico de Incidente Cross-Domain e RCA](./cross-domain-incident-rca-playbook.md) como source of truth do rito
+  - manter o [Playbook canônico de Incidente Cross-Domain e RCA](./cross-domain-incident-rca-playbook.md) como source of truth do rito
   - registrar RCA minima sempre que houver impacto cross-domain relevante
   - anexar resumo RCA ao artefato executivo quando a semana contiver incidente material
 
@@ -106,6 +106,6 @@ Leitura executiva atual dos P0 associados:
 Um risco so deve ser reduzido quando houver:
 
 - implementacao ou ajuste concluido
-- evidencia objetiva em runtime, teste ou janela seria
-- atualizacao dos documentos canonicos relacionados
+- evidência objetiva em runtime, teste ou janela seria
+- atualizacao dos documentos canônicos relacionados
 - aceite do owner responsavel quando houver dependencia institucional

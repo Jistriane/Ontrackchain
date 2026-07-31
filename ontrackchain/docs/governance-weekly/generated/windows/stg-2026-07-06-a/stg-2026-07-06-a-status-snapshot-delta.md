@@ -11,7 +11,7 @@
 - status atual: `failed`
 - placeholders: `0` -> `0` (delta `+0`)
 - handoff pendente: `0` -> `0` (delta `+0`)
-- escopo regulatorio: `none` -> `none`
+- escopo regulatório: `none` -> `none`
 - `P0-04` readiness: `unknown` -> `unknown`
 - classificacao dominante: `technical_gate_blocked` -> `technical_gate_blocked`
 
@@ -20,7 +20,7 @@
 - sinal: `amarelo`
 - leitura: estado estavel sem progresso material; manter no-go
 
-## Delta Regulatorio
+## Delta regulatório
 
 - escopo anterior: `none`
 - escopo atual: `none`
@@ -28,8 +28,8 @@
 - `P0-04` readiness atual: `unknown`
 - classificacao anterior: `technical_gate_blocked`
 - classificacao atual: `technical_gate_blocked`
-- leitura anterior: sem escopo regulatorio material nesta tentativa
-- leitura atual: sem escopo regulatorio material nesta tentativa
+- leitura anterior: sem escopo regulatório material nesta tentativa
+- leitura atual: sem escopo regulatório material nesta tentativa
 - resumo anterior: falha tecnica registrada em prepare, run, artifact_validation
 - resumo atual: falha tecnica registrada em prepare, run, artifact_validation
 
@@ -53,7 +53,7 @@
 
 - `none`
 
-## Proximo Passo
+## próximo Passo
 
 - se houver delta negativo, atualizar war room com itens desbloqueados
 - se houver delta positivo, registrar regressao e abrir acao corretiva

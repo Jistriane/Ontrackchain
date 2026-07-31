@@ -8,9 +8,9 @@ Agrupar registros semanais fechados, atualizacoes de KPI e checks de readiness d
 
 Esta pasta guarda snapshots semanais ja encerrados e arquivados. Ela nao substitui:
 
-- `../../README.md` como trilha datada viva de governanca
+- `../../README.md` como trilha datada viva de governança
 - `../../cycles/` como navegacao operacional ainda relevante por data
-- `../../../README.md` como indice canonico da documentacao viva
+- `../../../README.md` como indice canônico da documentação viva
 
 Quando houver conflito, use esta precedencia:
 

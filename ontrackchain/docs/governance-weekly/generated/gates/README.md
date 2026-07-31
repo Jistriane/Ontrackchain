@@ -24,4 +24,4 @@ Este namespace continua ativo no baseline atual.
 - `make render-governance-gate-history-dashboard` gera `gate-history-dashboard.md`
 - `make update-governance-metrics` atualiza o conjunto completo
 
-Por isso, estes arquivos nao devem ser deletados nesta rodada; o ajuste correto foi alinhar scripts e documentacao ao caminho real em `docs/governance-weekly/generated/gates/`.
+Por isso, estes arquivos nao devem ser deletados nesta rodada; o ajuste correto foi alinhar scripts e documentação ao caminho real em `docs/governance-weekly/generated/gates/`.

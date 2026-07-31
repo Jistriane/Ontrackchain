@@ -11,12 +11,12 @@ O Ontrackchain ja ultrapassou o estagio de scaffold basico e opera com:
 - observabilidade central via `Prometheus -> Alertmanager -> monitoring-api` com triagem e export auditado
 - CI com smoke + E2E Playwright e quality gates por componente
 
-Apesar disso, a credibilidade para `staging` serio e operacao regulada permanece limitada por concentracao de gaps em:
+Apesar disso, a credibilidade para `staging` serio e operação regulada permanece limitada por concentracao de gaps em:
 
 - homologacao de identidade e MFA fora do contexto local
-- integracoes reais AML/KYT e RPC com fallback em ambiente serio
+- integrações reais AML/KYT e RPC com fallback em ambiente serio
 - fechamento de partes do dominio de compliance ainda em modo `degraded`/manual
-- consolidacao do aceite operacional (owners, SLA, runbooks) e evidencias recorrentes
+- consolidação do aceite operacional (owners, SLA, runbooks) e evidências recorrentes
 
 ## Decisao
 
@@ -31,7 +31,7 @@ Esta decisao orienta a ordem de execucao e prioriza confianca e segurança sobre
 
 ### Positivas
 
-- reduz o risco estrutural de `staging` serio (identidade, providers e governanca)
+- reduz o risco estrutural de `staging` serio (identidade, providers e governança)
 - evita que o produto aparente maturidade regulatoria maior do que possui
 - diminui flakiness e aumenta repetibilidade operacional
 - cria base real para evolucao de compliance sem depender de stubs/degradacao
@@ -44,15 +44,15 @@ Esta decisao orienta a ordem de execucao e prioriza confianca e segurança sobre
 
 ## Trade-offs
 
-- foi priorizada homologacao e governanca formal antes de “completar” o dominio de compliance por inteiro
+- foi priorizada homologacao e governança formal antes de “completar” o dominio de compliance por inteiro
 - modularizacao ocorre apenas onde ha continuidade imediata (evita refatoracao cosmética)
-- a pipeline atual e tomada como fonte de verdade para nao regressao; expansoes exigem evidencia automatizada correspondente
+- a pipeline atual e tomada como fonte de verdade para nao regressao; expansoes exigem evidência automatizada correspondente
 
 ## Critérios de Aceitação
 
 - `OIDC` funcionando fora de `local|test` com segredos nao-dev e claims coerentes
 - `MFA serio` homologado (federado pelo IdP ou equivalente operacional) para fluxos sensiveis
 - provider AML/KYT em modo `live` com readiness, timeout, retry e degradacao honesta
-- RPC primario + fallback homologados com evidencias de degradacao e preservacao de metadados no resultado
+- RPC primario + fallback homologados com evidências de degradacao e preservacao de metadados no resultado
 - pelo menos uma janela seria executada ponta a ponta com dossier anexavel e go/no-go coerente
 

@@ -45,7 +45,7 @@ Servir como pauta inicial e folha de preparação para a próxima reunião de go
 - baseline mantida em `91% / 78% / 87%`
 - suíte principal Python revisada com `127 passed`
 - preflight local da janela executado com bloqueios objetivos registrados
-- validacao agregada de artifact da janela executada com `status=ok`
+- validação agregada de artifact da janela executada com `status=ok`
 - nenhum item `P0` promovido artificialmente desde 2026-07-03
 - decisão vigente permanece `go` para validação séria controlada e `no-go` para produção regulada forte
 

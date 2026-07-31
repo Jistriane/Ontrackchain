@@ -6,20 +6,20 @@ Registrar a execucao local dos gates da janela `stg-2026-07-06-a` para evidencia
 
 ## Escopo Executado
 
-- bundle regulatorio local
+- bundle regulatório local
 - bundle OIDC local
 - gate agregado via `prepare_staging_window.py --validate --preflight`
-- validacao de completude de artifact
+- validação de completude de artifact
 
 ## Resultado Consolidado
 
 - status geral de prontidao: `failed`
 - baseline tecnica: mantida
 - bloqueios externos/operacionais: mantidos
-- validacao agregada de artifact: `ok`
+- validação agregada de artifact: `ok`
 - execucao ponta a ponta (`run_staging_window.py`): `failed` por gate local
 
-## Evidencias Geradas
+## evidências Geradas
 
 - `artifacts/staging/checks/stg-2026-07-06-a-regulatory-readiness-bundle.json`
 - `artifacts/staging/dossiers/stg-2026-07-06-a-regulatory-readiness-bundle.md`
@@ -97,16 +97,16 @@ Resumo objetivo da reexecucao:
 
 Foi corrigida a nomenclatura dos arquivos gerados por `prepare_staging_window.py` para alinhar com o validador agregado.
 
-Tambem foi ajustado `validate_serious_window_artifact.py` para aceitar variacoes canonicas de naming dos checks e o formato real do dossier versionado por timestamp.
+Tambem foi ajustado `validate_serious_window_artifact.py` para aceitar variacoes canônicas de naming dos checks e o formato real do dossier versionado por timestamp.
 
 Ganho observado:
 
 - antes do ajuste, o validador reportava como ausentes tambem `ownership`, `placeholders` e `handoff`
-- apos os ajustes, a validacao agregada passou a reconhecer o conjunto completo de artifacts da janela
+- apos os ajustes, a validação agregada passou a reconhecer o conjunto completo de artifacts da janela
 
 ## Decisao Operacional
 
-- manter `go` para validacao seria controlada
+- manter `go` para validação seria controlada
 - manter `no-go` para producao regulada forte
 - nao promover `P0-01`, `P0-02` ou `P0-03` sem evidência nova material
 

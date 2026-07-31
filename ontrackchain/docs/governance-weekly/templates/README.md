@@ -1,4 +1,4 @@
-# Templates de Governanca
+# Templates de governança
 
 ## Objetivo
 
@@ -19,8 +19,8 @@ Nao use esta pasta para:
 ## Templates Disponiveis
 
 - [Template de Registro Semanal](./_template-weekly-governance.md)
-- [Template de Governanca Semanal Operacional](./_template-weekly-governance-operational.md)
+- [Template de governança Semanal Operacional](./_template-weekly-governance-operational.md)
 - [Template de Atualizacao de KPI](./_template-kpi-scorecard-update.md)
-- [Template de Execucao por Evidencia](./_template-maturity-evidence-execution-cycle.md)
+- [Template de Execucao por evidência](./_template-maturity-evidence-execution-cycle.md)
 - [Template de War Room da Janela Seria](./_template-staging-serious-window-war-room.md)
 - [Template de Tracking ao Vivo da Janela Seria](./_template-staging-serious-window-live-tracking.md)

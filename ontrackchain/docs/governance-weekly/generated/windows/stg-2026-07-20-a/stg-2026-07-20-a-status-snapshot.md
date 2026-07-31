@@ -22,16 +22,16 @@
 - placeholders pendentes: `0`
 - campos handoff pendentes: `0`
 
-## Escopo Regulatorio
+## Escopo regulatório
 
-- escopo regulatorio da tentativa: `none`
+- escopo regulatório da tentativa: `none`
 - scope validado pelo gate final: `P0-01,P0-02,P0-03`
 - AML/KYT runtime gate: `unknown`
 - AML/KYT runtime readiness: `unknown`
 - feed UE tokenizado: `unknown`
 - feed UE readiness: `unknown`
-- bundle regulatorio (`P0-04`) readiness: `unknown`
-- leitura de promocao: sem escopo regulatorio material nesta tentativa
+- bundle regulatório (`P0-04`) readiness: `unknown`
+- leitura de promocao: sem escopo regulatório material nesta tentativa
 
 ## Classificacao Dominante
 
@@ -68,8 +68,8 @@
 - artifact: `Scoped artifact missing for P0-01: OIDC bundle JSON (stg-2026-07-20-a-oidc-readiness-bundle.json)`
 - artifact: `Scoped artifact missing for P0-01: OIDC bundle summary (stg-2026-07-20-a-oidc-readiness-bundle.md)`
 
-## Proximo Passo
+## próximo Passo
 
 - investigar a falha tecnica dominante no gate agregado
-- anexar RCA ou evidencia tecnica antes da proxima tentativa
+- anexar RCA ou evidência tecnica antes da proxima tentativa
 - rerodar o snapshot apos a correcao para confirmar estabilizacao

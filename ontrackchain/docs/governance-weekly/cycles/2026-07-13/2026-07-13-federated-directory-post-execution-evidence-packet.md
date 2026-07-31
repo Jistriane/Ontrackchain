@@ -1,8 +1,8 @@
-# Pacote de Evidencia Pos-Execucao - `stg-2026-07-13-federated-a`
+# Pacote de evidência Pos-Execucao - `stg-2026-07-13-federated-a`
 
 ## Objetivo
 
-Concentrar, em um unico lugar, as evidencias finais da tentativa `stg-2026-07-13-federated-a` para reconciliacao de:
+Concentrar, em um unico lugar, as evidências finais da tentativa `stg-2026-07-13-federated-a` para reconciliacao de:
 
 - `Team`
 - `Audit`
@@ -54,9 +54,9 @@ Preencher apenas com leitura material observada:
 - `unlink_status`: `done | failed | pending`
 - `audit_unlink_event_found`: `true | false`
 
-## Evidencias Obrigatorias
+## evidências Obrigatorias
 
-| Evidencia | Status | Path ou URL | Observacao curta |
+| evidência | Status | Path ou URL | observação curta |
 | --- | --- | --- | --- |
 | screenshot da busca assistida no `Team` | `pending` | `preencher` | `preencher` |
 | screenshot do `link` persistido no `Team` | `pending` | `preencher` | `preencher` |
@@ -131,8 +131,8 @@ Preencher e colar no sign-off:
 
 Considerar o packet completo somente se:
 
-- [ ] todas as evidencias obrigatorias tiverem path ou URL
+- [ ] todas as evidências obrigatorias tiverem path ou URL
 - [ ] os correlators estiverem preenchidos
 - [ ] `Team`, `Audit` e SQL convergirem para o mesmo fluxo
 - [ ] o texto do war room e do sign-off estiver coerente com a decisao
-- [ ] houver owner humano identificado para o proximo passo
+- [ ] houver owner humano identificado para o próximo passo

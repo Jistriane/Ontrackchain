@@ -1,4 +1,4 @@
-# Matriz de Evidencias e Auditoria
+# Matriz de evidências e Auditoria
 
 ## Objetivo
 
@@ -7,12 +7,12 @@ Relacionar os fluxos criticos do Ontrackchain com:
 - eventos em `audit_logs`
 - eventos em `evidence_trail`
 - hashes e identificadores de correlacao
-- artefatos operacionais e regulatorios
-- validacao automatizada existente
+- artefatos operacionais e regulatórios
+- validação automatizada existente
 
-## Estrutura da Evidencia
+## Estrutura da evidência
 
-Toda evidencia relevante deve permitir correlacao entre:
+Toda evidência relevante deve permitir correlacao entre:
 
 - `request_id`
 - `organization_id`
@@ -27,10 +27,10 @@ Referência de `event_type` (fonte única):
 
 - [Catálogo de Eventos — evidence_trail](./evidence-event-catalog.md)
 
-| Fluxo | `audit_logs` | `evidence_trail` | Chaves | Artefato | Validacao |
+| Fluxo | `audit_logs` | `evidence_trail` | Chaves | Artefato | validação |
 | --- | --- | --- | --- | --- | --- |
-| Investigation start | `case_started` | opcional por integracao | `request_id`, `case_id` | case | smoke |
-| Investigation complete | `case_completed` | opcional por integracao | `request_id`, `case_id` | resultado final | smoke |
+| Investigation start | `case_started` | opcional por integração | `request_id`, `case_id` | case | smoke |
+| Investigation complete | `case_completed` | opcional por integração | `request_id`, `case_id` | resultado final | smoke |
 | Compliance risk check | `compliance_risk_checked` | nao obrigatoria | `request_id`, `address`, `chain` | payload do provider | smoke/tests |
 | Sanctions check sem hit | `compliance_sanctions_checked` | `SANCTIONS_CHECKED` | `request_id`, `address`, `chain` | cache local | endpoint/testes |
 | Sanctions check com hit | `compliance_sanctions_checked` | `SANCTIONS_HIT` | `request_id`, `address`, `chain`, `matched_lists` | hit cacheado | endpoint/testes |
@@ -44,14 +44,14 @@ Referência de `event_type` (fonte única):
 | ROS aprovado | `coaf_report_approved` | `COAF_ROS_APPROVED` | `ros_id`, `status` | `ros_records` | endpoint/runtime |
 | ROS rejeitado | `coaf_report_rejected` | `COAF_ROS_REJECTED` | `ros_id`, `rejection_reason` | `ros_records` | endpoint/runtime |
 | ROS submetido manualmente | `coaf_report_submitted_manual` | `COAF_ROS_SUBMITTED_MANUAL` | `ros_id`, `coaf_protocol_number`, `coaf_receipt_hash` | `ros_records` | endpoint/runtime |
-| Download de relatorio | `report_downloaded` | `REPORT_DOWNLOADED` quando integrado | `request_id`, `report_id`, `file_hash_sha256` | PDF | smoke/E2E |
+| Download de relatório | `report_downloaded` | `REPORT_DOWNLOADED` quando integrado | `request_id`, `report_id`, `file_hash_sha256` | PDF | smoke/E2E |
 | Export administrativo global | `operational_alerts_exported` | nao obrigatoria | `request_id`, `scope`, `format` | CSV/JSON | Playwright |
-| Bundle de evidencia | `evidence_bundle_exported` | `EVIDENCE_EXPORTED` quando aplicavel | `request_id`, `report_id`, filtros | bundle JSON | UI/API |
+| Bundle de evidência | `evidence_bundle_exported` | `EVIDENCE_EXPORTED` quando aplicavel | `request_id`, `report_id`, filtros | bundle JSON | UI/API |
 | Negacao administrativa | `authorization_denied` | nao obrigatoria | `request_id`, `effective_role`, endpoint | tentativa negada | Playwright |
 
 ## IA (Jobs, Human Gate e Degradação)
 
-| Fluxo | `audit_logs` | `evidence_trail` | Chaves | Artefato | Validacao |
+| Fluxo | `audit_logs` | `evidence_trail` | Chaves | Artefato | validação |
 | --- | --- | --- | --- | --- | --- |
 | AI explain solicitado | `ai_explain_requested` (implementado) | `AI_EXPLAIN_GENERATED` | `request_id`, `case_id` | `ai_analysis_results` + evidência | testes |
 | AI risk model avaliado | `ai_risk_model_assessed` (implementado) | (não obrigatório no baseline atual) | `request_id`, `address`, `chain` | `ai_analysis_results` | testes |
@@ -64,7 +64,7 @@ Referência de `event_type` (fonte única):
 
 ### IA (Job assíncrono — proposto)
 
-| Fluxo | `audit_logs` | `evidence_trail` | Chaves | Artefato | Validacao |
+| Fluxo | `audit_logs` | `evidence_trail` | Chaves | Artefato | validação |
 | --- | --- | --- | --- | --- | --- |
 | AI job enfileirado | `ai_job_queued` (implementado) | opcional | `request_id`, `job_id`, `analysis_type` | job | testes |
 | AI job aguardando gate | `ai_job_awaiting_human_gate` (sugerido) | `AI_JOB_AWAITING_HUMAN_GATE` | `request_id`, `job_id`, `analysis_type`, `case_id` | job + referência `ai_analysis_results` | testes |
@@ -72,7 +72,7 @@ Referência de `event_type` (fonte única):
 | Job degradado | `ai_job_degraded` (sugerido) | `AI_JOB_DEGRADED` + `AI_DEGRADED_*` quando aplicável | `job_id`, `degradation_reason`, `result_analysis_id` | resultado parcial | testes |
 | Job falhou | `ai_job_failed` (sugerido) | `AI_JOB_FAILED` quando impactar decisão sensível | `job_id`, `error.code`, `request_id` | erro estruturado | testes |
 
-## Evidencias por Dominio
+## evidências por Dominio
 
 ### Sancoes e Compliance
 
@@ -160,7 +160,7 @@ Chaves relevantes:
 - `file_hash_sha256`
 - `request_id`
 
-## Evidencias Operacionais de Staging
+## evidências Operacionais de Staging
 
 Artefatos relevantes:
 
@@ -176,7 +176,7 @@ Artefatos relevantes:
 - `artifacts/homologation/*.json`
 - `*.manifest.json`
 
-Scripts canonicos:
+Scripts canônicos:
 
 - `prepare_staging_window.py`
 - `run_staging_window.py`
@@ -190,7 +190,7 @@ Scripts canonicos:
 ## Gaps Residuais da Matriz
 
 - nem todo evento negativo sensivel possui espelho em `evidence_trail`; parte continua apenas em `audit_logs`
-- janelas `AML/KYT live` e UE ainda dependem de evidencia institucional recorrente, apesar dos guardrails tecnicos estarem prontos
+- janelas `AML/KYT live` e UE ainda dependem de evidência institucional recorrente, apesar dos guardrails tecnicos estarem prontos
 - `P0-01` agora possui bundle OIDC próprio, mas a homologação institucional de MFA/`external_provider` ainda depende de execução recorrente em janela séria
 - artefatos de manual review para `due_diligence` e `source_of_funds` agora possuem pacote regulatório operacional no cockpit `/evidence`, com selagem institucional forte funcional, governança pós-selagem e correlação auditável por `package_sha256`
 - os gaps residuais dessa trilha agora se concentram em homologação do provider institucional definitivo, trust bundle versionado e aceite recorrente em janela séria
@@ -201,9 +201,9 @@ Scripts canonicos:
 Consultar esta matriz quando:
 
 - um fluxo sensivel for alterado
-- houver incidente regulatorio ou operacional
+- houver incidente regulatório ou operacional
 - for necessario anexar prova tecnica a uma janela seria
-- um novo endpoint passar a gerar hash, evidencia ou export controlado
+- um novo endpoint passar a gerar hash, evidência ou export controlado
 
 Para a trilha manual DD/SoF, complementar a revisao com:
 

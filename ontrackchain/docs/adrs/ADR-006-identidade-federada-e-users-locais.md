@@ -35,8 +35,8 @@ Recomendacao concreta:
 
 - criar uma tabela dedicada, por exemplo `external_identities`
 - vincular `provider`, `external_subject`, `organization_id` e `user_id`
-- tratar o principal `OIDC` como identidade canonica de autenticacao
-- tratar `users` como cadastro local complementar de aplicacao, nao como fonte universal obrigatoria de autenticacao
+- tratar o principal `OIDC` como identidade canônica de autenticação
+- tratar `users` como cadastro local complementar de aplicacao, nao como fonte universal obrigatoria de autenticação
 
 No curto prazo, o fallback validado continua aceito:
 
@@ -45,11 +45,11 @@ No curto prazo, o fallback validado continua aceito:
 
 ## Motivacao
 
-- desacoplar autenticacao federada de cadastro local legado
+- desacoplar autenticação federada de cadastro local legado
 - eliminar novos `FK` quebrando em fluxos `OIDC`
 - preservar rastreabilidade regulatoria sem depender de espelho automatico em `users`
 - abrir caminho para onboarding, offboarding e vinculo multi-tenant mais claros
-- evitar que o primeiro login `OIDC` crie usuarios locais sem governanca de ciclo de vida
+- evitar que o primeiro login `OIDC` crie usuarios locais sem governança de ciclo de vida
 
 ## Alternativas Consideradas
 
@@ -57,7 +57,7 @@ No curto prazo, o fallback validado continua aceito:
 
 - Vantagem:
   - menor custo imediato
-  - nenhuma migracao estrutural agora
+  - nenhuma migração estrutural agora
 - Desvantagem:
   - autoria federada fica dispersa em `metadata`
   - dificulta queries consistentes por identidade externa
@@ -69,20 +69,20 @@ No curto prazo, o fallback validado continua aceito:
   - reduz `nulls` em `user_id`
   - reaproveita o schema atual com menos ajuste nos servicos
 - Desvantagem:
-  - acopla autenticacao a criacao de cadastro local
+  - acopla autenticação a criacao de cadastro local
   - aumenta risco de usuarios locais zombie ou mal provisionados
   - exige regras de reconciliacao quando claims mudarem no IdP
-  - torna mais opaca a governanca de identidade
+  - torna mais opaca a governança de identidade
 
 ### Opcao C — Introduzir tabela de identidades federadas vinculada a `users`
 
 - Vantagem:
-  - separa autenticacao externa de cadastro local
+  - separa autenticação externa de cadastro local
   - suporta principals federados com ou sem espelho local
   - melhora auditabilidade e trilha de autoria
   - reduz ambiguidade para multi-tenant e compliance
 - Desvantagem:
-  - exige migracao de schema e ajustes graduais nos servicos
+  - exige migração de schema e ajustes graduais nos servicos
   - introduz mais uma entidade no modelo
 
 ## Recomendacao
@@ -91,9 +91,9 @@ Escolher a `Opcao C`.
 
 Ela oferece o melhor equilibrio entre:
 
-- seguranca
+- segurança
 - rastreabilidade
-- governanca operacional
+- governança operacional
 - evolucao progressiva do schema
 
 Ela tambem preserva reversibilidade:
@@ -132,7 +132,7 @@ Ela tambem preserva reversibilidade:
 
 ## Consequencias
 
-- `users` deixa de ser interpretada como fonte canonica obrigatoria para toda autenticacao
+- `users` deixa de ser interpretada como fonte canônica obrigatoria para toda autenticação
 - o time precisa definir politicas de vinculo:
   - quem pode vincular identidade externa a usuario local
   - quando o vinculo e criado

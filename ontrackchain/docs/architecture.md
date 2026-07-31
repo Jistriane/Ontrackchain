@@ -2,9 +2,9 @@
 
 ## Visao Geral
 
-O `Ontrackchain` e uma plataforma modular para investigacao e compliance on-chain, organizada como servicos independentes atras de um gateway unico, com enforcement de tenant no banco e camadas separadas de auditoria operacional e evidencia regulatoria.
+O `Ontrackchain` e uma plataforma modular para investigacao e compliance on-chain, organizada como servicos independentes atras de um gateway unico, com enforcement de tenant no banco e camadas separadas de auditoria operacional e evidência regulatoria.
 
-O diagrama abaixo resume a topologia corrente do sistema e destaca onde os fluxos operacionais, regulatorios e de governanca se conectam.
+O diagrama abaixo resume a topologia corrente do sistema e destaca onde os fluxos operacionais, regulatórios e de governança se conectam.
 
 ```mermaid
 flowchart LR
@@ -69,18 +69,18 @@ flowchart LR
 - `PreventiveBlockAgent` encapsula a decisao regulatoria e persiste `preventive_blocks`.
 - `CounterpartyAgent` classifica risco, PEP, KYC/KYB e periodicidade de revisao.
 
-### Operacoes Compartilhadas
+### operações Compartilhadas
 
 - `compliance-api` agora tambem expõe `POST/GET/PATCH /api/v1/operations/work-items*`.
 - a camada `operations` persiste fila multiusuario por `organization_id`, com `RLS`, timeline e comentarios estruturados.
-- a primeira integracao ativa no frontend cobre:
+- a primeira integração ativa no frontend cobre:
   - `sanctions` como workspace multiusuario primario, sem fallback local de negocio no navegador
   - `alerts` com rastreamento por incidente e sincronizacao de fechamento via `ack`
 - o modelo evita criar um microservico novo e reaproveita o mesmo contexto de auth, tenant e auditoria do `compliance-api`.
 
 ### Reports e ROS/COAF
 
-- `report-api` gera relatorios deterministas e controla downloads sensiveis.
+- `report-api` gera relatórios deterministas e controla downloads sensiveis.
 - O mesmo servico implementa o workflow `ROS/COAF`:
   - `PENDING_GENERATION`
   - `PENDING_APPROVAL`
@@ -88,13 +88,13 @@ flowchart LR
   - `REJECTED`
   - `SUBMITTED_MANUAL`
 
-### Monitoring e Operacao Global
+### Monitoring e operação Global
 
 - `monitoring-api` recebe webhooks do `Alertmanager`.
 - `operational_alert_events` guarda incidentes globais fora do dominio multi-tenant de negocio.
 - UI `/monitoring` suporta filtros, paginacao cursor-based, ack em lote e export auditado.
 - no frontend, `/monitoring` deixou de concentrar toda a logica operacional em um unico arquivo e passou a atuar como hub de composicao.
-- `use-monitoring-watchlist-alerts.ts` isola o bootstrap de watchlists, o refresh de alertas de teste e o disparo controlado do fluxo de validacao operacional.
+- `use-monitoring-watchlist-alerts.ts` isola o bootstrap de watchlists, o refresh de alertas de teste e o disparo controlado do fluxo de validação operacional.
 - `app/lib/monitoring-api.ts` centraliza loaders puros para watchlists, alertas, worker, alertas operacionais, metricas, DLQ e filtros de plataforma.
 - `use-monitoring-platform-alerts.ts` isola persistencia em `sessionStorage`, filtros, selecao, paginacao por cursor, ack individual/lote e export de alertas de plataforma.
 - `use-monitoring-operations.ts` isola bootstrap e mutacoes de `worker operations`, `operational alerts` e remediacao de `DLQ`, incluindo `requeue` e resolucao auditavel.
@@ -106,7 +106,7 @@ flowchart LR
 - `ai-service` e um microservico independente que expoe 8 endpoints de IA explicativa, analise de grafos blockchain e inteligencia de casos.
 - módulos: XAI Layer (explicabilidade), Risk Model Assessment, Confidence Engine, Case Insights, Graph Analysis, Graph Narrator, Law Enforcement Export, THEMIS (orquestrador).
 - persiste analises em `ai_analysis_results` com input/output JSON para auditoria.
-- emite eventos de evidencia para `evidence_trail` (AI_EXPLAIN_GENERATED, AI_CASE_INSIGHTS_GENERATED, AI_LAW_ENFORCEMENT_EXPORT_GENERATED, AI_THEMIS_CASE_INTELLIGENCE_GENERATED).
+- emite eventos de evidência para `evidence_trail` (AI_EXPLAIN_GENERATED, AI_CASE_INSIGHTS_GENERATED, AI_LAW_ENFORCEMENT_EXPORT_GENERATED, AI_THEMIS_CASE_INTELLIGENCE_GENERATED).
 - RBAC: leitura requer ADMIN|ANALYST|COMPLIANCE_OFFICER|AUDITOR; escrita requer ADMIN|ANALYST|COMPLIANCE_OFFICER; export e THEMIS tem roles restritas.
 - dados reais: buscas em `cases`, `case_management_cases`, `regulatory_work_events` e `evidence_trail` para gerar insights contextualizados.
 - portas: interna 8005, exposta via Traefik em `/api/v1/ai`.
@@ -118,7 +118,7 @@ flowchart LR
 - RBAC: leitura requer ADMIN|ANALYST|COMPLIANCE_OFFICER|AUDITOR|VIEWER; escrita requer ADMIN|ANALYST|COMPLIANCE_OFFICER.
 - timeline auditavel com registro de todas as acoes (criacao, atualizacao, escalação).
 - metricas agregadas: total, abertos, fechados, tempo medio de resolucao, por prioridade e categoria.
-- integracao com AI Service para geracao de risk_score automatico na criacao de casos.
+- integração com AI Service para geracao de risk_score automatico na criacao de casos.
 - portas: interna 8006, exposta via Traefik em `/api/v1/cases`.
 
 ## Camadas de Dados
@@ -134,13 +134,13 @@ flowchart LR
 ### Trilha Regulatoria
 
 - `evidence_trail`: append-only com `event_hash`, `prev_event_hash`, `retain_until` e base regulatoria.
-- `preventive_blocks`: snapshot da decisao de bloqueio, hash de evidencia e vinculo opcional com `evidence_trail`.
+- `preventive_blocks`: snapshot da decisao de bloqueio, hash de evidência e vinculo opcional com `evidence_trail`.
 - `ros_records`: estado do ROS, prazo de submissao, comprovante e hash de recibo.
 - `counterparties` e `counterparty_history`: onboarding e historico regulado de contraparte.
 
 ### Cache e Metadados de Sancoes
 
-- `sanctions_lists_meta`: configuracao do feed, status, source, hash e agenda de sync.
+- `sanctions_lists_meta`: configuração do feed, status, source, hash e agenda de sync.
 - `sanctions_hits_cache`: entidades sancionadas e enderecos por lista.
 - `compliance-worker`: sincroniza OFAC, UN, EU, OpenSanctions e deadlines de ROS.
 
@@ -149,7 +149,7 @@ flowchart LR
 | Tabela | Papel |
 | --- | --- |
 | `audit_logs` | auditoria operacional multi-tenant |
-| `evidence_trail` | cadeia imutavel de evidencias regulatorias |
+| `evidence_trail` | cadeia imutavel de evidências regulatorias |
 | `credit_ledger` | trilha de cobranca e reserva |
 | `preventive_blocks` | decisao e revisao de bloqueios |
 | `counterparties` | cadastro regulado de contrapartes |
@@ -165,7 +165,7 @@ flowchart LR
 | `regulatory_work_events` | timeline das transicoes dos work-items |
 | `regulatory_work_comments` | comentarios de handoff e decisao |
 
-## Fluxos Canonicos
+## Fluxos canônicos
 
 ### Screening de Sancoes
 
@@ -175,9 +175,9 @@ compliance-worker -> sanctions_lists_meta/sanctions_hits_cache
   -> audit_logs + evidence_trail
 ```
 
-Observacao importante:
+observação importante:
 
-- o endpoint direto `sanctions-check` e o catalogo de operacoes agora convergem para `provider=sanctions_lists_cache`, `provider_status=live` e `delivery_mode=local_cache`
+- o endpoint direto `sanctions-check` e o catalogo de operações agora convergem para `provider=sanctions_lists_cache`, `provider_status=live` e `delivery_mode=local_cache`
 - a UI `/sanctions` agora sincroniza o resultado em `regulatory_work_items` como fila compartilhada primaria e falha explicitamente quando a fila compartilhada nao estiver disponivel
 
 ### Bloqueio Preventivo
@@ -255,12 +255,12 @@ Estados iniciais suportados:
 ### 1. Screening local de sancoes em vez de API call por request
 
 - reduz latencia e dependencia externa em tempo real
-- permite operacao degradada controlada durante falhas de provider
-- exige governanca forte de sync, hash e preflight de feed
+- permite operação degradada controlada durante falhas de provider
+- exige governança forte de sync, hash e preflight de feed
 
 ### 2. Dupla trilha `audit_logs` + `evidence_trail`
 
-- `audit_logs` cobre operacao e suporte
+- `audit_logs` cobre operação e suporte
 - `evidence_trail` cobre prova regulatoria e integridade temporal
 - aumenta custo documental, mas evita misturar observabilidade com cadeia de custodia
 

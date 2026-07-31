@@ -6,14 +6,14 @@ Nomear owners operacionais minimos por dominio e padronizar tempos de resposta e
 
 Este documento complementa [runbooks.md](./runbooks.md), [retention-and-recovery-policy.md](./retention-and-recovery-policy.md) e a [Matriz de Execucao por Owner para Janela Seria](./staging-serious-window-war-room-matrix.md).
 
-## Escopo Canonico
+## Escopo canônico
 
 Use este documento para:
 
 - consultar ownership nominal por dominio e backups operacionais
 - alinhar tempos-base de resposta por severidade
 - entender qual trilha deve assumir incidente, recovery ou escalacao
-- servir como taxonomia canonica de dominios operacionais (`Gateway/Frontend`, `Auth/OIDC`, `Investigation/Billing`, `Compliance/AML`, `Monitoring/Alerting`, `Reports/Evidencias`, `Banco/Recovery`)
+- servir como taxonomia canônica de dominios operacionais (`Gateway/Frontend`, `Auth/OIDC`, `Investigation/Billing`, `Compliance/AML`, `Monitoring/Alerting`, `Reports/Evidencias`, `Banco/Recovery`)
 
 Nao use este documento como fonte primaria para:
 
@@ -21,7 +21,7 @@ Nao use este documento como fonte primaria para:
 - coordenar o war room vivo e dependencias em tempo real: use [Matriz de Execucao por Owner para Janela Seria](./staging-serious-window-war-room-matrix.md)
 - decidir promocao formal da janela: use [Gates de Release para Staging Serio](./project-release-gates.md)
 
-## Papel Canonico
+## Papel canônico
 
 Este documento e a fonte primaria para:
 
@@ -54,7 +54,7 @@ Documentos de staging, war room e janelas serias devem herdar esta taxonomia e a
 | --- | --- | ---: | ---: | ---: |
 | `P0` | indisponibilidade critica, risco a integridade ou vazamento | 15 min | 30 min | 60 min |
 | `P1` | fluxo critico degradado sem vazamento confirmado | 60 min | 4 h | 1 dia util |
-| `P2` | degradacao parcial ou falha auxiliar | 1 dia util | 1 dia util | proximo ciclo planejado |
+| `P2` | degradacao parcial ou falha auxiliar | 1 dia util | 1 dia util | próximo ciclo planejado |
 
 ## Mapeamento Rapido para Runbooks
 
@@ -70,7 +70,7 @@ Documentos de staging, war room e janelas serias devem herdar esta taxonomia e a
 
 - Todo incidente aberto deve registrar `request_id` quando houver correlacao tecnica disponivel.
 - Nenhum workaround fora de `local|test` pode ser aplicado sem owner tecnico do dominio.
-- Casos `P0/P1` que afetem evidencias, auditoria ou recovery exigem envolvimento de `Security`.
+- Casos `P0/P1` que afetem evidências, auditoria ou recovery exigem envolvimento de `Security`.
 - Janelas `AML/KYT live` e feed UE tokenizado exigem owner de `Compliance/AML` presente ou explicitamente delegando o sign-off.
 - Restore deve ocorrer preferencialmente em banco isolado antes de qualquer acao destrutiva no banco principal.
 - Durante war room de janela seria, usar a [Matriz de Execucao por Owner para Janela Seria](./staging-serious-window-war-room-matrix.md) como coordenador operacional de dependencias, escalacoes e criterio de `no-go`.
@@ -86,7 +86,7 @@ Documentos de staging, war room e janelas serias devem herdar esta taxonomia e a
 
 Estado atual: `ready_for_approval`
 
-### Evidencias para Sign-off
+### evidências para Sign-off
 
 - matriz minima de owners por dominio publicada
 - SLA base por severidade documentado
@@ -95,7 +95,7 @@ Estado atual: `ready_for_approval`
 
 ### Aprovações Necessarias
 
-| Papel | Responsabilidade de aceite | Status | Evidencia esperada |
+| Papel | Responsabilidade de aceite | Status | evidência esperada |
 | --- | --- | --- | --- |
 | Platform/SRE | validar escalacao, ownership e caminho de resposta | `pending` | comentario de aceite ou decisao registrada |
 | Security | validar envolvimento obrigatorio em incidentes P0/P1 sensiveis | `pending` | comentario de aceite ou decisao registrada |
@@ -103,8 +103,8 @@ Estado atual: `ready_for_approval`
 
 ### Registro de Aceite
 
-| Papel | Responsavel | Data | Decisao | Observacoes |
+| Papel | Responsavel | Data | Decisao | observações |
 | --- | --- | --- | --- | --- |
 | Platform/SRE | `pending` | `pending` | `pending` | confirmar escala real do time e on-call |
-| Security | `pending` | `pending` | `pending` | confirmar envolvimento em P0/P1 com evidencias |
+| Security | `pending` | `pending` | `pending` | confirmar envolvimento em P0/P1 com evidências |
 | Backend Core | `pending` | `pending` | `ready` | dominios core ja mapeados na baseline |

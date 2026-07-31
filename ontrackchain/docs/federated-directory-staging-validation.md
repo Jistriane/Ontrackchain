@@ -1,10 +1,10 @@
-# Validacao em Staging - Diretorio Federado
+# validação em Staging - Diretorio Federado
 
 ## Objetivo
 
-Padronizar a validacao operacional da trilha de busca assistida e vinculo federado em `staging`, cobrindo:
+Padronizar a validação operacional da trilha de busca assistida e vinculo federado em `staging`, cobrindo:
 
-- configuracao minima do `auth-service`
+- configuração minima do `auth-service`
 - execucao manual no cockpit `Team`
 - confirmacao da trilha auditavel no backend e no cockpit `Audit`
 
@@ -19,7 +19,7 @@ Este guia existe para reduzir risco de drift entre:
 
 - depois que o blueprint do Render ja estiver sincronizado
 - depois que os segredos do `auth-service` ja tiverem sido preenchidos
-- antes de promover a trilha federada como operacao homologada do tenant
+- antes de promover a trilha federada como operação homologada do tenant
 
 ## Pre-Requisitos
 
@@ -60,9 +60,9 @@ Use um caso simples e reversivel:
 - [ ] o operador confirmou que os segredos novos do diretório federado estao preenchidos
 - [ ] o client tecnico do `Keycloak` possui escopo minimo de leitura do diretório
 
-### Evidencia minima
+### evidência minima
 
-- screenshot ou anotacao da configuracao do service no Render
+- screenshot ou anotacao da configuração do service no Render
 - nome do client tecnico exercitado
 
 ### Stop/Go
@@ -95,7 +95,7 @@ Use um caso simples e reversivel:
 
 - a busca retorna pelo menos um candidato coerente
 - o candidato certo aparece com `match_status` compativel com `suggested` ou `linked`
-- a validacao de sugestao nao retorna erro
+- a validação de sugestao nao retorna erro
 - o vinculo final atualiza `linked_identity_count` do membro
 - o deep-link para `Audit` continua disponivel na tela `Team`
 
@@ -128,7 +128,7 @@ Use um caso simples e reversivel:
 - o `member_id` filtrado corresponde ao membro testado
 - o evento de `link` esta presente e coerente com a acao executada no `Team`
 
-### Observacao
+### observação
 
 Nesta fase, o cockpit `Audit` cobre operacionalmente `link/unlink`. Os eventos de busca e sugestao do diretório federado sao persistidos no backend, mas ainda sao validados abaixo por consulta tecnica.
 
@@ -189,7 +189,7 @@ LIMIT 20;
 
 ## Resultado Esperado
 
-A validacao em `staging` deve terminar com:
+A validação em `staging` deve terminar com:
 
 - `Team` conseguindo buscar no `Keycloak`
 - sugestao de vinculo aprovada por `email + org + role`
@@ -223,7 +223,7 @@ A validacao em `staging` deve terminar com:
 
 - o principal externo ja foi vinculado a outro usuario local
 
-## Evidencia Minima para Sign-Off
+## evidência Minima para Sign-Off
 
 - screenshot da busca assistida no `Team`
 - screenshot do vinculo persistido no `Team`
@@ -237,5 +237,5 @@ A validacao em `staging` deve terminar com:
 - [Deploy e Staging](deploy-and-staging.md)
 - [Blueprint Render para Staging Full-Stack](render-staging-blueprint.md)
 - [Ownership do ambiente de staging](staging-env-ownership.md)
-- [Validacao e Auditoria](validation-and-audit.md)
+- [validação e Auditoria](validation-and-audit.md)
 - [ADR-006 - identidade federada e users locais](adrs/ADR-006-identidade-federada-e-users-locais.md)

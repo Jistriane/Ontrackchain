@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Concentrar em um unico artefato o rito minimo para mover `P0-03` de `blocked` para `in_progress`, executando antes o readiness check canônico, depois a homologacao do feed UE tokenizado com evidencia preservada e devolvendo a trilha para a governanca semanal sem drift.
+Concentrar em um unico artefato o rito minimo para mover `P0-03` de `blocked` para `in_progress`, executando antes o readiness check canônico, depois a homologacao do feed UE tokenizado com evidência preservada e devolvendo a trilha para a governança semanal sem drift.
 
 ## Quando Usar
 
@@ -10,7 +10,7 @@ Concentrar em um unico artefato o rito minimo para mover `P0-03` de `blocked` pa
 - quando a janela seria incluir `P0-03` isolado ou combinado com `P0-02`
 - quando o owner `Compliance/Backend` estiver nominalmente confirmado em `docs/staging-env-ownership.md`
 
-## Fontes Canonicas
+## Fontes canônicas
 
 - [Runbook 16C](../../runbooks.md)
 - [Project Release Gates](../../project-release-gates.md)
@@ -46,7 +46,7 @@ Preencher apenas em `.env.staging.private` local ou no ambiente serio equivalent
 - `COMPLIANCE_EU_SANCTIONS_SOURCE_URL`
 - `DATABASE_URL`
 
-### Validacoes Obrigatorias do Override
+### validações Obrigatorias do Override
 
 - a URL deve usar `https`
 - a URL deve conter `token=`
@@ -162,7 +162,7 @@ Esperado:
 - `artifacts/staging/checks/<window_id>-eu-sanctions-preflight.json`
 - `artifacts/staging/checks/<window_id>-eu-sanctions-sync.json`
 - `ci-artifacts/p0-03/p0-03-gate-summary.json` ou `OUTPUT_DIR` equivalente quando o gate canônico for usado
-- preservar o `request_id` da janela UE para correlacao entre runner, bundle regulatorio, janela seria e dossier
+- preservar o `request_id` da janela UE para correlacao entre runner, bundle regulatório, janela seria e dossier
 - o payload principal da janela deve expor `kind=eu_sanctions_window_run`
 - o payload principal da janela deve expor `readiness.readiness_status=ready_for_validation` somente quando a correlacao UE convergir para revisao
 
@@ -187,7 +187,7 @@ Esperado:
 - o checker deve expor correlacao estruturada com `eu_window_converges_ready=true`
 - o checker deve expor `readiness.readiness_status=ready_for_validation` quando a janela UE convergir de forma pronta para revisao
 
-### 5. Bundle Regulatorio Quando `P0-02` Tambem Estiver no Escopo
+### 5. Bundle regulatório Quando `P0-02` Tambem Estiver no Escopo
 
 Se a mesma janela incluir `AML/KYT live`, preferir consolidar:
 
@@ -209,7 +209,7 @@ Esperado:
 - o bundle deve preservar `steps.eu_sanctions_window.request_id`
 - o bundle deve refletir `expected_source_url`, `observed_source_url`, `source_url_matches_expected`, `override_tokenized`, `persisted_status_active`, `last_sync_status_success` e `eu_window_converges_ready`
 
-### 6. Reconciliar Governanca Semanal
+### 6. Reconciliar governança Semanal
 
 Depois que os artefatos existirem, sincronizar a janela:
 
@@ -251,7 +251,7 @@ Mover `P0-03` para `ready_for_validation` somente quando:
 - os dois JSONs da janela UE tiverem sido gerados
 - o checker `check-eu-sanctions-window` estiver verde
 - `EU_CONSOLIDATED` estiver convergente no banco
-- a governanca semanal tiver sido reprocessada com os paths reais
+- a governança semanal tiver sido reprocessada com os paths reais
 
 Considerar `P0-03` fechado somente quando:
 
@@ -285,5 +285,5 @@ Nesses casos:
 - worker reexecutado com a env atualizada
 - JSONs da janela UE preservados
 - checker pos-sync verde
-- governanca sincronizada
+- governança sincronizada
 - aceite humano formal

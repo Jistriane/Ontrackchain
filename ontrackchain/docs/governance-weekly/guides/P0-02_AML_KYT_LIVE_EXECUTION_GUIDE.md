@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Concentrar em um unico artefato o rito minimo para mover `P0-02` de `blocked` para `in_progress`, executando antes o readiness check canônico, depois a homologacao `AML/KYT live` com evidencia preservada e devolvendo a trilha para a governanca semanal sem drift.
+Concentrar em um unico artefato o rito minimo para mover `P0-02` de `blocked` para `in_progress`, executando antes o readiness check canônico, depois a homologacao `AML/KYT live` com evidência preservada e devolvendo a trilha para a governança semanal sem drift.
 
 ## Quando Usar
 
@@ -10,7 +10,7 @@ Concentrar em um unico artefato o rito minimo para mover `P0-02` de `blocked` pa
 - quando a janela seria incluir `P0-02` isolado ou combinado com `P0-03`
 - quando o owner `Compliance/Backend` estiver nominalmente confirmado em `docs/staging-env-ownership.md`
 
-## Fontes Canonicas
+## Fontes canônicas
 
 - [Runbook 16A](../../runbooks.md)
 - [Project Release Gates](../../project-release-gates.md)
@@ -132,7 +132,7 @@ Esperado:
 
 ### 2. Gate Leve do Provider
 
-Executar o gate canonico de runtime:
+Executar o gate canônico de runtime:
 
 ```bash
 cd github_main/ontrackchain
@@ -153,7 +153,7 @@ Esperado:
 - artefatos em `ci-artifacts/p0-02/` ou `OUTPUT_DIR` equivalente, incluindo `p0-02-compliance-runtime.json` e `p0-02-gate-summary.json`
 - o JSON principal deve expor `kind=compliance_provider_runtime_check`
 - o JSON principal deve expor `request_id`, `correlation.provider_converges_live=true` e `readiness.readiness_status=prepared_for_homologation`
-- preservar o `request_id` do checker para correlacao posterior com homologacao externa, bundle regulatorio e dossier
+- preservar o `request_id` do checker para correlacao posterior com homologacao externa, bundle regulatório e dossier
 
 ### 3. Smoke Runtime
 
@@ -169,7 +169,7 @@ Esperado:
 - checks de compliance relevantes verdes
 - nenhuma degradacao silenciosa nao documentada
 
-### 4. Evidencia Externa de Homologacao
+### 4. evidência Externa de Homologacao
 
 Executar a coleta formal da trilha de homologacao:
 
@@ -207,7 +207,7 @@ Esperado:
 - o JSON do bundle deve explicitar `readiness.compliance_runtime.readiness_status` e `readiness.regulatory_bundle.readiness_status`
 - o markdown do bundle deve refletir readiness executivo, bloqueadores e `next_action` coerentes com a trilha `P0-02`
 
-### 6. Reconciliar Governanca Semanal
+### 6. Reconciliar governança Semanal
 
 Depois que os artefatos existirem, sincronizar a janela:
 
@@ -230,7 +230,7 @@ Esperado:
 - diagnosticos do runner (`docker compose ps/logs`) preservados quando a execucao ocorrer via GitHub Actions
 - artefato JSON de homologacao em `artifacts/homologation/`
 - bundle `/audit` correlacionado pelo mesmo `request_id`
-- bundle regulatorio preservando `steps.compliance_provider_runtime.request_id`
+- bundle regulatório preservando `steps.compliance_provider_runtime.request_id`
 - quando aplicavel, `regulatory-readiness-bundle.json` e resumo `.md`
 - snapshot/governance atualizados apos `refresh-staging-war-room-governance-local`
 
@@ -248,12 +248,12 @@ Mover `P0-02` para `ready_for_validation` somente quando:
 - o gate `check-compliance-provider-runtime` estiver verde
 - a homologacao externa tiver gerado artefato anexavel
 - os artefatos estiverem preservados em `artifacts/`
-- a governanca semanal tiver sido reprocessada com os paths reais
+- a governança semanal tiver sido reprocessada com os paths reais
 
 Considerar `P0-02` fechado somente quando:
 
 - readiness interna e catalogo publico convergirem em `live`
-- a evidencia for revisada por humano
+- a evidência for revisada por humano
 - o accountable aceitar formalmente a janela
 
 ## Falhas Aceitaveis
@@ -282,5 +282,5 @@ Nesses casos:
 - credencial real validada no ambiente correto
 - checker verde
 - homologacao externa preservada
-- governanca sincronizada
+- governança sincronizada
 - aceite humano formal

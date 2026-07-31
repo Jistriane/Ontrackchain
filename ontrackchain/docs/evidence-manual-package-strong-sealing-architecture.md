@@ -12,7 +12,7 @@ para um artefato institucionalmente selado, verificavel e apto a:
 
 - sign-off formal recorrente
 - verificacao criptografica offline
-- correlacao com `audit_logs`, `evidence_trail` e governanca semanal
+- correlacao com `audit_logs`, `evidence_trail` e governança semanal
 - futura extensao para dossies regulatórios oficiais
 
 ## Fase Atual
@@ -23,7 +23,7 @@ para um artefato institucionalmente selado, verificavel e apto a:
 
 O pacote manual DD/SoF ja possui:
 
-- documento canonico JSON
+- documento canônico JSON
 - manifesto deterministico `manual_review_package/v2`
 - `package_sha256`, `scope_sha256`, `manual_review_sha256`, `dossier_sha256`
 - evento oficial `evidence_manual_review_package_exported`
@@ -37,7 +37,7 @@ O gap residual mudou de "cadeia inexistente" para "baseline funcional entregue, 
 
 - anexar uma prova institucional ao pacote manual DD/SoF
 - manter correlacao por `request_id`, `report_id`, `scope_id` e `manual_review_action`
-- preservar o manifesto canonico ja validado
+- preservar o manifesto canônico ja validado
 - registrar eventos auditaveis de sign-off e selagem
 - permitir verificacao posterior sem depender do frontend
 
@@ -51,7 +51,7 @@ O gap residual mudou de "cadeia inexistente" para "baseline funcional entregue, 
 
 ### Requisitos nao funcionais
 
-- seguranca: assinatura com chave institucional nao exportavel
+- segurança: assinatura com chave institucional nao exportavel
 - auditabilidade: trilha completa de request, sign-off, selagem, revogacao e verificacao
 - disponibilidade: falha da selagem nao pode corromper o pacote exportado
 - manutenibilidade: formato de envelope versionado e extensivel
@@ -103,8 +103,8 @@ flowchart LR
 | Opcao | Descricao | Vantagens | Desvantagens | Complexidade | Manutencao | Escalabilidade |
 | --- | --- | --- | --- | --- | --- | --- |
 | A | Sign-off somente em banco, sem assinatura criptografica | simples, barata, rapida | baixa forca probatoria, nao resolve verificacao offline, fraca contra adulteracao institucional | baixa | baixa | alta |
-| B | Envelope assinado off-chain com JWS/COSE usando KMS/HSM institucional | bom equilibrio entre seguranca, custo e auditabilidade; verificacao offline; revogacao controlada | requer modelagem de sign-off, KMS e cadeia de certificados | media | media | alta |
-| C | Envelope assinado + TSA externa e/ou ancoragem on-chain | prova temporal/externa mais forte, boa para cenarios litigiosos | custo maior, operacao mais complexa, maior irreversibilidade e dependencia externa | alta | alta | media |
+| B | Envelope assinado off-chain com JWS/COSE usando KMS/HSM institucional | bom equilibrio entre segurança, custo e auditabilidade; verificacao offline; revogacao controlada | requer modelagem de sign-off, KMS e cadeia de certificados | media | media | alta |
+| C | Envelope assinado + TSA externa e/ou ancoragem on-chain | prova temporal/externa mais forte, boa para cenarios litigiosos | custo maior, operação mais complexa, maior irreversibilidade e dependencia externa | alta | alta | media |
 
 ## Recomendacao
 
@@ -142,7 +142,7 @@ Responsabilidade:
 
 - iniciar `seal request`
 - exibir estado `pending_signoff`, `ready_to_seal`, `sealed`, `revoked`, `superseded`
-- permitir download do envelope de selagem e do pacote canonico
+- permitir download do envelope de selagem e do pacote canônico
 
 Input:
 
@@ -166,13 +166,13 @@ Casos de erro:
 Responsabilidade:
 
 - validar elegibilidade da selagem
-- recomputar o pacote canonico e o `package_sha256`
+- recomputar o pacote canônico e o `package_sha256`
 - persistir `seal_request`, `signoffs` e `seal_envelope`
 - registrar eventos oficiais em `audit_logs`
 
 Input:
 
-- requisicoes autenticadas do frontend/App Router
+- requisições autenticadas do frontend/App Router
 - contexto institucional do tenant/org
 
 Output:
@@ -212,14 +212,14 @@ Casos de erro:
 Responsabilidade:
 
 - exibir estado da selagem e eventos relacionados
-- tratar `package_sha256` como digest principal e correlacionar `seal_id`, `ticket_ref`, `reason`, trust bundle e governanca pos-selagem
+- tratar `package_sha256` como digest principal e correlacionar `seal_id`, `ticket_ref`, `reason`, trust bundle e governança pos-selagem
 - navegar de volta ao evento-fonte DD/SoF
 
-#### 5. Governanca semanal / sign-off institucional
+#### 5. governança semanal / sign-off institucional
 
 Responsabilidade:
 
-- anexar ticket, aprovadores, decisao e evidencia operacional
+- anexar ticket, aprovadores, decisao e evidência operacional
 - prover origem formal para o ciclo de aceite
 
 ## Modelo de Dados Recomendado
@@ -283,7 +283,7 @@ Indices sugeridos:
 - `(seal_id, signer_role)`
 - `(organization_id, signed_at desc)`
 
-## Contratos de API Canonicos
+## Contratos de API canônicos
 
 - a referencia HTTP canônica desta trilha agora e `./api-contracts.md`
 - o frontend privilegia leitura por digest via `GET /api/app/evidence/manual-package/seal?package_sha256=...`
@@ -303,7 +303,7 @@ Indices sugeridos:
 
 - `JWS JSON Flattened` como baseline inicial
 
-### Payload canonico do envelope
+### Payload canônico do envelope
 
 - `package_sha256`
 - `manifest_schema_version`
@@ -324,7 +324,7 @@ Indices sugeridos:
 - amplamente verificavel
 - bom suporte em bibliotecas
 - desacoplado do pacote original
-- facilita migracao futura para TSA ou ancora externa
+- facilita migração futura para TSA ou ancora externa
 
 ## Eventos de Auditoria Implementados
 
@@ -346,10 +346,10 @@ Campos obrigatorios em `metadata`:
 - `certificate_fingerprint_sha256` quando aplicavel
 - `policy_version`
 
-## Seguranca
+## segurança
 
 - assinar somente com chave nao exportavel em KMS/HSM
-- exigir autenticacao forte para `signoff_method=platform_authenticated_2fa`
+- exigir autenticação forte para `signoff_method=platform_authenticated_2fa`
 - baseline materializada: `local_totp` com `X-2FA=ok` ou `external_provider` homologado com `X-MFA-Provider-Homologated=true`
 - usar RBAC por papel institucional, nao apenas por permissao generica
 - recalcular `package_sha256` no backend antes de qualquer assinatura
@@ -358,7 +358,7 @@ Campos obrigatorios em `metadata`:
 
 ## Observabilidade e Resiliencia
 
-- correlation id por requisicao de selagem
+- correlation id por requisição de selagem
 - logs estruturados com `seal_id`, `request_id`, `package_sha256`
 - violacoes de MFA em `platform_authenticated_2fa` devem gerar evento auditavel dedicado e metricas `last_hour` com breakdown por tipo
 - quando houver violacao `last_hour`, o stack operacional promove `warning` no Prometheus e o cockpit de monitoramento exibe o KPI agregado para triagem
@@ -375,7 +375,7 @@ Campos obrigatorios em `metadata`:
 - idempotencia por `(organization_id, package_sha256, policy_version)`
 - fila assíncrona opcional se `p95` ultrapassar o SLA
 
-## Proximos Endurecimentos Recomendados
+## próximos Endurecimentos Recomendados
 
 ### Trilha residual imediata
 
@@ -419,13 +419,13 @@ Campos obrigatorios em `metadata`:
 ## Perguntas Pendentes
 
 1. O provedor final de producao sera `AWS KMS`, `Cloud HSM`, `Vault Transit` ou outro backend plugavel atras da abstracao?
-2. O trust bundle sera emitido por AC corporativa, bundle interno versionado ou integracao hibrida?
+2. O trust bundle sera emitido por AC corporativa, bundle interno versionado ou integração hibrida?
 3. Em qual milestone a organizacao quer introduzir TSA/ancora externa complementar?
 
-## Proximos Passos
+## próximos Passos
 
 1. homologar provider institucional definitivo e trust bundle versionado
-2. anexar evidencias recorrentes dessa trilha a janela seria/governanca semanal
+2. anexar evidências recorrentes dessa trilha a janela seria/governanca semanal
 3. avaliar TSA/ancora externa apenas como endurecimento posterior
 4. reaplicar o padrao aos dossies oficiais quando a cadeia DD/SoF estiver institucionalmente fechada
 

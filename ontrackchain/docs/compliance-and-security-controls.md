@@ -1,4 +1,4 @@
-# Compliance e Controles de Seguranca
+# Compliance e Controles de segurança
 
 ## Objetivo
 
@@ -15,7 +15,7 @@ Consolidar os controles tecnicos e operacionais implementados no runtime atual d
 
 ### 2. Auth e Contexto Centralizados
 
-- `Traefik ForwardAuth` como ponto unico de validacao
+- `Traefik ForwardAuth` como ponto unico de validação
 - `auth-service` suporta `JWT`, `API Key` e `OIDC`
 - enriquecimento de contexto com `X-Org-Id`, `X-User-Id`, `X-Linked-User-Id`, `X-Role`, `X-Plan`, `X-Auth-Method`
 - `linked_user_id` conecta identidades federadas a usuarios persistidos para mutacoes sensiveis
@@ -28,7 +28,7 @@ Controles ativos:
 - `ROS/COAF` exige `external_provider` homologado
 - `block lift` exige `external_provider` homologado
 
-Observacao operacional:
+observação operacional:
 
 - o trilho `TOTP` local continua valido apenas para o scaffold `dev`
 - o trilho serio depende de MFA federado homologado
@@ -36,8 +36,8 @@ Observacao operacional:
 ### 4. Trilha Operacional e Trilha Regulatoria
 
 - `audit_logs` registra eventos de negocio, leitura privilegiada, negacoes e exportacoes
-- `evidence_trail` registra eventos regulatorios append-only com encadeamento `SHA-256`
-- hashes deterministas sao usados em relatorios, bloqueios, contrapartes e comprovantes COAF
+- `evidence_trail` registra eventos regulatórios append-only com encadeamento `SHA-256`
+- hashes deterministas sao usados em relatórios, bloqueios, contrapartes e comprovantes COAF
 
 ### 5. Screening de Sancoes e Sync Local
 
@@ -46,37 +46,37 @@ Observacao operacional:
 - overrides operacionais:
   - `COMPLIANCE_OFAC_SDN_SOURCE_URL`
   - `COMPLIANCE_EU_SANCTIONS_SOURCE_URL`
-- `preflight_external_integrations.py`, `check_sanctions_sync_status.py` e `run_eu_sanctions_window.py` endurecem a governanca do feed
+- `preflight_external_integrations.py`, `check_sanctions_sync_status.py` e `run_eu_sanctions_window.py` endurecem a governança do feed
 
-### 6. Enforcement Regulatorio
+### 6. Enforcement regulatório
 
-- `preventive_blocks` registra acao, gatilhos, base regulatoria, score e hash de evidencia
+- `preventive_blocks` registra acao, gatilhos, base regulatoria, score e hash de evidência
 - `counterparties` registra KYC/KYB, PEP, sanctions clearance, DD reforcada e calendario de revisao
 - `ros_records` modela geracao, aprovacao/rejeicao e submissao manual de ROS/COAF
 
 ### 7. Custodia Formal de Pacotes Manuais DD/SoF
 
-- o cockpit `evidence` ja gera pacote canonico com manifesto deterministico `manual_review_package/v2`
+- o cockpit `evidence` ja gera pacote canônico com manifesto deterministico `manual_review_package/v2`
 - a exportacao oficial ja produz `package_sha256`, checksums derivados e evento `evidence_manual_review_package_exported`
 - o `audit` ja trata `package_sha256` como hash principal do contexto manual e preserva navegacao bidirecional para a origem DD/SoF
-- a selagem institucional forte ja esta implementada com `signoff-request`, sign-offs por papel, `finalize`, `revoke`, `supersede`, lookup canonico por digest e preset de governanca no `audit`
+- a selagem institucional forte ja esta implementada com `signoff-request`, sign-offs por papel, `finalize`, `revoke`, `supersede`, lookup canônico por digest e preset de governança no `audit`
 - o contrato publico canônico dessa trilha agora vive em `./api-contracts.md`, enquanto `./evidence-manual-package-strong-sealing-architecture.md` permanece como visao arquitetural
 
 ## Matriz de Controles
 
-| Area | Controle Atual | Estado | Observacao |
+| Area | Controle Atual | Estado | observação |
 | --- | --- | --- | --- |
 | Tenant isolation | `RLS` + contexto SQL | forte | aderente ao padrao `app.organization_id` |
 | Auth | `ForwardAuth` + `JWT / API Key / OIDC` | forte | homologacao seria ainda pendente |
 | MFA sensivel | `legal_report`, `ROS/COAF`, `block lift` | medio/forte | trilho serio exige homologacao externa |
 | Auditoria | `audit_logs` + `request_id` | forte | boa cobertura operacional |
-| Evidencia regulatoria | `evidence_trail` + `SHA-256` | forte | source of truth unico e teste cruzado reduzem drift atual |
+| evidência regulatoria | `evidence_trail` + `SHA-256` | forte | source of truth unico e teste cruzado reduzem drift atual |
 | Screening de sancoes | cache local + worker | forte | catalogo e endpoint direto convergem para `live` via cache local |
-| AML/KYT live | provider-aware + runtime gate | parcial | falta homologacao com credenciais reais e evidencia recorrente |
+| AML/KYT live | provider-aware + runtime gate | parcial | falta homologacao com credenciais reais e evidência recorrente |
 | DD/SoF | `manual_review_required` | parcial | comportamento intencional do produto atual |
 | Custodia formal DD/SoF | manifesto canônico + `package_sha256` + export auditado + selagem institucional forte | medio/forte | baseline funcional entregue com quorum `Compliance + Ops`, revogacao/supersedencia e verificacao local; pendente endurecimento com provider institucional homologado |
 | ROS/COAF | workflow completo | forte | submissao final segue manual e auditada |
-| Operacao seria | preflight + dossier + ownership | forte | faltam sign-offs formais recorrentes |
+| operação seria | preflight + dossier + ownership | forte | faltam sign-offs formais recorrentes |
 
 ## Controles Validados Automaticamente
 
@@ -112,7 +112,7 @@ Observacao operacional:
 
 - o roteador e honesto e observavel
 - o gate `check-compliance-provider-runtime` ja existe
-- faltam credenciais reais, homologacao externa e evidencias recorrentes
+- faltam credenciais reais, homologacao externa e evidências recorrentes
 
 ### 2. MFA federado homologado
 
@@ -122,7 +122,7 @@ Observacao operacional:
 ### 4. `due_diligence` e `source_of_funds`
 
 - continuam em `manual_review_required`
-- isso deve ser tratado como gap de produto/compliance, nao como erro de documentacao
+- isso deve ser tratado como gap de produto/compliance, nao como erro de documentação
 
 ### 5. Cadeia formal de custodia
 
@@ -138,7 +138,7 @@ Observacao operacional:
 
 ## Recomendacoes Imediatas
 
-- homologar `AML/KYT` live com `check-compliance-provider-runtime` verde e evidencias da janela seria
+- homologar `AML/KYT` live com `check-compliance-provider-runtime` verde e evidências da janela seria
 - rodar a janela UE com `gate-p0-03-eu-live` e `REQUEST_ID` quando `EU_CONSOLIDATED` estiver no escopo
 - registrar formalmente sign-off de retention/recovery e owners operacionais
 - manter `manual_review_required` explicitamente documentado ate existir motor homologado para DD/SoF

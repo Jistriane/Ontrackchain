@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Oferecer uma leitura curta, executiva e canonica do estado atual do Ontrackchain para diretoria, sponsors e stakeholders que precisam entender rapidamente:
+Oferecer uma leitura curta, executiva e canônica do estado atual do Ontrackchain para diretoria, sponsors e stakeholders que precisam entender rapidamente:
 
 - o quanto ja foi construido
 - o que ainda impede `95%`
@@ -21,7 +21,7 @@ Use este documento como porta de entrada quando a pergunta for "qual e o estado 
 Leitura recomendada por nivel:
 
 - leitura curta para diretoria, sponsors e stakeholders: este documento
-- baseline viva com racional tecnico e regulatorio: [Avaliacao de Maturidade do Projeto](./project-maturity-assessment.md)
+- baseline viva com racional tecnico e regulatório: [Avaliacao de Maturidade do Projeto](./project-maturity-assessment.md)
 - parecer formal datado de calibracao e `go/no-go`: [Avaliacao de Status](./assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md)
 
 ## Snapshot Atual
@@ -58,11 +58,11 @@ Execucao real local mais recente, em `2026-07-19`:
 - arquitetura modular com boundaries claros, gateway unico, RLS e servicos por dominio
 - frontend operacional real com cockpits dedicados, i18n tri-locale, labels institucionais e contratos compartilhados
 - camada regulatoria funcional com `evidence_trail`, `preventive_blocks`, `counterparties`, `ROS/COAF` e screening local de sancoes
-- operacao multiusuario sustentada por `regulatory_work_items`, timeline e comentarios estruturados
+- operação multiusuario sustentada por `regulatory_work_items`, timeline e comentarios estruturados
 - AI Service completo com 8 endpoints de IA explicativa (XAI, Risk Models, Confidence, Graph Analysis, Narrator, Case Insights, Law Enforcement Export, THEMIS) persistidos em PostgreSQL com RBAC e evidence trail
 - Case Management completo com CRUD persistido, timeline auditavel, metricas agregadas e risk_score automatico
-- trilha de incidente cross-domain agora conecta `alerts`, `monitoring`, export administrativo e governanca executiva com RCA leve reaproveitando `work-items`, sem abrir servico novo
-- observabilidade, runbooks, bundles de readiness e harnesses de validacao institucionalizados
+- trilha de incidente cross-domain agora conecta `alerts`, `monitoring`, export administrativo e governança executiva com RCA leve reaproveitando `work-items`, sem abrir servico novo
+- observabilidade, runbooks, bundles de readiness e harnesses de validação institucionalizados
 
 ## Sinal Novo de Sustentacao Operacional
 
@@ -71,7 +71,7 @@ Execucao real local mais recente, em `2026-07-19`:
 - `P2-05` CONCLUIDO: enforcement fino de RBAC completo em todos os dominios (team, reports, billing, investigate, compliance, alerts, counterparties, monitoring); `canDownloadLegalReport` corrigido; `auth/context` retorna papel correto do OIDC; 80/80 testes E2E passando; docs sincronizadas
 - a segregacao regulatoria de `ROS/COAF` agora tambem aparece de forma explicita na UX: `REVIEWER` segue aprovando/rejeitando, mas nao recebe a superficie de submissao manual reservada a `COMPLIANCE_OFFICER`
 - isso reduz ambiguidade entre triagem tecnica e narrativa executiva, porque a causa raiz deixa de ficar implícita ou dispersa entre UI, comentário e export
-- essa frente elevou a construcao tecnica e a coerencia operacional da plataforma, levando a baseline oficial para `100/99/100`, sem alterar por si so os bloqueadores regulatorios externos
+- essa frente elevou a construcao tecnica e a coerencia operacional da plataforma, levando a baseline oficial para `100/99/100`, sem alterar por si so os bloqueadores regulatórios externos
 - o ganho executivo formal so deve ocorrer quando houver uso recorrente em janela real, com resumo RCA materializado e revisão humana coerente com o rito semanal
 
 ## O Que Ainda Impede `95%`
@@ -80,9 +80,9 @@ Bloqueadores principais:
 
 1. `P0-01` homologar `OIDC + MFA` federado em trilho serio e recorrente
 2. preencher `.env.staging.private` ja materializado fora do repositorio e concluir o handoff de `Compliance/AML` para destravar a tentativa real
-3. `P0-02` fechar `AML/KYT` live com credencial real e evidencia anexavel
+3. `P0-02` fechar `AML/KYT` live com credencial real e evidência anexavel
 4. `P0-03` ativar feed UE real com URL tokenizada e persistencia auditavel
-5. `P0-04` consolidar `P0-02 + P0-03` em bundle regulatorio revisavel; tentativas parciais ajudam a endurecer correlacao e dossier, mas nao fecham o item
+5. `P0-04` consolidar `P0-02 + P0-03` em bundle regulatório revisável; tentativas parciais ajudam a endurecer correlacao e dossier, mas nao fecham o item
 6. `P0-05` executar a primeira janela seria material com `go/no-go` formal
 7. `P0-06` formalizar o sign-off minimo de retention/recovery
 8. `P1-02` institucionalizar owners, SLA e rito recorrente da janela
@@ -100,19 +100,19 @@ Sequencia executiva de melhor retorno:
 7. formalizar `P0-06`
 8. publicar `P0-07`
 
-## Regra de Governanca
+## Regra de governança
 
 Nenhuma promocao de maturidade deve ocorrer por:
 
 - intencao
-- configuracao pronta
-- evidencia parcial
+- configuração pronta
+- evidência parcial
 - sucesso nao reproduzivel
 
 Promocao de status so e permitida quando houver:
 
 - execucao real em ambiente valido
-- evidencia preservada em artefato rastreavel
+- evidência preservada em artefato rastreavel
 - coerencia entre runtime, contrato e narrativa executiva
 - revisao humana
 - aprovacao explicita do accountable
@@ -120,18 +120,18 @@ Promocao de status so e permitida quando houver:
 Leitura executiva adicional:
 
 - tentativa parcial de `P0-02` ou `P0-03` conta como progresso operacional e reduz risco de execucao
-- check real bloqueado por handoff pendente ou placeholders/variaveis reais ausentes em `.env.staging.private` conta como diagnostico valido de governanca, mas nao como progresso de homologacao
-- a promocao oficial para `90%+` continua exigindo prova combinada e revisavel, preferencialmente selada por `P0-04`
+- check real bloqueado por handoff pendente ou placeholders/variaveis reais ausentes em `.env.staging.private` conta como diagnostico valido de governança, mas nao como progresso de homologacao
+- a promocao oficial para `90%+` continua exigindo prova combinada e revisável, preferencialmente selada por `P0-04`
 - sinais de RCA cross-domain (`rca_attached_count`, `critical_open_count`, dominios afetados) ajudam a qualificar risco operacional e handoff executivo, mas nao substituem evidência de janela seria nem mudam KPI sozinhos
 
 Decisao formal relacionada:
 
-- [ADR-010 — Promocao de Maturidade Baseada em Evidencia](./adrs/ADR-010-promocao-de-maturidade-baseada-em-evidencia.md)
-- [Kit de Execucao por Evidencia](./project-maturity-evidence-execution-kit.md)
+- [ADR-010 — Promocao de Maturidade Baseada em evidência](./adrs/ADR-010-promocao-de-maturidade-baseada-em-evidencia.md)
+- [Kit de Execucao por evidência](./project-maturity-evidence-execution-kit.md)
 
 ## Resultado Esperado
 
-Se `P0-02`, `P0-03`, `P0-04`, `P0-01` e `P0-05` forem fechados com evidencia real, o projeto entra na faixa plausivel de `94%+` consolidado e abre a reta final legitima para `95%`. Antes disso, tentativas parciais servem para endurecer a trilha executiva, nao para antecipar o fechamento oficial.
+Se `P0-02`, `P0-03`, `P0-04`, `P0-01` e `P0-05` forem fechados com evidência real, o projeto entra na faixa plausivel de `94%+` consolidado e abre a reta final legitima para `95%`. Antes disso, tentativas parciais servem para endurecer a trilha executiva, nao para antecipar o fechamento oficial.
 
 ## Quando Usar Este Documento
 

@@ -2,14 +2,14 @@
 
 ## Objetivo
 
-Instanciar uma tentativa controlada da trilha de diretório federado no ciclo `2026-07-13`, com campos prontos para preenchimento humano durante a validacao em `staging`.
+Instanciar uma tentativa controlada da trilha de diretório federado no ciclo `2026-07-13`, com campos prontos para preenchimento humano durante a validação em `staging`.
 
 Use esta folha junto com:
 
 - [Run Sheet Operacional - Diretorio Federado em Staging](../../guides/FEDERATED_DIRECTORY_STAGING_RUN_SHEET.md)
-- [Validacao em Staging - Diretorio Federado](../../../federated-directory-staging-validation.md)
+- [validação em Staging - Diretorio Federado](../../../federated-directory-staging-validation.md)
 - [Pacote Final de Execucao - Janela Seria Integrada](../../guides/SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md)
-- [Governanca Semanal Operacional 2026-07-13](./2026-07-13-weekly-governance-operational.md)
+- [governança Semanal Operacional 2026-07-13](./2026-07-13-weekly-governance-operational.md)
 
 ## Identificacao da Tentativa
 
@@ -34,7 +34,7 @@ Use esta folha junto com:
 | `Team` / Frontend | `preencher` | `preencher` | `preencher` | `sim ou nao` |
 | `Audit` / observabilidade funcional | `preencher` | `preencher` | `preencher` | `sim ou nao` |
 | `Platform/SRE` | `preencher` | `preencher` | `preencher` | `sim ou nao` |
-| Governanca / sign-off | `preencher` | `preencher` | `preencher` | `sim ou nao` |
+| governança / sign-off | `preencher` | `preencher` | `preencher` | `sim ou nao` |
 
 ## Warmup `T-30 min`
 
@@ -90,7 +90,7 @@ Gate:
 
 - [ ] busca retornou o candidato certo
 - [ ] `candidate_org` coerente com o tenant
-- [ ] warnings nao bloquearam a operacao
+- [ ] warnings nao bloquearam a operação
 
 ### Sugestao e `link`
 

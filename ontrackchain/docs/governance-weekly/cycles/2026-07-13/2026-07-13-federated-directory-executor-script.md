@@ -76,7 +76,7 @@ Registrar:
 - `candidate_match_status`
 - `candidate_warnings`
 
-Evidencia:
+evidência:
 
 - capturar screenshot da busca assistida
 
@@ -108,7 +108,7 @@ Registrar:
 - `match_reason`
 - `linked_identity_count_after`
 
-Evidencia:
+evidência:
 
 - capturar screenshot da mensagem de sucesso e do membro vinculado
 
@@ -139,7 +139,7 @@ Registrar:
 - `audit_link_event_found=true | false`
 - `audit_event_timestamp`
 
-Evidencia:
+evidência:
 
 - capturar screenshot da lista e do detalhe do evento
 
@@ -166,7 +166,7 @@ Registrar:
 - `db_link_event_found=true | false`
 - `request_id_observado`
 
-Evidencia:
+evidência:
 
 - guardar screenshot ou output da SQL
 
@@ -189,7 +189,7 @@ Registrar:
 
 - `unlink_status=done | failed`
 
-Evidencia:
+evidência:
 
 - capturar screenshot do `unlink` ou do estado final sem vinculo
 
@@ -210,7 +210,7 @@ Registrar:
 
 - `audit_unlink_event_found=true | false`
 
-Evidencia:
+evidência:
 
 - capturar screenshot do evento `unlink`
 

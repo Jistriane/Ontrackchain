@@ -51,7 +51,7 @@ python3 scripts/preflight_external_integrations.py
 Registrar:
 
 - `status`: `preencher`
-- observacao curta: `preencher`
+- observação curta: `preencher`
 
 ### 3. Reexecutar worker
 
@@ -63,7 +63,7 @@ make rerun-compliance-worker
 Registrar:
 
 - `worker_status`: `preencher`
-- observacao curta: `preencher`
+- observação curta: `preencher`
 
 ### 4. Runner da janela UE
 
@@ -102,7 +102,7 @@ Se a execucao for hospedada via GitHub Actions, preencher tambem:
 - `run_url`: `preencher`
 - `artifact_name`: `p0-03-eu-live-<window_id>`
 
-### 6. Bundle regulatorio se `P0-02` estiver junto
+### 6. Bundle regulatório se `P0-02` estiver junto
 
 ```bash
 cd github_main/ontrackchain
@@ -120,7 +120,7 @@ Registrar somente se aplicavel:
 - `bundle_json`: `preencher`
 - `bundle_md`: `preencher`
 
-### 7. Reconciliar governanca
+### 7. Reconciliar governança
 
 ```bash
 cd github_main/ontrackchain
@@ -153,7 +153,7 @@ Registrar:
 
 ## Gate de Saida
 
-Marcar a trilha como pronta para validacao somente se todos estiverem verdadeiros:
+Marcar a trilha como pronta para validação somente se todos estiverem verdadeiros:
 
 - [ ] preflight externo verde
 - [ ] worker reexecutado com a env correta
@@ -161,12 +161,12 @@ Marcar a trilha como pronta para validacao somente se todos estiverem verdadeiro
 - [ ] `eu-sanctions-sync.json` preservado
 - [ ] checker pos-sync verde
 - [ ] `source_url` persistido igual ao override
-- [ ] governanca reprocessada
-- [ ] owner humano revisou a evidencia
+- [ ] governança reprocessada
+- [ ] owner humano revisou a evidência
 
 ## Resultado da Janela
 
 - decisao sugerida: `preencher`
 - motivo resumido: `preencher`
-- proximo passo: `preencher`
+- próximo passo: `preencher`
 - accountable: `preencher`

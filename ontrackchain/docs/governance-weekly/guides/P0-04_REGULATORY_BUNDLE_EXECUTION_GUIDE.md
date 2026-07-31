@@ -1,21 +1,21 @@
-# Guia de Execucao Assistida - `P0-04` Bundle Regulatorio Oficial
+# Guia de Execucao Assistida - `P0-04` Bundle regulatório Oficial
 
 ## Objetivo
 
-Consolidar em um unico artefato o gate oficial de `P0-04`, promovendo o bundle regulatorio apenas quando `P0-02` e `P0-03` estiverem simultaneamente no escopo, verdes e coerentes por correlacao auditavel.
+Consolidar em um unico artefato o gate oficial de `P0-04`, promovendo o bundle regulatório apenas quando `P0-02` e `P0-03` estiverem simultaneamente no escopo, verdes e coerentes por correlacao auditavel.
 
 ## Quando Usar
 
 - quando a janela seria combinar `AML/KYT live` e feed UE real na mesma execucao
 - quando `P0-02` e `P0-03` ja tiverem artefatos anexaveis e owner nominal confirmado
-- quando o bundle regulatorio for usado como evidencia executiva de promocao
+- quando o bundle regulatório for usado como evidência executiva de promocao
 
 Estado local atual:
 
 - `P0-04` esta `blocked`
 - a execucao real local mais recente de `2026-07-19` confirmou que o bloqueio dominante atual ainda e anterior ao bundle, mas ja esta mais preciso: o scaffold privado existe e o bundle segue travado por `Compliance/AML.date/status` pendentes e pelas variaveis reais faltantes em `P0-02` + `P0-03`
 
-## Contrato Canonico
+## Contrato canônico
 
 - `readiness.compliance_runtime.readiness_status` deve refletir a trilha `P0-02`
 - `readiness.eu_window.readiness_status` deve refletir a trilha `P0-03`
@@ -34,7 +34,7 @@ Estado local atual:
 - se as duas trilhas estiverem no escopo, mas houver incoerencia de correlacao, o bundle deve ficar `blocked`
 - promover `ready_for_validation` somente quando a janela combinada provar as duas trilhas na mesma execucao
 
-## Evidencias Minimas
+## evidências Minimas
 
 - `artifacts/staging/checks/<window_id>-regulatory-readiness-bundle.json`
 - `artifacts/staging/dossiers/<window_id>-regulatory-readiness-bundle.md`
@@ -104,7 +104,7 @@ Esperado:
 - materializacao efemera de `.env.staging.private`
 - correlacao explicita de `request_id` para as trilhas `P0-02` e `P0-03` dentro da mesma run hospedada
 - execucao de `make gate-p0-04-regulatory-bundle`
-- upload do JSON e do resumo markdown do bundle regulatorio
+- upload do JSON e do resumo markdown do bundle regulatório
 - `run_url` registravel na trilha executiva/war room
 
 ## Anti-Patterns
@@ -117,11 +117,11 @@ Esperado:
 
 ## Definicao de Pronto Operacional
 
-`P0-04` esta pronto para validacao somente quando:
+`P0-04` esta pronto para validação somente quando:
 
 - `P0-02` e `P0-03` estiverem ambos no escopo da mesma janela
-- o bundle regulatorio estiver em `readiness.regulatory_bundle=ready_for_validation`
-- o dossier e a governanca semanal refletirem o mesmo estado executivo
+- o bundle regulatório estiver em `readiness.regulatory_bundle=ready_for_validation`
+- o dossier e a governança semanal refletirem o mesmo estado executivo
 - houver aceite humano formal sobre os artefatos consolidados
 
 Quando o gate for executado com `OUTPUT_DIR`, preserve tambem `p0-04-gate-summary.json` como marcador explicito de que o bundle foi gerado para revisao manual e nao equivale, por si so, a readiness oficial.

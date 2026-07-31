@@ -3,13 +3,13 @@
 ## Bloco Curto (Slack/Teams)
 
 Janela stg-2026-07-19-a: status `failed` | semaforo `unknown`.
-Escopo regulatorio: `none` | `P0-04` readiness: `unknown`.
+Escopo regulatório: `none` | `P0-04` readiness: `unknown`.
 Classificacao dominante: `operational_readiness_blocked` | resumo: 12 placeholder(s) e 8 campo(s) de handoff pendentes
 RCA cross-domain: `0` RCA(s) em `0` work-item(s) rastreado(s) | pendente `0` | criticos `0`.
 Bloqueios: `12` placeholders e `8` handoff.
 Steps: prepare `failed`, run `failed`, artifact `failed`.
 Leitura: delta indisponivel
-Leitura regulatoria: sem escopo regulatorio material nesta tentativa
+Leitura regulatoria: sem escopo regulatório material nesta tentativa
 Acao: owners por trilha devem executar o checklist de desbloqueio e rerodar o comando unico.
 
 ## Mensagem Expandida
@@ -19,10 +19,10 @@ Acao: owners por trilha devem executar o checklist de desbloqueio e rerodar o co
 - status geral: `failed`
 - semaforo executivo: `unknown`
 - leitura do delta: delta indisponivel
-- escopo regulatorio da tentativa: `none`
+- escopo regulatório da tentativa: `none`
 - scope validado no gate final: `P0-01,P0-02,P0-03`
 - `P0-04` readiness: `unknown`
-- leitura regulatoria: sem escopo regulatorio material nesta tentativa
+- leitura regulatoria: sem escopo regulatório material nesta tentativa
 - classificacao dominante: `operational_readiness_blocked`
 - resumo do bloqueio dominante: 12 placeholder(s) e 8 campo(s) de handoff pendentes
 - resumo RCA disponivel: `not_available`
@@ -39,7 +39,7 @@ Acao: owners por trilha devem executar o checklist de desbloqueio e rerodar o co
 Referencias para o war room:
 - dashboard executivo: `docs/governance-weekly/generated/windows/stg-2026-07-19-a/stg-2026-07-19-a-governance-dashboard.md`
 - checklist de desbloqueio: `docs/governance-weekly/generated/windows/stg-2026-07-19-a/stg-2026-07-19-a-unblock-checklist.md`
-- checklist regulatorio consolidado: `artifacts/staging/dossiers/stg-2026-07-19-a-regulatory-unblock-checklist.md`
+- checklist regulatório consolidado: `artifacts/staging/dossiers/stg-2026-07-19-a-regulatory-unblock-checklist.md`
 - delta de status: `docs/governance-weekly/generated/windows/stg-2026-07-19-a/stg-2026-07-19-a-status-snapshot-delta.md`
 
 Comando unico:

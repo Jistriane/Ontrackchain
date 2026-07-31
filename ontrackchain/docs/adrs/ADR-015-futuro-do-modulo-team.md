@@ -6,9 +6,9 @@ O modulo `team` ja implementa:
 
 - Gestao de membros da organizacao (CRUD completo)
 - Vinculo/desvinculo de identidades federadas (Keycloak)
-- Busca e validacao assistida no diretorio federado
+- Busca e validação assistida no diretorio federado
 - RBAC por papel (ADMIN, ANALYST, AUDITOR, VIEWER, TESTER, COMPLIANCE_OFFICER, LEGAL_REVIEWER, REVIEWER, BILLING_ADMIN)
-- Integracao com `auth-service` para resolucao de vinculos federados
+- integração com `auth-service` para resolucao de vinculos federados
 
 O ADR-006 ja definiu o modelo de identidade em duas camadas (users + external_identities). O modulo team e o frontend desse modelo.
 
@@ -22,28 +22,28 @@ Manter o modulo team como cockpit unico de gestao de identidade e acesso, com as
 - Gestao de identidades federadas (link/unlink)
 - Busca no diretorio federado (Keycloak)
 - Visualizacao de audit trail por membro
-- RBAC granular por operacao (create/update/disable/link/unlink/search)
+- RBAC granular por operação (create/update/disable/link/unlink/search)
 
 ### 2. Evolucao Planejada (Futuro)
 
 - **Notificacoes**: alertar quando identidade federada e desvinculada ou quando papel e alterado
 - **Historico de cambios**: timeline de alteracoes de papel e status por membro
 - **Importacao em lote**: importar membros de planilha ou CSV
-- **Integracao com SCIM**: provisionamento automatico via protocolo SCIM 2.0
+- **integração com SCIM**: provisionamento automatico via protocolo SCIM 2.0
 - **Politicas de acesso**: regras automaticas baseadas em papel (ex: ANALYST nao pode acessar billing)
 - **Dashboard de conformidade**: visao agregada de vinculos federados, papéis e status
 
 ### 3. Nao Implementar (Fora do Escopo)
 
 - Provisionamento automatico de usuarios no primeiro login OIDC (ja decidido no ADR-006)
-- Sincronizacao bidirecional com IdP (manter unidirecional por seguranca)
+- Sincronizacao bidirecional com IdP (manter unidirecional por segurança)
 - Gestao de grupos/permissoes no Keycloak (manter no IdP, nao espelhar)
 
 ## Motivacao
 
 - consolidar o modulo team como fonte unica de verdade para gestao de identidade
 - evitar duplicacao de funcionalidades entre team e outros modulos
-- manter separacao entre autenticacao (IdP) e autorizacao (backend)
+- manter separacao entre autenticação (IdP) e autorização (backend)
 - preservar reversibilidade e evolucao gradual
 
 ## Alternativas Consideradas
@@ -71,8 +71,8 @@ Escolher a **Opcao C** — evolucao incremental conforme necessidade.
 
 - modulo team continua sendo o cockpit unico de gestao de identidade
 - novas funcionalidades sao implementadas sob demanda
-- documentacao e testes sao atualizados junto com cada evolucao
-- RBAC continua sendo enforcement fino por operacao
+- documentação e testes sao atualizados junto com cada evolucao
+- RBAC continua sendo enforcement fino por operação
 
 ## Trade-offs Aceitos
 

@@ -16,7 +16,7 @@
 - pacote canônico da janela:
   - [Pacote Final de Execucao da Janela Seria Integrada](../guides/SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md)
 - workflow de sincronizacao:
-  - [Workflow de Atualizacao Semanal da Governanca](../guides/WEEKLY_GOVERNANCE_UPDATE_WORKFLOW.md)
+  - [Workflow de Atualizacao Semanal da governança](../guides/WEEKLY_GOVERNANCE_UPDATE_WORKFLOW.md)
 - artefatos executivos esperados:
   - sign-off versionado da janela
   - `go/no-go decision packet` versionado da janela

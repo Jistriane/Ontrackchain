@@ -2,9 +2,9 @@
 
 ## Objetivo
 
-Definir criterios minimos de promocao para staging serio com base no estado real do runtime regulatorio atual, sem exigir perfeicao inexistente nem aceitar falsa percepcao de prontidao.
+Definir criterios minimos de promocao para staging serio com base no estado real do runtime regulatório atual, sem exigir perfeicao inexistente nem aceitar falsa percepcao de prontidao.
 
-## Escopo Canonico
+## Escopo canônico
 
 Use este documento para responder:
 
@@ -12,7 +12,7 @@ Use este documento para responder:
 - quais gates sao obrigatorios, condicionais ou bloqueadores inaceitaveis?
 - qual e a leitura executiva de `go/no-go` dada a baseline oficial?
 
-## Papel Canonico
+## Papel canônico
 
 Este documento e a fonte primaria para:
 
@@ -29,15 +29,15 @@ Nao use este documento como:
 Nao use este documento como runbook de execucao:
 
 - deploy tecnico e comandos completos: [Deploy e Staging](deploy-and-staging.md)
-- Refira-se a [Governanca Semanal](./governance-weekly/README.md) para tracking do ciclo atual
+- Refira-se a [governança Semanal](./governance-weekly/README.md) para tracking do ciclo atual
 
 ## Meta de Promocao
 
 Uma promocao para staging serio so deve acontecer quando:
 
 - os fluxos core estiverem validados ponta a ponta
-- os controles minimos de identidade, autorizacao e auditoria estiverem ativos
-- os modulos regulatorios implementados estiverem coerentes com o ambiente-alvo
+- os controles minimos de identidade, autorização e auditoria estiverem ativos
+- os modulos regulatórios implementados estiverem coerentes com o ambiente-alvo
 - os gaps remanescentes estiverem explicitamente aceitos e documentados
 
 Baseline canônica de referencia:
@@ -67,7 +67,7 @@ Baseline canônica de referencia:
 - `ROS/COAF` e `block lift` protegidos por `external_provider`
 - ausencia de fallback silencioso para `dev`
 
-### 3. Core Regulatorio
+### 3. Core regulatório
 
 O gate minimo agora exige que estes modulos estejam operacionais:
 
@@ -76,7 +76,7 @@ O gate minimo agora exige que estes modulos estejam operacionais:
 - `counterparties`
 - `ROS/COAF`
 
-Observacoes de aceite:
+observações de aceite:
 
 - `due_diligence` e `source_of_funds` podem permanecer em `manual_review_required` se isso estiver explicitamente aceito para a janela
 
@@ -86,7 +86,7 @@ Observacoes de aceite:
 - esse checker deve falhar quando o scaffold privado ainda nao existir ou quando o handoff humano de `Compliance/AML` ainda estiver `pending`, bem como quando as variaveis reais obrigatorias do escopo ainda estiverem ausentes
 - antes de redistribuir o handoff por chat ou runbook, preferir `make run-regulatory-unblock-checklist-local WINDOW_ID=<janela> ...` para consolidar as pendencias de `p0-02/p0-03/p0-04` em um unico artefato por owner
 - `preflight_external_integrations.py` verde para o modo esperado da janela
-- se a janela exigir `AML/KYT live`, `make check-compliance-provider-runtime` deve ficar verde e produzir evidencia anexavel do runtime
+- se a janela exigir `AML/KYT live`, `make check-compliance-provider-runtime` deve ficar verde e produzir evidência anexavel do runtime
 - se a janela exigir feed da UE, `make gate-p0-03-eu-live` com `WINDOW_ID` e `REQUEST_ID` deve persistir os JSONs em `artifacts/staging/checks/`
 - para janelas com `P0-02` e `P0-03` juntos, preferir `make run-regulatory-readiness-bundle`, que consolida os artefatos de runtime AML/KYT e da janela UE em um bundle unico anexavel
 - no rito consolidado via `run_staging_window.py`, esse bundle passa a ser executado automaticamente quando a janela estiver com `AML/KYT live` e/ou `EU_CONSOLIDATED` no escopo
@@ -100,13 +100,13 @@ Leitura operacional atual:
 - o bloqueio dominante atual nao e tecnico de produto: o scaffold privado ja existe, mas `Compliance/AML` segue sem handoff concluido (`date/status`) e sem preencher os valores reais obrigatorios do escopo
 - `P0-02` nao pode seguir para o gate de runtime do provider enquanto o readiness check canônico falhar
 - `P0-03` nao pode seguir para a janela UE enquanto o readiness check canônico falhar
-- `P0-04` nao pode ser tratado como consolidacao futura neutra; ele tambem esta efetivamente bloqueado pelo mesmo prerequisito operacional
+- `P0-04` nao pode ser tratado como consolidação futura neutra; ele tambem esta efetivamente bloqueado pelo mesmo prerequisito operacional
 
-### 5. Reports e Evidencias
+### 5. Reports e evidências
 
 - `report_generated` e `report_downloaded` continuam auditados
 - `coaf_report_generated`, `approved/rejected` e `submitted_manual` deixam trilha coerente
-- `evidence_trail` recebe eventos regulatorios principais do fluxo da janela
+- `evidence_trail` recebe eventos regulatórios principais do fluxo da janela
 - dossier final consolidado e anexado
 
 ### 6. Observabilidade
@@ -115,7 +115,7 @@ Leitura operacional atual:
 - incidente sintetico chega ao backlog global
 - export administrativo continua auditado
 
-### 7. Pipeline e Evidencia
+### 7. Pipeline e evidência
 
 - `smoke_runtime.py` verde
 - `Playwright` relevante verde
@@ -138,7 +138,7 @@ Podem permanecer abertos apenas com risco registrado, owner e prazo:
 
 - ausencia de `AML/KYT live` quando a janela for apenas tecnica ou voltada ao feed de sancoes
 - ausencia da janela UE dedicada quando a janela nao envolver `EU_CONSOLIDATED` como criterio de aceite
-- `P0-01` bloqueado quando a janela nao exigir trilho regulatorio forte de identidade e houver excecao formal aprovada
+- `P0-01` bloqueado quando a janela nao exigir trilho regulatório forte de identidade e houver excecao formal aprovada
 
 ## Bloqueadores Nao Aceitaveis
 
@@ -148,7 +148,7 @@ Podem permanecer abertos apenas com risco registrado, owner e prazo:
 - janelas de sancoes com feed UE exigido e sem URL tokenizada valida
 - tentativa `P0-02`, `P0-03` ou `P0-04` sem `.env.staging.private` materializado
 - tentativa `P0-02`, `P0-03` ou `P0-04` com `Compliance/AML` ainda em `pending` no handoff
-- promocao sem dossier, sem ownership/handoff ou sem evidencias anexaveis
+- promocao sem dossier, sem ownership/handoff ou sem evidências anexaveis
 
 ## Checklist de Aprovacao
 
@@ -178,4 +178,4 @@ No estado atual, os gates mais provaveis de continuar bloqueando uma janela regu
 
 Regra executiva:
 
-- manter esta leitura alinhada a baseline `100% / 100% / 100%` ate nova evidencia material publicada na governanca semanal
+- manter esta leitura alinhada a baseline `100% / 100% / 100%` ate nova evidência material publicada na governança semanal

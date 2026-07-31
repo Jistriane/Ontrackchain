@@ -1,4 +1,4 @@
-# Kit de Execucao por Evidencia
+# Kit de Execucao por evidência
 
 ## Objetivo
 
@@ -7,7 +7,7 @@ Transformar a subida de maturidade do Ontrackchain em um rito operacional simple
 Este kit existe para:
 
 - orientar a execucao diaria dos blocos que movem o score
-- padronizar coleta de evidencia
+- padronizar coleta de evidência
 - padronizar decisao `verde/amarelo/vermelho`
 - evitar promocao artificial de baseline
 
@@ -17,7 +17,7 @@ Use este documento em conjunto com:
 - [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
 - [Board Operacional Unico ate 90%+](./project-operational-execution-board.md)
 - [Plano Consolidado ate 95%](./project-construction-plan-to-95-percent.md)
-- [ADR-010 - Promocao de Maturidade Baseada em Evidencia](./adrs/ADR-010-promocao-de-maturidade-baseada-em-evidencia.md)
+- [ADR-010 - Promocao de Maturidade Baseada em evidência](./adrs/ADR-010-promocao-de-maturidade-baseada-em-evidencia.md)
 
 Nao use este documento para substituir os registros datados de uma semana real. Quando a execucao acontecer de fato, o resultado deve ser registrado em `docs/governance-weekly/`.
 
@@ -26,7 +26,7 @@ Nao use este documento para substituir os registros datados de uma semana real. 
 Toda promocao de maturidade depende de quatro elementos:
 
 1. execucao real
-2. evidencia preservada
+2. evidência preservada
 3. revisao humana
 4. aprovacao explicita
 
@@ -36,18 +36,18 @@ Sem esses quatro elementos, o score oficial nao sobe.
 
 | Cor | Significado | Efeito |
 | --- | --- | --- |
-| `verde` | execucao completa com evidencia suficiente | pode promover status |
+| `verde` | execucao completa com evidência suficiente | pode promover status |
 | `amarelo` | houve avancos, mas ainda existe lacuna residual explicita | promocao parcial ou nenhuma |
-| `vermelho` | falha critica, evidencia insuficiente ou execucao invalida | bloqueia promocao |
+| `vermelho` | falha critica, evidência insuficiente ou execucao invalida | bloqueia promocao |
 
 Regra complementar para trilhas regulatorias:
 
 - tentativa parcial de `P0-02` ou `P0-03` pode terminar em `amarelo` util quando gerar artefato valido, correlação melhor e narrativa executiva mais forte
-- `verde` para travessia `89% -> 90%+` continua reservado a prova combinada e revisavel de `P0-02` + `P0-03`, preferencialmente consolidada por `P0-04`
+- `verde` para travessia `89% -> 90%+` continua reservado a prova combinada e revisável de `P0-02` + `P0-03`, preferencialmente consolidada por `P0-04`
 
 Regra complementar para incidentes e RCA cross-domain:
 
-- uma RCA leve em `alerts`/`work-items` pode terminar em `amarelo` util quando reduzir ambiguidade operacional, enriquecer export/comms e deixar a triagem revisavel
+- uma RCA leve em `alerts`/`work-items` pode terminar em `amarelo` util quando reduzir ambiguidade operacional, enriquecer export/comms e deixar a triagem revisável
 - `verde` para essa trilha exige uso recorrente no ciclo, resumo RCA materializado em artefato executivo e revisao humana coerente com o rito semanal
 - a existencia de RCA persistida ou export enriquecido, sozinha, nao promove a baseline oficial do projeto
 
@@ -55,7 +55,7 @@ Regra complementar para incidentes e RCA cross-domain:
 
 1. `P0-02` homologar `AML/KYT live`
 2. `P0-03` ativar feed UE real
-3. `P0-04` gerar bundle regulatorio oficial
+3. `P0-04` gerar bundle regulatório oficial
 4. `P0-01` homologar `OIDC + MFA` serio
 5. `P0-05` executar janela seria completa
 6. `P0-06` formalizar sign-off minimo de retention/recovery
@@ -66,9 +66,9 @@ Regra complementar para incidentes e RCA cross-domain:
 | Dia | Frente | Meta objetiva | Ganho esperado |
 | --- | --- | --- | --- |
 | `D1` | preparar `P0-02` | credencial real validada e ambiente pronto | destrava trilha |
-| `D2` | executar `P0-02` | checker verde com evidencia anexavel | `+2 a +3` pontos de prontidao |
+| `D2` | executar `P0-02` | checker verde com evidência anexavel | `+2 a +3` pontos de prontidao |
 | `D3` | executar `P0-03` | sync UE real com persistencia valida | `+1,5 a +2,5` pontos |
-| `D4` | consolidar `P0-02 + P0-03` em `P0-04` | bundle regulatorio integro e revisavel; tentativa parcial pode endurecer correlacao e dossier, mas nao substitui a consolidacao oficial | institucionaliza a prova |
+| `D4` | consolidar `P0-02 + P0-03` em `P0-04` | bundle regulatório integro e revisável; tentativa parcial pode endurecer correlacao e dossier, mas nao substitui a consolidação oficial | institucionaliza a prova |
 | `D5` | preparar `P0-01` | ambiente OIDC serio pronto | reduz risco do bloco mais critico |
 | `D6` | executar `P0-01` | login federado + MFA + enforcement comprovados | `+3 a +5` pontos |
 | `D7` | executar `P0-05` | war room, sign-off e `go/no-go` formal | converte capacidade em maturidade comprovada |
@@ -120,7 +120,7 @@ Regra complementar para incidentes e RCA cross-domain:
 - Dependencia:
 ```
 
-## Template 2 - Evidencia Diaria
+## Template 2 - evidência Diaria
 
 ```md
 # Evidencia Diaria - D<X>
@@ -265,20 +265,20 @@ Regra complementar para incidentes e RCA cross-domain:
 
 - owner sugerido: `Compliance/Ops Lead`
 - accountable sugerido: `Arquiteto / Tech Lead`
-- meta: executar sync real do feed UE e persistir evidencia
+- meta: executar sync real do feed UE e persistir evidência
 - comandos principais:
   - `make gate-p0-03-eu-live WINDOW_ID=stg-$(date +%F)-eu REQUEST_ID=stg-$(date +%F)-eu-check`
   - `python scripts/check_sanctions_sync_status.py`
 - gate de saida: URL real validada, JSONs persistidos e status coerente
 
-### D4 - Consolidacao Regulatoria
+### D4 - consolidação Regulatoria
 
 - owner sugerido: `Arquitetura + Compliance`
 - accountable sugerido: `Sponsor tecnico / Tech Lead`
-- meta: transformar `P0-02` e `P0-03` em pacote revisavel por governanca
+- meta: transformar `P0-02` e `P0-03` em pacote revisável por governança
 - comando principal: `make gate-p0-04-regulatory-bundle WINDOW_ID=stg-$(date +%F)-reg PRIVATE_ENV_FILE=.env.staging.private CHECKS_DIR=artifacts/staging/checks DOSSIERS_DIR=artifacts/staging/dossiers COMPLIANCE_INTERNAL_BASE_URL=http://compliance-api:8002 COMPLIANCE_PUBLIC_BASE_URL=http://localhost:8080`
-- gate de saida: bundle integro e revisavel
-- observacao: se apenas uma das trilhas regulatorias estiver disponivel, registrar o resultado como endurecimento parcial do dossier e remarcar a consolidacao oficial para a janela combinada
+- gate de saida: bundle integro e revisável
+- observação: se apenas uma das trilhas regulatorias estiver disponivel, registrar o resultado como endurecimento parcial do dossier e remarcar a consolidação oficial para a janela combinada
 
 ### D5 - Preparacao `P0-01`
 
@@ -294,7 +294,7 @@ Regra complementar para incidentes e RCA cross-domain:
 - accountable sugerido: `Sponsor tecnico + Seguranca`
 - meta: comprovar login federado real, MFA e enforcement em fluxo sensivel
 - comando principal: `cd apps/frontend && npm run test:e2e:oidc-critical`
-- gate de saida: trilho serio homologado com evidencia auditavel
+- gate de saida: trilho serio homologado com evidência auditavel
 
 ### D7 - Janela Seria Completa
 
@@ -306,7 +306,7 @@ Regra complementar para incidentes e RCA cross-domain:
   - `make postprocess-serious-window RUN_URL=...`
 - gate de saida: dossier final, sign-off e decisao formal publicados
 
-## Evidencia Complementar - RCA Cross-Domain
+## evidência Complementar - RCA Cross-Domain
 
 Use este bloco quando a semana contiver incidente operacional relevante, sem misturar isso com a promocao regulatoria principal.
 
@@ -348,4 +348,4 @@ Use este bloco quando a semana contiver incidente operacional relevante, sem mis
 
 ## Decisao Recomendada
 
-Use este kit como trilha canonica de execucao ate a proxima recalibracao material do scorecard.
+Use este kit como trilha canônica de execucao ate a proxima recalibracao material do scorecard.

@@ -15,7 +15,7 @@ Use esta folha junto com:
 
 - [Checklist Executivo da Primeira Janela Combinada `P0-02 + P0-03`](./FIRST_COMBINED_SERIOUS_WINDOW_EXECUTIVE_CHECKLIST.md)
 - [Pacote Final de Execucao - Janela Seria Integrada](./SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md)
-- [Guia `P0-04` Bundle Regulatorio Oficial](./P0-04_REGULATORY_BUNDLE_EXECUTION_GUIDE.md)
+- [Guia `P0-04` Bundle regulatório Oficial](./P0-04_REGULATORY_BUNDLE_EXECUTION_GUIDE.md)
 
 ## Identificacao da Janela
 
@@ -38,7 +38,7 @@ Use esta folha junto com:
 | `P0-02` AML/KYT | `preencher` | `preencher` | `preencher` | `sim ou nao` |
 | `P0-03` Feed UE | `preencher` | `preencher` | `preencher` | `sim ou nao` |
 | `P0-04` consolidado | `preencher` | `preencher` | `preencher` | `sim ou nao` |
-| Governanca / sign-off | `preencher` | `preencher` | `preencher` | `sim ou nao` |
+| governança / sign-off | `preencher` | `preencher` | `preencher` | `sim ou nao` |
 
 ## Checkpoint `T-30 min`
 
@@ -149,7 +149,7 @@ make check-eu-sanctions-window REQUEST_ID="$REQUEST_ID"
 - [ ] `request_id` presente
 - [ ] `source_url_matches_expected=true`
 
-## `P0-04` Bundle Regulatorio Oficial
+## `P0-04` Bundle regulatório Oficial
 
 ### Execucao `P0-04`
 

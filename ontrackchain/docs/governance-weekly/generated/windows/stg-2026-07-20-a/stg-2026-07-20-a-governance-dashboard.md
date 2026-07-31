@@ -5,14 +5,14 @@
 - atualizado em: `2026-07-20T19:02:37.980335+00:00`
 - status geral: `failed`
 - semaforo executivo: `amarelo`
-- leitura: progresso regulatorio material com bloqueios remanescentes
+- leitura: progresso regulatório material com bloqueios remanescentes
 - classificacao dominante: `technical_gate_blocked`
 - resumo do bloqueio dominante: falha tecnica registrada em prepare, run, artifact_validation
 - placeholders pendentes: `0`
 - handoff pendente: `0`
-- escopo regulatorio da tentativa: `none`
+- escopo regulatório da tentativa: `none`
 - `P0-04` readiness: `unknown`
-- leitura regulatoria: sem escopo regulatorio material nesta tentativa
+- leitura regulatoria: sem escopo regulatório material nesta tentativa
 - RCA cross-domain: `not_available` | RCA(s) `0` | criticos `0` | pendentes `0`
 - dominios RCA em destaque: `none`
 

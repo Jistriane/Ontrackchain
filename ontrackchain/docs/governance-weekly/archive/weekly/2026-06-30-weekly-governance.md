@@ -1,6 +1,6 @@
 # Governança Semanal — 2026-06-30
 
-> Registro historico arquivado e incompleto. Este arquivo preserva o rascunho operacional da epoca, mas nao deve ser lido como governanca semanal fechada nem como baseline viva do projeto.
+> Registro historico arquivado e incompleto. Este arquivo preserva o rascunho operacional da epoca, mas nao deve ser lido como governança semanal fechada nem como baseline viva do projeto.
 
 ## Leitura do Ciclo
 

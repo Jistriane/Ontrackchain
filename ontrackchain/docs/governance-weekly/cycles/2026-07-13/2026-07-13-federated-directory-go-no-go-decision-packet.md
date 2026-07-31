@@ -6,7 +6,7 @@ Dar uma leitura executiva unica da tentativa `stg-2026-07-13-federated-a`, com:
 
 - decisao atual
 - bloqueadores ativos
-- evidencias minimas faltantes
+- evidências minimas faltantes
 - criterio objetivo para promocao
 
 Use este packet junto com:
@@ -34,15 +34,15 @@ Use este packet junto com:
 | `Team` / busca assistida | `ready` | execucao manual real de `search -> suggestion -> link` | `ready_for_validation` |
 | `Audit` / preset `identity-federated` | `ready` | confirmar evento real de `link/unlink` no cockpit | `ready_for_validation` |
 | `audit_logs` / correlacao tecnica | `ready` | confirmar `search + suggestion + link` via SQL | `ready_for_validation` |
-| `Gate agregado federado` | `pending_execucao` | owners online + runtime real + evidencias capturadas | `pending` |
+| `Gate agregado federado` | `pending_execucao` | owners online + runtime real + evidências capturadas | `pending` |
 
 ## Bloqueadores Ativos
 
 - `FD-01`: client tecnico do `Keycloak` ainda nao confirmado com escopo minimo real neste ciclo
 - `FD-02`: operador `ADMIN` do tenant e principal externo de teste ainda nao confirmados para a tentativa datada
-- `FD-03`: evidencias reais de `Team`, `Audit` e `audit_logs` ainda nao foram capturadas
+- `FD-03`: evidências reais de `Team`, `Audit` e `audit_logs` ainda nao foram capturadas
 
-## Evidencias Minimas Faltantes
+## evidências Minimas Faltantes
 
 - screenshot da busca assistida no `Team`
 - screenshot do `link` persistido no `Team`
@@ -78,7 +78,7 @@ Promover de `pending_go` para `approved` somente se:
 - ausencia de evento de `link` no `Audit`
 - ausencia de qualquer um dos eventos obrigatorios em `audit_logs`
 
-## Proximo Passo Executivo
+## próximo Passo Executivo
 
 - acao: preencher owners/canais, validar o client tecnico do `Keycloak`, preparar o tenant de teste e executar a tentativa datada
 - owner: `Release Manager Tecnico`

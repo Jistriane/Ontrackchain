@@ -1,8 +1,8 @@
-# Workflow de Atualizacao Semanal da Governanca
+# Workflow de Atualizacao Semanal da governança
 
 ## Objetivo
 
-Padronizar o fluxo semanal de atualizacao da governanca para evitar drift entre:
+Padronizar o fluxo semanal de atualizacao da governança para evitar drift entre:
 
 - plano consolidado vigente
 - versao operacional curta da reuniao
@@ -17,9 +17,9 @@ Este workflow existe para responder duas perguntas de forma consistente:
 
 Checklist de apoio para o fechamento:
 
-- [Checklist de Fechamento Semanal da Governanca](./WEEKLY_GOVERNANCE_CLOSEOUT_CHECKLIST.md)
-- [Roteiro de Facilitacao da Governanca Semanal](./WEEKLY_GOVERNANCE_FACILITATION_SCRIPT.md)
-- [Guia de Uso dos Artefatos da Governanca Semanal](./WEEKLY_GOVERNANCE_ARTIFACT_SELECTION_GUIDE.md)
+- [Checklist de Fechamento Semanal da governança](./WEEKLY_GOVERNANCE_CLOSEOUT_CHECKLIST.md)
+- [Roteiro de Facilitacao da governança Semanal](./WEEKLY_GOVERNANCE_FACILITATION_SCRIPT.md)
+- [Guia de Uso dos Artefatos da governança Semanal](./WEEKLY_GOVERNANCE_ARTIFACT_SELECTION_GUIDE.md)
 
 ## Artefatos de Entrada
 
@@ -41,7 +41,7 @@ Nao promover status, KPI ou baseline por:
 - artifact local sem revisao
 - evidência `dev` usada como substituto de fluxo serio
 
-Promover apenas quando houver evidência nova revisavel no proprio ciclo.
+Promover apenas quando houver evidência nova revisável no proprio ciclo.
 
 ## Fluxo Recomendado
 
@@ -106,7 +106,7 @@ Objetivo:
 Criar ou atualizar `YYYY-MM-DD-weekly-governance.md` apenas quando pelo menos uma destas condicoes for verdadeira:
 
 - houve evidência nova material revisada no encontro
-- houve decisao formal de manter baseline e bloqueios com base em evidencia revisada no encontro
+- houve decisao formal de manter baseline e bloqueios com base em evidência revisada no encontro
 - a janela seria teve artifact, sign-off, packet ou dossie que precisou ser formalmente registrado
 
 Se nenhuma dessas condicoes ocorrer, manter apenas:
@@ -160,10 +160,10 @@ Ao fechar a semana, sincronizar pelo menos estes pontos:
 
 ## Perguntas de Controle Antes do Fechamento
 
-- houve checker, bundle, artifact, dossie ou sign-off novo revisavel?
+- houve checker, bundle, artifact, dossie ou sign-off novo revisável?
 - o `go/no-go decision packet` ficou coerente com war room, sign-off e snapshot consolidado?
 - a baseline mudou de forma defensavel?
-- algum `P0` mudou de status por evidencia real?
+- algum `P0` mudou de status por evidência real?
 - a janela seria saiu de `no-go`, permaneceu em `no-go` ou voltou para `pending` com justificativa clara?
 - os paths dos artefatos relevantes ficaram registrados?
 
@@ -173,6 +173,6 @@ Ao final do ciclo semanal, o time deve conseguir responder sem ambiguidade:
 
 - qual e a baseline oficial vigente
 - quais itens continuam `blocked`
-- qual item esta mais proximo de fechar
-- qual evidência falta para o proximo avanço legitimo
+- qual item esta mais próximo de fechar
+- qual evidência falta para o próximo avanço legitimo
 - se a semana terminou em `go`, `go_with_exception`, `pending` ou `no-go`

@@ -38,12 +38,12 @@
   - ack do owner: `no`
   - ultima atualizacao: `pre-run do ciclo 2026-07-13`
   - ultimo checkpoint: checker e correlacao documental preparados; credencial real ainda ausente
-  - proximo checkpoint: validar credencial real e executar `check-compliance-provider-runtime`
-  - hora do proximo checkpoint: `<preencher_HH:MMZ>`
+  - próximo checkpoint: validar credencial real e executar `check-compliance-provider-runtime`
+  - hora do próximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `2026-07-14`
   - dependencia ativa: credencial AML/KYT real
   - bridge de escalacao: `<preencher_bridge_compliance_aml>`
-  - observacoes: primeiro item com maior potencial de mudar a baseline
+  - observações: primeiro item com maior potencial de mudar a baseline
 - `P0-03 / Feed UE`
   - status atual: `ready`
   - responsavel online: `<preencher_nome_owner_online_compliance_backend>`
@@ -51,12 +51,12 @@
   - ack do owner: `no`
   - ultima atualizacao: `pre-run do ciclo 2026-07-13`
   - ultimo checkpoint: runner, checker e correlator preparados; URL tokenizada real ainda ausente
-  - proximo checkpoint: validar URL UE tokenizada e executar a janela `stg-2026-07-13-a`
-  - hora do proximo checkpoint: `<preencher_HH:MMZ>`
+  - próximo checkpoint: validar URL UE tokenizada e executar a janela `stg-2026-07-13-a`
+  - hora do próximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `2026-07-14`
   - dependencia ativa: `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` real
   - bridge de escalacao: `<preencher_bridge_compliance_backend>`
-  - observacoes: precisa convergir com `P0-02` para destravar `P0-04`
+  - observações: precisa convergir com `P0-02` para destravar `P0-04`
 - `P0-04 / Bundle Regulatorio`
   - status atual: `pending`
   - responsavel online: `<preencher_nome_owner_online_platform>`
@@ -64,12 +64,12 @@
   - ack do owner: `no`
   - ultima atualizacao: `pre-run do ciclo 2026-07-13`
   - ultimo checkpoint: sem execucao real ainda, aguardando provas de `P0-02` e `P0-03`
-  - proximo checkpoint: executar o bundle regulatorio e validar o artifact final
-  - hora do proximo checkpoint: `<preencher_HH:MMZ>`
+  - próximo checkpoint: executar o bundle regulatório e validar o artifact final
+  - hora do próximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `2026-07-17`
   - dependencia ativa: `P0-02` e `P0-03` em `ready_for_validation`
   - bridge de escalacao: `<preencher_bridge_platform>`
-  - observacoes: ponte obrigatoria para discutir `90%+`
+  - observações: ponte obrigatoria para discutir `90%+`
 - `P0-01 / Auth OIDC`
   - status atual: `blocked`
   - responsavel online: `<preencher_nome_owner_online_auth>`
@@ -77,12 +77,12 @@
   - ack do owner: `no`
   - ultima atualizacao: `pre-run do ciclo 2026-07-13`
   - ultimo checkpoint: bundle e readiness modelados, mas provider serio continua ausente
-  - proximo checkpoint: homologar provider serio e rerodar o bundle OIDC
-  - hora do proximo checkpoint: `<preencher_HH:MMZ>`
+  - próximo checkpoint: homologar provider serio e rerodar o bundle OIDC
+  - hora do próximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `2026-07-15`
   - dependencia ativa: provider OIDC serio e MFA homologado
   - bridge de escalacao: `<preencher_bridge_auth>`
-  - observacoes: risco institucional ainda vermelho
+  - observações: risco institucional ainda vermelho
 - `Gate Agregado da Janela`
   - status atual: `pending`
   - responsavel online: `<preencher_nome_facilitador_online>`
@@ -90,12 +90,12 @@
   - ack do owner: `yes`
   - ultima atualizacao: `pre-run do ciclo 2026-07-13`
   - ultimo checkpoint: tentativa datada criada com run sheet, war room e tracking
-  - proximo checkpoint: `prepare_staging_window.py --validate --preflight`
-  - hora do proximo checkpoint: `<preencher_HH:MMZ>`
+  - próximo checkpoint: `prepare_staging_window.py --validate --preflight`
+  - hora do próximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `2026-07-17`
   - dependencia ativa: owners online e insumos reais disponiveis
   - bridge de escalacao: `<preencher_bridge_go_no_go>`
-  - observacoes: nao disparar execucao final sem `go` formal
+  - observações: nao disparar execucao final sem `go` formal
 
 ## Linha do Tempo
 
@@ -120,7 +120,7 @@
 - `T+20`:
   - trilha: `P0-04 / Bundle Regulatorio`
   - evento: bundle consolidado executado, se `P0-02` e `P0-03` estiverem verdes
-  - impacto: transforma readiness em prova revisavel
+  - impacto: transforma readiness em prova revisável
   - owner: `<preencher_nome_owner_online_platform>`
   - canal: `<preencher_slack_ou_teams_platform>`
 - `T+45`:
@@ -138,21 +138,21 @@
   - owner da escalacao: `<preencher_nome_owner_escalacao_compliance_aml>`
   - canal da escalacao: `<preencher_bridge_compliance_aml>`
   - ETA: `2026-07-14`
-  - observacao: sem credencial real, o ciclo continua apenas documental
+  - observação: sem credencial real, o ciclo continua apenas documental
 - ID: `WR-02`
   - trilha: `P0-03 / Feed UE`
   - status: `open`
   - owner da escalacao: `<preencher_nome_owner_escalacao_compliance_backend>`
   - canal da escalacao: `<preencher_bridge_compliance_backend>`
   - ETA: `2026-07-14`
-  - observacao: sem URL tokenizada, o correlator do feed nao pode ser validado
+  - observação: sem URL tokenizada, o correlator do feed nao pode ser validado
 - ID: `WR-03`
   - trilha: `P0-01 / Auth OIDC`
   - status: `open`
   - owner da escalacao: `<preencher_nome_owner_escalacao_auth>`
   - canal da escalacao: `<preencher_bridge_auth>`
   - ETA: `2026-07-15`
-  - observacao: nao impede o dress rehearsal combinado, mas impede o fechamento institucional completo
+  - observação: nao impede o dress rehearsal combinado, mas impede o fechamento institucional completo
 
 ## Decisoes Operacionais
 
@@ -166,7 +166,7 @@
 - sign-off: [Sign-Off da Janela `stg-2026-07-13-a`](./2026-07-13-staging-serious-window-signoff.md)
 - run sheet datada: [Run Sheet Datada `stg-2026-07-13-a`](./2026-07-13-first-combined-serious-window-run-sheet.md)
 - artefato OIDC esperado para `P0-01`: `artifacts/staging/checks/stg-2026-07-13-a-oidc-readiness-bundle.json`
-- artefato regulatorio esperado para `P0-02/P0-03`: `artifacts/staging/checks/stg-2026-07-13-a-regulatory-readiness-bundle.json`
+- artefato regulatório esperado para `P0-02/P0-03`: `artifacts/staging/checks/stg-2026-07-13-a-regulatory-readiness-bundle.json`
 - dossie executivo esperado: `artifacts/staging/dossiers/stg-2026-07-13-a-dossier.json`
 - snapshot consolidado esperado: `docs/governance-weekly/generated/windows/stg-2026-07-13-a/stg-2026-07-13-a-consolidated.json`
 - comando unico recomendado: `make refresh-staging-war-room-governance-local WINDOW_ID=stg-2026-07-13-a`

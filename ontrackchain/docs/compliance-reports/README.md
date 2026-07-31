@@ -1,12 +1,12 @@
-# Relatorios de Compliance (Gerados)
+# relatórios de Compliance (Gerados)
 
 ## Objetivo
 
-Centralizar os relatorios de compliance gerados a partir das metricas de governanca.
+Centralizar os relatórios de compliance gerados a partir das metricas de governanca.
 
 ## Regra de Namespace
 
-- os relatorios sao gerados por automacao e nao devem ser editados manualmente
+- os relatórios sao gerados por automacao e nao devem ser editados manualmente
 - este namespace existe para outputs em Markdown/JSON consumidos por revisao operacional e auditoria interna
 
 ## Geracao

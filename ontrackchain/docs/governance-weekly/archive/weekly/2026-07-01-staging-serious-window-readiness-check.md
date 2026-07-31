@@ -43,7 +43,7 @@ O checker `check_staging_env_handoff.py` falhou porque os grupos obrigatorios ai
 - `Investigation/RPC`
 - `Platform/Operations`
 
-Observacao:
+observação:
 
 - o `owner` nominal foi scaffoldado em `docs/staging-env-ownership.md`
 - a janela continua bloqueada ate cada grupo preencher `Data` e `Status` com `reviewed`, `approved` ou `waived`
@@ -103,7 +103,7 @@ O checker `check_staging_env_placeholders.py` identificou placeholders ainda abe
 - nao executar `run-serious-window-local` nem `run_staging_window.py` com finalidade oficial enquanto os placeholders acima existirem
 - usar este snapshot como checklist objetivo de provisionamento fora do repositório
 
-## Proximo Artefato Operacional
+## próximo Artefato Operacional
 
 Para destravar a janela sem ambiguidade, usar o checklist canônico por owner:
 

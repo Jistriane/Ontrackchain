@@ -12,15 +12,15 @@ Entregar um roteiro unico, objetivo e operacional para conduzir uma janela seria
 
 ## Artefatos de Apoio
 
-- [Checklist de Fechamento Semanal da Governanca](./WEEKLY_GOVERNANCE_CLOSEOUT_CHECKLIST.md)
+- [Checklist de Fechamento Semanal da governança](./WEEKLY_GOVERNANCE_CLOSEOUT_CHECKLIST.md)
 - [Checklist de Evidência Mínima da Primeira Janela Séria](../../history/first-serious-window-evidence-checklist.md) - apoio historico complementar; a sequencia viva desta janela esta neste proprio pacote
 - [Checklist Executivo da Primeira Janela Combinada `P0-02 + P0-03`](./FIRST_COMBINED_SERIOUS_WINDOW_EXECUTIVE_CHECKLIST.md)
 - [Run Sheet Preenchivel da Primeira Janela Combinada](./FIRST_COMBINED_SERIOUS_WINDOW_RUN_SHEET.md)
-- [Workflow de Atualizacao Semanal da Governanca](./WEEKLY_GOVERNANCE_UPDATE_WORKFLOW.md)
+- [Workflow de Atualizacao Semanal da governança](./WEEKLY_GOVERNANCE_UPDATE_WORKFLOW.md)
 - [Guia `P0-01` OIDC + MFA serio](./P0-01_OIDC_MFA_EXECUTION_GUIDE.md)
 - [Guia `P0-02` AML/KYT live](./P0-02_AML_KYT_LIVE_EXECUTION_GUIDE.md)
 - [Guia `P0-03` Feed UE real](./P0-03_EU_FEED_EXECUTION_GUIDE.md)
-- [Validacao em Staging - Diretorio Federado](../../federated-directory-staging-validation.md)
+- [validação em Staging - Diretorio Federado](../../federated-directory-staging-validation.md)
 - [Run Sheet Operacional - Diretorio Federado em Staging](./FEDERATED_DIRECTORY_STAGING_RUN_SHEET.md)
 
 Este documento e a fonte canônica unica para a execucao integrada da janela seria. Evite duplicar a sequencia de comandos em outros guias da mesma pasta.
@@ -56,10 +56,10 @@ Antes de rodar qualquer comando, confirmar:
 
 ## Matriz Integrada por Frente
 
-| Frente | Owner primario | Gate tecnico minimo | Evidencia minima | Nao promover se |
+| Frente | Owner primario | Gate tecnico minimo | evidência minima | Nao promover se |
 | --- | --- | --- | --- | --- |
 | `P0-01` | `Backend/Auth` | `preflight_oidc_serious_env.py`, `smoke_auth_oidc_mode.py`, `npm run test:e2e:oidc-critical` | bundle OIDC JSON/MD + gate E2E | houver fallback silencioso para `dev auth` |
-| `P0-02` | `Compliance/Backend` | `preflight_external_integrations.py`, `make check-compliance-provider-runtime`, `python3 scripts/homologation_external_evidence.py --mode compliance` | checker verde + JSON de homologacao | a credencial real nao estiver exercitada ou faltar artefato revisavel |
+| `P0-02` | `Compliance/Backend` | `preflight_external_integrations.py`, `make check-compliance-provider-runtime`, `python3 scripts/homologation_external_evidence.py --mode compliance` | checker verde + JSON de homologacao | a credencial real nao estiver exercitada ou faltar artefato revisável |
 | `P0-03` | `Compliance/Backend` | `make rerun-compliance-worker`, `make gate-p0-03-eu-live WINDOW_ID="$WINDOW_ID" REQUEST_ID="$REQUEST_ID"`, `make check-eu-sanctions-window REQUEST_ID="$REQUEST_ID"` | JSON preflight + JSON sync + checker verde | `EU_CONSOLIDATED` nao ficar em `ACTIVE/SUCCESS` |
 
 ## Regra de Proveniencia de Secrets
@@ -87,7 +87,7 @@ make gate-p0-05-serious-window \
 
 Esse gate canônico encapsula `prepare_staging_window.py --run` e o `postprocess` da janela, preservando payload, sign-off, decision packet, war room e live tracking de forma coerente.
 
-### 2. Validacoes de handoff e placeholders
+### 2. validações de handoff e placeholders
 
 ```bash
 cd github_main/ontrackchain
@@ -140,7 +140,7 @@ Esperado ao fim da etapa:
 - `EU_CONSOLIDATED.last_sync_status=SUCCESS`
 - `source_url` persistido coerente com o override serio exercitado
 
-### 6. Consolidacao `P0-02 + P0-03`
+### 6. consolidação `P0-02 + P0-03`
 
 ```bash
 cd github_main/ontrackchain
@@ -164,7 +164,7 @@ Esperado ao fim da etapa:
 - `steps.eu_sanctions_window.output_file.kind=eu_sanctions_window_run`
 - `steps.eu_sanctions_window.correlation.source_url_matches_expected=true`
 
-### 6.1 Validacao objetiva do pacote combinado
+### 6.1 validação objetiva do pacote combinado
 
 ```bash
 cd github_main/ontrackchain
@@ -182,7 +182,7 @@ Esperado:
 - sem erro de `source_url_matches_expected != true`
 - sem erro de `readiness.regulatory_bundle.readiness_status`
 
-### 7. Reconciliacao final da governanca
+### 7. Reconciliacao final da governança
 
 ```bash
 cd github_main/ontrackchain
@@ -212,7 +212,7 @@ Quando a execucao ocorrer pelo workflow hospedado `Staging Serious Window`, essa
 
 - `artifacts/staging/checks/<window_id>-oidc-readiness-bundle.json`
 - `artifacts/staging/dossiers/<window_id>-oidc-readiness-bundle.md`
-- relatorio ou evidência do `npm run test:e2e:oidc-critical`
+- relatório ou evidência do `npm run test:e2e:oidc-critical`
 
 ### `P0-02`
 
@@ -229,7 +229,7 @@ Quando a execucao ocorrer pelo workflow hospedado `Staging Serious Window`, essa
 - `artifacts/staging/checks/<window_id>-regulatory-readiness-bundle.json`
 - `artifacts/staging/dossiers/<window_id>-regulatory-readiness-bundle.md`
 
-### Governanca final
+### governança final
 
 - `docs/governance-weekly/generated/windows/<window_id>/<window_id>-war-room-action-plan.md`
 - `docs/governance-weekly/generated/windows/<window_id>/<window_id>-status-snapshot.md`
@@ -280,19 +280,19 @@ Declarar a janela apta a `sign-off` somente quando todos forem verdadeiros:
 
 - [ ] gate agregado inicial retornou `status=ok`
 - [ ] `P0-01` sem fallback para `dev auth`
-- [ ] bundle OIDC existe e esta revisavel
+- [ ] bundle OIDC existe e esta revisável
 - [ ] `P0-02` tem evidência de provider pronto e homologacao externa preservada
 - [ ] `P0-03` tem os dois JSONs da janela UE
 - [ ] `EU_CONSOLIDATED` esta em `ACTIVE/SUCCESS`
-- [ ] bundle regulatorio existe e esta revisavel
-- [ ] bundle regulatorio oficial esta em `readiness.regulatory_bundle=ready_for_validation`
+- [ ] bundle regulatório existe e esta revisável
+- [ ] bundle regulatório oficial esta em `readiness.regulatory_bundle=ready_for_validation`
 - [ ] `request_id` de `P0-02` e `P0-03` estao preservados nos artefatos executivos
 - [ ] `source_url_matches_expected=true` para a janela UE
-- [ ] a governanca foi reprocessada para o mesmo `window_id`
+- [ ] a governança foi reprocessada para o mesmo `window_id`
 - [ ] nao existe bloqueador `WR-*` aberto sem waiver formal
 - [ ] owner e accountable revisaram os artefatos
 
-## Evidencia Minima a Registrar na Governanca
+## evidência Minima a Registrar na governança
 
 - `window_id`
 - owners nominais das tres trilhas
@@ -307,7 +307,7 @@ Encerrar a janela como `no-go` imediatamente se qualquer um ocorrer:
 
 - fallback silencioso para `dev auth`
 - ausencia do bundle OIDC
-- ausencia do bundle regulatorio
+- ausencia do bundle regulatório
 - ausencia dos JSONs da janela UE
 - ausencia de homologacao externa para o modo exercitado
 - `EU_CONSOLIDATED` sem `ACTIVE/SUCCESS`

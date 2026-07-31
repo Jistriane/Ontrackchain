@@ -1,10 +1,10 @@
-# Checklist Canonico de Regressao Estatica e Contratos Visuais do Frontend
+# Checklist canônico de Regressao Estatica e Contratos Visuais do Frontend
 
 ## Objetivo
 
-Fornecer um checklist operacional curto e repetivel para validar mudancas em labels, datas, contexto regulatorio, pills semanticos, `data-testid` e deep-links dos cockpits principais sem depender de execucao runtime arriscada durante a iteracao.
+Fornecer um checklist operacional curto e repetivel para validar mudancas em labels, datas, contexto regulatório, pills semanticos, `data-testid` e deep-links dos cockpits principais sem depender de execucao runtime arriscada durante a iteracao.
 
-Este documento passa a ser a fonte canonica unica para:
+Este documento passa a ser a fonte canônica unica para:
 
 - regressao estatica de contratos visuais
 - gate curto de rollout seguro
@@ -16,7 +16,7 @@ Este documento passa a ser a fonte canonica unica para:
 - mudancas em `data-testid` usados por specs focais
 - mudancas em formatacao visual de datas, timestamps e hashes
 - mudancas em labels de i18n usadas como contrato operator-facing
-- mudancas em deep-links entre cockpits regulatorios, operacionais ou administrativos
+- mudancas em deep-links entre cockpits regulatórios, operacionais ou administrativos
 
 ## Pre-Flight
 
@@ -27,7 +27,7 @@ Este documento passa a ser a fonte canonica unica para:
   - datas/timestamps
   - `data-testid`
   - deep-links
-  - hash/contexto regulatorio
+  - hash/contexto regulatório
   - pills ou badges semanticos
 
 ## Checklist Geral
@@ -38,11 +38,11 @@ Este documento passa a ser a fonte canonica unica para:
 - validar que deep-links preservam o contexto operacional esperado (`case_id`, `report_id`, `ros_id`, `address`, `chain`)
 - validar que badges e pills mantem mapeamento consistente de label e tone
 - validar que a spec focal correspondente foi atualizada ou explicitamente revisada
-- validar que a documentacao foi sincronizada quando o contrato visual mudou
+- validar que a documentação foi sincronizada quando o contrato visual mudou
 
 ## Gate de Rollout
 
-- [ ] identificar o cockpit e a spec canonica impactada
+- [ ] identificar o cockpit e a spec canônica impactada
 - [ ] validar que os `data-testid` alterados continuam minimos e semanticamente orientados
 - [ ] validar que datas/timestamps protegidos nao regressaram para ISO cru
 - [ ] validar que labels semanticas continuam coerentes com `i18n.ts`
@@ -54,7 +54,7 @@ Este documento passa a ser a fonte canonica unica para:
 
 ## Checklist por Dominio
 
-### Regulatorio
+### regulatório
 
 - `audit`: confirmar precedencia de `dossier_sha256` sobre `file_hash_sha256`
 - `ros-coaf`: confirmar `priority/source/SLA/phase` no workspace e historico
@@ -74,14 +74,14 @@ Este documento passa a ser a fonte canonica unica para:
 - `team`: confirmar label de role, `status` e `updated_at`
 - `billing`: confirmar reconciliacao, export e handoff para `team` sem projeção lateral de roster
 
-## Documentacao Obrigatoria
+## documentação Obrigatoria
 
 - atualizar `./frontend-coverage-matrix.md` se a superficie funcional/cobertura mudou
-- atualizar `./frontend-static-regression-traceability.md` se a spec canonica ou o contrato protegido mudou
-- refletir qualquer mudanca material no indice canonico `./README.md` quando a trilha de regressao estatica ganhar ou perder escopo oficial
+- atualizar `./frontend-static-regression-traceability.md` se a spec canônica ou o contrato protegido mudou
+- refletir qualquer mudanca material no indice canônico `./README.md` quando a trilha de regressao estatica ganhar ou perder escopo oficial
 - atualizar `./evidence-manual-package-rollout-checklist.md` quando a mudanca tocar manifesto, export manual, navegação `evidence <-> audit` ou handoff DD/SoF
 
-## Evidencias Minimas
+## evidências Minimas
 
 - [ ] diff final revisado nos arquivos do cockpit
 - [ ] diff final revisado na spec focal
@@ -93,7 +93,7 @@ Este documento passa a ser a fonte canonica unica para:
 ### Go
 
 - [ ] contrato visual protegido continua coberto por spec
-- [ ] documentacao canonica foi sincronizada
+- [ ] documentação canônica foi sincronizada
 - [ ] nao ha diagnosticos introduzidos pela rodada
 
 ### No-Go
@@ -106,9 +106,9 @@ Este documento passa a ser a fonte canonica unica para:
 ## Encerramento Seguro
 
 - rodar diagnosticos dos arquivos tocados
-- reler os trechos alterados para garantir coerencia entre implementacao, spec e documentacao
+- reler os trechos alterados para garantir coerencia entre implementacao, spec e documentação
 - registrar no handoff final:
   - cockpit afetado
   - contrato protegido
   - spec atualizada
-  - documentacao sincronizada
+  - documentação sincronizada

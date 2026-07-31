@@ -14,18 +14,18 @@ Este documento complementa:
 - [Deploy e Staging](deploy-and-staging.md)
 - [Gates de Release para Staging Sério](project-release-gates.md)
 - [Checklist Pré-Produção](pre-production-checklist.md)
-- [Governanca Semanal](./governance-weekly/README.md)
+- [governança Semanal](./governance-weekly/README.md)
 
-Observacao importante:
+observação importante:
 
 - este documento cobre o workflow manual `Staging Serious Window`
 - o workflow separado [deploy-to-production.yml](../../.github/workflows/deploy-to-production.yml) usa hooks de deploy do Render e `healthz` hospedado; ele nao consome `STAGING_WINDOW_PRIVATE_ENV`
 
-## Papel Canonico
+## Papel canônico
 
 Este documento e a fonte primaria para:
 
-- configuracao do `GitHub Environment` da janela seria
+- configuração do `GitHub Environment` da janela seria
 - reviewers, approvals e disciplina operacional do disparo manual
 - formato e geracao do secret `STAGING_WINDOW_PRIVATE_ENV`
 - contrato do workflow `Staging Serious Window`
@@ -112,9 +112,9 @@ Recomendacao:
 
 ### Matriz operacional recomendada
 
-Para reduzir erro manual na primeira configuracao do repositório, usar inicialmente:
+Para reduzir erro manual na primeira configuração do repositório, usar inicialmente:
 
-| Chave | Onde cadastrar | Valor inicial recomendado | Observacoes |
+| Chave | Onde cadastrar | Valor inicial recomendado | observações |
 | --- | --- | --- | --- |
 | `RENDER_STAGING_DEPLOY_HOOK_URL` | `Settings -> Secrets and variables -> Actions -> Secrets` | `__PREENCHER_NO_GITHUB__` | copiar do painel do Render do alvo de staging real |
 | `RENDER_STAGING_HEALTHCHECK_URL` | `Settings -> Secrets and variables -> Actions -> Variables` | `https://ontrackchain-frontend-staging.onrender.com/api/healthz` | endpoint publico observado no runtime atual |
@@ -133,7 +133,7 @@ Leitura importante do estado atual:
 
 ## Formato do Secret
 
-Use o conteudo final do `.env.staging.private` como fonte da verdade. O bloco abaixo e um recorte representativo das chaves mais sensiveis e das integracoes que costumam bloquear a janela:
+Use o conteudo final do `.env.staging.private` como fonte da verdade. O bloco abaixo e um recorte representativo das chaves mais sensiveis e das integrações que costumam bloquear a janela:
 
 ```env
 APP_ENV=staging

@@ -6,7 +6,7 @@ Dar uma leitura executiva unica da tentativa `stg-2026-07-13-a`, com:
 
 - decisao atual
 - bloqueadores ativos
-- evidencias minimas faltantes
+- evidências minimas faltantes
 - criterio objetivo para promocao
 
 Use este packet junto com:
@@ -30,8 +30,8 @@ Use este packet junto com:
 | --- | --- | --- | --- |
 | `P0-02` AML/KYT | `ready` | credencial real + checker verde + homologacao com `request_id` | `ready_for_validation` |
 | `P0-03` Feed UE | `ready` | URL tokenizada real + JSONs de preflight/sync + `source_url_matches_expected=true` | `ready_for_validation` |
-| `P0-04` Bundle Regulatorio | `pending` | `P0-02` e `P0-03` verdes na mesma janela + validacao final do artifact `ok` | `ready_for_validation` |
-| `P0-01` Auth/OIDC | `blocked` | provider serio homologado + bundle OIDC revisavel | `blocked` |
+| `P0-04` Bundle regulatório | `pending` | `P0-02` e `P0-03` verdes na mesma janela + validação final do artifact `ok` | `ready_for_validation` |
+| `P0-01` Auth/OIDC | `blocked` | provider serio homologado + bundle OIDC revisável | `blocked` |
 | `RUN-STG-01` | `pending_execucao` | gate agregado `ok` + pacote de execucao gerado | `pending` |
 
 ## Bloqueadores Ativos
@@ -41,7 +41,7 @@ Use este packet junto com:
 - `WR-03`: provider OIDC serio e homologacao institucional de MFA seguem pendentes
 - `WR-04`: owners online, bridge e checkpoint agregado ainda nao registrados para a tentativa datada
 
-## Evidencias Minimas Faltantes
+## evidências Minimas Faltantes
 
 - `P0-02`
   - JSON do `check-compliance-provider-runtime`
@@ -93,7 +93,7 @@ Promover para `approved` somente se:
 - correlator obrigatorio faltar em `P0-02` ou `P0-03`
 - `P0-04` bloquear por inconsistência entre as trilhas
 
-## Proximo Passo Executivo
+## próximo Passo Executivo
 
 - acao: preencher owners/canais, validar insumos reais de `P0-02` e `P0-03`, e rerodar o gate agregado
 - owner: `Release Manager Tecnico`

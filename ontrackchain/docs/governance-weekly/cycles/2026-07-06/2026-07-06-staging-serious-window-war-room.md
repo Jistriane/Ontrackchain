@@ -7,7 +7,7 @@
 - mode: `baseline`
 - environment_name: `staging-serious`
 - facilitador: `Arquiteto/Responsavel Tecnico`
-- objetivo da janela: validar a primeira janela seria com evidencias anexaveis de staging e readiness regulatorio quando aplicavel
+- objetivo da janela: validar a primeira janela seria com evidências anexaveis de staging e readiness regulatório quando aplicavel
 - baseline canônica: `91% / 78% / 87%`
 - plano de acao automatico: [Plano de Acao do War Room `stg-2026-07-06-a`](../../generated/windows/stg-2026-07-06-a/stg-2026-07-06-a-war-room-action-plan.md)
 
@@ -16,8 +16,8 @@
 - status atual: `no-go`
 - motivo principal: `handoff` ainda com `Data/Status` pendentes e `.env.staging.private` ainda com placeholders criticos
 - risco residual: dependencias externas reais de `OIDC`, `AML/KYT`, `RPC` e feed UE ainda nao homologadas para esta janela
-- proximo checkpoint: rerodar `prepare_staging_window.py --validate --preflight` depois do provisionamento por dominio
-- hora do proximo checkpoint: `<preencher_HH:MMZ>`
+- próximo checkpoint: rerodar `prepare_staging_window.py --validate --preflight` depois do provisionamento por dominio
+- hora do próximo checkpoint: `<preencher_HH:MMZ>`
 - facilitador online: `<preencher_nome_facilitador_online>`
 - canal principal do war room: `<preencher_canal_principal_war_room>`
 - bridge de escalacao principal: `<preencher_bridge_go_no_go>`
@@ -48,9 +48,9 @@
   - ultima atualizacao: `2026-07-01T19:45:00Z`
   - dependencia critica: `POSTGRES_PASSWORD`, `ALERTMANAGER_WEBHOOK_BEARER_TOKEN` e `GRAFANA_ADMIN_PASSWORD` reais
   - comando: `python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md` e `python scripts/check_staging_env_placeholders.py --file .env.staging.private`
-  - evidencia minima: handoff sem `pending` do dominio e placeholders resolvidos
+  - evidência minima: handoff sem `pending` do dominio e placeholders resolvidos
   - criterio de go/no-go: segredos base provisionados e handoff formalizado
-  - observacoes: base da stack ainda nao formalizada
+  - observações: base da stack ainda nao formalizada
 - `Auth/OIDC`
   - owner primario: `<preencher_nome_owner_online_auth>`
   - backup/escalacao: `<preencher_nome_owner_backup_auth>`
@@ -59,9 +59,9 @@
   - ultima atualizacao: `2026-07-01T19:45:00Z`
   - dependencia critica: secrets OIDC nao-dev e handoff de `Auth/OIDC`
   - comando: `python scripts/preflight_oidc_serious_env.py`
-  - evidencia minima: preflight OIDC verde
+  - evidência minima: preflight OIDC verde
   - criterio de go/no-go: secrets reais e handoff `Auth/OIDC` fechados
-  - observacoes: `P0-01` continua dependente de evidencia externa
+  - observações: `P0-01` continua dependente de evidência externa
 - `Investigation/RPC`
   - owner primario: `<preencher_nome_owner_online_rpc>`
   - backup/escalacao: `<preencher_nome_owner_backup_rpc>`
@@ -70,9 +70,9 @@
   - ultima atualizacao: `2026-07-01T19:45:00Z`
   - dependencia critica: `INVESTIGATION_RPC_PRIMARY_URL` e `INVESTIGATION_RPC_FALLBACK_URL` reais
   - comando: `python scripts/preflight_external_integrations.py`
-  - evidencia minima: output coerente com `ONTRACKCHAIN_EXPECT_RPC_MODE`
+  - evidência minima: output coerente com `ONTRACKCHAIN_EXPECT_RPC_MODE`
   - criterio de go/no-go: endpoints RPC reais e preflight externo coerente
-  - observacoes: dependencia externa de conectividade ainda aberta
+  - observações: dependencia externa de conectividade ainda aberta
 - `Compliance/AML`
   - owner primario: `<preencher_nome_owner_online_compliance>`
   - backup/escalacao: `<preencher_nome_owner_backup_compliance>`
@@ -81,9 +81,9 @@
   - ultima atualizacao: `2026-07-01T19:45:00Z`
   - dependencia critica: credenciais reais `AML/KYT` e `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` tokenizada
   - comando: `python scripts/preflight_external_integrations.py` e `make check-compliance-provider-runtime INTERNAL_BASE_URL=http://compliance-api:8002 PUBLIC_BASE_URL=http://localhost:8080`
-  - evidencia minima: runtime AML/KYT verde e, quando houver UE, JSONs da janela UE
+  - evidência minima: runtime AML/KYT verde e, quando houver UE, JSONs da janela UE
   - criterio de go/no-go: provider live e feed UE com prova real da janela
-  - observacoes: `P0-02` e `P0-03` seguem `ready`, mas sem prova real da janela
+  - observações: `P0-02` e `P0-03` seguem `ready`, mas sem prova real da janela
 - `Gate Agregado da Janela`
   - owner primario: `<preencher_nome_facilitador_online>`
   - backup/escalacao: `<preencher_nome_owner_backup_go_no_go>`
@@ -92,9 +92,9 @@
   - ultima atualizacao: `2026-07-01T19:45:00Z`
   - dependencia critica: todas as trilhas acima verdes ou waived formalmente
   - comando: `python scripts/prepare_staging_window.py --window-id stg-2026-07-06-a --mode baseline --private-env-file .env.staging.private --validate --preflight`
-  - evidencia minima: `status=ok` no gate agregado
+  - evidência minima: `status=ok` no gate agregado
   - criterio de go/no-go: rerun verde do gate agregado com owners online
-  - observacoes: ainda nao elegivel para `make run-serious-window-local`
+  - observações: ainda nao elegivel para `make run-serious-window-local`
 
 ## Bloqueadores Ativos
 
@@ -127,7 +127,7 @@
   - tempo alvo: `60 min`
   - status: `open`
 
-## Evidencias Revisadas
+## evidências Revisadas
 
 - `handoff.json`: `artifacts/staging/checks/stg-2026-07-06-precheck2-handoff.json`
 - `placeholders.json`: `artifacts/staging/checks/stg-2026-07-06-precheck2-placeholders.json`
@@ -148,7 +148,7 @@
 - nao disparar `run-serious-window-local` nem workflow oficial antes do gate agregado ficar verde
 - usar o checklist por owner e a matriz de war room como artefatos oficiais da coordenacao desta janela
 
-## Proximo Passo Autorizado
+## próximo Passo Autorizado
 
 - acao: provisionar secrets/URLs reais por dominio e preencher `Data/Status` no handoff
 - owner: `owners nominais por trilha com coordenacao do facilitador/Release Manager Tecnico`
@@ -159,6 +159,6 @@
 ## Resultado Final do War Room
 
 - decisao final: `no-go`
-- justificativa: a janela ainda nao possui prontidao operacional minima para producao de evidencias reais
+- justificativa: a janela ainda nao possui prontidao operacional minima para producao de evidências reais
 - artefato de sign-off relacionado: [Sign-Off da Janela `stg-2026-07-06-a`](./2026-07-06-staging-serious-window-signoff.md)
 - tracking ao vivo relacionado: [Tracking ao Vivo da Janela `stg-2026-07-06-a`](./2026-07-06-staging-serious-window-live-tracking.md)

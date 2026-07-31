@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Dar ao facilitador e aos owners da tentativa `stg-2026-07-13-federated-a` um roteiro operacional minuto a minuto para conduzir a validacao em `staging` sem ambiguidade.
+Dar ao facilitador e aos owners da tentativa `stg-2026-07-13-federated-a` um roteiro operacional minuto a minuto para conduzir a validação em `staging` sem ambiguidade.
 
 Use este roteiro junto com:
 
@@ -18,7 +18,7 @@ Use este roteiro junto com:
 - `window_id`: `stg-2026-07-13-federated-a`
 - `mode`: `dress_rehearsal_controlado`
 - a tentativa so deve comecar com owners online e runtime do `auth-service` confirmado
-- readiness documental nao substitui evidencia material de `Team`, `Audit` e `audit_logs`
+- readiness documental nao substitui evidência material de `Team`, `Audit` e `audit_logs`
 
 ## Linha do Tempo Executiva
 
@@ -31,7 +31,7 @@ Use este roteiro junto com:
 | `T+20` | confirmar evento no `Audit` | `Frontend` | evento `link` visivel |
 | `T+30` | confirmar correlacao no banco | `Platform/SRE` | `search + suggestion + link` visiveis |
 | `T+40` | validar `unlink` reversivel | `Frontend` + `Backend/Auth` | evento `unlink` visivel |
-| `T+50` | reconciliar evidencias e decidir | `Release Manager Tecnico` | `go / pending / no-go` |
+| `T+50` | reconciliar evidências e decidir | `Release Manager Tecnico` | `go / pending / no-go` |
 
 ## `T-30 min` - Warmup da Janela
 
@@ -53,7 +53,7 @@ Use este roteiro junto com:
 - [ ] `member_id` alvo confirmado
 - [ ] principal externo coerente no `Keycloak`
 
-### Evidencia Minima - `T-30`
+### evidência Minima - `T-30`
 
 - preencher [Bridge Quick-Fill `stg-2026-07-13-federated-a`](./2026-07-13-federated-directory-bridge-quick-fill.md)
 - atualizar `owners online` na [Run Sheet Datada `stg-2026-07-13-federated-a`](./2026-07-13-federated-directory-staging-run-sheet.md)
@@ -79,7 +79,7 @@ Use este roteiro junto com:
 - [ ] escopo minimo do client tecnico confirmado
 - [ ] nenhuma pendencia critica em `Auth/OIDC`
 
-### Evidencia Minima - `T-15`
+### evidência Minima - `T-15`
 
 - `runtime_auth_service=healthy`
 - `keycloak_admin_client_scope=ok`
@@ -107,7 +107,7 @@ Use este roteiro junto com:
 - [ ] candidato correto visivel
 - [ ] `candidate_org` coerente com o tenant
 
-### Evidencia Minima - `T+00`
+### evidência Minima - `T+00`
 
 - screenshot da busca assistida
 - `query_usada`
@@ -136,7 +136,7 @@ Use este roteiro junto com:
 - [ ] mensagem de sucesso exibida
 - [ ] `linked_identity_count` atualizado
 
-### Evidencia Minima - `T+10`
+### evidência Minima - `T+10`
 
 - screenshot do `link` persistido
 - `suggestion_status=done`
@@ -163,7 +163,7 @@ Use este roteiro junto com:
 - [ ] evento `team_external_identity_linked` localizado
 - [ ] timestamp do evento registrado
 
-### Evidencia Minima - `T+20`
+### evidência Minima - `T+20`
 
 - screenshot do preset no `Audit`
 - screenshot do evento de `link`
@@ -190,7 +190,7 @@ Use este roteiro junto com:
 - [ ] `team_external_identity_linked` encontrado
 - [ ] correlator (`request_id` ou timestamp) anotado
 
-### Evidencia Minima - `T+30`
+### evidência Minima - `T+30`
 
 - output ou screenshot da SQL
 - `db_search_event_found=true`
@@ -216,7 +216,7 @@ Use este roteiro junto com:
 - [ ] identidade removida do membro
 - [ ] evento `team_external_identity_unlinked` localizado no `Audit`
 
-### Evidencia Minima - `T+40`
+### evidência Minima - `T+40`
 
 - screenshot do `unlink` no `Team`
 - screenshot do evento `unlink` no `Audit`
@@ -242,7 +242,7 @@ Use este roteiro junto com:
 - [ ] bridge quick-fill reconciliada
 - [ ] tracking ao vivo atualizado
 - [ ] war room com mesma leitura executiva
-- [ ] sign-off coerente com as evidencias
+- [ ] sign-off coerente com as evidências
 
 ### Resultado Possivel
 

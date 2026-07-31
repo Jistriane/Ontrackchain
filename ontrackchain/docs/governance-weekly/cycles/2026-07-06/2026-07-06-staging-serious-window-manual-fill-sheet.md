@@ -18,7 +18,7 @@ Use esta folha junto com:
 - marcar um owner como concluido apenas quando:
   - os placeholders operacionais do owner tiverem sido substituidos
   - os placeholders reais do dominio tiverem saído do `.env.staging.private`
-  - a validacao minima do dominio estiver verde
+  - a validação minima do dominio estiver verde
 
 ## Ordem de Execucao
 
@@ -53,10 +53,10 @@ Checklist rapido:
 - [ ] facilitador online definido
 - [ ] canal principal do war room definido
 - [ ] bridge principal de escalacao definida
-- [ ] hora do proximo checkpoint definida
+- [ ] hora do próximo checkpoint definida
 - [ ] backup do gate agregado definido
 
-Evidencia minima:
+evidência minima:
 
 - `war room` e `tracking` sem placeholders transversais
 
@@ -86,14 +86,14 @@ Arquivos e campos que devem refletir o owner:
 - `tracking`: responsavel online, canal de contato, bridge de escalacao
 - `docs/staging-env-ownership.md`: `Data` e `Status`
 
-Validacao minima:
+validação minima:
 
 ```bash
 python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
 python scripts/check_staging_env_placeholders.py --file .env.staging.private
 ```
 
-Evidencia minima:
+evidência minima:
 
 - JSON do handoff sem `pending` para `Platform/Operations`
 - JSON de placeholders sem ocorrencias do dominio
@@ -137,7 +137,7 @@ Arquivos e campos que devem refletir o owner:
 - `tracking`: responsavel online, canal de contato, bridge de escalacao
 - `docs/staging-env-ownership.md`: `Data` e `Status`
 
-Validacao minima:
+validação minima:
 
 ```bash
 python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
@@ -145,7 +145,7 @@ python scripts/check_staging_env_placeholders.py --file .env.staging.private
 python scripts/preflight_oidc_serious_env.py
 ```
 
-Evidencia minima:
+evidência minima:
 
 - JSON do handoff sem `pending` para `Auth/OIDC`
 - output verde do `preflight_oidc_serious_env.py`
@@ -184,7 +184,7 @@ Arquivos e campos que devem refletir o owner:
 - `tracking`: responsavel online, canal de contato, bridge de escalacao
 - `docs/staging-env-ownership.md`: `Data` e `Status`
 
-Validacao minima:
+validação minima:
 
 ```bash
 python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
@@ -192,7 +192,7 @@ python scripts/check_staging_env_placeholders.py --file .env.staging.private
 python scripts/preflight_external_integrations.py
 ```
 
-Evidencia minima:
+evidência minima:
 
 - JSON do handoff sem `pending` para `Investigation/RPC`
 - output do preflight externo coerente com `ONTRACKCHAIN_EXPECT_RPC_MODE`
@@ -232,7 +232,7 @@ Arquivos e campos que devem refletir o owner:
 - `tracking`: responsavel online, canal de contato, bridge de escalacao
 - `docs/staging-env-ownership.md`: `Data` e `Status`
 
-Validacao minima:
+validação minima:
 
 ```bash
 python scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
@@ -243,14 +243,14 @@ make check-compliance-provider-runtime \
   PUBLIC_BASE_URL=http://localhost:8080
 ```
 
-Validacao adicional quando `EU_CONSOLIDATED` estiver no escopo:
+validação adicional quando `EU_CONSOLIDATED` estiver no escopo:
 
 ```bash
 export REQUEST_ID="stg-2026-07-06-a-eu-check"
 make gate-p0-03-eu-live WINDOW_ID=stg-2026-07-06-a REQUEST_ID="$REQUEST_ID"
 ```
 
-Evidencia minima:
+evidência minima:
 
 - JSON do handoff sem `pending` para `Compliance/AML`
 - output verde do preflight externo

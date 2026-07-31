@@ -12,7 +12,7 @@ Documentar o blueprint dedicado de `staging full-stack` no Render, isolado do fl
 
 O arquivo canônico consumido pelo Render para este recorte agora fica em [render.full-stack.yaml](../render.full-stack.yaml).
 
-## Papel Canonico
+## Papel canônico
 
 Este documento e a fonte primaria para:
 
@@ -165,7 +165,7 @@ Obrigatorios para o primeiro `sync` do runtime hospedado:
 - `ALERTMANAGER_WEBHOOK_BEARER_TOKEN`
 - `GRAFANA_ADMIN_PASSWORD`
 
-Obrigatorios para homologacao seria com escopo regulatorio e providers reais:
+Obrigatorios para homologacao seria com escopo regulatório e providers reais:
 
 - `COMPLIANCE_TRM_SCREENING_URL`
 - `COMPLIANCE_TRM_API_KEY`
@@ -214,7 +214,7 @@ Parametros nao sensiveis ja declarados no blueprint para o diretório federado:
 - `KEYCLOAK_ADMIN_ORG_ATTRIBUTE=organization_id`
 - `KEYCLOAK_ADMIN_ROLE_ATTRIBUTE=otk_role`
 
-Observacao operacional deste corte:
+observação operacional deste corte:
 
 - enquanto nao existir um client read-only dedicado para a Admin API, `KEYCLOAK_ADMIN_CLIENT_SECRET` pode espelhar o mesmo valor de `KEYCLOAK_B2B_CLIENT_SECRET`, desde que o client `ontrackchain-b2b` receba escopo minimo suficiente apenas para leitura do diretório
 
@@ -237,7 +237,7 @@ Nao ha preenchimento manual inicial para:
 
 ### Etapa 2. Segredos de providers reais
 
-Preencha somente quando a janela incluir homologacao seria ou prova regulatoria com integracoes externas:
+Preencha somente quando a janela incluir homologacao seria ou prova regulatoria com integrações externas:
 
 **`ontrackchain-investigation-api-staging`**
 
@@ -271,7 +271,7 @@ Regras operacionais desta etapa:
 
 Depois de preencher cada grupo, valide no painel e no runtime:
 
-- o servico aceitou a alteracao sem erro de validacao
+- o servico aceitou a alteracao sem erro de validação
 - o deploy foi reacionado para o servico correto
 - o health check do servico voltou a verde
 - o valor salvo nao ficou vazio ou com placeholder
@@ -331,7 +331,7 @@ Use este bloco durante a execucao real no painel do Render.
 
 Pare imediatamente e nao avance para providers reais se qualquer um destes ocorrer:
 
-- erro de validacao do blueprint
+- erro de validação do blueprint
 - servico em `deploy failed`
 - `gateway` nao responder em `/login`
 - `auth-service` nao responder em `/health`
@@ -347,7 +347,7 @@ Quando parar:
 
 ### Critério de `Go`
 
-Siga para a etapa de validacao remota somente quando:
+Siga para a etapa de validação remota somente quando:
 
 - `gateway`, `auth-service`, `Keycloak`, `Grafana` e `frontend` estiverem convergidos
 - nao houver erro vermelho no painel do Render para a malha principal

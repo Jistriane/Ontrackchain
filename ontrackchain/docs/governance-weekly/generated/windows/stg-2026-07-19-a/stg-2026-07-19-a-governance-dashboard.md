@@ -10,9 +10,9 @@
 - resumo do bloqueio dominante: 12 placeholder(s) e 8 campo(s) de handoff pendentes
 - placeholders pendentes: `12`
 - handoff pendente: `8`
-- escopo regulatorio da tentativa: `none`
+- escopo regulatório da tentativa: `none`
 - `P0-04` readiness: `unknown`
-- leitura regulatoria: sem escopo regulatorio material nesta tentativa
+- leitura regulatoria: sem escopo regulatório material nesta tentativa
 - RCA cross-domain: `not_available` | RCA(s) `0` | criticos `0` | pendentes `0`
 - dominios RCA em destaque: `none`
 

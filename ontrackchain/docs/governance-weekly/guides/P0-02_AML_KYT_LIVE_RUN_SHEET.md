@@ -55,7 +55,7 @@ python3 scripts/preflight_external_integrations.py
 Registrar:
 
 - `status`: `preencher`
-- observacao curta: `preencher`
+- observação curta: `preencher`
 
 ### 3. Runtime gate AML/KYT
 
@@ -90,9 +90,9 @@ python3 scripts/smoke_runtime.py
 Registrar:
 
 - `smoke_status`: `preencher`
-- observacao curta: `preencher`
+- observação curta: `preencher`
 
-### 5. Evidencia externa
+### 5. evidência externa
 
 ```bash
 cd github_main/ontrackchain
@@ -105,7 +105,7 @@ Registrar:
 - `homologation_json`: `preencher`
 - `homologation_manifest`: `preencher`
 
-### 6. Bundle regulatorio se `P0-03` estiver junto
+### 6. Bundle regulatório se `P0-03` estiver junto
 
 ```bash
 cd github_main/ontrackchain
@@ -123,7 +123,7 @@ Registrar somente se aplicavel:
 - `bundle_json`: `preencher`
 - `bundle_md`: `preencher`
 
-### 7. Reconciliar governanca
+### 7. Reconciliar governança
 
 ```bash
 cd github_main/ontrackchain
@@ -157,18 +157,18 @@ Registrar:
 
 ## Gate de Saida
 
-Marcar a trilha como pronta para validacao somente se todos estiverem verdadeiros:
+Marcar a trilha como pronta para validação somente se todos estiverem verdadeiros:
 
 - [ ] preflight externo verde
 - [ ] runtime gate verde
 - [ ] homologacao externa preservada
 - [ ] `request_id` correlacionavel
-- [ ] governanca reprocessada
-- [ ] owner humano revisou a evidencia
+- [ ] governança reprocessada
+- [ ] owner humano revisou a evidência
 
 ## Resultado da Janela
 
 - decisao sugerida: `preencher`
 - motivo resumido: `preencher`
-- proximo passo: `preencher`
+- próximo passo: `preencher`
 - accountable: `preencher`

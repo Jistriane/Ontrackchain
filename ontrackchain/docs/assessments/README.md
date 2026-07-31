@@ -6,7 +6,7 @@ Concentrar pareceres formais datados usados para registrar cortes executivos de 
 
 Esta pasta existe para diferenciar:
 
-- documentos vivos e canonicos na raiz de `docs/`
+- documentos vivos e canônicos na raiz de `docs/`
 - artefatos historicos de apoio em `docs/history/`
 - pareceres formais datados em `docs/assessments/`
 

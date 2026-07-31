@@ -10,7 +10,7 @@ Registrar a primeira baseline formal do KPI consolidado do Ontrackchain apos a c
 - board de prioridades
 - matriz operacional
 - risk register
-- documentacao canonica viva
+- documentação canônica viva
 
 ## Snapshot Atual
 

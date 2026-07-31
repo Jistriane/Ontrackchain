@@ -9,12 +9,12 @@ Definir um gate operacional curto para a trilha manual de `due_diligence` e `sou
 - manifesto canônico SHA-256 do pacote manual
 - leitura canônica do selo por `package_sha256`
 - escrita controlada de `signoff-request`, `signoff`, `finalize`, `revoke` e `supersede`
-- navegacao bidirecional `evidence <-> audit`, incluindo preset de governanca por `seal_id`
+- navegacao bidirecional `evidence <-> audit`, incluindo preset de governança por `seal_id`
 - handoff operacional do workspace correlacionado
 
 Use este checklist junto com:
 
-- `./frontend-static-regression-checklist.md` (documento canonico)
+- `./frontend-static-regression-checklist.md` (documento canônico)
 - `./frontend-visual-contract-rollout-checklist.md` (ponte legada de compatibilidade)
 - `./frontend-static-regression-traceability.md`
 - `./evidence-and-audit-matrix.md`
@@ -64,7 +64,7 @@ Use este checklist junto com:
 ## Gate de Navegação
 
 - [ ] `evidence` continua expondo deep-link explícito para o preset manual do `audit`
-- [ ] `evidence` continua expondo deep-link explícito para a governanca do selo no `audit` por `seal_id`
+- [ ] `evidence` continua expondo deep-link explícito para a governança do selo no `audit` por `seal_id`
 - [ ] `audit` continua expondo retorno explícito ao evento-fonte DD/SoF em `evidence`
 - [ ] o retorno `audit -> evidence` continua carregando `audit_origin=manual_package`
 - [ ] o banner contextual de retorno em `evidence` continua visível quando a origem for `audit`
@@ -115,7 +115,7 @@ Use este checklist junto com:
 
 - [ ] manifesto, evento auditável e navegação bidirecional permanecem coerentes
 - [ ] contrato canônico de leitura continua preferindo `by-digest`
-- [ ] trilha de governanca do selo continua consistente entre `evidence`, `audit` e `api-contracts.md`
+- [ ] trilha de governança do selo continua consistente entre `evidence`, `audit` e `api-contracts.md`
 - [ ] specs focais da trilha manual estão verdes
 - [ ] documentação canônica foi sincronizada
 
@@ -126,5 +126,5 @@ Use este checklist junto com:
 - [ ] a leitura de selagem voltou a depender de `seal_id` no frontend como contrato primario
 - [ ] o retorno `audit -> evidence` caiu para o evento de export em vez do evento-fonte DD/SoF
 - [ ] o banner contextual do retorno desapareceu ou ficou incoerente
-- [ ] a governanca pós-selagem perdeu `ticket_ref`, `reason` ou o vínculo para o selo substituto
+- [ ] a governança pós-selagem perdeu `ticket_ref`, `reason` ou o vínculo para o selo substituto
 - [ ] a trilha manual voltou a depender de strings inline ou de ISO cru na UI

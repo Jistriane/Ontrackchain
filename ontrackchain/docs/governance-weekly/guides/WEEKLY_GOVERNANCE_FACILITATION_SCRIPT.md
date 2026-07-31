@@ -1,13 +1,13 @@
-# Roteiro de Facilitacao da Governanca Semanal
+# Roteiro de Facilitacao da governança Semanal
 
 ## Objetivo
 
-Guiar a reuniao semanal de governanca de forma curta, objetiva e orientada a evidencia.
+Guiar a reuniao semanal de governança de forma curta, objetiva e orientada a evidencia.
 
 Este roteiro deve ser usado junto com:
 
-- [Workflow de Atualizacao Semanal da Governanca](./WEEKLY_GOVERNANCE_UPDATE_WORKFLOW.md)
-- [Checklist de Fechamento Semanal da Governanca](./WEEKLY_GOVERNANCE_CLOSEOUT_CHECKLIST.md)
+- [Workflow de Atualizacao Semanal da governança](./WEEKLY_GOVERNANCE_UPDATE_WORKFLOW.md)
+- [Checklist de Fechamento Semanal da governança](./WEEKLY_GOVERNANCE_CLOSEOUT_CHECKLIST.md)
 - versao operacional da semana
 - rascunho completo da semana
 
@@ -36,7 +36,7 @@ Confirmar:
 
 Pergunta do facilitador:
 
-- "Houve evidencia nova material desde o ultimo fechamento?"
+- "Houve evidência nova material desde o ultimo fechamento?"
 
 ### 2. Revisao dos itens criticos (`10-15 min`)
 
@@ -51,7 +51,7 @@ Revisar, nesta ordem:
 
 Para cada item, perguntar:
 
-- qual foi a ultima evidencia revisada?
+- qual foi a ultima evidência revisada?
 - houve delta real desde a ultima semana?
 - o item continua `blocked`, `ready`, `in_progress`, `ready_for_validation` ou `done`?
 - qual e a proxima acao verificavel?
@@ -94,9 +94,9 @@ Registrar:
 
 - principal ganho da semana
 - principal bloqueio da semana
-- item mais proximo de fechamento
+- item mais próximo de fechamento
 - owner da principal escalacao
-- proxima evidencia esperada
+- proxima evidência esperada
 
 ## Saidas Obrigatorias da Reuniao
 
@@ -112,11 +112,11 @@ Ao final da reuniao, deve existir:
 
 Usar perguntas curtas e objetivas:
 
-- "Qual e a evidencia nova?"
+- "Qual e a evidência nova?"
 - "Isso muda status ou apenas confirma bloqueio?"
 - "Qual artefato legitima essa mudanca?"
 - "Sem esse artefato, o status permanece qual?"
-- "Qual owner fica responsavel pelo proximo gate?"
+- "Qual owner fica responsavel pelo próximo gate?"
 
 ## Anti-Padroes de Conducao
 
@@ -135,5 +135,5 @@ Fechar sempre com uma sintese curta:
 - baseline final da semana
 - decisao executiva final
 - maior bloqueio mantido
-- proxima evidencia esperada
+- proxima evidência esperada
 - data da proxima revisao

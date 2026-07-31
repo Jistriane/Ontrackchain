@@ -11,13 +11,13 @@ Consolidar em um unico artefato:
 - a leitura executiva mais honesta do percentual atual do projeto
 - a matriz objetiva de maturidade por dominio
 - o plano minimo para elevar o projeto de `87%` para `95%`
-- o parecer formal de `go/no-go` para operacao regulada forte
+- o parecer formal de `go/no-go` para operação regulada forte
 
 Este documento complementa e nao substitui:
 
 - [Scorecard Oficial do Projeto](../project-kpi-scorecard.md)
 - [Avaliacao de Maturidade do Projeto](../project-maturity-assessment.md)
-- [Readiness Regulatorio](../regulatory-readiness.md)
+- [Readiness regulatório](../regulatory-readiness.md)
 - [Plano Consolidado ate 95%](../project-construction-plan-to-95-percent.md)
 
 Use este documento quando a necessidade for:
@@ -34,7 +34,7 @@ Nao use este documento como fonte primaria para:
 
 ## Leitura Executiva
 
-Leitura consolidada validada contra documentacao, estrutura real do repositorio e checks executaveis:
+Leitura consolidada validada contra documentação, estrutura real do repositorio e checks executaveis:
 
 - `91%` de construcao tecnica
 - `78%` de prontidao regulatoria/operacional
@@ -58,20 +58,20 @@ Leitura executiva resultante:
 - o principal gap residual nao e mais de scaffold ou ausencia de codigo
 - o principal gap esta em homologacao externa, recorrencia operacional e aceite institucional
 
-## Evidencias Utilizadas
+## evidências Utilizadas
 
-### Documentacao canonica
+### documentação canônica
 
 - [Scorecard Oficial do Projeto](../project-kpi-scorecard.md)
 - [Avaliacao de Maturidade do Projeto](../project-maturity-assessment.md)
-- [Readiness Regulatorio](../regulatory-readiness.md)
+- [Readiness regulatório](../regulatory-readiness.md)
 - [Cobertura do Frontend](../frontend-coverage-matrix.md)
 - [Owners e SLAs Operacionais](../operational-ownership-and-slas.md)
 - [Retention e Recovery](../retention-and-recovery-policy.md)
-- [Validacao e Auditoria](../validation-and-audit.md)
+- [validação e Auditoria](../validation-and-audit.md)
 - [Plano Consolidado ate 95%](../project-construction-plan-to-95-percent.md)
 
-### Evidencias de runtime, testes e CI
+### evidências de runtime, testes e CI
 
 - nota de workspace: os workflows citados abaixo vivem no repositório agregador pai em `../.github/workflows/`
 - stack, modulos e boundaries descritos em [README](../README.md)
@@ -88,11 +88,11 @@ Leitura executiva resultante:
 | Investigation e billing | 90% | fluxo principal e contratos estao construidos | mais prova operacional de runtime em contexto serio |
 | Compliance core | 90% | sanctions, counterparties, blocks, ROS/COAF e work-items existem | providers reais e provas recorrentes |
 | Monitoring operacional | 91% | backlog global, triagem e export auditado existem | sinais fortes adicionais e maturidade de resposta |
-| Reports e evidencias | 92% | evidence_trail, bundles, hashes e trilha auditavel estao consolidados | institucionalizacao recorrente da cadeia de custodia |
-| Frontend operacional | 93% | cobertura relevante dos cockpits regulatorios e operacionais | hardening e fechamento de lacunas parciais |
-| Observabilidade e alerting | 88% | Prometheus, Grafana e Alertmanager integrados ao stack | aprofundamento de sinais de seguranca |
-| Testes e CI/CD | 94% | quality gates, smoke, Playwright e checks Python bem distribuidos | integracoes reais continuam fora do escopo de CI puro |
-| Seguranca e governanca tecnica | 85% | controles tecnicos e documentos fortes | sign-off formal e rotina operacional recorrente |
+| Reports e evidências | 92% | evidence_trail, bundles, hashes e trilha auditavel estao consolidados | institucionalizacao recorrente da cadeia de custodia |
+| Frontend operacional | 93% | cobertura relevante dos cockpits regulatórios e operacionais | hardening e fechamento de lacunas parciais |
+| Observabilidade e alerting | 88% | Prometheus, Grafana e Alertmanager integrados ao stack | aprofundamento de sinais de segurança |
+| Testes e CI/CD | 94% | quality gates, smoke, Playwright e checks Python bem distribuidos | integrações reais continuam fora do escopo de CI puro |
+| segurança e governança tecnica | 85% | controles tecnicos e documentos fortes | sign-off formal e rotina operacional recorrente |
 
 ### Resumo por lente
 
@@ -100,7 +100,7 @@ Leitura executiva resultante:
 | --- | ---: | --- |
 | Construcao tecnica | `91%` | plataforma funcional e madura |
 | Prontidao regulatoria/operacional | `78%` | base forte, ainda sem homologacao completa |
-| Construcao consolidada | `87%` | pronto para validacao seria, nao para producao regulada forte |
+| Construcao consolidada | `87%` | pronto para validação seria, nao para producao regulada forte |
 
 ## Semaforo Executivo
 
@@ -111,7 +111,7 @@ Leitura executiva resultante:
 - evidence trail e auditoria
 - frontend operacional principal
 - testes, scripts e bundles operacionais
-- quality gates e validacoes automatizadas
+- quality gates e validações automatizadas
 
 ### Amarelo
 
@@ -119,7 +119,7 @@ Leitura executiva resultante:
 - ownership e SLA
 - retention e recovery com aceite institucional
 - expansao e hardening da fila compartilhada em toda a superficie
-- operacao recorrente de ROS/COAF e janela seria
+- operação recorrente de ROS/COAF e janela seria
 
 ### Vermelho
 
@@ -127,17 +127,17 @@ Leitura executiva resultante:
 - URL real do feed UE tokenizado
 - homologacao real de `OIDC + MFA`
 - sign-off institucional recorrente
-- prova repetida de operacao seria com aceite formal
+- prova repetida de operação seria com aceite formal
 
 ## O Que Ja Esta Construido de Forma Sustentada
 
 - servicos principais implementados em `apps/`
 - frontend com rotas operacionais reais e coberturas documentadas
-- trilha de evidencias com encadeamento e artefatos auditaveis
-- work-items regulatorios multiusuario
+- trilha de evidências com encadeamento e artefatos auditaveis
+- work-items regulatórios multiusuario
 - bundles e preflights de staging serio
 - runbooks, war room, ownership e templates de sign-off
-- pipelines de qualidade e validacoes de regressao
+- pipelines de qualidade e validações de regressao
 
 ## O Que Ainda Impede Chamar o Projeto de Pronto para Producao Regulada Forte
 
@@ -159,7 +159,7 @@ Saida esperada:
 
 - itens `P0` deixam de estar parados por dependencia externa pura
 
-### Fase 2 - Homologar integracoes criticas
+### Fase 2 - Homologar integrações criticas
 
 1. validar `AML/KYT` em runtime real
 2. validar feed UE com artefatos persistidos
@@ -169,7 +169,7 @@ Saida esperada:
 
 - prontidao regulatoria sobe materialmente e deixa de depender de desenho local
 
-### Fase 3 - Formalizar governanca operacional
+### Fase 3 - Formalizar governança operacional
 
 1. fechar aprovacoes pendentes de owners e SLA
 2. fechar aprovacoes pendentes de retention e recovery
@@ -191,26 +191,26 @@ Saida esperada:
 
 ## Matriz Objetiva de Subida para 95%
 
-| Prioridade | Item | Owner esperado | Evidencia minima | Resultado esperado |
+| Prioridade | Item | Owner esperado | evidência minima | Resultado esperado |
 | --- | --- | --- | --- | --- |
-| `P0` | `AML/KYT live` | Compliance Lead | gate verde + bundle + artefato persistido | reduzir risco regulatorio critico |
+| `P0` | `AML/KYT live` | Compliance Lead | gate verde + bundle + artefato persistido | reduzir risco regulatório critico |
 | `P0` | feed UE real | Regulatory/Ops | preflight + sync JSON + janela | fechar gap de screening externo |
 | `P0` | `OIDC + MFA` serio | Security Lead | fluxo real homologado + teste critico | fechar identidade forte |
 | `P1` | owners e SLA | COO/Platform/Security | aceite formal registrado | consolidar ownership operacional |
-| `P1` | retention e recovery | CTO/Security/Compliance | restore evidenciado + aceite formal | consolidar governanca de custodia |
-| `P1` | janelas serias recorrentes | Ops Manager | dossier + sign-off de 2 execucoes | provar operacao seria repetivel |
+| `P1` | retention e recovery | CTO/Security/Compliance | restore evidenciado + aceite formal | consolidar governança de custodia |
+| `P1` | janelas serias recorrentes | Ops Manager | dossier + sign-off de 2 execucoes | provar operação seria repetivel |
 
 ## Parecer Formal de Go/No-Go
 
 ### Decisao Atual
 
-- `go` para validacao seria controlada
+- `go` para validação seria controlada
 - `go` para execucao do roadmap de Sprint 7 a Sprint 9
 - `no-go` para producao regulada forte neste momento
 
 ### Fundamentacao
 
-O projeto atende ao patamar de plataforma tecnicamente funcional, mas ainda nao atende ao patamar de operacao regulada plenamente homologada. Os controles centrais existem, porem parte relevante deles ainda esta em estado de dependencia externa, homologacao parcial ou aceite institucional pendente.
+O projeto atende ao patamar de plataforma tecnicamente funcional, mas ainda nao atende ao patamar de operação regulada plenamente homologada. Os controles centrais existem, porem parte relevante deles ainda esta em estado de dependencia externa, homologacao parcial ou aceite institucional pendente.
 
 ### Razoes Objetivas para `no-go`
 
@@ -218,7 +218,7 @@ O projeto atende ao patamar de plataforma tecnicamente funcional, mas ainda nao 
 2. `AML/KYT live` ainda nao esta provado com credenciais reais em ciclo operacional recorrente
 3. feed UE tokenizado real ainda nao esta evidenciado em janela seria recorrente
 4. owners, SLA, retention e recovery ainda nao possuem aceite formal completo
-5. a operacao seria ainda precisa ser repetida com sign-off institucional
+5. a operação seria ainda precisa ser repetida com sign-off institucional
 
 ### O Que Ja Permite `go` Parcial Controlado
 
@@ -230,7 +230,7 @@ O projeto atende ao patamar de plataforma tecnicamente funcional, mas ainda nao 
 
 ### O Que Ainda Nao Permite `go` Pleno
 
-- declarar readiness completo para operacao regulada forte
+- declarar readiness completo para operação regulada forte
 - assumir dependencia plena de providers externos nao homologados
 - sustentar producao seria sem ressalvas de risco residual
 
@@ -245,10 +245,10 @@ Usar oficialmente:
 E tratar o estado atual como:
 
 - alto grau de construcao de produto e plataforma
-- prontidao suficiente para validacao seria controlada
+- prontidao suficiente para validação seria controlada
 - prontidao insuficiente para producao regulada forte sem fechamento dos `P0/P1`
 
-## Proximo Uso Recomendado
+## próximo Uso Recomendado
 
 Este documento deve ser usado como referencia para:
 

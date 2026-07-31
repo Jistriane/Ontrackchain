@@ -34,7 +34,7 @@ Adotar `PostgreSQL Row Level Security` como barreira obrigatoria de isolamento m
 ### Opcao C — Schema compartilhado com `RLS`
 
 - Vantagem:
-  - equilibrio entre seguranca e custo
+  - equilibrio entre segurança e custo
 - Desvantagem:
   - exige disciplina maior em bootstrap e debugging
 
@@ -46,7 +46,7 @@ Adotar `PostgreSQL Row Level Security` como barreira obrigatoria de isolamento m
 
 ## Trade-offs Aceitos
 
-- maior rigor operacional em troca de seguranca estrutural
+- maior rigor operacional em troca de segurança estrutural
 
 ## Status
 

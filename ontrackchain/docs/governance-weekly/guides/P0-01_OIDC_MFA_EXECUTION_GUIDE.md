@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Concentrar em um unico artefato o rito minimo para mover `P0-01` de `blocked` para `in_progress`, executar a validacao de `OIDC + MFA` em ambiente serio com evidencia preservada e devolver a trilha para a governanca semanal sem drift.
+Concentrar em um unico artefato o rito minimo para mover `P0-01` de `blocked` para `in_progress`, executar a validação de `OIDC + MFA` em ambiente serio com evidência preservada e devolver a trilha para a governança semanal sem drift.
 
 ## Quando Usar
 
@@ -10,7 +10,7 @@ Concentrar em um unico artefato o rito minimo para mover `P0-01` de `blocked` pa
 - quando houver owner nominal confirmado para `Auth/OIDC`
 - quando a janela seria incluir `P0-01` isolado ou combinado com `P0-02/P0-03`
 
-## Fontes Canonicas
+## Fontes canônicas
 
 - [Deploy e Staging](../../deploy-and-staging.md)
 - [Checklist de Evidência Mínima da Primeira Janela Séria](../../history/first-serious-window-evidence-checklist.md) - apoio historico complementar; a execucao viva de `P0-01` segue este guia e o run sheet dedicado
@@ -27,7 +27,7 @@ Concentrar em um unico artefato o rito minimo para mover `P0-01` de `blocked` pa
 - `P0-01` ainda esta em `blocked`
 - o baseline local nao prova `OIDC + MFA` serio sem override real de ambiente
 - `MFA_EXTERNAL_PROVIDER_HOMOLOGATED` pode seguir `false` ate existir homologacao externa real
-- a janela nao pode promover maturidade sem `preflight`, `smoke`, bundle OIDC e evidência revisavel
+- a janela nao pode promover maturidade sem `preflight`, `smoke`, bundle OIDC e evidência revisável
 
 ## Requisitos Minimos
 
@@ -63,7 +63,7 @@ export NEXT_PUBLIC_APP_ENV=staging
 export NEXT_PUBLIC_DEV_AUTH_ENABLED=false
 ```
 
-## Execucao Local Canonica (dev)
+## Execucao Local canônica (dev)
 
 Para validar a trilha `P0-01` em ambiente local com Keycloak (sem depender de staging hospedado), usar:
 
@@ -86,7 +86,7 @@ Para rodar o mesmo gate em GitHub Actions sem preparar `.env` manualmente, usar 
 
 - `Actions -> P0-01 OIDC Local Gate -> Run workflow`
 
-Pre-requisitos para a validacao hospedada:
+Pre-requisitos para a validação hospedada:
 
 - o workflow `p0-01-oidc-local-gate.yml` precisa estar commitado e sincronizado no branch remoto que sera usado no dispatch
 - a execucao hospedada depende do runner do GitHub, nao do ambiente local do operador
@@ -110,9 +110,9 @@ Antes do dispatch hospedado, garantir que o commit remoto inclua pelo menos este
 - workflow: `.github/workflows/p0-01-oidc-local-gate.yml`
 - gate e automacao local/CI: `ontrackchain/scripts/start_oidc_local.sh`, `ontrackchain/scripts/stop_oidc_local.sh`, `ontrackchain/scripts/run_p0_01_oidc_local_gate.sh`, `ontrackchain/scripts/run_p0_01_oidc_ci_gate.sh`, `ontrackchain/Makefile`, `ontrackchain/docker-compose.oidc-local.yml`, `ontrackchain/.env.oidc-local.example`
 - hardening de runtime/testes relacionado ao gate: `ontrackchain/apps/frontend/tests/e2e/oidc-auth.spec.ts`, `ontrackchain/apps/frontend/tests/e2e/billing-users.spec.ts`, `ontrackchain/apps/frontend/tests/e2e/run-stack-real.sh`
-- documentacao operacional: este guia, o run sheet e `.github/GOVERNANCE_CICD_SETUP.md`
+- documentação operacional: este guia, o run sheet e `.github/GOVERNANCE_CICD_SETUP.md`
 
-Se o branch remoto nao contiver esse conjunto coerente, a validacao hospedada perde rastreabilidade e pode falhar por mismatch entre workflow, scripts e contrato esperado.
+Se o branch remoto nao contiver esse conjunto coerente, a validação hospedada perde rastreabilidade e pode falhar por mismatch entre workflow, scripts e contrato esperado.
 
 ### Checklist de Revisao da Run Hospedada
 
@@ -136,7 +136,7 @@ Sinais esperados para considerar a run aderente:
 - `DEV_AUTH_ENABLED=false`
 - ausencia de fallback silencioso para `dev auth`
 
-Quando o gate local ficar verde, o proximo passo canonico continua sendo gerar o bundle:
+Quando o gate local ficar verde, o próximo passo canônico continua sendo gerar o bundle:
 
 ```bash
 cd github_main/ontrackchain
@@ -147,7 +147,7 @@ make run-oidc-readiness-bundle-local WINDOW_ID=stg-$(date +%F)-oidc BASE_URL=htt
 
 ### 1. Preflight de Ambiente Serio
 
-Executar o preflight canonico de `OIDC`:
+Executar o preflight canônico de `OIDC`:
 
 ```bash
 cd github_main/ontrackchain
@@ -209,9 +209,9 @@ Esperado:
 - `artifacts/staging/dossiers/<window_id>-oidc-readiness-bundle.md`
 - o JSON do bundle deve explicitar `readiness.readiness_status` em `blocked`, `ready` ou `ready_for_validation`
 - o markdown do bundle deve listar `Bloqueadores de Readiness` e `Proximo Passo` coerentes com a situacao da janela
-- o `release dossier`, o draft de `sign-off` e a governanca semanal da janela devem refletir o mesmo `readiness_status`, para que `P0-01` possa ser promovido por evidencia e nao apenas por leitura manual dos steps tecnicos
+- o `release dossier`, o draft de `sign-off` e a governança semanal da janela devem refletir o mesmo `readiness_status`, para que `P0-01` possa ser promovido por evidência e nao apenas por leitura manual dos steps tecnicos
 
-### 5. Evidencia Externa Quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true`
+### 5. evidência Externa Quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true`
 
 Executar somente quando houver homologacao externa real:
 
@@ -225,7 +225,7 @@ Esperado:
 - artefato de homologacao preservado
 - prova auditada de fluxo sensivel com `MFA` externo
 
-### 6. Reconciliar Governanca Semanal
+### 6. Reconciliar governança Semanal
 
 Depois que os artefatos existirem, sincronizar a janela:
 
@@ -246,7 +246,7 @@ Esperado:
 - saida verde do `smoke_auth_oidc_mode.py`
 - `artifacts/staging/checks/<window_id>-oidc-readiness-bundle.json`
 - `artifacts/staging/dossiers/<window_id>-oidc-readiness-bundle.md`
-- relatorio do `test:e2e:oidc-critical`
+- relatório do `test:e2e:oidc-critical`
 - quando aplicavel, homologacao externa preservada para `MFA`
 - snapshot/governanca atualizados apos `refresh-staging-war-room-governance-local`
 
@@ -264,7 +264,7 @@ Mover `P0-01` para `ready_for_validation` somente quando:
 - `smoke_auth_oidc_mode.py` estiver verde
 - o bundle OIDC tiver sido gerado
 - o gate critico do frontend tiver sido executado
-- a governanca semanal tiver sido reprocessada com os paths reais
+- a governança semanal tiver sido reprocessada com os paths reais
 
 Considerar `P0-01` fechado somente quando:
 
@@ -281,7 +281,7 @@ Considerar `P0-01` fechado somente quando:
 Nesses casos:
 
 - marcar a homologacao como nao concluida para o modo externo
-- nao promover maturidade alem da evidencia realmente exercitada
+- nao promover maturidade alem da evidência realmente exercitada
 - preservar artefatos para reexecucao
 
 ## Anti-Patterns
@@ -289,7 +289,7 @@ Nesses casos:
 - nao aceitar fallback silencioso para `dev auth`
 - nao promover `P0-01` apenas porque o scaffold OIDC local funciona
 - nao registrar `done` sem bundle OIDC e smoke serio
-- nao assumir homologacao externa de `MFA` sem prova revisavel
+- nao assumir homologacao externa de `MFA` sem prova revisável
 
 ## Definicao de Pronto Operacional
 
@@ -299,5 +299,5 @@ Nesses casos:
 - preflight e smoke verdes
 - bundle OIDC preservado
 - gate critico do frontend executado
-- governanca sincronizada
+- governança sincronizada
 - aceite humano formal

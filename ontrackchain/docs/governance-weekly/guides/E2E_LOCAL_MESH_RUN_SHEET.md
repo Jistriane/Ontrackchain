@@ -119,7 +119,7 @@ curl --fail --silent http://localhost:8080/auth/config >/dev/null
 Esperado:
 
 - raiz da app responde
-- `/auth/config` responde com configuracao valida
+- `/auth/config` responde com configuração valida
 
 ### 4. Preparar dependencias do `frontend`
 
@@ -162,7 +162,7 @@ cd github_main/ontrackchain/apps/frontend
 npm run test:e2e:browser-mocked
 ```
 
-Usar quando a validacao depender de `next dev` local e mocks diretos de browser, sem stack inteira atras do `traefik`.
+Usar quando a validação depender de `next dev` local e mocks diretos de browser, sem stack inteira atras do `traefik`.
 
 ### 3. Suites `ssr-mocked`
 
@@ -171,7 +171,7 @@ cd github_main/ontrackchain/apps/frontend
 npm run test:e2e:ssr-mocked
 ```
 
-Usar quando a validacao depender de frontend local com backend SSR mockado, como nos fluxos contextuais do `dashboard`.
+Usar quando a validação depender de frontend local com backend SSR mockado, como nos fluxos contextuais do `dashboard`.
 
 ### 4. Suite real de `compliance-flows`
 
