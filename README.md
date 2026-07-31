@@ -18,7 +18,7 @@ Resumo em 30 segundos:
 
 - baseline executivo oficial: `100%` técnico, `100%` regulatório/operacional, `100%` consolidado (fonte: [Resumo Executivo de Readiness](./ontrackchain/docs/project-executive-readiness-brief.md))
 - a arvore tecnica ativa deste repositório e `ontrackchain/`
-- o principal gap nao e mais scaffold; agora e homologacao externa real, prova revisavel e aceite institucional
+- o principal gap nao e mais scaffold; agora e homologacao externa real, prova revisável e aceite institucional
 - release atual: `v4.0.7` (jobs assíncronos de IA + worker dedicado + bootstrap automático de migrations)
 - o scaffold de `.env.staging.private` ja existe; o bloqueio dominante hoje e handoff pendente de `Compliance/AML` e variaveis reais obrigatorias (AML/KYT live + feed UE tokenizado)
 - staging full-stack continua isolado em `render.full-stack.yaml`; o blueprint padrao de vitrine segue `render.yaml` (frontend standalone showcase)
@@ -29,35 +29,35 @@ Resumo em 30 segundos:
 
 - arquitetura modular baseada em `frontend Next.js 14`, servicos `FastAPI`, `PostgreSQL`, `Redis`, workers e observabilidade
 - trilha regulatoria funcional em `counterparties`, `preventive_blocks`, `evidence`, `reports`, `sanctions` e `ROS/COAF`
-- operacao multiusuario compartilhada por `regulatory_work_items`, timeline e comentarios estruturados
+- operação multiusuario compartilhada por `regulatory_work_items`, timeline e comentarios estruturados
 - cockpit frontend tri-locale com contratos visuais endurecidos, fallback de showcase controlado e workspaces convergidos
-- RCA cross-domain leve consolidada entre `alerts`, `/monitoring`, export operacional e governanca executiva
+- RCA cross-domain leve consolidada entre `alerts`, `/monitoring`, export operacional e governança executiva
 - malha documental e executiva sincronizada com taxonomia de bloqueio dominante para distinguir falha regulatoria, tecnica e de identidade
 
 ### Consolidado
 
 | Frente | Estado | Resultado atual |
 | --- | --- | --- |
-| `P1-01` metadata de work-items | `done` | contrato canonico unificado entre frontend, backend e `api-contracts.md` |
+| `P1-01` metadata de work-items | `done` | contrato canônico unificado entre frontend, backend e `api-contracts.md` |
 | `P2-02` timeline/comments compartilhados | `done` | modelo comum consolidado nos cockpits operacionais |
-| `P2-03` RCA cross-domain | `done` | RCA leve persistida, lida por `monitoring` e refletida em governanca |
+| `P2-03` RCA cross-domain | `done` | RCA leve persistida, lida por `monitoring` e refletida em governança |
 | `P2-05` RBAC incremental | `done` | enforcement fino expandido por `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties` e navegacao global sensivel |
 
-### Bloqueadores para o salto regulatorio
+### Bloqueadores para o salto regulatório
 
 - `P0-01`: homologar `OIDC + MFA` federado em trilho serio
 - materializar `.env.staging.private` fora do repositorio e concluir o handoff humano de `Compliance/AML`
-- `P0-02`: fechar provider `AML/KYT live` com credencial real e artefato revisavel
+- `P0-02`: fechar provider `AML/KYT live` com credencial real e artefato revisável
 - `P0-03`: fechar feed UE com URL tokenizada real
-- `P0-04`: consolidar bundle regulatorio oficial com evidencias revisaveis
+- `P0-04`: consolidar bundle regulatório oficial com evidências revisáveis
 - `P0-05`: executar a primeira janela seria completa com `go/no-go` formal
 - `P0-06`: formalizar recorrencia de retention/recovery com sign-off institucional
 
 ### Leitura executiva do bloqueio atual
 
 - `P0-02`, `P0-03` e `P0-04` nao estao apenas "aguardando runtime"
-- a evidencia real mais recente mostrou que os tres estao `blocked` antes do runtime, por falta de `.env.staging.private` e `Compliance/AML.date/status`
-- isso significa que o proximo passo de maior valor nao e forcar `TRM`, feed UE ou bundle, e sim materializar os insumos privados e concluir o handoff humano
+- a evidência real mais recente mostrou que os tres estao `blocked` antes do runtime, por falta de `.env.staging.private` e `Compliance/AML.date/status`
+- isso significa que o próximo passo de maior valor nao e forcar `TRM`, feed UE ou bundle, e sim materializar os insumos privados e concluir o handoff humano
 
 ## Mapa do Workspace
 
@@ -85,7 +85,7 @@ github_main/
     └── README.md
 ```
 
-### Fluxo de leitura canonica
+### Fluxo de leitura canônica
 
 ```mermaid
 flowchart TD
@@ -114,7 +114,7 @@ flowchart TD
 Use quando a meta for publicar uma vitrine navegavel do frontend sem backend real e sem segredos.
 
 - blueprint: [render.yaml](./ontrackchain/render.yaml)
-- doc canonica: [Blueprint Render - Frontend Standalone Showcase](./ontrackchain/docs/render-frontend-only-demo.md)
+- doc canônica: [Blueprint Render - Frontend Standalone Showcase](./ontrackchain/docs/render-frontend-only-demo.md)
 - comportamento esperado:
   - `FRONTEND_STANDALONE_SHOWCASE_MODE=true`
   - `/api/healthz` responde sem depender de auth interna
@@ -126,21 +126,21 @@ Use quando a meta for publicar uma vitrine navegavel do frontend sem backend rea
 Use quando a meta for validar a arquitetura real do produto com `OIDC`, banco, workers, APIs e observabilidade.
 
 - blueprint: [render.full-stack.yaml](./ontrackchain/render.full-stack.yaml)
-- doc canonica: [Blueprint Render para Staging Full-Stack](./ontrackchain/docs/render-staging-blueprint.md)
+- doc canônica: [Blueprint Render para Staging Full-Stack](./ontrackchain/docs/render-staging-blueprint.md)
 - comportamento esperado:
   - `gateway`, `frontend`, `auth-service`, `Keycloak`, APIs e workers convergem
   - `/api/healthz` do frontend responde `render-full-stack-staging`
-  - se faltarem envs internas criticas, o frontend pode cair em `hostedShowcaseFallback`; isso preserva UX seeded, mas nao prova integracao real
+  - se faltarem envs internas criticas, o frontend pode cair em `hostedShowcaseFallback`; isso preserva UX seeded, mas nao prova integração real
 
 ## Arquitetura em 60 Segundos
 
-- `Traefik` centraliza a borda e roteia requisicoes para os servicos internos
+- `Traefik` centraliza a borda e roteia requisições para os servicos internos
 - `auth-service` resolve identidade, contexto federado, `2FA`, roles e headers internos
 - `frontend` em `Next.js 14` atua como cockpit operacional e camada de orquestracao de UX
 - `investigation-api` concentra `estimate`, `start`, `status`, ledger e superficies financeiras
 - `compliance-api` concentra sanctions, counterparties, blocks, screening e fila operacional compartilhada
 - `monitoring-api` recebe webhooks do `Alertmanager` e sustenta triagem, RCA e export operacional
-- `report-api` gera relatorios deterministas e governa o workflow `ROS/COAF`
+- `report-api` gera relatórios deterministas e governa o workflow `ROS/COAF`
 - `PostgreSQL` com `RLS` sustenta o dominio multi-tenant; `Redis` cobre fila, retry, DLQ e concorrencia
 
 ## Diagramas de Fluxo
@@ -169,7 +169,7 @@ flowchart LR
     R --> GW
 ```
 
-### 2. Fluxo de autenticacao e autorizacao
+### 2. Fluxo de autenticação e autorização
 
 ```mermaid
 flowchart TD
@@ -186,7 +186,7 @@ flowchart TD
     RBAC --> UX[UX permitida, negada ou degradada]
 ```
 
-### 3. Fluxo regulatorio e de compliance
+### 3. Fluxo regulatório e de compliance
 
 ```mermaid
 flowchart TD
@@ -202,7 +202,7 @@ flowchart TD
     Audit --> Gov[Governanca / dossier / sign-off]
 ```
 
-### 4. Fluxo de validacao local
+### 4. Fluxo de validação local
 
 ```mermaid
 flowchart TD
@@ -221,7 +221,7 @@ flowchart TD
     K --> L[baseline local validado]
 ```
 
-### 5. Fluxo de readiness regulatorio real
+### 5. Fluxo de readiness regulatório real
 
 ```mermaid
 flowchart TD
@@ -255,7 +255,7 @@ flowchart TD
     I --> J{go / no-go}
 ```
 
-### 7. Fluxo de governanca semanal
+### 7. Fluxo de governança semanal
 
 ```mermaid
 flowchart TD
@@ -282,12 +282,12 @@ flowchart TD
     H --> I["promocao ou no-go documentado"]
 ```
 
-## Portas Canonicas
+## Portas canônicas
 
 ### Portas de entrada
 
 - [README tecnico da arvore ativa](./ontrackchain/README.md)
-- [Indice canonico da documentacao ativa](./ontrackchain/docs/README.md)
+- [Indice canônico da documentação ativa](./ontrackchain/docs/README.md)
 
 ### Documentos principais
 
@@ -298,16 +298,16 @@ flowchart TD
 - [Variaveis de Ambiente](./ontrackchain/docs/environment-variables.md)
 - [Runbooks Operacionais](./ontrackchain/docs/runbooks.md)
 - [Resumo Executivo de Readiness](./ontrackchain/docs/project-executive-readiness-brief.md)
-- [Readiness Regulatorio](./ontrackchain/docs/regulatory-readiness.md)
+- [Readiness regulatório](./ontrackchain/docs/regulatory-readiness.md)
 - [Board Operacional](./ontrackchain/docs/project-operational-execution-board.md)
 - [Gates de Release](./ontrackchain/docs/project-release-gates.md)
-- [Governanca Semanal](./ontrackchain/docs/governance-weekly/README.md)
+- [governança Semanal](./ontrackchain/docs/governance-weekly/README.md)
 
-### Evidencia datada e historico
+### evidência datada e historico
 
 - [Ciclo ativo 2026-07-13](./ontrackchain/docs/governance-weekly/cycles/2026-07-13/README.md)
 - [Historico de apoio](./ontrackchain/docs/history/README.md)
-- [Arquivo historico da governanca](./ontrackchain/docs/governance-weekly/archive/README.md)
+- [Arquivo historico da governança](./ontrackchain/docs/governance-weekly/archive/README.md)
 
 ## Leitura Recomendada por Perfil
 
@@ -318,7 +318,7 @@ flowchart TD
 3. [rbac-and-permissions.md](./ontrackchain/docs/rbac-and-permissions.md)
 4. [adrs/README.md](./ontrackchain/docs/adrs/README.md)
 
-### Operacao / SRE / DevOps
+### operação / SRE / DevOps
 
 1. [operations.md](./ontrackchain/docs/operations.md)
 2. [deploy-and-staging.md](./ontrackchain/docs/deploy-and-staging.md)
@@ -377,7 +377,7 @@ npm run test:e2e:stack-real-light
 npm run test:e2e:browser-mocked
 ```
 
-Observacoes:
+observações:
 
 - use `npm run test:e2e:dev-auth` apenas com `AUTH_MODE=dev`
 - use `npm run test:e2e:oidc-critical` apenas quando o runtime real estiver em `AUTH_MODE=oidc`
@@ -417,11 +417,11 @@ make postprocess-serious-window RUN_URL="https://github.com/<org>/<repo>/actions
 Estado atual:
 
 - `stg-2026-07-13-a` segue em `pending_no_go`
-- o bloqueio principal continua sendo insumo externo real, ownership material e prova revisavel
-- `ROS/COAF` segue sendo a trilha mais sensivel para validacao fim a fim do staging
+- o bloqueio principal continua sendo insumo externo real, ownership material e prova revisável
+- `ROS/COAF` segue sendo a trilha mais sensivel para validação fim a fim do staging
 - para qualquer nova tentativa regulatoria real, o readiness de `P0-02/P0-03/P0-04` deve ficar verde antes do runtime real
 
-## Proximo Passo Recomendado
+## próximo Passo Recomendado
 
 As frentes que mais movem a maturidade comprovada continuam sendo:
 
@@ -430,10 +430,10 @@ As frentes que mais movem a maturidade comprovada continuam sendo:
 3. reexecutar `check-regulatory-window-readiness` para `p0-02`, `p0-03` e `p0-04`
 4. fechar `P0-02` com provider `AML/KYT live`
 5. fechar `P0-03` com feed UE tokenizado
-6. homologar `P0-01` com evidencias reais de `OIDC + MFA`
+6. homologar `P0-01` com evidências reais de `OIDC + MFA`
 7. executar a janela seria completa com `go/no-go` formal
 
-Atalho canonico para o passo 1, sem criar fluxo paralelo:
+Atalho canônico para o passo 1, sem criar fluxo paralelo:
 
 ```bash
 cd github_main/ontrackchain
@@ -445,7 +445,7 @@ make materialize-staging-private-env \
 
 Esse alvo reutiliza `prepare_staging_window.py`, gera o `window packet` redigido e materializa o scaffold privado com placeholders fora do runtime real; depois disso, o `check-regulatory-window-readiness` passa a devolver `blocking_summary` e `unblock_actions` por owner/variavel para acelerar o handoff de `Compliance/AML`.
 
-Atalho recomendado para consolidar o handoff regulatorio atual em um unico artefato por owner:
+Atalho recomendado para consolidar o handoff regulatório atual em um unico artefato por owner:
 
 ```bash
 cd github_main/ontrackchain
@@ -457,22 +457,22 @@ make run-regulatory-unblock-checklist-local \
 
 Trilha de prova tecnica prioritaria:
 
-- usar `ROS/COAF` como fluxo de validacao fim a fim do staging, porque ele exige identidade federada, usuario persistido, `report-api`, MFA e trilha auditavel coerentes
+- usar `ROS/COAF` como fluxo de validação fim a fim do staging, porque ele exige identidade federada, usuario persistido, `report-api`, MFA e trilha auditavel coerentes
 
 ## Politica Documental
 
 - este `README.md` da raiz existe para onboarding, navegacao e orientacao do repositorio
 - a porta de entrada tecnica da aplicacao e [ontrackchain/README.md](./ontrackchain/README.md)
-- o indice canonico da documentacao ativa e [ontrackchain/docs/README.md](./ontrackchain/docs/README.md)
+- o indice canônico da documentação ativa e [ontrackchain/docs/README.md](./ontrackchain/docs/README.md)
 - artefatos datados ainda ativos devem viver em `ontrackchain/docs/governance-weekly/cycles/`
 - historico datado de apoio deve viver em `ontrackchain/docs/history/`
 - historico frio consolidado deve viver em `ontrackchain/docs/governance-weekly/archive/`
-- outputs gerados devem viver em suas pastas canonicas e nao devem ser editados manualmente
+- outputs gerados devem viver em suas pastas canônicas e nao devem ser editados manualmente
 - `.publish_repo/` foi aposentado e removido em `2026-07-15`
 - documentos paralelos, redundantes ou supersedidos devem ser consolidados, arquivados ou removidos
 
 ### Precedencia de leitura
 
 1. `ontrackchain/docs/README.md` e os documentos canonicamente indexados nele
-2. `ontrackchain/docs/governance-weekly/cycles/` para evidencia datada ainda navegavel
+2. `ontrackchain/docs/governance-weekly/cycles/` para evidência datada ainda navegavel
 3. `ontrackchain/docs/history/` e `ontrackchain/docs/governance-weekly/archive/` apenas como contexto historico

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import re
 from pathlib import Path
 
@@ -109,11 +110,39 @@ def normalize_markdown(content: str) -> str:
     return "".join(out)
 
 
+def _iter_markdown_targets(root: Path, targets: list[str]) -> list[Path]:
+    if not targets:
+        docs_dir = root / "docs"
+        return sorted(docs_dir.rglob("*.md"))
+
+    resolved: list[Path] = []
+    for raw in targets:
+        p = (root / raw).resolve() if not Path(raw).is_absolute() else Path(raw)
+        if p.is_dir():
+            resolved.extend(sorted(p.rglob("*.md")))
+        elif p.is_file() and p.suffix.lower() == ".md":
+            resolved.append(p)
+    unique: list[Path] = []
+    seen: set[Path] = set()
+    for p in resolved:
+        if p not in seen:
+            unique.append(p)
+            seen.add(p)
+    return unique
+
+
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
-    docs_dir = root / "docs"
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "paths",
+        nargs="*",
+        help="Arquivos ou diretórios (relativos ao diretório ontrackchain/) para normalizar. Default: docs/**.md",
+    )
+    args = parser.parse_args()
+
     changed = 0
-    for path in sorted(docs_dir.rglob("*.md")):
+    for path in _iter_markdown_targets(root, list(args.paths)):
         original = path.read_text(encoding="utf-8")
         updated = normalize_markdown(original)
         if updated != original:
