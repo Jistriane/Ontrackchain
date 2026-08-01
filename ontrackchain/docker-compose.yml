@@ -137,6 +137,16 @@ services:
       - traefik.http.routers.keycloak.priority=250
       - traefik.http.services.keycloak.loadbalancer.server.port=8080
 
+  mock-oidc:
+    build:
+      context: ./apps/mock-oidc
+    environment:
+      MOCK_OIDC_ISSUER_URL: ${MOCK_OIDC_ISSUER_URL:-http://oidc.localhost:${TRAEFIK_HTTP_PORT:-8080}}
+      MOCK_OIDC_AUDIENCE: ${MOCK_OIDC_AUDIENCE:-ontrackchain-api}
+      MOCK_OIDC_CLIENT_ID: ${MOCK_OIDC_CLIENT_ID:-ontrackchain-web}
+    networks:
+      - ontrackchain
+
   public-api:
     build:
       context: ./apps/public-api
@@ -560,6 +570,7 @@ services:
       INTERNAL_API_BASE_URL: ${INTERNAL_API_BASE_URL:-http://traefik}
       INTERNAL_AUTH_BASE_URL: ${INTERNAL_AUTH_BASE_URL:-http://auth-service:9000}
       INTERNAL_KEYCLOAK_BASE_URL: ${INTERNAL_KEYCLOAK_BASE_URL:-http://keycloak:8080}
+      INTERNAL_OIDC_BASE_URL: ${INTERNAL_OIDC_BASE_URL:-http://mock-oidc:9101}
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:${TRAEFIK_HTTP_PORT:-8080}}
     networks:
       - ontrackchain

@@ -70,3 +70,49 @@ jobs:
           assert len(AGENT_REGISTRY) >= 21, f'Expected 21+ agents, got {len(AGENT_REGISTRY)}'
           print(f'✅ Image verified: {len(AGENT_REGISTRY)} agents registered')
           "
+
+  gate-p0-01-oidc-ci:
+    name: Gate P0-01 — OIDC Mock
+    runs-on: ubuntu-latest
+    needs: [lint]
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        run: |
+          cd apps/frontend
+          npm ci
+
+      - name: Install Playwright Chromium
+        run: |
+          cd apps/frontend
+          npx playwright install --with-deps chromium
+
+      - name: Run gate P0-01 (OIDC mock)
+        run: make gate-p0-01-oidc-ci OIDC_CI_BASE_URL=http://localhost:8080
+
+      - name: Upload gate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-01-oidc-mock
+          path: |
+            tmp/gates/p0-01-oidc-mock
+            apps/frontend/test-results
+            apps/frontend/playwright-report
+
+      - name: Cleanup docker compose
+        if: always()
+        run: |
+          if [ -f "ci-artifacts/.env.oidc-ci" ]; then
+            docker compose -f docker-compose.yml --env-file ci-artifacts/.env.oidc-ci down -v --remove-orphans || true
+          else
+            docker compose -f docker-compose.yml down -v --remove-orphans || true
+          fi

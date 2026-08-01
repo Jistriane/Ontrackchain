@@ -408,7 +408,7 @@ def _verify_totp_code(code: str) -> bool:
 
 def _normalized_oidc_provider() -> str:
     provider = settings.oidc_provider.strip().lower()
-    if provider not in {"generic", "keycloak", "auth0", "entra"}:
+    if provider not in {"generic", "keycloak", "auth0", "entra", "mock"}:
         raise HTTPException(status_code=500, detail="invalid_oidc_provider")
     return provider
 
@@ -435,6 +435,11 @@ def _oidc_provider_defaults() -> dict[str, str]:
             "org_claim": "tenant_id",
             "plan_claim": "extension_plan",
             "role_claim": "roles",
+        },
+        "mock": {
+            "org_claim": "org",
+            "plan_claim": "plan",
+            "role_claim": "otk_role",
         },
     }
     return defaults[provider]
@@ -509,6 +514,8 @@ def _oidc_authorization_url() -> Optional[str]:
     issuer = _oidc_issuer().rstrip("/")
     if _normalized_oidc_provider() == "keycloak":
         return f"{issuer}/protocol/openid-connect/auth"
+    if _normalized_oidc_provider() == "mock":
+        return f"{issuer}/authorize"
     return None
 
 
@@ -522,6 +529,8 @@ def _oidc_token_url() -> Optional[str]:
     issuer = _oidc_issuer().rstrip("/")
     if _normalized_oidc_provider() == "keycloak":
         return f"{issuer}/protocol/openid-connect/token"
+    if _normalized_oidc_provider() == "mock":
+        return f"{issuer}/oauth/token"
     return None
 
 

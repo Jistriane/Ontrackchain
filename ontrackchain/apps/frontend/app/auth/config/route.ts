@@ -45,6 +45,10 @@ function deriveTokenUrl(env: NodeJS.ProcessEnv) {
 
   const issuerUrl = readTrimmed(env.OIDC_ISSUER_URL);
   if (issuerUrl) {
+    const provider = resolveOidcProvider(env).toLowerCase();
+    if (provider === "mock") {
+      return `${issuerUrl.replace(/\/+$/, "")}/oauth/token`;
+    }
     return `${issuerUrl.replace(/\/+$/, "")}/protocol/openid-connect/token`;
   }
 
@@ -74,7 +78,8 @@ function resolveOidcClaimNames(env: NodeJS.ProcessEnv) {
     generic: { org: "org_id", plan: "plan", role: "role" },
     keycloak: { org: "org", plan: "plan", role: "otk_role" },
     auth0: { org: "org_id", plan: "plan", role: "role" },
-    entra: { org: "tenant_id", plan: "extension_plan", role: "roles" }
+    entra: { org: "tenant_id", plan: "extension_plan", role: "roles" },
+    mock: { org: "org", plan: "plan", role: "otk_role" }
   };
   const defaults = defaultsByProvider[provider] ?? defaultsByProvider.keycloak;
 
