@@ -1175,54 +1175,63 @@ async def themis_case_intelligence(
 # ══════════════════════════════════════════════
 
 def _fetch_case_data(pool: ConnectionPool, org_id: str, case_id: str) -> dict[str, Any]:
+    try:
+        resolved_case_id: Optional[str] = str(UUID(str(case_id)))
+    except (TypeError, ValueError):
+        resolved_case_id = None
+
     with pool.connection() as conn:
         _apply_rls_context(conn, org_id)
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT id, title, description, status, priority, category,
-                       target_address, target_chain, metadata
-                FROM cases
-                WHERE id = %s AND organization_id = %s
-                """,
-                (case_id, org_id),
-            )
-            case_row = cur.fetchone()
-            if not case_row:
+            case_row = None
+            events = []
+            evidence = []
+
+            if resolved_case_id:
                 cur.execute(
-                    "SELECT id, title, description, status, priority, category FROM case_management_cases WHERE id = %s AND organization_id = %s",
-                    (case_id, org_id),
+                    """
+                    SELECT id, title, context_narrative AS description, status, priority, case_type AS category,
+                           target_address, target_chain, metadata
+                    FROM cases
+                    WHERE id = %s AND organization_id = %s
+                    """,
+                    (resolved_case_id, org_id),
                 )
                 case_row = cur.fetchone()
+                if not case_row:
+                    cur.execute(
+                        "SELECT id, title, description, status, priority, category FROM case_management_cases WHERE id = %s AND organization_id = %s",
+                        (resolved_case_id, org_id),
+                    )
+                    case_row = cur.fetchone()
 
-            cur.execute(
-                """
-                SELECT event_type AS action,
-                       actor_user_id AS actor,
-                       payload AS details,
-                       created_at
-                FROM regulatory_work_events
-                WHERE work_item_id IN (
-                    SELECT id FROM regulatory_work_items WHERE case_id = %s AND organization_id = %s
+                cur.execute(
+                    """
+                    SELECT event_type AS action,
+                           actor_user_id AS actor,
+                           payload AS details
+                    FROM regulatory_work_events
+                    WHERE work_item_id IN (
+                        SELECT id FROM regulatory_work_items WHERE case_id = %s AND organization_id = %s
+                    )
+                    ORDER BY created_at DESC
+                    LIMIT 20
+                    """,
+                    (resolved_case_id, org_id),
                 )
-                ORDER BY created_at DESC
-                LIMIT 20
-                """,
-                (case_id, org_id),
-            )
-            events = cur.fetchall()
+                events = cur.fetchall()
 
-            cur.execute(
-                """
-                SELECT event_type, event_payload, recorded_at
-                FROM evidence_trail
-                WHERE case_id = %s AND organization_id = %s
-                ORDER BY recorded_at DESC
-                LIMIT 10
-                """,
-                (case_id, org_id),
-            )
-            evidence = cur.fetchall()
+                cur.execute(
+                    """
+                    SELECT event_type, event_payload, recorded_at
+                    FROM evidence_trail
+                    WHERE case_id = %s AND organization_id = %s
+                    ORDER BY recorded_at DESC
+                    LIMIT 10
+                    """,
+                    (resolved_case_id, org_id),
+                )
+                evidence = cur.fetchall()
 
     return {
         "case": dict(case_row) if case_row else None,
