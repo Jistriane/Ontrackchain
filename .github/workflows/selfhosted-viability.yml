@@ -1,0 +1,30 @@
+name: Self-hosted — Viability
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  viability:
+    name: Self-hosted runner viability
+    runs-on: [self-hosted, ontrackchain-local]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Print environment
+        run: |
+          set -euo pipefail
+          echo "runner.os=${RUNNER_OS}"
+          echo "runner.arch=${RUNNER_ARCH}"
+          uname -a
+          id
+          pwd
+
+      - name: Validate Docker is available
+        run: |
+          set -euo pipefail
+          docker version
+          docker compose version
+          docker ps >/dev/null
