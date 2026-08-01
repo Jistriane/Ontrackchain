@@ -8,7 +8,7 @@ on:
 
 jobs:
   workflow-hygiene:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ontrackchain-local]
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +23,7 @@ jobs:
         run: make check-workflow-hygiene
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ontrackchain-local]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -63,7 +63,7 @@ jobs:
           retention-days: 30
 
   smoke:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ontrackchain-local]
     timeout-minutes: 25
     needs: build
     steps:
@@ -124,7 +124,7 @@ jobs:
           retention-days: 30
 
   playwright:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ontrackchain-local]
     timeout-minutes: 30
     needs: smoke
     steps:
@@ -208,7 +208,7 @@ jobs:
           retention-days: 30
 
   playwright-dev-auth:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ontrackchain-local]
     timeout-minutes: 30
     needs: smoke
     steps:
