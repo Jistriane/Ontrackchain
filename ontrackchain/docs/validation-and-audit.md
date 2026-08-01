@@ -1,4 +1,4 @@
-# Validação e Auditoria
+# Validacao e Auditoria
 
 ## Objetivo
 
@@ -8,9 +8,9 @@ Garantir que o Ontrackchain continue:
 - rastreavel
 - auditavel
 - honesto em cenarios degradados
-- seguro em fluxos regulatórios sensiveis
+- seguro em fluxos regulatorios sensiveis
 
-## Camadas de validação
+## Camadas de Validacao
 
 ### 1. Smoke Runtime
 
@@ -57,13 +57,13 @@ Comandos focados uteis:
 - `npm run test:e2e:api-consumer:real` para validar a API publica e os endpoints `/api/v1/*` contra a stack real, com preflight explicito de `baseURL` e `auth/config`
 - `npm run test:e2e:critical-path:real` para o fluxo OIDC com investigacao, worker, billing e download reais, falhando cedo se o runtime OIDC nao estiver pronto
 - `npm run test:e2e:compliance-flows:real` para RBAC, auditoria e trilhas administrativas na stack real com preflight explicito do frontend
-- `npm run test:e2e:oidc-auth:real` para o spec de autenticação federada, falhando cedo se `AUTH_MODE=oidc` ou o runtime OIDC nao estiverem prontos
-- `npm run test:e2e:dev-auth` para a regressao local do scaffold `AUTH_MODE=dev`, com preflight explicito de frontend e validação focada do fluxo `2FA` local
+- `npm run test:e2e:oidc-auth:real` para o spec de autenticacao federada, falhando cedo se `AUTH_MODE=oidc` ou o runtime OIDC nao estiverem prontos
+- `npm run test:e2e:dev-auth` para a regressao local do scaffold `AUTH_MODE=dev`, com preflight explicito de frontend e validacao focada do fluxo `2FA` local
 - `npm run test:e2e:browser-mocked` para as suites que mockam `page.route(...)` no browser, sobem o frontend local automaticamente e nao exigem backend real
 - `npm run test:e2e:ssr-mocked` para suites que exigem backend SSR mockado e frontend iniciado com `INTERNAL_API_BASE_URL` apontando para o mock
 - `npm run test:e2e:alerts-dashboard-context`
 - `npm run test:e2e:alerts-dashboard-context:mocked` para subir mock SSR do `dashboard`, iniciar o frontend com `INTERNAL_API_BASE_URL` apontando para o mock e executar o spec combinado de links contextuais sem depender de terminais manuais
-- `npm run test:e2e:oidc-critical` permanece como comando canônico agregado para o rito serio de OIDC, agora com preflight explicito de prontidao antes da execucao e com suporte a execucao institucionalizada dentro do bundle OIDC da janela seria
+- `npm run test:e2e:oidc-critical` permanece como comando canonico agregado para o rito serio de OIDC, agora com preflight explicito de prontidao antes da execucao e com suporte a execucao institucionalizada dentro do bundle OIDC da janela seria
 
 Classificacao operacional atual:
 
@@ -99,12 +99,12 @@ O que essas suites cobrem:
 - sync de listas com fallback
 - override de `source_url` por env
 - preflight de feeds externos e URLs serias
-- validação pos-sync em `sanctions_lists_meta`
+- validacao pos-sync em `sanctions_lists_meta`
 - agentes de bloqueio, contraparte e ROS
 
 ### 4. Preflights e Janela Seria
 
-Scripts canônicos:
+Scripts canonicos:
 
 - `preflight_oidc_serious_env.py`
 - `run_oidc_readiness_bundle.py`
@@ -118,16 +118,16 @@ Scripts canônicos:
 O que eles validam:
 
 - auth serio sem fallback indevido para `dev`
-- consolidação de `P0-01` em bundle OIDC anexavel
-- URLs, retries, timeouts e secrets de integrações externas
+- consolidacao de `P0-01` em bundle OIDC anexavel
+- URLs, retries, timeouts e secrets de integracoes externas
 - ausencia de placeholders criticos
 - ownership e handoff do `.env.staging.private`
-- prontidao real de `P0-02`, `P0-03` e `P0-04` antes do runtime do provider, da janela UE ou do bundle regulatório
-- consolidação da janela em dossier e manifestos
+- prontidao real de `P0-02`, `P0-03` e `P0-04` antes do runtime do provider, da janela UE ou do bundle regulatorio
+- consolidacao da janela em dossier e manifestos
 
 ### 5. Runtime do Provider AML/KYT
 
-Script canônico:
+Script canonico:
 
 - `scripts/check_compliance_provider_runtime.py`
 
@@ -136,11 +136,11 @@ O que valida:
 - `GET /internal/provider-readiness` em `ready=true`
 - `GET /api/v1/compliance/operations/kyc_wallet` com `provider_status=live`
 - `POST /api/v1/compliance/kyc-wallet` com `provider_status=live`
-- convergencia entre configuração interna e contrato publico do runtime
+- convergencia entre configuracao interna e contrato publico do runtime
 
 ### 6. Pos-Sync de Sancoes
 
-Script canônico:
+Script canonico:
 
 - `scripts/check_sanctions_sync_status.py`
 
@@ -154,7 +154,7 @@ O que valida:
 
 Guia operacional complementar para a trilha federada em `staging`:
 
-- [validação em Staging - Diretorio Federado](federated-directory-staging-validation.md)
+- [Validacao em Staging - Diretorio Federado](federated-directory-staging-validation.md)
 - [Catálogo de Eventos — evidence_trail](evidence-event-catalog.md)
 
 ### `audit_logs`
@@ -215,7 +215,7 @@ npm run test:e2e:oidc-critical
 npm run test:e2e
 ```
 
-### integrações externas e sancoes
+### Integracoes externas e sancoes
 
 ```bash
 python scripts/preflight_external_integrations.py
@@ -245,13 +245,13 @@ Pacote esperado quando aplicável:
 - `artifacts/staging/checks/<janela>-regulatory-readiness-bundle.json` para `P0-02/P0-03`
 - `artifacts/staging/dossiers/<janela>-regulatory-readiness-bundle.md` para `P0-02/P0-03`
 
-## Gaps Residuais de validação
+## Gaps Residuais de Validacao
 
-- `AML/KYT` live ainda depende de credenciais reais e homologacao recorrente; o checker novo valida runtime, mas nao substitui a evidência institucional da janela seria
+- `AML/KYT` live ainda depende de credenciais reais e homologacao recorrente; o checker novo valida runtime, mas nao substitui a evidencia institucional da janela seria
 - o feed da UE pode depender de URL tokenizada real para fechar a prova operacional
 - a execucao real mais recente de `2026-07-19` provou que o gargalo local atual continua anterior ao runtime, mas ja esta mais preciso: o scaffold de `.env.staging.private` existe e os bloqueios reais agora sao `Compliance/AML.date/status` pendentes, `COMPLIANCE_TRM_SCREENING_URL`, `COMPLIANCE_TRM_API_KEY`, `DATABASE_URL` e `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` tokenizada
 - usar `make run-regulatory-unblock-checklist-local WINDOW_ID=<janela> ...` para consolidar essa fila de handoff em um unico artefato antes de qualquer nova tentativa real
-- `due_diligence` e `source_of_funds` ainda nao possuem harness regulatório equivalente ao screening local de sancoes
+- `due_diligence` e `source_of_funds` ainda nao possuem harness regulatorio equivalente ao screening local de sancoes
 - os runners e checkers atuais ainda precisam ser exercitados de forma recorrente nas janelas homologadas
 
 ## Criterios Tecnicos Atuais
@@ -266,5 +266,5 @@ Pacote esperado quando aplicável:
 - `check_compliance_provider_runtime.py` e parte do rito quando houver janela de homologacao `AML/KYT live`
 - `make gate-p0-03-eu-live` com `REQUEST_ID` e parte do rito quando houver janela de sancoes da UE com persistencia de artefatos
 - `make run-eu-sanctions-window` permanece disponivel para execucao mais controlada
-- `make check-eu-sanctions-window REQUEST_ID=<eu_request_id>` permanece como validação pontual do estado persistido
+- `make check-eu-sanctions-window REQUEST_ID=<eu_request_id>` permanece como validacao pontual do estado persistido
 - `check_sanctions_sync_status.py` continua como checker generico para o estado persistido das listas

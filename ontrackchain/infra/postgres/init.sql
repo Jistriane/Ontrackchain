@@ -378,6 +378,18 @@ CREATE TABLE IF NOT EXISTS counterparty_history (
 ALTER TABLE counterparties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE counterparty_history ENABLE ROW LEVEL SECURITY;
 
+CREATE OR REPLACE FUNCTION check_rls_context()
+RETURNS BOOLEAN AS $$
+BEGIN
+  IF current_setting('app.organization_id', true) IS NULL
+     OR current_setting('app.organization_id', true) = '' THEN
+    RAISE EXCEPTION 'RLS context not set — access denied'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
 DROP POLICY IF EXISTS counterparties_tenant_isolation ON counterparties;
 CREATE POLICY counterparties_tenant_isolation
   ON counterparties FOR ALL
@@ -1013,18 +1025,6 @@ ALTER TABLE regulatory_work_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE evidence_package_seals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE evidence_package_signoffs ENABLE ROW LEVEL SECURITY;
 
-CREATE OR REPLACE FUNCTION check_rls_context()
-RETURNS BOOLEAN AS $$
-BEGIN
-  IF current_setting('app.organization_id', true) IS NULL
-     OR current_setting('app.organization_id', true) = '' THEN
-    RAISE EXCEPTION 'RLS context not set — access denied'
-      USING ERRCODE = '42501';
-  END IF;
-  RETURN TRUE;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
 DROP POLICY IF EXISTS users_isolation ON users;
 CREATE POLICY users_isolation ON users
   USING (
@@ -1323,3 +1323,281 @@ DROP TRIGGER IF EXISTS trg_credit_ledger_no_delete ON credit_ledger;
 CREATE TRIGGER trg_credit_ledger_no_delete
 BEFORE DELETE ON credit_ledger
 FOR EACH ROW EXECUTE FUNCTION prevent_credit_ledger_mutation();
+
+CREATE TABLE IF NOT EXISTS case_management_cases (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id     UUID NOT NULL REFERENCES organizations(id),
+  title               VARCHAR(500) NOT NULL,
+  description         TEXT NOT NULL DEFAULT '',
+  status              VARCHAR(50) NOT NULL DEFAULT 'open'
+    CHECK (status IN ('open', 'in_progress', 'under_review', 'escalated', 'closed', 'archived')),
+  priority            VARCHAR(20) NOT NULL DEFAULT 'medium'
+    CHECK (priority IN ('low', 'medium', 'high', 'critical')),
+  category            VARCHAR(50) NOT NULL
+    CHECK (category IN ('sanctions', 'aml', 'kyc', 'investigation', 'fraud', 'ransomware', 'defi')),
+  assigned_to         VARCHAR(255),
+  risk_score          NUMERIC(5,2) CHECK (risk_score >= 0 AND risk_score <= 100),
+  resolution          TEXT,
+  metadata            JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS case_management_timeline (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  case_id             UUID NOT NULL REFERENCES case_management_cases(id) ON DELETE CASCADE,
+  organization_id     UUID NOT NULL REFERENCES organizations(id),
+  action              VARCHAR(100) NOT NULL,
+  actor               VARCHAR(255) NOT NULL,
+  details             JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ai_analysis_results (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id     UUID NOT NULL REFERENCES organizations(id),
+  case_id             VARCHAR(255),
+  analysis_type       VARCHAR(100) NOT NULL
+    CHECK (analysis_type IN ('explain', 'risk_model', 'confidence', 'case_insights', 'graph_analysis', 'graph_narrator', 'law_enforcement_export', 'themis')),
+  input_data          JSONB NOT NULL DEFAULT '{}'::jsonb,
+  result_data         JSONB NOT NULL DEFAULT '{}'::jsonb,
+  generated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE case_management_cases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE case_management_timeline ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_analysis_results ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS case_management_cases_tenant_isolation ON case_management_cases;
+CREATE POLICY case_management_cases_tenant_isolation
+  ON case_management_cases FOR ALL
+  USING (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', TRUE), '')::UUID
+  )
+  WITH CHECK (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', TRUE), '')::UUID
+  );
+
+DROP POLICY IF EXISTS case_management_timeline_tenant_isolation ON case_management_timeline;
+CREATE POLICY case_management_timeline_tenant_isolation
+  ON case_management_timeline FOR ALL
+  USING (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', TRUE), '')::UUID
+  )
+  WITH CHECK (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', TRUE), '')::UUID
+  );
+
+DROP POLICY IF EXISTS ai_analysis_results_tenant_isolation ON ai_analysis_results;
+CREATE POLICY ai_analysis_results_tenant_isolation
+  ON ai_analysis_results FOR ALL
+  USING (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', TRUE), '')::UUID
+  )
+  WITH CHECK (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', TRUE), '')::UUID
+  );
+
+CREATE INDEX IF NOT EXISTS idx_case_management_cases_org_created
+  ON case_management_cases(organization_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_case_management_cases_org_status
+  ON case_management_cases(organization_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_case_management_cases_org_priority
+  ON case_management_cases(organization_id, priority);
+
+CREATE INDEX IF NOT EXISTS idx_case_management_cases_org_category
+  ON case_management_cases(organization_id, category);
+
+CREATE INDEX IF NOT EXISTS idx_case_management_timeline_case
+  ON case_management_timeline(case_id, created_at ASC);
+
+CREATE INDEX IF NOT EXISTS idx_case_management_timeline_org
+  ON case_management_timeline(organization_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_ai_analysis_results_org_type
+  ON ai_analysis_results(organization_id, analysis_type, generated_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_ai_analysis_results_case
+  ON ai_analysis_results(case_id)
+  WHERE case_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_ai_analysis_results_org_generated
+  ON ai_analysis_results(organization_id, generated_at DESC);
+
+CREATE OR REPLACE FUNCTION update_case_management_cases_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS case_management_cases_updated_at ON case_management_cases;
+CREATE TRIGGER case_management_cases_updated_at
+  BEFORE UPDATE ON case_management_cases
+  FOR EACH ROW EXECUTE FUNCTION update_case_management_cases_updated_at();
+
+CREATE TABLE IF NOT EXISTS ai_service_jobs (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id     UUID NOT NULL REFERENCES organizations(id),
+  case_id             VARCHAR(255),
+  analysis_type       VARCHAR(100) NOT NULL
+    CHECK (analysis_type IN ('explain', 'risk_model', 'confidence', 'case_insights', 'graph_analysis', 'graph_narrator', 'law_enforcement_export', 'themis')),
+  status              VARCHAR(50) NOT NULL
+    CHECK (status IN ('queued', 'processing', 'completed', 'failed', 'degraded', 'awaiting_human_gate', 'cancelled')),
+  queue_reason        VARCHAR(50)
+    CHECK (queue_reason IN ('ORG_RATE_LIMIT', 'LLM_429', 'LONG_RUNNING_OPERATION')),
+  request_id          UUID,
+  request_payload_hash VARCHAR(128),
+  input_data          JSONB NOT NULL DEFAULT '{}'::jsonb,
+  result_analysis_id  UUID REFERENCES ai_analysis_results(id),
+  degradation_reason  VARCHAR(50),
+  error_data          JSONB NOT NULL DEFAULT '{}'::jsonb,
+  human_gate_required BOOLEAN NOT NULL DEFAULT FALSE,
+  required_approvals  INTEGER NOT NULL DEFAULT 1
+    CHECK (required_approvals IN (1, 2)),
+  approvals           JSONB NOT NULL DEFAULT '[]'::jsonb,
+  approved_by         VARCHAR(255),
+  approved_at         TIMESTAMPTZ,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE ai_service_jobs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS ai_service_jobs_tenant_isolation ON ai_service_jobs;
+CREATE POLICY ai_service_jobs_tenant_isolation
+  ON ai_service_jobs FOR ALL
+  USING (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', TRUE), '')::UUID
+  )
+  WITH CHECK (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', TRUE), '')::UUID
+  );
+
+CREATE INDEX IF NOT EXISTS idx_ai_service_jobs_org_created
+  ON ai_service_jobs(organization_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_ai_service_jobs_org_status
+  ON ai_service_jobs(organization_id, status, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_ai_service_jobs_org_type
+  ON ai_service_jobs(organization_id, analysis_type, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_ai_service_jobs_request_id
+  ON ai_service_jobs(request_id)
+  WHERE request_id IS NOT NULL;
+
+CREATE OR REPLACE FUNCTION update_ai_service_jobs_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS ai_service_jobs_updated_at ON ai_service_jobs;
+CREATE TRIGGER ai_service_jobs_updated_at
+  BEFORE UPDATE ON ai_service_jobs
+  FOR EACH ROW EXECUTE FUNCTION update_ai_service_jobs_updated_at();
+
+CREATE TABLE IF NOT EXISTS evidence_trail (
+  id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id           UUID NOT NULL REFERENCES organizations(id),
+  case_id                   UUID REFERENCES cases(id),
+  event_type                VARCHAR(100) NOT NULL,
+  event_payload             JSONB NOT NULL DEFAULT '{}',
+  actor_user_id             UUID REFERENCES users(id),
+  actor_agent_id            VARCHAR(100),
+  actor_ip_address          INET,
+  actor_user_agent          TEXT,
+  event_hash                VARCHAR(64) NOT NULL UNIQUE,
+  prev_event_hash           VARCHAR(64),
+  chain_integrity_ok        BOOLEAN NOT NULL DEFAULT TRUE,
+  recorded_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  retain_until              TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '5 years'),
+  regulatory_basis          TEXT[] DEFAULT '{}',
+  soroban_tx_hash           VARCHAR(255),
+  soroban_contract          VARCHAR(255),
+  soroban_anchored_at       TIMESTAMPTZ
+);
+
+CREATE OR REPLACE FUNCTION prevent_evidence_modification()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP IN ('UPDATE', 'DELETE') THEN
+    RAISE EXCEPTION 'evidence_trail is immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS evidence_trail_immutability ON evidence_trail;
+CREATE TRIGGER evidence_trail_immutability
+  BEFORE UPDATE OR DELETE ON evidence_trail
+  FOR EACH ROW EXECUTE FUNCTION prevent_evidence_modification();
+
+CREATE OR REPLACE FUNCTION set_evidence_chain()
+RETURNS TRIGGER AS $$
+DECLARE
+  prev_hash VARCHAR(64);
+BEGIN
+  SELECT event_hash
+    INTO prev_hash
+    FROM evidence_trail
+   WHERE organization_id = NEW.organization_id
+   ORDER BY recorded_at DESC
+   LIMIT 1;
+
+  NEW.prev_event_hash = prev_hash;
+  NEW.chain_integrity_ok = TRUE;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS evidence_chain_before_insert ON evidence_trail;
+CREATE TRIGGER evidence_chain_before_insert
+  BEFORE INSERT ON evidence_trail
+  FOR EACH ROW EXECUTE FUNCTION set_evidence_chain();
+
+ALTER TABLE evidence_trail ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS evidence_trail_tenant_isolation ON evidence_trail;
+CREATE POLICY evidence_trail_tenant_isolation
+  ON evidence_trail
+  FOR ALL
+  USING (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', TRUE), '')::UUID
+  )
+  WITH CHECK (
+    check_rls_context()
+    AND organization_id = NULLIF(current_setting('app.organization_id', TRUE), '')::UUID
+  );
+
+CREATE INDEX IF NOT EXISTS idx_evidence_trail_org_time
+  ON evidence_trail(organization_id, recorded_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_evidence_trail_case
+  ON evidence_trail(case_id)
+  WHERE case_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_evidence_trail_event_type
+  ON evidence_trail(event_type, recorded_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_evidence_trail_actor
+  ON evidence_trail(actor_user_id, recorded_at DESC)
+  WHERE actor_user_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_evidence_trail_hash
+  ON evidence_trail(event_hash);

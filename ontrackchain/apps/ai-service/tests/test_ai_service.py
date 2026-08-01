@@ -1,9 +1,20 @@
+import json
+import uuid
+
 import pytest
 from fastapi.testclient import TestClient
 from ai_service.main import app
 from ai_service.worker import process_next_job
 
-client = TestClient(app)
+@pytest.fixture(scope="module")
+def client():
+    with TestClient(app) as client:
+        yield client
+
+
+@pytest.fixture(scope="module")
+def pool(client):
+    return client.app.state.pool
 
 ORG_ID = "00000000-0000-0000-0000-000000000001"
 ADMIN_HEADERS = {"X-Org-Id": ORG_ID, "X-User-Id": "00000000-0000-0000-0000-000000000002", "X-Role": "ADMIN"}
@@ -13,7 +24,29 @@ COMPLIANCE_HEADERS = {"X-Org-Id": ORG_ID, "X-User-Id": "00000000-0000-0000-0000-
 LEGAL_HEADERS = {"X-Org-Id": ORG_ID, "X-User-Id": "00000000-0000-0000-0000-000000000011", "X-Role": "LEGAL_REVIEWER"}
 
 
-def test_health_check():
+def _create_job(pool, *, analysis_type: str = "themis", status: str = "awaiting_human_gate", required_approvals: int = 1) -> str:
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT set_config('app.organization_id', %s, True)", (ORG_ID,))
+            request_id = str(uuid.uuid4())
+            cur.execute(
+                """
+                INSERT INTO ai_service_jobs(
+                  organization_id, analysis_type, status, queue_reason, request_id, request_payload_hash,
+                  input_data, human_gate_required, required_approvals
+                ) VALUES (
+                  %s, %s, %s, 'LONG_RUNNING_OPERATION', %s, 'test',
+                  %s::jsonb, true, %s
+                ) RETURNING id
+                """,
+                (ORG_ID, analysis_type, status, request_id, json.dumps({}), required_approvals),
+            )
+            job_id = cur.fetchone()["id"]
+        conn.commit()
+    return str(job_id)
+
+
+def test_health_check(client):
     response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
@@ -22,7 +55,7 @@ def test_health_check():
     assert data["version"] == "4.1.0"
 
 
-def test_missing_org_id():
+def test_missing_org_id(client):
     response = client.post(
         "/api/v1/ai/explain",
         json={"case_id": "test-123", "decision_type": "risk_score"},
@@ -31,7 +64,7 @@ def test_missing_org_id():
     assert response.json()["detail"] == "X-Org-Id required"
 
 
-def test_rbac_viewer_cannot_explain():
+def test_rbac_viewer_cannot_explain(client):
     response = client.post(
         "/api/v1/ai/explain",
         json={"case_id": "test-123", "decision_type": "risk_score"},
@@ -41,7 +74,7 @@ def test_rbac_viewer_cannot_explain():
     assert "ai_read_role_required" in response.json()["detail"]
 
 
-def test_explain_risk_score():
+def test_explain_risk_score(client):
     response = client.post(
         "/api/v1/ai/explain",
         json={
@@ -62,7 +95,7 @@ def test_explain_risk_score():
     assert data["explanation_id"]
 
 
-def test_explain_block_recommendation():
+def test_explain_block_recommendation(client):
     response = client.post(
         "/api/v1/ai/explain",
         json={
@@ -78,7 +111,7 @@ def test_explain_block_recommendation():
     assert "BLOQUEAR" in data["recommendation"]
 
 
-def test_risk_model_pld_ft():
+def test_risk_model_pld_ft(client):
     response = client.post(
         "/api/v1/ai/risk-model",
         json={"address": "0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae", "chain": "ethereum", "model_type": "pld_ft"},
@@ -95,7 +128,7 @@ def test_risk_model_pld_ft():
     assert data["assessment_id"]
 
 
-def test_risk_model_sanctions():
+def test_risk_model_sanctions(client):
     response = client.post(
         "/api/v1/ai/risk-model",
         json={"address": "0x123", "chain": "ethereum", "model_type": "sanctions"},
@@ -108,7 +141,7 @@ def test_risk_model_sanctions():
     assert data["classification"] == "FATO"
 
 
-def test_risk_model_ransomware():
+def test_risk_model_ransomware(client):
     response = client.post(
         "/api/v1/ai/risk-model",
         json={"address": "0x456", "chain": "ethereum", "model_type": "ransomware"},
@@ -120,7 +153,7 @@ def test_risk_model_ransomware():
     assert data["risk_level"] == "CRITICAL"
 
 
-def test_confidence_engine():
+def test_confidence_engine(client):
     response = client.post(
         "/api/v1/ai/confidence",
         json={
@@ -140,7 +173,7 @@ def test_confidence_engine():
     assert "FATO" in data["classifications"]
 
 
-def test_graph_analysis():
+def test_graph_analysis(client):
     response = client.post(
         "/api/v1/ai/graph-analysis",
         json={"address": "0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae", "chain": "ethereum"},
@@ -156,7 +189,7 @@ def test_graph_analysis():
     assert len(data["risk_indicators"]) == 4
 
 
-def test_graph_narrator():
+def test_graph_narrator(client):
     response = client.post(
         "/api/v1/ai/graph-narrator",
         json={"address": "0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae", "chain": "ethereum", "profile": "analyst"},
@@ -169,7 +202,7 @@ def test_graph_narrator():
     assert len(data["risk_badges"]) > 0
 
 
-def test_graph_narrator_legal():
+def test_graph_narrator_legal(client):
     response = client.post(
         "/api/v1/ai/graph-narrator",
         json={"address": "0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae", "chain": "ethereum", "profile": "legal"},
@@ -181,7 +214,7 @@ def test_graph_narrator_legal():
     assert "Circular 3.978" in data["narrative"] or "compliance" in data["narrative"].lower()
 
 
-def test_graph_narrator_executive():
+def test_graph_narrator_executive(client):
     response = client.post(
         "/api/v1/ai/graph-narrator",
         json={"address": "0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae", "chain": "ethereum", "profile": "executive"},
@@ -192,7 +225,7 @@ def test_graph_narrator_executive():
     assert data["profile"] == "executive"
 
 
-def test_law_enforcement_export_coaf():
+def test_law_enforcement_export_coaf(client, pool):
     response = client.post(
         "/api/v1/ai/law-enforcement-export",
         json={"case_id": "test-case", "format": "coaf"},
@@ -201,7 +234,7 @@ def test_law_enforcement_export_coaf():
     assert response.status_code == 202
     job_id = response.json()["job_id"]
 
-    assert process_next_job(app.state.pool, ORG_ID) is not None
+    assert process_next_job(pool, ORG_ID) is not None
     status = client.get(f"/api/v1/ai/jobs/{job_id}", headers=ADMIN_HEADERS).json()
     assert status["status"] == "awaiting_human_gate"
     assert status["required_approvals"] == 2
@@ -213,7 +246,7 @@ def test_law_enforcement_export_coaf():
     assert status["status"] == "completed"
 
 
-def test_law_enforcement_export_vasp():
+def test_law_enforcement_export_vasp(client, pool):
     response = client.post(
         "/api/v1/ai/law-enforcement-export",
         json={"case_id": "test-case", "format": "vasp"},
@@ -221,7 +254,7 @@ def test_law_enforcement_export_vasp():
     )
     assert response.status_code == 202
     job_id = response.json()["job_id"]
-    assert process_next_job(app.state.pool, ORG_ID) is not None
+    assert process_next_job(pool, ORG_ID) is not None
     status = client.get(f"/api/v1/ai/jobs/{job_id}", headers=ADMIN_HEADERS).json()
     assert status["status"] == "awaiting_human_gate"
     client.post(f"/api/v1/ai/jobs/{job_id}/approve", json={}, headers=COMPLIANCE_HEADERS)
@@ -229,7 +262,7 @@ def test_law_enforcement_export_vasp():
     assert status["status"] == "completed"
 
 
-def test_law_enforcement_export_judicial():
+def test_law_enforcement_export_judicial(client, pool):
     response = client.post(
         "/api/v1/ai/law-enforcement-export",
         json={"case_id": "test-case", "format": "judicial"},
@@ -237,7 +270,7 @@ def test_law_enforcement_export_judicial():
     )
     assert response.status_code == 202
     job_id = response.json()["job_id"]
-    assert process_next_job(app.state.pool, ORG_ID) is not None
+    assert process_next_job(pool, ORG_ID) is not None
     status = client.get(f"/api/v1/ai/jobs/{job_id}", headers=ADMIN_HEADERS).json()
     assert status["status"] == "awaiting_human_gate"
     client.post(f"/api/v1/ai/jobs/{job_id}/approve", json={}, headers=COMPLIANCE_HEADERS)
@@ -245,7 +278,7 @@ def test_law_enforcement_export_judicial():
     assert status["status"] == "completed"
 
 
-def test_law_enforcement_export_fatf():
+def test_law_enforcement_export_fatf(client, pool):
     response = client.post(
         "/api/v1/ai/law-enforcement-export",
         json={"case_id": "test-case", "format": "fatf"},
@@ -253,7 +286,7 @@ def test_law_enforcement_export_fatf():
     )
     assert response.status_code == 202
     job_id = response.json()["job_id"]
-    assert process_next_job(app.state.pool, ORG_ID) is not None
+    assert process_next_job(pool, ORG_ID) is not None
     status = client.get(f"/api/v1/ai/jobs/{job_id}", headers=ADMIN_HEADERS).json()
     assert status["status"] == "awaiting_human_gate"
     client.post(f"/api/v1/ai/jobs/{job_id}/approve", json={}, headers=COMPLIANCE_HEADERS)
@@ -261,7 +294,7 @@ def test_law_enforcement_export_fatf():
     assert status["status"] == "completed"
 
 
-def test_law_enforcement_rbac_viewer():
+def test_law_enforcement_rbac_viewer(client):
     response = client.post(
         "/api/v1/ai/law-enforcement-export",
         json={"case_id": "test-case", "format": "coaf"},
@@ -270,7 +303,7 @@ def test_law_enforcement_rbac_viewer():
     assert response.status_code == 403
 
 
-def test_themis_case_intelligence():
+def test_themis_case_intelligence(client, pool):
     response = client.post(
         "/api/v1/ai/themis",
         json={
@@ -284,7 +317,7 @@ def test_themis_case_intelligence():
     assert response.status_code == 202
     job_id = response.json()["job_id"]
 
-    assert process_next_job(app.state.pool, ORG_ID) is not None
+    assert process_next_job(pool, ORG_ID) is not None
     status = client.get(f"/api/v1/ai/jobs/{job_id}", headers=ADMIN_HEADERS).json()
     assert status["analysis_type"] == "themis"
     assert status["status"] in ("awaiting_human_gate", "completed")
@@ -293,7 +326,31 @@ def test_themis_case_intelligence():
         assert status["status"] == "completed"
 
 
-def test_themis_rbac_analyst():
+def test_job_approve_missing_x_user_id_returns_400(client, pool):
+    job_id = _create_job(pool)
+    response = client.post(
+        f"/api/v1/ai/jobs/{job_id}/approve",
+        json={},
+        headers={"X-Org-Id": ORG_ID, "X-Role": "COMPLIANCE_OFFICER"},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "missing_x_user_id"
+
+
+def test_job_approve_idempotent_after_completion(client, pool):
+    job_id = _create_job(pool)
+    first = client.post(f"/api/v1/ai/jobs/{job_id}/approve", json={}, headers=COMPLIANCE_HEADERS)
+    assert first.status_code == 200
+    assert first.json()["status"] == "completed"
+
+    second = client.post(f"/api/v1/ai/jobs/{job_id}/approve", json={}, headers=COMPLIANCE_HEADERS)
+    assert second.status_code == 200
+    assert second.json()["status"] == "completed"
+    assert second.json()["approvals_received"] == 1
+    assert second.json()["required_approvals"] == 1
+
+
+def test_themis_rbac_analyst(client):
     response = client.post(
         "/api/v1/ai/themis",
         json={
@@ -307,7 +364,7 @@ def test_themis_rbac_analyst():
     assert response.status_code == 202
 
 
-def test_themis_rbac_viewer_forbidden():
+def test_themis_rbac_viewer_forbidden(client):
     response = client.post(
         "/api/v1/ai/themis",
         json={
@@ -321,7 +378,7 @@ def test_themis_rbac_viewer_forbidden():
     assert response.status_code == 403
 
 
-def test_case_insights():
+def test_case_insights(client):
     response = client.post(
         "/api/v1/ai/case-insights",
         json={"case_id": "test-789"},

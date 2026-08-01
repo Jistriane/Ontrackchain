@@ -8,7 +8,7 @@ on:
 
 jobs:
   workflow-hygiene:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ontrackchain-local]
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +23,7 @@ jobs:
         run: make check-workflow-hygiene
 
   security-baseline:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ontrackchain-local]
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
@@ -38,7 +38,7 @@ jobs:
         run: python scripts/check_security_baseline.py
 
   preflight-regressions:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ontrackchain-local]
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
@@ -53,7 +53,7 @@ jobs:
         run: python -m unittest tests.test_check_workflow_hygiene tests.test_check_staging_env_placeholders tests.test_check_staging_env_ownership_coverage tests.test_check_staging_env_handoff tests.test_check_serious_window_dispatch_readiness tests.test_render_serious_window_dispatch_packet tests.test_render_staging_private_env_templates tests.test_render_staging_window_packet tests.test_prepare_staging_window tests.test_render_staging_window_signoff tests.test_render_staging_window_weekly_governance tests.test_postprocess_staging_window_artifact tests.test_build_staging_release_dossier tests.test_run_staging_window tests.test_run_oidc_playwright_critical tests.test_run_oidc_readiness_bundle tests.test_render_oidc_readiness_bundle tests.test_run_regulatory_readiness_bundle tests.test_render_regulatory_readiness_bundle tests.test_preflight_guards tests.test_homologation_external_evidence
 
   serious-window-onboarding-smoke:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ontrackchain-local]
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
@@ -72,7 +72,7 @@ jobs:
           make postprocess-serious-window-dry-run RUN_URL="https://github.com/example/repo/actions/runs/789"
 
   frontend-audit:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ontrackchain-local]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -93,7 +93,7 @@ jobs:
         run: npm audit --omit=dev --audit-level=critical
 
   postgres-schema:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ontrackchain-local]
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
@@ -108,7 +108,7 @@ jobs:
         run: python scripts/check_postgres_schema.py
 
   frontend-typecheck:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ontrackchain-local]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -129,7 +129,7 @@ jobs:
         run: npm run typecheck
 
   python-quality:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ontrackchain-local]
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -171,7 +171,7 @@ jobs:
         run: python scripts/check_python_app.py "${{ matrix.target.path }}"
 
   ownership-smoke-script-compile:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ontrackchain-local]
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
