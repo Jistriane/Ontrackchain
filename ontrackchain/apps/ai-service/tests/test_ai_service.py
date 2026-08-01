@@ -1,3 +1,6 @@
+import json
+import uuid
+
 import pytest
 from fastapi.testclient import TestClient
 from ai_service.main import app
@@ -11,6 +14,29 @@ ANALYST_HEADERS = {"X-Org-Id": ORG_ID, "X-User-Id": "00000000-0000-0000-0000-000
 VIEWER_HEADERS = {"X-Org-Id": ORG_ID, "X-User-Id": "00000000-0000-0000-0000-000000000007", "X-Role": "VIEWER"}
 COMPLIANCE_HEADERS = {"X-Org-Id": ORG_ID, "X-User-Id": "00000000-0000-0000-0000-000000000010", "X-Role": "COMPLIANCE_OFFICER"}
 LEGAL_HEADERS = {"X-Org-Id": ORG_ID, "X-User-Id": "00000000-0000-0000-0000-000000000011", "X-Role": "LEGAL_REVIEWER"}
+
+
+def _create_job(*, analysis_type: str = "themis", status: str = "awaiting_human_gate", required_approvals: int = 1) -> str:
+    pool = app.state.pool
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT set_config('app.organization_id', %s, True)", (ORG_ID,))
+            request_id = str(uuid.uuid4())
+            cur.execute(
+                """
+                INSERT INTO ai_service_jobs(
+                  organization_id, analysis_type, status, queue_reason, request_id, request_payload_hash,
+                  input_data, human_gate_required, required_approvals
+                ) VALUES (
+                  %s, %s, %s, 'LONG_RUNNING_OPERATION', %s, 'test',
+                  %s::jsonb, true, %s
+                ) RETURNING id
+                """,
+                (ORG_ID, analysis_type, status, request_id, json.dumps({}), required_approvals),
+            )
+            job_id = cur.fetchone()["id"]
+        conn.commit()
+    return str(job_id)
 
 
 def test_health_check():
@@ -291,6 +317,30 @@ def test_themis_case_intelligence():
     if status["status"] == "awaiting_human_gate":
         status = client.post(f"/api/v1/ai/jobs/{job_id}/approve", json={}, headers=COMPLIANCE_HEADERS).json()
         assert status["status"] == "completed"
+
+
+def test_job_approve_missing_x_user_id_returns_400():
+    job_id = _create_job()
+    response = client.post(
+        f"/api/v1/ai/jobs/{job_id}/approve",
+        json={},
+        headers={"X-Org-Id": ORG_ID, "X-Role": "COMPLIANCE_OFFICER"},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "missing_x_user_id"
+
+
+def test_job_approve_idempotent_after_completion():
+    job_id = _create_job()
+    first = client.post(f"/api/v1/ai/jobs/{job_id}/approve", json={}, headers=COMPLIANCE_HEADERS)
+    assert first.status_code == 200
+    assert first.json()["status"] == "completed"
+
+    second = client.post(f"/api/v1/ai/jobs/{job_id}/approve", json={}, headers=COMPLIANCE_HEADERS)
+    assert second.status_code == 200
+    assert second.json()["status"] == "completed"
+    assert second.json()["approvals_received"] == 1
+    assert second.json()["required_approvals"] == 1
 
 
 def test_themis_rbac_analyst():

@@ -11,6 +11,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import time
 import uuid
 from datetime import datetime, timezone
@@ -78,6 +79,8 @@ def get_pool(request: Request) -> ConnectionPool:
 
 def _apply_rls_context(conn, org_id: str) -> None:
     resolved = _resolve_org_id(conn, org_id)
+    if not resolved:
+        raise HTTPException(status_code=400, detail="invalid_org_id")
     with conn.cursor() as cur:
         cur.execute("SELECT set_config('app.organization_id', %s, True)", (resolved,))
 
@@ -100,9 +103,13 @@ def _resolve_org_id(conn, org_id: Optional[str]) -> Optional[str]:
 
 def _get_resolved_org_id(pool, org_id: str) -> str:
     """Get a resolved UUID org_id for DB inserts."""
+    if not org_id:
+        raise HTTPException(status_code=400, detail="missing_org_id")
     with pool.connection() as conn:
         resolved = _resolve_org_id(conn, org_id)
-    return resolved or org_id
+    if resolved:
+        return resolved
+    raise HTTPException(status_code=400, detail="invalid_org_id")
 
 
 def _require_role(x_role: Optional[str], allowed_roles: set[str], detail: str) -> str:
@@ -768,20 +775,21 @@ async def approve_job(
 ) -> JobResponse:
     if not x_org_id:
         raise HTTPException(status_code=400, detail="X-Org-Id required")
+    if not x_user_id or not x_user_id.strip():
+        raise HTTPException(status_code=400, detail="missing_x_user_id")
     canonical_role = _canonical_role_for_approval(x_role)
     if canonical_role not in ("ADMIN", "COMPLIANCE_OFFICER", "LEGAL_REVIEWER"):
         raise HTTPException(status_code=403, detail="JOB_FORBIDDEN")
 
     pool = get_pool(req)
+    resolved_org_id = _get_resolved_org_id(pool, x_org_id)
     with pool.connection() as conn:
-        _apply_rls_context(conn, x_org_id)
+        _apply_rls_context(conn, resolved_org_id)
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM ai_service_jobs WHERE id = %s", (job_id,))
+            cur.execute("SELECT * FROM ai_service_jobs WHERE id = %s FOR UPDATE", (job_id,))
             row = cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail="JOB_NOT_FOUND")
-            if row["status"] != "awaiting_human_gate":
-                raise HTTPException(status_code=409, detail="JOB_STATE_CONFLICT")
 
             analysis_type = row["analysis_type"]
             required_approvals = int(row.get("required_approvals") or 1)
@@ -794,11 +802,14 @@ async def approve_job(
                 raise HTTPException(status_code=403, detail="JOB_FORBIDDEN")
 
             if any(isinstance(a, dict) and a.get("approved_by") == x_user_id and a.get("role") == canonical_role for a in approvals):
+                return JobResponse(**_serialize_job_row(row))
+
+            if row["status"] != "awaiting_human_gate":
                 raise HTTPException(status_code=409, detail="JOB_STATE_CONFLICT")
 
             approvals.append(
                 {
-                    "approved_by": str(x_user_id) if x_user_id else "",
+                    "approved_by": x_user_id,
                     "role": canonical_role,
                     "approved_at": datetime.now(timezone.utc).isoformat(),
                     "note": request.note,
@@ -836,7 +847,7 @@ async def approve_job(
 
             _record_evidence_event(
                 cur,
-                organization_id=x_org_id,
+                organization_id=resolved_org_id,
                 event_type="AI_JOB_APPROVAL_RECORDED",
                 event_payload={"job_id": job_id, "analysis_type": analysis_type, "role": canonical_role, "approved_by": x_user_id},
                 actor_user_id=x_user_id,
@@ -846,7 +857,7 @@ async def approve_job(
             )
             _record_audit_log(
                 cur,
-                organization_id=x_org_id,
+                organization_id=resolved_org_id,
                 user_id=x_user_id,
                 action="ai_job_approval_recorded",
                 resource_type="ai_job",

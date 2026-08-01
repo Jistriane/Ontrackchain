@@ -378,6 +378,18 @@ CREATE TABLE IF NOT EXISTS counterparty_history (
 ALTER TABLE counterparties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE counterparty_history ENABLE ROW LEVEL SECURITY;
 
+CREATE OR REPLACE FUNCTION check_rls_context()
+RETURNS BOOLEAN AS $$
+BEGIN
+  IF current_setting('app.organization_id', true) IS NULL
+     OR current_setting('app.organization_id', true) = '' THEN
+    RAISE EXCEPTION 'RLS context not set — access denied'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
 DROP POLICY IF EXISTS counterparties_tenant_isolation ON counterparties;
 CREATE POLICY counterparties_tenant_isolation
   ON counterparties FOR ALL
@@ -1012,18 +1024,6 @@ ALTER TABLE regulatory_work_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE regulatory_work_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE evidence_package_seals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE evidence_package_signoffs ENABLE ROW LEVEL SECURITY;
-
-CREATE OR REPLACE FUNCTION check_rls_context()
-RETURNS BOOLEAN AS $$
-BEGIN
-  IF current_setting('app.organization_id', true) IS NULL
-     OR current_setting('app.organization_id', true) = '' THEN
-    RAISE EXCEPTION 'RLS context not set — access denied'
-      USING ERRCODE = '42501';
-  END IF;
-  RETURN TRUE;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 DROP POLICY IF EXISTS users_isolation ON users;
 CREATE POLICY users_isolation ON users
