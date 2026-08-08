@@ -33,3 +33,4 @@ tmp/
 # Secrets (never commit)
 *secret*
 !*secrets_loader.py
+!.env-secrets.template

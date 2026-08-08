@@ -109,11 +109,78 @@ jobs:
           retention-days: 90
 
   # ============================================================================
+  # Sprint 13 M16b: Gate Observabilidade ENDPOINTS obrigatórios FastAPI (BLOQUEANTE)
+  # TODO service apps/<nome>/src/<nome>/main.py precisa expor:
+  #   - "/healthz"  → liveness probe (k8s restart container se falhar)
+  #   - "/metrics"  → Prometheus scraper (Grafana alerts M4)
+  # 2 maneiras de violar = Falha.
+  # ============================================================================
+  observability-endpoints-gate:
+    name: "Gate Observabilidade: FastAPI /healthz + /metrics obrigatórios (bloqueia)"
+    runs-on: ubuntu-latest
+    needs: [lint]
+    timeout-minutes: 8
+    continue-on-error: false
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "(Obs 1/2) Scan apps/*/src/*/main.py — grep /healthz e /metrics se tem FastAPI() (sem Python, sem heredoc = 0 ScannerError)"
+        id: scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOT_FAST=0; TOT_OK=0; ERROS=""
+          APPS=$(find apps -type f -path "*/src/*/main.py" -maxdepth 4 2>/dev/null | sort || true)
+          echo "Arquivos main.py encontrados em apps/:"
+          echo "$APPS" | sed 's/^/  - /'
+          for F in $APPS; do
+            if ! grep -q "FastAPI(" "$F" 2>/dev/null; then
+              echo "  ℹ️  $F: não declara FastAPI() → pula (provavelmente utilitário)."
+              continue
+            fi
+            TOT_FAST=$((TOT_FAST+1))
+            HZ="NO"; MT="NO"
+            grep -qE '"/healthz"|'/healthz'|route.*healthz' "$F" 2>/dev/null && HZ="YES"
+            grep -qE '"/metrics"|'/metrics'|instrumentator|prometheus.*expose' "$F" 2>/dev/null && MT="YES"
+            if [ "$HZ" = "YES" ] && [ "$MT" = "YES" ]; then
+              echo "  ✅ $F: FastAPI + /healthz + /metrics (ok)"
+              TOT_OK=$((TOT_OK+1))
+            else
+              echo "  ❌ $F: FastAPI SEM endpoints (healthz=$HZ, metrics=$MT)"
+              ERROS="${ERROS}${F}: healthz=$HZ metrics=$MT\n"
+            fi
+          done
+          echo "tot_fastapi=$TOT_FAST" >> "$GITHUB_OUTPUT"
+          echo "tot_ok=$TOT_OK" >> "$GITHUB_OUTPUT"
+          if [ "$TOT_FAST" -gt 0 ] && [ "$TOT_OK" = "$TOT_FAST" ]; then
+            echo "RESULTADO: PASSOU ($TOT_OK/$TOT_FAST)"
+          elif [ "$TOT_FAST" -eq 0 ]; then
+            echo "ℹ️ Nenhum serviço FastAPI detectado ainda (early stage) → gate passa por vacuidade."
+          else
+            printf "ERROS DETECTADOS (M16b Sprint 13 BLOQUEIO enforce_admins=true):\n%s" "$ERROS"
+            exit 16
+          fi
+
+      - name: "(Obs 2/2) Step Summary markdown evidência auditoria"
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## M16b Gate Observabilidade (Sprint 13)"
+            echo "- **Regra:** Apps FastAPI \`apps/*/src/*/main.py\` com \`FastAPI()\` → obrigatório rotas \`/healthz\` + \`/metrics\`."
+            echo "- **Rationale:** k8s liveness probe restart automático 5s crashloop; Prometheus metrics → Grafana alert M4 platform.rules.yml"
+            echo "- Serviços FastAPI detectados: **${{ steps.scan.outputs.tot_fastapi }}**, OK: **${{ steps.scan.outputs.tot_ok }}**"
+          } >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
   # Sprint 10 M10: policy-gate-conftest OPA (BLOQUEANTE 2min)
-  # 3 policies Rego em policies/ (01..03):
+  # 4 policies Rego em policies/ (01..04 Sprint 13):
   #   #1 NUNCA transformar gate P0 em continue-on-error=true
   #   #2 Jobs pesados NÃO usam ubuntu-latest (Sprint 7 M4)
   #   #3 TODO job CI tem timeout-minutes explícito (anti 6h infinito)
+  #   #4 (Sprint 13 M16b) Todo service FastAPI requer /healthz e /metrics (enforce por observability-endpoints-gate job separado, esta policy varre workflows por 'observability-endpoints-gate' obrigatório em ci.yml)
   # ============================================================================
   policy-gate-conftest:
     name: "Policy Gate: Conftest OPA (gates P0 + jobs pesados)"
@@ -126,7 +193,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: "(Policy 1/2) Listar 15 arquivos YAML alvo e rodar conftest test contra policies/ 3 regras"
+      - name: "(Policy 1/2) Listar 19 arquivos YAML alvo (Sprint 13: + load-test M11 + dependabot-auto-merge M13 + nightly-dr-backup M16 + dependabot.yml M13) e rodar conftest test 4 policies 01..04"
         run: |
           set -euo pipefail
           TARGETS="
@@ -137,7 +204,11 @@ jobs:
             .github/workflows/deploy.yml
             .github/workflows/e2e-pr-playwright.yml
             .github/workflows/nightly-explorers-live.yml
+            .github/workflows/nightly-load-test.yml
+            .github/workflows/nightly-dr-backup-restore.yml
+            .github/workflows/dependabot-auto-merge-security-only.yml
             .github/settings.yml
+            .github/dependabot.yml
             infra/observability/compliance.rules.yml
             infra/observability/investigation.rules.yml
             infra/observability/monitoring.rules.yml
@@ -154,9 +225,9 @@ jobs:
           if [ -n "$MISSING" ]; then
             echo "⚠️  Arquivos esperados faltando (pulados: $MISSING"
           fi
-          echo "🔍 Arquivos YAML válidos para policies/ 3 Rego:$ARGS"
+          echo "🔍 Arquivos YAML válidos para policies/ 4 Rego (01..04):$ARGS"
           conftest test --output table --policy policies/ --all-namespaces $ARGS
-          echo "✅ M10 Conftest policies: 3 regras, 0 violações (passou)."
+          echo "✅ M10 Conftest policies: 4 regras, 0 violações (passou)."
 
       - name: "(Policy 2/2) Upload policies/ .rego fonte como artifact (evidência auditoria"
         uses: actions/upload-artifact@v4

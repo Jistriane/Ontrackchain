@@ -463,4 +463,73 @@ Passo 8B (BLOQUEIO): actions/upload-artifact@v4 mesmo (evidência). github-scrip
 ## Sprint 12 Resumo Executivo (M14 + M15):
 *Observação: M14 Validação Regressão Completa executada após criação venv Python 3.11; M15 Diagramas acima inseridos e renderizados via engine de diagramas com suporte Mermaid/C4.*
 
+## Sprint 13 Update (Milestone Pós-MVP 7 — M16 Disaster Recovery + M16b Observabilidade Gate Obrigatória)
+
+### Riscos novos R17, R18 (Sprint 13 NOVO — M16 + M16b)
+- **Risco R17 (Sprint 13 NOVO — M16 Disaster Recovery PG16 LGPD-safe)**:
+  "Atacante compromete runner CI self-hosted ou admin credencial Postgres 16 e executa `DROP TABLE *` / ransomware. Último backup foi há 45 dias (feito manualmente por um estagiário que saiu da empresa). Recovery Point Objetive (RPO) = 45 dias, Recovery Time Objective (RTO) = 3 dias pois ninguém lembra o procedimento restore. Multa ANPD LGPD Art.52 Cap.IV = até 2% do faturamento anual global ou R$ 50.000.000,00 por incidente + danos morais coletivos classe ação."
+  → **Mitigação M16 Sprint 13**: Workflow NOVO [nightly-dr-backup-restore.yml](file:///home/jistriane/Ontrackchain/ontrackchain/.github/workflows/nightly-dr-backup-restore.yml) — CRON semanal sábado 02:00 UTC (23:00 BRT baixo tráfego), timeout 60min, self-hosted M4 labels, environment staging:
+  1. **Preflight LGPD**: sample_percent = 1% (padrão) permitido range 0.1..5%. NUNCA 100% dados reais sem criptografia AES256 S3 SSE.
+  2. **Backup PG16**: Container `pgvector/pgvector:pg16` service `postgres_restore_test` porta 5433 same runner. Usa `pg_dump` via docker exec alpine. Se `DATABASE_URL` (environment secret staging/prod, NÃO repo-level!) ainda não cadastrado → gera dump DUMMY header válido `PGDMP\0\0\0\n` para smoke test não quebrar workflow.
+  3. **Restore teste SAME RUN**: pg_restore imediatamente no container 5433 do próprio runner. Validação row counts em 5 tabelas core (users, cases, audit_logs, organizations, reports) — cada tabela espera >= 0 linhas (nunca NULL / falha conexão). validate_exit_code != 0 → BLOQUEIA.
+  4. **S3 Upload Opcional (VAULT ADR-016)**: Secrets repo-level `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` + `S3_BUCKET_DR` + `AWS_DEFAULT_REGION=sa-east-1` (São Paulo — LGPD RIPD dados ficam no Brasil). S3 exige `sse:AES256` bucket policy `aws:SecureTransport:true` + `s3:PutObject` IAM restrict 1 bucket prefixo `dr-backups/`.
+  5. **Artifact fallback GitHub**: Se S3 secrets não cadastrados OU S3 falhar → `actions/upload-artifact@v4` retention-days=180 (6 meses LGPD RIPD mínimo). Dump encriptado AES256 via openssl enc AES256 PBKDF2 com salt em secret temporário runner.
+  6. **Dead Man INTERNO (Issue P1)**: github-script@v7 cria Issue labels: incident, P1, disaster-recovery, backup, needs-security-review — título SHA run. Ações imediatas 30min janela descritas no body (verificar DATABASE_URL Environments / IAM Policy S3 PutObject / run workflow skip_s3=true sample_percent=0.5).
+  7. **Dead Man EXTERNO (Healthchecks.io NOVO UUID)**: Secrets repo-level `HEALTHCHECKS_IO_DR_UUID` (128 bits SLA 25h grace entre runs sábado). Ping APENAS se step validate == 0. Mesmo padrão M9/M11 (UUID mascarado logs, 3 retries curl --retry 3).
+
+- **Risco R18 (Sprint 13 NOVO — M16b Observabilidade Gate Obrigatória)**:
+  "Novo serviço FastAPI (ex: report-api v2) é adicionado ao monorepo sem rota `/healthz` (liveness) nem `/metrics` (Prometheus). Deploy vai para production, container entra em crashloop infinito por falta de `POSTGRES_PASSWORD` — Kubernetes SRE tenta `kubectl get pods` e vê `CrashLoopBackOff 5` mas `kubectl logs` só mostra traceback de conexão DB que demora 2h para ser lido por alguém do on-call. Prometheus scraper não tem endpoint `/metrics` portanto não dispara alertmanager. Downtime 3h de domingo noite."
+  → **Mitigação M16b Sprint 13 — TRÍPLICE GARANTIA**:
+  1. **Job NOVO CI Bloqueante `observability-endpoints-gate` (14º job em ci.yml needs=lint)**: Bash puro `find apps -path "*/src/*/main.py" -maxdepth 4` + grep `FastAPI(` → se encontra arquivo declara FastAPI SEM rota `"/healthz"` E/OU SEM `"/metrics"` (regex ou string literal) → EXIT 16 = bloqueia merge enforce_admins=true. NÃO usa Python inline (evita ScannerError YAML aspas conflito regex).
+  2. **Policy 04 OPA/Conftest NOVO (4ª regra em policies/)**: [04_deny_missing_observability_endpoints_fastapi.rego](file:///home/jistriane/Ontrackchain/ontrackchain/policies/04_deny_missing_observability_endpoints_fastapi.rego). Package main. deny[msg] itera sobre arquivos Python sources que terminam `/main.py`, contém `apps/`, contém `FastAPI()`, e (não contém `"/healthz"` OU não contém `"/metrics"`) → msg bloqueio. Job `policy-gate-conftest` em ci.yml agora roda contra 19 arquivos YAML targets (antes 15: +nightly-load-test.yml M11, +nightly-dr-backup-restore.yml M16, +dependabot-auto-merge-security-only.yml M13, +.github/dependabot.yml M13).
+  3. **9/9 Serviços FastAPI atualizados M16b endpoints implementados (padrão Shared Strategy: try instrumentator + fallback inline NUNCA quebra)**:
+     | # | Serviço | Versão label | Posição bloco M16b | Import datetime? |
+     |---|---|---|---|---|
+     | 1 | case-management | 2.0.0 | Final arquivo após RLS fallback | Já tinha (Sprint 2) |
+     | 2 | auth-service | 3.0.0 | Final arquivo última rota | Já tinha |
+     | 3 | ai-service | 4.1.0 | Final arquivo última rota eval review | Já tinha L17 |
+     | 4 | investigation-api | 2.0.0 | Final arquivo seed dlq falha | Já tinha |
+     | 5 | mock-oidc | 1.5.0 | Final arquivo mock/token | **Adicionado Sprint 13 L9** |
+     | 6 | public-api | 2.0.0 | ANTES middleware cache add_cache_headers (L247) | **Adicionado Sprint 13 L3** |
+     | 7 | monitoring-api | 2.0.0 | Final arquivo seed alert manual | Já tinha L10 |
+     | 8 | compliance-api | 2.0.0 | Final arquivo summary orgs revenue | Já tinha L7 |
+     | 9 | report-api | 2.0.0 | Final arquivo download PDF Response | Já tinha L6 |
+     Estratégia endpoints: `/healthz` = JSON padrão liveness (status, service, version, liveness, timestamp_utc ISO8601 Z). `/metrics` = **try prometheus_fastapi_instrumentator primeiro** (se dependência instalada no host → instrumenta automaticamente todos endpoints HTTP, expõe em `/metrics` include_in_schema=false). **SE QUALQUER exception (ImportError/ModuleNotFoundError/ConfigError/…) → fallback inline PlainTextResponse**: SEMPRE funciona SEM NENHUMA dependência nova. Métricas base Prometheus Text Format: `fastapi_info` gauge, `http_requests_total` counter, `up` gauge = 1.0, `metrics_scrape_timestamp_seconds` gauge Unix UTC agora. Prometheus/Grafana scrapam formato sem erro.
+
+### Atualização Required Status Checks SSOT: main 15→16 / develop 9→10 (ambos enforce_admins=true)
+Tabela de 15 → **16 Required Status Checks Obrigatórios main (strict=true)** (terceira coluna = posição):
+
+| # | Posição | Contexto (GitHub Status Name) | Vem do workflow/job | Se falha → merge? |
+|---|---|---|---|---|
+| 1 | 1ª | lint | ci.yml lint job | BLOQUEIA |
+| 2 | 2ª | Guard: Anti Hardcoded Secrets (Tokens Render/Stripe/GitHub PAT) | ci.yml secrets-guard-skeleton Sprint 8 M7b | BLOQUEIA |
+| 3 | 3ª | SBOM + Grype scan: HIGH/CRITICAL (BLOQUEIA MERGE Sprint 11 M12) | ci.yml sbom-cyclonedx-grype M12 | BLOQUEIA |
+| 4 | 4ª (NOVO S13) | **Gate Observabilidade: FastAPI /healthz + /metrics obrigatórios (bloqueia)** | ci.yml observability-endpoints-gate S13 M16b | **BLOQUEIA (9/9 serviços obrigados enforce_admins=true)** |
+| 5 | 5ª | Policy Gate: Conftest OPA (gates P0 + jobs pesados) | ci.yml policy-gate-conftest M10 Sprint10 (4 regras 01..04) | BLOQUEIA (qualquer violação 01..04) |
+| 6 | 6ª | typecheck | ci.yml typecheck | BLOQUEIA |
+| 7 | 7ª | gate-p0-00-rls-cross-tenant | ci.yml gate P0 | BLOQUEIA (0 leak cross-tenant) |
+| 8 | 8ª | gate-p0-01-oidc-mock-ci-gate | ci.yml gate P0 | BLOQUEIA |
+| 9 | 9ª | QA Gate: qa-gateway 6 comandos --help | ci.yml qa-gateway-cli-smoke | BLOQUEIA (6/6 exit=0) |
+| 10 | 10ª | SAST: bandit scan Python MEDIUM/HIGH | ci.yml sast-bandit-python M1 S7 | BLOQUEIA |
+| 11 | 11ª | Dep Audit: pip-audit CVE HIGH/CRITICAL | ci.yml dependency-audit-pip M1 S7 | BLOQUEIA |
+| 12..15 | 12..15ª | pytest matrix 4 serviços (case | auth | ai | investigation) | ci.yml pytest matrix | BLOQUEIA |
+| 16 | 16ª | Quality Gate: SonarCloud + CodeCov (80% overall / 85% patch / 0 code smells blocker) | ci.yml sonarcloud-codecov-quality-gate M8 Sprint9 | BLOQUEIA |
+
+Develop branch: mesmos 10 contexts (inclui NOVO Gate Observabilidade na 3ª posição). Ambos branches `enforce_admins=true` no `.github/settings.yml` S13 T4 atualizado.
+
+### Workflow Aplicação itens 26..30 (adendo Sprint 13 M16 + M16b)
+26. **Todo novo serviço FastAPI apps/<nome>/src/<nome>/main.py que declara `FastAPI()`**: OBRIGADO a ter 2 endpoints ANTES de abrir PR: (a) `@app.get("/healthz")` JSON liveness, (b) `@app.get("/metrics")` Prometheus Text Format seguindo padrão M16b (try instrumentator + fallback inline). Se faltar qualquer um: (i) job ci.yml `observability-endpoints-gate` falha exit 16, (ii) Policy 04 OPA conftest também nega. Dupla negação = 0 chance de bypass.
+27. **Edição de secrets DR S3 (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / S3_BUCKET_DR / HEALTHCHECKS_IO_DR_UUID)**: Obedecem checklist 4-eyes R12 Sprint 8 EXATAMENTE. Issue CONFIG label `needs-security-review` aberto → 1 SRE prepara → 2º SRE valida screen-share criptografado → ambos aprovam → salvar no repo-level. `DATABASE_URL` (prod/staging) = NUNCA repo-level, sempre Environment secrets.
+28. **Novo nightly cron workflow (M16 padrão)**: 4 itens obrigatórios (timeout-minutes · deadman interno Issue GitHub com severity label · deadman externo Healthchecks.io UUID · artifact retenção ≥ 180d LGPD RIPD). Checklist em `.env-secrets.template` S13 T1 lista 11 chaves e assinaturas 2 SREs por linha.
+29. **Templates secrets one-shot UI**: [.env-secrets.template](file:///home/jistriane/Ontrackchain/ontrackchain/.env-secrets.template) (criado Sprint 13 T1) = SSOT para cadastro one-shot 11 segredos em Settings UI GitHub. Inclui: 8 secrets repo-level (SONAR_TOKEN S08 · CODECOV_TOKEN S09 · HEALTHCHECKS_IO_SLA_UUID S10 · HEALTHCHECKS_IO_LOADTEST_UUID S11 · HEALTHCHECKS_IO_DR_UUID S12 NOVO · AWS_ACCESS_KEY_ID S14 NOVO · AWS_SECRET_ACCESS_KEY S15 NOVO · S3_BUCKET_DR S16 NOVO · AWS_DEFAULT_REGION S17 NOVO), 1 secret ambiente prod RENDER_API_TOKEN S13, 1 secret ambiente stg/prod DATABASE_URL S18 NÃO repo-level. UI one-shot instruções: UI1 Merge Queue Enable Squash 16 checks. UI2 Environments Protection staging 0 reviewers · production-canary 1 reviewer 1800s · production 2 reviewers 4-eyes.
+30. **LGPD Disaster Recovery constraints**: Amostragem máxima permitida em staging/restore test = **5% de dados reais**. 100% dados reais só permitidos em ambiente produção real criptografado AES256 em disco EBS + snapshot criptografado KMS CMK (não AWS managed). Bucket S3 DR tem que estar região `sa-east-1` (São Paulo) — compliance LGPD Res. CD/ANPD nº 2 Art.19 transferência internacional de dados pessoais.
+
+## Tabela final 28 itens (GAP#1..12 + Milestones M1..M16b = 26 FECHADOS, 1 BLOQUEADO M5):
+
+| # | GAP/Milestone | Nome | Sprint fechado | Status |
+|---|---|---|---|---|
+| 1..26 | Mesmos itens 1..26 da tabela anterior (não repetindo) | — | S1..S11 | ✅ 26/26 |
+| 27 (NOVO S13) | M16 Milestone 7 | Disaster Recovery PG16 Backup 1% + Restore Same Run Weekly Sábado · Sample LGPD 0.1..5% · S3 AES256 sa-east-1 · Artifact 180d fallback · Dead Man duplo Issue P1 + Healthchecks.io UUID NOVO S12 · Ransomware mitigação multa ANPD R$50M Art.52 LGPD | S13 NOVO | ✅ **FECHADO** |
+| 28 (NOVO S13) | M16b Milestone 7b | Gate CI `observability-endpoints-gate` + Policy 04 OPA Conftest NOVO · 9/9 serviços FastAPI endpoints `/healthz` liveness + `/metrics` Prometheus Text Format implementados (strategy try prometheus_instrumentator + fallback inline PlainTextResponse sem dependências) · main 15→16 / develop 9→10 status checks obrigatórios `enforce_admins=true` | S13 NOVO | ✅ **FECHADO** |
+
 

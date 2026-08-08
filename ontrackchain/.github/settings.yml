@@ -122,14 +122,15 @@ branches:
           apps: ["dependabot[bot]", "settings[bot]"]
 
       required_status_checks:
-        # M6 + M8 + M10 + M12 OBRIGATÓRIO: 15 status checks = 13 jobs ci.yml (lint, secrets-guard, sbom-grype, conftest-policy, typecheck, gate-p0-00/01, qagate, bandit, pip-audit, 4× pytest services, sonar-codecov-qg)
-        # Se QUALQUER um destes 15 for FALSO → merge NÃO É PERMITIDO.
+        # M6 + M8 + M10 + M12 + M16b OBRIGATÓRIO: 16 status checks = 14 jobs ci.yml (lint, secrets-guard, sbom-grype, observability-endpoints, conftest-policy, typecheck, gate-p0-00/01, qagate, bandit, pip-audit, 4× pytest services, sonar-codecov-qg)
+        # Se QUALQUER um destes 16 for FALSO → merge NÃO É PERMITIDO. enforce_admins=true = NINGUÉM bypassa.
         strict: true   # Requer branch atualizada com main (não aceita atrasada)
         contexts:
-          # ci.yml jobs (13):
+          # ci.yml jobs (14):
           - "lint"
           - "Guard: Anti Hardcoded Secrets (Tokens Render/Stripe/GitHub PAT)"
           - "SBOM + Grype scan: HIGH/CRITICAL (BLOQUEIA MERGE Sprint 11 M12)"
+          - "Gate Observabilidade: FastAPI /healthz + /metrics obrigatórios (bloqueia)"
           - "Policy Gate: Conftest OPA (gates P0 + jobs pesados)"
           - "typecheck"
           - "gate-p0-00-rls-cross-tenant"
@@ -174,6 +175,7 @@ branches:
           - "lint"
           - "Guard: Anti Hardcoded Secrets (Tokens Render/Stripe/GitHub PAT)"
           - "SBOM + Grype scan: HIGH/CRITICAL (BLOQUEIA MERGE Sprint 11 M12)"
+          - "Gate Observabilidade: FastAPI /healthz + /metrics obrigatórios (bloqueia)"
           - "Policy Gate: Conftest OPA (gates P0 + jobs pesados)"
           - "QA Gate: qa-gateway 6 comandos --help (bloqueia merge)"
           - "Quality Gate: SonarCloud + CodeCov (80% overall / 85% patch)"

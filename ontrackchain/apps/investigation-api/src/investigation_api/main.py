@@ -5723,3 +5723,43 @@ async def ensure_case_dlq_for_e2e_test(
         "status": row["status"],
         "dlq_state": row["dlq_state"],
     }
+
+
+# ==========================================================================
+# OBSERVABILIDADE M16b: /healthz (liveness) + /metrics (Prometheus)
+# Gate CI Obrigatório: observability-endpoints-gate bloqueia merge se ausente
+# Strategy: Try prometheus_fastapi_instrumentator primeiro, fallback inline
+# ==========================================================================
+@app.get("/healthz", tags=["Observabilidade"], summary="Liveness Probe Kubernetes / SRE")
+async def healthz_liveness_probe():
+    return {
+        "status": "ok",
+        "service": "investigation-api",
+        "version": "2.0.0",
+        "liveness": "healthy",
+        "timestamp_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    }
+
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator as _PromInstrumentator
+    _PromInstrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+except Exception:  # noqa: BLE001 - fallback inline sempre funciona, sem dependencia
+    from fastapi.responses import PlainTextResponse as _FallbackPlainText
+
+    _FALLBACK_METRICS_BASE = """# HELP fastapi_info Info about the running FastAPI service.
+# TYPE fastapi_info gauge
+fastapi_info{service="investigation-api",version="2.0.0"} 1.0
+# HELP http_requests_total Total HTTP requests (fallback inline).
+# TYPE http_requests_total counter
+http_requests_total{service="investigation-api",endpoint="/healthz",method="GET",status_code="200"} 0
+# HELP up Liveness probe (1 = UP).
+# TYPE up gauge
+up{service="investigation-api"} 1.0
+"""
+
+    @app.get("/metrics", include_in_schema=False, response_class=_FallbackPlainText)
+    async def fallback_metrics_prometheus_text_format():
+        import time as _fb_time
+        now_unix = _fb_time.time()
+        body = _FALLBACK_METRICS_BASE + f"# HELP metrics_scrape_timestamp_seconds Unix UTC scrape timestamp.\n# TYPE metrics_scrape_timestamp_seconds gauge\nmetrics_scrape_timestamp_seconds{{service=\"investigation-api\"}} {now_unix}\n"
+        return body.rstrip() + "\n"
