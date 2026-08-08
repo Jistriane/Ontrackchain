@@ -149,7 +149,13 @@ jobs:
       (needs.changed-file-filter.outputs.front_changed == 'true' || needs.changed-file-filter.outputs.stack_changed == 'true' || github.event_name == 'workflow_dispatch')
       &&
       (needs.changed-file-filter.outputs.has_e2e_label == 'true')
-    runs-on: ubuntu-latest
+    # Sprint 7 M4: self-hosted E2E runner primeiro (economia minutos GH Actions para shard=8)
+    runs-on:
+      - self-hosted
+      - ontrackchain-ci-e2e-ubuntu-latest
+      - ontrackchain
+      - linux
+      - x64
     timeout-minutes: 40
     strategy:
       fail-fast: false

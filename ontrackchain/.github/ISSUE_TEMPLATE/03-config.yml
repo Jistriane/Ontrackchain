@@ -1,0 +1,23 @@
+---
+name: "⚙️ Config"
+about: "Ajustes de infra, CI, observabilidade, secrets, onboarding dev, labels, CODEOWNERS."
+title: "[CONFIG] <Nome do ajuste (ex: Criar label e2e-required default no repo)>"
+labels: ["config", "triage"]
+---
+
+# Tipo de Config
+- `[ ] GitHub repo settings (labels, ambientes protegidos, regras branch main - required status checks)`
+- `[ ] Secrets (RENDER_API_TOKEN_STAGING, SERVICE_IDs, etc) em org / repo / environments`
+- `[ ] CI/CD YAML (ci.yml, deploy-*.yml, e2e, nightly)`
+- `[ ] Grafana / Prometheus / Alertmanager`
+- `[ ] Outro`
+
+## Mudança
+<Descreva a alteração desejada com exatidão (ex: "adicionar como Required Status Check no branch `main`: `sast-bandit-python`, `dependency-audit-pip`, `qa-gateway-cli-smoke` para bloquear merge").>
+
+## Justificativa
+<Por que essa mudança reduz risco, custo ou acelera entrega? (Ex: "Sprint 7 M1 elevou GAP#12 para bloqueante; sem required status checks um PR pode ser mergeado com CVE HIGH.")>
+
+## Validação Esperada
+- `[ ] Após aplicar: merge de PR teste com label `do-not-merge` é RECUSADO pelos 3 status checks acima.`
+- `[ ] Ambiente `production` permanece obrigando aprovação manual (4 eyes).`

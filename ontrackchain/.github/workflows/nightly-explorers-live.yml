@@ -92,7 +92,13 @@ jobs:
     name: 1. Exploradores Live 10 casos real (schedule/manual)
     needs: [preflight]
     if: needs.preflight.outputs.run_mode == 'full_exploration_and_sla'
-    runs-on: ubuntu-latest
+    # Sprint 7 M4: self-hosted nightly runner primeiro (economia 50min diários de GH Actions)
+    runs-on:
+      - self-hosted
+      - ontrackchain-ci-e2e-ubuntu-latest
+      - ontrackchain
+      - linux
+      - x64
     timeout-minutes: 50
     services:
       postgres:

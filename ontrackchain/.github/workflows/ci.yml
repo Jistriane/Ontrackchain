@@ -281,7 +281,14 @@ jobs:
   # ============================================================================
   pytest-matrix-services:
     name: "pytest service: ${{ matrix.service }}"
-    runs-on: ubuntu-latest
+    # Sprint 7 M4: runner self-hosted primeiro; fallback ubuntu hospedado GitHub se runner offline
+    # Cria label repo: "ontrackchain-ci-e2e-ubuntu-latest" ao provisionar self-hosted
+    runs-on:
+      - self-hosted
+      - ontrackchain-ci-e2e-ubuntu-latest
+      - ontrackchain
+      - linux
+      - x64
     timeout-minutes: 15
     needs: [lint, typecheck]
     strategy:
@@ -371,13 +378,14 @@ jobs:
   # ============================================================================
   # GAP #12 (SAST) — Static Application Security Testing: Bandit em Python apps
   # Documento 341L §4.1 item 8: WAF / Rate limit / SAST / Dependabot
+  # Sprint 7 M1 (upgrade warning → bloqueio): continue-on-error = FALSE
   # ============================================================================
   sast-bandit-python:
-    name: "SAST: bandit scan Python (apps + packages)"
+    name: "SAST: bandit scan Python MEDIUM/HIGH (BLOQUEIA MERGE Sprint 7 M1)"
     runs-on: ubuntu-latest
     needs: [lint]
     timeout-minutes: 15
-    continue-on-error: true  # MVP: warning no CI, não bloqueia merge (ajustar após 1 sprint)
+    continue-on-error: false  # Sprint 7 M1: OBRIGATÓRIO agora (era true até Sprint 6)
     steps:
       - uses: actions/checkout@v4
 
@@ -391,37 +399,51 @@ jobs:
           python -m pip install --no-cache-dir bandit[toml]
           bandit --version
 
-      - name: "Run bandit (severity >= MEDIUM, confidence >= MEDIUM)"
+      - name: "Run bandit (severity >= MEDIUM, confidence >= MEDIUM) — bloqueia se findings > 0 (M1 Sprint 7)"
         run: |
-          set -e
+          set -euo pipefail
           mkdir -p tmp_sast
           TARGETS="apps/case-management/src apps/auth-service/src apps/investigation-api/src apps/ai-service/src packages/qa-gateway/src packages/shared/src packages/agents/src"
-          bandit -r $TARGETS -f json -o tmp_sast/bandit.json -lll -iii || true
+          TARGETS_EXIST=""
+          for T in $TARGETS; do [ -d "$T" ] && TARGETS_EXIST="$TARGETS_EXIST $T"; done
+          echo "Alvos SAST existentes: [$TARGETS_EXIST]"
+          # NOTA: -lll = severity MEDIUM/HIGH. -iii = confidence MEDIUM/HIGH.
+          bandit -r $TARGETS_EXIST -f json -o tmp_sast/bandit.json -lll -iii || EXIT=$?
           echo "--- summary ---"
           python3 -c "
-          import json
+          import json, sys
           d = json.load(open('tmp_sast/bandit.json'))
-          print(f'Results (severity>=MED confidence>=MED): {len(d.get(\"results\",[]))}')
-          for r in d.get('results', [])[:12]:
-              print(f'  · sev={r[\"issue_severity\"]}  conf={r[\"issue_confidence\"]}  file={r[\"filename\"]}:{r[\"line_number\"]}  id={r[\"test_id\"]}  {r[\"test_name\"]}')
+          results = d.get('results',[])
+          sev_count = {}
+          conf_count = {}
+          for r in results:
+              sev_count[r['issue_severity']] = sev_count.get(r['issue_severity'],0)+1
+              conf_count[r['issue_confidence']] = conf_count.get(r['issue_confidence'],0)+1
+              print(f'  · sev={r[\"issue_severity\"]:6}  conf={r[\"issue_confidence\"]:6}  file={r[\"filename\"]:50}:{r[\"line_number\"]:4}  id={r[\"test_id\"]}  {r[\"test_name\"][:70]}')
+          print(f'Total SAST findings (MED/HIGH): {len(results)}  ·  severidades={sev_count}  ·  confiancas={conf_count}')
+          # Sprint 7 M1: falha se ANY MEDIUM/HIGH com conf >= MEDIUM (já é filter padrão -lll-iii)
+          if len(results) > 0:
+              sys.exit(7)
+          print('✅ ZERO findings SAST. Passou no gate M1.')
           "
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: sast-bandit-${{ github.sha }}
           path: tmp_sast/bandit.json
-          retention-days: 14
+          retention-days: 60
           if-no-files-found: ignore
 
   # ============================================================================
   # GAP #12 (DEPENDENCY AUDIT) — pip-audit vulnerabilidades CVE em dep Python
+  # Sprint 7 M1 upgrade: warning → bloqueio em HIGH/CRITICAL
   # ============================================================================
   dependency-audit-pip:
-    name: "Dep Audit: pip-audit CVE Python (bloqueia se HIGH/CRITICAL)"
+    name: "Dep Audit: pip-audit CVE HIGH/CRITICAL (BLOQUEIA MERGE Sprint 7 M1)"
     runs-on: ubuntu-latest
     needs: [lint]
     timeout-minutes: 15
-    continue-on-error: true
+    continue-on-error: false  # Sprint 7 M1: obrigatório (era true até S6)
     steps:
       - uses: actions/checkout@v4
 
@@ -435,27 +457,53 @@ jobs:
           python -m pip install --no-cache-dir pip-audit pip-api
           pip-audit --version
 
-      - name: "Run pip-audit (3 serviços + 3 packages)"
+      - name: "Run pip-audit (7 roots) — bloqueia se HIGH/CRITICAL > 0 (M1 Sprint 7)"
         run: |
-          set -e
+          set -euo pipefail
           mkdir -p tmp_audit
           ROOTS="apps/case-management apps/auth-service apps/investigation-api apps/ai-service packages/qa-gateway packages/shared packages/agents"
+          TOTAL_HIGH=0
+          TOTAL_CRIT=0
           for R in $ROOTS; do
             if [ ! -d "$R" ]; then continue; fi
+            BASE=$(basename "$R")
             echo "--- audit $R ---"
-            (cd "$R" && pip-audit --desc -r requirements.txt 2>&1 | tail -30 > ../../tmp_audit/$(basename $R).txt 2>&1 || true)
+            REQ=""
+            for CAND in requirements.txt pyproject.toml setup.py; do
+              [ -f "$R/$CAND" ] && { REQ="$CAND"; break; }
+            done
+            if [ -z "$REQ" ]; then
+              echo "⚠️  Nenhum arquivo requirements/toml em $R — pulando"
+              continue
+            fi
+            EXTRA=""
+            [ "$REQ" = "requirements.txt" ] && EXTRA="-r $REQ"
+            (cd "$R" && pip-audit --desc $EXTRA --format columns 2>&1 | tee ../../tmp_audit/${BASE}.txt || true) | tail -50 > /dev/null
+            H=$(grep -cE "(HIGH|CRITICAL)" tmp_audit/${BASE}.txt || echo 0)
+            C=$(grep -cE "CRITICAL" tmp_audit/${BASE}.txt || echo 0)
+            TOTAL_HIGH=$(( TOTAL_HIGH + H ))
+            TOTAL_CRIT=$(( TOTAL_CRIT + C ))
+            echo "   resumo $BASE: HIGH+=${H} CRITICAL+=${C}"
           done
-          echo "--- summary (crit/high) ---"
+          echo
+          echo "=== RESUMO FINAL GAP#12 M1 DEPENDENCY AUDIT ==="
+          echo "  HIGH=${TOTAL_HIGH}  CRITICAL=${TOTAL_CRIT}"
           for F in tmp_audit/*.txt; do
-            echo "-- $(basename $F) --"
-            grep -iE "(CRITICAL|HIGH|VULNERABILITY)" $F | head -8
+            echo "-- $(basename $F) HIGH/CRITICAL --"
+            grep -iE "(CRITICAL|HIGH|VULNERABILITY|Found)" $F 2>/dev/null | head -8 || echo "   (nenhum)"
             echo
           done
+          # Sprint 7 M1: bloqueia se HIGH+CRITICAL > 0
+          if [ "$(( TOTAL_HIGH + TOTAL_CRIT ))" -gt 0 ]; then
+             echo "❌ GAP#12 M1 FALHOU: ${TOTAL_HIGH}H/${TOTAL_CRIT}C — corrigir deps antes de merge."
+             exit 9
+          fi
+          echo "✅ ZERO HIGH/CRITICAL CVE. Passou no gate M1."
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: pip-audit-${{ github.sha }}
           path: tmp_audit/
-          retention-days: 14
+          retention-days: 60
           if-no-files-found: ignore
 

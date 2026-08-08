@@ -1,0 +1,43 @@
+---
+name: "🚀 Feature / Requisito"
+about: "Nova funcionalidade, melhoria UX, novo comando qa-gateway, novo GAP ou integração."
+title: "[FEAT] <Nome curto feature (ex: scan-pii novo comando qa-gateway CPF-CNPJ)>"
+labels: ["feature", "triage"]
+assignees: []
+projects: ["Ontrackchain/1"]
+---
+
+## 1. Problema de Negócio
+> (Qual dor do cliente / regulatório / operacional esta feature resolve? NÃO descreva solução, descreva PROBLEMA)
+
+- **Stakeholder / dono**: <Nome time ou área — ex: Compliance / QA Ops / Investigação>
+- **Prazo esperado**: <data ou epic/sprint alvo>
+- **Impacto se não fizer**: (não conformidade LGPD? custo $ mensal? risco regulatório?)
+
+## 2. Requisitos Funcionais (RQs)
+1. (Exemplo RQ-01: `qa-gateway` deve ter novo sub-comando `scan-pii` com flag `--cpf-only` / `--cnpj-only` / `--chave-privada`.)
+2. (RQ-02: Reportar 3 colunas: tabela.coluna | quantidade | hash amostra pseudonimizada.)
+3. ...
+
+## 3. Requisitos Não-Funcionais (NFRs)
+- **Performance**: `[ ] Latência p95 < 3000ms (SLA GAP#11)` `[ ] Outro <X>ms`
+- **Segurança**: `[ ] Alterar RLS/RBAC/middleware → requer label needs-security-review` `[ ] LGPD (coleta/tratamento dado pessoal)` `[ ] N/A`
+- **Escalabilidade**: `[ ] Suporta 10× carga atual` `[ ] Indiferente (CLI batch)`
+- **Compliance**: `[ ] Bacen circular X` `[ ] LGPD art. 7º / art. 18º` `[ ] N/A`
+
+## 4. Fora de Escopo (YAGNI Sprint N)
+> (Liste TUDO que NÃO vamos fazer NESTA feature para evitar scope creep)
+
+- Ex: Não faremos dashboard Grafana novo; usaremos o `ontrackchain-qa-overview` existente e adicionaremos panel ID 9.
+
+## 5. Critérios de Aceite (DoD)
+### Funcional
+- `[ ] QA Gateway novo comando validado no ci.yml job `qa-gateway-cli-smoke` obrigatório `--help` exit code 0`
+- `[ ] Teste Python em `tests/` (cobertura > 80% da nova lógica)
+- `[ ] Teste manual gravado / evidência em staging
+
+### Qualidade e Infra
+- `[ ] CI verde (ci.yml 9 jobs; bandit 0 findings MED+; pip-audit 0 HIGH/CRITICAL CVE)`
+- `[ ] E2E Playwright com label `e2e-required` (se altera front/case/auth/inv service)
+- `[ ] ADR nova se mudou arquitetura OU anexado linha nova em ADR-018 tabela §1.1/§1.2`
+- `[ ] Rollback Render API automático testado em staging (se muda deploy logic)`

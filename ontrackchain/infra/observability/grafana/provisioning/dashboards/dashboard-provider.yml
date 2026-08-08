@@ -9,4 +9,10 @@ providers:
     updateIntervalSeconds: 15
     allowUiUpdates: false
     options:
+      # Sprint 7 M3: dashboard-provisioned automaticamente NO MESMO path /var/lib/grafana/dashboards
+      # que monta volume bind: ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      # Inclui dashboard NOVO Sprint 6: ontrackchain-qa-overview.json (uid: ontrackchain-qa-overview)
+      # e dashboards existentes: compliance-operations / investigation-operations / monitoring-operations
+      #                         / platform-alerting / report-operations
       path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

@@ -1,0 +1,52 @@
+---
+name: "🐛 Relatório de Bug"
+about: "Reportar comportamento incorreto, regressão, falha de segurança ou erro 5xx."
+title: "[BUG] <Descrição curta e específica do problema (ex: RLS 403 em /api/v1/cases para VIEWER)>"
+labels: ["bug", "triage"]
+assignees: []
+projects: ["Ontrackchain/1"]
+---
+
+## Contexto Rápido
+> (Explique em 1 frase qual funcionalidade quebrou + impacto real / afeta quais tenants)
+
+- **Ambiente**: `[ ] dev` `[x] staging` `[ ] produção (P0)` `[ ] local`
+- **Branch ou versão**: `main@<sha curto 7 chars>` ou tag `vX.Y.Z`
+- **Afetou deploy recente (últimas 24h)?** `[ ] Sim` `[x] Não` `[ ] Incerto`
+- **Impacto**: `[ ] Nenhum` `[x] Usuário final afetado (bloqueante em 1 tela)` `[ ] Blocker geral (plataforma down)` `[ ] Segurança (dados expostos / bypass RBAC/RLS)`
+
+## Passos para Reproduzir
+> (Inclua ROLE, ORG_ID e TENANT para cross-check RLS)
+
+1. Logar com `email=viewer-ci-tenant-a@ontrackchain.local`, `role=VIEWER`, `org_id=<UUID_A>`
+2. Navegar para `/cases` ou disparar `curl -H "Authorization: Bearer <tok>" -H "X-Organization-Id: <UUID_A>" $BASE_URL/api/v1/cases/`
+3. ... (próximos passos)
+4. Ver erro:
+
+```bash
+# Cole exato curl / payload se API
+curl -sS -X POST ... | jq
+```
+
+## Resultado Esperado
+> O que **deveria** acontecer.
+
+## Resultado Atual
+> O que realmente aconteceu. Cole screenshot ou traceback Python (se FastAPI/worker).
+
+```
+python traceback / resposta HTTP erro / playwright trace id:
+```
+
+## Evidências
+- `[ ] Screenshot / screen-rec`
+- `[ ] Logs service (auth/case/inv em deploy-staging ou deploy-production rollbacked?)`
+- `[ ] QA Gateway: `qa-gateway scan-rls --database-url $DB_URL --failures-json /tmp/rls.json`
+- `[ ] QA Gateway: `qa-gateway scan-rbac --apps-root apps/ --database-url $DB_URL`
+
+## Critérios de Aceite (Definition of Done para BUG)
+- `[ ] Root cause confirmado e documentado (RLS? middleware? fallback inline vs shared divergente? RPC?)`
+- `[ ] Teste de regressão em `tests/` (RLS cross-tenant A/B tem teste P0 obrigatório para bugs deste tipo)`
+- `[ ] CI verde (ci.yml 9 jobs, pytest 7 serviços, qa-gateway 6 comandos --help, bandit, pip-audit)`
+- `[ ] E2E Playwright rodou (se aplicável) — PR tem label `e2e-required` adicionado?`
+- `[ ] Revisor de segurança = label `needs-security-review` se tocou RLS, RBAC, middleware, secrets`
