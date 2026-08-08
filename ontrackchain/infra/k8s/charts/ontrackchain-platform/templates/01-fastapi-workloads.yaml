@@ -1,0 +1,200 @@
+{{/* ==========================================================================
+   9 DEPLOYMENTS FastAPI + SERVICES + PDBs (DRY range loop S14 T2)
+   GATE M16b OBRIGATÓRIO: /healthz (liveness/readiness) e /metrics expostos
+   ========================================================================== */}}
+
+{{- range $svcName, $svc := .Values.services }}
+{{- if $svc.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $svcName }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "ontrackchain.labels" $ | nindent 4 }}
+    ontrackchain.io/component: {{ $svcName }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "{{ $svc.port }}"
+    prometheus.io/path: "/metrics"
+spec:
+  replicas: {{ $svc.replicas }}
+  revisionHistoryLimit: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "ontrackchain.name" $ }}
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      ontrackchain.io/component: {{ $svcName }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "ontrackchain.name" $ }}
+        app.kubernetes.io/instance: {{ $.Release.Name }}
+        ontrackchain.io/component: {{ $svcName }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ $svc.port }}"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: {{ include "ontrackchain.serviceAccountName" $ }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      automountServiceAccountToken: false
+      containers:
+        - name: app
+          image: {{ tpl $svc.image $ }}
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          ports:
+            - name: http
+              containerPort: {{ $svc.port }}
+              protocol: TCP
+          env:
+            - name: SERVICE_NAME
+              value: {{ $svcName | quote }}
+            - name: SERVICE_VERSION
+              value: {{ $svc.version | quote }}
+            - name: ENVIRONMENT
+              value: {{ $.Values.global.environment | quote }}
+            {{- range $k, $v := $svc.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+            {{- if not $.Values.global.existingSecret }}
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: "{{ include "ontrackchain.fullname" $ }}-secrets", key: database_url } }
+            - name: JWT_SIGNING_KEY
+              valueFrom: { secretKeyRef: { name: "{{ include "ontrackchain.fullname" $ }}-secrets", key: signing_key_jwt, optional: true } }
+            {{- end }}
+          envFrom:
+            - prefix: GLOBAL_
+              secretRef:
+                name: {{ $.Values.global.existingSecret | default (printf "%s-secrets" (include "ontrackchain.fullname" $)) }}
+                optional: true
+          {{- with $svc.resources }}
+          resources:
+            requests:
+              cpu: {{ .requests.cpu | quote }}
+              memory: {{ .requests.memory | quote }}
+            limits:
+              cpu: {{ .limits.cpu | quote }}
+              memory: {{ .limits.memory | quote }}
+          {{- end }}
+          {{- with $svc.probes }}
+          livenessProbe:
+            httpGet:
+              path: {{ .liveness.path }}
+              port: {{ .liveness.port }}
+            initialDelaySeconds: {{ .liveness.initialDelaySeconds }}
+            periodSeconds: {{ .liveness.periodSeconds }}
+            timeoutSeconds: {{ .liveness.timeoutSeconds }}
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: {{ .readiness.path }}
+              port: {{ .readiness.port }}
+            initialDelaySeconds: {{ .readiness.initialDelaySeconds }}
+            periodSeconds: {{ .readiness.periodSeconds }}
+            timeoutSeconds: {{ .readiness.timeoutSeconds }}
+            failureThreshold: 3
+          {{- end }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $svcName }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "ontrackchain.labels" $ | nindent 4 }}
+    ontrackchain.io/component: {{ $svcName }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "{{ $svc.port }}"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "ontrackchain.name" $ }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    ontrackchain.io/component: {{ $svcName }}
+  ports:
+    - name: http
+      port: {{ $svc.port }}
+      targetPort: http
+      protocol: TCP
+---
+{{- if and $svc.pdb.enabled $svc.pdb.minAvailable }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $svcName }}-pdb
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "ontrackchain.labels" $ | nindent 4 }}
+    ontrackchain.io/component: {{ $svcName }}
+spec:
+  minAvailable: {{ $svc.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "ontrackchain.name" $ }}
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      ontrackchain.io/component: {{ $svcName }}
+---
+{{- end }}
+{{- if and $svc.autoscaling.enabled $svc.autoscaling.max (gt (int $svc.autoscaling.max) 1) }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $svcName }}-hpa
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "ontrackchain.labels" $ | nindent 4 }}
+    ontrackchain.io/component: {{ $svcName }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $svcName }}
+  minReplicas: {{ $svc.autoscaling.min | default 1 }}
+  maxReplicas: {{ $svc.autoscaling.max }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: {{ $svc.autoscaling.targetCPU | default 70 }} }
+    - type: Resource
+      resource:
+        name: memory
+        target: { type: Utilization, averageUtilization: {{ $svc.autoscaling.targetMemory | default 75 }} }
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies: [{ type: Percent, value: 50, periodSeconds: 60 }]
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies: [{ type: Percent, value: 10, periodSeconds: 120 }]
+---
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,33 @@
+apiVersion: v2
+name: ontrackchain-platform
+description: Ontrackchain Helm Chart v1.0 (MVP) — 9 serviços FastAPI + PG16 PGVector + Observabilidade (Prometheus/Grafana/Alertmanager) + Keycloak + Traefik Ingress. Milestone Pós-MVP 8.
+type: application
+version: 1.0.0
+appVersion: "3.0.0"
+home: https://ontrackchain.local
+sources:
+  - https://github.com/Ontrackchain/Ontrackchain
+maintainers:
+  - name: Ontrackchain Platform SRE
+    email: sre@ontrackchain.local
+annotations:
+  ontrackchain.io/sprint: "Sprint14 Milestone8 Helm"
+  ontrackchain.io/lgpd-dr-sample-max: "5%"
+  ontrackchain.io/gate-observabilidade-m16b: "/healthz + /metrics obrigatorio em 9 servicos FastAPI"
+  artifacthub.io/changes: |
+    - kind: added
+      description: Chart v1.0 (MVP) inicial — 9 FastAPI + PG16 + Observabilidade + Keycloak + Traefik + HPA + PDB + NetworkPolicy
+    - kind: security
+      description: NetworkPolicy default-deny cross-tenant RLS, service mesh ready
+keywords:
+  - blockchain
+  - compliance
+  - investigation
+  - fastapi
+  - pgvector
+  - prometheus
+  - grafana
+  - keycloak
+  - traefik
+  - lgpd
+dependencies: []

@@ -1,0 +1,26 @@
+# Patterns/Documentos que NAO devem entrar no pacote Helm
+.git/
+.gitignore
+.github/
+.vscode/
+.idea/
+*.pyc
+*.pyo
+__pycache__/
+*.md
+# Dados sensiveis (nunca commitados, mas helm ignora tambem)
+*.env
+*.env.*
+.secrets
+*.pem
+*.key
+# Arquivos locais de dev
+Dockerfile.local
+docker-compose*.yml
+# SQL migrations (vão via ConfigMap init container, não direto no chart bundle via filesystem — exceto o que já está em templates/)
+infra/postgres/migrations/*.sql
+!infra/postgres/migrations/00*.sql
+# Binarios / logs / tmp
+*.log
+tmp/
+ci-artifacts/

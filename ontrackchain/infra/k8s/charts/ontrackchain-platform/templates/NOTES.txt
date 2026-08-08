@@ -1,0 +1,31 @@
+1. ADICIONAR o Repo Helm (se for usar como chart distribuido):
+     helm repo add ontrackchain https://charts.ontrackchain.local
+     helm repo update
+
+2. INSTALAR em namespace `ontrackchain` (criar primeiro):
+     kubectl create namespace ontrackchain
+     helm install ontrackchain infra/k8s/charts/ontrackchain-platform \
+       --namespace ontrackchain \
+       --values infra/k8s/charts/ontrackchain-platform/values-{{ .Release.Name }}.yaml \
+       --set global.environment=staging
+
+3. VERIFICAR deployments + endpoints /healthz (M16b Observabilidade Gate obrigatório):
+     kubectl -n ontrackchain get pods -w
+     kubectl -n ontrackchain get svc
+     kubectl -n ontrackchain port-forward svc/ontrackchain-case-management 8001:8001
+     curl -i http://localhost:8001/healthz   # esperado 200 JSON liveness=healthy
+     curl -i http://localhost:8001/metrics   # esperado 200 Prometheus text format
+
+4. VERIFICAR HPA (autoscaling/v2 CPU 70% + memory):
+     kubectl -n ontrackchain get hpa -w
+
+5. UPGRADE com dry-run primeiro (segurança):
+     helm template --debug ontrackchain infra/k8s/charts/ontrackchain-platform --namespace ontrackchain > rendered.yaml
+     helm diff upgrade ontrackchain infra/k8s/charts/ontrackchain-platform --namespace ontrackchain  # via helm-diff plugin
+
+6. ROLLBACK (se problema — M7 Rollback Automático CI equivalente):
+     helm history ontrackchain -n ontrackchain
+     helm rollback ontrackchain <REV> -n ontrackchain
+
+7. SEGURANÇA LGPD R17 DR: nunca habilite postgres.persistence=false em prod.
+   DR Semanal: ver .github/workflows/nightly-dr-backup-restore.yml (Sprint13 M16).

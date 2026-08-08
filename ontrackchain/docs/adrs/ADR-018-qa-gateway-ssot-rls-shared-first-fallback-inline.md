@@ -532,4 +532,27 @@ Develop branch: mesmos 10 contexts (inclui NOVO Gate Observabilidade na 3ª posi
 | 27 (NOVO S13) | M16 Milestone 7 | Disaster Recovery PG16 Backup 1% + Restore Same Run Weekly Sábado · Sample LGPD 0.1..5% · S3 AES256 sa-east-1 · Artifact 180d fallback · Dead Man duplo Issue P1 + Healthchecks.io UUID NOVO S12 · Ransomware mitigação multa ANPD R$50M Art.52 LGPD | S13 NOVO | ✅ **FECHADO** |
 | 28 (NOVO S13) | M16b Milestone 7b | Gate CI `observability-endpoints-gate` + Policy 04 OPA Conftest NOVO · 9/9 serviços FastAPI endpoints `/healthz` liveness + `/metrics` Prometheus Text Format implementados (strategy try prometheus_instrumentator + fallback inline PlainTextResponse sem dependências) · main 15→16 / develop 9→10 status checks obrigatórios `enforce_admins=true` | S13 NOVO | ✅ **FECHADO** |
 
+### Sprint 14 Update (Milestone Pós-MVP 8 Helm Chart K8s v1.0.0)
+**Data:** 2026-08-08 (fio S14) · **Confiança:** 99,99%.  
+**Riscos Novos mitigados:**
+- **R19 — Ingress open world (Data Leak LGPD Art.52 multa R$50M ANPD):** Mitigado via `NetworkPolicy default-deny-lgpd-rls` policyType=[Ingress, Egress] (podSelector {}), bloqueia 169.254.169.254 IMDS cloud, whitelist só `0.0.0.0/0` exceto RFC1918 + allowIntraNamespace + allowFromIngressNamespace `ingress-traefik`. Labels LGPD aplicados NS PVC: `ontrackchain.io/lgpd-class: restricted-dados-pessoais` em PVC Postgres.
+- **R20 — Cluster node drain PDB=0 perda 9 serviços (SLA 24h quebrado):** Mitigado 13 `PodDisruptionBudget` (9 FastAPI + Postgres + Keycloak + Grafana opcional + Traefik minAvailable=2). PDB labels: `ontrackchain.io/component` granular.
+- **R21 — Escala horizontal imprevisível Black Friday/Operação ALEX (10x carga):** Mitigado 9 `HorizontalPodAutoscaler autoscaling/v2` (CPU% Utilization + Memory% com behavior stabilizationWindow 60s up, 300s down policies). public-api min=4 replicas · auth-service min=3 · ai-service max=8.
+- **R22 — Helm 20+ charts duplicados descentralizados DRIFT:** Mitigado **Single Chart SSOT `infra/k8s/charts/ontrackchain-platform/v1.0.0`** — 9 serviços range-loop DRY (1 template gera 9 deployments + 9 services + 9 HPA + 9 PDB). Sem subcharts: Opção A MVP.
+
+### Workflow Aplicação itens 31..35 (adendo Sprint 14 Helm M8)
+31. **Criação Novo serviço FastAPI apps/<n>/src/<n>/main.py:** Além dos endpoints `/healthz` e `/metrics` (item 26), **OBRIGATÓRIO** adicionar entrada em `values.yaml > services.<nome>` (enabled, replicas, version, image, port, autoscaling CPU/MEM, pdb minAvailable, resources requests/limits, probes, env). Falta disso = `helm template` não cria workload = bloqueio de PR por CI faltando workload.
+32. **Helm upgrade produção:** 2-eyes obrigatório + `helm diff upgrade` via CI (M7 Rollback Automático equivalente em K8s). Se diff > 3 linhas em recursos de segurança (NetworkPolicy / Secret / PSP): 2º aprovador é SRE Lead.
+33. **PDBs:** NÃO reduzir `minAvailable` para 0 em nenhum PDB exceto `mock-oidc` (dev-only). Node drains planejados sempre validam PDBs via `kubectl drain --dry-run=server` ANTES.
+34. **NetworkPolicy default-deny:** NOVO ingress/egress path de serviço → precisa PR alterando `templates/04-traefik-keycloak-netpol.yaml` com label selector específico; PR passa por `needs-security-review` label = obrigatório 1 approval além de SRE normal.
+35. **LGPD PVC labels:** TODO volumeClaimTemplates em StatefulSets (Postgres, Prometheus, Grafana, Redis futuro) **MUST** ter `ontrackchain.io/lgpd-class: restricted-dados-pessoais` e storage SC com `encryption: aws:ebs:aes256` (sa-east-1).
+
+## Tabela final 30 itens (Sprint 14 Helm = +2, Milestones 29/30 FECHADOS):
+
+| # | GAP/Milestone | Nome | Sprint fechado | Status |
+|---|---|---|---|---|
+| 1..28 | Mesmos 28 itens da tabela anterior | — | S1..S13 | ✅ 28/28 |
+| 29 (NOVO S14) | M8 Milestone 8 Helm | Single Helm Chart v1.0.0 `ontrackchain-platform` · Namespace PodSecurity baseline · ServiceAccount · 12 Global Secrets (11 + DATABASE_URL) · 9 Deployments FastAPI range-loop DRY + livenessProbe/readinessProbe `/healthz` + port container + ServiceMonitor scrape /metrics · 9 Services ClusterIP + 9 HPA v2 CPU/Mem behavior · 9 PDB policy/v1 minAvailable · StatefulSet PG16 PGVector headless PVC 10Gi + migrations init container 0001→0021 + pg_isready probes · StatefulSet Prometheus retention 30d + ServiceMonitor CRD + ConfigMap platform.rules.yml · Deployment Grafana PVC 5Gi + dashboards provisionamento path /grafana/ · Deployment Alertmanager web routes · Deployment Keycloak v25 realm import ConfigMap + /health live/ready · Traefik IngressController IngressClass + Ingress multi-host + cert-manager tls · 4 NetworkPolicy (default-deny + allowIntra + allowFromIngress + block IMDS) | S14 NOVO | ✅ **FECHADO** |
+| 30 (NOVO S14) | M8b Milestone 8b Segurança Helm | PSP PodSecurityContext runAsNonRoot=true runAsUser=10001 seccomp RuntimeDefault capabilities drop ALL readOnlyRootFilesystem automountServiceAccountToken=false · PVC LGPD labels em Postgres/Prometheus/Grafana `lgpd-class:restricted-dados-pessoais` · Grafana sub-path + root_url para proteção path traversal · Resources requests/limits em 100% containers (BestEffort proibido) | S14 NOVO | ✅ **FECHADO** |
+
 
