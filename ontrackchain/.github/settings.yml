@@ -122,11 +122,11 @@ branches:
           apps: ["dependabot[bot]", "settings[bot]"]
 
       required_status_checks:
-        # M6 OBRIGATÓRIO: 12 status checks = 10 jobs ci.yml + 2 gates + 4 pytest serviços
-        # Se QUALQUER um destes 12 for FALSO → merge NÃO É PERMITIDO.
+        # M6 + M8 OBRIGATÓRIO: 13 status checks = 11 jobs ci.yml + 2 gates + 4 pytest + Quality Gate Sonar/CodeCov
+        # Se QUALQUER um destes 13 for FALSO → merge NÃO É PERMITIDO.
         strict: true   # Requer branch atualizada com main (não aceita atrasada)
         contexts:
-          # ci.yml jobs (10):
+          # ci.yml jobs (11):
           - "lint"
           - "Guard: Anti Hardcoded Secrets (Tokens Render/Stripe/GitHub PAT)"
           - "typecheck"
@@ -140,6 +140,8 @@ branches:
           - "pytest service: auth-service"
           - "pytest service: ai-service"
           - "pytest service: investigation-api"
+          # Sprint 9 M8 NOVO: SonarCloud + CodeCov Quality Gate (overall 80% + patch 85% + 0 code smells blocker)
+          - "Quality Gate: SonarCloud + CodeCov (80% overall / 85% patch)"
 
       enforce_admins: true    # Admins também devem obedecer estas regras! (evita bypass)
       required_linear_history: true  # Squash merge sempre → história linear.
@@ -170,6 +172,7 @@ branches:
           - "lint"
           - "Guard: Anti Hardcoded Secrets (Tokens Render/Stripe/GitHub PAT)"
           - "QA Gate: qa-gateway 6 comandos --help (bloqueia merge)"
+          - "Quality Gate: SonarCloud + CodeCov (80% overall / 85% patch)"
           - "pytest service: case-management"
           - "pytest service: auth-service"
           - "pytest service: investigation-api"

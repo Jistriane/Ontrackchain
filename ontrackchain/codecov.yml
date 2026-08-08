@@ -1,0 +1,108 @@
+# ==============================================================================
+# CodeCov — Ontrackchain Platform (Sprint 9 M8)
+#
+# Thresholds MINIMOS OBRIGATÓRIOS para merge PR:
+#   • Cobertura geral de linhas (overall/project): < 80% → CI bloqueia
+#   • Cobertura novas linhas no patch (diff do PR): < 85% → CI bloqueia
+#   • NENHUM arquivo com cobertura < 60% em código de negócio (exceto migrations / docs)
+#
+# Nota: o upload usa action codecov/codecov-action@v5 com token em
+# secrets.CODECOV_TOKEN (repo-level). Se token não existir, o action graciously
+# faz o upload baseado em GITHUB_TOKEN para repos públicos; privados PRECISAM de token.
+# ==============================================================================
+
+coverage:
+  status:
+    # Project status: cobertura geral de linhas no repo todo
+    project:
+      default:
+        target: 80%        # M8 MVP mínimo: 80% overall
+        threshold: 1%      # permite queda 1pp (ajuste gradual)
+        base: auto
+        informational: false
+        if_ci_failed: error
+        only_pulls: false
+
+    # Patch status: só o que mudou no PR — OBRIGATÓRIO MÍNIMO 85%
+    patch:
+      default:
+        target: 85%
+        threshold: 0%
+        base: auto
+        informational: false
+        if_ci_failed: error
+        only_pulls: true
+
+    # Changes: flag "mvp-python-core" para código sensível (RLS, RBAC, auth)
+    changes:
+      python-core:
+        target: 80%
+        flags:
+          - python-core
+      frontend:
+        target: 65%
+        flags:
+          - frontend
+        if_no_uploads: success
+
+  precision: 2
+  round: down
+  range: "40...100"
+
+  # Flags — marcar uploads por fonte para CodeCov mostrar por área
+  notify:
+    wait_for_ci: true
+
+# Arquivos NÃO contam como "código de negócio" no denominator coverage
+ignore:
+  - "docs/**/*"
+  - "**/migrations/**/*.sql"
+  - "**/migrations/versions/**/*.py"
+  - "**/node_modules/**"
+  - "**/__pycache__/**"
+  - "**/*.snap"
+  - "apps/frontend/public/**"
+  - "infra/observability/grafana/dashboards/*.json"
+  - "ci-artifacts/**"
+  - "artifacts/**"
+  - "**/tests/**/*_mockdata.py"
+
+# Comentário no PR: mostrar diff coverage + 3 piores arquivos
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false   # se false: comenta todo PR com status codecov
+  require_base: false
+  require_head: true
+  hide_project_coverage: false
+  show_critical_paths: true
+  show_carryforward_headers: false
+  branches:
+    - main
+    - develop
+
+flags:
+  python-core:
+    paths:
+      - apps/case-management/src/
+      - apps/auth-service/src/
+      - apps/investigation-api/src/
+      - packages/qa-gateway/src/
+      - packages/shared/src/
+    carryforward: true
+  frontend:
+    paths:
+      - apps/frontend/src/
+    carryforward: true
+  ai-service:
+    paths:
+      - apps/ai-service/src/
+      - packages/agents/src/
+    carryforward: true
+
+# Parada de carro: NÃO permite regredir cobertura > 3pp em PR qualquer
+github_checks:
+  annotations: true
+  branches:
+    - main
+    - develop

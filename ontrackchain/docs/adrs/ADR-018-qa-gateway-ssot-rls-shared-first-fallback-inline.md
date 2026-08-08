@@ -299,4 +299,51 @@ Os comandos aceitam múltiplas fontes (env vars, flags, arquivos `.prom` ou fail
 | 10 | pytest service: auth-service            | ci.yml pytest matrix service 2 | BLOQUEIA |
 | 11 | pytest service: ai-service              | ci.yml pytest matrix service 3 | BLOQUEIA |
 | 12 | pytest service: investigation-api       | ci.yml pytest matrix service 4 | BLOQUEIA |
-| 13 | *(OPCIONAL, após M8)* SonarCloud Quality Gate passed | ci.yml sonar-scan | BLOQUEIA (M8 Sprint 9) |
+| 13 | Quality Gate: SonarCloud + CodeCov (80% overall / 85% patch) | ci.yml sonarcloud-codecov-quality-gate M8 Sprint 9 | BLOQUEIA (overall<80% ou patch<85% ou 0+ code smells blocker) |
+| 14 | *(OPCIONAL)* SonarCloud Quality Gate (após refino strict) | ci.yml sonar-scan strict (90% new) | BLOQUEIA (M8 Sprint 10 se optar) |
+
+## Sprint 9 Update (Milestone Pós-MVP 3)
+
+### Risco novo R14 (Sprint 9 NOVO — M8 Sonar + CodeCov Quality Gate)
+- **Risco R14**: "Time entrega features com testes unitários zero cobrindo linhas de negócio (RLS, RBAC, crypto, rollback). Depois de 6 sprints, cobertura cai de 80% → 55% e qualquer refatoração causa regressão. Alerta Prometheus começa a disparar em produção."
+- **Mitigação M8 Sprint 9**: Quality Gate DUPLICADO (SonarCloud + CodeCov) em **BLOQUEANTE** no `ci.yml`:
+  1. **CodeCov `coverage.status.project.default.target = 80%` overall, `patch.target = 85%` para novas linhas (dif PR)**. 1% threshold gradual; nada além disso bloqueia.
+  2. **SonarCloud `sonar.qualitygate.wait=true timeout=600s`**: padrão Sonar way (Coverage < 80%, Duplicated Blocks > 3%, Code Smells/Critical/Blocker > 0, Vulnerabilities > 0, Security Hotspots Reviewed < 100%).
+  3. **Artefatos**: `tmp_coverage/coverage.xml` por serviço pytest matrix 7×, agregados em job `sonarcloud-codecov-quality-gate` (Python copy), `download-artifact@v4` merge pattern `coverage-*`.
+  4. **Secrets necessários 2 NOVOS repo-level**:
+     - `SONAR_TOKEN`: SonarCloud → My Account → Security Tokens (project-level global vale). Organiz. `ontrackchain`, `projectKey=Ontrackchain_ontrackchain`.
+     - `CODECOV_TOKEN`: CodeCov.io → repo Settings → Upload Token (para private repos; OIDC GITHUB_TOKEN pode bastar para públicos).
+  5. **Exclusões CI para evitar falsos negativos**: migrations SQL, docs, node_modules, `__pycache__`, `apps/frontend/public`, dashboards JSON, `ci-artifacts/`, `artifacts/`.
+  6. `sonar-project.properties` e `codecov.yml` na raiz = SSOT para ambos scaners (não depende só de config UI).
+
+### Atualizações Workflow Aplicação itens 15..17 (adendo Sprint 9)
+15. **Todo PR que adiciona lógica de negócio NOVA (rotas, middleware, services)**: esperado no CodeCov patch target = 85% de linhas novas. Se estiver 84% → bloqueia merge automaticamente. Se for exceção justificada (dead code legítimo, linguagem exótica não-scanneada), abrir exception issue `security-mvp-next-milestone`.
+16. **Todo PR que ajusta CI de cobertura**: atualizar `sonar-project.properties` e `codecov.yml` NA MESMA alteração. Settings UI do Sonar/CodeCov NÃO são SSOT.
+17. **Secrets SONAR_TOKEN e CODECOV_TOKEN**: São editar ambiente e portanto **obedcem checklist 4-eyes do R12 (Sprint 8)** — issue CONFIG + `needs-security-review` + 2 devs aprovando antes de salvar em Settings.
+
+## Tabela 16/14 Final (13 GAPs não existentes: 12 originais + 4 Milestones M1..M4 + M8 = maturidade 100% robusta)
+### Sprint × GAP × Fechado
+| # | GAP/Milestone | Nome | Sprint fechado | Status |
+|---|---|---|---|---|
+| 1  | GAP#1 P0 | RLS Cross-Tenant isolamento 0 leak | S1 | ✅ 100% |
+| 2  | GAP#2 P0 | pytest CI 7 serviços paralelo | S1 | ✅ 100% |
+| 3  | GAP#3 P0 | Deploy Staging/Prod Seguro Canário 30min | S2 | ✅ 100% |
+| 4  | GAP#4 P0 | LGPD + QA Gateway SSOT 6 comandos | S1→S4 | ✅ 100% |
+| 5  | GAP#5 P1 | SLA Exploradores Live 24h Dead Man → Issue GitHub P1 | S3 | ✅ 100% |
+| 6  | GAP#6 P1 | E2E Playwright shard=8 + label e2e-required | S5→S6 | ✅ 100% |
+| 7  | GAP#7 P2 | Prometheus 3 alerts + Grafana Dashboard Único QA Overview 8 panels | S4→S6 | ✅ 100% |
+| 8  | GAP#8 P2 | Vault/Secrets ADR-016 | S2 | ✅ 100% |
+| 9  | GAP#9 P2 | Rollback Automático Render API 4 serviços staging/prod | S4 | ✅ 100% |
+| 10 | GAP#10 P2 | ADR-018 Governança R1→R14 + Workflow itens 1..17 | S3→S9 | ✅ 100% |
+| 11 | GAP#11 P3 | Load Test Nightly 20 paralelo POST/api/v1/cases P95 <3000ms | S5 | ✅ 100% |
+| 12 | GAP#12 P3 | SAST Bandit + pip-audit CVE (M1 S7 → bloqueante real) + M7b secrets guard anti-hardcoded | S5→S7→S8 | ✅ 100% |
+| 13 | M1 Milestone | SAST/CVE `continue-on-error: true → false` | S7 | ✅ |
+| 14 | M2 Milestone | Templates 3× Issues + 1× PR Checklist Governança | S7 | ✅ |
+| 15 | M3 Milestone | Grafana provisioning Dashboard QA Overview automático bind mount | S7 | ✅ |
+| 16 | M4 Milestone | Self-hosted runners labels 3 jobs pesados (pytest, e2e shards, nightly 50min) | S7 | ✅ |
+| 17 | M5 Milestone 🔴 BLOQUEADO | Push remoto 4 commits | — | 🔴 Aguardando autorização explícita + método |
+| 18 | M6 Milestone | Branch Protection SSOT settings.yml enforce_admins=true + 13 Required Status Checks + 4 environments | S8 | ✅ |
+| 19 | M7 Milestone | Secrets 4-eyes R12 + Checklist 6 passos editar Render API 10 vars | S8 | ✅ |
+| 20 | M7b Milestone | Anti Hardcoded Tokens rnd_/ghp_/sk_ Regex Grep CI (Sprint 8) | S8 | ✅ |
+| 21 | M8 Milestone | SonarCloud + CodeCov Quality Gate BLOQUEANTE overall 80% / patch 85% + 0 code smells blocker | S9 (NOVO) | ✅ **FECHADO** |
+

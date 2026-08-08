@@ -398,19 +398,132 @@ jobs:
           fi
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
-      - name: "Instalar serviço + dev deps e rodar pytest"
+      - name: "Instalar serviço + dev deps e rodar pytest (Sprint 9 M8 c/ cobertura coverage.xml)"
         if: steps.check.outputs.skip != 'true'
         working-directory: ${{ matrix.root }}
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          python -m pip install --no-cache-dir hatchling
+          python -m pip install --no-cache-dir hatchling coverage pytest-cov
           python -m pip install --no-cache-dir ../../packages/shared || true
           python -m pip install --no-cache-dir ../../packages/agents || true
           python -m pip install --no-cache-dir ../../packages/qa-gateway || true
           python -m pip install --no-cache-dir ".[dev]"
-          python -m pytest tests/ -v --junitxml=pytest-${{ matrix.service }}.xml
-          echo "✅ pytest ${{ matrix.service }} concluído"
+          mkdir -p tmp_coverage tmp_tests/reports
+          python -m pytest tests/ -v \
+            --cov=src \
+            --cov-report=xml:tmp_coverage/coverage.xml \
+            --cov-report=term-missing:skip-covered \
+            --junitxml=tmp_tests/reports/pytest-${{ matrix.service }}.xml
+          echo "✅ pytest + coverage ${{ matrix.service }} concluído"
+      - uses: actions/upload-artifact@v4
+        if: steps.check.outputs.skip != 'true' && always()
+        with:
+          name: coverage-${{ matrix.service }}-${{ github.sha }}
+          path: ${{ matrix.root }}/tmp_coverage/coverage.xml
+          retention-days: 60
+          if-no-files-found: ignore
+
+  # ============================================================================
+  # Sprint 9 M8: SonarCloud + CodeCov Quality Gate BLOQUEANTE (overall 80% / patch 85%)
+  # ============================================================================
+  sonarcloud-codecov-quality-gate:
+    name: "Quality Gate: SonarCloud + CodeCov (80% overall / 85% patch)"
+    needs: [pytest-matrix-services, sast-bandit-python]   # precisa coverage XML + bandit.json do SAST
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    continue-on-error: false
+    permissions:
+      pull-requests: read   # SonarCloud precisa ler PR para comentar
+      checks: write
+      contents: read
+      id-token: write        # CodeCov upload OIDC (recomendado)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0      # SonarCloud precisa de todo histórico para blame
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: "Agregar coverage.xml de 4× serviços pytest (se existirem)"
+        run: |
+          set -euo pipefail
+          mkdir -p tmp_coverage tmp_tests/reports
+          python3 -c "
+          import os, shutil, pathlib
+          DST = pathlib.Path('tmp_coverage')
+          DST.mkdir(exist_ok=True)
+          ROOTS = ['apps/case-management','apps/auth-service','apps/ai-service','apps/investigation-api','packages/qa-gateway','packages/shared','packages/agents']
+          for R in ROOTS:
+              src = pathlib.Path(R)/'tmp_coverage'/'coverage.xml'
+              if src.exists():
+                  dst = DST / f'coverage-{R.replace(\"/\",\"-\")}.xml'
+                  shutil.copy(src, dst)
+                  print(f'copied {src} -> {dst}')
+          junit_dst = pathlib.Path('tmp_tests/reports')
+          for R in ROOTS:
+              sd = pathlib.Path(R)/'tmp_tests'/'reports'
+              if sd.exists():
+                  for j in sd.glob('*.xml'):
+                      d2 = junit_dst / f'{R.replace(\"/\",\"-\")}-{j.name}'
+                      shutil.copy(j, d2); print(f'copied junit {d2}')
+          print('agregacao concluida')
+          "
+
+      - name: "Download coverage artifacts (se matrix subiu separado; fallback local acima)"
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: coverage-*-${{ github.sha }}
+          merge-multiple: true
+          path: tmp_coverage_artifacts/
+
+      - name: "CodeCov upload (3 flags: python-core, frontend, ai-service) — M8"
+        uses: codecov/codecov-action@v5
+        continue-on-error: false
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}   # repo-level; se não setado CodeCov tenta OIDC public repos
+          files: tmp_coverage/coverage-case-management-apps.xml,tmp_coverage/coverage-auth-service-apps.xml,tmp_coverage/coverage-investigation-api-apps.xml,tmp_coverage/coverage-ai-service-apps.xml,tmp_coverage/coverage-qa-gateway-packages.xml,tmp_coverage/coverage-shared-packages.xml,tmp_coverage/coverage-agents-packages.xml
+          flags: python-core
+          fail_ci_if_error: true
+          verbose: true
+
+      - name: "SonarCloud Scan + Quality Gate wait (overall 80%, 0 blocker/critical code smells) — M8"
+        uses: SonarSource/sonarcloud-github-action@master
+        continue-on-error: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # comentários PR
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}     # OBRIGATÓRIO: repo-level SonarCloud (Settings → Secrets)
+        with:
+          args: >
+            -Dsonar.organization=ontrackchain
+            -Dsonar.projectKey=Ontrackchain_ontrackchain
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=600
+            -Dsonar.python.version=3.11
+            -Dsonar.python.coverage.reportPaths=tmp_coverage/*.xml
+            -Dsonar.python.xunit.reportPath=tmp_tests/reports/*.xml
+            -Dsonar.python.bandit.reportPaths=tmp_sast/bandit.json
+            -Dsonar.verbose=true
+
+      - name: "Sonar summary artifact + link"
+        run: |
+          echo "SonarCloud quality gate passou. Ver relatório em: https://sonarcloud.io/dashboard?id=Ontrackchain_ontrackchain" | tee tmp_coverage/sonar_summary.txt
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+             echo "PR #${{ github.event.pull_request.number }}: https://sonarcloud.io/project/issues?id=Ontrackchain_ontrackchain&pullRequest=${{ github.event.pull_request.number }}" >> tmp_coverage/sonar_summary.txt
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sonar-codecov-${{ github.sha }}
+          path: |
+            tmp_coverage/
+            tmp_tests/reports/
+          retention-days: 60
+          if-no-files-found: ignore
 
   # ============================================================================
   # GAP #12 (QA CI) — QA GATE OBRIGATÓRIO: qa-gateway CLI 6 comandos --help
