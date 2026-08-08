@@ -1,0 +1,94 @@
+name: Dependabot auto-merge (Só SECURITY updates HIGH/CRITICAL + CI VERDE 15 checks)
+# =============================================================================
+# Sprint 11 M13 — Dependabot Auto-Merge WORKFLOW (apenas SECURITY updates)
+#
+# AÇÃO BLOQUEADA por policy M10: NÃO TEM continue-on-error=true NEM timeout
+# (Policy 03_deny_missing_timeout_minutes.rego já negaria se sem timeout).
+#
+# Fluxo:
+#   1. PR aberto por dependabot[bot] (head branch: dependabot/)
+#   2. Espera GitHub merge_queue (merge queue) ou status checks todos VERDES
+#   3. APLICA MERGE (squash) SOMENTE SE:
+#       - author == dependabot[bot]
+#       - labels contém "security" OU update-type == security-update (GitHub dep PR)
+#       - 15 required status checks = verde
+#       - approval count >= 0 (enforce admins também; bot não precisa reviewer)
+#       - NENHUM PR com conflito (needs:pull_request_target com permissão pull-requests write)
+# =============================================================================
+
+on:
+  pull_request_target:
+    types: [labeled, opened, synchronize, reopened, ready_for_review]
+  check_suite:
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  repository-projects: read
+
+concurrency:
+  group: "auto-merge-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  dependabot-security-only-merge:
+    name: "Dependabot: auto-merge SECURITY updates APENAS (CI verde obrigatório)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    continue-on-error: false
+    if: |
+      (github.actor == 'dependabot[bot]') &&
+      (github.event_name == 'pull_request_target' || github.event_name == 'check_suite')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Decide: este PR é DEPENDABOT e update de SECURITY?"
+        id: eligibility
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr_num = context.payload.pull_request?.number ?? null;
+            if (!pr_num) { console.log("sem PR, cancelando."); return; }
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner, repo: context.repo.repo, pull_number: pr_num
+            });
+            // Condição 1: autor é dependabot[bot]
+            if ((pr.user?.login ?? '') !== 'dependabot[bot]') {
+              console.log("não é dependabot; skip auto-merge.");
+              return;
+            }
+            // Condição 2: branch name começa com dependabot/ E tem label dependencies OU security
+            const labels = pr.labels.map(l => l.name).join('|');
+            const is_security = labels.includes('security') || (pr.title ?? '').toLowerCase().includes('security');
+            if (!is_security) {
+              console.log("PR dependabot NÃO É security update. Skip auto-merge (PRs minor/major = review manual).");
+              return;
+            }
+            // Condição 3: PR não é draft.
+            if (pr.draft) { console.log("draft; skip."); return; }
+            // Condição 4: esperar todos status checks required.
+            console.log(`PR #${pr_num} (${pr.title}) labels: [${labels}] — elegível security-only merge. Esperando CI verde...`);
+            core.exportVariable("ELIGIBLE_PR", String(pr_num));
+            core.setOutput("pr", String(pr_num));
+            core.setOutput("title", pr.title);
+
+      - name: "Enable auto-merge SQUASH para PR SECURITY dependabot (se status check = green)"
+        if: steps.eligibility.outputs.pr
+        uses: actions/github-script@v7
+        env:
+          PRNUM: ${{ steps.eligibility.outputs.pr }}
+        with:
+          script: |
+            const num = parseInt(process.env.PRNUM,10);
+            // Habilita auto-merge squash merge. Depende de Merge Queue = Enable no repo Settings.
+            try {
+              await github.rest.pulls.enablePullRequestAutoMerge({
+                owner: context.repo.owner, repo: context.repo.repo, pull_number: num,
+                merge_method: "squash"
+              });
+              console.log(`✅ auto-merge SQUASH habilitado PR #${num}. Assim que CI 15 status checks = verde, merge = automático.`);
+            } catch (e) {
+              if ((e.message || '').includes("already")) console.log("auto-merge já habilitado, skip.");
+              else console.error("falha habilitar auto-merge:", e.status, e.message);
+            }

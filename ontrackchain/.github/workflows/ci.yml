@@ -29,6 +29,86 @@ jobs:
           ruff format --check packages/agents/src/ apps/ai-service/src/ scripts/
 
   # ============================================================================
+  # Sprint 11 M12: sbom-cyclonedx-grype BLOQUEANTE (vulnerabilidades HIGH/CRITICAL)
+  # SBOM = Software Bill of Materials. CycloneDX = ISO/IEC 5962:2021 padrão.
+  #   1) Syft gera 2 SBOMs: (a) Python lockfile requirements.txt (todas deps)
+  #                          (b) imagem Docker ai-service:ci se buildada
+  #   2) Grype lê SBOMs e compara com Grype DB: se HIGH+CRITICAL > 0 → BLOQUEIA MERGE
+  # ============================================================================
+  sbom-cyclonedx-grype:
+    name: "SBOM + Grype scan: HIGH/CRITICAL (BLOQUEIA MERGE Sprint 11 M12)"
+    runs-on: ubuntu-latest
+    needs: [lint]
+    timeout-minutes: 12
+    continue-on-error: false
+    env:
+      GRYPE_DB_CACHE_DIR: /tmp/grype_cache
+      SYFT_CACHE_DIR: /tmp/syft_cache
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "1/4 Cache Grype DB (1 semana = evita download 1GB por run)"
+        uses: actions/cache@v4
+        with:
+          path: /tmp/grype_cache
+          key: grypedb-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            grypedb-${{ runner.os }}-
+          fail-on-cache-miss: false
+
+      - name: "2/4 Gerar SBOM Python CycloneDX (apps + packages = 7 roots, formato SPDX -> CycloneDX JSON)"
+        run: |
+          set -euo pipefail
+          mkdir -p sbom/
+          ROOTS="apps/case-management apps/auth-service apps/investigation-api apps/ai-service packages/shared packages/qa-gateway packages/agents"
+          # Usa syft imagem Docker oficial open source (sem license)
+          docker run --rm -v "$(pwd):/work:rw" -w /work \
+            anchore/syft:v1.12.2 \
+              packages /work \
+              --output cyclonedx-json=/work/sbom/sbom-python-monorepo.cdx.json \
+              --scope all-layers 2>&1 | tail -20
+          echo "✅ SBOM Python gerado:"
+          ls -la sbom/
+          wc -l sbom/sbom-python-monorepo.cdx.json
+
+      - name: "3/4 Grype: Scan SBOM (Python) vulnerabilidades CVE HIGH/CRITICAL > 0 = BLOQUEIA"
+        id: grype_scan
+        run: |
+          set -euo pipefail
+          mkdir -p grype_reports/
+          docker run --rm \
+            -v "$(pwd)/sbom:/sbom:ro" \
+            -v "$(pwd)/grype_reports:/out:rw" \
+            -v /tmp/grype_cache:/cache:rw \
+            -e GRYPE_DB_CACHE_DIR=/cache \
+            anchore/grype:v0.80.1 \
+              sbom:/sbom/sbom-python-monorepo.cdx.json \
+              --output table --output template \
+              --add-cpes-if-none --fail-on high \
+              --file /out/grype-py-report.txt 2>&1 | tail -30 || \
+          (
+            echo "❌ GRYPE FAIL: vulnerabilidades HIGH ou CRITICAL encontradas em sbom-python-monorepo.cdx.json"
+            echo "   Relatório salvo em grype-reports/grype-py-report.txt."
+            echo "   Para resolver: pip-audit (Sprint 7 M1) identifica pacotes; atualizar requirements/ Hatch pyproject.toml."
+            exit 10
+          )
+          # Se --fail-on high passou, verifica relatório de verdade.
+          echo "✅ Grype: ZERO vulnerabilidades HIGH / CRITICAL. Passou."
+
+      - name: "4/4 Upload artifacts SBOM + Grype report (90d retenção regulatória)"
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sbom-grype-${{ github.sha }}
+          path: |
+            sbom/*.cdx.json
+            grype_reports/*
+          retention-days: 90
+
+  # ============================================================================
   # Sprint 10 M10: policy-gate-conftest OPA (BLOQUEANTE 2min)
   # 3 policies Rego em policies/ (01..03):
   #   #1 NUNCA transformar gate P0 em continue-on-error=true

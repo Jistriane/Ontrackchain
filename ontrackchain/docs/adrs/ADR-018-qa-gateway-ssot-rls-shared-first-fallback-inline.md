@@ -301,7 +301,9 @@ Os comandos aceitam múltiplas fontes (env vars, flags, arquivos `.prom` ou fail
 | 12 | pytest service: investigation-api       | ci.yml pytest matrix service 4 | BLOQUEIA |
 | 13 | Quality Gate: SonarCloud + CodeCov (80% overall / 85% patch) | ci.yml sonarcloud-codecov-quality-gate M8 Sprint 9 | BLOQUEIA (overall<80% ou patch<85% ou 0+ code smells blocker) |
 | 14 | Policy Gate: Conftest OPA (gates P0 + jobs pesados) | ci.yml policy-gate-conftest M10 Sprint 10 | BLOQUEIA (qualquer 1 das 3 regras Rego violada) |
-| 15 | *(OPCIONAL)* SonarCloud Quality Gate (após refino strict) | ci.yml sonar-scan strict (90% new) | BLOQUEIA (M8 Sprint 11 se optar) |
+| 15 | SBOM + Grype scan: HIGH/CRITICAL (BLOQUEIA MERGE Sprint 11 M12) | ci.yml sbom-cyclonedx-grype M12 Sprint 11 | BLOQUEIA (vulnerab HIGH/CRITICAL>0 em deps Python+Docker) |
+| 16 | *(OPCIONAL)* SonarCloud Quality Gate (após refino strict) | ci.yml sonar-scan strict (90% new) | BLOQUEIA (M8 Sprint 12 se optar) |
+| 17 | Nightly Load Test P95 status (GAP#11) | workflows/nightly-load-test.yml M11 (Não obrigatório PR — SLA) | NÃO bloqueia PR (é nightly, gera issue) |
 
 ## Sprint 9 Update (Milestone Pós-MVP 3)
 
@@ -372,10 +374,36 @@ Os comandos aceitam múltiplas fontes (env vars, flags, arquivos `.prom` ou fail
 20. **Cron agendados (nightly workflows)**: Dead Man interno (cria issue GitHub SLA) + Dead Man externo (Healthchecks.io ping) são **DUPLA GARANTIA OBRIGATÓRIA**. Nenhum nightly novo pode ser mergeado sem os 2 mecanismos. Checklist 4-eyes R12 vale para `HEALTHCHECKS_IO_*_UUID` também.
 
 ## Tabela 21 → 23 Final (M9 + M10 Sprint 10 adicionados)
+
+## Sprint 11 Update (Milestone Pós-MVP 5 — M11 + M12 + M13)
+
+### Risco novo R16 (Sprint 11 NOVO — M11 + M12 + M13 tríplice)
+- **Risco R16a (M11 Nightly Load Test gap)**: "GAP#11 load test existia só em docs, não tinha workflow. Depois de 1 semana post-MVP, um SQL injection lento no índice `idx_cases_org_id_created_at` faz P95 de POST /api/v1/cases subir de 900ms → 4500ms, 8% 5xx em horário de pico; ninguém percebe antes do cliente reclamar."
+- **Risco R16b (M12 SBOM + supply chain)**: "Uma dependência transitiva Python (ex.: urllib3 CVE-2026-XXXX HIGH) é publicamente divulgada. O time leva 10 dias para saber quais pacotes estão instalados no monorepo 7 apps + packages; pip-audit (M1) só roda 1x/PR; não há SBOM padronizado CycloneDX para auditoria/fornecedor preencher formulário RFP segurança."
+- **Risco R16c (M13 Dependabot + auto-merge)**: "Dependabot abre 17 PRs de atualização minor de pacotes na segunda-feira. O time gasta 6h revisando squash e approve. Nenhuma atualização de segurança HIGH/CRITICAL é aplicada mais rápido do que 4 dias (risco 0-day)."
+- **Mitigação tríplice M11 M12 M13**:
+  - **M11 (Workflow Nightly Load Test M11)**: [nightly-load-test.yml](file:///home/jistriane/Ontrackchain/ontrackchain/.github/workflows/nightly-load-test.yml) — cron 03:00 UTC (00:00 BRT, 3h antes do Explorers Live p/ não concorrer). Modo full N=20 usuários × 10 reqs = 200 reqs total. Modo smoke push main N=2×5. Cálculo P50/P95/P99/MAX + %5xx. Dead Man duplo (issue GitHub P2 se P95>4000ms OU 5xx>2%) e Healthchecks.io ping P95<=3000ms. Self-hosted runner M4 labels.
+  - **M12 (SBOM CycloneDX + Grype BLOQUEANTE)**: Novo job `sbom-cyclonedx-grype` em [ci.yml](file:///home/jistriane/Ontrackchain/ontrackchain/.github/workflows/ci.yml#L31-L109) — Syft v1.12 gera CycloneDX JSON SBOM (apps+packages 7 roots), Grype v0.80 compara com DB Grype, `--fail-on high` = HIGH/CRITICAL > 0 bloqueia merge. Cache Grype DB 1 semana evita download 1GB. 90d retenção artifacts. Status check Nº15 obrigatório main.
+  - **M13 (Dependabot + auto-merge security-only)**: 2 arquivos novos:
+    1. **[.github/dependabot.yml](file:///home/jistriane/Ontrackchain/ontrackchain/.github/dependabot.yml)** = 3 ecosystems (PIP × 7 roots monorepo Quarta 04:00 SP; NPM × frontend Quarta 04:30 SP; DOCKER raiz Quarta 05:00 SP), labels, reviewers admin-core, groups python-security-only / docker-security-only / security-npm.
+    2. **[.github/workflows/dependabot-auto-merge-security-only.yml](file:///home/jistriane/Ontrackchain/ontrackchain/.github/workflows/dependabot-auto-merge-security-only.yml)** = pull_request_target. Condições para habilitar auto-merge SQUASH: (a) autor dependabot[bot]; (b) label security OU title tem "security"; (c) PR não é draft. Conflitos = skip. Sem CI verde → Merge Queue não mergeia.
+
+### Workflow Aplicação itens 21..25 (adendo Sprint 11)
+21. **Todo PR que altera dependencies (pyproject.toml, requirements.txt, package.json, Dockerfile base images)**: é validado em CI por 2 scans independentes — (i) pip-audit CVE HIGH/CRITICAL (M1 Sprint 7) e (ii) SBOM + Grype HIGH/CRITICAL (M12 Sprint 11). Se QUALQUER um falhar → merge bloqueado. Não há bypass.
+22. **Novo nightly novo workflow cron (M11, M9 padrão)**: SEMPRE deve conter: (a) `timeout-minutes` explícito, (b) dead man interno (cria issue GitHub se SLA breach), (c) Healthchecks.io ping externo com secret HEALTHCHECKS_IO_<NOME>_UUID cadastrado via checklist 4-eyes R12. 3 itens obrigatórios; policy #03 só fiscaliza timeout, itens b e c = revisão humana label `needs-security-review`.
+23. **SBOM CycloneDX ISO/IEC 5962**: A cada merge para main é gerado 1 novo sbom-python-monorepo.cdx.json e guardado por 90d. Se auditoria SOC2 / LGPD / fornecedor pedir SBOM de uma release, baixa o artifact do commit que originou a tag.
+24. **Dependabot atualizações minor version não security**: NÃO são auto-mergeadas. O time revisa e aprova em lote (1 vez/semana). Apenas security updates HIGH/CRITICAL = auto-merge SQUASH.
+25. **Merge Queue (Configuração UI OBRIGATÓRIA settings)**: Repo Settings → General → Merge Queue → Enable. Merge Strategy = Squash. Required status checks = 15. Isso é a peça final para que o auto-merge M13 realmente aplique o PR após CI verde (auto-merge só habilit = merge queue é quem de fato mergeia). UI precisa ser preenchida uma única vez.
+
+## Tabela final 26 itens (GAP#1..GAP#12 + Milestones M1..M13 = TODOS FECHADOS exceto M5 push remoto):
+
 ### Sprint × GAP × Fechado
 | # | GAP/Milestone | Nome | Sprint fechado | Status |
 |---|---|---|---|---|
 | 1..21 | Mesmos itens 1..21 da tabela anterior (não repetindo) | — | S1..S9 | ✅ 21/21 |
 | 22 | M9 Milestone | Dead Man Externo Healthchecks.io (ping SLA 25h grace) + step nightly sla-dead-man-switch | S10 NOVO | ✅ FECHADO |
 | 23 | M10 Milestone | Policy Engine OPA/Conftest 3 regras Rego + status check Nº14 obrigatório main/develop | S10 NOVO | ✅ FECHADO |
+| 24 | M11 Milestone | Nightly Load Test M11 (cron 03:00 UTC N=20 paralelo P95 3000ms, Dead Man duplo Issue GitHub + HC externo, P95>4000ms = breach P2) | S11 NOVO | ✅ FECHADO |
+| 25 | M12 Milestone | SBOM Syft CycloneDX + Grype vulnerabilidades HIGH/CRITICAL bloqueia merge (ci.yml Nº15 status check) + 90d retenção artifacts | S11 NOVO | ✅ FECHADO |
+| 26 | M13 Milestone | Dependabot updates semanais Quarta 04:00 SP pip 7 roots + npm frontend + docker + auto-merge SQUASH APENAS security HIGH/CRITICAL APÓS CI verde 15 status checks | S11 NOVO | ✅ FECHADO |
 

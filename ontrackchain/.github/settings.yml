@@ -122,13 +122,14 @@ branches:
           apps: ["dependabot[bot]", "settings[bot]"]
 
       required_status_checks:
-        # M6 + M8 + M10 OBRIGATÓRIO: 14 status checks = 12 jobs ci.yml + QA Gate + 4 pytest + M8 Quality Gate + M10 Policy Conftest
-        # Se QUALQUER um destes 14 for FALSO → merge NÃO É PERMITIDO.
+        # M6 + M8 + M10 + M12 OBRIGATÓRIO: 15 status checks = 13 jobs ci.yml (lint, secrets-guard, sbom-grype, conftest-policy, typecheck, gate-p0-00/01, qagate, bandit, pip-audit, 4× pytest services, sonar-codecov-qg)
+        # Se QUALQUER um destes 15 for FALSO → merge NÃO É PERMITIDO.
         strict: true   # Requer branch atualizada com main (não aceita atrasada)
         contexts:
-          # ci.yml jobs (12):
+          # ci.yml jobs (13):
           - "lint"
           - "Guard: Anti Hardcoded Secrets (Tokens Render/Stripe/GitHub PAT)"
+          - "SBOM + Grype scan: HIGH/CRITICAL (BLOQUEIA MERGE Sprint 11 M12)"
           - "Policy Gate: Conftest OPA (gates P0 + jobs pesados)"
           - "typecheck"
           - "gate-p0-00-rls-cross-tenant"
@@ -172,6 +173,7 @@ branches:
         contexts:
           - "lint"
           - "Guard: Anti Hardcoded Secrets (Tokens Render/Stripe/GitHub PAT)"
+          - "SBOM + Grype scan: HIGH/CRITICAL (BLOQUEIA MERGE Sprint 11 M12)"
           - "Policy Gate: Conftest OPA (gates P0 + jobs pesados)"
           - "QA Gate: qa-gateway 6 comandos --help (bloqueia merge)"
           - "Quality Gate: SonarCloud + CodeCov (80% overall / 85% patch)"

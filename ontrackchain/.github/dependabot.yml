@@ -1,0 +1,89 @@
+# =============================================================================
+# Sprint 11 Milestone Pós-MVP 5 M13 Dependabot auto-merge SEMANAL
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# 3 ecosystems = 3 update strategies:
+#   (A) pip (Python packages/ apps/* requirements) — weekly Wednesday 04:00 UTC
+#   (B) npm (apps/frontend) — weekly Wednesday 04:00 UTC (separado pip, não conflita)
+#   (C) docker (Dockerfiles base images python:3.11-slim, node:20-alpine, etc) — weekly Wednesday
+#
+# Segurança: PRs dependabot security (severity HIGH/CRITICAL) são aprovados
+# automaticamente pelo GitHub Merge Queue APENAS se CI 15 status checks = VERDE.
+# PRs de feature/version minor/major = sem auto.
+# =============================================================================
+
+version: 2
+updates:
+  # (1) PIP Python — 7 roots apps/* packages/* (monorepo)
+  - package-ecosystem: "pip"
+    directory: "/apps/case-management"
+    schedule: { interval: "weekly", day: "wednesday", time: "04:00", timezone: "America/Sao_Paulo" }
+    open-pull-requests-limit: 6
+    commit-message: { prefix: "chore(deps): pip case-management", prefix-development: "chore(deps-dev):" }
+    reviewers: ["admin-core"]
+    assignees: ["admin-core"]
+    labels: ["dependencies", "dependencies:pip"]
+    groups:
+      python-security-only:
+        update-types: ["security"]
+        applies-to: "security-updates"
+  - package-ecosystem: "pip"
+    directory: "/apps/auth-service"
+    schedule: { interval: "weekly", day: "wednesday", time: "04:00", timezone: "America/Sao_Paulo" }
+    open-pull-requests-limit: 6
+    labels: ["dependencies", "dependencies:pip"]
+  - package-ecosystem: "pip"
+    directory: "/apps/investigation-api"
+    schedule: { interval: "weekly", day: "wednesday", time: "04:00", timezone: "America/Sao_Paulo" }
+    open-pull-requests-limit: 6
+    labels: ["dependencies", "dependencies:pip"]
+  - package-ecosystem: "pip"
+    directory: "/apps/ai-service"
+    schedule: { interval: "weekly", day: "wednesday", time: "04:00", timezone: "America/Sao_Paulo" }
+    open-pull-requests-limit: 6
+    labels: ["dependencies", "dependencies:pip"]
+  - package-ecosystem: "pip"
+    directory: "/packages/shared"
+    schedule: { interval: "weekly", day: "wednesday", time: "04:00", timezone: "America/Sao_Paulo" }
+    open-pull-requests-limit: 6
+    labels: ["dependencies", "dependencies:pip"]
+  - package-ecosystem: "pip"
+    directory: "/packages/qa-gateway"
+    schedule: { interval: "weekly", day: "wednesday", time: "04:00", timezone: "America/Sao_Paulo" }
+    open-pull-requests-limit: 6
+    labels: ["dependencies", "dependencies:pip"]
+  - package-ecosystem: "pip"
+    directory: "/packages/agents"
+    schedule: { interval: "weekly", day: "wednesday", time: "04:00", timezone: "America/Sao_Paulo" }
+    open-pull-requests-limit: 6
+    labels: ["dependencies", "dependencies:pip"]
+
+  # (2) NPM Frontend — apps/frontend/package.json (React/Next.js)
+  - package-ecosystem: "npm"
+    directory: "/apps/frontend"
+    schedule: { interval: "weekly", day: "wednesday", time: "04:30", timezone: "America/Sao_Paulo" }
+    open-pull-requests-limit: 10
+    versioning-strategy: "increase"
+    commit-message: { prefix: "chore(deps): npm frontend", prefix-development: "chore(deps-dev):" }
+    reviewers: ["admin-core"]
+    labels: ["dependencies", "dependencies:npm"]
+    groups:
+      react-minor:
+        patterns: ["react*", "next", "@types/react*"]
+        update-types: ["minor", "patch"]
+      security-npm:
+        update-types: ["security"]
+        applies-to: "security-updates"
+
+  # (3) DOCKER — imagens base python:3.11 node:20 pgvector:pg16 redis:7-alpine
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule: { interval: "weekly", day: "wednesday", time: "05:00", timezone: "America/Sao_Paulo" }
+    open-pull-requests-limit: 6
+    commit-message: { prefix: "chore(deps): docker" }
+    reviewers: ["admin-core"]
+    labels: ["dependencies", "dependencies:docker"]
+    groups:
+      docker-security-only:
+        update-types: ["security"]
+        applies-to: "security-updates"
