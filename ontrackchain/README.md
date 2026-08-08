@@ -44,17 +44,17 @@ Nota de workspace:
 - `P2-02` consolidou `timeline/comments` compartilhados nos cockpits operacionais
 - `P2-03` consolidou RCA cross-domain leve entre `alerts`, `/monitoring` e governança
 - `P2-05` concluido com enforcement fino em `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties`, `monitoring` e navegacao global
-- `v4.0.7`: AI Service opera `themis` e `law-enforcement-export` via jobs assíncronos (`202 Accepted`) processados pelo serviço `ai-worker` (PostgreSQL `FOR UPDATE SKIP LOCKED` + RLS via `AI_WORKER_ORG_ID`)
+- `v3.0.0` (Helm Chart S14 M8): Plataforma empacotada para Kubernetes com single chart `ontrackchain-platform` v1.0.0 (9 FastAPI, PG16 pgvector StatefulSet, Prometheus/Grafana/Alertmanager, Keycloak v25, Traefik Ingress, HPA/PDB/NetworkPolicy PSP)
+- `AI Service v4.1.0`: opera `themis`, `law-enforcement-export` e 6 endpoints XAI/Graph via jobs assíncronos (`202 Accepted`) processados com PostgreSQL `FOR UPDATE SKIP LOCKED` + RLS via `AI_WORKER_ORG_ID`
+- `Roles OTK_*` (Federação): mapeamento canônico `OTK_ADMIN→ADMIN`, `OTK_ANALYST→ANALYST`, `OTK_COMPLIANCE_OFFICER→COMPLIANCE_OFFICER`, `OTK_AUDITOR→AUDITOR`, `OTK_VIEWER→VIEWER` em `ontrackchain_shared` + `authz.ts` frontend
 - a taxonomia documental ja foi saneada para separar documento vivo, ciclo ativo, historico de apoio e historico arquivado
 
-### Gargalos tecnicos atuais
+### Riscos P0 Remanescentes Reais (Sprint 14)
 
-- `P0-01`: homologar `OIDC + MFA` federado em trilho serio
-- `P0-02`: fechar provider `AML/KYT live` com credencial real
-- `P0-03`: fechar feed UE com URL tokenizada real
-- `P0-04`: consolidar bundle regulatório oficial com evidências revisáveis
-- `P0-05`: executar a primeira janela seria completa com `go/no-go` formal
-- `P0-06`: formalizar recorrencia de retention/recovery com sign-off institucional
+- `M5 Push Remoto`: sincronizar 10 commits locais da branch `main` com GitHub origin/main (🔴 BLOQUEADO até autorização explícita + método definido: PAT SSO, SSH deploy key ou Render GitHub App)
+- `Integrações Externas Reais`: homologar `AML/KYT live` (credencial TRM Labs), `feed UE` (URL tokenizada OFAC/EU), `OIDC MFA` com IdP produtivo real
+- `Janela Séria Completa`: executar primeira janela séria 100% homologada com `go/no-go` formal, sign-offs 4-eyes e evidências não-mock
+- `Sign-off Institucional Retenção`: formalizar recorrência de Disaster Recovery (DR) e retention policy com sign-off jurídico/segurança compliance (LGPD Art.19)
 
 ## Fluxo Tecnico da Plataforma
 
@@ -62,47 +62,86 @@ O diagrama abaixo resume como os componentes cooperam em runtime.
 
 ```mermaid
 flowchart LR
-    U[Operador] --> T[Traefik]
-    T --> A[auth-service]
-    T --> F[frontend Next.js]
-    F --> I[investigation-api]
-    F --> C[compliance-api]
-    F --> M[monitoring-api]
-    F --> R[report-api]
-    F --> AI[ai-service]
-    F --> CM[case-management]
-    I --> P[(PostgreSQL RLS)]
-    C --> P
-    M --> P
-    R --> P
-    AI --> P
-    CM --> P
-    I --> X[(Redis)]
-    C --> X
-    M --> X
-    R --> X
-    C --> CW[workers e readiness]
-    M --> GW[governanca e RCA]
-    R --> GW
-    AI --> GE[Graph Intelligence 4.0]
-    CM --> AI
+    U[Operador + Sys Externos] --> TF[Traefik IngressClass]
+    subgraph K8s_NS[ontrackchain Namespace — NetPol default-deny LGPD]
+      direction TB
+      TF --> A[auth-service v3.0.0 8001]
+      TF --> MO[mock-oidc v1.5.0 8009]
+      TF --> F[frontend Next.js 14]
+      TF --> PA[public-api v2.0.0 8008]
+      F --> I[investigation-api v2.0.0 8003]
+      F --> C[compliance-api v2.0.0 8002]
+      F --> M[monitoring-api v2.0.0 8004]
+      F --> R[report-api v2.0.0 8007]
+      F --> AI[ai-service v4.1.0 8005]
+      F --> CM[case-management v2.0.0 8006]
+      I --> X[(Redis)]
+      C --> X
+      M --> X
+      R --> X
+      C --> CW[compliance-worker]
+      subgraph StatefulSets[StatefulSets PVC LGPD restricted]
+        direction TB
+        P[(PG16 pgvector 10Gi)]
+        PR[(Prometheus v2.53 20Gi scrape annotations ServiceMonitor)]
+      end
+      G[Grafana 11.2 Dashboard Único]
+      AM[Alertmanager v0.27 webhook routes]
+      KC[Keycloak v25 realm import]
+      I --> P
+      C --> P
+      M --> P
+      R --> P
+      AI --> P
+      CM --> P
+      PA --> P
+      A --> P
+      AM -->|webhook| M
+      PR -->|/metrics| A
+      PR -->|/metrics| PA
+      PR -->|/metrics| I
+      PR -->|/metrics| C
+      PR -->|/metrics| M
+      PR -->|/metrics| R
+      PR -->|/metrics| AI
+      PR -->|/metrics| CM
+      PR -->|/metrics| MO
+      G --> PR
+      G --> AM
+      CM --> AI
+      M --> GW[governanca e RCA]
+      R --> GW
+      AI --> GE[Graph Intelligence 4.0]
+      TF --> KC
+      A -->|OIDC token verify| KC
+    end
+    classDef svc fill:#dbeafe,stroke:#2563eb,color:#111827;
+    classDef infra fill:#dcfce7,stroke:#16a34a,color:#111827;
+    classDef stateful fill:#fef3c7,stroke:#d97706,color:#111827;
+    class A,MO,PA,I,C,M,R,AI,CM,F svc;
+    class TF,X,CW,GW,GE,KC infra;
+    class P,PR,AM stateful;
 ```
 
 ## Servicos e Dominios
 
-| Componente | Papel principal |
-| --- | --- |
-| `auth-service` | autenticação `dev` e `oidc`, `2FA`, RBAC e contexto de sessao |
-| `public-api` | superficie publica e catalogos expostos pelo gateway |
-| `investigation-api` | `estimate`, `start`, `status`, billing, ledger e superficies financeiras administrativas |
-| `investigation-worker` | fila, retry/backoff e processamento assincrono |
-| `compliance-api` | sanctions, counterparties, blocks, work-items e controles regulatórios |
-| `compliance-worker` | sync de listas, readiness regulatório e checks de provider |
-| `monitoring-api` | webhooks do `Alertmanager`, triagem, RCA leve e export operacional |
-| `report-api` | relatórios deterministas, download sensivel e fluxo `ROS/COAF` |
-| `ai-service` | IA Explicativa para decisoes de compliance e Graph Intelligence 4.0 |
-| `case-management` | gerenciamento avancado de casos de investigacao com integração IA |
-| `frontend` | cockpits operacionais, audit, monitoring, billing, evidence, reports, AI e callbacks `OIDC` |
+| Componente | Versão | Papel principal | Porta |
+| --- | ---: | --- | ---: |
+| `auth-service` | v3.0.0 | autenticação `dev` e `oidc`, `2FA`, RBAC canônico OTK_*, roles federadas e contexto de sessão | 8001 |
+| `mock-oidc` | v1.5.0 | mock IdP OIDC leve para dev/staging sem Keycloak real, claims org opcionais | 8009 |
+| `public-api` | v2.0.0 | superficie pública B2B, rate limiting por chave `otc_live_*`, catalogos expostos pelo gateway | 8008 |
+| `investigation-api` | v2.0.0 | `estimate`, `start`, `status`, billing, ledger e superficies financeiras administrativas | 8003 |
+| `compliance-api` | v2.0.0 | sanctions, counterparties, blocks, work-items, B2B screen e controles regulatórios | 8002 |
+| `monitoring-api` | v2.0.0 | webhooks do `Alertmanager`, triagem, RCA leve, observabilidade endpoints e export operacional | 8004 |
+| `report-api` | v2.0.0 | relatórios deterministas, download sensivel e fluxo `ROS/COAF` | 8007 |
+| `ai-service` | v4.1.0 | IA Explicativa (XAI), Risk Model, Graph Intelligence 4.0, THEMIS, Law Enforcement Export, jobs assíncronos | 8005 |
+| `case-management` | v2.0.0 | gerenciamento avancado de casos, scoring IA, timeline auditável, CRUD RBAC estrito | 8006 |
+| `frontend` | Next.js 14 | cockpits operacionais, audit, monitoring, billing, evidence, reports, AI e callbacks `OIDC` | 3000/8080 |
+| `PostgreSQL` | 16 pgvector | RLS multi-tenant, trilha regulatoria, vetores IA pgvector, StatefulSet PVC 10Gi LGPD | 5432 |
+| `Prometheus` | v2.53 | scraping /metrics 9 FastAPI, ServiceMonitor kube-prometheus-stack, StatefulSet PVC 20Gi | 9090 |
+| `Grafana` | 11.2 | Dashboard Único QA: RLS, E2E, pytest, Load P95, SLA por serviço | 3000 |
+| `Alertmanager` | v0.27 | webhook receiver routes → monitoring-api, P0/P1/P2 severidade | 9093 |
+| `Keycloak` | v25 | IdP OIDC realm import, auth-service federado | 8080 |
 
 ## Frontend Operacional
 
@@ -299,18 +338,34 @@ flowchart TD
 ```text
 ontrackchain/
 ├── apps/
-│   ├── auth-service/
-│   ├── public-api/
-│   ├── investigation-api/
-│   ├── compliance-api/
-│   ├── monitoring-api/
-│   ├── report-api/
-│   └── frontend/
-├── docs/
-├── infra/
+│   ├── auth-service/          (v3.0.0, porta 8001)
+│   ├── mock-oidc/             (v1.5.0, porta 8009)
+│   ├── public-api/            (v2.0.0, porta 8008)
+│   ├── investigation-api/     (v2.0.0, porta 8003)
+│   ├── compliance-api/        (v2.0.0, porta 8002)
+│   ├── monitoring-api/        (v2.0.0, porta 8004)
+│   ├── report-api/            (v2.0.0, porta 8007)
+│   ├── ai-service/            (v4.1.0, porta 8005)
+│   ├── case-management/       (v2.0.0, porta 8006)
+│   └── frontend/              (Next.js 14 App Router)
 ├── packages/
-├── scripts/
-├── tests/
+│   ├── shared/                (middleware_rls.py RLS cross-tenant, canonização OTK_*)
+│   ├── qa-gateway/            (CLI scan-rbac, scan-sla, scan-rls, gate-p0-00/01/04)
+│   └── agents/                (Agent Framework, RAG pgvector)
+├── policies/                  (OPA/Conftest 4 regras Rego: P0 continue-on-error / heavy self-hosted / timeout / endpoints obs)
+├── infra/
+│   ├── postgres/              (init.sql + migrations 0001-0021)
+│   ├── keycloak/              (realm-ontrackchain.json v25)
+│   └── k8s/charts/
+│       └── ontrackchain-platform/  (Helm v1.0.0 — 9 deployments, PG/Prom StatefulSets, HPA/PDB/NetPol/PSP)
+├── docs/                      (docs vivos canônicos indexados por docs/README.md)
+├── scripts/                   (smoke_runtime, preflight, staging_window, dr_backup_restore)
+├── tests/                     (Pytest 46 testes: 24 case-management + 22 ai-service)
+├── .github/
+│   ├── workflows/             (10 YAMLs: ci.yml 16 jobs + 6 nightly + 2 aux)
+│   └── settings.yml           (Branch Protection: main=16 checks, develop=10, enforce_admins=true BOTH)
+├── policies/                  (OPA Rego 01-04)
+├── .env-secrets.template      (SSOT 10 placeholders REPLACE_WITH_, UI one-shot 4-eyes)
 ├── docker-compose.yml
 ├── Makefile
 └── .env.example

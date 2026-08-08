@@ -10,13 +10,19 @@ Centralizar a documentação viva do Ontrackchain em um unico indice, reduzindo 
 - Readiness canônico: [project-executive-readiness-brief.md](./project-executive-readiness-brief.md)
 - Apêndice técnico: [TECHNICAL_APPENDIX.md](./TECHNICAL_APPENDIX.md)
 
-## Snapshot Atual
+## Snapshot Atual (Sprint 14 M8 Helm)
 
 - baseline executivo oficial: `100%` técnico, `100%` regulatório/operacional, `100%` consolidado (fonte: [Resumo Executivo de Readiness](./project-executive-readiness-brief.md))
-- gap principal deixou de ser ausência de código; hoje é homologação externa, prova operacional revisável e aceite institucional
+- 12 GAPs do documento Arquitetura Técnica QA/DevOps = **12 × 100%** (Sprint 6)
+- Milestones Pós-MVP: **M1→M4, M6→M16b, M8/M8b = 100% fechados**; M5 Push Remoto 🔴 intencionalmente bloqueado
+- **Helm Chart v1.0.0 ontrackchain-platform**: single chart 9 FastAPI (DRY range) + PG16 pgvector StatefulSet + Prometheus/Grafana/Alertmanager observabilidade stack + Keycloak v25 + Traefik Ingress + HPA/PDB/NetworkPolicy PSP LGPD
+- **DR M16 PG16**: Backup Restore semanal sáb 02UTC, 1% amostragem LGPD, validação row count, S3 sa-east-1 AES256 opcional, Dead Man duplo (Issue P1 + Healthchecks.io)
+- **M16b Gate Observabilidade**: 9/9 FastAPI com `/healthz` + `/metrics`; enforcement tríplice (job CI + Policy #04 OPA + endpoints implementados)
+- **Policies OPA M10 (4 regras Rego)**: (01) P0 continue-on-error=true deny; (02) jobs pesados ubuntu-latest deny → self-hosted; (03) timeout-minutes obrigatório 100% jobs; (04) FastAPI sem /healthz+/metrics deny
 - RBAC fino consolidado (`P2-05` concluído) e RCA cross-domain leve institucionalizado (`P2-03`)
+- Federação OTK_*: mapeamento canônico em `ontrackchain_shared` (Python) + `authz.ts` (Next.js): OTK_ADMIN→ADMIN, OTK_ANALYST→ANALYST, OTK_COMPLIANCE_OFFICER→COMPLIANCE_OFFICER, OTK_AUDITOR→AUDITOR, OTK_VIEWER→VIEWER
 - AI Service e Case Management consolidados com persistência PostgreSQL, RBAC e trilha regulatória (`evidence_trail`)
-- release `v4.0.7` adiciona jobs assíncronos com worker dedicado (reduz acoplamento, melhora resiliência e rastreabilidade)
+- gap principal deixou de ser ausência de código; hoje é **M5 Push Remoto** (10 commits locais ahead origin/main) + homologação externa real + prova operacional revisável e aceite institucional
 
 ## Precedencia Documental
 
@@ -62,16 +68,20 @@ Regras objetivas:
 
 - [operação Local](./operations.md): bootstrap local, troubleshooting e comandos do dia a dia
 - [Deploy e Staging](./deploy-and-staging.md): fonte canônica do fluxo tecnico `prepare -> validate -> preflight -> run`
-- [Blueprint Render - Frontend Standalone Showcase](./render-frontend-only-demo.md): blueprint padrao para publicar apenas o frontend no Render sem segredos e sem backend real
 - [Blueprint Render para Staging Full-Stack](./render-staging-blueprint.md): fonte canônica da topologia hospedada em `render.full-stack.yaml` e do preenchimento manual `sync: false` no Render
+- [**Helm Chart Kubernetes (Sprint 14 M8)**](../infra/k8s/charts/ontrackchain-platform/): Single Chart `ontrackchain-platform` v1.0.0 — 9 FastAPI DRY range, PG16 pgvector StatefulSet, Prometheus/Grafana/Alertmanager, Keycloak v25, Traefik Ingress, HPA/PDB/NetworkPolicy PSP LGPD. Ver `Chart.yaml`, `values.yaml`, `templates/00-*.yaml`.
+- [**Disaster Recovery PG16 (Sprint 13 M16)**](../.github/workflows/nightly-dr-backup-restore.yml): CRON sáb 02:00UTC, self-hosted, same-run restore 5433, 1% LGPD, validação 5 tabelas core, Dead Man duplo Issue/Healthchecks.io.
 - [GitHub Environment para Staging Serio](./github-environment-staging-serious.md): fonte canônica do workflow manual, approvals e secret multi-linha da janela seria
 - [Template Keycloak OIDC](./keycloak-oidc-template.md): referencia de configuração inicial do IdP, util para alinhamento com `environment-variables.md`
-- [Variaveis de Ambiente](./environment-variables.md): baseline por servico e overrides
+- [Variaveis de Ambiente](./environment-variables.md): baseline por servico + **padrão `REPLACE_WITH_` (.env-secrets.template SSOT)** + Helm existingSecret
+- [Secrets Template One-Shot (4-eyes)](../.env-secrets.template): 10 placeholders `REPLACE_WITH_*` para UI one-shot provisionamento segredo por 2 SREs
 - [Runbooks Operacionais](./runbooks.md): resposta inicial por sintoma e severidade, incluindo triagem de `hostedShowcaseFallback` em staging hospedado
-- [CI/CD e Release](./ci-cd-and-release.md): workflows, quality gates e promocao
+- [CI/CD e Release](./ci-cd-and-release.md): **16 status checks ci.yml + 4 Policies OPA Rego + 6 nightly (DR, Explorers Live, Load Test, E2E PR shard=8, Dependabot Security Auto-Merge)**
 - [Run Sheet da Malha E2E Local](./governance-weekly/guides/E2E_LOCAL_MESH_RUN_SHEET.md): preflight, guardrails e triagem objetiva da baseline Playwright local
 - [Playbook de Incidente Cross-Domain e RCA](./cross-domain-incident-rca-playbook.md): escalacao leve, ownership e fechamento de causa raiz sem abrir um servico novo
 - [Pre-Production Checklist](./pre-production-checklist.md): validações obrigatorias antes de promover
+- [Branch Protection SSOT (16 main / 10 develop)](../.github/settings.yml): `enforce_admins=true` AMBOS, 15 status checks para main incluindo SBOM Grype M12, Policy OPA M10, Observabilidade Gate M16b
+- [OPA Rego 4 Policies (M10 + M16b)](../policies/): 01_deny_continue_on_error, 02_deny_ubuntu_latest_heavy, 03_deny_missing_timeout_minutes, **04_deny_missing_observability_endpoints_fastapi** (M16b NOVO)
 
 ### Validação, Compliance e Auditoria
 
@@ -158,10 +168,11 @@ Regras objetivas:
 - documentos redundantes, snapshots soltos ou analises supersedidas devem ser removidos
 - documentos datados mantidos fora de `governance-weekly/` devem carregar aviso explicito de que nao sao fonte primaria
 
-## Consolidacoes Relevantes
+## Consolidacoes Relevantes (Sprint 1 → Sprint 14)
 
 Esta base ja foi racionalizada para reduzir drift. Referencias principais:
 
+**Sprint 1-5 (Antigas, preservadas como histórico):**
 - `api-contracts.md` passou a ser a fonte canônica dos contratos HTTP da trilha de selagem DD/SoF
 - `docs/evidence-manual-package-strong-sealing-backlog.md` foi consolidado e removido
 - `docs/frontend-hardening-executive-summary.md` foi absorvido pelo conjunto `frontend-coverage-matrix.md` + `frontend-static-regression-*` e removido
@@ -172,6 +183,18 @@ Esta base ja foi racionalizada para reduzir drift. Referencias principais:
 - o pos-processamento da janela seria agora gera `sign-off`, sincronizacao semanal, board operacional e `go/no-go decision packet` a partir do mesmo payload consolidado
 - o documento `render-staging-blueprint.md` voltou a refletir a topologia `full-stack` do Render, incluindo `Traefik`, `Keycloak`, `auth-service`, `Postgres`, `Key Value`, workers e observabilidade
 - a auditoria de `.publish_repo/` foi concluida com aposentadoria definitiva do espelho em `2026-07-15`, apos confirmacao explicita para descontinuar qualquer uso externo/manual remanescente
+
+**Sprint 6-14 (Novas, consolidações MVP + Pós-MVP):**
+- **GAPs 100% média (Sprint 6)**: 12 GAPs do documento Arquitetura Técnica QA/DevOps 100% (antes 99,3%). Label `e2e-required` gate E2E shard=8 apenas em PRs frontend/case. Grafana Dashboard Único QA 9 paineis consolidados.
+- **Branch Protection M6 (Sprint 8)**: `.github/settings.yml` Probot SSOT — main=16 checks, develop=10 checks, `enforce_admins=true` BOTH ninguém bypassa (incluindo CODEOWNERS/admins).
+- **SonarCloud + CodeCov M8 (Sprint 9)**: 2 gates P0 obrigatórios, 80% overall / 85% patch cobertura mínima, Sonar analysis on main + PRs.
+- **Policies OPA M10 (Sprint 10)**: 4 regras Rego `policies/01_04.rego` — nega continue-on-error P0 / nega ubuntu-latest em jobs pesados (pytest matrix ×7, playwright shard=8, run-explorers-live) / timeout obrigatório 100% jobs / nega FastAPI sem /healthz+/metrics. Job `policy-gate-conftest` usa `openpolicyagent/conftest:v0.52.0`.
+- **SBOM Grype M12 (Sprint 11)**: CycloneDX ISO/IEC 5962 sbom-python-monorepo.cdx.json gerado a cada merge main, retenção 90 dias compliance LGPD/SOC2. Grype `--fail-on high` bloqueia merge — HIGH/CRITICAL bypass proibido, nenhum admin pode sobrescrever.
+- **Dependabot Security Auto-Merge M13 (Sprint 11)**: Cron quartas 04:00UTC, apenas `security-only`, SQUASH via Merge Queue, 15 gates → Canary 30min → Prod 4-eyes. SLA 0-day CVE <2h.
+- **Validação Regressão + Diagramas M14/M15 (Sprint 12)**: AST Parse 212 arquivos Python 0 SyntaxErrors, YAML safe_load 18 arquivos, 3 Policies simulação 0 violações, Branch Protection SSOT, Tokens guard 11 prefixos 0 reais detectados. Diagramas C4 L2 D1/D2/D3 no ADR-018.
+- **DR PG16 M16 + Observabilidade M16b + Secrets M16b (Sprint 13)**: Workflow `nightly-dr-backup-restore.yml` sáb 02UTC; 10 Secrets `.env-secrets.template` UI one-shot 4-eyes; Gate Observabilidade tríplice (job CI + Policy #04 OPA + 9 endpoints /healthz /metrics).
+- **Helm Chart M8/M8b (Sprint 14)**: Single Chart `ontrackchain-platform` v1.0.0. 9 Deployments FastAPI DRY range (`{{ range $svcName, $svc := .Values.services }}`), PG16 pgvector + Prometheus StatefulSets PVC LGPD label, 9 HPA autoscaling/v2, 13 PDB policy/v1, 4 NetworkPolicy default-deny LGPD + block IMDS 169.254.169.254, PSP PodSecurity runAsNonRoot/drop ALL caps/seccomp RuntimeDefault/readOnlyRootFilesystem, Traefik IngressClass + Ingress multi-host tls cert-manager, Keycloak v25 realm import ConfigMap.
+- **Federação Roles OTK_* (Sprints anteriores)**: Pacote `ontrackchain_shared` função `canonicalize_role()` SSOT + `authz.ts` frontend — 5 aliases federados (ADMIN/ANALYST/COMPLIANCE_OFFICER/AUDITOR/VIEWER prefixados OTK_).
 
 ## O Que Esta Documentado Agora
 

@@ -1,18 +1,27 @@
-# Variaveis de Ambiente
+# Variaveis de Ambiente (Atualizado Sprint 14)
 
 ## Objetivo
 
-Documentar as variaveis de ambiente relevantes do scaffold atual e como elas se distribuem por servico.
+Documentar as variaveis de ambiente relevantes e como elas se distribuem por servico.
 
-Fonte principal:
+**Padrão Oficial Sprint 14 (SSOT):**
+
+- **CI/CD Secrets One-Shot (UI GitHub 4-eyes R12)**: [`.env-secrets.template`](../.env-secrets.template) é a **Fonte Única da Verdade** para todos os segredos de CI. 11 placeholders `REPLACE_WITH_*` — **NUNCA grave valores reais em arquivos .md/.yml/.env comitados**. Cadastre-os NA UI DO GITHUB Settings → Secrets and Variables → Actions (repository-level OU Environments staging/production). Padrão herdado e obrigatório em Sprint 13+.
+- **Helm Chart ExistingSecret (Produção)**: `infra/k8s/charts/ontrackchain-platform/templates/00-namespace-sa-secrets.yaml` cria um Secret inline por conveniência de staging/dev (12 placeholders `REPLACE_WITH_`). Em **produção** — desative inline secrets e use `global.existingSecret.name: existing-secret-vault` para integrar com ExternalSecret + HashiCorp Vault (ADR Secrets).
+- **Padrão Legado `__FILL_*__` Sprint ≤5**: Ainda presente em `.env.staging.example` para manter compatibilidade de scripts `preflight_*` e `staging_window_*`. Considere `__FILL_*__` = **depreciado em favor de `.env-secrets.template` REPLACE_WITH_** sempre que houver overlap.
+
+Fontes primárias de referência:
 
 - [`.env.example`](../.env.example)
 - [`.env.staging.example`](../.env.staging.example)
+- [`.env-secrets.template`](../.env-secrets.template) ← **NOVO Sprint 13 — SSOT 10-11 segredos CI UI one-shot 4-eyes**
+- [00-namespace-sa-secrets.yaml (Helm ExistingSecret)](../infra/k8s/charts/ontrackchain-platform/templates/00-namespace-sa-secrets.yaml) ← **NOVO Sprint 14 — segredos K8s**
 - [Ownership do `.env.staging`](staging-env-ownership.md)
 - [`docker-compose.yml`](../docker-compose.yml)
+- [`values.yaml` (Helm values global.secrets)](../infra/k8s/charts/ontrackchain-platform/values.yaml)
 - classes `Settings` dos servicos
 
-Template serio para homologacao:
+Template serio para homologacao (Sprint ≤5 LEGADO, preservado p/ compatibilidade):
 
 - use [`.env.staging.example`](../.env.staging.example) como baseline de `staging` para OIDC, AML/KYT e RPC
 - o arquivo assume `APP_ENV=staging`, `AUTH_MODE=oidc`, `DEV_AUTH_ENABLED=false`, `COMPLIANCE_TRM_ENABLED=true` e `INVESTIGATION_RPC_ENABLED=true`
@@ -24,6 +33,44 @@ Template serio para homologacao:
 - execute `python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md` antes da janela para validar que todos os grupos obrigatorios sairam de `pending`
 - persista os JSONs desses checkers em `artifacts/staging/checks/` para que possam ser consolidados depois por `python3 scripts/build_staging_release_dossier.py`
 - para executar a janela ponta a ponta e persistir checks, preflights, homologacao e dossier em uma unica chamada, prefira `python3 scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private`
+
+## CI Secrets Oficiais Sprint 14 (`.env-secrets.template` SSOT 4-eyes)
+
+Local: `.env-secrets.template` (nunca comite valores reais, bloqueado por `.gitignore` exceto template e por `secrets-guard-skeleton` job regex 11 prefixos).
+
+| ID | Secret Name GitHub | Nível | Placeholder Padrão no Template | Uso |
+|---|---|---|---|---|
+| S08 M8 | `SONAR_TOKEN` | REPO | `REPLACE_WITH_SONARSCAN_TOKEN_ORG_ontrackchain_*` | SonarCloud Scan M8 — quality gate bugs/code-smells/hotspots |
+| S09 M8 | `CODECOV_TOKEN` | REPO | `REPLACE_WITH_CODECOV_UPLOAD_TOKEN_*` | CodeCov ≥80% overall / ≥85% patch — quality gate cobertura |
+| S10 M9 | `HEALTHCHECKS_IO_SLA_UUID` | REPO | `REPLACE_WITH_HEALTHCHECKS_IO_UUID_128_BITS_SLA_24H_GRACE_25H` | Dead Man externo SLA gate SLA CI — SLA 24h / grace 25h |
+| S11 M11 | `HEALTHCHECKS_IO_LOADTEST_UUID` | REPO | `REPLACE_WITH_HEALTHCHECKS_IO_UUID_128_BITS_LOADTEST_N20_P95_3000MS` | Dead Man externo Load Test nightly — P95 ≤3000ms |
+| S12 M16 | `HEALTHCHECKS_IO_DR_UUID` | REPO | `REPLACE_WITH_HEALTHCHECKS_IO_UUID_128_BITS_DR_BACKUP_RESTORE_WEEKLY_SAT` | Dead Man externo DR sáb 02UTC — validade backup restore |
+| S13 M7 | `RENDER_API_TOKEN` | PROD 4-eyes | `REPLACE_WITH_RENDER_COM_API_TOKEN_rnd_51chars_*` | Render API — deploy + rollback automático GAP#9 |
+| S14 M16 | `AWS_ACCESS_KEY_ID` | REPO (Vault pref.) | `REPLACE_WITH_AWS_IAM_USER_DR_BACKUP_S3_AKIA_20CHARS_ONLY` | S3 DR sa-east-1 (São Paulo, LGPD) AKIA IAM User |
+| S15 M16 | `AWS_SECRET_ACCESS_KEY` | REPO (Vault pref.) | `REPLACE_WITH_AWS_IAM_USER_DR_BACKUP_S3_SAK_40CHARS_MIXED` | S3 DR sa-east-1 SAK |
+| S16 M16 | `S3_BUCKET_DR` | REPO | `REPLACE_WITH_S3_BUCKET_NAME_ontrackchain-dr-backup-region-sa-east-1-999` | S3 bucket name DR backup restore (recomendado: sa-east-1 AES256 LGPD Art.19) |
+| S17 M16 | `AWS_DEFAULT_REGION` | REPO | `sa-east-1` (padrão, não placeholder) | Região S3 — dados pessoais Brasil LGPD |
+| S18 SYS | `DATABASE_URL` | STG/PROD Environments | `REPLACE_WITH_POSTGRES_PSYCOPG3_URL_postgresql_user_pass_host_5432_db` | **NÃO USE repo-level** — por ambiente staging + production ExternalSecret preferencial |
+
+## Helm Chart ExistingSecret Kubernetes (Sprint 14 M8)
+
+`values.yaml` → `global.secrets.*` ou `global.existingSecret.name`:
+
+```yaml
+# values.yaml — Segredos Inline Dev/Staging (NÃO usar em produção)
+global:
+  secrets:
+    postgres_password: "REPLACE_WITH_POSTGRES_PASSWORD_16CHARS_MIXED"
+    jwt_secret: "REPLACE_WITH_JWT_SECRET_HS256_32BYTES_MIN_BASE64"
+    # ... +10 placeholders. Ver 00-namespace-sa-secrets.yaml.
+
+# values.yaml — PRODUÇÃO — ExternalSecret Vault (RECOMENDADO)
+global:
+  existingSecret:
+    name: "ontrackchain-secrets-vault"  # ExternalSecret criado por Vault Operator
+```
+
+**NÃO comitar nada além de placeholders REPLACE_WITH em YAML/values.**
 
 ## Variaveis Globais
 

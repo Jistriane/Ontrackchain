@@ -1,56 +1,129 @@
-# CI/CD e Release
+# CI/CD e Release (Atualizado Sprint 14)
 
 ## Objetivo
 
-Documentar o pipeline atual de validação automatizada e o processo recomendado de release para o scaffold.
+Documentar o pipeline atual de validação automatizada e o processo recomendado de release para a plataforma Ontrackchain pós-MVP Sprint 6-14.
 
-## Pipeline Atual
+## Estado Atual Geral
 
-Workflows canônicos:
+- **10 workflows YAML** em `.github/workflows/`:
+  - **`ci.yml` (16 jobs/status checks, BLOQUEANTE)**: Push main/develop + PR para main
+  - **6 nightly (cron + workflow_dispatch)**:
+    - `nightly-dr-backup-restore.yml` (M16 Sprint 13 PG16 DR sáb 02UTC)
+    - `nightly-explorers-live.yml` (M? exploradores fontes blockchain)
+    - `nightly-load-test.yml` (P95 ≤3000ms SLA)
+    - `e2e-pr-playwright.yml` (E2E shard=8 Playwright, label `e2e-required` gate)
+    - `dependabot-auto-merge-security-only.yml` (M13 SQUASH Merge Queue 0-day CVE)
+  - **4 deploy/aux**: `deploy.yml`, `deploy-staging.yml` (Render API auto rollback GAP#9), `deploy-production.yml`, `agent-eval.yml`
+- **Branch Protection Probot Settings SSOT**: `.github/settings.yml`
+  - `main`: 16 status checks obrigatórios, `enforce_admins=true`, `required_approving_review_count=1`
+  - `develop`: 10 status checks obrigatórios, `enforce_admins=true`
+  - Ninguém — nem CODEOWNERS, nem admins — bypassa gates P0.
+- **Policies OPA/Conftest 4 regras (M10 Sprint 10 + M16b Sprint 13)** em `policies/` — job `policy-gate-conftest` valida 15 YAMLs.
 
-- neste workspace, os workflows vivem no repositório agregador pai em `../.github/workflows/`
-- [e2e-tests.yml](../../.github/workflows/e2e-tests.yml)
-- [quality-gates.yml](../../.github/workflows/quality-gates.yml)
-- [staging-serious-window.yml](../../.github/workflows/staging-serious-window.yml)
+## Pipeline Atual: `ci.yml` 16 Jobs (Sprint 14)
 
-Workflow de regressao end-to-end:
+**Ordem de dependências (DAG topo → bottom):**
+```text
+lint → [sbom-cyclonedx-grype, observability-endpoints-gate, secrets-guard-skeleton,
+        conftest-policy-gate, typecheck-mypy]
+→ gate-p0-00-rls-shared-first (RLS shared == inline)
+→ gate-p0-01-oidc-authz (OTK_* federação)
+→ qa-gateway-cli-smoke (scan-rbac/scan-rls/scan-sla)
+→ sast-bandit-python (SAST BANDIT -lll -iii)
+→ dep-audit-pip-audit (CVE HIGH/CRITICAL 7 roots apps+packages)
+→ pytest-matrix-services (4× self-hosted: case-management 24t, ai-service 22t)
+→ sonarcloud + codecov-quality-gate (80% overall / 85% patch)
+```
 
-- `Validation — Smoke and E2E`
+**Detalhamento 16 Jobs ci.yml (Sprint 14):**
 
-Jobs atuais em `Validation — Smoke and E2E`:
+| # | Job Nome | Runner | Bloqueante | Propósito | P |
+|---|---|---|---|---|---|
+| 1 | `lint` | ubuntu-latest | Sim | Ruff check + format --check (packages/agents + ai-service + scripts) | P2 |
+| 2 | `sbom-cyclonedx-grype` | ubuntu-latest | **Sim P0** | Syft CycloneDX ISO/IEC 5962 sbom-python-monorepo.cdx.json → Grype `--fail-on high`. Retenção artifact 90d LGPD/SOC2. | **P0 M12** |
+| 3 | `observability-endpoints-gate` | ubuntu-latest | **Sim P0** | Grep 9× FastAPI `main.py` → `FastAPI(` + `/healthz` + `/metrics`. tot_ok != tot_fastapi → `exit 16` | **P0 M16b** |
+| 4 | `secrets-guard-skeleton` | ubuntu-latest | **Sim P0** | Regex 11 prefixos tokens reais (ghp_, gho_, glpat-, sk-, xoxb-, AKIA, etc.) — match real >0 → bloqueia. Nenhum hardcoded permitido. | **P0 M7b** |
+| 5 | `conftest-policy-gate` | ubuntu-latest | **Sim P0** | OPA Conftest v0.52.0 4 Rego (01 P0 continue-on-error, 02 heavy self-hosted, 03 timeout, 04 endpoints obs) contra 15 YAMLs. | **P0 M10** |
+| 6 | `typecheck-mypy` | ubuntu-latest | Sim | MyPy strict apps/{case,auth,ai,inv} + packages/ | P2 |
+| 7 | `gate-p0-00-rls-shared-first` | ubuntu-latest | **Sim P0** | qa-gateway CLI: `middleware_rls` shared == fallback inline 3× main.py semanticamente idênticos (ADR-018 §2) | **P0** |
+| 8 | `gate-p0-01-oidc-authz` | ubuntu-latest | **Sim P0** | qa-gateway CLI: roles OTK_* canônicas em todos serviços (`OTK_ADMIN→ADMIN` etc.) | **P0** |
+| 9 | `qa-gateway-cli-smoke` | ubuntu-latest | **Sim P0** | `qa-gateway --help` + 3 comandos obrigatórios (scan-rbac, scan-rls, scan-sla) 0 exit. | **P0** |
+| 10 | `sast-bandit-python` | ubuntu-latest | **Sim P0** | Bandit -lll -iii MEDIUM+/HIGH+ confiança MEDIUM+ findings 0 | **P0 M1** |
+| 11 | `dep-audit-pip-audit` | ubuntu-latest | **Sim P0** | pip-audit 7 roots (apps/case/auth/inv/ai + pkgs/shared/qa/agents) CVE HIGH+CRITICAL 0 | **P0 M1** |
+| 12 | `pytest-matrix-case-management` | **self-hosted** | **Sim P0** | 24 testes unitários, conftest Postgres seeding, RLS+RBAC+scoring 100% PASS | **P0** |
+| 13 | `pytest-matrix-ai-service` | **self-hosted** | **Sim P0** | 22 testes unitários, TestClient lazy-init app.state, lazy pool PG 100% PASS | **P0** |
+| 14 | `pytest-matrix-packages-shared` | **self-hosted** | Sim | shared + qa-gateway unit tests | P1 |
+| 15 | `sonarcloud-analysis` | ubuntu-latest | Sim | SonarCloud code smells, bugs, security hotspots | P1 M8 |
+| 16 | `codecov-quality-gate` | ubuntu-latest | **Sim P0** | CodeCov ≥80% overall / ≥85% patch. Fail CI abaixo. | **P0 M8** |
 
-- `build`
-- `smoke`
-- `playwright`
-- `playwright-dev-auth`
+*Jobs pesados (pytest matrix, E2E shard=8, run-explorers) usam `runs-on: self-hosted`. NÃO ubuntu-latest — validado por Policy OPA #02.*
 
-Workflow de qualidade por componente:
+## 4 Policies OPA Rego (M10 + M16b)
 
-- `Quality Gates — Per App`
+Local: `ontrackchain/policies/01_..04_.rego`. Job: `conftest-policy-gate`.
 
-Jobs atuais em `Quality Gates — Per App`:
+| # | Regra | Ação | Gatilho |
+|---|---|---|---|
+| 01 | `deny_continue_on_error_p0_gate` | Nega | Qualquer gate P0/P1/P2/P3 com `continue-on-error = true` |
+| 02 | `deny_ubuntu_latest_on_heavy_jobs` | Nega | Jobs pesados (pytest-matrix-services, "pytest service:", e2e-playwright, run-explorers-live) com `runs-on: ubuntu-latest` → exige array self-hosted labels |
+| 03 | `deny_missing_timeout_minutes` | Nega | TODO job CI/nightly sem `timeout-minutes` explícito (evita 6h GHA hard desperdício) |
+| 04 | `deny_missing_observability_endpoints_fastapi` | Nega (NOVO M16b) | Arquivos `apps/*/src/*/main.py` usando `FastAPI(` sem rota `/healthz` E/OU `/metrics` definida |
 
-- `security-baseline`
-- `preflight-regressions`
-- `frontend-audit`
-- `postgres-schema`
-- `frontend-typecheck`
-- `python-quality`
+## 6 Nightly Workflows (Cron + Dead Man Switch Duplo)
 
-Workflow manual dedicado:
+Todo nightly tem: **(a) timeout-minutes explícito**, **(b) Dead Man interno (cria GitHub Issue P1 se SLA breach)**, **(c) Healthchecks.io ping externo com secret `HEALTHCHECKS_IO_<UUID>` (checklist 4-eyes R12)**.
 
-- `Staging Serious Window`
-- disparo via `workflow_dispatch`
-- exige `GitHub Environment` com aprovacoes e secret `STAGING_WINDOW_PRIVATE_ENV`
-- executa `python scripts/prepare_staging_window.py --window-id <janela> --mode <baseline|homologated> --run`
-- publica `checks`, `dossiers`, `window packet`, templates redigidos e evidências de homologacao como artefato anexavel
-- configuração operacional detalhada em [GitHub Environment para Staging Sério](github-environment-staging-serious.md)
+| Workflow | Cron | Runner | Propósito | SLA |
+|---|---|---|---|---|
+| `nightly-dr-backup-restore.yml` | sáb 02:00UTC | self-hosted 60min | DR PG16 pgvector: same-run restore container porta 5433, 1% LGPD, row count val 5 tabelas core, S3 sa-east-1 AES256 opcional, artifact 180d fallback | 24h (Healthchecks.io + Dead Man) |
+| `nightly-explorers-live.yml` | diário 03:00UTC | self-hosted 50min | Exploradores fontes multi-chain reais; qa-gateway `scan-sla` sucesso % | 99% fontes |
+| `nightly-load-test.yml` | seg-sex 01:00UTC | self-hosted 90min | Locust k6 Load P95 latência ≤3000ms SLA (GAP#11) | P95 ≤3000ms |
+| `e2e-pr-playwright.yml` | PRs com label `e2e-required` (Sprint 6 M4 gate label) | self-hosted shard=8 40min | Playwright E2E caminhos críticos OIDC/RBAC/ROS/Compliance | 8 shards 100% PASS |
+| `dependabot-auto-merge-security-only.yml` | quartas 04:00UTC | ubuntu-latest 20min | Dependabot security-only → enableAutoMerge → SQUASH Merge Queue (15 gates) → Canary 30min → Prod 4-eyes | 0-day CVE <2h |
 
-## O que a Pipeline Faz
+## 3 Deploys (Render API GAP#9 Rollback Automático)
 
-As secoes abaixo descrevem primeiro o workflow `Validation — Smoke and E2E`, depois os gates adicionais de `Quality Gates — Per App` e por fim o workflow manual `Staging Serious Window`.
+| Workflow | Gatilho | Propósito |
+|---|---|---|
+| `deploy-staging.yml` | Push develop / PR merge develop | Render API deploy staging → `summary-or-rollback` automático se healthz 5min falhar |
+| `deploy-production.yml` | Tag release v*.*.* (workflow_dispatch + aprovação Environment production) | Render API prod com 4-eyes approval + rollback Render API |
+| `deploy.yml` | Push main (ambiente agregador legado) | Compatibilidade workspace agregador pai |
 
-## Job `build`
+## Backlog Implementado (Sprint 6→14, NÃO É MAIS BACKLOG)
+
+**Itens originalmente em "Backlog Recomendado CI/CD" — agora FECHADOS:**
+- ✅ **Adicionar lint/typecheck por app**: FECHADO (jobs `lint` ruff + `typecheck-mypy` strict)
+- ✅ **Gates de schema/migrations**: FECHADO (seeding pytest conftest Postgres migrations 0001-0021 rodam em cada teste)
+- ✅ **Publicar artefatos mais ricos**: FECHADO (SBOM Grype artifact 90d, Playwright merged reports, qa-gateway scans)
+- ✅ **Release automation com versionamento**: FECHADO (Dependabot SQUASH Merge Queue + deploy-production.yml tag trigger)
+
+## Riscos Residuais (Sprint 14)
+
+- **R19 Risco Helm Ingress**: Ingress default-deny NetworkPolicy desativado temporariamente por necessidade de troubleshooting → Data Leak LGPD R$50M Art.49. Mitigação: label `needs-security-review` obrigatório qualquer alteração NetPol.
+- **R20 Node Drain PDB=0**: Qualquer PDB com `minAvailable=0` (exceto `mock-oidc`) → drain nó causa downtime não planejado SLA 24h breach. Mitigação: qa-gateway T6 verifica PDBs sempre.
+- **R21 Black Friday 10× carga**: HPA behavior scaleUp 60s pode ser insuficiente para 10× pico. Mitigação: Load Test nightly P95 ≤3000ms (GAP#11) detecta antes + HPA behavior customizável values.yaml.
+- **R22 Drift 20+ Charts**: Multiplos charts pequenos ao invés de 1 single chart causa drift. Mitigação: Opção A Single Chart `ontrackchain-platform` + `helm diff` 2-eyes em staging antes de prod.
+- **M5 Push Remoto**: 10 commits locais da branch main ahead origin/main. 🔴 Bloqueado até método de auth definido e autorização explícita do usuário.
+
+## Recomendação Imediata (Sprint 14)
+
+1. Resolver M5 Push Remoto: definir método de auth (PAT SSO SAML, SSH deploy key read/write ou Render GitHub App) + solicitar autorização escrita.
+2. **Habilitar Merge Queue UI GitHub** (requerimento do Dependabot Security Auto-Merge SQUASH — configuração one-shot Settings → Branches → Merge Queue Rules).
+3. Provisionar 10 Secrets `.env-secrets.template` via interface Settings → Secrets → Actions (2 SREs 4-eyes assinatura UI one-shot).
+4. Rodar `helm install --dry-run --debug ontrackchain ontrackchain-platform/` + `helm diff` staging antes da primeira implantação K8s.
+5. Ativar **GitHub Environment `staging-serious`** approvals + secret multi-linha `STAGING_WINDOW_PRIVATE_ENV`.
+
+---
+
+## Anexo: Legado Sprint ≤5 (Referência Histórica NÃO ATUAL)
+
+> ⚠️ **A partir da Sprint 6, os workflows abaixo foram consolidados/substituídos por `ci.yml` 16 jobs + 6 nightly + 4 deploy (ver seções acima).**
+> As descrições abaixo são preservadas apenas para referência histórica e não representam o estado atual.
+
+---
+
+## Job `build` (LEGADO Sprint ≤5)
 
 ### 1. Checkout
 
