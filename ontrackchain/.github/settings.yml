@@ -1,0 +1,180 @@
+# ==============================================================================
+# .github/settings.yml — Ontrackchain Platform (Sprint 8 M6 Branch Protection)
+#
+# Finalidade: Documentar, como código (YAML), as regras MÍNIMAS OBRIGATÓRIAS
+# de proteção do branch `main` e `develop`. Pode ser aplicado automaticamente
+# via GitHub App "Settings Probot" / Probot Settings (se instalado na org) OU
+# aplicado MANUALMENTE em Settings → Branches → Branch protection rules.
+#
+# NÃO é possível aplicar via YAML sem App instalado; este arquivo serve como
+# FONTE ÚNICA DA VERDADE (SSOT) para auditoria / review / novo onboarding.
+#
+# Obedece M6 Sprint 8: "Status checks obrigatórios não podem ser ignorados por
+# merge de PR com CI quebrado / SAST HIGH / CVE / RLS violado".
+# ==============================================================================
+
+_extends: .github
+
+repository:
+  name: ontrackchain
+  description: "Ontrackchain — Plataforma de Investigação de On-chain / DeFi / Compliance. MVP QA/DevOps 12 GAPs = 100%."
+  homepage: https://ontrackchain.com.br
+  topics: blockchain, investigacao, defi, compliance, lgpd, rbac, rls, fastapi, postgres, playwright, prometheus, grafana
+  private: true
+  has_issues: true
+  has_projects: true
+  has_wiki: false
+  has_discussions: false
+  default_branch: main
+  allow_squash_merge: true
+  allow_merge_commit: false
+  allow_rebase_merge: false
+  # --------------------------------------------------------------------------
+  # GAP#9 Rollback + deploy canário: squash merge obrigatório para HISTÓRICO
+  # LINEAR (cada commit em main = 1 PR = 1 deploy). Evita cherry-pick confuso
+  # entre ambientes staging/prod e facilita rollback "último commit = último deploy".
+  # --------------------------------------------------------------------------
+  squash_merge_commit_title: "PR_TITLE"
+  squash_merge_commit_message: "COMMIT_MESSAGES"
+  delete_branch_on_merge: true
+
+labels:
+  # --------------------------------------------------------------------------
+  # Labels do MVP QA/DevOps usadas por workflows (Sprint 3→8). NÃO APAGAR!
+  # Sem elas: label-gate e2e-pr-playwright.yml SKIPará TODO E2E em PR.
+  # --------------------------------------------------------------------------
+  - name: "e2e-required"
+    color: "5319e7"
+    description: "[Sprint 6 GAP#6] Habilita Playwright shard=8 paralelo em PR. ADICIONAR se alterar apps/frontend, case, auth, investigation."
+  - name: "needs-security-review"
+    color: "b60205"
+    description: "[Sprint 2 ADR-018 §Regra 2] Tocou middleware_rls, RLS, RBAC, crypto, secrets. Precisa 2ª revisão security."
+  - name: "bug"
+    color: "d73a4a"
+    description: "Bug / comportamento inesperado / regressão."
+  - name: "feature"
+    color: "0e8a16"
+    description: "Nova funcionalidade / melhoria."
+  - name: "config"
+    color: "1d76db"
+    description: "Config / CI / infra / observabilidade / secrets."
+  - name: "triage"
+    color: "fbca04"
+    description: "Precisa triagem inicial antes de atribuir prioridade."
+  - name: "P0-critical"
+    color: "e11d21"
+    description: "Incidente produção: dados vazando, plataforma down, vazamento cross-tenant RLS."
+  - name: "P1-critical"
+    color: "eb6420"
+    description: "SLA violado, exploradores down, rollback manual necessário, PR não mergeado por CI quebrada 24h+."
+  - name: "P2-major"
+    color: "fad800"
+    description: "Feature quebrada workaround existe; CI em PR flaky; alerta warning."
+  - name: "P3-minor"
+    color: "fef2c0"
+    description: "Melhoria UX, docs, ajustes menores, MVP pós-roadmap."
+  - name: "P1-critical sla-deadman investigation-down"
+    color: "e11d21"
+    description: "[Sprint 3 GAP#5] Label AUTO criado por nightly-explorers sla-dead-man-switch se SLA 24h quebrado."
+  - name: "security-mvp-next-milestone"
+    color: "5319e7"
+    description: "[ADR-018 Sprint 6 item 10] GAP#12 SAST/CVE em continue-on-error > 2 sprints → precisa elevar a bloqueante."
+
+environments:
+  # --------------------------------------------------------------------------
+  # 3 ambientes de deploy protegido correspondentes a deploy-production.yml +
+  # deploy-staging.yml. ADR-018 R7 + Sprint 5 T5. NÃO APAGAR environment names.
+  # --------------------------------------------------------------------------
+  - name: staging
+    wait_timer: 0
+    reviewers: []  # staging = auto deploy após CI verde
+    deployment_branch_policy:
+      protected_branches: true
+      custom_branch_policies: false
+  - name: production
+    wait_timer: 0
+    reviewers: 2  # 4-eyes obrigatório produção (reviewer + QA + dev = 2 revisores)
+    deployment_branch_policy:
+      protected_branches: true
+      custom_branch_policies: false
+  - name: production-canary
+    wait_timer: 1800  # 30 min = observe canary 10% antes de promote
+    reviewers: 1
+    deployment_branch_policy:
+      protected_branches: true
+      custom_branch_policies: false
+
+branches:
+  # ==========================================================================
+  # RULE 1/2: main (PRODUÇÃO. Proteção FORTÍSSIMA)
+  # ==========================================================================
+  - name: main
+    protection:
+      required_pull_request_reviews:
+        required_approving_review_count: 1   # Mínimo 1 dev. Adiciona +1 se label needs-security-review = 2.
+        dismiss_stale_reviews: true          # Novo commit no PR = APAGA aprovações antigas.
+        require_code_owner_reviews: true     # CODEOWNERS aplica (docs, .github, middleware_rls).
+        require_last_push_approval: true     # Quem deu push final NÃO pode auto-aprovar.
+        # Obs: bypass_pull_request_allowances APENAS dono repo em emergência P0.
+        bypass_pull_request_allowances:
+          users: []
+          teams: ["admin-core"]
+          apps: ["dependabot[bot]", "settings[bot]"]
+
+      required_status_checks:
+        # M6 OBRIGATÓRIO: 12 status checks = 10 jobs ci.yml + 2 gates + 4 pytest serviços
+        # Se QUALQUER um destes 12 for FALSO → merge NÃO É PERMITIDO.
+        strict: true   # Requer branch atualizada com main (não aceita atrasada)
+        contexts:
+          # ci.yml jobs (10):
+          - "lint"
+          - "Guard: Anti Hardcoded Secrets (Tokens Render/Stripe/GitHub PAT)"
+          - "typecheck"
+          - "gate-p0-00-rls-cross-tenant"
+          - "gate-p0-01-oidc-mock-ci-gate"
+          - "QA Gate: qa-gateway 6 comandos --help (bloqueia merge)"
+          - "SAST: bandit scan Python MEDIUM/HIGH (BLOQUEIA MERGE Sprint 7 M1)"
+          - "Dep Audit: pip-audit CVE HIGH/CRITICAL (BLOQUEIA MERGE Sprint 7 M1)"
+          # pytest-matrix-services (7 serviços × 1 job matrix = contexto por service)
+          - "pytest service: case-management"
+          - "pytest service: auth-service"
+          - "pytest service: ai-service"
+          - "pytest service: investigation-api"
+
+      enforce_admins: true    # Admins também devem obedecer estas regras! (evita bypass)
+      required_linear_history: true  # Squash merge sempre → história linear.
+      allow_force_pushes: false      # NUNCA force-push em main (perde história).
+      allow_deletions: false
+      block_creations: false
+      required_conversation_resolution: true  # TODO comentários resolvidos antes do merge.
+      lock_branch: false
+      # Restringe push direto → APENAS via PR merge. 100% dos commits em main passam CI.
+      restrictions:
+        apps: ["settings[bot]"]
+        users: []
+        teams: ["admin-core"]   # APENAS admin-core pode push direto (P0); resto via PR.
+
+  # ==========================================================================
+  # RULE 2/2: develop (Staging nightly. Proteção similar mas mais leve)
+  # ==========================================================================
+  - name: develop
+    protection:
+      required_pull_request_reviews:
+        required_approving_review_count: 0  # PR rápido pode bypassar approval develop
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: true
+        require_last_push_approval: false
+      required_status_checks:
+        strict: true
+        contexts:
+          - "lint"
+          - "Guard: Anti Hardcoded Secrets (Tokens Render/Stripe/GitHub PAT)"
+          - "QA Gate: qa-gateway 6 comandos --help (bloqueia merge)"
+          - "pytest service: case-management"
+          - "pytest service: auth-service"
+          - "pytest service: investigation-api"
+      enforce_admins: true
+      required_linear_history: false
+      allow_force_pushes: false
+      allow_deletions: false
+      required_conversation_resolution: false

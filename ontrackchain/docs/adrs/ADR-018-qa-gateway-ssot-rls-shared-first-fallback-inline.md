@@ -219,3 +219,84 @@ Os comandos aceitam múltiplas fontes (env vars, flags, arquivos `.prom` ou fail
 | 12 SAST Bandit + pip-audit CVE scan MVP | 5 | 100 | ✅ | S5 |
 
 **Média**: 12/12 × 100% = **100,0%**. Meta ≥ 90% EXTREMAMENTE ultrapassada. MVP concluído.
+
+## Sprint 8 Update (Milestone Pós-MVP 2)
+
+### Riscos novos (R11, R12, R13) + Mitigações Sprint 8
+- **Risco R11 (Sprint 8 NOVO — M6 Branch Protection)**:
+  "CI bloqueante GAP#12/RLS/pytest existe, mas o dono do repo com permissão 'admin' pode
+  bypassar TODOS os status checks, mergear PR quebrado direto em main, e causar
+  produção down / vazamento cross-tenant / rollback forçado às 03h da manhã de sábado"
+  → **Mitigação**: `.github/settings.yml` (SSOT Branch Protection — Sprint 8 M6) define
+  `enforce_admins: true` (Ninguém, nem admin, bypassa as regras) + `required_linear_history: true`
+  (squash merge apenas, sem force-push) + `allow_force_pushes: false` + 11 required status
+  checks listados explicitamente (lint, typecheck, 2 gates, QA Gate smoke, SAST bandit,
+  pip-audit, 4× pytest matrix serviços). Regras aplicáveis MANUALMENTE via Settings → Branches
+  OU automaticamente via GitHub App "Probot Settings" instalado na org.
+  Resultado: 100% dos commits em main PASSARAM pelo CI de bloqueio.
+
+- **Risco R12 (Sprint 8 NOVO — M7 Render API Secrets 4-eyes)**:
+  "Rollback automático GAP#9 e hooks de deploy usam `RENDER_API_TOKEN_{STAGING|PROD}` +
+  8 SERVICE_IDs (4 × staging/prod auth-public-inv-case). Se um dev inexperiente edita
+  secrets no GitHub UI sem 4 eyes, pode quebrar rollback automático em emergência P0 →
+  produção down enquanto ninguém percebe."
+  → **Mitigação**: Ambientes `production` e `staging` PROTEGIDOS (GitHub Environments):
+  `production` exige 2 approving reviewers ANTES do deploy; `production-canary` exige
+  1 approving reviewer + 30 minutos wait_timer antes de promote. Documentado em
+  `.github/settings.yml` lista environments. Mais:
+  **Checklist obrigatório 4-eyes para EDITAR secrets render** (qualquer alteração):
+  1. Issue `[CONFIG]` com label `needs-security-review` aberto justificando a mudança.
+  2. 1 dev prepara o novo secret (ex: token regenerado Render).
+  3. 2º dev (diferente!) valida valor copiado (criptografado em tela screen-share).
+  4. Ambos aprovam a issue.
+  5. Secret salvo no ambiente correspondente (staging OU production NUNCA ambos no mesmo dia sem teste).
+  6. Deploy-staging roda smoke rollback em STAGING primeiro.
+  Resultado: Rollback automático (GAP#9) zero falsos negativos por secret errado.
+
+- **Risco R13 (Sprint 8 NOVO — M7b Secrets Hardcoded Leak)**:
+  "Dev copia `.env-prod.example` com token falso `xxxxx-xxx`, mas esquece e deixa hardcoded
+  em `apps/case-management/main.py` um `RENDER_API_TOKEN = 'rnd_xxx'` → leak em commit
+  público → token vazado → atacante rollbacka produção remotamente."
+  → **Mitigação**: `ci.yml` job NOVO `secrets-guard-skeleton` (leve, 10s):
+  - Grep em `apps/**.py`, `packages/**.py`, `.github/workflows/*.yml` por regex
+    `(rnd_|sk-|xoxb-|ghp_)[A-Za-z0-9]{8,}` (tokens Render, Stripe, Slack, GitHub PAT)
+  - Falha CI com exit code 6 se encontra QUALQUER ocorrência fora de `${{ secrets.* }}`.
+  - +Check: `grep -rE 'RENDER_API_TOKEN\s*=\s*"[A-Za-z0-9]'` — pega casos onde secret é hardcoded Python.
+
+### Atualizações Workflow Aplicação (itens 11..14, adendo Sprint 8)
+11. **Antes de mergear PR em main**: verificar `.github/settings.yml` contém o status
+    check obrigatório referente ao job novo que você adicionou no `ci.yml`. Se não,
+    adicionar linha em `required_status_checks.contexts` (11 → 12 → N).
+12. **Qualquer edição de GitHub Environment secrets ou Render API token**:
+    executar checklist R12 (issue CONFIG, 4 eyes, deploy-staging smoke primeiro).
+    **NÃO** editar ambiente production direto sem staging teste primeiro.
+13. **Novo token/prefixo de segredo (ex: Stripe pk_live_)**: incluir regex em
+    `ci.yml` job `secrets-guard-skeleton` step "Hardcoded Token Regex Scan".
+14. **Probot Settings App**: se instalado na org, PRs que alteram `.github/settings.yml`
+    aplicam branch protection AUTOMATICAMENTE em merge. Se não instalado, aplicar
+    MANUALMENTE em Settings → Branches copiando campos YAML (10 min de config one-shot).
+
+## Tabela 13 Ambientes + 11 Required Status Checks (SSOT Sprint 8)
+### Ambientes Protegidos GitHub (3 ambientes)
+| Environment | 4 eyes reviewers | wait_timer | Deploy Trigger | Usado por workflow |
+|---|---|---|---|---|
+| `staging` | 0 (auto após CI verde) | 0s | tag `v0.0.N-staging` | deploy-staging.yml 5 jobs |
+| `production-canary` | 1 | 1800s (30min observação) | tag `vX.Y.Z` semver prod válido + preflight passar | deploy-production.yml deploy canary 10% |
+| `production` | 2 | 0s | promote após canary observe passar | deploy-production.yml promote 100% + rollback auto |
+
+### 12 Required Status Checks Obrigatórios main (strict=true, enforce_admins=true)
+| # | Contexto (GitHub Status Name) | Vem do workflow/job | Se falha → merge? |
+|---|---|---|---|
+| 1  | lint                                    | ci.yml lint job | BLOQUEIA |
+| 2  | Guard: Anti Hardcoded Secrets (Tokens Render/Stripe/GitHub PAT) | ci.yml secrets-guard-skeleton Sprint 8 M7b | BLOQUEIA (0 tokens hardcoded) |
+| 3  | typecheck                               | ci.yml typecheck | BLOQUEIA |
+| 4  | gate-p0-00-rls-cross-tenant             | ci.yml gate | BLOQUEIA (0 leak cross-tenant) |
+| 5  | gate-p0-01-oidc-mock-ci-gate            | ci.yml gate | BLOQUEIA |
+| 6  | QA Gate: qa-gateway 6 comandos --help   | ci.yml qa-gateway-cli-smoke | BLOQUEIA (6/6 exit=0 obrigatório) |
+| 7  | SAST: bandit scan Python MEDIUM/HIGH    | ci.yml sast-bandit-python M1 | BLOQUEIA (0 findings) |
+| 8  | Dep Audit: pip-audit CVE HIGH/CRITICAL  | ci.yml dependency-audit-pip M1 | BLOQUEIA (0 H + 0 C) |
+| 9  | pytest service: case-management         | ci.yml pytest matrix service 1 | BLOQUEIA |
+| 10 | pytest service: auth-service            | ci.yml pytest matrix service 2 | BLOQUEIA |
+| 11 | pytest service: ai-service              | ci.yml pytest matrix service 3 | BLOQUEIA |
+| 12 | pytest service: investigation-api       | ci.yml pytest matrix service 4 | BLOQUEIA |
+| 13 | *(OPCIONAL, após M8)* SonarCloud Quality Gate passed | ci.yml sonar-scan | BLOQUEIA (M8 Sprint 9) |

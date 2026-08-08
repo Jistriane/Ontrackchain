@@ -27,6 +27,78 @@ jobs:
           ruff check packages/agents/src/ apps/ai-service/src/ scripts/
           ruff format --check packages/agents/src/ apps/ai-service/src/ scripts/
 
+  # ============================================================================
+  # Sprint 8 M7b: secrets-guard-skeleton (BLOQUEANTE leve 10s)
+  # Mitiga Risco R13: segredos hardcoded vazados em commit Python/YAML.
+  # 2 passos:  (A) regex prefixos de token em TUDO;
+  #           (B) grep anti RENDER_API_TOKEN = "rnd_..." hardcoded Python.
+  # ============================================================================
+  secrets-guard-skeleton:
+    name: "Guard: Anti Hardcoded Secrets (Tokens Render/Stripe/GitHub PAT)"
+    runs-on: ubuntu-latest
+    needs: [lint]
+    timeout-minutes: 3
+    continue-on-error: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: '(A) Hardcoded Token Regex Scan — bloqueia se match prefix rnd_|sk-|ghp_|xoxb- fora de ${{ secrets.* }}'
+        run: |
+          set -euo pipefail
+          OUT_DIR=tmp_secrets_guard
+          mkdir -p "$OUT_DIR"
+
+          echo "L1 targets tokens Python + YAML + JS/TS..." > /tmp/_sg_a.py
+          echo "import subprocess, re, sys, os" >> /tmp/_sg_a.py
+          echo "bad_tokens_re = re.compile(r\"(rnd_|rndr_|sk-|sk_live_|sk_test_|pk_live_|xoxb-|xoxp-|ghp_|github_pat_|glpat-)[A-Za-z0-9_\\-]{8,}\")" >> /tmp/_sg_a.py
+          echo "exts = ('.py', '.yml', '.yaml', '.js', '.ts', '.tsx', '.jsx', '.env', '.ini', '.cfg', '.toml')" >> /tmp/_sg_a.py
+          echo "skip_dirs = {'node_modules', '__pycache__', '.venv', 'venv', '.git', '.mypy_cache'}" >> /tmp/_sg_a.py
+          echo "matches = []" >> /tmp/_sg_a.py
+          echo "for root, dirs, files in os.walk('.'):" >> /tmp/_sg_a.py
+          echo "    dirs[:] = [d for d in dirs if d not in skip_dirs]" >> /tmp/_sg_a.py
+          echo "    for fn in files:" >> /tmp/_sg_a.py
+          echo "        if not fn.endswith(exts): continue" >> /tmp/_sg_a.py
+          echo "        p = os.path.join(root, fn)" >> /tmp/_sg_a.py
+          echo "        try:" >> /tmp/_sg_a.py
+          echo "            with open(p, 'r', errors='ignore') as f:" >> /tmp/_sg_a.py
+          echo "                for ln, line in enumerate(f.readlines(), start=1):" >> /tmp/_sg_a.py
+          echo "                    if '${{ secrets.' in line: continue" >> /tmp/_sg_a.py
+          echo "                    mm = bad_tokens_re.search(line)" >> /tmp/_sg_a.py
+          echo "                    if mm: matches.append((p, ln, mm.group(0)[:24]+'...', line.strip()[:120]))" >> /tmp/_sg_a.py
+          echo "        except Exception:" >> /tmp/_sg_a.py
+          echo "            pass" >> /tmp/_sg_a.py
+          echo "with open('tmp_secrets_guard/token_hits.json','w') as f:" >> /tmp/_sg_a.py
+          echo "    import json; json.dump(matches, f, indent=2)" >> /tmp/_sg_a.py
+          echo "print(f'=== TOTAL TOKEN MATCHES = {len(matches)} ===')" >> /tmp/_sg_a.py
+          echo "for m in matches: print('  SUSPECT:', m)" >> /tmp/_sg_a.py
+          echo "if len(matches) > 0:" >> /tmp/_sg_a.py
+          echo "    sys.exit(6)" >> /tmp/_sg_a.py
+          python3 /tmp/_sg_a.py
+
+      - name: "(B) Anti RENDER_API_TOKEN hardcoded Python (grep literal RENDER_API_TOKEN = 'rnd_...')"
+        run: |
+          set -euo pipefail
+          set +e
+          HITS_PY=$(grep -rnE "RENDER_API_TOKEN\s*=\s*[\"'][A-Za-z0-9_\\-]{6,}" apps/ packages/ tests/ 2>/dev/null)
+          HITS_YML=$(grep -rnE "RENDER_API_TOKEN(_STAGING|_PROD)?\s*:\s*[\"']?[A-Za-z0-9_\\-]{10,}[\"']?" .github/ 2>/dev/null | grep -v 'secrets.' || true)
+          set -e
+          FOUND=0
+          if [ -n "$HITS_PY" ]; then echo "❌ HARDCODED PY:"; echo "$HITS_PY"; FOUND=1; fi
+          if [ -n "$HITS_YML" ]; then echo "❌ HARDCODED YML:"; echo "$HITS_YML"; FOUND=1; fi
+          if [ "$FOUND" -eq 1 ]; then
+             echo "Falha: RENDER_API_TOKEN ou SERVICE_ID hardcoded! Usem \${{ secrets.RENDER_API_TOKEN_STAGING }} do Environment."
+             exit 7
+          fi
+          echo "✅ Zero hardcoded Render API tokens / Service IDs em fontes."
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: secrets-guard-${{ github.sha }}
+          path: tmp_secrets_guard/
+          retention-days: 90
+          if-no-files-found: ignore
+
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
