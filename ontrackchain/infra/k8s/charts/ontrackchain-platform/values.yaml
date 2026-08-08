@@ -38,7 +38,6 @@ services:
     enabled: true
     replicas: 2
     version: "2.0.0"
-    image: "{{ .Values.global.imageRegistry }}/ontrackchain/case-management:{{ .Values.services.case-management.version }}"
     port: 8001
     autoscaling: { enabled: true, min: 2, max: 6, targetCPU: 70, targetMemory: 75 }
     pdb: { enabled: true, minAvailable: 1 }
@@ -54,7 +53,6 @@ services:
     enabled: true
     replicas: 3
     version: "3.0.0"
-    image: "{{ .Values.global.imageRegistry }}/ontrackchain/auth-service:{{ .Values.services.auth-service.version }}"
     port: 8002
     autoscaling: { enabled: true, min: 3, max: 10, targetCPU: 65, targetMemory: 70 }
     pdb: { enabled: true, minAvailable: 2 }
@@ -70,7 +68,6 @@ services:
     enabled: true
     replicas: 2
     version: "4.1.0"
-    image: "{{ .Values.global.imageRegistry }}/ontrackchain/ai-service:{{ .Values.services.ai-service.version }}"
     port: 8003
     autoscaling: { enabled: true, min: 2, max: 8, targetCPU: 75, targetMemory: 80 }
     pdb: { enabled: true, minAvailable: 1 }
@@ -86,7 +83,6 @@ services:
     enabled: true
     replicas: 2
     version: "2.0.0"
-    image: "{{ .Values.global.imageRegistry }}/ontrackchain/investigation-api:{{ .Values.services.investigation-api.version }}"
     port: 8004
     autoscaling: { enabled: true, min: 2, max: 6, targetCPU: 70, targetMemory: 75 }
     pdb: { enabled: true, minAvailable: 1 }
@@ -101,7 +97,6 @@ services:
     enabled: true
     replicas: 1
     version: "1.5.0"
-    image: "{{ .Values.global.imageRegistry }}/ontrackchain/mock-oidc:{{ .Values.services.mock-oidc.version }}"
     port: 8005
     autoscaling: { enabled: false, min: 1, max: 1 }
     pdb: { enabled: false, minAvailable: 0 }
@@ -117,7 +112,6 @@ services:
     enabled: true
     replicas: 4
     version: "2.0.0"
-    image: "{{ .Values.global.imageRegistry }}/ontrackchain/public-api:{{ .Values.services.public-api.version }}"
     port: 8006
     autoscaling: { enabled: true, min: 4, max: 16, targetCPU: 60, targetMemory: 70 }
     pdb: { enabled: true, minAvailable: 3 }
@@ -133,7 +127,6 @@ services:
     enabled: true
     replicas: 2
     version: "2.0.0"
-    image: "{{ .Values.global.imageRegistry }}/ontrackchain/monitoring-api:{{ .Values.services.monitoring-api.version }}"
     port: 8007
     autoscaling: { enabled: true, min: 2, max: 5, targetCPU: 65, targetMemory: 70 }
     pdb: { enabled: true, minAvailable: 1 }
@@ -149,7 +142,6 @@ services:
     enabled: true
     replicas: 2
     version: "2.0.0"
-    image: "{{ .Values.global.imageRegistry }}/ontrackchain/compliance-api:{{ .Values.services.compliance-api.version }}"
     port: 8008
     autoscaling: { enabled: true, min: 2, max: 6, targetCPU: 65, targetMemory: 75 }
     pdb: { enabled: true, minAvailable: 1 }
@@ -165,7 +157,6 @@ services:
     enabled: true
     replicas: 2
     version: "2.0.0"
-    image: "{{ .Values.global.imageRegistry }}/ontrackchain/report-api:{{ .Values.services.report-api.version }}"
     port: 8009
     autoscaling: { enabled: true, min: 2, max: 6, targetCPU: 70, targetMemory: 75 }
     pdb: { enabled: true, minAvailable: 1 }

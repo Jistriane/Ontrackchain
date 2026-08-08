@@ -141,6 +141,10 @@ spec:
         - name: postgres
           image: {{ .Values.postgres.image }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+            readOnlyRootFilesystem: false
           envFrom:
             - secretRef: { name: postgres-credentials }
           env:
@@ -188,7 +192,7 @@ spec:
         labels:
           {{- include "ontrackchain.labels" . | nindent 10 }}
           ontrackchain.io/component: postgres
-          ontrackchain.io/lgpd-class: "restricted-dados-pessoais"
+          ontrackchain.io/lgpd-classification: restricted-dados-pessoais
       spec:
         accessModes: [ReadWriteOnce]
         {{- with .Values.global.storageClass }}

@@ -1,4 +1,5 @@
-# Patterns/Documentos que NAO devem entrar no pacote Helm
+# Patterns/Documentos que NAO devem entrar no pacote Helm Chart
+# Apenas paths relativos ao DIRETORIO DO CHART (nao use paths fora daqui!)
 .git/
 .gitignore
 .github/
@@ -17,10 +18,7 @@ __pycache__/
 # Arquivos locais de dev
 Dockerfile.local
 docker-compose*.yml
-# SQL migrations (vão via ConfigMap init container, não direto no chart bundle via filesystem — exceto o que já está em templates/)
-infra/postgres/migrations/*.sql
-!infra/postgres/migrations/00*.sql
-# Binarios / logs / tmp
+# Binarios / logs / tmp (fora do chart sempre)
 *.log
 tmp/
 ci-artifacts/

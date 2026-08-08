@@ -105,6 +105,10 @@ spec:
         - name: prometheus
           image: {{ .Values.observability.prometheus.image }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+            readOnlyRootFilesystem: false
           args:
             - "--config.file=/etc/prometheus/prometheus.yml"
             - "--storage.tsdb.path=/prometheus"
@@ -145,6 +149,10 @@ spec:
           configMap: { name: prometheus-config, items: [{ key: prometheus.yml, path: prometheus.yml }] }
         - name: rules
           emptyDir: {}
+        {{- if not .Values.observability.prometheus.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
   {{- if .Values.observability.prometheus.persistence.enabled }}
   volumeClaimTemplates:
     - metadata:
@@ -152,6 +160,7 @@ spec:
         labels:
           {{- include "ontrackchain.labels" . | nindent 10 }}
           ontrackchain.io/component: prometheus
+          ontrackchain.io/lgpd-classification: restricted-dados-pessoais
       spec:
         accessModes: [ReadWriteOnce]
         {{- with .Values.global.storageClass }}
@@ -160,9 +169,6 @@ spec:
         resources:
           requests:
             storage: {{ .Values.observability.prometheus.persistence.size | quote }}
-  {{- else }}
-        - name: data
-          emptyDir: {}
   {{- end }}
 ---
 {{- if .Values.observability.serviceMonitor.enabled }}
@@ -245,6 +251,10 @@ spec:
         - name: grafana
           image: {{ .Values.observability.grafana.image }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+            readOnlyRootFilesystem: false
           env:
             - name: GF_SECURITY_ADMIN_USER
               value: {{ .Values.observability.grafana.adminUser | quote }}
@@ -277,11 +287,14 @@ spec:
               mountPath: /var/lib/grafana
       volumes:
         {{- if .Values.observability.grafana.persistence.enabled }}
-  volumeClaimTemplates: []
         - name: data
           persistentVolumeClaim:
             claimName: grafana-data
-{{- /* Grafana PVC separado abaixo para simplificar */}}
+        {{- else }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+{{- if .Values.observability.grafana.persistence.enabled }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -291,6 +304,7 @@ metadata:
   labels:
     {{- include "ontrackchain.labels" . | nindent 4 }}
     ontrackchain.io/component: grafana
+    ontrackchain.io/lgpd-classification: restricted-dados-pessoais
 spec:
   accessModes: [ReadWriteOnce]
   {{- with .Values.global.storageClass }}
@@ -299,9 +313,6 @@ spec:
   resources:
     requests:
       storage: {{ .Values.observability.grafana.persistence.size | quote }}
-{{- else }}
-        - name: data
-          emptyDir: {}
 {{- end }}
 {{- end }}
 ---
@@ -349,10 +360,18 @@ spec:
         ontrackchain.io/component: alertmanager
     spec:
       serviceAccountName: {{ include "ontrackchain.serviceAccountName" . }}
+      securityContext:
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
       containers:
         - name: alertmanager
           image: {{ .Values.observability.alertmanager.image }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+            readOnlyRootFilesystem: false
           args:
             - "--config.file=/etc/alertmanager/alertmanager.yml"
             - "--storage.path=/alertmanager"

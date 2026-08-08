@@ -52,7 +52,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: app
-          image: {{ tpl $svc.image $ }}
+          image: "{{ $.Values.global.imageRegistry }}/ontrackchain/{{ $svcName }}:{{ $svc.version }}"
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           securityContext:
             allowPrivilegeEscalation: false

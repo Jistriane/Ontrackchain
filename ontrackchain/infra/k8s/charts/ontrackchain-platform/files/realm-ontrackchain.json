@@ -1,0 +1,29 @@
+{
+  "realm": "ontrackchain",
+  "enabled": true,
+  "displayName": "Ontrackchain Platform",
+  "loginWithEmailAllowed": true,
+  "registrationAllowed": false,
+  "sslRequired": "external",
+  "clients": [
+    {
+      "clientId": "ontrackchain-webapp",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["/*"],
+      "webOrigins": ["+"],
+      "baseUrl": "/",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"],
+      "optionalClientScopes": ["address", "phone", "offline_access"]
+    }
+  ],
+  "roles": {
+    "realm": [
+      {"name": "OTK_ADMIN", "description": "Super admin platform (federação ADMIN local)"},
+      {"name": "OTK_COMPLIANCE_OFFICER", "description": "Oficial de compliance (federação COMPLIANCE_OFFICER)"},
+      {"name": "OTK_INVESTIGATOR", "description": "Investigador de casos (federação INVESTIGATOR)"},
+      {"name": "OTK_AUDITOR", "description": "Auditor interno LGPD (federação AUDITOR)"},
+      {"name": "OTK_VIEWER", "description": "Visualizador somente leitura (federação VIEWER)"}
+    ]
+  }
+}
