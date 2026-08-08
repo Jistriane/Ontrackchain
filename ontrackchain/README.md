@@ -62,65 +62,59 @@ O diagrama abaixo resume como os componentes cooperam em runtime.
 
 ```mermaid
 flowchart LR
-    U[Operador + Sys Externos] --> TF[Traefik IngressClass]
-    subgraph K8s_NS[ontrackchain Namespace — NetPol default-deny LGPD]
+    U[Operador + Sys Externos B2B] --> TF[Traefik IngressClass<br/>3 réplicas PDB minAvailable=2<br/>Service LoadBalancer]
+    subgraph K8s_NS[ontrackchain Namespace — 4 NetworkPolicies LGPD RLS PSP restricted 100%]
       direction TB
-      TF --> A[auth-service v3.0.0 8001]
-      TF --> MO[mock-oidc v1.5.0 8009]
-      TF --> F[frontend Next.js 14]
-      TF --> PA[public-api v2.0.0 8008]
-      F --> I[investigation-api v2.0.0 8003]
-      F --> C[compliance-api v2.0.0 8002]
-      F --> M[monitoring-api v2.0.0 8004]
-      F --> R[report-api v2.0.0 8007]
-      F --> AI[ai-service v4.1.0 8005]
-      F --> CM[case-management v2.0.0 8006]
-      I --> X[(Redis)]
-      C --> X
-      M --> X
-      R --> X
-      C --> CW[compliance-worker]
-      subgraph StatefulSets[StatefulSets PVC LGPD restricted]
+      subgraph NetPols[NetPolicies LGPD enforcement]
         direction TB
-        P[(PG16 pgvector 10Gi)]
-        PR[(Prometheus v2.53 20Gi scrape annotations ServiceMonitor)]
+        NP1[01 default-deny-lgpd ALL Block]
+        NP2[02 deny-ec2-imds-169-254]
+        NP3[03 allow-intra-namespace-same-ns]
+        NP4[04 allow-from-traefik-ingress-ns]
       end
-      G[Grafana 11.2 Dashboard Único]
-      AM[Alertmanager v0.27 webhook routes]
-      KC[Keycloak v25 realm import]
-      I --> P
-      C --> P
-      M --> P
-      R --> P
-      AI --> P
-      CM --> P
-      PA --> P
-      A --> P
-      AM -->|webhook| M
-      PR -->|/metrics| A
-      PR -->|/metrics| PA
-      PR -->|/metrics| I
-      PR -->|/metrics| C
-      PR -->|/metrics| M
-      PR -->|/metrics| R
-      PR -->|/metrics| AI
-      PR -->|/metrics| CM
-      PR -->|/metrics| MO
-      G --> PR
-      G --> AM
-      CM --> AI
-      M --> GW[governanca e RCA]
+      TF --> A[auth-service v3.0.0 :8001<br/>OTK_* MFA 2FA]
+      TF --> MO[mock-oidc v1.5.0 :8009<br/>fallback dev claims org opcionais]
+      TF --> F[frontend Next.js 14 cockpit tri-locale]
+      TF --> PA[public-api v2.0.0 :8008<br/>B2B otc_live_* rate limit]
+      F --> I[investigation-api v2.0.0 :8003]
+      F --> C[compliance-api v2.0.0 :8002]
+      F --> MO2[monitoring-api v2.0.0 :8004]
+      F --> R[report-api v2.0.0 :8007]
+      F --> AI[ai-service v4.1.0 :8005<br/>202 Accepted jobs]
+      F --> CM[case-management v2.0.0 :8006<br/>hub casos scoring IA]
+      I --> X[(Redis queue DLQ)]
+      C --> X; MO2 --> X; R --> X
+      C --> CW[compliance-worker readiness]
+      subgraph StatefulSets[StatefulSets PVC — LGPD restricted-dados-pessoais]
+        direction TB
+        P[(PG16 pgvector 10Gi RLS multi-tenant]
+        PR[(Prometheus v2.53 20Gi ServiceMonitor]
+      end
+      G[Grafana 11.2 Dashboard Único QA PVC 5Gi standalone]
+      AM[Alertmanager v0.27 webhook routes P0-P2]
+      KC[Keycloak v25 realm-ontrackchain import]
+      I --> P; C --> P; MO2 --> P; R --> P; AI --> P; CM --> P; PA --> P; A --> P
+      AM -->|POST /api/v1/monitoring/alertmanager-webhook| MO2
+      PR -->|/metrics scrape annotations 9 FastAPI| A; PR -->|/metrics| MO; PR -->|/metrics| PA
+      PR -->|/metrics| I; PR -->|/metrics| C; PR -->|/metrics| MO2; PR -->|/metrics| R
+      PR -->|/metrics| AI; PR -->|/metrics| CM
+      G --> PR; G --> AM
+      CM -->|async jobs FOR UPDATE SKIP LOCKED| AI
+      MO2 --> GW[governanca + dossier + RCA]
       R --> GW
-      AI --> GE[Graph Intelligence 4.0]
+      AI --> GE[Graph Intelligence 4.0 THEMIS LEO]
       TF --> KC
-      A -->|OIDC token verify| KC
+      A -->|OIDC token verify JWKS| KC
     end
     classDef svc fill:#dbeafe,stroke:#2563eb,color:#111827;
     classDef infra fill:#dcfce7,stroke:#16a34a,color:#111827;
     classDef stateful fill:#fef3c7,stroke:#d97706,color:#111827;
-    class A,MO,PA,I,C,M,R,AI,CM,F svc;
+    classDef netpol fill:#f1f5f9,stroke:#475569,color:#111827,stroke-dasharray:5 5;
+    classDef gateway fill:#fce7f3,stroke:#db2777,color:#111827;
+    class A,MO,PA,I,C,MO2,R,AI,CM,F svc;
     class TF,X,CW,GW,GE,KC infra;
-    class P,PR,AM stateful;
+    class P,PR,AM,G stateful;
+    class NP1,NP2,NP3,NP4 netpol;
 ```
 
 ## Servicos e Dominios

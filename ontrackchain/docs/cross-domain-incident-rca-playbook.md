@@ -52,19 +52,27 @@ O diagrama abaixo mostra a passagem do incidente entre observabilidade, workspac
 
 ```mermaid
 flowchart LR
-    PM[Prometheus e Alertmanager] --> M[monitoring-api]
-    M --> O[operational_alert_events]
-    O --> MON[/monitoring]
-    MON --> AL[/alerts]
-    AL <--> IR[/incident-response]
-    AL --> W[regulatory_work_item]
-    W --> T[timeline e comentarios]
-    W --> AU[audit_logs]
-    W --> RCA[RCA leve]
-    RCA --> CY[governance-weekly/cycles]
-    RCA --> WR[war room]
-    RCA --> RS[resumo operacional]
-    DO[Domain Owners] --> W
+    subgraph StackObserv[Stack Observabilidade — Prometheus/Grafana/Alertmanager]
+      direction TB
+      PRO[Prometheus v2.53 StatefulSet<br/>scrape /metrics 9 FastAPI ServiceMonitor]
+      GRA[Grafana 11.2 Dashboard Único QA]
+      AM[Alertmanager v0.27 webhook receiver routes<br/>P0/P1/P2/P3 severidade]
+      PRO --> GRA; PRO --> AM
+    end
+    AM -->|POST /api/v1/monitoring/alertmanager-webhook<br/>severaidade + labels + fingerprint| M[monitoring-api v2.0.0 :8004]
+    M --> O[operational_alert_events PG16<br/>ack + correlation_id LGPD]
+    O --> MON[cockpit /monitoring<br/>saúde da plataforma]
+    MON --> AL[cockpit /alerts<br/>triagem global canônica]
+    AL <--> IR[cockpit /incident-response<br/>resposta operacional]
+    AL -->|module=alerts work_item criado| W[regulatory_work_item<br/>fila compartilhada multiusuario timeline persistida]
+    W --> T[timeline + comentarios estruturados<br/>regulatory_work_events + regulatory_work_comments]
+    W --> AU[audit_logs append-only<br/>trilha auditoria Art.19 LGPD]
+    W --> RCA[RCA leve cross-domain<br/>suspected/confirmed_root_cause blast_radius]
+    RCA --> CY[governance-weekly/cycles datados<br/>sign-off 4-eyes + war room]
+    RCA --> WR[War Room leve ou matriz severidade L3/L4]
+    RCA --> RS[Resumo executivo operacional<br/>Board Operacional + Scorecard]
+    DO[Domain Owners + Incident Commander<br/>Ownership Definido] --> W
+    DEF[Definitions of Done Encerramento] --> W
 ```
 
 ## Papeis e Responsabilidades

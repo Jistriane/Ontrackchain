@@ -37,21 +37,41 @@ O diagrama abaixo resume o fluxo esperado de autenticação federada, do redirec
 sequenceDiagram
     participant U as Usuario
     participant F as Frontend Next.js
-    participant K as Keycloak
-    participant A as auth-service
-    participant APIs as APIs internas
+    participant MO as mock-oidc v1.5.0<br/>(fallback dev/staging)
+    participant K as Keycloak v25
+    participant A as auth-service v3.0.0
+    participant OTK as canonicalize_role OTK_*<br/>(ontrackchain_shared)
+    participant APIs as APIs internas 9 domínios
 
     U->>F: acessa login
-    F->>A: consulta auth_config
-    A-->>F: effective_auth_mode=oidc
-    F->>K: redirect para authorization_endpoint
-    K-->>F: callback com codigo ou token
-    F->>A: inicia sessao backend
-    A->>A: valida issuer, audience, assinatura e JWKS
-    A->>A: resolve org, plan, role e linked user
-    A-->>F: contexto autenticado
-    F->>APIs: chamadas com contexto interno
-    APIs-->>F: enforcement final por role
+    F->>A: GET /auth/config
+    A-->>F: effective_auth_mode = AUTH_MODE_env
+    alt AUTH_MODE=dev (fallback leve)
+      F->>MO: redirect /auth/ (mock-oidc :8009)
+      MO-->>MO: claims org opcionais (default OTK_ADMIN)
+      MO-->>F: callback token + linked_user_id provider=mock
+    else AUTH_MODE=oidc (serio real)
+      F->>K: redirect authorization_endpoint (Keycloak :8080)
+      K-->>K: realm ontrackchain realm roles OTK_*
+      K-->>F: callback codigo PKCE S256 + scope openid+org+plan+otk_role
+    end
+    F->>A: POST /api/session/start (callback + token)
+    A->>A: valida issuer, audience (ontrackchain-api), assinatura, JWKS
+    Note over A: fallback Sessao Desativado Sprint13<br/>Nao cai em sysadmin se OIDC falha
+    A->>A: resolve org, plan, linked_user_id, provider (keycloak|mock)
+    A->>OTK: canonicalize_role(claim_role)
+    alt claim comeca com OTK_
+      OTK-->>A: role canônica (ADMIN, ANALYST, COMPLIANCE_OFFICER, AUDITOR, VIEWER)
+    else claim literal
+      OTK-->>A: role literal + warn log (ex: VIEWER permanece VIEWER)
+    end
+    A->>A: emite headers X-* (X-Org-Id, X-Roles, X-Linked-User-Id, X-Correlation-Id)
+    A-->>F: contexto autenticado session_id + signature
+    F->>APIs: chamadas com X-* headers internos
+    APIs->>APIs: RLS Cross-Tenant set_config(app.current_org_id)
+    APIs->>APIs: RBAC enforce_roles dependency
+    APIs->>APIs: Audit Log correlation_id LGPD Art.19
+    APIs-->>F: enforcement final por role (200/401/403)
 ```
 
 ## Template de Variaveis

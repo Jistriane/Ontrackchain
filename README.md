@@ -19,7 +19,7 @@ Resumo em 30 segundos:
 - baseline executivo oficial: `100%` técnico, `100%` regulatório/operacional, `100%` consolidado (fonte: [Resumo Executivo de Readiness](./ontrackchain/docs/project-executive-readiness-brief.md))
 - a arvore tecnica ativa deste repositório e `ontrackchain/`
 - o principal gap nao e mais scaffold; agora e homologacao externa real, prova revisável e aceite institucional
-- release atual: `v4.0.7` (jobs assíncronos de IA + worker dedicado + bootstrap automático de migrations)
+- release atual: `v5.0.0 Sprint 16 Helm M8` (Helm Chart ontrackchain-platform v3.0.0, AI Service v4.1.0, Roles OTK_* Federação, 16 gates CI bloqueantes, 9 serviços FastAPI)
 - o scaffold de `.env.staging.private` ja existe; o bloqueio dominante hoje e handoff pendente de `Compliance/AML` e variaveis reais obrigatorias (AML/KYT live + feed UE tokenizado)
 - staging full-stack continua isolado em `render.full-stack.yaml`; o blueprint padrao de vitrine segue `render.yaml` (frontend standalone showcase)
 
@@ -27,12 +27,17 @@ Resumo em 30 segundos:
 
 ### Estado atual
 
-- arquitetura modular baseada em `frontend Next.js 14`, servicos `FastAPI`, `PostgreSQL`, `Redis`, workers e observabilidade
+- arquitetura modular baseada em `frontend Next.js 14`, 9 servicos `FastAPI`, `PostgreSQL 16 pgvector` StatefulSets PVC LGPD, observabilidade Prometheus/Grafana/Alertmanager e ingress `Traefik` 3 réplicas
+- Helm Chart `ontrackchain-platform` v3.0.0: 13 Deployments + 2 StatefulSets + 11 PodDisruptionBudgets + 8 HPA + 3 NetworkPolicies LGPD (PSP restricted 100%)
+- `AI Service v4.1.0`: XAI, Risk Model, Graph Intelligence 4.0, THEMIS, Law Enforcement Export, jobs assíncronos `202 Accepted` com `FOR UPDATE SKIP LOCKED`
+- `case-management v2.0.0`: hub central de casos, scoring IA, integração assíncrona com ai-service, CRUD RBAC estrito
+- `Roles OTK_*` Federação: mapeamento canônico `OTK_ADMIN→ADMIN`, `OTK_ANALYST→ANALYST`, `OTK_COMPLIANCE_OFFICER→COMPLIANCE_OFFICER`, `OTK_AUDITOR→AUDITOR`, `OTK_VIEWER→VIEWER` no pacote compartilhado `ontrackchain_shared` + `authz.ts` frontend
 - trilha regulatoria funcional em `counterparties`, `preventive_blocks`, `evidence`, `reports`, `sanctions` e `ROS/COAF`
 - operação multiusuario compartilhada por `regulatory_work_items`, timeline e comentarios estruturados
 - cockpit frontend tri-locale com contratos visuais endurecidos, fallback de showcase controlado e workspaces convergidos
-- RCA cross-domain leve consolidada entre `alerts`, `/monitoring`, export operacional e governança executiva
+- RCA cross-domain leve consolidada entre `Alertmanager webhook`, `/monitoring-api`, export operacional e governança executiva
 - malha documental e executiva sincronizada com taxonomia de bloqueio dominante para distinguir falha regulatoria, tecnica e de identidade
+- CI com 16 gates bloqueantes: Grype SBOM, OPA Conftest 4 políticas, Secrets Guard, pytest matrix (24 case-management + 22 ai-service = 100% pass), SonarCloud 80/85, SAST Bandit, pip-audit
 
 ### Consolidado
 
@@ -40,18 +45,25 @@ Resumo em 30 segundos:
 | --- | --- | --- |
 | `P1-01` metadata de work-items | `done` | contrato canônico unificado entre frontend, backend e `api-contracts.md` |
 | `P2-02` timeline/comments compartilhados | `done` | modelo comum consolidado nos cockpits operacionais |
-| `P2-03` RCA cross-domain | `done` | RCA leve persistida, lida por `monitoring` e refletida em governança |
-| `P2-05` RBAC incremental | `done` | enforcement fino expandido por `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties` e navegacao global sensivel |
+| `P2-03` RCA cross-domain | `done` | RCA leve persistida, lida por `monitoring-api` e refletida em governança |
+| `P2-05` RBAC incremental | `done` | enforcement fino expandido por `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties`, `monitoring` e navegacao global sensivel |
+| `S14-M8` Helm Chart Ontrackchain Platform | `done` | single chart v3.0.0: 9 FastAPI + Grafana/AM/Keycloak/Traefik (13 Deploys), PG16 + Prom StatefulSets PVC LGPD, 11 PDB, 8 HPA, 3 NetPol LGPD, PSP restricted 100% 63 manifests validados |
+| `S14-AI` AI Service v4.1.0 | `done` | XAI, Risk Model, Graph Intelligence 4.0, THEMIS, LEO Export, 22 pytest 100% pass, lazy init pool PG, jobs `FOR UPDATE SKIP LOCKED` |
+| `S14-OTK` Federação Roles OTK_* | `done` | `ontrackchain_shared.canonicalize_role` + `authz.ts` frontend: OTK_ADMIN→ADMIN, OTK_ANALYST→ANALYST, OTK_COMPLIANCE_OFFICER→COMPLIANCE_OFFICER, OTK_AUDITOR→AUDITOR, OTK_VIEWER→VIEWER |
+| `S14-CI` CI 16 Gates Bloqueantes | `done` | ci.yml: Grype SBOM, OPA 4 policies, Secrets Guard, typecheck, pytest matrix 4x self-hosted, SonarCloud 80/85, qa-gateway-smoke, SAST Bandit, pip-audit |
+| `S16-Helm` Sprint 16 Helm Validação | `done` | 3 bugs corrigidos (.helmignore paths, U+002D image tpl, L70 YAML parse), Traefik 3 réplicas PDB minAvailable=2, 63 manifests `helm template` válidos |
 
 ### Bloqueadores para o salto regulatório
 
-- `P0-01`: homologar `OIDC + MFA` federado em trilho serio
+- `M5 Push Remoto (🔴 BLOQUEIO ABSOLUTO)`: sincronizar 12 commits locais da branch `main` com GitHub origin/main — proibido qualquer `git push` remoto até autorização explícita formal + método definido (PAT SSO, SSH deploy key ou Render GitHub App)
+- `P0-01`: homologar `OIDC + MFA` federado em trilho serio (Keycloak v25 real ou IdP produtivo, MFA 4-eyes obrigatório para ROS/COAF)
 - materializar `.env.staging.private` fora do repositorio e concluir o handoff humano de `Compliance/AML`
-- `P0-02`: fechar provider `AML/KYT live` com credencial real e artefato revisável
-- `P0-03`: fechar feed UE com URL tokenizada real
+- `P0-02`: fechar provider `AML/KYT live` com credencial real e artefato revisável (ex: TRM Labs / Chainalysis / Elliptic)
+- `P0-03`: fechar feed UE com URL tokenizada real (OFAC SDN / EU Consolidated List / Interpol)
 - `P0-04`: consolidar bundle regulatório oficial com evidências revisáveis
 - `P0-05`: executar a primeira janela seria completa com `go/no-go` formal
-- `P0-06`: formalizar recorrencia de retention/recovery com sign-off institucional
+- `P0-06`: formalizar recorrencia de retention/recovery com sign-off institucional (LGPD Art.19 — controle de retenção e destruição de dados pessoais com trilha de auditoria imutável)
+- `P0-07`: garantir `enforce_admins=true` em branch protection (já configurado em `.github/settings.yml` — validar em PR antes de qualquer merge)
 
 ### Leitura executiva do bloqueio atual
 
@@ -69,20 +81,37 @@ Esta raiz agrega mais de uma arvore. Para evitar drift de leitura, use esta inte
 ### Estrutura resumida
 
 ```text
-github_main/
-├── .github/
-├── README.md
-└── ontrackchain/
-    ├── apps/
-    ├── docs/
-    ├── infra/
-    ├── packages/
-    ├── scripts/
-    ├── tests/
-    ├── docker-compose.yml
-    ├── render.yaml
-    ├── render.full-stack.yaml
-    └── README.md
+Ontrackchain/  (workspace agregador — esta raiz)
+├── README.md                              (este arquivo: onboarding executivo + diagramas macro)
+├── ontrackchain/                          (ÁRVORE TÉCNICA ATIVA — fonte única da verdade)
+│   ├── apps/                              (9 serviços FastAPI + frontend Next.js 14)
+│   │   ├── auth-service v3.0.0 :8001
+│   │   ├── mock-oidc v1.5.0 :8009
+│   │   ├── public-api v2.0.0 :8008
+│   │   ├── investigation-api v2.0.0 :8003
+│   │   ├── compliance-api v2.0.0 :8002
+│   │   ├── monitoring-api v2.0.0 :8004
+│   │   ├── report-api v2.0.0 :8007
+│   │   ├── ai-service v4.1.0 :8005
+│   │   ├── case-management v2.0.0 :8006
+│   │   └── frontend/ (Next.js 14 App Router)
+│   ├── packages/
+│   │   ├── shared/   (RLS cross-tenant middleware, canonicalize_role OTK_*)
+│   │   ├── qa-gateway/  (CLI scan-rbac, scan-sla, gates P0)
+│   │   └── agents/    (Agent Framework, RAG pgvector)
+│   ├── policies/       (OPA/Conftest: 4 regras Rego CI)
+│   ├── infra/k8s/charts/ontrackchain-platform/ (Helm v3.0.0 Sprint 16)
+│   ├── docs/           (documentação viva indexada por docs/README.md)
+│   ├── scripts/        (smoke_runtime, preflight, staging_window, dr_backup_restore)
+│   ├── tests/          (Pytest 46 testes: 24 case-management + 22 ai-service)
+│   ├── .github/workflows/  (10 YAMLs: ci.yml 16 jobs + 6 nightly)
+│   ├── docker-compose.yml
+│   ├── render.yaml
+│   ├── render.full-stack.yaml
+│   ├── Makefile        (100+ targets: gates, janela seria, readiness)
+│   └── README.md       (README técnico da árvore ativa)
+├── github_main/        (ESPLEGADO — snapshot IMUTÁVEL legado, NÃO EDITAR)
+└── .git/
 ```
 
 ### Fluxo de leitura canônica
@@ -114,7 +143,7 @@ flowchart TD
 Use quando a meta for publicar uma vitrine navegavel do frontend sem backend real e sem segredos.
 
 - blueprint: [render.yaml](./ontrackchain/render.yaml)
-- doc canônica: [Blueprint Render - Frontend Standalone Showcase](./ontrackchain/docs/render-frontend-only-demo.md)
+- doc canônica: [Blueprint Render para Staging Full-Stack](./ontrackchain/docs/render-staging-blueprint.md) (inclui configuração de showcase e full-stack)
 - comportamento esperado:
   - `FRONTEND_STANDALONE_SHOWCASE_MODE=true`
   - `/api/healthz` responde sem depender de auth interna
@@ -134,14 +163,20 @@ Use quando a meta for validar a arquitetura real do produto com `OIDC`, banco, w
 
 ## Arquitetura em 60 Segundos
 
-- `Traefik` centraliza a borda e roteia requisições para os servicos internos
-- `auth-service` resolve identidade, contexto federado, `2FA`, roles e headers internos
-- `frontend` em `Next.js 14` atua como cockpit operacional e camada de orquestracao de UX
-- `investigation-api` concentra `estimate`, `start`, `status`, ledger e superficies financeiras
-- `compliance-api` concentra sanctions, counterparties, blocks, screening e fila operacional compartilhada
-- `monitoring-api` recebe webhooks do `Alertmanager` e sustenta triagem, RCA e export operacional
-- `report-api` gera relatórios deterministas e governa o workflow `ROS/COAF`
-- `PostgreSQL` com `RLS` sustenta o dominio multi-tenant; `Redis` cobre fila, retry, DLQ e concorrencia
+- `Traefik Ingress` (3 réplicas, PDB minAvailable=2, Service LoadBalancer) centraliza a borda e roteia requisições para os serviços internos via IngressClass
+- `Keycloak v25` (realm import, 8080) atua como IdP OIDC produtivo; `mock-oidc v1.5.0` fallback para dev/staging sem Keycloak real (claims org opcionais)
+- `auth-service v3.0.0` resolve identidade, contexto federado, `2FA`, roles canônicos OTK_* e headers internos X-*
+- `frontend` em `Next.js 14` atua como cockpit operacional tri-locale e camada de orquestracao de UX
+- `investigation-api v2.0.0` concentra `estimate`, `start`, `status`, billing, ledger e superficies financeiras administrativas
+- `compliance-api v2.0.0` concentra sanctions, counterparties, preventive blocks, B2B screen, work-items e fila operacional compartilhada
+- `monitoring-api v2.0.0` recebe webhooks do `Alertmanager v0.27` e sustenta triagem, RCA cross-domain, observabilidade /metrics e export operacional
+- `report-api v2.0.0` gera relatórios deterministas, download sensível e governa o workflow `ROS/COAF`
+- `ai-service v4.1.0` opera XAI, Risk Model, Graph Intelligence 4.0, THEMIS, LEO Export via jobs assíncronos (202 Accepted) com `FOR UPDATE SKIP LOCKED`
+- `case-management v2.0.0` hub central de casos, scoring IA, timeline auditável, integração assíncrona com ai-service, CRUD RBAC estrito
+- `public-api v2.0.0` superficie pública B2B (`/api/v1/b2b/screen`), rate limiting por chave `otc_live_*`
+- `PostgreSQL 16 pgvector` StatefulSet 10Gi PVC labelado `restricted-dados-pessoais` (LGPD), RLS multi-tenant, vetores IA
+- `Prometheus v2.53` StatefulSet 20Gi PVC + `Grafana 11.2` Dashboard Único + `Alertmanager v0.27` (scrape annotations /metrics em 9 FastAPI)
+- Helm Chart `ontrackchain-platform` v3.0.0: 13 Deploys, 2 StatefulSets, 11 PDB, 8 HPA, 3 NetworkPolicies LGPD (default-deny/intra/from-ingress), PodSecurity restricted 100%
 
 ## Diagramas de Fluxo
 
@@ -149,137 +184,322 @@ Use quando a meta for validar a arquitetura real do produto com `OIDC`, banco, w
 
 ```mermaid
 flowchart LR
-    U[Operador] --> T[Traefik]
-    T --> A[auth-service]
-    T --> F[frontend Next.js]
-    F --> I[investigation-api]
-    F --> C[compliance-api]
-    F --> M[monitoring-api]
-    F --> R[report-api]
-    I --> P[(PostgreSQL RLS)]
-    C --> P
-    M --> P
-    R --> P
-    I --> X[(Redis)]
-    C --> X
-    M --> X
-    R --> X
-    C --> CW[workers e readiness]
-    M --> GW[governanca e RCA]
-    R --> GW
+    U[Operador + Sys Externos B2B] --> TF[Traefik IngressClass 3 réplicas<br/>PDB minAvailable=2]
+    subgraph K8s_NS[Namespace ontrackchain-platform — NetPol default-deny LGPD]
+      direction TB
+      TF --> A[auth-service v3.0.0 :8001<br/>OTK_* MFA 2FA]
+      TF --> MO[mock-oidc v1.5.0 :8009<br/>fallback dev/staging]
+      TF --> F[frontend Next.js 14<br/>cockpit tri-locale]
+      TF --> PA[public-api v2.0.0 :8008<br/>B2B /api/v1/b2b/screen]
+      F --> I[investigation-api v2.0.0 :8003<br/>estimate start status billing ledger]
+      F --> C[compliance-api v2.0.0 :8002<br/>sanctions counterparties blocks work-items]
+      F --> MO2[monitoring-api v2.0.0 :8004<br/>Alertmanager webhook RCA export]
+      F --> R[report-api v2.0.0 :8007<br/>ROS/COAF reports download]
+      F --> AI[ai-service v4.1.0 :8005<br/>XAI THEMIS LEO Graph 202 Accepted]
+      F --> CM[case-management v2.0.0 :8006<br/>hub casos scoring IA timeline]
+      I --> X[(Redis queue/DLQ)]
+      C --> X
+      MO2 --> X
+      R --> X
+      C --> CW[compliance-worker readiness]
+      subgraph SS[StatefulSets PVC LGPD restricted-dados-pessoais]
+        direction TB
+        P[(PG16 pgvector 10Gi RLS multi-tenant]
+        PR[(Prometheus v2.53 20Gi<br/>scrape /metrics ServiceMonitor)]
+      end
+      G[Grafana 11.2 Dashboard Único QA]
+      AM[Alertmanager v0.27 webhook routes P0-P2]
+      KC[Keycloak v25 realm-ontrackchain import]
+      I --> P
+      C --> P
+      MO2 --> P
+      R --> P
+      AI --> P
+      CM --> P
+      PA --> P
+      A --> P
+      AM -->|webhook| MO2
+      PR -->|/metrics scrape| A
+      PR -->|/metrics scrape| PA
+      PR -->|/metrics scrape| I
+      PR -->|/metrics scrape| C
+      PR -->|/metrics scrape| MO2
+      PR -->|/metrics scrape| R
+      PR -->|/metrics scrape| AI
+      PR -->|/metrics scrape| CM
+      PR -->|/metrics scrape| MO
+      G --> PR
+      G --> AM
+      CM -->|async jobs| AI
+      MO2 --> GW[governanca e dossier]
+      R --> GW
+      AI --> GE[Graph Intelligence 4.0]
+      TF --> KC
+      A -->|OIDC token verify| KC
+    end
+
+    classDef svc fill:#dbeafe,stroke:#2563eb,color:#111827;
+    classDef infra fill:#dcfce7,stroke:#16a34a,color:#111827;
+    classDef stateful fill:#fef3c7,stroke:#d97706,color:#111827;
+    classDef gateway fill:#fce7f3,stroke:#db2777,color:#111827;
+    class A,MO,PA,I,C,MO2,R,AI,CM,F svc;
+    class TF,X,CW,GW,GE,KC infra;
+    class P,PR,AM stateful;
 ```
 
 ### 2. Fluxo de autenticação e autorização
 
 ```mermaid
 flowchart TD
-    B[Navegador] --> Cfg[GET /auth/config]
-    Cfg --> Mode{auth_mode efetivo}
-    Mode -->|oidc| KC[Keycloak / OIDC]
-    Mode -->|dev local| Dev[auth-service em modo dev]
-    KC --> AS[auth-service]
-    Dev --> AS
-    AS --> H[Headers internos e contexto federado]
-    H --> FE[frontend]
-    H --> API[APIs por dominio]
-    API --> RBAC[RBAC + auditoria + RLS]
-    RBAC --> UX[UX permitida, negada ou degradada]
+    B[Navegador / B2B Client] --> Cfg[GET /auth/config]
+    Cfg --> Mode{auth_mode efetivo\nfrontend + backend}
+    Mode -->|oidc real| KC[Keycloak v25\nrealm-ontrackchain]
+    Mode -->|AUTH_MODE=dev| MO[mock-oidc v1.5.0\nclaims org opcionais]
+    Mode -->|B2B chave otc_live_*| PA[public-api v2.0.0\nrate limit por chave]
+    KC --> AS[auth-service v3.0.0\ntoken verify + session]
+    MO --> AS
+    PA --> AS
+    AS --> CR[canonicalize_role OTK_*\nontrackchain_shared.py]
+    CR --> OTK{claim original?}
+    OTK -->|OTK_ADMIN| AD[role ADMIN]
+    OTK -->|OTK_ANALYST| AN[role ANALYST]
+    OTK -->|OTK_COMPLIANCE_OFFICER| CO[role COMPLIANCE_OFFICER]
+    OTK -->|OTK_AUDITOR| AU[role AUDITOR]
+    OTK -->|OTK_VIEWER| VW[role VIEWER]
+    AD --> H
+    AN --> H
+    CO --> H
+    AU --> H
+    VW --> H
+    AS --> H[Headers X-*\nX-User-Id, X-Org-Id,\nX-Roles, X-Linked-User-Id,\nX-Correlation-Id]
+    H --> FE[frontend Next.js 14\nauthz.ts client-side]
+    H --> API[APIs 9 domínios FastAPI]
+    FE --> FER[authz.ts canonicalize_role\nOTK_* enforcement UX]
+    API --> RLS[Middleware RLS Cross-Tenant\nset_config app.current_org_id]
+    RLS --> RBAC[RBAC por recurso\nenforce_roles dependency]
+    RBAC --> AUD[Audit Log Structurado\ncorrelation_id + timestamp]
+    AUD --> UX[UX permitida, negada\ndegradada 401/403]
 ```
 
 ### 3. Fluxo regulatório e de compliance
 
 ```mermaid
 flowchart TD
-    Input[Carteira / contraparte / evento] --> Screening[Sanctions + AML/KYT]
-    Screening --> Decision{Resultado}
-    Decision -->|baixo risco| Counterparty[Counterparties / onboarding]
-    Decision -->|alerta| Block[Preventive Blocks]
-    Decision -->|suspeita| ROS[Workflow ROS/COAF]
-    Counterparty --> Evidence[evidence_trail]
+    Input[Carteira / contraparte / evento B2B] --> Screening[compliance-api v2.0.0<br/>Sanctions OFAC/EU + AML/KYT TRM/Chainalysis]
+    Screening --> CM[case-management v2.0.0<br/>hub caso + scoring IA automático]
+    CM --> AI[ai-service v4.1.0<br/>Risk Model + THEMIS scoring XAI]
+    AI --> Decision{Risco Apurado\nAI Score + Regras Estatísticas}
+    Decision -->|baixo risco < 0.3| Counterparty[Counterparties / onboarding\nwork-item ownership]
+    Decision -->|alerta 0.3-0.7| Block[Preventive Blocks\npreventive_blocks LGPD Art.19]
+    Decision -->|suspeita > 0.7| ROS[Workflow ROS/COAF\nreport-api v2.0.0 MFA 4-eyes]
+    Counterparty --> Evidence[evidence_trail\nLGPD label restricted-dados-pessoais]
     Block --> Evidence
     ROS --> Evidence
-    Evidence --> Audit[audit_logs + reports]
-    Audit --> Gov[Governanca / dossier / sign-off]
+    Evidence --> Seal[Strong Sealing Evidence<br/>hash SHA-256 + chainlink provável]
+    Seal --> Audit[audit_logs estruturados + reports\nmonitoring-api export]
+    Audit --> RCA[RCA Cross-Domain\nAlertmanager webhook]
+    RCA --> Gov[Governanca semanal / dossier\n4-eyes sign-off go/no-go]
 ```
 
 ### 4. Fluxo de validação local
 
 ```mermaid
 flowchart TD
-    A[Subir docker compose] --> B[smoke_runtime + migrations]
-    B --> C[ownership backend de work-items]
-    C --> D[typecheck do frontend]
-    D --> E[Playwright stack-real-light]
-    E --> F[Playwright browser-mocked]
+    A[Subir docker compose up -d --build] --> B[python scripts/smoke_runtime.py]
+    B --> B2[migrations 0001-0021 PG16 pgvector]
+    B2 --> C[make apply-regulatory-work-items-migration]
+    C --> C2[make smoke-work-items-ownership-backend]
+    C2 --> D[cd apps/frontend; npm ci; npm run typecheck]
+    D --> E[npm run test:e2e:stack-real-light]
+    E --> F[npm run test:e2e:browser-mocked]
     F --> G{Fluxo especial necessario?}
-    G -->|dev auth| H[Playwright dev-auth]
-    G -->|oidc serio| I[Playwright oidc-critical]
-    G -->|nao| J[seguir]
+    G -->|AUTH_MODE=dev| H[npm run test:e2e:dev-auth]
+    G -->|AUTH_MODE=oidc real| I[npm run test:e2e:oidc-critical]
+    G -->|nao| J[Seguir para testes unitários]
     H --> J
     I --> J
-    J --> K[preflights + bundles de readiness]
-    K --> L[baseline local validado]
+    J --> K[pytest 46 testes: 24 case-management + 22 ai-service]
+    K --> L[ruff check + mypy typecheck]
+    L --> M[qa-gateway scan-rbac + scan-rls]
+    M --> N[preflights + bundles de readiness OIDC regulatório]
+    N --> O[baseline local validado 100%]
 ```
 
 ### 5. Fluxo de readiness regulatório real
 
 ```mermaid
 flowchart TD
-    A[Copiar .env.staging.example] --> B[Preencher .env.staging.private fora do repo]
-    B --> C[Atualizar docs/staging-env-ownership.md]
-    C --> D[check_staging_env_placeholders]
-    D --> E[check_staging_env_handoff]
-    E --> F[check-regulatory-window-readiness p0-02]
-    E --> G[check-regulatory-window-readiness p0-03]
-    E --> H[check-regulatory-window-readiness p0-04]
-    F --> I{verde?}
-    G --> I
-    H --> I
-    I -->|nao| Stop[Parar antes do runtime real]
-    I -->|sim| J[gate-p0-02 / gate-p0-03 / gate-p0-04]
-    J --> K[artefatos em artifacts/staging/checks e dossiers]
+    A[make materialize-staging-private-env\nWINDOW_ID MODE PRIVATE_ENV_FILE] --> B[prepare_staging_window.py\nscaffold privado + placeholders REPLACE_WITH_]
+    B --> C[Preencher .env.staging.private FORA do repo\nAML_KYT_API_KEY EU_FEED_URL]
+    C --> D[Atualizar docs/staging-env-ownership.md\nCompliance/AML status = done + data handoff]
+    D --> E[python check_staging_env_placeholders\n0% REPLACE_WITH_ restante?]
+    E -->|nao| Stop[Parar: placeholders nao resolvidos]
+    E -->|sim 0%| F[make run-regulatory-unblock-checklist-local\nWINDOW_ID OWNERSHIP_FILE]
+    F --> G[check-regulatory-window-readiness REGULATORY_SCOPE=p0-02 AML/KYT live]
+    F --> H[check-regulatory-window-readiness REGULATORY_SCOPE=p0-03 EU feed]
+    F --> I[check-regulatory-window-readiness REGULATORY_SCOPE=p0-04 bundle regulatorio]
+    G --> J{TODOS verde?}
+    H --> J
+    I --> J
+    J -->|qualquer vermelho| Stop2[Parar antes do runtime real\ndevolver blocking_summary + unblock_actions por owner]
+    J -->|sim todos verde| K[make gate-p0-02-aml-live + gate-p0-03-eu-live + gate-p0-04-regulatory-bundle]
+    K --> L[artefatos em artifacts/staging/checks e dossiers\nhomologation/ + window packet lacrado]
 ```
 
 ### 6. Fluxo da janela seria
 
 ```mermaid
 flowchart TD
-    A[prepare_staging_window.py] --> B[ownership + placeholders + handoff]
-    B --> C[checks regulatorios aplicaveis]
-    C --> D[preflight OIDC + integracoes externas]
-    D --> E[readiness bundles OIDC e regulatorio]
-    E --> F[homologation_external_evidence.py]
-    F --> G[build_staging_release_dossier.py]
-    G --> H[run_staging_window.py]
-    H --> I[war room + sign-off + decision packet]
-    I --> J{go / no-go}
+    A[make help-serious-window] --> A2[WINDOW_ID=stg-YYYY-MM-DD-x]
+    A2 --> B[make prepare-serious-window-dispatch WINDOW_ID]
+    B --> C[ownership + placeholders + handoff Compliance/AML]
+    C --> D[checks regulatorios aplicaveis\nP0-01/P0-02/P0-03/P0-04]
+    D --> E[make gate-p0-01-oidc-local\npreflight OIDC + MFA 4-eyes]
+    E --> F[python preflight_external_integrations.py\nAML/KYT + EU feed + network]
+    F --> G[make run-oidc-readiness-bundle-local + bundles regulatorio]
+    G --> H[make render-serious-window-dispatch-packet WINDOW_ID]
+    H --> I[python homologation_external_evidence.py\nprova revisável externa]
+    I --> J[python build_staging_release_dossier.py\ndossier lacrado SHA-256]
+    J --> K[make run-serious-window-local WINDOW_ID MODE=baseline\nwar room + sign-off + decision packet]
+    K --> L{go / no-go\n4-eyes sign-off MFA}
+    L -->|go| M[deploy Render full-stack.yaml + healthz verify]
+    L -->|no-go documentado| N[Snapshot em governance-weekly/cycles/\nrollback + plano de acao]
+    M --> O[make postprocess-serious-window RUN_URL=...\nconsolidar artefatos + monitoring]
+    O --> P[Sign-off formal em dossier de janela]
 ```
 
 ### 7. Fluxo de governança semanal
 
 ```mermaid
 flowchart TD
-    A[Board operacional] --> B[Risk register]
-    B --> C[Weekly governance runbook]
-    C --> D[War room e live tracking]
-    D --> E[Sign-off]
-    E --> F[Decision packet]
-    F --> G[Snapshot executivo]
-    G --> H[Ciclo datado em governance-weekly]
+    A[Board executivo + Compliance AML] --> B[Project Risk Register\nLGPD PII + Riscos Regulatórios]
+    B --> C[Weekly Governance Runbook\nproject-weekly-governance-runbook.md]
+    C --> D[QA Gateway CLI\nscan-sla + scan-rbac + scan-rls\nNightly explorers live]
+    D --> E[Prometheus P95 latency + Alertmanager P0/P1\nRCA cross-domain monitoring-api]
+    E --> F[War room live tracking\nBoard Operacional + Scorecard KPIs]
+    F --> G[SonarCloud 80/85 + 46 pytest 100%\nOPA 4 policies + Grype SBOM + Secrets Guard]
+    G --> H[4-eyes Sign-off formal\nCompliance Officer + Tech Lead]
+    H --> I[Decision Packet datado\nstg-YYYY-MM-DD-x dossier]
+    I --> J[Snapshot executivo + maturidade\nproject-executive-readiness-brief]
+    J --> K[Ciclo datado em governance-weekly/cycles/YYYY-MM-DD\n+ archive histórico LGPD Art.19]
 ```
 
-### 8. Fluxo de CI/CD e promocao
+### 8. Fluxo de CI/CD e promoção (macro)
 
 ```mermaid
 flowchart TD
-    A["Commit / PR / workflow manual"] --> B["CI quality gates"]
-    B --> C["Typecheck + testes + preflights"]
-    C --> D["staging serious window ou gate dedicado"]
-    D --> E["Render full-stack ou showcase"]
-    E --> F["healthcheck /api/healthz + checks de runtime"]
-    F --> G["artefatos e dossier"]
-    G --> H["decisao go/no-go"]
-    H --> I["promocao ou no-go documentado"]
+    A[Commit / PR / workflow manual\nenforce_admins=true branch protection] --> B[Job 01 lint ruff format]
+    B --> C[Batch Paralelo 9 jobs inicial\nneeds: lint]
+    subgraph P_BATCH[9 Gates Iniciais Paralelos]
+      C1[sbom-grype 🔒 SBOM Vulnerabilidades]
+      C2[observability-endpoints-gate /metrics 🔒]
+      C3[policy-conftest-opa 4 policies Rego 🔒]
+      C4[secrets-guard 🔒 trufflehog gitleaks]
+      C5[typecheck mypy strict]
+      C6[build docker multi-stage]
+      C7[gate-p0-01-oidc-ci 🔒 authz OTK_*]
+      C8[gate-p0-00-rls 🔒 qa-gateway scan-rls]
+      C9[sast-bandit + pip-audit]
+    end
+    C --> P_BATCH
+    P_BATCH --> D[pytest-matrix-services 4x self-hosted\n24 case-management + 22 ai-service = 100%]
+    D --> E[sonarcloud-codecov 🔒 quality gate 80/85]
+    E --> F[qa-gateway-cli-smoke scan-rbac scan-sla]
+    F --> G[staging serious window ou gate dedicado\ngate-p0-02 gate-p0-03 gate-p0-04]
+    G --> H[Render full-stack.yaml ou showcase render.yaml]
+    H --> I[healthcheck /api/healthz + /metrics verify]
+    I --> J[artefatos + dossier + correlação CI run_id]
+    J --> K[decisao go/no-go 4-eyes sign-off]
+    K -->|go| L[promoção + branch protection merge]
+    K -->|no-go| M[rollback documentado em governance-weekly]
+```
+
+### 9. Fluxo de Validação Helm Chart Sprint 16 (NOVO)
+
+```mermaid
+flowchart TD
+    A[Chart.yaml v3.0.0 + values.yaml] --> B[helm lint --strict]
+    B -->|lint falha| BErr[Corrigir sintaxe YAML + templates Go]
+    B -->|lint OK| C[helm dependency build]
+    C --> D[helm template ontrackchain-platform .\n--values values.yaml --namespace ontrackchain]
+    D -->|parse U+002D falha| D1[Corrigir index . \"ai-service\" bracket notation\nimage tpl com identificadores com traço]
+    D -->|YAML L70 parse falha| D2[Corrigir indentação else/volumeClaimTemplates\nem StatefulSets/Deployments]
+    D -->|.helmignore paths invalidos| D3[Corrigir paths .helmignore para DENTRO do chart\nremover referencias fora do chart]
+    D -->|template OK| E[63 documentos YAML gerados]
+    E --> F[Validação K8s Manifests]
+    subgraph V[Validações 100% PASS Sprint 16]
+      direction TB
+      F1[13 Deployments + 2 StatefulSets]
+      F2[9 FastAPI + Grafana + AM + Keycloak + Traefik 3 réplicas]
+      F3[11 PDB PodDisruptionBudgets\nminAvailable=2 para críticos]
+      F4[8 HPA HorizontalPodAutoscalers\nCPU 80% + Memory 85%]
+      F5[3 NetworkPolicies LGPD:\ndefault-deny + intra + from-ingress + deny IMDS]
+      F6[15 Services ClusterIP + LoadBalancer Traefik]
+      F7[2 PVCs labelados restricted-dados-pessoais LGPD]
+      F8[Grafana PVC standalone]
+      F9[PodSecurity restricted 100% workloads:\nrunAsNonRoot, readOnlyRootFS, drop ALL caps]
+    end
+    F --> V
+    V --> G[Prometheus ServiceMonitor annotations + platform.rules.yml Files.Get]
+    G --> H[Keycloak realm-ontrackchain.json Files.Get import]
+    H --> I[NOTES.txt output: URLs Traefik + Grafana + Keycloak]
+    I --> J[Commit Sprint 16 Helm Validação OK\nsha fa4f666]
+```
+
+### 10. Detalhamento CI 16 Jobs Bloqueantes (NOVO)
+
+```mermaid
+flowchart TD
+    A[Trigger: push main / PR / workflow_dispatch] --> B[01 lint ruff format black]
+    B --> C{needs: lint}
+    subgraph PAR1[Gates de Segurança 🔒 — paralelos]
+      direction LR
+      C1[02 sbom-grype SBOM CycloneDX + vulns CRITICAL/HIGH block]
+      C2[03 observability-endpoints-gate /metrics 9 FastAPI presentes]
+      C3[04 policy-conftest-opa 4 policies Rego:\n- P0 continue-on-error proibido\n- heavy jobs self-hosted runner\n- timeout jobs 45min\n- endpoints /metrics obrigatorios]
+      C4[05 secrets-guard trufflehog + gitleaks\nsecrets REPLACE_WITH_ permitidos só em staging EXAMPLE]
+      C9[11 sast-bandit py SAST\n12 dependency-audit pip-audit]
+    end
+    subgraph PAR2[Build + Typecheck + Gates P0 — paralelos]
+      direction LR
+      C5[06 typecheck mypy strict\nFastAPI apps 9 serviços]
+      C6[07 build docker multi-stage\nnon-root user + distroless]
+      C7[08 gate-p0-01-oidc-ci 🔒 authz OTK_*\ncanonicalize_role em auth-service CI]
+      C8[09 gate-p0-00-rls 🔒 qa-gateway scan-rls\nRLS Cross-Tenant set_config bypass disabled prod]
+    end
+    C --> PAR1
+    C --> PAR2
+    PAR1 --> D[10 pytest-matrix-services needs: lint, typecheck\n4x self-hosted runners paralelos:\ncase-management 24/24 ✅\nai-service 22/22 ✅]
+    PAR2 --> D
+    D --> E[13 sonarcloud-codecov needs: pytest-matrix, sast-bandit\nQuality Gate 80% coverage / 85% branch]
+    E --> F[14 qa-gateway-cli-smoke scan-rbac + scan-sla]
+    F --> G[15 nightlies: 6 workflows paralelos:\n- nightly-explorers-live 🌐 Chainlink/BSC/Ethereum\n- nightly-rbac-baseline, nightly-rls-baseline\n- nightly-e2e-playwright-oidc-critical\n- nightly-dr-backup-restore PG16\n- nightly-regulatory-readiness P0/P1]
+    G --> H[16 gates condicionais de deploy:\n- if production: gate-p0-02 AML gate-p0-03 EU gate-p0-04 bundle\n- if PR: e2e-pr-playwright.yml]
+    H --> I[Branch Protection: enforce_admins=true\nmain exige 16/16 checks verde\ndevelop exige 10/16]
+```
+
+### 11. Mapeamento Federação Roles OTK_* (NOVO)
+
+```mermaid
+flowchart TD
+    A[IdP Claims OIDC\nex: resource_access.ontrackchain.roles] --> B[auth-service v3.0.0\nsession/start/route.ts OIDC callback]
+    B --> C[ontrackchain_shared.roles.canonicalize_role\nFonte Única da Verdade Python]
+    subgraph MAP[Mapeamento Canônico 1:1]
+      direction TB
+      C1[OTK_ADMIN → ADMIN]
+      C2[OTK_ANALYST → ANALYST]
+      C3[OTK_COMPLIANCE_OFFICER → COMPLIANCE_OFFICER]
+      C4[OTK_AUDITOR → AUDITOR]
+      C5[OTK_VIEWER → VIEWER]
+      C6[role não OTK → repassado literal + warn log]
+    end
+    C --> MAP
+    MAP --> D[RBAC backend FastAPI\nDepends enforce_roles([ADMIN])\nenforce_roles([COMPLIANCE_OFFICER, AUDITOR])]
+    MAP --> E[X-Roles header propagado\nmonitoring-api, ai-service, case-management]
+    MAP --> F[Frontend Next.js 14\napps/frontend/app/lib/authz.ts canonicalize_role\nreplica em client-side]
+    D --> D1[RBAC endpoints críticos:\nPOST /api/v1/cases requer ≥ ANALYST\nDELETE /api/v1/reports requer = ADMIN\nPUT /api/v1/compliance/blocks requer = COMPLIANCE_OFFICER]
+    E --> E1[Audit Log + Correlation ID\nLGPD Art.19 trilha imutável]
+    F --> F1[Permissões UX:\nrenderizar botão Excluir só = ADMIN\nrenderizar aba Compliance só = COMPLIANCE_OFFICER\nrenderizar botão Auditoria só = ADMIN ou AUDITOR]
 ```
 
 ## Portas canônicas
@@ -344,10 +564,10 @@ flowchart TD
 
 ## Quick Start
 
-### 1. Entrar na arvore ativa
+### 1. Entrar na arvore ativa (FONTE ÚNICA DA VERDADE)
 
 ```bash
-cd github_main/ontrackchain
+cd ontrackchain
 ```
 
 ### 2. Subir a stack local
@@ -403,10 +623,10 @@ make gate-p0-04-regulatory-bundle WINDOW_ID=stg-$(date +%F)-reg PRIVATE_ENV_FILE
 
 ## Janela Seria
 
-Comandos principais:
+Comandos principais (executar SEMPRE dentro de ontrackchain/):
 
 ```bash
-cd github_main/ontrackchain
+cd ontrackchain
 make help-serious-window
 make prepare-serious-window-dispatch WINDOW_ID=stg-2026-07-13-a
 make render-serious-window-dispatch-packet WINDOW_ID=stg-2026-07-13-a
@@ -436,7 +656,7 @@ As frentes que mais movem a maturidade comprovada continuam sendo:
 Atalho canônico para o passo 1, sem criar fluxo paralelo:
 
 ```bash
-cd github_main/ontrackchain
+cd ontrackchain
 make materialize-staging-private-env \
   WINDOW_ID=stg-YYYY-MM-DD-a \
   MODE=baseline \
@@ -448,7 +668,7 @@ Esse alvo reutiliza `prepare_staging_window.py`, gera o `window packet` redigido
 Atalho recomendado para consolidar o handoff regulatório atual em um unico artefato por owner:
 
 ```bash
-cd github_main/ontrackchain
+cd ontrackchain
 make run-regulatory-unblock-checklist-local \
   WINDOW_ID=stg-YYYY-MM-DD-a \
   PRIVATE_ENV_FILE=.env.staging.private \

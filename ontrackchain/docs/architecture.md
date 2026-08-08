@@ -8,68 +8,64 @@ O diagrama abaixo resume a topologia corrente do sistema e destaca onde os fluxo
 
 ```mermaid
 flowchart LR
-    U[Operadores e sistemas externos] --> T[Traefik IngressClass]
-    subgraph K8s_NS[ontrackchain Namespace — NetPol default-deny LGPD RLS]
+    U[Operadores e sistemas externos B2B] --> T[Traefik IngressClass<br/>3 réplicas PDB minAvailable=2<br/>Service LoadBalancer]
+    subgraph K8s_NS[ontrackchain Namespace — 4 NetworkPolicies LGPD RLS PSP restricted]
       direction TB
-      T --> A[auth-service v3.0.0]
-      T --> MO[mock-oidc v1.5.0 dev IdP]
-      T --> PA[public-api v2.0.0 B2B rate limit]
-      T --> F[frontend Next.js 14]
-      F --> I[investigation-api v2.0.0]
-      F --> C[compliance-api v2.0.0]
-      F --> M[monitoring-api v2.0.0]
-      F --> R[report-api v2.0.0]
-      F --> AI[ai-service v4.1.0]
-      F --> CM[case-management v2.0.0]
-      C --> CW[compliance-worker]
-      A -->|OIDC federado| KC[Keycloak v25 realm import]
+      subgraph NetPol[NetPolicies LGPD — default-deny]
+        direction TB
+        NP1[01-default-deny-lgpd<br/>ALL Ingress/Egress Block]
+        NP2[02-deny-ec2-imds-169-254<br/>Block IMDS credenciais role nó]
+        NP3[03-allow-intra-namespace-same-ns<br/>podSelector ontrackchain.io/component]
+        NP4[04-allow-from-traefik-ingress<br/>From ns traefik-system IngressClass]
+      end
+      T --> A[auth-service v3.0.0 :8001<br/>OTK_* + MFA 2FA]
+      T --> MO[mock-oidc v1.5.0 :8009<br/>dev IdP claims org opcionais]
+      T --> PA[public-api v2.0.0 :8008<br/>B2B rate limit chave otc_live_*]
+      T --> F[frontend Next.js 14 cockpit tri-locale]
+      F --> I[investigation-api v2.0.0 :8003]
+      F --> C[compliance-api v2.0.0 :8002]
+      F --> MO2[monitoring-api v2.0.0 :8004]
+      F --> R[report-api v2.0.0 :8007]
+      F --> AI[ai-service v4.1.0 :8005<br/>Graph Intelligence 202 Accepted]
+      F --> CM[case-management v2.0.0 :8006<br/>hub casos scoring IA]
+      C --> CW[compliance-worker readiness]
+      A -->|OIDC federado token verify| KC[Keycloak v25 realm import]
       T --> KC
 
-      I --> P[(PostgreSQL 16 pgvector RLS)]
-      C --> P
-      M --> P
-      R --> P
-      AI --> P
-      CM --> P
-      PA --> P
-      A --> P
+      subgraph SS[StatefulSets PVC — LGPD restricted-dados-pessoais labels]
+        direction TB
+        P[(PG16 pgvector 10Gi<br/>RLS multi-tenant Art.19 LGPD]
+        PR[(Prometheus v2.53 20Gi<br/>ServiceMonitor kube-prometheus-stack]
+      end
 
-      I --> X[(Redis)]
-      C --> X
-      M --> X
-      R --> X
+      I --> P; C --> P; MO2 --> P; R --> P; AI --> P; CM --> P; PA --> P; A --> P
+
+      I --> X[(Redis queue DLQ)]
+      C --> X; MO2 --> X; R --> X
 
       subgraph OBS[Stack Observabilidade M16b Sprint 13]
         direction TB
-        PR[(Prometheus v2.53 StatefulSet 20Gi PVC)]
-        G[Grafana 11.2 Dashboard Único QA]
-        AM[Alertmanager v0.27 webhook routes]
-        PR -->|scrape /metrics annotations| A
-        PR -->|scrape| MO
-        PR -->|scrape| PA
-        PR -->|scrape| I
-        PR -->|scrape| C
-        PR -->|scrape| M
-        PR -->|scrape| R
-        PR -->|scrape| AI
-        PR -->|scrape| CM
-        G --> PR
-        G --> AM
-        AM -->|webhook /monitoring| M
+        G[Grafana 11.2 Dashboard Único QA<br/>PVC 5Gi standalone]
+        AM[Alertmanager v0.27 webhook routes P0-P2]
+        PR -->|scrape /metrics annotations 9 FastAPI| A
+        PR -->|scrape| MO; PR -->|scrape| PA; PR -->|scrape| I; PR -->|scrape| C
+        PR -->|scrape| MO2; PR -->|scrape| R; PR -->|scrape| AI; PR -->|scrape| CM
+        G --> PR; G --> AM
       end
+      AM -->|webhook POST /api/v1/monitoring/alertmanager-webhook| MO2
 
-      C --> GOV[governance-weekly/generated]
-      M --> GOV
-      R --> GOV
-      AI --> GOV
-      GOV --> CY[governance-weekly/cycles]
+      C --> GOV[governance-weekly/generated]; MO2 --> GOV; R --> GOV; AI --> GOV
+      GOV --> CY[governance-weekly/cycles datados Art.19]
     end
     classDef svc fill:#dbeafe,stroke:#2563eb,color:#111827;
     classDef infra fill:#dcfce7,stroke:#16a34a,color:#111827;
     classDef stateful fill:#fef3c7,stroke:#d97706,color:#111827;
-    class A,MO,PA,I,C,M,R,AI,CM,F svc;
+    classDef netpol fill:#f1f5f9,stroke:#475569,color:#111827,stroke-dasharray:5 5;
+    classDef gateway fill:#fce7f3,stroke:#db2777,color:#111827;
+    class A,MO,PA,I,C,MO2,R,AI,CM,F svc;
     class T,X,CW,GOV,CY,KC infra;
     class P,PR,G,AM stateful;
+    class NP1,NP2,NP3,NP4 netpol;
 ```
 
 ## Boundaries do Sistema
