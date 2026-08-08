@@ -300,7 +300,8 @@ Os comandos aceitam múltiplas fontes (env vars, flags, arquivos `.prom` ou fail
 | 11 | pytest service: ai-service              | ci.yml pytest matrix service 3 | BLOQUEIA |
 | 12 | pytest service: investigation-api       | ci.yml pytest matrix service 4 | BLOQUEIA |
 | 13 | Quality Gate: SonarCloud + CodeCov (80% overall / 85% patch) | ci.yml sonarcloud-codecov-quality-gate M8 Sprint 9 | BLOQUEIA (overall<80% ou patch<85% ou 0+ code smells blocker) |
-| 14 | *(OPCIONAL)* SonarCloud Quality Gate (após refino strict) | ci.yml sonar-scan strict (90% new) | BLOQUEIA (M8 Sprint 10 se optar) |
+| 14 | Policy Gate: Conftest OPA (gates P0 + jobs pesados) | ci.yml policy-gate-conftest M10 Sprint 10 | BLOQUEIA (qualquer 1 das 3 regras Rego violada) |
+| 15 | *(OPCIONAL)* SonarCloud Quality Gate (após refino strict) | ci.yml sonar-scan strict (90% new) | BLOQUEIA (M8 Sprint 11 se optar) |
 
 ## Sprint 9 Update (Milestone Pós-MVP 3)
 
@@ -345,5 +346,36 @@ Os comandos aceitam múltiplas fontes (env vars, flags, arquivos `.prom` ou fail
 | 18 | M6 Milestone | Branch Protection SSOT settings.yml enforce_admins=true + 13 Required Status Checks + 4 environments | S8 | ✅ |
 | 19 | M7 Milestone | Secrets 4-eyes R12 + Checklist 6 passos editar Render API 10 vars | S8 | ✅ |
 | 20 | M7b Milestone | Anti Hardcoded Tokens rnd_/ghp_/sk_ Regex Grep CI (Sprint 8) | S8 | ✅ |
-| 21 | M8 Milestone | SonarCloud + CodeCov Quality Gate BLOQUEANTE overall 80% / patch 85% + 0 code smells blocker | S9 (NOVO) | ✅ **FECHADO** |
+| 21 | M8 Milestone | SonarCloud + CodeCov Quality Gate BLOQUEANTE overall 80% / patch 85% + 0 code smells blocker | S9 | ✅ **FECHADO** |
+
+## Sprint 10 Update (Milestone Pós-MVP 4 — M9 + M10)
+
+### Risco novo R15 (Sprint 10 NOVO — M10 Conftest Policy Engine)
+- **Risco R15**: "Um dev abre um PR marcando `continue-on-error: true` no job `gate-p0-00-rls-cross-tenant` porque o gate está acusando falso-positivo em um commit refatoração de middleware. PR é aprovado por 2 devs distraídos, mergeado. Sem gate P0, 1 semana depois um bug RLS cross-tenant é introduzido e dados de investigação de 3 ORGs são vazados."
+- **Mitigação M10 Sprint 10**: Policy Engine Open Policy Agent (OPA) via Conftest, 3 regras Rego em `policies/`, job NOVO bloqueante `policy-gate-conftest` no `ci.yml` needs=lint, status check obrigatório Nº14 em main e develop:
+  1. **`policies/01_deny_continue_on_error_p0_gate.rego`**: Nega gate P0/P1/P2/P3 bloqueante ter `continue-on-error = true`. Nomes de jobs/gates negados: gate-p0*, QA Gate, SAST:*, Dep Audit:*, Guard:*, Quality Gate, Policy Gate:, secrets-guard-skeleton.
+  2. **`policies/02_deny_ubuntu_latest_on_heavy_jobs.rego`**: Nega jobs pesados (pytest matrix × 7, e2e playwright shard 8, run-explorers-live 50min) usarem runs-on: ubuntu-latest (string). Obriga array self-hosted labels Sprint 7 M4.
+  3. **`policies/03_deny_missing_timeout_minutes.rego`**: Nega TODO job CI não tenha `timeout-minutes` explícito — evita 6h GHA hard desperdício minutos.
+  4. **Job CI `policy-gate-conftest`**: usa imagem docker `openpolicyagent/conftest:v0.52.0`, 10min timeout, `continue-on-error=false`, roda contra 15 YAMLs (9 workflows + settings + codecov + 5 observability), fallback para arquivos faltando (skip e avisa).
+
+### Risco atualizado R11-ext (M9 Healthchecks.io Dead Man Externo — Sprint 10)
+- **Risco R11-ext (Extensão do R11 do Sprint 8)**: "O GitHub Actions scheduler NÃO EXECUTA o cron `0 5 * * *` do nightly explorers live por 72h consecutivas (limite de minutos gratuito de repo privado atingido, bug no GitHub scheduler, ou PAT/GITHUB_TOKEN expirado). Ninguém percebe porque o SLA Dead Man interno só dispara SE o workflow rodar. Passam-se 9 dias e os 3 provedores RPC de exploração live caem de vez — ninguém percebe."
+- **Mitigação M9 Sprint 10**: DEAD MAN EXTERNO independente — Healthchecks.io (grátis 20 checks). Step NOVO no job `sla-dead-man-switch` nomeado `✅ M9 Healthchecks.io Dead Man ping (SLA externo 25h grace)`:
+  - Pinga `https://hc.io/ping/<UUID>` APENAS se `steps.sla.outputs.status == 'OK'` (SLA 24h OK); se secret não cadastrado → step pula sem bloquear.
+  - 3 retries curl --retry 3 --retry-delay 2; UUID mascarado nos logs (${UUID:0:4}...${últimos4})
+  - Healthchecks.io espera 25h entre pings (1h de grace). Se não chegar → e-mail + Slack IMEDIATAMENTE.
+  - 2 secrets one-shot (cadastro repo Settings): `HEALTHCHECKS_IO_SLA_UUID` (nightly exploração live 24h) + `HEALTHCHECKS_IO_LOADTEST_UUID` (quando criar nightly-load-test M11)
+
+### Workflow Aplicação itens 18..20 (adendo Sprint 10 M9 + M10)
+18. **Todo PR que edita `.github/workflows/*.yml` OU `.github/settings.yml`**: automaticamente validado pelo Policy Gate M10. Se qualquer 1 das 3 Rego negar → merge é BLOQUEADO. Não há bypass (enforce_admins=true). NÃO TENTAR contornar editando `.rego` sem PR separado de "policy update" com label `needs-security-review` obrigatório.
+19. **Todo PR que adiciona job NOVO em workflows**: SEMPRE definir `timeout-minutes`. Se esquecer, policy 03 nega merge automaticamente. Recomendado: build leve (2-5 min), gates (3-10 min), pytest matrix (30 min), E2E shards (60 min), nightly (120 min).
+20. **Cron agendados (nightly workflows)**: Dead Man interno (cria issue GitHub SLA) + Dead Man externo (Healthchecks.io ping) são **DUPLA GARANTIA OBRIGATÓRIA**. Nenhum nightly novo pode ser mergeado sem os 2 mecanismos. Checklist 4-eyes R12 vale para `HEALTHCHECKS_IO_*_UUID` também.
+
+## Tabela 21 → 23 Final (M9 + M10 Sprint 10 adicionados)
+### Sprint × GAP × Fechado
+| # | GAP/Milestone | Nome | Sprint fechado | Status |
+|---|---|---|---|---|
+| 1..21 | Mesmos itens 1..21 da tabela anterior (não repetindo) | — | S1..S9 | ✅ 21/21 |
+| 22 | M9 Milestone | Dead Man Externo Healthchecks.io (ping SLA 25h grace) + step nightly sla-dead-man-switch | S10 NOVO | ✅ FECHADO |
+| 23 | M10 Milestone | Policy Engine OPA/Conftest 3 regras Rego + status check Nº14 obrigatório main/develop | S10 NOVO | ✅ FECHADO |
 

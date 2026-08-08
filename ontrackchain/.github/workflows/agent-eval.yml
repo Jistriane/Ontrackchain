@@ -27,6 +27,7 @@ jobs:
   eval-class-a:
     name: "Class A — Deterministic Eval"
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     services:
       postgres:
@@ -105,6 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: eval-class-a
+    timeout-minutes: 40
 
     services:
       postgres:

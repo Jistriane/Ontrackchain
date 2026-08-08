@@ -89,6 +89,7 @@ jobs:
   changed-file-filter:
     name: "0. Filtro paths + label e2e-required — só roda se código + etiqueta"
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       front_changed: ${{ steps.filter.outputs.front }}
       stack_changed: ${{ steps.filter.outputs.stack }}

@@ -64,6 +64,7 @@ jobs:
   preflight:
     name: 0. Preflight inputs + decide modo
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     outputs:
       run_mode: ${{ steps.mode.outputs.run_mode }}
       n_cases: ${{ steps.mode.outputs.n_cases }}
@@ -485,3 +486,25 @@ jobs:
               body,
               labels: ['incident', 'P1-critical', 'sla-deadman', 'investigation-down'],
             });
+
+      # =====================================================================
+      # M9 Sprint 10: DEAD MAN'S SWITCH EXTERNO (independente do GitHub!)
+      # - Healthchecks.io: espera 1 ping a cada 25h (1h de margem sobre o cron 24h)
+      # - Se NÃO CHEGAR ping nesse intervalo → Healthchecks.io envia EMAIL/SLACK
+      #   MESMO QUE o GitHub Actions scheduler esteja quebrado (bug minutos, bug cron, etc).
+      # - Secret obrigatório para pingar: repo-level Actions secret HEALTHCHECKS_IO_SLA_UUID
+      #   (Configuração ONE-SHOT: cadastrar em Settings → Secrets and variables → Actions)
+      # =====================================================================
+      - name: "✅ M9 Healthchecks.io Dead Man ping (SLA externo 25h grace)"
+        if: steps.sla.outputs.status == 'OK'
+        env:
+          HC_UUID: ${{ secrets.HEALTHCHECKS_IO_SLA_UUID }}
+        run: |
+          if [ -z "$HC_UUID" ]; then
+            echo "ℹ️  Secret HEALTHCHECKS_IO_SLA_UUID não cadastrado no repo Settings → ping Healthchecks externo pulado (não bloqueia nightly)."
+            echo "   Cadastre em: https://healthchecks.io → Projects → Ontrackchain SLA → Copy UUID do check 'nightly-explorers-live-sla-24h'"
+            exit 0
+          fi
+          HC_URL="https://hc.io/ping/${HC_UUID}"
+          echo "🔄 Pingando Healthchecks.io (SLA 24h OK)..."
+          curl -fsS --max-time 10 --retry 3 --retry-delay 2 "${HC_URL}" -w "\n  ✅ Ping Healthchecks.io enviado (UUID mascarado: ${HC_UUID:0:4}...${HC_UUID:${#HC_UUID}-4:4})\n"
