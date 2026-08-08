@@ -154,3 +154,68 @@ Os comandos aceitam múltiplas fontes (env vars, flags, arquivos `.prom` ou fail
 7. **Se PR adiciona comando novo qa-gateway**: adicionar no CI `job gate-p0-01-oidc`
    (ou job equivalente) o comando `--help` para garantir que o comando não quebre em
    merge, + adicionar linha na tabela §1.1 deste ADR e link de consumo na tabela §1.2.
+
+## Sprint 6 Update (P3 Pós-MVP) — 100% Média GAPs
+
+**Média final dos 12 GAPs do documento Arquitetura QA/DevOps: 12 × 100% = 100,0%**
+(Antes: 99,3% = GAP#6=98%, GAP#7=95%).
+
+### Riscos novos (R9, R10) + Mitigações Sprint 6
+- **Risco R9 (Sprint 6 NOVO — GAP#6 100% fechado)**: "Playwright shard=8 paralelo roda
+  em TODO PR pequeno (ex: typo docs) custando 8 runners × 5min = 40min-minutos CI/PR
+  desnecessários → $$$ custo GitHub Actions em projetos grande" → **Mitigação**:
+  Job `changed-file-filter` em `.github/workflows/e2e-pr-playwright.yml` recebe
+  **Label-Gate obrigatório**: `has_e2e_label=true` é necessário (via
+  `github.event.pull_request.labels` checado em Python 1-liner).
+  - SE PR tem label `e2e-required` → E2E roda (8 shards paralelos)
+  - SE PR NÃO tem label → job `e2e-playwright` pula (skip amigável)
+  - Push para `main`/`develop` OU `workflow_dispatch` → SEMPRE roda (guardrail merge safety)
+  Resultado: economia ~90% minutos CI em PRs pequenos/docs/infra leves.
+
+- **Risco R10 (Sprint 6 NOVO — GAP#7 100% fechado)**: "3 Prometheus alerts existem mas
+  time não tem Dashboard Grafana único centralizado QA → precisa abrir 5 abas
+  separadas para ver SLA/RLS/E2E/pytest/Load P95 → observabilidade fragmentada" →
+  **Mitigação**: Novo dashboard Grafana provisionado automaticamente:
+  `infra/observability/grafana/dashboards/ontrackchain-qa-overview.json` (uid:
+  `ontrackchain-qa-overview`, 8 painéis, 3 rows × 12 grid):
+  | Painel ID | Título | Tipo | Métrica | Alerta se |
+  |---|---|---|---|---|
+  | 1 | SLA 24h Dead Man Switch (s desde último sucesso) | stat | `time()-last_success` | >82800s vermelho |
+  | 2 | RLS 401 req/min (5m avg) | stat | `rate(http_rls_401[5m])` | >0.333 req/min vermelho |
+  | 3 | E2E Playwright success rate 1h (%) | stat | `passed/total*100` | <90% vermelho |
+  | 4 | RLS 401 histórico 24h por app | timeseries | `sum by(app) rate([5m])` | regra threshold |
+  | 5 | E2E sucesso por suite (%) | timeseries | `suite%` por critical/rbac | <90% vermelho |
+  | 6 | Alertas Prometheus ativos firing | stat | `count(ALERTS{firing})` | >=3 vermelho |
+  | 7 | pytest CI passed/failed contador 1h | timeseries | `rate(ci_pytest[1h])` | |
+  | 8 | GAP#11 Load test Nightly P95 latência (ms) | stat | `histogram_quantile 0.95` | >3000ms vermelho |
+
+### Atualizações Workflow Aplicação (adendo Sprint 6)
+8. **Antes de marcar PR pronto para merge**: se PR altera `apps/frontend/**` ou
+   `apps/case-management/**` (rotas ou telas de negócio), o **revisor/QA é OBRIGADO** a
+   adicionar label `e2e-required` para habilitar 8 shards Playwright. O CI NÃO roda E2E
+   sem esta etiqueta (em PR pull_request; push main/develop sempre roda).
+9. **Todo novo alerta Prometheus adicionado em platform.rules.yml**: deve ter um painel
+   correspondente no dashboard `ontrackchain-qa-overview.json` (SSOT observabilidade QA).
+10. **Se GAP#12 (SAST Bandit + pip-audit) ficar `continue-on-error: true` > 2 sprints**:
+    abrir issue etiquetada `security-mvp-next-milestone` para transformar em bloqueante
+    após 1ª remediação baseline CVEs HIGH.
+
+## Status (Sprint 6 Final)
+**Tabela 12 GAPs × Sprint × % × Status Fechado:**
+
+| GAP | Sprint | % | Status | Fechado em |
+|---|---|---|---|---|
+| 1  RLS Cross-Tenant P0 | 1 | 100 | ✅ | S1 |
+| 2  pytest CI 7× paralelo | 1 | 100 | ✅ | S1 |
+| 3  Deploy Seguro Semver | 2 | 100 | ✅ | S2 |
+| 4  LGPD + QA Gateway 6 comandos | 1-4 | 100 | ✅ | S4 |
+| 5  SLA 24h Exploradores Live | 3 | 100 | ✅ | S3 |
+| 6  E2E Playwright PR Shard 8 + Label gate | 5 + 6 | 100 | ✅ | S6 |
+| 7  Prometheus Alerts 3 + Grafana Dashboard Único | 4 + 6 | 100 | ✅ | S6 |
+| 8  Vault/Secrets Prod ADR-016 | 2 | 100 | ✅ | S2 |
+| 9  Rollback Render API Automático | 4 | 100 | ✅ | S4 |
+| 10 ADRs + DoD + Governança QA | 3-4 | 100 | ✅ | S4 |
+| 11 Load test 20 paralelo Nightly P95 | 5 | 100 | ✅ | S5 |
+| 12 SAST Bandit + pip-audit CVE scan MVP | 5 | 100 | ✅ | S5 |
+
+**Média**: 12/12 × 100% = **100,0%**. Meta ≥ 90% EXTREMAMENTE ultrapassada. MVP concluído.

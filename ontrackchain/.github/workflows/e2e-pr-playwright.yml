@@ -1,20 +1,25 @@
 name: E2E Playwright em PRs (Docker Compose + 4 serviços + Navegador Chromium)
 # -----------------------------------------------------------------------
 # GAP #6 (Arquitetura QA/DevOps) — E2E Cypress/Playwright em todos PRs
+# GAP #6 Sprint 6 upgrade: label "e2e-required" OBRIGATÓRIA em PR para
+#        rodar shards=8; evita custo de ~8 runners em PRs pequenos docs
 #
 # Gatilhos:
 #   A) pull_request (padrão) aberto ou atualizado contra main
-#   B) push para develop/main (extra guard)
+#      → SÓ RODA SE (1) paths front/stack alterados AND (2) PR tem label
+#         "e2e-required" OU é PR tipo ready_for_review pela primeira vez
+#   B) push para develop/main (RODA SEMPRE — guardrail merge safety)
 #   C) workflow_dispatch (manual)
 #
 # Pilares:
-# 1. Só roda se arquivos de código do front/serviços de negócio forem alterados
-#    (filtro paths:  apps/frontend/**  OR  apps/case-management/** OR
-#     apps/auth-service/** OR apps/investigation-api/**) — evita rodar em docs
-# 2. Docker Compose up: postgres + redis + traefik + auth + case + inv
-# 3. Playwright 4 testes de smoke do caminho crítico (login CRUD caso
-#    atribuir status exportar evidência) — 10 minutos timeout
-# 4. SE 2+ testes falharem → BLOQUEIA MERGE.
+# 1. [Sprint 6 NOVO] Label-gate: em PRs (não push), exige etiqueta
+#    `e2e-required` criada pelo revisor/QA; se ausente → skip amigável
+# 2. Só roda se arquivos de código do front/serviços de negócio forem
+#    alterados (filtro paths + dorny/paths-filter)
+# 3. Docker Compose up: postgres + redis + traefik + auth + case + inv
+# 4. Playwright shard=8 paralelo (40min→5min esperado) 4 testes de smoke
+#    caminho crítico (login CRUD caso atribuir status exportar evidência)
+# 5. SE 2+ testes falharem → BLOQUEIA MERGE; upload merged artifact 60d
 # -----------------------------------------------------------------------
 on:
   pull_request:
@@ -78,18 +83,46 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------
-  # 0. Skip check: se PR só tocou docs, pula sem custo
+  # 0. Skip check: se PR só tocou docs OU NÃO TEM label 'e2e-required',
+  #    pula sem custo (Sprint 6 NOVO label-gate evita 8 runners desnecessários)
   # ---------------------------------------------------------------------
   changed-file-filter:
-    name: "0. Filtro paths — só roda se código mudou"
+    name: "0. Filtro paths + label e2e-required — só roda se código + etiqueta"
     runs-on: ubuntu-latest
     outputs:
       front_changed: ${{ steps.filter.outputs.front }}
       stack_changed: ${{ steps.filter.outputs.stack }}
+      has_e2e_label: ${{ steps.check_label.outputs.has_e2e_label }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
+
+      - name: "[Sprint 6 NOVO] Verifica se PR tem label 'e2e-required'; push/dispatch = auto true"
+        id: check_label
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "has_e2e_label=true" >> "$GITHUB_OUTPUT"
+            echo "✅ Evento ${{ github.event_name }}: label-gate desligado (push/dispatch sempre roda)"
+            exit 0
+          fi
+          LABELS_JSON='${{ toJSON(github.event.pull_request.labels) }}'
+          TEM_LABEL=$(python3 -c "import json,sys
+          try:
+            labels = json.loads(sys.argv[1])
+            names = [l.get('name','') for l in labels] if isinstance(labels,list) else []
+            print('true' if 'e2e-required' in names else 'false')
+          except Exception:
+            print('false')
+          " "$LABELS_JSON")
+          echo "has_e2e_label=$TEM_LABEL" >> "$GITHUB_OUTPUT"
+          if [ "$TEM_LABEL" = "true" ]; then
+             echo "✅ PR #${{ github.event.pull_request.number || '0' }} tem label 'e2e-required': E2E HABILITADO"
+          else
+             echo "⚠️  PR #${{ github.event.pull_request.number || '0' }} SEM label 'e2e-required': SKIPPANDO E2E (economia ~8×5min runners)"
+             echo "   → Como habilitar: revisor/QA adiciona label 'e2e-required' no PR → workflow dispara synchronize novamente"
+          fi
+
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -112,7 +145,10 @@ jobs:
   e2e-playwright:
     name: "1. E2E Playwright shard=${{ matrix.shard }}/8 (PR / develop / main)"
     needs: [changed-file-filter]
-    if: needs.changed-file-filter.outputs.front_changed == 'true' || needs.changed-file-filter.outputs.stack_changed == 'true' || github.event_name == 'workflow_dispatch'
+    if: |
+      (needs.changed-file-filter.outputs.front_changed == 'true' || needs.changed-file-filter.outputs.stack_changed == 'true' || github.event_name == 'workflow_dispatch')
+      &&
+      (needs.changed-file-filter.outputs.has_e2e_label == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
