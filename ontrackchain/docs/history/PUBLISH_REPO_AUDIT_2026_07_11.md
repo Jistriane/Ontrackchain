@@ -15,13 +15,13 @@ Foi auditado:
 
 ## Achados
 
-### 1. Nao ha evidencia de uso interno pelo repositório ativo
+### 1. Nao ha evidência de uso interno pelo repositório ativo
 
 As buscas internas nao encontraram referencias operacionais ou de build apontando para `.publish_repo/` como source of truth do projeto.
 
 Leitura resultante:
 
-- o repositório ativo nao consome `.publish_repo/` para decidir baseline, contrato ou governanca
+- o repositório ativo nao consome `.publish_repo/` para decidir baseline, contrato ou governança
 - se existir uso real, ele provavelmente e externo ao workspace atual ou manual
 
 ### 2. O espelho esta materialmente divergente da trilha canônica
@@ -29,15 +29,15 @@ Leitura resultante:
 Foram observados sinais concretos de drift:
 
 - o espelho ainda manteve os caminhos antigos de `first-serious-window-*` e `staging-serious-window-signoff-template.md`
-- o espelho nao refletiu a migracao desses artefatos para `docs/history/`
+- o espelho nao refletiu a migração desses artefatos para `docs/history/`
 - o espelho preserva versoes anteriores do `README` raiz e do indice `docs/README.md`
-- o espelho nao acompanhou a limpeza recente da documentacao viva e da taxonomia de governanca
+- o espelho nao acompanhou a limpeza recente da documentação viva e da taxonomia de governança
 
 ### 3. O drift e suficiente para desqualificar `.publish_repo/` como fonte primaria
 
 Conclusao objetiva:
 
-- `.publish_repo/` nao pode ser usado como baseline, contrato, matriz de governanca ou status executivo
+- `.publish_repo/` nao pode ser usado como baseline, contrato, matriz de governança ou status executivo
 - qualquer decisao arquitetural, regulatoria ou operacional deve continuar partindo do repositorio ativo e da trilha `ontrackchain/docs/`
 
 ### 4. O drift ainda nao prova delecao segura
@@ -55,7 +55,7 @@ Apesar da divergencia, a auditoria nao produziu prova forte de que:
 Tratar `.publish_repo/` como:
 
 - **espelho de publicacao nao-canônico**
-- **fora da governanca viva do projeto**
+- **fora da governança viva do projeto**
 - **nao elegivel a delecao automatica nesta rodada**
 
 ## Atualizacao Posterior - 2026-07-15
@@ -84,11 +84,11 @@ A proxima rodada recomendada, se houver interesse em remover o espelho, e:
 2. validar se o espelho precisa ser regenerado ou se pode ser aposentado
 3. so entao executar delecao controlada ou congelamento formal
 
-## Relacao com a Trilha Canonica
+## Relacao com a Trilha canônica
 
 Esta auditoria complementa:
 
-- [Indice Canônico da Documentacao](../README.md)
+- [Indice Canônico da documentação](../README.md)
 - [Historico de Apoio](./README.md)
 - [README raiz](../../../README.md)
 

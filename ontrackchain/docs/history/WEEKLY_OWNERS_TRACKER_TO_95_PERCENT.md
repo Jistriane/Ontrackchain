@@ -2,7 +2,7 @@
 
 **Data base:** 2026-07-03
 
-> Aviso de classificacao: este tracker e datado e deve ser lido como apoio historico de ciclo. Para a trilha viva de owners, prioridades e evidencias, use primeiro o [Board Operacional Unico](../project-operational-execution-board.md), o [Plano Consolidado ate 95%](../project-construction-plan-to-95-percent.md) e os registros ativos em [governance-weekly/README.md](../governance-weekly/README.md).
+> Aviso de classificacao: este tracker e datado e deve ser lido como apoio historico de ciclo. Para a trilha viva de owners, prioridades e evidências, use primeiro o [Board Operacional Unico](../project-operational-execution-board.md), o [Plano Consolidado ate 95%](../project-construction-plan-to-95-percent.md) e os registros ativos em [governance-weekly/README.md](../governance-weekly/README.md).
 
 ## Objetivo
 

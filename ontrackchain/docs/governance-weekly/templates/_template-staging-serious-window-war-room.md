@@ -15,8 +15,8 @@
 - status atual: `go` | `no-go` | `go_with_exception`
 - motivo principal:
 - risco residual:
-- proximo checkpoint:
-- hora do proximo checkpoint:
+- próximo checkpoint:
+- hora do próximo checkpoint:
 - facilitador online: `<nome_owner_online>`
 - canal principal do war room: `<slack_ou_teams_canal>`
 - bridge de escalacao principal: `<canal_bridge_ou_incident_room>`
@@ -37,9 +37,9 @@
   - ultima atualizacao: `<YYYY-MM-DDTHH:MM:SSZ>`
   - dependencia critica: `<secret_ou_gate_ativo>`
   - comando: `<comando_minimo>`
-  - evidencia minima: `<evidencia_esperada>`
+  - evidência minima: `<evidencia_esperada>`
   - criterio de go/no-go: `<criterio_curto>`
-  - observacoes: `<observacao_curta>`
+  - observações: `<observacao_curta>`
 - `Auth/OIDC`
   - owner primario: `<nome_owner_primario>`
   - backup/escalacao: `<nome_owner_backup>`
@@ -48,9 +48,9 @@
   - ultima atualizacao: `<YYYY-MM-DDTHH:MM:SSZ>`
   - dependencia critica: `<secret_ou_gate_ativo>`
   - comando: `<comando_minimo>`
-  - evidencia minima: `<evidencia_esperada>`
+  - evidência minima: `<evidencia_esperada>`
   - criterio de go/no-go: `<criterio_curto>`
-  - observacoes: `<observacao_curta>`
+  - observações: `<observacao_curta>`
 - `Investigation/RPC`
   - owner primario: `<nome_owner_primario>`
   - backup/escalacao: `<nome_owner_backup>`
@@ -59,9 +59,9 @@
   - ultima atualizacao: `<YYYY-MM-DDTHH:MM:SSZ>`
   - dependencia critica: `<secret_ou_gate_ativo>`
   - comando: `<comando_minimo>`
-  - evidencia minima: `<evidencia_esperada>`
+  - evidência minima: `<evidencia_esperada>`
   - criterio de go/no-go: `<criterio_curto>`
-  - observacoes: `<observacao_curta>`
+  - observações: `<observacao_curta>`
 - `Compliance/AML`
   - owner primario: `<nome_owner_primario>`
   - backup/escalacao: `<nome_owner_backup>`
@@ -70,9 +70,9 @@
   - ultima atualizacao: `<YYYY-MM-DDTHH:MM:SSZ>`
   - dependencia critica: `<secret_ou_gate_ativo>`
   - comando: `<comando_minimo>`
-  - evidencia minima: `<evidencia_esperada>`
+  - evidência minima: `<evidencia_esperada>`
   - criterio de go/no-go: `<criterio_curto>`
-  - observacoes: `<observacao_curta>`
+  - observações: `<observacao_curta>`
 - `Gate Agregado da Janela`
   - owner primario: `<nome_owner_primario>`
   - backup/escalacao: `<nome_owner_backup>`
@@ -81,9 +81,9 @@
   - ultima atualizacao: `<YYYY-MM-DDTHH:MM:SSZ>`
   - dependencia critica: `<secret_ou_gate_ativo>`
   - comando: `<comando_minimo>`
-  - evidencia minima: `<evidencia_esperada>`
+  - evidência minima: `<evidencia_esperada>`
   - criterio de go/no-go: `<criterio_curto>`
-  - observacoes: `<observacao_curta>`
+  - observações: `<observacao_curta>`
 
 ## Bloqueadores Ativos
 
@@ -95,7 +95,7 @@
   - tempo alvo: `<HH:MMZ ou 30 min>`
   - status: `open`
 
-## Evidencias Revisadas
+## evidências Revisadas
 
 - `handoff.json`:
 - `placeholders.json`:
@@ -114,7 +114,7 @@
 
 - decisao registrada:
 
-## Proximo Passo Autorizado
+## próximo Passo Autorizado
 
 - acao: `<acao_objetiva>`
 - owner: `<nome_owner_online>`

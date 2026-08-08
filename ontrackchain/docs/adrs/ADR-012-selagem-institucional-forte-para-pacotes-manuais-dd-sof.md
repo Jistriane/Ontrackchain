@@ -4,7 +4,7 @@
 
 O Ontrackchain ja possui uma trilha manual DD/SoF com:
 
-- pacote canonico `manual_review_package/v2`
+- pacote canônico `manual_review_package/v2`
 - manifesto deterministico e `package_sha256`
 - evento oficial `evidence_manual_review_package_exported`
 - navegacao bidirecional entre `evidence` e `audit`
@@ -40,7 +40,7 @@ Adotar como baseline a `Opcao B`: envelope assinado off-chain com `JWS JSON Flat
 
 - foi priorizado `baixo acoplamento + prova institucional suficiente` em vez de binding imediato a um provider especifico
 - foi aceita a ausencia de TSA na primeira release para reduzir custo, irreversibilidade e dependencia externa
-- foi escolhido quorum `Compliance + Ops` para equilibrar governanca e throughput operacional
+- foi escolhido quorum `Compliance + Ops` para equilibrar governança e throughput operacional
 
 ## Criterios de Aceitacao
 

@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Documentar o pipeline atual de validacao automatizada e o processo recomendado de release para o scaffold.
+Documentar o pipeline atual de validação automatizada e o processo recomendado de release para o scaffold.
 
 ## Pipeline Atual
 
@@ -43,8 +43,8 @@ Workflow manual dedicado:
 - disparo via `workflow_dispatch`
 - exige `GitHub Environment` com aprovacoes e secret `STAGING_WINDOW_PRIVATE_ENV`
 - executa `python scripts/prepare_staging_window.py --window-id <janela> --mode <baseline|homologated> --run`
-- publica `checks`, `dossiers`, `window packet`, templates redigidos e evidencias de homologacao como artefato anexavel
-- configuracao operacional detalhada em [GitHub Environment para Staging Sério](github-environment-staging-serious.md)
+- publica `checks`, `dossiers`, `window packet`, templates redigidos e evidências de homologacao como artefato anexavel
+- configuração operacional detalhada em [GitHub Environment para Staging Sério](github-environment-staging-serious.md)
 
 ## O que a Pipeline Faz
 
@@ -189,7 +189,7 @@ Comando:
 npm run test:e2e:dev-auth
 ```
 
-Observacao operacional:
+Observação operacional:
 
 - o comando agora executa preflight explicito de `baseURL` e `/auth/config`
 - falha cedo se o ambiente nao estiver em `AUTH_MODE=dev`
@@ -214,7 +214,7 @@ Observacao operacional:
 ### Cobertura adicional ja institucionalizada
 
 - drift de schema e coerencia entre migrations via [check_postgres_schema.py](../scripts/check_postgres_schema.py)
-- baseline de seguranca contra placeholders/defaults via [check_security_baseline.py](../scripts/check_security_baseline.py)
+- baseline de segurança contra placeholders/defaults via [check_security_baseline.py](../scripts/check_security_baseline.py)
 - regressao de preflights, homologacao, `window packet`, `release dossier` e `staging window runner`
 
 ## Workflow `quality-gates`
@@ -362,7 +362,7 @@ python scripts/render_staging_window_decision_packet.py \
   --run-url "https://github.com/<org>/<repo>/actions/runs/<run_id>"
 ```
 
-### Controles de seguranca
+### Controles de segurança
 
 - o secret nao e publicado como artefato nem escrito em documentação
 - aprovacoes podem ser forçadas pelo proprio `GitHub Environment`
@@ -383,7 +383,7 @@ Gates recomendados:
 - revisao de codigo
 - revisao de mudancas de schema quando aplicavel
 
-### Merge em Branch de Integracao
+### Merge em Branch de integração
 
 Objetivo:
 
@@ -396,17 +396,17 @@ Gates recomendados:
 - Playwright verde
 - docs relevantes atualizadas
 
-### Staging Regulatorio
+### Staging regulatório
 
 Objetivo:
 
-- validar controles, auditoria e operacao
+- validar controles, auditoria e operação
 
 Checklist:
 
 - trilha auditavel consultavel
 - `legal_report` com enforcement correto
-- readiness regulatorio revisado
+- readiness regulatório revisado
 - bundle `AML/KYT live` e gate de runtime anexados quando o escopo exigir
 - JSONs da janela UE anexados quando o escopo exigir `EU_CONSOLIDATED`
 - quando houver `AML/KYT live`, `make check-compliance-provider-runtime` verde e anexado
@@ -417,6 +417,66 @@ Checklist:
 ```text
 PR -> CI -> merge -> staging tecnico -> staging regulatorio -> aprovacao -> producao
 ```
+
+## Convencao de Tags e Releases
+
+Objetivo:
+
+- evitar colisao de tags em releases editoriais (docs-only)
+- garantir que `Latest` continue representando releases de produto
+- preservar rastreabilidade entre tag, commit e release notes
+
+### Tipos de tag
+
+| Tipo | Quando usar | Nome recomendado | Deve ser `Latest`? |
+| --- | --- | --- | --- |
+| release de produto | mudanca funcional/regulatoria/codigo | `vX.Y.Z` | sim |
+| release docs-only | mudanca editorial/documentacao | `vX.Y.Z-docs.N` | nao |
+
+Regras:
+
+- nunca reaproveitar ou mover uma tag existente
+- se o nome base ja existir, incremente apenas o sufixo `.N` (`.1`, `.2`, ...)
+- releases docs-only devem ser publicadas como `None` (nao `Latest`)
+- a tag deve apontar para um commit da `main` (ou branch alvo explicitamente acordada) e o texto da release deve citar o hash curto do commit
+
+Nota (escopo):
+
+- tags/releases `docs-only` sao informativas: servem para rastrear navegacao, guias operacionais e consolidacoes de documentacao.
+- elas nao representam mudanca de produto/semantica de runtime e nao devem substituir a release de produto marcada como `Latest`.
+
+### Fluxo recomendado (docs-only)
+
+1. merge/commit na `main` com a mudanca documental
+2. criar tag anotada `vX.Y.Z-docs.N` apontando para o `HEAD` atual
+3. publicar release com:
+   - titulo igual a tag
+   - `Set as the latest release`: **None**
+   - release notes curtas com:
+     - lista do que mudou
+     - commit hash
+     - portas canônicas (`docs/README.md`, `TECHNICAL_APPENDIX.md`, `operations.md`)
+
+### Exemplo de nomenclatura
+
+- `v4.0.7` (produto)
+- `v4.0.8-docs.2` (docs-only subsequente, quando houver mais de uma rodada editorial)
+
+### Higiene de tags (evitar duplicidade)
+
+Antes de criar uma nova tag docs-only, valide se a tag base ja aponta para o commit correto:
+
+```bash
+git rev-parse HEAD
+git rev-parse vX.Y.Z-docs || true
+git ls-remote --tags origin vX.Y.Z-docs || true
+```
+
+Regras praticas:
+
+- se `vX.Y.Z-docs` ja existir e apontar para o `HEAD`, nao crie `.1`
+- se `vX.Y.Z-docs` ja existir e apontar para outro commit, use `vX.Y.Z-docs.1` (ou incremente `.N`) em vez de mover a tag existente
+- se existir `vX.Y.Z-docs.1` e a base nao existir, mantenha o sufixo `.1` e siga com o próximo numero apenas quando houver nova rodada
 
 ## Criterios Minimos de Aprovacao
 
@@ -494,7 +554,7 @@ job 7: smoke pos-deploy
 
 ## Recomendacao Imediata
 
-O proximo passo mais valioso para CI/CD e:
+O próximo passo mais valioso para CI/CD e:
 
 - reduzir duplicacao entre jobs com imagem/cache ou compose reaproveitavel
 - promover `staging-serious-window.yml` a rito oficial da janela regulatoria, anexando o artefato `serious-staging-window-<janela>` como evidência oficial de release

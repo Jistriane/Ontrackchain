@@ -20,6 +20,12 @@ http:
           - "X-MFA-Provider-Homologated"
 
   routers:
+    mock-oidc:
+      entryPoints: ["web"]
+      rule: "Host(`oidc.localhost`)"
+      service: "mock-oidc"
+      priority: 310
+
     keycloak:
       entryPoints: ["web"]
       rule: "Host(`auth.localhost`) || Host(`auth.ontrackchain.com`)"
@@ -109,6 +115,11 @@ http:
       priority: 1
 
   services:
+    mock-oidc:
+      loadBalancer:
+        servers:
+          - url: "http://mock-oidc:9101"
+
     keycloak:
       loadBalancer:
         servers:

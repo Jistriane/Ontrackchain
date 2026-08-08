@@ -2,7 +2,7 @@
 
 ## Contexto
 
-O projeto precisa trilhar eventos de investigacao, compliance, billing e download de relatorios de forma forense. Apenas registrar a acao sem correlacao entre camadas dificultaria debug, auditoria e reconstrucao de fluxo.
+O projeto precisa trilhar eventos de investigacao, compliance, billing e download de relatórios de forma forense. Apenas registrar a acao sem correlacao entre camadas dificultaria debug, auditoria e reconstrucao de fluxo.
 
 ## Decisao
 
@@ -44,8 +44,8 @@ Padronizar `X-Request-Id` nos fluxos criticos e persisti-lo em `audit_logs.metad
 
 ## Consequencias
 
-- filtros por `request_id` se tornam parte importante da operacao
-- integracoes futuras devem preservar este header
+- filtros por `request_id` se tornam parte importante da operação
+- integrações futuras devem preservar este header
 - smoke e Playwright passam a validar correlacao, nao so status HTTP
 
 ## Trade-offs Aceitos

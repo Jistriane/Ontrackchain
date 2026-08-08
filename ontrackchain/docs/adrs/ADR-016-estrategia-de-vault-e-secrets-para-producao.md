@@ -29,7 +29,7 @@ Usar servico de secret manager (AWS Secrets Manager, HashiCorp Vault, ou equival
 - todos os segredos criticos devem ser armazenados no secret manager
 - rotacao automatica para credenciais de banco, APIs e servicos
 - audit trail de acesso
-- integracao com IAM para controle de acesso
+- integração com IAM para controle de acesso
 
 ### 2. Staging — GitHub Environment (manter)
 
@@ -70,7 +70,7 @@ Exemplos:
 
 ## Consequencias
 
-- melhora significativa na seguranca de producao
+- melhora significativa na segurança de producao
 - audit trail de acesso a segredos
 - rotacao automatica reduz risco de credenciais comprometidas
 - segregacao clara entre ambientes
@@ -79,7 +79,7 @@ Exemplos:
 ## Trade-offs Aceitos
 
 - custo adicional de secret manager em producao
-- necessidade de integracao com CI/CD para leitura de segredos
+- necessidade de integração com CI/CD para leitura de segredos
 - periodo de transicao com coexistencia de modelos
 
 ## Status

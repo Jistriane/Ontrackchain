@@ -5,7 +5,7 @@
 **Liderado por:** Arquitetura / Compliance
 **Stakeholders:** Tech Lead, Compliance Lead, COO, Ops Manager
 
-> Aviso de classificacao: este documento e um planejamento datado do ciclo Sprint 7-9. Para a leitura viva de prioridades e execucao, use primeiro o [Board de Prioridades do Projeto](../project-priority-board.md), o [Board Operacional Unico](../project-operational-execution-board.md), o [Resumo Executivo de Readiness](../project-executive-readiness-brief.md) e o [Kit de Execucao por Evidencia](../project-maturity-evidence-execution-kit.md).
+> Aviso de classificacao: este documento e um planejamento datado do ciclo Sprint 7-9. Para a leitura viva de prioridades e execucao, use primeiro o [Board de Prioridades do Projeto](../project-priority-board.md), o [Board Operacional Unico](../project-operational-execution-board.md), o [Resumo Executivo de Readiness](../project-executive-readiness-brief.md) e o [Kit de Execucao por evidência](../project-maturity-evidence-execution-kit.md).
 
 ---
 

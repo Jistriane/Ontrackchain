@@ -38,7 +38,7 @@
 - compliance AML/KYT: `ready`
 - feed UE: `ready`
 - regulatory bundle: `pending`
-- reports e evidencias: `pending`
+- reports e evidências: `pending`
 - CI/CD: `pending`
 - restore/retention: `pending`
 
@@ -58,15 +58,15 @@
 ## Aprovadores Sugeridos por Papel
 
 - arquitetura/tech lead: confirmar coerencia entre war room, tracking, dossier e decisao final
-- backend/compliance: confirmar `P0-02` e `P0-03` com correlators preenchidos e artefatos revisaveis
-- platform/SRE: confirmar `P0-04`, validacao final do artifact e paths do pacote gerado
+- backend/compliance: confirmar `P0-02` e `P0-03` com correlators preenchidos e artefatos revisáveis
+- platform/SRE: confirmar `P0-04`, validação final do artifact e paths do pacote gerado
 - security/auth: confirmar risco residual de `P0-01` ou aprovar eventual bundle OIDC novo, se existir
 
 ## Decisao Final
 
 - decisao: `pending_no_go`
-- proximo passo: confirmar owners online, validar `P0-02` e `P0-03` com insumos reais e rerodar o gate agregado antes de qualquer disparo formal
-- owner do proximo passo: `Release Manager Tecnico`
+- próximo passo: confirmar owners online, validar `P0-02` e `P0-03` com insumos reais e rerodar o gate agregado antes de qualquer disparo formal
+- owner do próximo passo: `Release Manager Tecnico`
 
 ## Regras de Atualizacao
 
@@ -74,4 +74,4 @@
 - alinhar a decisao final do sign-off com a decisao do war room e do tracking ao vivo
 - mudar a decisao para `approved` somente se `overall`, `validation`, `preflight` e `run` forem `ok`
 - mudar a decisao para `approved_with_exception` apenas se existir waiver formal e `P0-04` nao estiver incoerente
-- nao promover a janela se `P0-02` ou `P0-03` nao tiverem artefatos revisaveis e correlators preenchidos
+- nao promover a janela se `P0-02` ou `P0-03` nao tiverem artefatos revisáveis e correlators preenchidos

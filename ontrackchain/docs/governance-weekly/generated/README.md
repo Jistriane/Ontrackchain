@@ -21,7 +21,7 @@ Regra operacional:
 Nao use esta pasta para:
 
 - templates
-- runbooks canonicos
+- runbooks canônicos
 - atas ou registros semanais escritos manualmente
 
 ## Artefatos Disponiveis

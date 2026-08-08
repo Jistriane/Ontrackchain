@@ -793,7 +793,7 @@ validate-work-items-runtime-local:
 	@$(MAKE) --no-print-directory smoke-work-items-ownership-backend
 
 smoke-work-items-ownership-backend:
-	@cat scripts/smoke_work_items_ownership_backend.py | docker compose exec -T compliance-api python -
+	@cat scripts/smoke_work_items_ownership_backend.py | docker compose exec -T -e BASE_URL=http://traefik compliance-api python -
 
 # ================================
 # PHASE 8: Enterprise Governance

@@ -41,7 +41,7 @@ on:
 jobs:
   governance-gate-evaluation:
     name: Evaluate Governance Gate
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ontrackchain-local]
     permissions:
       contents: read
       checks: write
@@ -210,7 +210,7 @@ jobs:
 
   notify-slack-on-gate-block:
     name: Notify Slack on Gate Block
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ontrackchain-local]
     needs: governance-gate-evaluation
     if: needs.governance-gate-evaluation.outputs.gate_allowed == 'false' && github.event_name != 'pull_request'
     steps:

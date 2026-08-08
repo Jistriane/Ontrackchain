@@ -1,8 +1,8 @@
-# Ciclos de Governanca
+# Ciclos de governança
 
 ## Objetivo
 
-Concentrar registros humanos datados da governanca semanal separados por ciclo, mantendo a raiz de `governance-weekly/` focada em navegacao, guias, templates e artefatos agregados.
+Concentrar registros humanos datados da governança semanal separados por ciclo, mantendo a raiz de `governance-weekly/` focada em navegacao, guias, templates e artefatos agregados.
 
 ## Ciclos Disponiveis
 

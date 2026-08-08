@@ -25,7 +25,9 @@ import {
   buildPlatformAlertSelectionScope,
   clearPersistedPlatformAlertSelection,
   readPersistedPlatformAlertSelection,
+  shouldPersistPlatformAlertSelection,
   writePersistedPlatformAlertSelection,
+  type PersistedPlatformAlertSelectionState,
   type PlatformAlertFilterState
 } from "../lib/monitoring-platform-alerts";
 import {
@@ -376,13 +378,18 @@ export default function AlertsPage() {
     if (typeof window === "undefined") {
       return;
     }
-    writePersistedPlatformAlertSelection(window.sessionStorage, {
+    const next: PersistedPlatformAlertSelectionState = {
       ...currentPlatformAlertFilters(),
       cursor: platformAlertCursor,
       cursorHistory: platformAlertCursorHistory,
       selectedIds,
       selectionScope: scope
-    });
+    };
+    if (shouldPersistPlatformAlertSelection(next)) {
+      writePersistedPlatformAlertSelection(window.sessionStorage, next);
+    } else {
+      clearPersistedPlatformAlertSelection(window.sessionStorage);
+    }
   }
 
   function hydratePersistedPlatformAlertSelection(scope: string | null) {
@@ -530,11 +537,13 @@ export default function AlertsPage() {
     });
   }
 
-  async function refreshPlatformOperationalAlerts() {
+  async function refreshPlatformOperationalAlerts(options?: { clearMessage?: boolean }) {
     if (canReadPlatformAdmin !== true) {
       return;
     }
-    setPlatformAlertMessage(null);
+    if (options?.clearMessage !== false) {
+      setPlatformAlertMessage(null);
+    }
     setError(null);
     setPlatformAlertCursor(null);
     setPlatformAlertCursorHistory([]);
@@ -555,6 +564,7 @@ export default function AlertsPage() {
     setPlatformAlertStatusFilter(value);
     setPlatformAlertCursor(null);
     setPlatformAlertCursorHistory([]);
+    persistPlatformAlertSelection(platformAlertSelectionScope, selectedPlatformAlertIds);
     await loadPlatformOperationalAlerts(value, platformAlertTriageFilter, platformAlertServiceFilter, platformAlertReceiverFilter, platformAlertSeverityFilter, null);
   }
 
@@ -565,6 +575,7 @@ export default function AlertsPage() {
     setPlatformAlertTriageFilter(value);
     setPlatformAlertCursor(null);
     setPlatformAlertCursorHistory([]);
+    persistPlatformAlertSelection(platformAlertSelectionScope, selectedPlatformAlertIds);
     await loadPlatformOperationalAlerts(platformAlertStatusFilter, value, platformAlertServiceFilter, platformAlertReceiverFilter, platformAlertSeverityFilter, null);
   }
 
@@ -575,6 +586,7 @@ export default function AlertsPage() {
     setPlatformAlertServiceFilter(value);
     setPlatformAlertCursor(null);
     setPlatformAlertCursorHistory([]);
+    persistPlatformAlertSelection(platformAlertSelectionScope, selectedPlatformAlertIds);
     await loadPlatformOperationalAlerts(platformAlertStatusFilter, platformAlertTriageFilter, value, platformAlertReceiverFilter, platformAlertSeverityFilter, null);
   }
 
@@ -585,6 +597,7 @@ export default function AlertsPage() {
     setPlatformAlertReceiverFilter(value);
     setPlatformAlertCursor(null);
     setPlatformAlertCursorHistory([]);
+    persistPlatformAlertSelection(platformAlertSelectionScope, selectedPlatformAlertIds);
     await loadPlatformOperationalAlerts(platformAlertStatusFilter, platformAlertTriageFilter, platformAlertServiceFilter, value, platformAlertSeverityFilter, null);
   }
 
@@ -595,6 +608,7 @@ export default function AlertsPage() {
     setPlatformAlertSeverityFilter(value);
     setPlatformAlertCursor(null);
     setPlatformAlertCursorHistory([]);
+    persistPlatformAlertSelection(platformAlertSelectionScope, selectedPlatformAlertIds);
     await loadPlatformOperationalAlerts(platformAlertStatusFilter, platformAlertTriageFilter, platformAlertServiceFilter, platformAlertReceiverFilter, value, null);
   }
 
@@ -650,7 +664,7 @@ export default function AlertsPage() {
     setPlatformAlertMessage(t("monitoring.platform.messageAckSingle", { eventId, status: body?.triage_status ?? "acknowledged" }));
     setAcknowledgingPlatformAlertId(null);
     setSelectedPlatformAlertIds((current) => current.filter((entry) => entry !== eventId));
-    await refreshPlatformOperationalAlerts();
+    await refreshPlatformOperationalAlerts({ clearMessage: false });
   }
 
   async function performAcknowledgeFilteredPlatformAlerts() {
@@ -694,7 +708,7 @@ export default function AlertsPage() {
       );
       clearPlatformAlertSelectionPersistence();
       setSelectedPlatformAlertIds([]);
-      await refreshPlatformOperationalAlerts();
+      await refreshPlatformOperationalAlerts({ clearMessage: false });
     } catch {
       setError(t("monitoring.errors.ackPlatformAlertsBatch"));
     } finally {
@@ -744,7 +758,7 @@ export default function AlertsPage() {
       );
       clearPlatformAlertSelectionPersistence();
       setSelectedPlatformAlertIds([]);
-      await refreshPlatformOperationalAlerts();
+      await refreshPlatformOperationalAlerts({ clearMessage: false });
     } catch {
       setError(t("monitoring.errors.ackPlatformAlertsSelected"));
     } finally {
@@ -1034,17 +1048,45 @@ export default function AlertsPage() {
     if (canReadPlatformAdmin !== true) {
       return;
     }
-    const next = filtersFromSearchParams();
+    const urlHasExplicitFilters = ["status", "triage_status", "service", "receiver", "severity", "cursor"].some((key) => searchParams.has(key));
+    let next = filtersFromSearchParams();
+    let nextCursor: string | null = null;
+    let nextCursorHistory: Array<string | null> = [];
+    let nextSelectedIds: string[] = [];
+    if (!urlHasExplicitFilters && typeof window !== "undefined") {
+      const persisted = readPersistedPlatformAlertSelection(window.sessionStorage);
+      if (persisted && shouldPersistPlatformAlertSelection(persisted)) {
+        next = {
+          status: "all",
+          triageStatus: persisted.triageStatus,
+          service: persisted.service,
+          receiver: persisted.receiver,
+          severity: persisted.severity
+        };
+        nextCursor = persisted.cursor;
+        nextCursorHistory = persisted.cursorHistory;
+        nextSelectedIds = persisted.selectedIds;
+        setPlatformAlertSelectionHydrated(true);
+      }
+    }
     setPlatformAlertStatusFilter(next.status);
     setPlatformAlertTriageFilter(next.triageStatus);
     setPlatformAlertServiceFilter(next.service);
     setPlatformAlertReceiverFilter(next.receiver);
     setPlatformAlertSeverityFilter(next.severity);
-    setPlatformAlertCursor(null);
-    setPlatformAlertCursorHistory([]);
+    setPlatformAlertCursor(nextCursor);
+    setPlatformAlertCursorHistory(nextCursorHistory);
+    setSelectedPlatformAlertIds(nextSelectedIds);
     setError(null);
     setPlatformAlertMessage(null);
-    loadPlatformOperationalAlerts(next.status, next.triageStatus, next.service, next.receiver, next.severity, null).catch(() => undefined);
+    loadPlatformOperationalAlerts(
+      next.status,
+      next.triageStatus,
+      next.service,
+      next.receiver,
+      next.severity,
+      nextCursor
+    ).catch(() => undefined);
   }, [authResolved, canReadPlatformAdmin, searchParams]);
 
   useEffect(() => {
@@ -1300,7 +1342,12 @@ export default function AlertsPage() {
             <option value="warning">{t("monitoring.platform.severity.warning")}</option>
             <option value="critical">{t("monitoring.platform.severity.critical")}</option>
           </select>
-          <button type="button" data-testid="platform-alerts-refresh-btn" onClick={refreshPlatformOperationalAlerts} className="otc-button otc-button--ghost">
+          <button
+            type="button"
+            data-testid="platform-alerts-refresh-btn"
+            onClick={() => void refreshPlatformOperationalAlerts()}
+            className="otc-button otc-button--ghost"
+          >
             {t("monitoring.platform.refresh")}
           </button>
           {canManagePlatformAdmin ? (

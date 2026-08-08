@@ -6,7 +6,7 @@ Concentrar respostas operacionais iniciais para os incidentes mais provaveis do 
 
 Este documento e intencionalmente pragmatica: ele serve para reduzir tempo de diagnostico em development e staging tecnico/regulatorio.
 
-## Escopo Canonico
+## Escopo canônico
 
 Use este documento para:
 
@@ -18,7 +18,7 @@ Nao use este documento como fonte primaria para:
 
 - fluxo tecnico de deploy e promocao: use [Deploy e Staging](deploy-and-staging.md)
 - decisao executiva de `go/no-go`: use [Gates de Release para Staging Serio](project-release-gates.md)
-- governanca semanal e war room: use [Governanca Semanal](./governance-weekly/README.md)
+- governança semanal e war room: use [governança Semanal](./governance-weekly/README.md)
 
 ## Severidades
 
@@ -46,7 +46,7 @@ curl -v http://localhost:8080/
 ### Runbook 1 — Gateway indisponivel — Causas Provaveis
 
 - container `traefik` nao iniciou
-- configuracao invalida em `dynamic.yml`
+- configuração invalida em `dynamic.yml`
 - servico alvo nao esta registrado/saudavel
 
 ### Runbook 1 — Gateway indisponivel — Acao
@@ -131,7 +131,7 @@ curl -fsS http://auth.localhost:8080/realms/ontrackchain/.well-known/openid-conf
 curl -fsS http://localhost:8080/auth/config
 ```
 
-### Runbook 4 — Indisponibilidade de OIDC ou MFA do provedor — Evidencias a coletar
+### Runbook 4 — Indisponibilidade de OIDC ou MFA do provedor — evidências a coletar
 
 - horario inicial do incidente
 - ambiente afetado (`local`, `test`, `staging`, `production`)
@@ -159,7 +159,7 @@ curl -fsS http://localhost:8080/auth/config
 1. congelar promocoes e mudancas de auth enquanto o incidente estiver aberto
 2. confirmar se o problema e:
    - indisponibilidade do IdP
-   - erro de configuracao OIDC
+   - erro de configuração OIDC
    - regressao no callback/frontend
    - politica de MFA do provedor nao aplicada
    - frontend hospedado degradado para `hostedShowcaseFallback`
@@ -177,7 +177,7 @@ Uma excecao temporaria so pode ser considerada quando:
 - o risco residual estiver documentado com prazo
 - houver trilha de auditoria da decisao
 
-### Runbook 4 — Indisponibilidade de OIDC ou MFA do provedor — Validacao final
+### Runbook 4 — Indisponibilidade de OIDC ou MFA do provedor — validação final
 
 - login OIDC volta a concluir sessao com sucesso
 - o segundo fator do provedor volta a ser exigido conforme politica corporativa
@@ -204,7 +204,7 @@ Uma excecao temporaria so pode ser considerada quando:
 - validar no `report-api` se headers chegaram
 - se o ambiente for serio, confirmar que nao houve regressao para `dev auth`
 
-### Runbook 5 — `legal_report` retornando `403` indevido — Validacao final
+### Runbook 5 — `legal_report` retornando `403` indevido — validação final
 
 - `legal_download_pre_2fa` deve falhar
 - `legal_download_post_2fa` deve passar
@@ -340,7 +340,7 @@ npm run test:e2e:dev-auth
 
 - `case` termina em `failed`
 - `Monitoring` mostra entrada na DLQ
-- operacao precisa decidir entre requeue ou investigacao manual
+- operação precisa decidir entre requeue ou investigacao manual
 
 ### Runbook 12 — Case em DLQ de investigation — Verificacao
 
@@ -513,13 +513,13 @@ curl -u admin:admin http://localhost:3001/api/dashboards/uid/ontrack-compliance-
    - esperado: `score_source=provider_live` na trilha auditada
 4. Executar `python3 scripts/smoke_runtime.py`
    - esperado: `compliance_catalog` e `compliance_risk_check` verdes
-5. Exportar evidencias:
-   - observacao: no baseline `local` do repositório, `COMPLIANCE_TRM_ENABLED=false`; portanto um artefato `status=ok` exige overrides serios de ambiente e provider real
+5. Exportar evidências:
+   - observação: no baseline `local` do repositório, `COMPLIANCE_TRM_ENABLED=false`; portanto um artefato `status=ok` exige overrides serios de ambiente e provider real
    - executar `python3 scripts/homologation_external_evidence.py --mode compliance`
    - esperado: artefato JSON em `artifacts/homologation/` com `preflight`, `provider-readiness`, catalogo, `risk-check` e bundle `/audit` correlacionado pelo mesmo `request_id`
    - anexar o `.json` e o `.manifest.json` gerados ao gate de release
 
-### Runbook 16A — Homologacao AML/KYT live controlada — Evidencias Minimas
+### Runbook 16A — Homologacao AML/KYT live controlada — evidências Minimas
 
 - resposta de `provider-readiness` com `details.operating_mode=live`
 - resultado `status=ok` de `python3 scripts/preflight_external_integrations.py` para `COMPLIANCE_MODE=live`
@@ -528,7 +528,7 @@ curl -u admin:admin http://localhost:3001/api/dashboards/uid/ontrack-compliance-
 - `audit_logs` com `action=compliance_risk_checked`, `request_id`, `provider`, `provider_status`, `score_source`, `latency_ms` e `retries_used`
 - resultado recente de `python3 scripts/smoke_runtime.py`
 - artefato de `python3 scripts/homologation_external_evidence.py --mode compliance` com `status=ok`
-- bundle de evidencias exportado de `/audit` anexado ao gate de release
+- bundle de evidências exportado de `/audit` anexado ao gate de release
 
 ### Runbook 16A — Homologacao AML/KYT live controlada — Falhas Aceitaveis
 
@@ -576,13 +576,13 @@ curl -u admin:admin http://localhost:3001/api/dashboards/uid/ontrack-compliance-
    - esperado: `kyw_summary.rpc.rpc_source=provider_primary|provider_fallback`
 4. Executar `python3 scripts/smoke_runtime.py`
    - esperado: `investigation_result` verde preservando `provider_status` e `rpc_source`
-5. Exportar evidencias:
-   - observacao: no baseline `local` do repositório, `INVESTIGATION_RPC_ENABLED=false`; portanto um artefato `status=ok` exige URLs reais e overrides serios de ambiente
+5. Exportar evidências:
+   - observação: no baseline `local` do repositório, `INVESTIGATION_RPC_ENABLED=false`; portanto um artefato `status=ok` exige URLs reais e overrides serios de ambiente
    - executar `python3 scripts/homologation_external_evidence.py --mode rpc --rpc-expected-mode live|fallback_only`
    - esperado: artefato JSON em `artifacts/homologation/` com `preflight`, `rpc-readiness`, `estimate`, `start`, `result` e bundle `/audit` correlacionado pelo mesmo `request_id`
    - anexar o `.json` e o `.manifest.json` gerados ao gate de release
 
-### Runbook 16B — Homologacao RPC live controlada — Evidencias Minimas
+### Runbook 16B — Homologacao RPC live controlada — evidências Minimas
 
 - resposta de `rpc-readiness` com `ready=true`
 - resultado `status=ok` de `python3 scripts/preflight_external_integrations.py` para o modo RPC esperado
@@ -592,7 +592,7 @@ curl -u admin:admin http://localhost:3001/api/dashboards/uid/ontrack-compliance-
 - `kyw_summary.rpc.rpc_source` igual a `provider_primary` ou `provider_fallback`
 - resultado recente de `python3 scripts/smoke_runtime.py`
 - artefato de `python3 scripts/homologation_external_evidence.py --mode rpc` com `status=ok`
-- bundle de evidencias exportado de `/audit` anexado ao gate de release
+- bundle de evidências exportado de `/audit` anexado ao gate de release
 
 ### Runbook 16B — Homologacao RPC live controlada — Falhas Aceitaveis
 
@@ -660,7 +660,7 @@ make run-eu-sanctions-window \
   CHECKS_DIR=artifacts/staging/checks
 ```
 
-### Runbook 16C — Homologacao do feed UE tokenizado — Evidencias Minimas
+### Runbook 16C — Homologacao do feed UE tokenizado — evidências Minimas
 
 - `python3 scripts/preflight_external_integrations.py` com `status=ok`
 - `make check-eu-sanctions-window REQUEST_ID=<eu_request_id>` com `status=ok`
@@ -819,7 +819,7 @@ npx playwright test tests/e2e/compliance-flows.spec.ts -g "monitoring registra a
 - criar runbooks especificos para:
   - backup/restore
   - falha de provider externo
-  - incidente de seguranca
+  - incidente de segurança
 
 ## Runbook 21 — Backup ou restore do PostgreSQL falhou
 
@@ -853,4 +853,4 @@ RESTORE_TARGET_DB=ontrackchain_restore_check bash scripts/restore_postgres.sh ar
 - gerar novo dump com `bash scripts/backup_postgres.sh`
 - repetir o restore em banco isolado com `RESTORE_TARGET_DB`
 - validar contagem minima de tabelas restauradas, `rto_seconds` e presenca dos manifestos JSON
-- se o incidente afetar evidencias, auditoria ou retention, envolver `Platform/DBA` e `Security`
+- se o incidente afetar evidências, auditoria ou retention, envolver `Platform/DBA` e `Security`

@@ -5,12 +5,16 @@ OnTrackChain - Graph Intelligence 4.0
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import UUID
+
+import httpx
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -19,12 +23,6 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 logger = logging.getLogger(__name__)
-
-app = FastAPI(
-    title="OnTrackChain Case Management Service",
-    description="Case Management with PostgreSQL persistence, RBAC, and Evidence Trail",
-    version="2.0.0",
-)
 
 
 class Settings(BaseSettings):
@@ -45,19 +43,31 @@ def _dsn() -> str:
     )
 
 
-@app.on_event("startup")
-async def _startup() -> None:
-    app.state.pool = ConnectionPool(conninfo=_dsn(), kwargs={"row_factory": dict_row})
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    _app.state.pool = ConnectionPool(conninfo=_dsn(), kwargs={"row_factory": dict_row})
+    try:
+        yield
+    finally:
+        pool: Optional[ConnectionPool] = getattr(_app.state, "pool", None)
+        if pool is not None:
+            pool.close()
 
 
-@app.on_event("shutdown")
-async def _shutdown() -> None:
-    pool: ConnectionPool = app.state.pool
-    pool.close()
+app = FastAPI(
+    title="OnTrackChain Case Management Service",
+    description="Case Management with PostgreSQL persistence, RBAC, and Evidence Trail",
+    version="2.0.0",
+    lifespan=_lifespan,
+)
 
 
 def get_pool(request: Request) -> ConnectionPool:
-    return request.app.state.pool
+    pool: Optional[ConnectionPool] = getattr(request.app.state, "pool", None)
+    if pool is None:
+        pool = ConnectionPool(conninfo=_dsn(), kwargs={"row_factory": dict_row})
+        request.app.state.pool = pool
+    return pool
 
 
 def _apply_rls_context(conn, org_id: str) -> None:
@@ -65,8 +75,35 @@ def _apply_rls_context(conn, org_id: str) -> None:
         cur.execute("SELECT set_config('app.organization_id', %s, True)", (org_id,))
 
 
+try:
+    from ontrackchain_shared.auth import canonicalize_role as _canonicalize_role
+except Exception:  # noqa: BLE001 - fallback inline for host / old environments
+    def _canonicalize_role(raw_role: object) -> str:
+        if raw_role is None:
+            return ""
+        role = str(raw_role).strip()
+        if not role:
+            return ""
+        mapping = {
+            "OTK_ADMIN": "ADMIN",
+            "OTK_ANALYST": "ANALYST",
+            "OTK_AUDITOR": "AUDITOR",
+            "OTK_VIEWER": "VIEWER",
+            "OTK_COMPLIANCE_OFFICER": "COMPLIANCE_OFFICER",
+            "OTK_LEGAL_REVIEWER": "LEGAL_REVIEWER",
+            "OTK_TESTER": "TESTER",
+            "OTK_REVIEWER": "REVIEWER",
+            "OTK_BILLING_ADMIN": "BILLING_ADMIN",
+        }
+        if role in mapping:
+            return mapping[role]
+        if role.upper() in mapping:
+            return mapping[role.upper()]
+        return role.upper()
+
+
 def _require_role(x_role: Optional[str], allowed_roles: set[str], detail: str) -> str:
-    normalized = (x_role or "").strip().upper()
+    normalized = _canonicalize_role(x_role)
     if normalized not in allowed_roles:
         raise HTTPException(status_code=403, detail=detail)
     return normalized
@@ -110,9 +147,31 @@ def _record_audit_log(
 
 # ── RBAC constants ──
 
-CASE_READ_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER", "AUDITOR", "OTK_AUDITOR", "VIEWER", "OTK_VIEWER"}
-CASE_WRITE_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
-CASE_ADMIN_ALLOWED_ROLES = {"ADMIN"}
+CASE_READ_ALLOWED_ROLES = {
+    "ADMIN", "OTK_ADMIN",
+    "ANALYST", "OTK_ANALYST",
+    "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+    "AUDITOR", "OTK_AUDITOR",
+    "VIEWER", "OTK_VIEWER",
+    "LEGAL_REVIEWER", "OTK_LEGAL_REVIEWER",
+    "REVIEWER", "OTK_REVIEWER",
+}
+CASE_WRITE_ALLOWED_ROLES = {
+    "ADMIN", "OTK_ADMIN",
+    "ANALYST", "OTK_ANALYST",
+    "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+}
+CASE_ADMIN_ALLOWED_ROLES = {"ADMIN", "OTK_ADMIN"}
+CASE_EXPORT_ALLOWED_ROLES = {
+    "ADMIN", "OTK_ADMIN",
+    "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+    "LEGAL_REVIEWER", "OTK_LEGAL_REVIEWER",
+}
+CASE_DLQ_ADMIN_ALLOWED_ROLES = {
+    "ADMIN", "OTK_ADMIN",
+    "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+    "AUDITOR", "OTK_AUDITOR",
+}
 
 
 # ──────────────────────────────────────────────
@@ -171,6 +230,21 @@ class CaseMetricsResponse(BaseModel):
 class CaseListResponse(BaseModel):
     data: list[CaseResponse]
     total: int
+
+
+class DlqInvestigationItem(BaseModel):
+    case_id: str
+    status: str
+    dlq_state: str
+    created_at: str
+    completed_at: Optional[str]
+    metadata: dict[str, Any]
+
+
+class DlqListResponse(BaseModel):
+    data: list[DlqInvestigationItem]
+    total: int
+    state: str
 
 
 # ──────────────────────────────────────────────
@@ -244,7 +318,7 @@ async def create_case(
 ) -> CaseResponse:
     if not x_org_id:
         raise HTTPException(status_code=400, detail="X-Org-Id required")
-    _require_role(x_role, CASE_WRITE_ALLOWED_ROLES, "case_write_role_required")
+    canonical_role = _require_role(x_role, CASE_WRITE_ALLOWED_ROLES, "case_write_role_required")
 
     pool = get_pool(request)
     case_id = str(uuid.uuid4())
@@ -280,6 +354,15 @@ async def create_case(
             )
         conn.commit()
 
+    asyncio.create_task(
+        _async_generate_case_insights(
+            case_id=case_id,
+            org_id=x_org_id,
+            user_id=x_user_id,
+            role=canonical_role,
+        )
+    )
+
     return CaseResponse(
         case_id=case_id,
         title=request_body.title,
@@ -295,7 +378,318 @@ async def create_case(
 
 
 # ──────────────────────────────────────────────
-#  GET CASE
+#  CASE METRICS (must be declared before /api/v1/cases/{case_id} to avoid UUID param capture)
+# ──────────────────────────────────────────────
+
+@app.get("/api/v1/cases/metrics", response_model=CaseMetricsResponse)
+async def get_case_metrics(
+    request: Request,
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+) -> CaseMetricsResponse:
+    if not x_org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, CASE_READ_ALLOWED_ROLES, "case_read_role_required")
+
+    pool = get_pool(request)
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) AS total FROM case_management_cases WHERE organization_id = %s",
+                (x_org_id,),
+            )
+            total = cur.fetchone()["total"]
+
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM case_management_cases WHERE organization_id = %s AND status = 'open'",
+                (x_org_id,),
+            )
+            open_cases = cur.fetchone()["cnt"]
+
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM case_management_cases WHERE organization_id = %s AND status = 'closed'",
+                (x_org_id,),
+            )
+            closed_cases = cur.fetchone()["cnt"]
+
+            cur.execute(
+                """
+                SELECT COALESCE(
+                    AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 3600), 0
+                ) AS avg_hours
+                FROM case_management_cases
+                WHERE organization_id = %s AND status = 'closed'
+                """,
+                (x_org_id,),
+            )
+            avg_hours = cur.fetchone()["avg_hours"] or 0.0
+
+            cur.execute(
+                """
+                SELECT priority, COUNT(*) AS cnt
+                FROM case_management_cases WHERE organization_id = %s
+                GROUP BY priority
+                """,
+                (x_org_id,),
+            )
+            by_priority = {r["priority"]: r["cnt"] for r in cur.fetchall()}
+
+            cur.execute(
+                """
+                SELECT category, COUNT(*) AS cnt
+                FROM case_management_cases WHERE organization_id = %s
+                GROUP BY category
+                """,
+                (x_org_id,),
+            )
+            by_category = {r["category"]: r["cnt"] for r in cur.fetchall()}
+
+    return CaseMetricsResponse(
+        total_cases=total,
+        open_cases=open_cases,
+        closed_cases=closed_cases,
+        avg_resolution_time_hours=float(avg_hours),
+        cases_by_priority=by_priority,
+        cases_by_category=by_category,
+    )
+
+
+# ──────────────────────────────────────────────
+#  CASE TIMELINE (must be declared before /api/v1/cases/{case_id} to avoid UUID param capture)
+# ──────────────────────────────────────────────
+
+@app.get("/api/v1/cases/{case_id}/timeline", response_model=list[CaseTimelineEntry])
+async def get_case_timeline(
+    case_id: str,
+    request: Request,
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+) -> list[CaseTimelineEntry]:
+    if not x_org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, CASE_READ_ALLOWED_ROLES, "case_read_role_required")
+
+    pool = get_pool(request)
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, case_id, action, actor, details, created_at
+                FROM case_management_timeline
+                WHERE case_id = %s AND organization_id = %s
+                ORDER BY created_at ASC
+                """,
+                (case_id, x_org_id),
+            )
+            rows = cur.fetchall()
+
+    return [
+        CaseTimelineEntry(
+            entry_id=str(r["id"]),
+            case_id=str(r["case_id"]),
+            action=r["action"],
+            actor=r["actor"],
+            details=r["details"] if isinstance(r["details"], dict) else json.loads(r["details"]) if r["details"] else {},
+            timestamp=r["created_at"].isoformat() if r["created_at"] else "",
+        )
+        for r in rows
+    ]
+
+
+# ──────────────────────────────────────────────
+#  DLQ INVESTIGATION ADMIN (declared before /{case_id} to avoid UUID param capture)
+# ──────────────────────────────────────────────
+
+@app.get("/api/v1/cases/investigation-dlq", response_model=DlqListResponse)
+async def list_investigation_dlq(
+    request: Request,
+    state: str = "failed_permanent",
+    limit: int = 50,
+    offset: int = 0,
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+) -> DlqListResponse:
+    if not x_org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, CASE_DLQ_ADMIN_ALLOWED_ROLES, "dlq_admin_role_required")
+
+    valid_states = {"failed_permanent", "acknowledged", "discarded"}
+    if state not in valid_states:
+        raise HTTPException(status_code=400, detail=f"invalid_state_expected_one_of_{sorted(valid_states)}")
+
+    pool = get_pool(request)
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT COUNT(*) AS total
+                FROM cases
+                WHERE organization_id = %s
+                  AND case_type = 'investigation'
+                  AND metadata->>'dlq_state' = %s
+                """,
+                (x_org_id, state),
+            )
+            total = cur.fetchone()["total"]
+
+            cur.execute(
+                """
+                SELECT id, status, metadata, created_at, completed_at
+                FROM cases
+                WHERE organization_id = %s
+                  AND case_type = 'investigation'
+                  AND metadata->>'dlq_state' = %s
+                ORDER BY created_at DESC
+                LIMIT %s OFFSET %s
+                """,
+                (x_org_id, state, limit, offset),
+            )
+            rows = cur.fetchall()
+
+    items = [
+        DlqInvestigationItem(
+            case_id=str(r["id"]),
+            status=r["status"] or "",
+            dlq_state=(r["metadata"] or {}).get("dlq_state", state) if isinstance(r["metadata"], dict) else state,
+            created_at=r["created_at"].isoformat() if r["created_at"] else "",
+            completed_at=r["completed_at"].isoformat() if r["completed_at"] else None,
+            metadata=r["metadata"] if isinstance(r["metadata"], dict) else {},
+        )
+        for r in rows
+    ]
+    return DlqListResponse(data=items, total=total, state=state)
+
+
+@app.post("/api/v1/cases/investigation-dlq/{case_id}/requeue")
+async def requeue_investigation_dlq(
+    case_id: str,
+    request: Request,
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+) -> dict[str, Any]:
+    if not x_org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, CASE_DLQ_ADMIN_ALLOWED_ROLES, "dlq_admin_role_required")
+
+    pool = get_pool(request)
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, metadata
+                FROM cases
+                WHERE id = %s AND organization_id = %s AND case_type = 'investigation'
+                """,
+                (case_id, x_org_id),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="investigation_case_not_found")
+
+            metadata = row["metadata"] if isinstance(row["metadata"], dict) else {}
+            if metadata.get("dlq_state") not in {"failed_permanent", "acknowledged"}:
+                raise HTTPException(status_code=409, detail="dlq_case_not_in_requeueable_state")
+
+            requeue_count = int(metadata.get("dlq_requeue_count", 0) or 0) + 1
+            metadata["dlq_requeue_count"] = requeue_count
+            metadata["dlq_state"] = "requeued"
+            metadata["dlq_last_requeued_at"] = datetime.now(timezone.utc).isoformat()
+            if x_user_id:
+                metadata["dlq_last_requeued_by"] = str(x_user_id)
+
+            cur.execute(
+                """
+                UPDATE cases
+                SET status = 'queued',
+                    metadata = %s::jsonb,
+                    completed_at = NULL
+                WHERE id = %s AND organization_id = %s
+                """,
+                (json.dumps(metadata), case_id, x_org_id),
+            )
+
+            _record_audit_log(
+                cur,
+                organization_id=x_org_id,
+                user_id=x_user_id,
+                action="investigation_dlq_requeued",
+                resource_type="investigation_case",
+                resource_id=case_id,
+                metadata={"case_id": case_id, "requeue_count": requeue_count},
+            )
+        conn.commit()
+
+    return {"status": "requeued", "case_id": case_id, "requeue_count": requeue_count}
+
+
+@app.post("/api/v1/cases/investigation-dlq/{case_id}/acknowledge")
+async def acknowledge_investigation_dlq(
+    case_id: str,
+    request: Request,
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+) -> dict[str, Any]:
+    if not x_org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, CASE_DLQ_ADMIN_ALLOWED_ROLES, "dlq_admin_role_required")
+
+    pool = get_pool(request)
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, metadata
+                FROM cases
+                WHERE id = %s AND organization_id = %s AND case_type = 'investigation'
+                """,
+                (case_id, x_org_id),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="investigation_case_not_found")
+
+            metadata = row["metadata"] if isinstance(row["metadata"], dict) else {}
+            if metadata.get("dlq_state") != "failed_permanent":
+                raise HTTPException(status_code=409, detail="dlq_case_not_in_failed_permanent_state")
+
+            metadata["dlq_state"] = "acknowledged"
+            metadata["dlq_acknowledged_at"] = datetime.now(timezone.utc).isoformat()
+            if x_user_id:
+                metadata["dlq_acknowledged_by"] = str(x_user_id)
+
+            cur.execute(
+                """
+                UPDATE cases
+                SET status = 'acknowledged',
+                    metadata = %s::jsonb
+                WHERE id = %s AND organization_id = %s
+                """,
+                (json.dumps(metadata), case_id, x_org_id),
+            )
+
+            _record_audit_log(
+                cur,
+                organization_id=x_org_id,
+                user_id=x_user_id,
+                action="investigation_dlq_acknowledged",
+                resource_type="investigation_case",
+                resource_id=case_id,
+                metadata={"case_id": case_id},
+            )
+        conn.commit()
+
+    return {"status": "acknowledged", "case_id": case_id}
+
+
+# ──────────────────────────────────────────────
+#  GET CASE (catch-all UUID route, declared last)
 # ──────────────────────────────────────────────
 
 @app.get("/api/v1/cases/{case_id}", response_model=CaseResponse)
@@ -445,127 +839,6 @@ async def update_case(
 
 
 # ──────────────────────────────────────────────
-#  CASE TIMELINE
-# ──────────────────────────────────────────────
-
-@app.get("/api/v1/cases/{case_id}/timeline", response_model=list[CaseTimelineEntry])
-async def get_case_timeline(
-    case_id: str,
-    request: Request,
-    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
-    x_role: Optional[str] = Header(default=None, alias="X-Role"),
-) -> list[CaseTimelineEntry]:
-    if not x_org_id:
-        raise HTTPException(status_code=400, detail="X-Org-Id required")
-    _require_role(x_role, CASE_READ_ALLOWED_ROLES, "case_read_role_required")
-
-    pool = get_pool(request)
-    with pool.connection() as conn:
-        _apply_rls_context(conn, x_org_id)
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT id, case_id, action, actor, details, created_at
-                FROM case_management_timeline
-                WHERE case_id = %s AND organization_id = %s
-                ORDER BY created_at ASC
-                """,
-                (case_id, x_org_id),
-            )
-            rows = cur.fetchall()
-
-    return [
-        CaseTimelineEntry(
-            entry_id=str(r["id"]),
-            case_id=str(r["case_id"]),
-            action=r["action"],
-            actor=r["actor"],
-            details=r["details"] if isinstance(r["details"], dict) else json.loads(r["details"]) if r["details"] else {},
-            timestamp=r["created_at"].isoformat() if r["created_at"] else "",
-        )
-        for r in rows
-    ]
-
-
-# ──────────────────────────────────────────────
-#  CASE METRICS
-# ──────────────────────────────────────────────
-
-@app.get("/api/v1/cases/metrics", response_model=CaseMetricsResponse)
-async def get_case_metrics(
-    request: Request,
-    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
-    x_role: Optional[str] = Header(default=None, alias="X-Role"),
-) -> CaseMetricsResponse:
-    if not x_org_id:
-        raise HTTPException(status_code=400, detail="X-Org-Id required")
-    _require_role(x_role, CASE_READ_ALLOWED_ROLES, "case_read_role_required")
-
-    pool = get_pool(request)
-    with pool.connection() as conn:
-        _apply_rls_context(conn, x_org_id)
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT COUNT(*) AS total FROM case_management_cases WHERE organization_id = %s",
-                (x_org_id,),
-            )
-            total = cur.fetchone()["total"]
-
-            cur.execute(
-                "SELECT COUNT(*) AS cnt FROM case_management_cases WHERE organization_id = %s AND status = 'open'",
-                (x_org_id,),
-            )
-            open_cases = cur.fetchone()["cnt"]
-
-            cur.execute(
-                "SELECT COUNT(*) AS cnt FROM case_management_cases WHERE organization_id = %s AND status = 'closed'",
-                (x_org_id,),
-            )
-            closed_cases = cur.fetchone()["cnt"]
-
-            cur.execute(
-                """
-                SELECT COALESCE(
-                    AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 3600), 0
-                ) AS avg_hours
-                FROM case_management_cases
-                WHERE organization_id = %s AND status = 'closed'
-                """,
-                (x_org_id,),
-            )
-            avg_hours = cur.fetchone()["avg_hours"] or 0.0
-
-            cur.execute(
-                """
-                SELECT priority, COUNT(*) AS cnt
-                FROM case_management_cases WHERE organization_id = %s
-                GROUP BY priority
-                """,
-                (x_org_id,),
-            )
-            by_priority = {r["priority"]: r["cnt"] for r in cur.fetchall()}
-
-            cur.execute(
-                """
-                SELECT category, COUNT(*) AS cnt
-                FROM case_management_cases WHERE organization_id = %s
-                GROUP BY category
-                """,
-                (x_org_id,),
-            )
-            by_category = {r["category"]: r["cnt"] for r in cur.fetchall()}
-
-    return CaseMetricsResponse(
-        total_cases=total,
-        open_cases=open_cases,
-        closed_cases=closed_cases,
-        avg_resolution_time_hours=float(avg_hours),
-        cases_by_priority=by_priority,
-        cases_by_category=by_category,
-    )
-
-
-# ──────────────────────────────────────────────
 #  INTERNAL HELPERS
 # ──────────────────────────────────────────────
 
@@ -576,6 +849,107 @@ def _calculate_risk_score(request: CaseCreateRequest) -> float:
     category_adj = {"sanctions": 20, "aml": 15, "kyc": 5, "investigation": 10}
     base_score += category_adj.get(request.category, 0)
     return min(100.0, max(0.0, base_score))
+
+
+async def _async_generate_case_insights(
+    *,
+    case_id: str,
+    org_id: str,
+    user_id: Optional[str],
+    role: str,
+) -> None:
+    try:
+        import os
+        ai_service_url = os.environ.get("AI_SERVICE_URL", "http://ai-service:8005")
+
+        pool: Optional[ConnectionPool] = getattr(app.state, "pool", None)
+        if pool is None:
+            pool = ConnectionPool(conninfo=_dsn(), kwargs={"row_factory": dict_row})
+            app.state.pool = pool
+
+        with pool.connection() as conn:
+            _apply_rls_context(conn, org_id)
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT title, description, category FROM case_management_cases WHERE id = %s AND organization_id = %s",
+                    (case_id, org_id),
+                )
+                row = cur.fetchone()
+                if not row:
+                    logger.warning("case-insights: case %s not found for org %s", case_id, org_id)
+                    return
+
+                case_title = row["title"]
+                case_description = row["description"]
+                case_category = row["category"]
+
+        headers = {
+            "X-Org-Id": org_id,
+            "X-User-Id": user_id or "",
+            "X-Role": role or "ADMIN",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "case_id": case_id,
+            "title": case_title,
+            "description": case_description,
+            "category": case_category,
+        }
+
+        logger.info("case-insights: calling ai-service for case %s", case_id)
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{ai_service_url}/api/v1/ai/case-insights",
+                headers=headers,
+                json=payload,
+            )
+
+        if resp.status_code != 200:
+            logger.warning(
+                "case-insights: ai-service returned %s for case %s: %s",
+                resp.status_code, case_id, resp.text[:200],
+            )
+            return
+
+        data = resp.json()
+        insight_id = data.get("insight_id") or data.get("analysis_id")
+        if not insight_id:
+            logger.warning("case-insights: no insight_id in ai-service response for case %s", case_id)
+            return
+
+        with pool.connection() as conn:
+            _apply_rls_context(conn, org_id)
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE case_management_cases
+                    SET metadata = jsonb_set(
+                        COALESCE(metadata, '{}'::jsonb),
+                        '{ai_analysis_id}',
+                        to_jsonb(%s::text)
+                    ),
+                    updated_at = %s
+                    WHERE id = %s AND organization_id = %s
+                    """,
+                    (str(insight_id), datetime.now(timezone.utc), case_id, org_id),
+                )
+                _record_audit_log(
+                    cur,
+                    organization_id=org_id,
+                    user_id=user_id,
+                    action="case_ai_analysis_scheduled",
+                    resource_type="case_management_case",
+                    resource_id=case_id,
+                    metadata={"case_id": case_id, "ai_analysis_id": str(insight_id)},
+                )
+            conn.commit()
+
+        logger.info("case-insights: stored ai_analysis_id=%s for case %s", insight_id, case_id)
+
+    except httpx.ConnectError as exc:
+        logger.warning("case-insights: ai-service unreachable for case %s: %s", case_id, exc)
+    except Exception as exc:  # noqa: BLE001 - fire-and-forget task must never raise
+        logger.exception("case-insights: unexpected error for case %s: %s", case_id, exc)
 
 
 if __name__ == "__main__":

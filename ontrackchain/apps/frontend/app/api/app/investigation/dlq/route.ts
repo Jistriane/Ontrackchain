@@ -1,6 +1,11 @@
 import { validateAndGetRole } from "../../../../lib/auth-validate";
+import { canReadInvestigationAdmin } from "../../../../lib/authz";
 
 const DEFAULT_DLQ_LIMIT = 100;
+
+const PRIVILEGED_READ_DENIED = {
+  detail: "privileged_read_role_required"
+} as const;
 
 function buildEmptyDlqResponse(request: Request) {
   const url = new URL(request.url);
@@ -25,6 +30,14 @@ function buildEmptyDlqResponse(request: Request) {
 export async function GET(request: Request) {
   const auth = await validateAndGetRole(request);
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+
+  if (!canReadInvestigationAdmin(auth.role)) {
+    return new Response(JSON.stringify(PRIVILEGED_READ_DENIED), {
+      status: 403,
+      headers: { "content-type": "application/json" }
+    });
+  }
+
   const url = new URL(request.url);
   const query = url.search ? url.search : "";
   const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";

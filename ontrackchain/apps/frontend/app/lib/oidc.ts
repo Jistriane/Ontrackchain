@@ -68,7 +68,10 @@ export function buildOidcRedirectUri(origin: string): string {
   return `${origin}/oidc/callback`;
 }
 
-export async function createOidcAuthorizationUrl(config: AuthConfig): Promise<string> {
+export async function createOidcAuthorizationUrl(
+  config: AuthConfig,
+  options: { role?: string; org?: string; plan?: string } = {}
+): Promise<string> {
   const authorizationUrl = config.oidc?.authorization_url?.trim();
   const clientId = config.oidc?.client_id?.trim();
   if (!authorizationUrl || !clientId) {
@@ -92,6 +95,15 @@ export async function createOidcAuthorizationUrl(config: AuthConfig): Promise<st
   url.searchParams.set("code_challenge", codeChallenge);
   url.searchParams.set("code_challenge_method", "S256");
   url.searchParams.set("state", state);
+  if (options.role) {
+    url.searchParams.set("role", options.role);
+  }
+  if (options.org) {
+    url.searchParams.set("org", options.org);
+  }
+  if (options.plan) {
+    url.searchParams.set("plan", options.plan);
+  }
   return url.toString();
 }
 

@@ -13,6 +13,7 @@ import json
 import logging
 import time
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Literal, Optional
 from uuid import UUID
@@ -29,12 +30,6 @@ logger = logging.getLogger(__name__)
 
 # ─── Agent Framework v4.0 ─────────────────────────────────────────────────────
 agent_framework = AgentFramework()
-
-app = FastAPI(
-    title="OnTrackChain AI Service",
-    description="Explainable AI, Graph Intelligence 4.0, Case Intelligence — Production",
-    version="4.1.0",
-)
 
 
 class Settings(BaseSettings):
@@ -55,25 +50,36 @@ def _dsn() -> str:
     )
 
 
-@app.on_event("startup")
-async def _startup() -> None:
-    app.state.pool = ConnectionPool(conninfo=_dsn(), kwargs={"row_factory": dict_row})
-    # Initialize Agent Framework v4.0
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    _app.state.pool = ConnectionPool(conninfo=_dsn(), kwargs={"row_factory": dict_row})
     try:
-        await agent_framework.initialize()
-        logger.info("ai_service.agent_framework_initialized")
-    except Exception as e:
-        logger.warning("ai_service.agent_framework_init_failed", extra={"error": str(e)})
+        try:
+            await agent_framework.initialize()
+            logger.info("ai_service.agent_framework_initialized")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("ai_service.agent_framework_init_failed", extra={"error": str(e)})
+        yield
+    finally:
+        pool: Optional[ConnectionPool] = getattr(_app.state, "pool", None)
+        if pool is not None:
+            pool.close()
 
 
-@app.on_event("shutdown")
-async def _shutdown() -> None:
-    pool: ConnectionPool = app.state.pool
-    pool.close()
+app = FastAPI(
+    title="OnTrackChain AI Service",
+    description="Explainable AI, Graph Intelligence 4.0, Case Intelligence — Production",
+    version="4.1.0",
+    lifespan=_lifespan,
+)
 
 
 def get_pool(request: Request) -> ConnectionPool:
-    return request.app.state.pool
+    pool: Optional[ConnectionPool] = getattr(request.app.state, "pool", None)
+    if pool is None:
+        pool = ConnectionPool(conninfo=_dsn(), kwargs={"row_factory": dict_row})
+        request.app.state.pool = pool
+    return pool
 
 
 def _apply_rls_context(conn, org_id: str) -> None:
@@ -105,8 +111,35 @@ def _get_resolved_org_id(pool, org_id: str) -> str:
     return resolved or org_id
 
 
+try:
+    from ontrackchain_shared.auth import canonicalize_role as _canonicalize_role
+except Exception:  # noqa: BLE001 - fallback inline for host / old environments
+    def _canonicalize_role(raw_role: object) -> str:
+        if raw_role is None:
+            return ""
+        role = str(raw_role).strip()
+        if not role:
+            return ""
+        mapping = {
+            "OTK_ADMIN": "ADMIN",
+            "OTK_ANALYST": "ANALYST",
+            "OTK_AUDITOR": "AUDITOR",
+            "OTK_VIEWER": "VIEWER",
+            "OTK_COMPLIANCE_OFFICER": "COMPLIANCE_OFFICER",
+            "OTK_LEGAL_REVIEWER": "LEGAL_REVIEWER",
+            "OTK_TESTER": "TESTER",
+            "OTK_REVIEWER": "REVIEWER",
+            "OTK_BILLING_ADMIN": "BILLING_ADMIN",
+        }
+        if role in mapping:
+            return mapping[role]
+        if role.upper() in mapping:
+            return mapping[role.upper()]
+        return role.upper()
+
+
 def _require_role(x_role: Optional[str], allowed_roles: set[str], detail: str) -> str:
-    normalized = (x_role or "").strip().upper()
+    normalized = _canonicalize_role(x_role)
     if normalized not in allowed_roles:
         raise HTTPException(status_code=403, detail=detail)
     return normalized
@@ -225,12 +258,103 @@ def _record_evidence_event(
     return event_hash
 
 
+def _canonical_role_for_approval(role: Optional[str]) -> Optional[str]:
+    if not role:
+        return None
+    return _canonicalize_role(role) or None
+
+
+def _hash_request_payload(payload: dict[str, Any]) -> str:
+    serialized = json.dumps(payload, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _create_job(
+    cur,
+    *,
+    organization_id: str,
+    case_id: Optional[str],
+    analysis_type: str,
+    queue_reason: str,
+    request_id: str,
+    input_data: dict[str, Any],
+    human_gate_required: bool,
+    required_approvals: int,
+) -> str:
+    job_id = str(uuid.uuid4())
+    cur.execute(
+        """
+        INSERT INTO ai_service_jobs
+            (id, organization_id, case_id, analysis_type, status, queue_reason, request_id,
+             request_payload_hash, input_data, human_gate_required, required_approvals)
+        VALUES
+            (%s, %s, %s, %s, 'queued', %s, %s, %s, %s::jsonb, %s, %s)
+        """,
+        (
+            job_id,
+            organization_id,
+            case_id,
+            analysis_type,
+            queue_reason,
+            request_id,
+            _hash_request_payload(input_data),
+            json.dumps(input_data),
+            human_gate_required,
+            required_approvals,
+        ),
+    )
+    return job_id
+
+
+def _serialize_job_row(
+    row: dict[str, Any],
+    *,
+    result_inline: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    approvals = row.get("approvals") or []
+    approvals = approvals if isinstance(approvals, list) else []
+    approvals_received = len({(a.get("approved_by"), a.get("role")) for a in approvals if isinstance(a, dict)})
+    return {
+        "job_id": str(row["id"]),
+        "status": row["status"],
+        "queue_reason": row.get("queue_reason"),
+        "analysis_type": row["analysis_type"],
+        "case_id": row.get("case_id"),
+        "request_id": str(row["request_id"]) if row.get("request_id") else None,
+        "human_gate_required": bool(row.get("human_gate_required")),
+        "approvals_received": approvals_received,
+        "required_approvals": int(row.get("required_approvals") or 1),
+        "degradation_reason": row.get("degradation_reason"),
+        "result_analysis_id": str(row["result_analysis_id"]) if row.get("result_analysis_id") else None,
+        "result": result_inline,
+        "error": row.get("error_data") if row.get("error_data") else None,
+        "created_at": row["created_at"].isoformat() if hasattr(row["created_at"], "isoformat") else str(row["created_at"]),
+        "updated_at": row["updated_at"].isoformat() if hasattr(row["updated_at"], "isoformat") else str(row["updated_at"]),
+    }
 # ── RBAC constants ──
 
-AI_READ_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER", "AUDITOR", "OTK_AUDITOR"}
-AI_WRITE_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
-AI_EXPORT_ALLOWED_ROLES = {"ADMIN", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER", "LEGAL_REVIEWER", "OTK_LEGAL_REVIEWER"}
-AI_THEMIS_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
+AI_READ_ALLOWED_ROLES = {
+    "ADMIN", "OTK_ADMIN",
+    "ANALYST", "OTK_ANALYST",
+    "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+    "AUDITOR", "OTK_AUDITOR",
+    "LEGAL_REVIEWER", "OTK_LEGAL_REVIEWER",
+}
+AI_WRITE_ALLOWED_ROLES = {
+    "ADMIN", "OTK_ADMIN",
+    "ANALYST", "OTK_ANALYST",
+    "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+}
+AI_EXPORT_ALLOWED_ROLES = {
+    "ADMIN", "OTK_ADMIN",
+    "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+    "LEGAL_REVIEWER", "OTK_LEGAL_REVIEWER",
+}
+AI_THEMIS_ALLOWED_ROLES = {
+    "ADMIN", "OTK_ADMIN",
+    "ANALYST", "OTK_ANALYST",
+    "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+}
 
 
 # ──────────────────────────────────────────────
@@ -378,6 +502,37 @@ class THEMISResponse(BaseModel):
     law_enforcement_package: dict[str, Any]
     human_gate_required: bool
     generated_at: str
+
+
+class JobQueuedResponse(BaseModel):
+    job_id: str
+    status: Literal["queued"]
+    queue_reason: Literal["ORG_RATE_LIMIT", "LLM_429", "LONG_RUNNING_OPERATION"]
+    estimated_wait_seconds: int
+    human_gate_required: bool
+    request_id: str
+
+
+class JobResponse(BaseModel):
+    job_id: str
+    status: Literal["queued", "processing", "completed", "failed", "degraded", "awaiting_human_gate", "cancelled"]
+    queue_reason: Optional[str] = None
+    analysis_type: str
+    case_id: Optional[str] = None
+    request_id: Optional[str] = None
+    human_gate_required: bool
+    approvals_received: int
+    required_approvals: int
+    degradation_reason: Optional[str] = None
+    result_analysis_id: Optional[str] = None
+    result: Optional[dict[str, Any]] = None
+    error: Optional[dict[str, Any]] = None
+    created_at: str
+    updated_at: str
+
+
+class JobApproveRequest(BaseModel):
+    note: Optional[str] = None
 
 
 # ──────────────────────────────────────────────
@@ -558,6 +713,15 @@ async def confidence_engine(
                     datetime.now(timezone.utc),
                 ),
             )
+            _record_audit_log(
+                cur,
+                organization_id=x_org_id,
+                user_id=x_user_id,
+                action="ai_confidence_generated",
+                resource_type="ai_confidence",
+                resource_id=confidence_id,
+                metadata={"analysis_id": request.analysis_id, "overall_confidence": result["overall"]},
+            )
         conn.commit()
 
     return ConfidenceResponse(
@@ -568,6 +732,175 @@ async def confidence_engine(
         limitations=result["limitations"],
         generated_at=datetime.now(timezone.utc).isoformat(),
     )
+
+
+@app.get("/api/v1/ai/jobs/{job_id}", response_model=JobResponse)
+async def get_job(
+    job_id: str,
+    req: Request,
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+) -> JobResponse:
+    if not x_org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, AI_READ_ALLOWED_ROLES, "ai_read_role_required")
+
+    pool = get_pool(req)
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM ai_service_jobs WHERE id = %s", (job_id,))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="JOB_NOT_FOUND")
+
+            result_inline = None
+            if row.get("status") in ("completed", "degraded") and row.get("result_analysis_id"):
+                if row.get("analysis_type") in ("explain", "confidence", "case_insights"):
+                    cur.execute("SELECT result_data FROM ai_analysis_results WHERE id = %s", (row["result_analysis_id"],))
+                    result_row = cur.fetchone()
+                    if result_row:
+                        result_inline = result_row.get("result_data")
+
+            return JobResponse(**_serialize_job_row(row, result_inline=result_inline))
+
+
+@app.post("/api/v1/ai/jobs/{job_id}/cancel", response_model=JobResponse)
+async def cancel_job(
+    job_id: str,
+    req: Request,
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+) -> JobResponse:
+    if not x_org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id required")
+    _require_role(x_role, AI_WRITE_ALLOWED_ROLES, "ai_write_role_required")
+
+    pool = get_pool(req)
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM ai_service_jobs WHERE id = %s", (job_id,))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="JOB_NOT_FOUND")
+            if row["status"] not in ("queued", "processing"):
+                raise HTTPException(status_code=409, detail="JOB_STATE_CONFLICT")
+
+            cur.execute("UPDATE ai_service_jobs SET status = 'cancelled' WHERE id = %s RETURNING *", (job_id,))
+            updated = cur.fetchone()
+            _record_audit_log(
+                cur,
+                organization_id=x_org_id,
+                user_id=x_user_id,
+                action="ai_job_cancelled",
+                resource_type="ai_job",
+                resource_id=job_id,
+                metadata={"analysis_type": row["analysis_type"], "previous_status": row["status"]},
+            )
+        conn.commit()
+    return JobResponse(**_serialize_job_row(updated))
+
+
+@app.post("/api/v1/ai/jobs/{job_id}/approve", response_model=JobResponse)
+async def approve_job(
+    request: JobApproveRequest,
+    job_id: str,
+    req: Request,
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+    x_role: Optional[str] = Header(default=None, alias="X-Role"),
+) -> JobResponse:
+    if not x_org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id required")
+    canonical_role = _canonical_role_for_approval(x_role)
+    if canonical_role not in ("ADMIN", "COMPLIANCE_OFFICER", "LEGAL_REVIEWER"):
+        raise HTTPException(status_code=403, detail="JOB_FORBIDDEN")
+
+    pool = get_pool(req)
+    with pool.connection() as conn:
+        _apply_rls_context(conn, x_org_id)
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM ai_service_jobs WHERE id = %s", (job_id,))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="JOB_NOT_FOUND")
+            if row["status"] != "awaiting_human_gate":
+                raise HTTPException(status_code=409, detail="JOB_STATE_CONFLICT")
+
+            analysis_type = row["analysis_type"]
+            required_approvals = int(row.get("required_approvals") or 1)
+            approvals = row.get("approvals") or []
+            approvals = approvals if isinstance(approvals, list) else []
+
+            if analysis_type == "law_enforcement_export" and canonical_role not in ("COMPLIANCE_OFFICER", "LEGAL_REVIEWER"):
+                raise HTTPException(status_code=403, detail="JOB_FORBIDDEN")
+            if analysis_type == "themis" and canonical_role not in ("ADMIN", "COMPLIANCE_OFFICER"):
+                raise HTTPException(status_code=403, detail="JOB_FORBIDDEN")
+
+            if any(isinstance(a, dict) and a.get("approved_by") == x_user_id and a.get("role") == canonical_role for a in approvals):
+                raise HTTPException(status_code=409, detail="JOB_STATE_CONFLICT")
+
+            approvals.append(
+                {
+                    "approved_by": str(x_user_id) if x_user_id else "",
+                    "role": canonical_role,
+                    "approved_at": datetime.now(timezone.utc).isoformat(),
+                    "note": request.note,
+                }
+            )
+
+            approvals_received = len({(a.get("approved_by"), a.get("role")) for a in approvals if isinstance(a, dict)})
+            completed = False
+
+            if analysis_type == "law_enforcement_export" and required_approvals == 2:
+                roles = {a.get("role") for a in approvals if isinstance(a, dict)}
+                completed = "COMPLIANCE_OFFICER" in roles and "LEGAL_REVIEWER" in roles
+            elif analysis_type == "themis" and required_approvals == 1:
+                completed = approvals_received >= 1
+            else:
+                completed = approvals_received >= required_approvals
+
+            if completed:
+                cur.execute(
+                    """
+                    UPDATE ai_service_jobs
+                    SET approvals = %s::jsonb, approved_by = %s, approved_at = %s, status = 'completed'
+                    WHERE id = %s
+                    RETURNING *
+                    """,
+                    (json.dumps(approvals), x_user_id, datetime.now(timezone.utc), job_id),
+                )
+            else:
+                cur.execute(
+                    "UPDATE ai_service_jobs SET approvals = %s::jsonb WHERE id = %s RETURNING *",
+                    (json.dumps(approvals), job_id),
+                )
+
+            updated = cur.fetchone()
+
+            _record_evidence_event(
+                cur,
+                organization_id=x_org_id,
+                event_type="AI_JOB_APPROVAL_RECORDED",
+                event_payload={"job_id": job_id, "analysis_type": analysis_type, "role": canonical_role, "approved_by": x_user_id},
+                actor_user_id=x_user_id,
+                actor_agent_id="AI-Jobs-Approval",
+                case_id=row.get("case_id"),
+                regulatory_basis=["BCB Circular 3.978"],
+            )
+            _record_audit_log(
+                cur,
+                organization_id=x_org_id,
+                user_id=x_user_id,
+                action="ai_job_approval_recorded",
+                resource_type="ai_job",
+                resource_id=job_id,
+                metadata={"analysis_type": analysis_type, "role": canonical_role, "completed": completed},
+            )
+        conn.commit()
+    return JobResponse(**_serialize_job_row(updated))
 
 
 # ──────────────────────────────────────────────
@@ -617,6 +950,15 @@ async def get_case_insights(
                 actor_agent_id="AI-CaseInsights-Service",
                 case_id=request.case_id,
                 regulatory_basis=["BCB Circular 3.978"],
+            )
+            _record_audit_log(
+                cur,
+                organization_id=x_org_id,
+                user_id=x_user_id,
+                action="ai_case_insights_generated",
+                resource_type="ai_case_insight",
+                resource_id=insight_id,
+                metadata={"case_id": request.case_id, "risk_level": insights["risk_level"], "include_history": request.include_history},
             )
         conn.commit()
 
@@ -725,6 +1067,15 @@ async def graph_narrator(
                     datetime.now(timezone.utc),
                 ),
             )
+            _record_audit_log(
+                cur,
+                organization_id=x_org_id,
+                user_id=x_user_id,
+                action="ai_graph_narrator_generated",
+                resource_type="ai_graph_narrator",
+                resource_id=narrator_id,
+                metadata={"address": request.address, "chain": request.chain, "profile": request.profile},
+            )
         conn.commit()
 
     return NarratorResponse(
@@ -744,59 +1095,53 @@ async def graph_narrator(
 #  LAW ENFORCEMENT EXPORT
 # ──────────────────────────────────────────────
 
-@app.post("/api/v1/ai/law-enforcement-export", response_model=LawEnforcementExportResponse)
+@app.post("/api/v1/ai/law-enforcement-export", response_model=JobQueuedResponse, status_code=202)
 async def law_enforcement_export(
     request: LawEnforcementExportRequest,
     req: Request,
     x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
     x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
     x_role: Optional[str] = Header(default=None, alias="X-Role"),
-) -> LawEnforcementExportResponse:
+) -> JobQueuedResponse:
     if not x_org_id:
         raise HTTPException(status_code=400, detail="X-Org-Id required")
     _require_role(x_role, AI_EXPORT_ALLOWED_ROLES, "ai_export_role_required")
 
     pool = get_pool(req)
-    resolved_org_id = _get_resolved_org_id(pool, x_org_id)
-    case_data = _fetch_case_data(pool, x_org_id, request.case_id)
-    result = _generate_law_enforcement_package(request, case_data)
-
-    export_id = str(uuid.uuid4())
     with pool.connection() as conn:
         _apply_rls_context(conn, x_org_id)
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO ai_analysis_results
-                    (id, organization_id, case_id, analysis_type, input_data, result_data, generated_at)
-                VALUES (%s, %s, %s, 'law_enforcement_export', %s::jsonb, %s::jsonb, %s)
-                """,
-                (
-                    export_id, resolved_org_id, request.case_id,
-                    json.dumps({"format": request.format}),
-                    json.dumps({"document_type": result["document"].get("type", ""), "evidence_count": len(result["evidence_chain"])}),
-                    datetime.now(timezone.utc),
-                ),
+            resolved_org_id = _get_resolved_org_id(pool, x_org_id)
+            request_id = str(uuid.uuid4())
+            job_id = _create_job(
+                cur,
+                organization_id=resolved_org_id,
+                case_id=request.case_id,
+                analysis_type="law_enforcement_export",
+                queue_reason="LONG_RUNNING_OPERATION",
+                request_id=request_id,
+                input_data={"case_id": request.case_id, "format": request.format, "include_evidence_hash": request.include_evidence_hash, "x_user_id": x_user_id},
+                human_gate_required=True,
+                required_approvals=2,
             )
-            _record_evidence_event(
+            _record_audit_log(
                 cur,
                 organization_id=x_org_id,
-                event_type="AI_LAW_ENFORCEMENT_EXPORT_GENERATED",
-                event_payload={"export_id": export_id, "case_id": request.case_id, "format": request.format},
-                actor_user_id=x_user_id,
-                actor_agent_id="AI-LEExport-Service",
-                case_id=request.case_id,
-                regulatory_basis=["Lei 9.613/98", "Res. 520/2022", "Res. 739/2023"],
+                user_id=x_user_id,
+                action="ai_job_queued",
+                resource_type="ai_job",
+                resource_id=job_id,
+                metadata={"analysis_type": "law_enforcement_export", "queue_reason": "LONG_RUNNING_OPERATION", "case_id": request.case_id},
             )
         conn.commit()
 
-    return LawEnforcementExportResponse(
-        export_id=export_id,
-        case_id=request.case_id,
-        format=request.format,
-        document=result["document"],
-        evidence_chain=result["evidence_chain"],
-        generated_at=datetime.now(timezone.utc).isoformat(),
+    return JobQueuedResponse(
+        job_id=job_id,
+        status="queued",
+        queue_reason="LONG_RUNNING_OPERATION",
+        estimated_wait_seconds=30,
+        human_gate_required=True,
+        request_id=request_id,
     )
 
 
@@ -804,61 +1149,59 @@ async def law_enforcement_export(
 #  THEMIS — CASE INTELLIGENCE AGENT
 # ──────────────────────────────────────────────
 
-@app.post("/api/v1/ai/themis", response_model=THEMISResponse)
+@app.post("/api/v1/ai/themis", response_model=JobQueuedResponse, status_code=202)
 async def themis_case_intelligence(
     request: THEMISRequest,
     req: Request,
     x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
     x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
     x_role: Optional[str] = Header(default=None, alias="X-Role"),
-) -> THEMISResponse:
+) -> JobQueuedResponse:
     if not x_org_id:
         raise HTTPException(status_code=400, detail="X-Org-Id required")
     _require_role(x_role, AI_THEMIS_ALLOWED_ROLES, "ai_themis_role_required")
 
     pool = get_pool(req)
-    resolved_org_id = _get_resolved_org_id(pool, x_org_id)
-    case_data = _fetch_case_data(pool, x_org_id, request.case_id)
-    result = _run_themis(request, case_data)
-
-    themis_id = str(uuid.uuid4())
     with pool.connection() as conn:
         _apply_rls_context(conn, x_org_id)
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO ai_analysis_results
-                    (id, organization_id, case_id, analysis_type, input_data, result_data, generated_at)
-                VALUES (%s, %s, %s, 'themis', %s::jsonb, %s::jsonb, %s)
-                """,
-                (
-                    themis_id, resolved_org_id, request.case_id,
-                    json.dumps({"address": request.address, "chain": request.chain, "action": request.action}),
-                    json.dumps({"risk_score": result["case_card"].get("risk_score"), "human_gate": result["human_gate"]}),
-                    datetime.now(timezone.utc),
-                ),
+            resolved_org_id = _get_resolved_org_id(pool, x_org_id)
+            request_id = str(uuid.uuid4())
+            job_id = _create_job(
+                cur,
+                organization_id=resolved_org_id,
+                case_id=request.case_id,
+                analysis_type="themis",
+                queue_reason="LONG_RUNNING_OPERATION",
+                request_id=request_id,
+                input_data={
+                    "case_id": request.case_id,
+                    "address": request.address,
+                    "chain": request.chain,
+                    "action": request.action,
+                    "x_user_id": x_user_id,
+                },
+                human_gate_required=False,
+                required_approvals=1,
             )
-            _record_evidence_event(
+            _record_audit_log(
                 cur,
                 organization_id=x_org_id,
-                event_type="AI_THEMIS_CASE_INTELLIGENCE_GENERATED",
-                event_payload={"themis_id": themis_id, "case_id": request.case_id, "human_gate_required": result["human_gate"]},
-                actor_user_id=x_user_id,
-                actor_agent_id="AI-THEMIS-Service",
-                case_id=request.case_id,
-                regulatory_basis=["BCB Circular 3.978", "Res. 520/2022", "Lei 9.613/98"],
+                user_id=x_user_id,
+                action="ai_job_queued",
+                resource_type="ai_job",
+                resource_id=job_id,
+                metadata={"analysis_type": "themis", "queue_reason": "LONG_RUNNING_OPERATION", "case_id": request.case_id},
             )
         conn.commit()
 
-    return THEMISResponse(
-        themis_id=themis_id,
-        case_id=request.case_id,
-        case_card=result["case_card"],
-        graph_narrative=result["graph_narrative"],
-        risk_assessment=result["risk_assessment"],
-        law_enforcement_package=result["law_enforcement"],
-        human_gate_required=result["human_gate"],
-        generated_at=datetime.now(timezone.utc).isoformat(),
+    return JobQueuedResponse(
+        job_id=job_id,
+        status="queued",
+        queue_reason="LONG_RUNNING_OPERATION",
+        estimated_wait_seconds=30,
+        human_gate_required=False,
+        request_id=request_id,
     )
 
 
@@ -889,7 +1232,10 @@ def _fetch_case_data(pool: ConnectionPool, org_id: str, case_id: str) -> dict[st
 
             cur.execute(
                 """
-                SELECT action, actor, details, created_at
+                SELECT event_type AS action,
+                       actor_user_id AS actor,
+                       payload AS details,
+                       created_at
                 FROM regulatory_work_events
                 WHERE work_item_id IN (
                     SELECT id FROM regulatory_work_items WHERE case_id = %s AND organization_id = %s
@@ -1732,6 +2078,8 @@ async def run_agent_eval(
 
                 # Record aggregate in DB
                 try:
+                    total_current = len(eval_results)
+                    regression_current = (passed / total_current < 0.85) if total_current > 0 else False
                     with pool.connection() as conn2:
                         _apply_rls_context(conn2, x_org_id)
                         with conn2.cursor() as cur2:
@@ -1744,13 +2092,13 @@ async def run_agent_eval(
                                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'manual')
                                 """,
                                 (
-                                    agent_id, total, passed, total - passed,
-                                    sum(r.get("precision", 0) for r in eval_results) / max(total, 1),
-                                    sum(r.get("recall", 0) for r in eval_results) / max(total, 1),
-                                    sum(r.get("citation_accuracy", 0) for r in eval_results) / max(total, 1),
-                                    sum(r.get("latency_ms", 0) for r in eval_results) / max(total, 1),
+                                    agent_id, total_current, passed, total_current - passed,
+                                    sum(r.get("precision", 0) for r in eval_results) / max(total_current, 1),
+                                    sum(r.get("recall", 0) for r in eval_results) / max(total_current, 1),
+                                    sum(r.get("citation_accuracy", 0) for r in eval_results) / max(total_current, 1),
+                                    sum(r.get("latency_ms", 0) for r in eval_results) / max(total_current, 1),
                                     sum(r.get("tokens_used", 0) for r in eval_results) if any("tokens_used" in r for r in eval_results) else 0,
-                                    regression,
+                                    regression_current,
                                 ),
                             )
                         conn2.commit()

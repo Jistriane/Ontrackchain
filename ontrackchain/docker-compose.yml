@@ -43,14 +43,35 @@ services:
     networks:
       - ontrackchain
 
+  postgres-bootstrap:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./:/app:ro
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:-ontrackchain}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ontrackchain}
+      POSTGRES_DB: ${POSTGRES_DB:-ontrackchain}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - /bin/sh
+      - -c
+      - python3 -m pip install --no-cache-dir psycopg[binary] && python3 infra/render/scripts/apply_postgres_bootstrap.py
+    networks:
+      - ontrackchain
+
   auth-service:
     build:
       context: ./apps/auth-service
     environment:
       APP_ENV: ${APP_ENV:-local}
-      AUTH_MODE: ${AUTH_MODE:-dev}
-      DEV_AUTH_ENABLED: ${DEV_AUTH_ENABLED:-true}
-      OIDC_PROVIDER: ${OIDC_PROVIDER:-keycloak}
+      AUTH_MODE: ${AUTH_MODE:-oidc}
+      DEV_AUTH_ENABLED: ${DEV_AUTH_ENABLED:-false}
+      OIDC_PROVIDER: ${OIDC_PROVIDER:-mock}
       JWT_ISSUER: ${JWT_ISSUER:-ontrackchain}
       JWT_AUDIENCE: ${JWT_AUDIENCE:-ontrackchain}
       JWT_HS256_SECRET: ${JWT_HS256_SECRET:-change-me}
@@ -60,11 +81,11 @@ services:
       MFA_TOTP_PERIOD_SECONDS: ${MFA_TOTP_PERIOD_SECONDS:-30}
       MFA_TOTP_DIGITS: ${MFA_TOTP_DIGITS:-6}
       MFA_TOTP_WINDOW: ${MFA_TOTP_WINDOW:-1}
-      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
-      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
-      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
-      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-}
-      OIDC_AUTHORIZATION_URL: ${OIDC_AUTHORIZATION_URL:-}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://oidc.localhost:${TRAEFIK_HTTP_PORT:-8080}}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-ontrackchain-api}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-ontrackchain-web}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://mock-oidc:9101/.well-known/jwks.json}
+      OIDC_AUTHORIZATION_URL: ${OIDC_AUTHORIZATION_URL:-http://oidc.localhost:${TRAEFIK_HTTP_PORT:-8080}/authorize}
       OIDC_ORG_CLAIM: ${OIDC_ORG_CLAIM:-}
       OIDC_PLAN_CLAIM: ${OIDC_PLAN_CLAIM:-}
       OIDC_ROLE_CLAIM: ${OIDC_ROLE_CLAIM:-}
@@ -74,8 +95,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ontrackchain}
       POSTGRES_DB: ${POSTGRES_DB:-ontrackchain}
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
     networks:
       - ontrackchain
     labels:
@@ -115,6 +136,16 @@ services:
       - traefik.http.routers.keycloak.entrypoints=web
       - traefik.http.routers.keycloak.priority=250
       - traefik.http.services.keycloak.loadbalancer.server.port=8080
+
+  mock-oidc:
+    build:
+      context: ./apps/mock-oidc
+    environment:
+      MOCK_OIDC_ISSUER_URL: ${MOCK_OIDC_ISSUER_URL:-http://oidc.localhost:${TRAEFIK_HTTP_PORT:-8080}}
+      MOCK_OIDC_AUDIENCE: ${MOCK_OIDC_AUDIENCE:-ontrackchain-api}
+      MOCK_OIDC_CLIENT_ID: ${MOCK_OIDC_CLIENT_ID:-ontrackchain-web}
+    networks:
+      - ontrackchain
 
   public-api:
     build:
@@ -158,10 +189,10 @@ services:
       INVESTIGATION_RPC_MAX_RETRIES: ${INVESTIGATION_RPC_MAX_RETRIES:-1}
       INVESTIGATION_INTERNAL_WORKER_TOKEN: ${INVESTIGATION_INTERNAL_WORKER_TOKEN:-investigation-local-token}
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
       redis:
-        condition: service_healthy
+        condition: service_started
     networks:
       - ontrackchain
     labels:
@@ -176,7 +207,7 @@ services:
     build:
       context: .
       dockerfile: apps/investigation-api/Dockerfile
-    command: ["python", "-m", "investigation_api.worker"]
+    entrypoint: ["python3", "-m", "investigation_api.worker"]
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
@@ -197,10 +228,10 @@ services:
       INVESTIGATION_RPC_TIMEOUT_MS: ${INVESTIGATION_RPC_TIMEOUT_MS:-1500}
       INVESTIGATION_RPC_MAX_RETRIES: ${INVESTIGATION_RPC_MAX_RETRIES:-1}
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
       redis:
-        condition: service_healthy
+        condition: service_started
       investigation-api:
         condition: service_started
     networks:
@@ -233,8 +264,8 @@ services:
       COMPLIANCE_EU_SANCTIONS_SOURCE_URL: ${COMPLIANCE_EU_SANCTIONS_SOURCE_URL:-}
       OPENSANCTIONS_API_KEY: ${OPENSANCTIONS_API_KEY:-}
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
     networks:
       - ontrackchain
     labels:
@@ -249,7 +280,7 @@ services:
     build:
       context: .
       dockerfile: apps/compliance-api/Dockerfile
-    command: ["python", "-m", "compliance_api.worker"]
+    entrypoint: ["python3", "-m", "compliance_api.worker"]
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
@@ -266,8 +297,8 @@ services:
       COMPLIANCE_WORKER_OPENSANCTIONS_SYNC_SECONDS: ${COMPLIANCE_WORKER_OPENSANCTIONS_SYNC_SECONDS:-86400}
       COMPLIANCE_WORKER_ROS_DEADLINE_SCAN_SECONDS: ${COMPLIANCE_WORKER_ROS_DEADLINE_SCAN_SECONDS:-3600}
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
       compliance-api:
         condition: service_started
     networks:
@@ -292,10 +323,10 @@ services:
       MONITORING_OPEN_QUOTES_WARN_THRESHOLD: ${MONITORING_OPEN_QUOTES_WARN_THRESHOLD:-25}
       ALERTMANAGER_WEBHOOK_BEARER_TOKEN: ${ALERTMANAGER_WEBHOOK_BEARER_TOKEN:-alertmanager-local-token}
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
       redis:
-        condition: service_healthy
+        condition: service_started
     networks:
       - ontrackchain
     labels:
@@ -376,8 +407,8 @@ services:
       REPORT_LEGAL_DOWNLOAD_SECURITY_VIOLATION_THRESHOLD: ${REPORT_LEGAL_DOWNLOAD_SECURITY_VIOLATION_THRESHOLD:-1}
       REPORT_PERSISTED_WITHOUT_DOWNLOAD_WARN_THRESHOLD: ${REPORT_PERSISTED_WITHOUT_DOWNLOAD_WARN_THRESHOLD:-3}
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
     networks:
       - ontrackchain
     labels:
@@ -432,10 +463,10 @@ services:
       LLM_LOG_RESPONSES: ${LLM_LOG_RESPONSES:-false}
       VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
       redis:
-        condition: service_healthy
+        condition: service_started
     networks:
       - ontrackchain
     labels:
@@ -445,6 +476,59 @@ services:
       - traefik.http.routers.ai.priority=100
       - traefik.http.routers.ai.middlewares=auth@docker
       - traefik.http.services.ai.loadbalancer.server.port=8005
+
+  ai-worker:
+    build:
+      context: .
+      dockerfile: apps/ai-service/Dockerfile
+    entrypoint: ["python3", "-m", "ai_service.worker"]
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:-ontrackchain}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ontrackchain}
+      POSTGRES_DB: ${POSTGRES_DB:-ontrackchain}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      AI_WORKER_ORG_ID: ${AI_WORKER_ORG_ID:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
+      ANTHROPIC_DEFAULT_MODEL: ${ANTHROPIC_DEFAULT_MODEL:-claude-sonnet-4-5}
+      ANTHROPIC_HAIKU_MODEL: ${ANTHROPIC_HAIKU_MODEL:-claude-haiku-4-5}
+      ANTHROPIC_TIMEOUT_MS: ${ANTHROPIC_TIMEOUT_MS:-3500}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_DEFAULT_MODEL: ${GROQ_DEFAULT_MODEL:-llama-3.3-70b-versatile}
+      GROQ_TIMEOUT_MS: ${GROQ_TIMEOUT_MS:-3500}
+      LLM_FALLBACK_ENABLED: ${LLM_FALLBACK_ENABLED:-true}
+      LLM_FALLBACK_LATENCY_THRESHOLD_MS: ${LLM_FALLBACK_LATENCY_THRESHOLD_MS:-3500}
+      LLM_CACHE_ENABLED: ${LLM_CACHE_ENABLED:-true}
+      LLM_CACHE_TTL_SECONDS: ${LLM_CACHE_TTL_SECONDS:-3600}
+      RAG_VECTOR_STORE: ${RAG_VECTOR_STORE:-pgvector}
+      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-voyage-3}
+      RAG_EMBEDDING_DIMENSIONS: ${RAG_EMBEDDING_DIMENSIONS:-1024}
+      RAG_TOP_K: ${RAG_TOP_K:-10}
+      RAG_SIMILARITY_THRESHOLD: ${RAG_SIMILARITY_THRESHOLD:-0.7}
+      RAG_RERANK_ENABLED: ${RAG_RERANK_ENABLED:-true}
+      RAG_CORPUS_VERSION: ${RAG_CORPUS_VERSION:-1.0.0}
+      EVAL_SAMPLING_RATE: ${EVAL_SAMPLING_RATE:-0.05}
+      EVAL_GOLDEN_DATASET_SIZE: ${EVAL_GOLDEN_DATASET_SIZE:-100}
+      EVAL_REGRESSION_BLOCKING: ${EVAL_REGRESSION_BLOCKING:-true}
+      EVAL_TARGET_PRECISION: ${EVAL_TARGET_PRECISION:-0.90}
+      EVAL_TARGET_RECALL: ${EVAL_TARGET_RECALL:-0.85}
+      EVAL_REVIEW_REQUIRED: ${EVAL_REVIEW_REQUIRED:-true}
+      LLM_ZERO_RETENTION: ${LLM_ZERO_RETENTION:-true}
+      LLM_ANONYMIZE_INPUTS: ${LLM_ANONYMIZE_INPUTS:-true}
+      LLM_MAX_INPUT_LENGTH: ${LLM_MAX_INPUT_LENGTH:-8192}
+      LLM_LOG_PROMPTS: ${LLM_LOG_PROMPTS:-false}
+      LLM_LOG_RESPONSES: ${LLM_LOG_RESPONSES:-false}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
+    depends_on:
+      postgres-bootstrap:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    networks:
+      - ontrackchain
 
   case-management:
     build:
@@ -458,8 +542,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-ontrackchain}
       AI_SERVICE_BASE_URL: http://ai-service:8005
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
       ai-service:
         condition: service_started
     networks:
@@ -478,14 +562,15 @@ services:
       target: dev
     environment:
       APP_ENV: ${APP_ENV:-local}
-      AUTH_MODE: ${AUTH_MODE:-dev}
-      DEV_AUTH_ENABLED: ${DEV_AUTH_ENABLED:-true}
+      AUTH_MODE: ${AUTH_MODE:-oidc}
+      DEV_AUTH_ENABLED: ${DEV_AUTH_ENABLED:-false}
       NEXT_PUBLIC_APP_ENV: ${NEXT_PUBLIC_APP_ENV:-local}
-      NEXT_PUBLIC_AUTH_MODE: ${NEXT_PUBLIC_AUTH_MODE:-dev}
-      NEXT_PUBLIC_DEV_AUTH_ENABLED: ${NEXT_PUBLIC_DEV_AUTH_ENABLED:-true}
+      NEXT_PUBLIC_AUTH_MODE: ${NEXT_PUBLIC_AUTH_MODE:-oidc}
+      NEXT_PUBLIC_DEV_AUTH_ENABLED: ${NEXT_PUBLIC_DEV_AUTH_ENABLED:-false}
       INTERNAL_API_BASE_URL: ${INTERNAL_API_BASE_URL:-http://traefik}
       INTERNAL_AUTH_BASE_URL: ${INTERNAL_AUTH_BASE_URL:-http://auth-service:9000}
       INTERNAL_KEYCLOAK_BASE_URL: ${INTERNAL_KEYCLOAK_BASE_URL:-http://keycloak:8080}
+      INTERNAL_OIDC_BASE_URL: ${INTERNAL_OIDC_BASE_URL:-http://mock-oidc:9101}
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:${TRAEFIK_HTTP_PORT:-8080}}
     networks:
       - ontrackchain

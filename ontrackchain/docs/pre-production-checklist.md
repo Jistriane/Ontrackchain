@@ -8,11 +8,11 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 
 ## Como Usar
 
-- marque cada item apenas com evidencia objetiva
+- marque cada item apenas com evidência objetiva
 - nao avance para producao com itens criticos abertos
 - use este documento junto com:
-  - [Readiness Regulatorio](regulatory-readiness.md)
-  - [Validacao e Auditoria](validation-and-audit.md)
+  - [Readiness regulatório](regulatory-readiness.md)
+  - [validação e Auditoria](validation-and-audit.md)
   - [Deploy e Staging](deploy-and-staging.md)
   - [Retention e Recovery](retention-and-recovery-policy.md)
   - [Owners e SLAs Operacionais](operational-ownership-and-slas.md)
@@ -34,10 +34,10 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 - [ ] acesso cross-tenant negativo foi validado
 - [ ] backup do banco foi executado e testado
 - [ ] estrategia de restore foi testada
-- [ ] evidencia do `rto_seconds` do ultimo restore controlado foi registrada
+- [ ] evidência do `rto_seconds` do ultimo restore controlado foi registrada
 - [ ] manifestos JSON de backup e restore do ultimo teste controlado foram anexados
 
-## 3. Autenticacao e Autorizacao
+## 3. autenticação e autorização
 
 - [ ] JWT de staging/producao nao reutiliza secrets dev
 - [ ] `python3 scripts/preflight_oidc_serious_env.py` passa com `APP_ENV=staging|production`, `AUTH_MODE=oidc`, `DEV_AUTH_ENABLED=false`, `MFA_EXTERNAL_PROVIDER_HOMOLOGATED` coerente com a janela e secrets nao-dev
@@ -57,7 +57,7 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 - [ ] limites de credito e saldo estao coerentes
 - [ ] divergencias de billing geram trilha auditavel
 
-## 5. Auditoria e Evidencia
+## 5. Auditoria e evidência
 
 - [ ] `audit_logs` contem `request_id`
 - [ ] `report_generated` e `report_downloaded` continuam auditados
@@ -67,7 +67,7 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 - [ ] operadores conseguem localizar eventos por `request_id`, `case_id` e `report_id`
 - [ ] operadores conseguem consultar `/audit` e correlacionar exports administrativos com o mesmo `request_id`
 
-## 6. Compliance e Seguranca
+## 6. Compliance e segurança
 
 - [ ] controles de acesso sensiveis estao documentados
 - [ ] retention minima de `audit_logs` foi definida
@@ -89,22 +89,22 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 - [ ] downloads sensiveis possuem monitoramento
 - [ ] `/monitoring` preserva triagem/export administrativo sem regressao
 
-## 8. Operacao e Deploy
+## 8. operação e Deploy
 
 - nota de workspace: os workflows citados abaixo vivem no repositório agregador pai em `../.github/workflows/`
 - [ ] staging tecnico foi validado
-- [ ] staging regulatorio foi validado
+- [ ] staging regulatório foi validado
 - [ ] workflow manual [staging-serious-window.yml](../../.github/workflows/staging-serious-window.yml) foi executado para a janela alvo
 - [ ] o `GitHub Environment` da janela possui approvals coerentes e secret `STAGING_WINDOW_PRIVATE_ENV`
 - [ ] o artifact `serious-staging-window-<janela>` foi anexado ao sign-off da promocao
 - [ ] bundle OIDC foi gerado quando P0-01 estava no escopo: `make run-oidc-readiness-bundle-local WINDOW_ID=<janela> BASE_URL=<url>` produziu `<janela>-oidc-readiness-bundle.json` e `<janela>-oidc-readiness-bundle.md`
-- [ ] bundle regulatorio foi gerado quando P0-02/P0-03 estavam no escopo: `make gate-p0-04-regulatory-bundle WINDOW_ID=<janela>` produziu `<janela>-regulatory-readiness-bundle.json` e `<janela>-regulatory-readiness-bundle.md`
+- [ ] bundle regulatório foi gerado quando P0-02/P0-03 estavam no escopo: `make gate-p0-04-regulatory-bundle WINDOW_ID=<janela>` produziu `<janela>-regulatory-readiness-bundle.json` e `<janela>-regulatory-readiness-bundle.md`
 - [ ] completude do artifact foi validada: `make validate-serious-window-artifact-local WINDOW_ID=<janela>` passou com status `ok`
 - [ ] rollback de aplicacao foi testado
 - [ ] rollback/restore de banco foi testado
-- [ ] owners de deploy, seguranca e banco estao definidos
+- [ ] owners de deploy, segurança e banco estao definidos
 
-## 9. Integracoes Externas
+## 9. integrações Externas
 
 - [ ] providers AML/KYT reais foram validados com `make check-compliance-provider-runtime` verde e homologacao externa anexada
 - [ ] `python3 scripts/check_staging_env_ownership_coverage.py --env-file .env.staging.example --ownership-file docs/staging-env-ownership.md` passa sem placeholders sem owner, mappings obsoletos ou linhas incompletas na matriz
@@ -113,7 +113,7 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 - [ ] handoff de placeholders em [Ownership do `.env.staging`](staging-env-ownership.md) foi preenchido ou explicitamente revisado para a janela
 - [ ] `python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md` passa sem grupos ausentes, campos `pending`, datas invalidas ou status fora da politica
 - [ ] `python3 scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private` executou a janela ponta a ponta com persistencia dos JSONs de checks/preflights
-- [ ] `python3 scripts/prepare_staging_window.py --window-id <janela> --mode baseline|homologated --run` foi exercitado como gate unico canonico, localmente ou via CI controlado
+- [ ] `python3 scripts/prepare_staging_window.py --window-id <janela> --mode baseline|homologated --run` foi exercitado como gate unico canônico, localmente ou via CI controlado
 - [ ] quando `P0-01` estiver no escopo, `make run-oidc-readiness-bundle-local WINDOW_ID=<janela> BASE_URL=<url>` gera `<janela>-oidc-readiness-bundle.json` e `<janela>-oidc-readiness-bundle.md`
 - [ ] `python3 scripts/preflight_external_integrations.py` passa com `ONTRACKCHAIN_EXPECT_COMPLIANCE_MODE=live` antes da janela AML/KYT
 - [ ] `make check-compliance-provider-runtime` fica verde com runtime convergente para `live`
@@ -137,13 +137,13 @@ Este checklist adapta o rigor de sistemas regulados ao estado atual do Ontrackch
 - [ ] rate limiting de terceiros foi considerado
 - [ ] dependencias externas criticas possuem monitoramento
 
-## 10. Documentacao
+## 10. documentação
 
 - [ ] README principal reflete o estado real do sistema
 - [ ] contratos de API estao atualizados
 - [ ] ADRs cobrem as decisoes irreversiveis relevantes
 - [ ] roadmap da Fase 2 esta coerente com os gaps atuais
-- [ ] documentacao regulatoria e de evidencia esta atualizada
+- [ ] documentação regulatoria e de evidência esta atualizada
 
 ## Itens Criticos de Bloqueio
 
@@ -156,7 +156,7 @@ Nao avancar para pre-producao real se qualquer item abaixo estiver aberto:
 - [ ] ausencia de backup/restore testado
 - [ ] ausencia de trilha auditavel para fluxos sensiveis
 - [ ] `legal_report` acessivel sem `JWT + ADMIN + 2FA`
-- [ ] promocao baseada apenas em validacao de `dev auth`
+- [ ] promocao baseada apenas em validação de `dev auth`
 
 ## Criterio de Go/No-Go
 
@@ -164,15 +164,15 @@ Nao avancar para pre-producao real se qualquer item abaixo estiver aberto:
 
 - todos os itens criticos fechados
 - backlog residual e conhecido
-- operacao consegue diagnosticar incidentes
+- operação consegue diagnosticar incidentes
 
 ### No-Go
 
 - controles criticos ainda sao apenas dev-like
-- nao ha evidencia auditavel suficiente
+- nao ha evidência auditavel suficiente
 - rollback nao foi provado
 
-## Evidencias Minimas para Aprovar
+## evidências Minimas para Aprovar
 
 - output do smoke runtime
 - output de `npm run test:e2e:oidc-critical` com preflight bem-sucedido do ambiente serio
@@ -184,4 +184,4 @@ Nao avancar para pre-producao real se qualquer item abaixo estiver aberto:
 - quando `P0-01` estiver no escopo, `<janela>-oidc-readiness-bundle.json` e `<janela>-oidc-readiness-bundle.md` anexados ao pacote
 - quando houver `AML/KYT live`, resultado de `make check-compliance-provider-runtime` anexado ao pacote
 - quando houver feed UE, `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json` anexados ao pacote
-- se houver mudanca no scaffold local, output de `npm run test:e2e:dev-auth` como evidencia auxiliar em `AUTH_MODE=dev`
+- se houver mudanca no scaffold local, output de `npm run test:e2e:dev-auth` como evidência auxiliar em `AUTH_MODE=dev`

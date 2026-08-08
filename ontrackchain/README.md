@@ -2,7 +2,7 @@
 
 ![Ontrackchain](./docs/assets/logo.jpeg)
 
-Aplicacao principal do projeto: servicos `FastAPI` por dominio, frontend `Next.js 14`, infraestrutura local com `docker compose`, bundles de readiness, trilha regulatoria auditavel e documentacao canônica do produto.
+Aplicacao principal do projeto: servicos `FastAPI` por dominio, frontend `Next.js 14`, infraestrutura local com `docker compose`, bundles de readiness, trilha regulatoria auditavel e documentação canônica do produto.
 
 ## Leitura Tecnica Rapida
 
@@ -11,12 +11,12 @@ Se voce vai trabalhar no codigo ou operar o ambiente, leia nesta ordem:
 1. [Snapshot Tecnico](#snapshot-tecnico)
 2. [Servicos e Dominios](#servicos-e-dominios)
 3. [Quick Start](#quick-start)
-4. [Documentacao Canonica](#documentacao-canonica)
+4. [documentação canônica](#documentacao-canonica)
 
 Resumo tecnico:
 
-- baseline oficial: **100%** técnico, **100%** regulatório/operacional, **100%** consolidado
-- a baseline viva está em `docs/README.md`, `docs/project-kpi-scorecard.md` e `docs/project-maturity-assessment.md`
+- baseline executivo oficial: **100%** técnico, **100%** regulatório/operacional, **100%** consolidado (fonte: `docs/project-executive-readiness-brief.md`)
+- a baseline viva e os detalhes técnicos estão em `docs/README.md` e no [Apêndice técnico](./docs/TECHNICAL_APPENDIX.md)
 - o blueprint padrão hospedado passou a ser `frontend standalone showcase` e serviços `FastAPI` em produção
 - suporte a APIs B2B Institucionais (`/api/v1/b2b/screen`) e Monetização Stripe Billing SaaS (`StripeBillingManager`, `/api/stripe/webhook`)
 - resiliência DR e Restore PostgreSQL automatizada e validada (`test_postgres_backup_restore.py`)
@@ -30,20 +30,21 @@ Aqui vivem:
 - infraestrutura local e observabilidade
 - scripts de readiness, bundles e janela seria
 - testes automatizados
-- ADRs e documentacao canônica
+- ADRs e documentação canônica
 
 Nota de workspace:
 
-- alguns artefatos operacionais, especialmente workflows do GitHub Actions, vivem no repositorio agregador pai `/home/jistriane/Ontrackchain`; quando um documento desta arvore apontar para `../.github/workflows/`, trate isso como referencia intencional ao workspace agregado e nao como drift tecnico
+- alguns artefatos operacionais, especialmente workflows do GitHub Actions, vivem no workspace agregador pai (diretório acima deste repositório canônico); quando um documento desta arvore apontar para `../.github/workflows/`, trate isso como referencia intencional ao workspace agregado e nao como drift tecnico
 
 ## Snapshot Tecnico
 
 ### Estado atual
 
-- `P1-01` consolidou metadata de `work-items` entre frontend, backend e contrato canonico
+- `P1-01` consolidou metadata de `work-items` entre frontend, backend e contrato canônico
 - `P2-02` consolidou `timeline/comments` compartilhados nos cockpits operacionais
-- `P2-03` consolidou RCA cross-domain leve entre `alerts`, `/monitoring` e governanca
-- `P2-05` segue em expansao incremental com enforcement fino em `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties` e navegacao global
+- `P2-03` consolidou RCA cross-domain leve entre `alerts`, `/monitoring` e governança
+- `P2-05` concluido com enforcement fino em `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties`, `monitoring` e navegacao global
+- `v4.0.7`: AI Service opera `themis` e `law-enforcement-export` via jobs assíncronos (`202 Accepted`) processados pelo serviço `ai-worker` (PostgreSQL `FOR UPDATE SKIP LOCKED` + RLS via `AI_WORKER_ORG_ID`)
 - a taxonomia documental ja foi saneada para separar documento vivo, ciclo ativo, historico de apoio e historico arquivado
 
 ### Gargalos tecnicos atuais
@@ -51,7 +52,7 @@ Nota de workspace:
 - `P0-01`: homologar `OIDC + MFA` federado em trilho serio
 - `P0-02`: fechar provider `AML/KYT live` com credencial real
 - `P0-03`: fechar feed UE com URL tokenizada real
-- `P0-04`: consolidar bundle regulatorio oficial com evidencias revisaveis
+- `P0-04`: consolidar bundle regulatório oficial com evidências revisáveis
 - `P0-05`: executar a primeira janela seria completa com `go/no-go` formal
 - `P0-06`: formalizar recorrencia de retention/recovery com sign-off institucional
 
@@ -91,16 +92,16 @@ flowchart LR
 
 | Componente | Papel principal |
 | --- | --- |
-| `auth-service` | autenticacao `dev` e `oidc`, `2FA`, RBAC e contexto de sessao |
+| `auth-service` | autenticação `dev` e `oidc`, `2FA`, RBAC e contexto de sessao |
 | `public-api` | superficie publica e catalogos expostos pelo gateway |
 | `investigation-api` | `estimate`, `start`, `status`, billing, ledger e superficies financeiras administrativas |
 | `investigation-worker` | fila, retry/backoff e processamento assincrono |
-| `compliance-api` | sanctions, counterparties, blocks, work-items e controles regulatorios |
-| `compliance-worker` | sync de listas, readiness regulatorio e checks de provider |
+| `compliance-api` | sanctions, counterparties, blocks, work-items e controles regulatórios |
+| `compliance-worker` | sync de listas, readiness regulatório e checks de provider |
 | `monitoring-api` | webhooks do `Alertmanager`, triagem, RCA leve e export operacional |
-| `report-api` | relatorios deterministas, download sensivel e fluxo `ROS/COAF` |
+| `report-api` | relatórios deterministas, download sensivel e fluxo `ROS/COAF` |
 | `ai-service` | IA Explicativa para decisoes de compliance e Graph Intelligence 4.0 |
-| `case-management` | gerenciamento avancado de casos de investigacao com integracao IA |
+| `case-management` | gerenciamento avancado de casos de investigacao com integração IA |
 | `frontend` | cockpits operacionais, audit, monitoring, billing, evidence, reports, AI e callbacks `OIDC` |
 
 ## Frontend Operacional
@@ -113,20 +114,20 @@ O frontend em `apps/frontend` segue estas linhas estruturais:
 - `monitoring` modularizado em hooks, loaders e paineis dedicados
 - `billing` com snapshot reconciliavel alem do saldo consolidado
 - UX preventiva e contratos visuais endurecidos para superficies sensiveis
-- bootstrap de autenticacao centralizado em `/auth/config`, consumido pelo login para resolver `auth_mode`, `effective_auth_mode`, `oidc` e `mfa`
+- bootstrap de autenticação centralizado em `/auth/config`, consumido pelo login para resolver `auth_mode`, `effective_auth_mode`, `oidc` e `mfa`
 - fallback hospedado para `standalone showcase` quando o frontend de `staging` perde envs internas criticas de auth
 
 Classes de suite Playwright institucionalizadas:
 
-| Classe | Uso | Comando canonico |
+| Classe | Uso | Comando canônico |
 | --- | --- | --- |
 | `stack real leve` | smoke SSR local | `npm run test:e2e:stack-real-light` |
 | `browser-mocked` | mocks por `page.route(...)` com frontend local | `npm run test:e2e:browser-mocked` |
 | `ssr-mocked` | backend SSR mockado + frontend local | `npm run test:e2e:ssr-mocked` |
 | `dev-auth` | regressao local com `AUTH_MODE=dev` | `npm run test:e2e:dev-auth` |
-| `oidc-critical` | validacao seria OIDC e fluxo real | `npm run test:e2e:oidc-critical` |
+| `oidc-critical` | validação seria OIDC e fluxo real | `npm run test:e2e:oidc-critical` |
 
-### Fluxo de Validacao Local
+### Fluxo de validação Local
 
 ```mermaid
 flowchart TD
@@ -169,10 +170,11 @@ npm run test:e2e:stack-real-light
 npm run test:e2e:browser-mocked
 ```
 
-Observacoes:
+observações:
 
 - use `npm run test:e2e:dev-auth` apenas com `AUTH_MODE=dev`
 - use `npm run test:e2e:oidc-critical` apenas quando o runtime real estiver em `AUTH_MODE=oidc`
+- para exercitar jobs do AI Service, defina `AI_WORKER_ORG_ID` (UUID) no `.env` para manter o `ai-worker` ativo (ver `docs/operations.md`)
 - para mudancas server-side no frontend, prefira `docker compose up -d --build frontend`
 
 ### 3. Validar readiness serio
@@ -207,10 +209,10 @@ make postprocess-serious-window RUN_URL="https://github.com/<org>/<repo>/actions
 Estado atual da janela:
 
 - `stg-2026-07-13-a` segue em `pending_no_go`
-- o bloqueio principal continua sendo insumo externo real, ownership material e prova revisavel
-- `ROS/COAF` segue sendo a trilha mais sensivel para validacao fim a fim do staging
+- o bloqueio principal continua sendo insumo externo real, ownership material e prova revisável
+- `ROS/COAF` segue sendo a trilha mais sensivel para validação fim a fim do staging
 
-## Trilhas de Validacao Prioritarias
+## Trilhas de validação Prioritarias
 
 Para o staging atual, a ordem de prova recomendada e:
 
@@ -227,21 +229,21 @@ Para o staging atual, a ordem de prova recomendada e:
 - MFA forte para a trilha regulatoria
 - persistencia auditavel no banco real
 
-## Documentacao Canonica
+## documentação canônica
 
 ### Portas de entrada
 
-- [Indice Canonico](./docs/README.md)
+- [Indice canônico](./docs/README.md)
 - [Arquitetura](./docs/architecture.md)
 - [Contratos de API](./docs/api-contracts.md)
 - [RBAC e Permissoes](./docs/rbac-and-permissions.md)
 
-### Operacao e validacao
+### operação e validação
 
-- [Operacao Local](./docs/operations.md)
+- [operação Local](./docs/operations.md)
 - [Deploy e Staging](./docs/deploy-and-staging.md)
-- [Validacao e Auditoria](./docs/validation-and-audit.md)
-- [Runbook Semanal de Governanca](./docs/project-weekly-governance-runbook.md)
+- [validação e Auditoria](./docs/validation-and-audit.md)
+- [Runbook Semanal de governança](./docs/project-weekly-governance-runbook.md)
 
 ### Readiness executiva
 
@@ -250,19 +252,19 @@ Para o staging atual, a ordem de prova recomendada e:
 - [Avaliacao de Maturidade](./docs/project-maturity-assessment.md)
 - [Board Operacional](./docs/project-operational-execution-board.md)
 
-## Evidencia Datada e Historico
+## evidência Datada e Historico
 
 - [Ciclo ativo 2026-07-13](./docs/governance-weekly/cycles/2026-07-13/README.md)
-- [Governanca Semanal](./docs/governance-weekly/README.md)
+- [governança Semanal](./docs/governance-weekly/README.md)
 - [Historico de apoio](./docs/history/README.md)
-- [Arquivo historico da governanca](./docs/governance-weekly/archive/README.md)
+- [Arquivo historico da governança](./docs/governance-weekly/archive/README.md)
 
 ## Politica de Leitura Documental
 
 - `docs/README.md` e os arquivos canonicamente indexados nele sao a fonte primaria
-- `docs/governance-weekly/cycles/` guarda evidencias datadas ainda navegaveis por ciclo
+- `docs/governance-weekly/cycles/` guarda evidências datadas ainda navegaveis por ciclo
 - `docs/history/` guarda apoio historico fora da trilha viva
-- `docs/governance-weekly/archive/` guarda historico frio consolidado de governanca
+- `docs/governance-weekly/archive/` guarda historico frio consolidado de governança
 - o espelho legado `.publish_repo/` foi aposentado e removido em `2026-07-15`; a baseline, os contratos e o status oficial vivem apenas nesta arvore ativa
 
 Use esta precedencia quando houver conflito:
@@ -316,14 +318,14 @@ ontrackchain/
 
 ## Riscos Residuais
 
-- integracoes externas serias ainda dependem de credenciais e URLs reais
+- integrações externas serias ainda dependem de credenciais e URLs reais
 - `due_diligence` e `source_of_funds` permanecem em rito manual por decisao de produto
 - `legal_report`, `ROS/COAF` e `block lift` exigem MFA forte homologado
 - retention/recovery e sign-off institucional ainda precisam de recorrencia formal
 
-## Proximo Passo Recomendado
+## próximo Passo Recomendado
 
 1. fechar `P0-02` com provider `AML/KYT live`
 2. fechar `P0-03` com feed UE tokenizado
-3. homologar `P0-01` com evidencias reais
+3. homologar `P0-01` com evidências reais
 4. executar uma janela seria completa com `go/no-go` formal

@@ -1,4 +1,4 @@
-# ADR-010 - Promocao de Maturidade Baseada em Evidencia
+# ADR-010 - Promocao de Maturidade Baseada em evidência
 
 ## Status
 
@@ -9,13 +9,13 @@ Aceito
 O projeto atingiu uma fase em que a maior parte do valor remanescente nao vem de novas features, mas de:
 
 - homologacao externa
-- validacao de providers reais
+- validação de providers reais
 - execucao de janelas serias
 - aceite institucional recorrente
 
 Nesse contexto, havia risco de inflar a leitura de maturidade com base em:
 
-- configuracao pronta sem execucao
+- configuração pronta sem execucao
 - readiness documental sem prova em runtime
 - sucesso parcial sem reproducibilidade
 - narrativa executiva desconectada do artefato coletado
@@ -26,7 +26,7 @@ Como o score oficial do projeto (`93% / 79% / 89%`) passou a orientar priorizaca
 
 A partir deste ADR, qualquer promocao de maturidade no Ontrackchain deve obedecer a seguinte regra:
 
-> Status so sobe quando houver execucao real, evidencia preservada, revisao humana e aprovacao explicita.
+> Status so sobe quando houver execucao real, evidência preservada, revisao humana e aprovacao explicita.
 
 Essa regra vale para:
 
@@ -41,8 +41,8 @@ Essa regra vale para:
 Uma frente so pode ser promovida quando todos os itens abaixo forem verdadeiros:
 
 1. houve execucao real em ambiente valido
-2. a evidencia foi preservada em artefato rastreavel
-3. a evidencia e reproduzivel e auditavel
+2. a evidência foi preservada em artefato rastreavel
+3. a evidência e reproduzivel e auditavel
 4. nao houve fallback indevido ou bypass nao aceito
 5. runtime, contrato e narrativa executiva estao coerentes
 6. houve revisao humana do resultado
@@ -52,9 +52,9 @@ Uma frente so pode ser promovida quando todos os itens abaixo forem verdadeiros:
 
 | Cor | Significado | Efeito sobre maturidade |
 | --- | --- | --- |
-| `verde` | execucao completa com evidencia suficiente | promocao permitida |
+| `verde` | execucao completa com evidência suficiente | promocao permitida |
 | `amarelo` | houve avancos, mas ainda existe lacuna residual explicita | promocao parcial ou nenhuma promocao |
-| `vermelho` | falha critica, evidencia insuficiente ou execucao invalida | promocao proibida e possivel rollback executivo |
+| `vermelho` | falha critica, evidência insuficiente ou execucao invalida | promocao proibida e possivel rollback executivo |
 
 ## Consequencias
 
@@ -62,8 +62,8 @@ Uma frente so pode ser promovida quando todos os itens abaixo forem verdadeiros:
 
 - reduz autoengano organizacional
 - evita score inflado artificialmente
-- melhora rastreabilidade para auditoria e governanca
-- alinha engenharia, seguranca, operacao e sponsors na mesma regua de pronto
+- melhora rastreabilidade para auditoria e governança
+- alinha engenharia, segurança, operação e sponsors na mesma regua de pronto
 
 ### Negativas
 
@@ -86,4 +86,4 @@ Este ADR se aplica especialmente a:
 - [Scorecard Oficial do Projeto](../project-kpi-scorecard.md)
 - [Board Operacional Unico ate 90%+](../project-operational-execution-board.md)
 - [Resumo Executivo de Readiness](../project-executive-readiness-brief.md)
-- [Documentacao Canonica](../README.md)
+- [documentação canônica](../README.md)

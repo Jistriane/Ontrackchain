@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Definir uma regua canonica, auditavel e reutilizavel para medir a evolucao do Ontrackchain em tres lentes complementares:
+Definir uma regua canônica, auditavel e reutilizavel para medir a evolucao do Ontrackchain em tres lentes complementares:
 
 - construcao tecnica da plataforma
 - prontidao regulatoria/operacional
@@ -35,7 +35,7 @@ Mede o quanto o projeto ja esta pronto para operar em contexto serio e regulado:
 
 - identidade forte homologada
 - providers reais
-- janelas recorrentes com evidencias
+- janelas recorrentes com evidências
 - retention e recovery com aceite formal
 - ownership e sign-off institucionais
 
@@ -68,11 +68,11 @@ Leitura executiva oficial:
 | Investigation + Billing | 9% | 100% | **COMPLETO** - worker real, fallback, trilha financeira operacional, cockpit desacoplado, RBAC em billing |
 | Compliance Core | 18% | 100% | **COMPLETO** - OpenSanctions live, sanctions, bloqueios, contrapartes, ROS/COAF, work-items multiusuario, enforcement fino completo |
 | Monitoring Operacional | 8% | 100% | **COMPLETO** - backlog global, triagem, export auditado, RCA cross-domain, alinhamento monitoring/alerts |
-| Reports e Evidencias | 12% | 100% | **COMPLETO** - evidence_trail, hashes, bundles, ROS auditado, selagem institucional forte DD/SoF |
+| Reports e evidências | 12% | 100% | **COMPLETO** - evidence_trail, hashes, bundles, ROS auditado, selagem institucional forte DD/SoF |
 | Frontend Operacional | 6% | 100% | **COMPLETO** - 7 cockpits com RBAC, historico consolidado, i18n tri-locale, deep-links operacionais |
 | Observabilidade e Alerting | 7% | 100% | **COMPLETO** - monitoring, alerting, exports, runbooks, bundles operacionais, RCA cross-domain |
 | Testes e CI/CD | 11% | 100% | **COMPLETO** - smoke, E2E, preflights, gates, runners, 80/80 testes passando |
-| Seguranca e Governanca Tecnica | 8% | 100% | **COMPLETO** - RBAC completo em todos os dominios, P2-05 concluido, auth/context OIDC, testes E2E |
+| segurança e governança Tecnica | 8% | 100% | **COMPLETO** - RBAC completo em todos os dominios, P2-05 concluido, auth/context OIDC, testes E2E |
 
 Resultado ponderado:
 
@@ -91,10 +91,10 @@ Leitura oficial arredondada:
 | Feed UE `EU_CONSOLIDATED` | 12% | 100% | **HOMOLOGADO** - EU_CONSOLIDATED ACTIVE/SUCCESS, eu_window_converges_ready=true, sync operacional |
 | Retention e Recovery | 12% | 95% | **HOMOLOGADO** - politica publicada, restore operacional, RTO <30s, ADR-008, sign-off P0-06 |
 | Owners e SLAs operacionais | 10% | 100% | **HOMOLOGADO** - matriz de ownership completa, handoff formalizado, aprovacoes registradas |
-| Cadeia de custodia e evidencias | 13% | 100% | **HOMOLOGADO** - trilha forte DD/SoF completa com sign-off, selagem, revogacao, supersedencia e governanca |
+| Cadeia de custodia e evidências | 13% | 100% | **HOMOLOGADO** - trilha forte DD/SoF completa com sign-off, selagem, revogacao, supersedencia e governança |
 | Janela seria e sign-off recorrente | 10% | 100% | **HOMOLOGADO** - 2 janelas serias executadas (stg-2026-07-24-a/b), repetibilidade comprovada |
-| DD/SoF manual review estruturado | 5% | 100% | **HOMOLOGADO** - painel estruturado, metadata persistida, cadeia de custodia forte com governanca pos-selagem |
-| ROS/COAF e operacao regulada | 5% | 100% | **HOMOLOGADO** - fluxo funcional e auditado, trilha completa |
+| DD/SoF manual review estruturado | 5% | 100% | **HOMOLOGADO** - painel estruturado, metadata persistida, cadeia de custodia forte com governança pos-selagem |
+| ROS/COAF e operação regulada | 5% | 100% | **HOMOLOGADO** - fluxo funcional e auditado, trilha completa |
 
 Resultado ponderado:
 
@@ -111,14 +111,14 @@ Leitura oficial arredondada:
 | Plataforma base e arquitetura | 18% | 100% | runtime, stack, RLS, servicos centrais e boundaries consolidados, agora com AI e Case Management integrados |
 | Compliance core implementado | 18% | 100% | `sanctions`, `preventive_blocks`, `counterparties`, `ROS/COAF`, `evidence_trail`, `work-items` e a trilha forte DD/SoF estao coerentes |
 | Testes, CI/CD e guardrails | 10% | 100% | smoke, E2E, preflights, gates e runners completos com cobertura de AI e Case Management |
-| Observabilidade e operacao | 8% | 100% | monitoring, alerting, exports, runbooks e bundles operacionais maduros com RCA cross-domain |
+| Observabilidade e operação | 8% | 100% | monitoring, alerting, exports, runbooks e bundles operacionais maduros com RCA cross-domain |
 | Frontend operacional | 6% | 100% | 9 cockpits com AI Intelligence, Case Management, paineis de historico e i18n tri-locale |
 | `P0-01` OIDC + MFA federado serio | 10% | 100% | **HOMOLOGADO** - Keycloak configurado, MFA external_provider, JWT validado |
 | `P0-02` AML/KYT live | 12% | 100% | **HOMOLOGADO** - OpenSanctions live, provider_converges_live=true |
 | `P0-03` Feed UE tokenizado real | 7% | 100% | **HOMOLOGADO** - EU_CONSOLIDATED ACTIVE/SUCCESS |
 | `P1-01` Retention/recovery formal | 5% | 100% | **HOMOLOGADO** - politica publicada, restore operacional, ADR-008, sign-off P0-06 |
 | `P1-02` Janela seria recorrente + owners/SLA | 4% | 100% | **HOMOLOGADO** - 2 janelas serias executadas, repetibilidade comprovada |
-| `P1-03` DD/SoF manual review estruturado | 2% | 100% | **HOMOLOGADO** - painel estruturado, cadeia de custodia forte com governanca |
+| `P1-03` DD/SoF manual review estruturado | 2% | 100% | **HOMOLOGADO** - painel estruturado, cadeia de custodia forte com governança |
 | `P2-08` IA Explicativa e Graph Intelligence | 5% | 100% | **HOMOLOGADO** - AI Service com explain, graph-analysis, case-insights |
 | `P2-09` Gestao de Casos Avancada | 3% | 100% | **HOMOLOGADO** - Case Management com criacao, timeline, metricas |
 
@@ -145,20 +145,20 @@ O scorecard deve ser revisado junto com:
 
 ### Regras Minimas
 
-1. nao alterar nota sem evidencia nova
+1. nao alterar nota sem evidência nova
 2. itens `done` exigem artefato, teste, sign-off ou bundle anexavel
 3. itens `blocked` nao podem receber ganho artificial de maturidade
 4. sempre registrar o motivo quando uma nota subir ou cair
 5. rever pesos apenas quando a estrategia do projeto mudar materialmente
-6. aplicar a regra de promocao por evidencia formalizada em [ADR-010](./adrs/ADR-010-promocao-de-maturidade-baseada-em-evidencia.md)
-7. melhorias de rastreabilidade operacional, como RCA cross-domain em `alerts`/`monitoring`/exports/governanca, podem endurecer comentario executivo e reduzir risco percebido, mas nao sobem nota sem uso recorrente e evidencia revisada no ciclo
+6. aplicar a regra de promocao por evidência formalizada em [ADR-010](./adrs/ADR-010-promocao-de-maturidade-baseada-em-evidencia.md)
+7. melhorias de rastreabilidade operacional, como RCA cross-domain em `alerts`/`monitoring`/exports/governanca, podem endurecer comentario executivo e reduzir risco percebido, mas nao sobem nota sem uso recorrente e evidência revisada no ciclo
 
 ### Regra de Promocao
 
 Em caso de duvida sobre subida de score, vale a regra:
 
 - execucao real primeiro
-- evidencia preservada depois
+- evidência preservada depois
 - revisao humana em seguida
 - aprovacao explicita por ultimo
 
@@ -166,7 +166,7 @@ Sem esses quatro elementos, a baseline oficial nao deve subir.
 
 Regra complementar para `P0-04`:
 
-- tentativa parcial de `P0-02` ou `P0-03` pode justificar melhoria localizada de leitura regulatoria quando houver artefato revisavel e risco melhor delimitado
+- tentativa parcial de `P0-02` ou `P0-03` pode justificar melhoria localizada de leitura regulatoria quando houver artefato revisável e risco melhor delimitado
 - a travessia oficial de `89% -> 90%+` continua exigindo prova combinada de `P0-02` e `P0-03`, preferencialmente consolidada por `P0-04`
 - da mesma forma, `P2-03` pode endurecer leitura operacional e reduzir ambiguidade de incidentes, mas nao altera a baseline executiva sem artefato recorrente, war room exercitado e uso real do resumo RCA no ciclo
 
@@ -176,17 +176,17 @@ Regra complementar para `P0-04`:
 | --- | ---: | --- |
 | `todo` | `35% a 50%` | escopo reconhecido, sem prova concreta suficiente |
 | `ready` | `55% a 70%` | dependencias principais atendidas, aguardando janela/credencial |
-| `in_progress` | `65% a 90%` | execucao ativa com evidencia parcial |
+| `in_progress` | `65% a 90%` | execucao ativa com evidência parcial |
 | `blocked` | manter nota atual ou reduzir | impedimento externo/institucional trava o ganho |
-| `done` | `95% a 100%` | criterio de aceite fechado com evidencia real |
+| `done` | `95% a 100%` | criterio de aceite fechado com evidência real |
 
 ## Como Atualizar
 
-Durante a governanca semanal:
+Durante a governança semanal:
 
 1. atualizar a matriz operacional primeiro
 2. revisar riscos reclassificados
-3. recalibrar apenas os dominios ou iniciativas com evidencia nova
+3. recalibrar apenas os dominios ou iniciativas com evidência nova
 4. recalcular:
    - construcao tecnica
    - prontidao regulatoria
@@ -203,7 +203,7 @@ Durante a governanca semanal:
   - URL tokenizada da UE
   - MFA federado em trilho serio
   - sign-off institucional de retention/recovery e owners
-  - repetibilidade operacional com evidencias recorrentes
+  - repetibilidade operacional com evidências recorrentes
   - endurecimento institucional final da selagem DD/SoF
 
 ## Metas de Evolucao
@@ -214,7 +214,7 @@ Prioridades mais eficientes:
 
 1. fechar `P0-02`
 2. fechar `P0-03`
-3. consolidar `P0-04` apenas quando `P0-02` e `P0-03` convergirem na mesma trilha revisavel
+3. consolidar `P0-04` apenas quando `P0-02` e `P0-03` convergirem na mesma trilha revisável
 4. avancar `P0-01`
 5. converter `RUN-STG-01` em execucao auditavel via `P0-05`
 6. formalizar `P0-06` e sincronizar a narrativa em `P0-07`

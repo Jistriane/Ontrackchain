@@ -8,9 +8,9 @@ Agrupar registros semanais fechados, atualizacoes de KPI e checks de readiness d
 
 Esta pasta guarda snapshots semanais ja encerrados e arquivados. Ela nao substitui:
 
-- `../../README.md` como trilha datada viva de governanca
+- `../../README.md` como trilha datada viva de governança
 - `../../cycles/` como navegacao operacional ainda relevante por data
-- `../../../README.md` como indice canonico da documentacao viva
+- `../../../README.md` como indice canônico da documentação viva
 
 Quando houver conflito, use esta precedencia:
 
@@ -29,7 +29,7 @@ Quando houver conflito, use esta precedencia:
 Rodar a limpeza sob demanda pela raiz tecnica do workspace:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make prune-governance-weekly-archive GOVERNANCE_WEEKLY_ARCHIVE_RETENTION_DAYS=90
 ```
 

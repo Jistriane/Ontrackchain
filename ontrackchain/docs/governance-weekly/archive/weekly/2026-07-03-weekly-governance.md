@@ -1,6 +1,6 @@
 # Governança Semanal — 2026-07-03
 
-> Registro historico arquivado. Este documento preserva a avaliacao semanal daquele ciclo, mas nao substitui a governanca viva, os ciclos correntes e os scorecards atuais.
+> Registro historico arquivado. Este documento preserva a avaliacao semanal daquele ciclo, mas nao substitui a governança viva, os ciclos correntes e os scorecards atuais.
 
 ## Leitura do Ciclo
 
@@ -90,7 +90,7 @@
 ## Decisões
 
 - manter oficialmente `91% / 78% / 87%` como baseline executiva do projeto
-- registrar formalmente que o estado atual e `go` para validacao seria controlada e `no-go` para producao regulada forte
+- registrar formalmente que o estado atual e `go` para validação seria controlada e `no-go` para producao regulada forte
 - tratar a diferenca entre maturidade tecnica alta e prontidao regulatoria incompleta como gap de homologacao externa, nao como gap central de construcao de produto
 
 ## Ações da Próxima Semana

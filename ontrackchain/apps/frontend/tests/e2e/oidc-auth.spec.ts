@@ -99,31 +99,72 @@ test("callback OIDC exibe erro explicito quando o usuario nao possui claims obri
 
   const authorizationUrl = config.oidc?.authorization_url?.trim();
   expect(authorizationUrl).toBeTruthy();
-  const appHost = escapedHost(baseURL ?? "http://localhost:8080");
+  const redirectUri = `${baseURL ?? "http://localhost:8080"}/oidc/callback`;
+  const fixedState = "state-invalid-claims-direct";
+  const routePattern = "**/api/session/start";
 
-  await page.goto("/login");
-  await page.getByTestId("oidc-login-btn").click();
-
-  await page.waitForURL(new RegExp(escapedHost(authorizationUrl!)), {
-    timeout: 30_000
+  const mockTokenRes = await request.post("http://oidc.localhost:8080/mock/token", {
+    headers: { "content-type": "application/json" },
+    data: { role: "VIEWER", plan: "free", sub: `e2e:invalid-claims-${Date.now()}` }
   });
-  await page.locator("#username").fill(OIDC_INVALID_CLAIMS_USER);
-  await page.locator("#password").fill(OIDC_INVALID_CLAIMS_PASSWORD);
+  expect(mockTokenRes.status()).toBe(200);
+  const mockTokenJson = (await mockTokenRes.json()) as { access_token: string };
+  const invalidClaimsToken = mockTokenJson.access_token;
+  expect(invalidClaimsToken).toBeTruthy();
 
-  const failedSessionStart = page.waitForResponse(
-    (response) => response.url().includes("/api/session/start") && response.status() === 401,
-    { timeout: 60_000 }
-  );
-  await page.locator("#kc-login").click();
+  await page.route(routePattern, async (route) => {
+    const req = route.request();
+    const newBody = JSON.stringify({ token: invalidClaimsToken });
+    await route.continue({
+      method: "POST",
+      headers: { ...req.headers(), "content-type": "application/json" },
+      postData: newBody
+    });
+  });
 
-  await page.waitForURL(new RegExp(`${appHost}/oidc/callback`), { timeout: 60_000 });
-  const failedSessionStartResponse = await failedSessionStart;
-  await expect(page).toHaveURL(/\/oidc\/callback/);
-  await expect(failedSessionStartResponse.json()).resolves.toMatchObject({ error: "invalid_claims" });
+  try {
+    await page.context().clearCookies();
+    await page.evaluate(() => {
+      try {
+        window.sessionStorage.clear();
+        window.localStorage.clear();
+      } catch {}
+    });
 
-  const cookies = await page.context().cookies();
-  expect(cookies.some((cookie) => cookie.name === "otc_token")).toBeFalsy();
-  expect(cookies.some((cookie) => cookie.name === "otc_2fa")).toBeFalsy();
+    await page.goto("/login");
+    await page.evaluate(
+      ({ loginStateKey, callbackMessageKey, loginState }) => {
+        sessionStorage.removeItem(callbackMessageKey);
+        sessionStorage.setItem(loginStateKey, JSON.stringify(loginState));
+      },
+      {
+        loginStateKey: OIDC_LOGIN_STATE_KEY,
+        callbackMessageKey: OIDC_CALLBACK_MESSAGE_KEY,
+        loginState: {
+          codeVerifier: "direct-code-verifier-invalid-claims",
+          redirectUri,
+          state: fixedState
+        }
+      }
+    );
+
+    const failedSessionStartPromise = page.waitForResponse(
+      (response) => response.url().includes("/api/session/start") && response.status() === 401,
+      { timeout: 90_000 }
+    );
+
+    await page.goto(`/oidc/callback?code=direct-code-invalid-claims&state=${fixedState}`);
+
+    const failedSessionStartResponse = await failedSessionStartPromise;
+    await expect(page).toHaveURL(/\/oidc\/callback/);
+    await expect(failedSessionStartResponse.json()).resolves.toMatchObject({ error: "invalid_claims" });
+
+    const cookies = await page.context().cookies();
+    expect(cookies.some((cookie) => cookie.name === "otc_token")).toBeFalsy();
+    expect(cookies.some((cookie) => cookie.name === "otc_2fa")).toBeFalsy();
+  } finally {
+    await page.unroute(routePattern);
+  }
 });
 
 test("callback OIDC renderiza a mensagem visual de invalid_claims de forma deterministica", async ({

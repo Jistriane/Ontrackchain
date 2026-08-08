@@ -6,8 +6,8 @@ Dar ao war room da janela seria uma visao unica de:
 
 - owner responsavel por cada trilha
 - dependencia previa para iniciar a execucao
-- comando minimo de validacao
-- evidencia minima exigida
+- comando minimo de validação
+- evidência minima exigida
 - criterio de escalacao quando a trilha falhar
 
 Use esta matriz junto com:
@@ -19,7 +19,7 @@ Use esta matriz junto com:
 
 Precedencia de leitura:
 
-- [Owners e SLAs Operacionais](operational-ownership-and-slas.md) define a taxonomia canonica de dominios, owners e backups
+- [Owners e SLAs Operacionais](operational-ownership-and-slas.md) define a taxonomia canônica de dominios, owners e backups
 - [Ownership do `.env.staging`](staging-env-ownership.md) especializa essa taxonomia para placeholders, handoff e bloqueios da janela corrente
 - esta matriz usa ambas para coordenar a execucao viva do war room
 
@@ -39,13 +39,13 @@ Regra complementar para incidentes:
 
 ## Matriz de Execucao
 
-| Trilha | Owner primario | Backup/Escalacao | Dependencia de entrada | Comando minimo | Evidencia minima | No-go imediato |
+| Trilha | Owner primario | Backup/Escalacao | Dependencia de entrada | Comando minimo | evidência minima | No-go imediato |
 | --- | --- | --- | --- | --- | --- | --- |
 | `Platform/Operations` | `Platform/SRE` | `Platform/DBA` | handoff iniciado e acesso ao vault/secret store | `python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md` e `python3 scripts/check_staging_env_placeholders.py --file .env.staging.private` | JSONs de handoff/placeholders sem `pending` ou placeholder critico do dominio | senha de DB, Grafana ou webhook ainda em placeholder |
 | `Auth/OIDC` | `Backend/Auth` | `Security` | `Platform/Operations` concluido e secrets OIDC nao-dev provisionados | `python3 scripts/preflight_oidc_serious_env.py` e `make run-oidc-readiness-bundle-local WINDOW_ID=<janela> BASE_URL=http://localhost:8080` | output verde do preflight OIDC, bundle `<janela>-oidc-readiness-bundle.json` e handoff de `Auth/OIDC` atualizado | fallback para `dev`, claims incoerentes, bundle OIDC ausente ou MFA serio ainda nao verificavel |
 | `Investigation/RPC` | `Backend Core` | `Platform/SRE` | endpoints primario/fallback definidos e roteaveis | `python3 scripts/preflight_external_integrations.py` | output coerente com `ONTRACKCHAIN_EXPECT_RPC_MODE` e handoff de `Investigation/RPC` atualizado | RPC primario/fallback indisponivel ou placeholder ainda aberto |
-| `Compliance/AML` | `Compliance/Backend` | `Security` | credenciais reais do provider, URL tokenizada da UE quando aplicavel, handoff pronto | `python3 scripts/preflight_external_integrations.py` e `make check-compliance-provider-runtime INTERNAL_BASE_URL=http://compliance-api:8002 PUBLIC_BASE_URL=http://localhost:8080` | runtime AML/KYT verde e, quando houver UE, JSONs `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json` | provider real indisponivel, `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` placeholder ou bundle regulatorio falhando |
-| `Gate Agregado da Janela` | `Arquiteto/Responsavel Tecnico` | `Platform/SRE` | todas as trilhas acima em estado verde ou waived formalmente | `python3 scripts/prepare_staging_window.py --window-id stg-YYYY-MM-DD-a --mode baseline --private-env-file .env.staging.private --validate --preflight` | resultado `status=ok` e pacote pronto para `make run-serious-window-local` | qualquer trilha anterior em `pending`, `failed` ou sem evidencia anexavel |
+| `Compliance/AML` | `Compliance/Backend` | `Security` | credenciais reais do provider, URL tokenizada da UE quando aplicavel, handoff pronto | `python3 scripts/preflight_external_integrations.py` e `make check-compliance-provider-runtime INTERNAL_BASE_URL=http://compliance-api:8002 PUBLIC_BASE_URL=http://localhost:8080` | runtime AML/KYT verde e, quando houver UE, JSONs `<janela>-eu-sanctions-preflight.json` e `<janela>-eu-sanctions-sync.json` | provider real indisponivel, `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` placeholder ou bundle regulatório falhando |
+| `Gate Agregado da Janela` | `Arquiteto/Responsavel Tecnico` | `Platform/SRE` | todas as trilhas acima em estado verde ou waived formalmente | `python3 scripts/prepare_staging_window.py --window-id stg-YYYY-MM-DD-a --mode baseline --private-env-file .env.staging.private --validate --preflight` | resultado `status=ok` e pacote pronto para `make run-serious-window-local` | qualquer trilha anterior em `pending`, `failed` ou sem evidência anexavel |
 | `Incidente Cross-Domain` | `Platform/SRE` | `Arquiteto/Responsavel Tecnico` | incidente material detectado no ciclo ou na janela | revisar `work_item_id`, timeline do alerta, export administrativo e resumo RCA quando houver | RCA minima registrada, comentario automatico presente quando aplicavel e resumo executivo coerente com o impacto observado | incidente material sem RCA minima, sem owner definido ou com narrativa executiva incoerente |
 
 ## Sequencia de War Room

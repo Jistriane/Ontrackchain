@@ -22,7 +22,7 @@
 - prontidão regulatória: `78%`
 - KPI total consolidado: `87%`
 - houve recalibração material?: `nao`
-- fonte canonica: [Scorecard Oficial do Projeto](../../../project-kpi-scorecard.md)
+- fonte canônica: [Scorecard Oficial do Projeto](../../../project-kpi-scorecard.md)
 
 ## Itens Atualizados
 
@@ -38,7 +38,7 @@
   - status atual: `done`
   - owner nominal: `Frontend/Arquitetura`
   - artefato revisado: `apps/frontend/app/blocks/page.tsx` com `WorkItemTimelinePanel` integrado + i18n pt-BR/en/es
-  - próxima evidência esperada: validacao em runtime local com `docker compose up`
+  - próxima evidência esperada: validação em runtime local com `docker compose up`
 
 - ID: `P0-01`
   - status anterior: `blocked`
@@ -64,7 +64,7 @@
 ## Itens Blocked
 
 - ID: `P0-01`
-  - motivo: homologacao formal de identidade forte depende de evidencia externa e aceite institucional
+  - motivo: homologacao formal de identidade forte depende de evidência externa e aceite institucional
   - dependência externa: provider de identidade OIDC com trilho serio e MFA externo
   - owner da escalação: `Tech Lead Auth`
 
@@ -78,14 +78,14 @@
 - Sprint 4 encerrada como `concluida` — baseline `91/78/87` institucionalizada
 - Sprint 5 aberta com sequencia: `blocks` -> `ros-coaf` (revisao) -> `counterparties` -> `evidence` -> `reports` -> `sanctions`
 - `blocks/page.tsx` recebeu `WorkItemTimelinePanel` completo como primeiro entregavel da Sprint 5
-- manter baseline `91% / 78% / 87%` ate nova evidencia material de P0-02 ou P0-03
+- manter baseline `91% / 78% / 87%` ate nova evidência material de P0-02 ou P0-03
 - nao executar janela seria antes de sair do estado `no-go`
 
 ## Ações da Próxima Semana
 
 - [x] Validar `blocks` timeline em runtime local: `docker compose up` + abrir `/blocks`
 - [x] Revisar `ros-coaf` para assignment formal por `owner_user_id` (P1-S5-02)
-- [x] Rollout de `owner_user_id` concluido em todos os 7 cockpits regulatorios (`blocks`, `sanctions`, `alerts`, `ros-coaf`, `counterparties`, `evidence`, `reports`)
+- [x] Rollout de `owner_user_id` concluido em todos os 7 cockpits regulatórios (`blocks`, `sanctions`, `alerts`, `ros-coaf`, `counterparties`, `evidence`, `reports`)
 - [x] Util `app/lib/ownership.ts` criado e adotado globalmente para evitar drift
 - [x] Smoke backend de ownership (`make smoke-work-items-ownership-backend`) validado com create 201 + patch 200 + list 200
 - [x] Migration `0013_regulatory_work_items` aplicada e target `make apply-regulatory-work-items-migration` padronizado
@@ -100,4 +100,4 @@
 
 - a maior entrega tecnica pendente e a expansao de timeline/comments para todos os cockpits parciais — codigo base ja existe no `WorkItemTimelinePanel` e nas libs `work-item-timeline-*`
 - o gap de maturidade regulatoria esta concentrado em credenciais externas reais (P0-02, P0-03) e homologacao institucional (P0-01) — nao em ausencia de codigo
-- referencia canonica do backlog: [Board de Prioridades do Projeto](../../../project-priority-board.md)
+- referencia canônica do backlog: [Board de Prioridades do Projeto](../../../project-priority-board.md)

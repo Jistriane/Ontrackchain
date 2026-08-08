@@ -15,7 +15,7 @@ Use esta folha junto com:
 
 - [Checklist Executivo da Primeira Janela Combinada `P0-02 + P0-03`](./FIRST_COMBINED_SERIOUS_WINDOW_EXECUTIVE_CHECKLIST.md)
 - [Pacote Final de Execucao - Janela Seria Integrada](./SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md)
-- [Guia `P0-04` Bundle Regulatorio Oficial](./P0-04_REGULATORY_BUNDLE_EXECUTION_GUIDE.md)
+- [Guia `P0-04` Bundle regulatório Oficial](./P0-04_REGULATORY_BUNDLE_EXECUTION_GUIDE.md)
 
 ## Identificacao da Janela
 
@@ -38,7 +38,7 @@ Use esta folha junto com:
 | `P0-02` AML/KYT | `preencher` | `preencher` | `preencher` | `sim ou nao` |
 | `P0-03` Feed UE | `preencher` | `preencher` | `preencher` | `sim ou nao` |
 | `P0-04` consolidado | `preencher` | `preencher` | `preencher` | `sim ou nao` |
-| Governanca / sign-off | `preencher` | `preencher` | `preencher` | `sim ou nao` |
+| governança / sign-off | `preencher` | `preencher` | `preencher` | `sim ou nao` |
 
 ## Checkpoint `T-30 min`
 
@@ -58,7 +58,7 @@ Registrar:
 Comando:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-05-serious-window \
   WINDOW_ID="$WINDOW_ID" \
   MODE=baseline \
@@ -86,7 +86,7 @@ Decisao:
 ### Execucao `P0-02`
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/preflight_external_integrations.py
 make check-compliance-provider-runtime \
   INTERNAL_BASE_URL=http://compliance-api:8002 \
@@ -120,7 +120,7 @@ python3 scripts/homologation_external_evidence.py --mode compliance
 ### Execucao `P0-03`
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make rerun-compliance-worker
 export REQUEST_ID="${WINDOW_ID}-eu-check"
 make gate-p0-03-eu-live WINDOW_ID="$WINDOW_ID" REQUEST_ID="$REQUEST_ID"
@@ -149,12 +149,12 @@ make check-eu-sanctions-window REQUEST_ID="$REQUEST_ID"
 - [ ] `request_id` presente
 - [ ] `source_url_matches_expected=true`
 
-## `P0-04` Bundle Regulatorio Oficial
+## `P0-04` Bundle regulatório Oficial
 
 ### Execucao `P0-04`
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-04-regulatory-bundle \
   WINDOW_ID="$WINDOW_ID" \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -196,7 +196,7 @@ python3 scripts/validate_serious_window_artifact.py \
 Comando:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID="$WINDOW_ID"
 ```
 

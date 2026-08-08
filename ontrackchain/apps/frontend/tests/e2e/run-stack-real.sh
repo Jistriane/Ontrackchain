@@ -18,6 +18,7 @@ Suites suportadas:
   compliance-flows
   oidc-auth
   oidc-critical
+  oidc-mock-critical
 EOF
 }
 
@@ -120,6 +121,10 @@ case "${SUITE_NAME}" in
   oidc-critical)
     ensure_oidc_runtime
     run_playwright tests/e2e/oidc-auth.spec.ts tests/e2e/compliance-flows.spec.ts
+    ;;
+  oidc-mock-critical)
+    ensure_oidc_runtime
+    run_playwright tests/e2e/oidc-mock-critical.spec.ts
     ;;
   *)
     usage

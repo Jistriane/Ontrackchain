@@ -32,7 +32,7 @@ O projeto ainda nao tem:
 
 ## Requisitos Nao Funcionais
 
-- seguranca: principio de menor privilegio, segregacao de funcoes e rotacao de segredos
+- segurança: principio de menor privilegio, segregacao de funcoes e rotacao de segredos
 - disponibilidade: leitura de segredo sem SPOF operacional desnecessario
 - auditabilidade: trilha de negacao, uso e mudanca de segredo documentada
 - manutenibilidade: naming padrao, ownership claro e rollout incremental
@@ -82,9 +82,9 @@ flowchart LR
 
 | Opcao | Secrets | RBAC | Vantagens | Desvantagens | Complexidade |
 | --- | --- | --- | --- | --- | --- |
-| A | manter `GitHub Environment` + `.env.staging.private` como modelo dominante | manter RBAC misto atual com pequenos patches | baixo esforco inicial | nao fecha producao com seguranca forte; continua difuso | baixa |
+| A | manter `GitHub Environment` + `.env.staging.private` como modelo dominante | manter RBAC misto atual com pequenos patches | baixo esforco inicial | nao fecha producao com segurança forte; continua difuso | baixa |
 | B | `Vault/Secrets Manager` apenas para producao, mantendo staging como esta | matriz RBAC por dominio aplicada primeiro em recursos mais sensiveis | melhor equilibrio entre risco, custo e velocidade | exige dual-mode operacional por um tempo | media |
-| C | migracao completa imediata para secret manager + RBAC fino em todos os dominios | enforcement integral desde ja | estado final mais forte | alto risco de refactor e atraso, baixa reversibilidade | alta |
+| C | migração completa imediata para secret manager + RBAC fino em todos os dominios | enforcement integral desde ja | estado final mais forte | alto risco de refactor e atraso, baixa reversibilidade | alta |
 
 ## Recomendacao
 
@@ -93,8 +93,8 @@ Recomendo a **Opcao B**.
 ### Por que
 
 - fecha o gap de producao sem desestabilizar o rito serio de `staging`
-- permite mover `P2-04` e `P2-05` por fases com evidencia real
-- respeita o principio de promocao baseada em evidencia: primeiro endurecer superficies criticas, depois expandir
+- permite mover `P2-04` e `P2-05` por fases com evidência real
+- respeita o principio de promocao baseada em evidência: primeiro endurecer superficies criticas, depois expandir
 - preserva a abstracao atual da selagem institucional para um backend definitivo de `KMS/HSM`
 
 ## Modelo de Secrets Recomendado
@@ -112,7 +112,7 @@ Recomendo a **Opcao B**.
 | `Secret Manager` | armazenar e versionar segredos criticos | credenciais rotacionadas, politicas de acesso | leitura segura por servico | segredo ausente, permissao negada, timeout |
 | `Platform/SRE` | provisionar e rotacionar segredos | owner, ambiente, politica | segredo publicado no backend seguro | drift de naming, owner indefinido |
 | `auth-service` | consumir secrets de identidade e MFA | client secret, issuer, JWKS config | contexto autenticado | fallback indevido, claims inconsistentes |
-| `investigation-api` e demais APIs | consumir segredos especificos de integracao | URL/token/api key | runtime coerente | degradação silenciosa, segredo expirado |
+| `investigation-api` e demais APIs | consumir segredos especificos de integração | URL/token/api key | runtime coerente | degradação silenciosa, segredo expirado |
 | `selagem institucional` | consumir backend definitivo de assinatura | chave nao exportavel, trust bundle | envelope verificado | indisponibilidade do provedor, trust bundle divergente |
 
 ### Nomenclatura Minima Recomendada
@@ -131,17 +131,17 @@ Recomendo a **Opcao B**.
 
 | Papel | Escopo principal | Pode aprovar? | Pode operar admin? | Pode apenas ler? |
 | --- | --- | --- | --- | --- |
-| `ADMIN` | operacao global e administracao | sim | sim | sim |
+| `ADMIN` | operação global e administracao | sim | sim | sim |
 | `AUDITOR` | leitura privilegiada e trilhas | nao | nao | sim |
-| `ANALYST` | operacao core por dominio | limitado ao dominio | nao | sim |
+| `ANALYST` | operação core por dominio | limitado ao dominio | nao | sim |
 | `VIEWER` | leitura segura do proprio dominio | nao | nao | sim |
 | `TESTER` | QA e ambientes nao-produtivos | nao por default | nao por default | limitado |
 | `REVIEWER` | aprovacao regulatoria formal | sim, em recursos definidos | nao | sim |
-| `BILLING_ADMIN` | saldo, conciliacao e export financeiro | nao regulatorio | admin financeiro | sim |
+| `BILLING_ADMIN` | saldo, conciliacao e export financeiro | nao regulatório | admin financeiro | sim |
 
 ### Dominio por Dominio
 
-| Dominio | Leitura | Operacao | Aprovacao | Administracao |
+| Dominio | Leitura | operação | Aprovacao | Administracao |
 | --- | --- | --- | --- | --- |
 | `audit` | `ADMIN`, `AUDITOR` | n/a | n/a | `ADMIN` |
 | `monitoring` administrativo | `ADMIN`, `AUDITOR` | `ADMIN` | n/a | `ADMIN` |
@@ -187,7 +187,7 @@ Fatia incremental ja endurecida em `billing`:
 
 ## Roadmap Sugerido
 
-| Sprint/Fase | Entrega | Owner sugerido | Evidencia de fechamento |
+| Sprint/Fase | Entrega | Owner sugerido | evidência de fechamento |
 | --- | --- | --- | --- |
 | `S+1` | decisao da tecnologia de secrets e naming padrao | `Platform/Security` | ADR ou documento aprovado |
 | `S+1` | matriz RBAC alvo por dominio | `Security + Produto` | documento aprovado e indexado |
@@ -201,10 +201,10 @@ Fatia incremental ja endurecida em `billing`:
 
 | Risco | Probabilidade | Impacto | Mitigacao |
 | --- | --- | --- | --- |
-| migracao de secret manager quebrar bootstrap operacional | media | alta | dual-read controlado + rollback testado |
+| migração de secret manager quebrar bootstrap operacional | media | alta | dual-read controlado + rollback testado |
 | matriz RBAC fina bloquear fluxos legitimos | media | alta | rollout por dominio + auditoria de negacoes |
 | divergencia entre claims do IdP e roles internas | alta | alta | contrato canônico de mapping no `auth-service` |
-| frontend continuar expondo CTA sem permissao | media | media | alinhar UX + E2E focado em autorizacao |
+| frontend continuar expondo CTA sem permissao | media | media | alinhar UX + E2E focado em autorização |
 | backend definitivo de selagem atrasar | media | alta | manter abstracao atual e medir gap separadamente |
 
 ## Definition of Done

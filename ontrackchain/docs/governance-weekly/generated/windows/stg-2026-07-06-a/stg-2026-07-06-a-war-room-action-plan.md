@@ -6,9 +6,9 @@
 - fonte handoff: `artifacts/staging/checks/handoff-stg-2026-07-06-a.json`
 - fonte snapshot: `pending`
 
-## Contexto Regulatorio
+## Contexto regulatório
 
-- escopo regulatorio da tentativa: `none`
+- escopo regulatório da tentativa: `none`
 - `P0-04` readiness: `unknown`
 - leitura regulatoria: indisponivel
 - classificacao dominante: `unknown`
@@ -33,8 +33,8 @@
 - comandos sugeridos:
   - `make check-compliance-provider-runtime`
   - `make run-eu-sanctions-window-local WINDOW_ID=<window_id>`
-- observacao regulatoria:
-  - sem escopo regulatorio material no snapshot atual
+- observação regulatoria:
+  - sem escopo regulatório material no snapshot atual
 
 ## Investigation/RPC
 

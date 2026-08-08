@@ -5,17 +5,17 @@
 Descrever como promover o scaffold atual para um ambiente de staging controlado, preservando:
 
 - integridade de schema
-- validacao automatizada
+- validação automatizada
 - trilha auditavel
-- seguranca dos fluxos sensiveis
+- segurança dos fluxos sensiveis
 
 Este documento cobre o processo tecnico. Ele nao substitui automacao futura de CI/CD nem procedimento formal de change management.
 
-Para execucao controlada via GitHub Actions, use tambem o workflow manual [staging-serious-window.yml](../../.github/workflows/staging-serious-window.yml), que neste workspace fica no repositório agregador pai em `../.github/workflows/`. Ele materializa `.env.staging.private` a partir de um `GitHub Environment` aprovado, instala dependencias do frontend/Playwright e executa o gate unico `prepare -> validate -> preflight -> run`, agora com o `oidc-critical` integrado ao bundle OIDC quando o runner estiver habilitado. A configuracao do environment e do secret multi-linha esta detalhada em [GitHub Environment para Staging Sério](github-environment-staging-serious.md).
+Para execucao controlada via GitHub Actions, use tambem o workflow manual [staging-serious-window.yml](../../.github/workflows/staging-serious-window.yml), que neste workspace fica no repositório agregador pai em `../.github/workflows/`. Ele materializa `.env.staging.private` a partir de um `GitHub Environment` aprovado, instala dependencias do frontend/Playwright e executa o gate unico `prepare -> validate -> preflight -> run`, agora com o `oidc-critical` integrado ao bundle OIDC quando o runner estiver habilitado. A configuração do environment e do secret multi-linha esta detalhada em [GitHub Environment para Staging Sério](github-environment-staging-serious.md).
 
-Para o workflow de promocao hospedada [deploy-to-production.yml](../../.github/workflows/deploy-to-production.yml), o repositorio agora exige configuracao explicita de hooks e healthchecks. Ele nao aceita mais comandos placeholder com falso positivo de sucesso.
+Para o workflow de promocao hospedada [deploy-to-production.yml](../../.github/workflows/deploy-to-production.yml), o repositorio agora exige configuração explicita de hooks e healthchecks. Ele nao aceita mais comandos placeholder com falso positivo de sucesso.
 
-## Escopo Canonico
+## Escopo canônico
 
 Use este documento para:
 
@@ -23,7 +23,7 @@ Use este documento para:
 - executar a cadeia tecnica de `prepare -> validate -> preflight -> run`
 - entender os comandos, artefatos e criterios tecnicos do rito consolidado
 
-## Papel Canonico
+## Papel canônico
 
 Este documento e a fonte primaria para:
 
@@ -40,7 +40,7 @@ Nao use este documento para substituir:
 
 Use os documentos abaixo quando o foco nao for deploy tecnico:
 
-- [Governanca Semanal](./governance-weekly/README.md): tracking e sign-off por ciclo
+- [governança Semanal](./governance-weekly/README.md): tracking e sign-off por ciclo
 - [Gates de Release para Staging Serio](project-release-gates.md): decidir `go/no-go` formal
 - [GitHub Environment para Staging Serio](github-environment-staging-serious.md): contrato operacional do workflow manual da janela
 - [Blueprint Render para Staging Full-Stack](render-staging-blueprint.md): estado atual do deploy no Render, alinhado ao runtime real do produto
@@ -111,7 +111,7 @@ Quando a necessidade for apenas publicar uma vitrine navegável do frontend sem 
 - `docker compose up -d --build` funcionando sem erro localmente
 - `scripts/smoke_runtime.py` verde
 - Playwright critical/compliance verde
-- checklist de seguranca basico atendido
+- checklist de segurança basico atendido
 - `render.full-stack.yaml` sincronizado com a topologia `full-stack`
 - segredos `sync: false` preenchidos manualmente no painel do Render
 
@@ -168,26 +168,14 @@ python3 scripts/run_staging_window.py \
 
 ### 2. Verificar drift de schema
 
-Se o banco alvo ja existe:
+Em staging (e também em local), o padrão é executar o runner `postgres-bootstrap`, que aplica `init.sql` (quando necessário) e depois executa todas as migrations em ordem.
 
 ```bash
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0001_align_reports_table.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0002_add_monitoring_alerts.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0003_add_audit_logs.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0004_add_audit_log_filter_indexes.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0005_add_operational_alert_events.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0006_add_operational_alert_triage.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0007_add_operational_alert_cursor_index.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0008_add_external_identities.sql
+docker compose up -d postgres
+docker compose run --rm postgres-bootstrap
 ```
 
-Continue a reconciliacao com as migrations incrementais posteriores ja documentadas em [operations.md](operations.md), com atencao especial para:
-
-- `0014_regulatory_work_items_contract_guardrails.sql`
-- `0015_evidence_package_seals.sql`
-- `0016_team_users_directory.sql`
-
-Mesmo com bootstrap idempotente no `auth-service`, trate bancos ja provisionados como alvo de reconciliacao deliberada antes da janela.
+Referência canônica: [infra/postgres/migrations/README.md](../infra/postgres/migrations/README.md).
 
 ### 3. Subir servicos
 
@@ -270,15 +258,15 @@ Defaults operacionais:
 
 - staging espera `render-full-stack-staging`
 - production, enquanto o runtime do frontend ainda nao distingue outro modelo, tambem espera `render-full-stack-staging`
-- `ALLOW_SHOWCASE_FALLBACK` deve permanecer `false` para qualquer ambiente que queira provar integracao real
+- `ALLOW_SHOWCASE_FALLBACK` deve permanecer `false` para qualquer ambiente que queira provar integração real
 
 Se os secrets ou variables acima nao estiverem configurados, o workflow falha deliberadamente. Isso e intencional: melhor falhar cedo do que registrar um deploy “verde” sem publicacao real.
 
 ### Matriz minima para o primeiro disparo real
 
-Use a tabela abaixo como checklist de configuracao antes de disparar manualmente `deploy-to-production.yml`.
+Use a tabela abaixo como checklist de configuração antes de disparar manualmente `deploy-to-production.yml`.
 
-| Chave | Tipo | Valor inicial recomendado | Origem da verdade | Observacoes |
+| Chave | Tipo | Valor inicial recomendado | Origem da verdade | observações |
 | --- | --- | --- | --- | --- |
 | `RENDER_STAGING_DEPLOY_HOOK_URL` | secret | `__PREENCHER_NO_GITHUB__` | painel do Render do servico/blueprint que deve publicar o staging real | nao reutilizar hook de showcase puro; o alvo precisa convergir para `render-full-stack-staging` |
 | `RENDER_STAGING_HEALTHCHECK_URL` | variable | `https://ontrackchain-frontend-staging.onrender.com/api/healthz` | URL publica do frontend hospedado | valor atual conhecido; e o endpoint que hoje ainda responde `hostedShowcaseFallback=true` |
@@ -287,7 +275,7 @@ Use a tabela abaixo como checklist de configuracao antes de disparar manualmente
 | `RENDER_PRODUCTION_DEPLOY_HOOK_URL` | secret | `__PREENCHER_NO_GITHUB__` | painel do Render do servico/blueprint de producao | so cadastrar quando existir runtime produtivo com healthz publico confiavel |
 | `RENDER_PRODUCTION_HEALTHCHECK_URL` | variable | `__DEFINIR_URL_DE_PRODUCAO__/api/healthz` | URL publica do frontend produtivo | nao apontar para staging |
 | `RENDER_PRODUCTION_EXPECTED_DEPLOYMENT_MODEL` | variable | `render-full-stack-staging` | contrato atual do frontend | ajustar quando o runtime passar a distinguir um modelo proprio de producao |
-| `RENDER_PRODUCTION_ALLOW_SHOWCASE_FALLBACK` | variable | `false` | decisao operacional do time | tratar fallback como falha em qualquer ambiente que queira provar integracao real |
+| `RENDER_PRODUCTION_ALLOW_SHOWCASE_FALLBACK` | variable | `false` | decisao operacional do time | tratar fallback como falha em qualquer ambiente que queira provar integração real |
 
 - `KEYCLOAK_ADMIN_CLIENT_SECRET` pode espelhar `KEYCLOAK_B2B_CLIENT_SECRET` apenas como medida transitória, até existir um client dedicado com privilégio minimo de leitura
 
@@ -300,7 +288,7 @@ Use a tabela abaixo como checklist de configuracao antes de disparar manualmente
 5. considerar sucesso apenas se `GET /api/healthz` retornar `status=ok`, `deploymentModel=render-full-stack-staging` e `hostedShowcaseFallback=false`
 6. depois do deploy, validar tambem `GET /auth/config`; ele nao deve mais responder `auth_mode=dev` nem `app_env=test`
 
-### 6. Rodar validacoes pos-deploy
+### 6. Rodar validações pos-deploy
 
 Use gates orientados a ambiente real:
 
@@ -338,9 +326,9 @@ No workflow oficial `staging-serious-window.yml`, esse gate passa a ser executad
 
 Use `npm run test:e2e:dev-auth` apenas fora deste rito, quando a intencao for regressao local do scaffold em `AUTH_MODE=dev`.
 
-### 7.1. Validacao focal de `ROS/COAF`
+### 7.1. validação focal de `ROS/COAF`
 
-Use `ROS/COAF` como trilha de prova do staging serio porque ela atravessa autenticacao, autorizacao, usuario vinculado, `report-api` e trilha auditavel.
+Use `ROS/COAF` como trilha de prova do staging serio porque ela atravessa autenticação, autorização, usuario vinculado, `report-api` e trilha auditavel.
 
 Checklist minimo:
 
@@ -351,14 +339,14 @@ Checklist minimo:
 - confirmar que submissao manual permanece segregada para o papel correto
 - validar que os eventos aparecem em `audit_logs` e/ou `evidence_trail`
 
-### 8. Publicar evidencia de validacao
+### 8. Publicar evidência de validação
 
-Preserve como evidencia:
+Preserve como evidência:
 
 - logs do deploy
 - resultado do `preflight_oidc_serious_env.py`
 - resultado do `smoke_auth_oidc_mode.py`
-- relatorios do Playwright critico e completo
+- relatórios do Playwright critico e completo
 - quando `MFA_EXTERNAL_PROVIDER_HOMOLOGATED=true`, artefato de homologacao contendo download auditado de `legal_report`
 
 ### 9. Rito Consolidado da Janela
@@ -398,8 +386,8 @@ make run-serious-window-local WINDOW_ID=<janela> MODE=baseline
 1. para a conducao operacional, usar:
 
 - [Gates de Release para Staging Serio](project-release-gates.md): decidir `go/no-go` formal
-- [Governanca Semanal](./governance-weekly/README.md): tracking e sign-off por ciclo
-- [Pacote Final de Execucao da Janela Seria Integrada](governance-weekly/guides/SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md): sequencia canonica, reconciliacao e criterio de sign-off
+- [governança Semanal](./governance-weekly/README.md): tracking e sign-off por ciclo
+- [Pacote Final de Execucao da Janela Seria Integrada](governance-weekly/guides/SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md): sequencia canônica, reconciliacao e criterio de sign-off
 
 Quando a execucao gerar `prepare-staging-window-output.json`, sincronizar a camada executiva com:
 
@@ -455,7 +443,7 @@ Resultado esperado:
 
 - artefato `.json` em `artifacts/homologation/`
 - manifesto `.manifest.json` com `sha256` e `size`
-- evidencias correlacionadas por `request_id` para compliance e RPC
+- evidências correlacionadas por `request_id` para compliance e RPC
 
 Para `P0-01`, preferir um pacote operacional único antes do war room completo:
 
@@ -471,7 +459,7 @@ Saída esperada para `P0-01`:
 - `artifacts/staging/dossiers/<janela>-oidc-readiness-bundle.md`
 - `oidc-preflight` e `smoke_auth_oidc_mode` consolidados em um único pacote revisável
 
-Consolidacao final recomendada:
+consolidação final recomendada:
 
 ```bash
 python3 scripts/build_staging_release_dossier.py \
@@ -505,7 +493,7 @@ Saida esperada:
 - resumo `.md` do bundle regulatório em `artifacts/staging/dossiers/` quando `AML/KYT live` e/ou feed UE estiverem no escopo
 - status consolidado `ok` apenas quando checks e homologacao estiverem verdes
 
-Observacao:
+Observação:
 
 - o baseline `local` do repositório usa `COMPLIANCE_TRM_ENABLED=false` e `INVESTIGATION_RPC_ENABLED=false`
 - por isso, `status=ok` para `homologation_external_evidence.py` e meta de `staging|production`, nao de scaffold local sem overrides serios
@@ -528,7 +516,7 @@ npm ci
 npm run test:e2e:dev-auth
 ```
 
-O comando aplica preflight de `http://localhost:8080/` e `/auth/config` antes do Playwright. Se o ambiente nao estiver realmente em `AUTH_MODE=dev`, a falha deve ser tratada como configuracao incorreta do scaffold local.
+O comando aplica preflight de `http://localhost:8080/` e `/auth/config` antes do Playwright. Se o ambiente nao estiver realmente em `AUTH_MODE=dev`, a falha deve ser tratada como configuração incorreta do scaffold local.
 
 ## Sequencia de Promocao Recomendada
 
@@ -554,9 +542,9 @@ ONTRACKCHAIN_EXPECTED_DEV_AUTH_ENABLED=false \
 python3 scripts/smoke_auth_oidc_mode.py
 ```
 
-### Staging regulatorio
+### Staging regulatório
 
-- foco em controles, auditoria, readiness e operacao
+- foco em controles, auditoria, readiness e operação
 
 ## Checklist de Deploy
 
@@ -576,7 +564,7 @@ python3 scripts/smoke_auth_oidc_mode.py
 - backup disponivel antes de mudanca estrutural
 - RLS preservado
 
-### Validacao
+### Validação
 
 - smoke verde
 - Playwright verde
@@ -598,7 +586,7 @@ python3 scripts/smoke_auth_oidc_mode.py
 - `/monitoring` permite triagem, selecao acumulada e export `CSV|JSON`
 - export administrativo de incidentes globais registra `operational_alerts_exported` no run atual
 
-## Secrets e Configuracao
+## Secrets e configuração
 
 ### Minimo exigido para staging
 
@@ -640,7 +628,7 @@ Um deploy pode ser considerado aceito quando:
 - Playwright passa
 - `audit_logs` registra eventos do run atual
 - `report_downloaded` continua sendo gerado apenas quando apropriado
-- `operational_alerts_exported` aparece quando a operacao administrativa exporta backlog global
+- `operational_alerts_exported` aparece quando a operação administrativa exporta backlog global
 - nao ha regressao em `plan lock` nem em concorrencia de investigation
 
 ## Riscos de Deploy Conhecidos
@@ -650,9 +638,9 @@ Um deploy pode ser considerado aceito quando:
 - ausencia de automacao formal de deploy
 - observabilidade central agora cobre `investigation`, `monitoring`, `compliance` e `report`, com roteamento ativo via `Alertmanager`
 
-## Proximos Passos Recomendados
+## próximos Passos Recomendados
 
 - institucionalizar `staging-serious-window.yml` como gate manual oficial da janela regulatoria
 - introduzir secrets manager
-- separar staging tecnico de staging regulatorio
-- adicionar validacao de backup/restore ao processo
+- separar staging tecnico de staging regulatório
+- adicionar validação de backup/restore ao processo

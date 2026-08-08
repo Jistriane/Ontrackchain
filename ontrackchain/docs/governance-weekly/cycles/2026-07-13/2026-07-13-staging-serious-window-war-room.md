@@ -7,8 +7,8 @@
 - mode: `dress_rehearsal_controlado`
 - environment_name: `staging-serious`
 - facilitador: `Release Manager Tecnico`
-- objetivo da janela: executar a primeira tentativa combinada real de `P0-02 + P0-03` e converter a consolidacao `P0-04` em artefato revisavel
-- baseline canonica: `93% / 79% / 89%`
+- objetivo da janela: executar a primeira tentativa combinada real de `P0-02 + P0-03` e converter a consolidação `P0-04` em artefato revisável
+- baseline canônica: `93% / 79% / 89%`
 - run sheet datada: [Run Sheet Datada `stg-2026-07-13-a`](./2026-07-13-first-combined-serious-window-run-sheet.md)
 - bridge quick-fill: [Bridge Quick-Fill `stg-2026-07-13-a`](./2026-07-13-staging-serious-window-bridge-quick-fill.md)
 - decision packet: [Go/No-Go Decision Packet `stg-2026-07-13-a`](./2026-07-13-staging-serious-window-go-no-go-decision-packet.md)
@@ -18,8 +18,8 @@
 - status atual: `pending_no_go`
 - motivo principal: aguardando insumos reais de `P0-02` e `P0-03`, confirmacao dos owners online e checkpoint agregado verde
 - risco residual: `P0-01` continua bloqueado por provider OIDC serio nao homologado; a janela combinada nao deve mascarar esse risco
-- proximo checkpoint: validar owners online, confirmar credencial AML/KYT real e URL tokenizada do feed UE, depois rerodar o gate agregado
-- hora do proximo checkpoint: `<preencher_HH:MMZ>`
+- próximo checkpoint: validar owners online, confirmar credencial AML/KYT real e URL tokenizada do feed UE, depois rerodar o gate agregado
+- hora do próximo checkpoint: `<preencher_HH:MMZ>`
 - facilitador online: `<preencher_nome_facilitador_online>`
 - canal principal do war room: `<preencher_canal_principal_war_room>`
 - bridge de escalacao principal: `<preencher_bridge_go_no_go>`
@@ -41,8 +41,8 @@
 | Gate agregado | `Release Manager Tecnico` | `Arquitetura / Governanca` | checkpoint agregado registrado + bridge ativa + owners online confirmados | run sheet datada + war room |
 | `P0-02` AML/KYT | `Compliance/Backend Lead` | `Compliance/AML` | credencial real validada + checker verde + `request_id` preenchido | `docs/staging-env-ownership.md` + homologacao externa |
 | `P0-03` Feed UE | `Compliance/Ops Lead` | `Compliance/Backend` | URL tokenizada validada + JSONs da janela UE + correlator coerente | `docs/staging-env-ownership.md` + run sheet datada |
-| `P0-04` consolidado | `Platform/SRE` | `Platform/Operations` | bundle regulatorio executado + validacao final do artifact `ok` | bundle regulatorio + dossier |
-| `P0-01` Auth/OIDC | `Backend/Auth` | `Security/Auth` | bloqueio explicitado ou bundle OIDC revisavel | bundle OIDC + ownership OIDC |
+| `P0-04` consolidado | `Platform/SRE` | `Platform/Operations` | bundle regulatório executado + validação final do artifact `ok` | bundle regulatório + dossier |
+| `P0-01` Auth/OIDC | `Backend/Auth` | `Security/Auth` | bloqueio explicitado ou bundle OIDC revisável | bundle OIDC + ownership OIDC |
 
 ## Handoff Minimo Antes do Ack
 
@@ -68,9 +68,9 @@
   - ultima atualizacao: `2026-07-13T00:00:00Z`
   - dependencia critica: credencial real do provider AML/KYT no ambiente alvo
   - comando: `make check-compliance-provider-runtime INTERNAL_BASE_URL=http://compliance-api:8002 PUBLIC_BASE_URL=http://localhost:8080`
-  - evidencia minima: JSON do runtime verde + homologacao externa preservada + `request_id`
+  - evidência minima: JSON do runtime verde + homologacao externa preservada + `request_id`
   - criterio de go/no-go: credencial real validada e correlator reconciliado com a homologacao
-  - observacoes: candidato mais proximo a mover a baseline de `88%`
+  - observações: candidato mais próximo a mover a baseline de `88%`
 - `P0-03 / Feed UE`
   - owner primario: `<preencher_nome_owner_online_compliance_backend>`
   - backup/escalacao: `<preencher_nome_owner_backup_compliance_backend>`
@@ -79,20 +79,20 @@
   - ultima atualizacao: `2026-07-13T00:00:00Z`
   - dependencia critica: URL tokenizada real e sincronizacao coerente da janela UE
   - comando: `export REQUEST_ID="stg-2026-07-13-a-eu-check"`, `make gate-p0-03-eu-live WINDOW_ID=stg-2026-07-13-a REQUEST_ID="$REQUEST_ID"` e `make check-eu-sanctions-window REQUEST_ID="$REQUEST_ID"`
-  - evidencia minima: JSONs de `preflight` e `sync` + `source_url_matches_expected=true` + `request_id`
+  - evidência minima: JSONs de `preflight` e `sync` + `source_url_matches_expected=true` + `request_id`
   - criterio de go/no-go: feed real validado com correlator e prova persistida
-  - observacoes: segunda metade obrigatoria para promover `P0-04`
+  - observações: segunda metade obrigatoria para promover `P0-04`
 - `P0-04 / Bundle Regulatorio`
   - owner primario: `<preencher_nome_owner_online_platform>`
   - backup/escalacao: `<preencher_nome_owner_backup_platform>`
   - canal de contato: `<preencher_slack_ou_teams_platform>`
   - status: `pending`
   - ultima atualizacao: `2026-07-13T00:00:00Z`
-  - dependencia critica: `P0-02` e `P0-03` com prova revisavel na mesma janela
+  - dependencia critica: `P0-02` e `P0-03` com prova revisável na mesma janela
   - comando: `make gate-p0-04-regulatory-bundle WINDOW_ID=stg-2026-07-13-a PRIVATE_ENV_FILE=.env.staging.private CHECKS_DIR=artifacts/staging/checks DOSSIERS_DIR=artifacts/staging/dossiers COMPLIANCE_INTERNAL_BASE_URL=http://compliance-api:8002 COMPLIANCE_PUBLIC_BASE_URL=http://localhost:8080`
-  - evidencia minima: bundle oficial em `ready_for_validation` + validacao final do artifact `ok`
-  - criterio de go/no-go: consolidacao sem incoerencia de correlator
-  - observacoes: principal ponte documental para `90%+`
+  - evidência minima: bundle oficial em `ready_for_validation` + validação final do artifact `ok`
+  - criterio de go/no-go: consolidação sem incoerencia de correlator
+  - observações: principal ponte documental para `90%+`
 - `P0-01 / Auth OIDC`
   - owner primario: `<preencher_nome_owner_online_auth>`
   - backup/escalacao: `<preencher_nome_owner_backup_auth>`
@@ -101,9 +101,9 @@
   - ultima atualizacao: `2026-07-13T00:00:00Z`
   - dependencia critica: provider OIDC serio homologado e MFA institucional
   - comando: `make run-oidc-readiness-bundle-local WINDOW_ID=stg-2026-07-13-a BASE_URL=http://localhost:8080`
-  - evidencia minima: bundle OIDC com `readiness_status=ready_for_validation`
+  - evidência minima: bundle OIDC com `readiness_status=ready_for_validation`
   - criterio de go/no-go: nao bloquear a janela combinada, mas impedir promocao institucional completa
-  - observacoes: risco residual permanece vermelho ate homologacao externa
+  - observações: risco residual permanece vermelho ate homologacao externa
 - `Gate Agregado da Janela`
   - owner primario: `<preencher_nome_facilitador_online>`
   - backup/escalacao: `<preencher_nome_owner_backup_go_no_go>`
@@ -112,9 +112,9 @@
   - ultima atualizacao: `2026-07-13T00:00:00Z`
   - dependencia critica: `P0-02` e `P0-03` com insumos reais + owners online + gate agregado verde
   - comando: `python3 scripts/prepare_staging_window.py --window-id stg-2026-07-13-a --mode baseline --private-env-file .env.staging.private --validate --preflight`
-  - evidencia minima: `status=ok` no gate agregado antes do disparo de execucao real
+  - evidência minima: `status=ok` no gate agregado antes do disparo de execucao real
   - criterio de go/no-go: somente seguir para workflow oficial com `go` ou `go_with_exception` formal
-  - observacoes: janela planejada para `2026-07-17`, mas pode antecipar se os insumos chegarem
+  - observações: janela planejada para `2026-07-17`, mas pode antecipar se os insumos chegarem
 
 ## Bloqueadores Ativos
 
@@ -147,7 +147,7 @@
   - tempo alvo: `2026-07-17`
   - status: `watching`
 
-## Evidencias Revisadas
+## evidências Revisadas
 
 - `run sheet datada`: `docs/governance-weekly/cycles/2026-07-13/2026-07-13-first-combined-serious-window-run-sheet.md`
 - `governanca semanal operacional`: `docs/governance-weekly/cycles/2026-07-13/2026-07-13-weekly-governance-operational.md`
@@ -163,12 +163,12 @@
 - tratar esta tentativa como `dress_rehearsal_controlado` ate decisao explicita de promover para `go_no_go_formal`
 - nao promover `P0-04` nem `RUN-STG-01` sem prova combinada de `P0-02` e `P0-03`
 
-## Proximo Passo Autorizado
+## próximo Passo Autorizado
 
 - acao: preencher owners e bridges, confirmar credencial AML/KYT e URL UE tokenizada, depois rerodar o gate agregado
 - owner: `Release Manager Tecnico` com coordenacao de `Compliance/AML`, `Compliance/Backend`, `Platform/SRE` e `Security/Auth`
 - canal: `<preencher_canal_principal_war_room>`
-- criterio para seguir: gate agregado `ok` + `P0-02` e `P0-03` aptos a gerar artefatos revisaveis
+- criterio para seguir: gate agregado `ok` + `P0-02` e `P0-03` aptos a gerar artefatos revisáveis
 
 ## Resultado Final do War Room
 

@@ -1,4 +1,4 @@
-# Operacao Local
+# operação Local
 
 ## Requisitos
 
@@ -6,7 +6,7 @@
 - Python 3.11+
 - Node.js 20+
 
-## Configuracao Basica
+## configuração Basica
 
 ```bash
 cp .env.example .env
@@ -28,6 +28,10 @@ Variaveis que merecem revisao imediata:
 ```bash
 docker compose up -d --build
 ```
+
+Observação (AI worker):
+
+- o serviço `ai-worker` exige `AI_WORKER_ORG_ID` (UUID) para setar o contexto de RLS; sem isso, ele encerra ao iniciar.
 
 ## Verificacoes Minimas
 
@@ -62,32 +66,23 @@ npm run test:e2e:oidc-critical
 
 ## Migrations
 
-Ambientes novos usam `infra/postgres/init.sql`.
+O `docker-compose.yml` inclui o serviço `postgres-bootstrap`, que aplica automaticamente:
 
-Ambientes com volume persistido devem aplicar as migrations incrementais:
+1) `infra/postgres/init.sql` (quando necessário)  
+2) todas as migrations em `infra/postgres/migrations/` em ordem
+
+Para reexecutar manualmente o bootstrap (casos raros: drift em volume persistido ou troubleshooting):
 
 ```bash
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0001_align_reports_table.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0002_add_monitoring_alerts.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0003_add_audit_logs.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0004_add_audit_log_filter_indexes.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0005_add_operational_alert_events.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0006_add_operational_alert_triage.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0007_add_operational_alert_cursor_index.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0008_add_external_identities.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0009_evidence_trail.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0010_preventive_blocks.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0011_counterparties.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0012_sanctions_cache_ros_records.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0013_regulatory_work_items.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0014_regulatory_work_items_contract_guardrails.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0015_evidence_package_seals.sql
-docker compose exec -T postgres psql -U ontrackchain -d ontrackchain < infra/postgres/migrations/0016_team_users_directory.sql
+docker compose up -d postgres
+docker compose run --rm postgres-bootstrap
 ```
+
+Referência canônica: [infra/postgres/migrations/README.md](../infra/postgres/migrations/README.md).
 
 ## Compliance e Sancoes
 
-### Preflight de integracoes externas
+### Preflight de integrações externas
 
 ```bash
 python3 scripts/preflight_external_integrations.py
@@ -107,7 +102,7 @@ make check-compliance-provider-runtime \
   PUBLIC_BASE_URL=http://localhost:8080
 ```
 
-Observacoes:
+observações:
 
 - `INTERNAL_BASE_URL` deve apontar para um endpoint que consiga resolver `GET /internal/provider-readiness`
 - no host local via `docker compose`, prefira rodar o target acima de dentro da rede/container ou informar uma URL interna realmente roteavel; `localhost:8002` nao e publicado pelo `compose` atual
@@ -121,7 +116,7 @@ Primeira camada multiusuario persistida no servidor:
 - proxies frontend: `apps/frontend/app/api/app/operations/work-items/*`
 - tabelas: `regulatory_work_items`, `regulatory_work_events`, `regulatory_work_comments`
 
-Validacao minima em ambiente com volume persistido:
+validação minima em ambiente com volume persistido:
 
 ```bash
 docker compose exec -T postgres psql -U ontrackchain -d ontrackchain \
@@ -134,7 +129,7 @@ Leitura operacional atual:
 
 - `/sanctions` usa a fila compartilhada como fonte primaria e degrada para `localStorage` apenas quando o backend nao responde
 - `/alerts` rastreia incidentes em `work-items` e tenta fechar o item compartilhado quando o `ack` e concluido
-- os demais cockpits regulatorios ainda aguardam migracao gradual para a mesma camada
+- os demais cockpits regulatórios ainda aguardam migração gradual para a mesma camada
 
 ### Quando o feed da UE responder `403`
 
@@ -147,7 +142,7 @@ export REQUEST_ID="${WINDOW_ID}-eu-check"
 make gate-p0-03-eu-live WINDOW_ID="$WINDOW_ID" REQUEST_ID="$REQUEST_ID"
 ```
 
-Ou, se quiser apenas a validacao pontual sem persistencia consolidada:
+Ou, se quiser apenas a validação pontual sem persistencia consolidada:
 
 ```bash
 export REQUEST_ID=stg-YYYY-MM-DD-eu-check
@@ -184,14 +179,14 @@ Execucao real local mais recente, em `2026-07-19`:
 - o scaffold local de `.env.staging.private` ja foi materializado, entao o bloqueio dominante deixou de ser `arquivo_ausente`
 - o segundo bloqueio dominante foi `Compliance/AML.date/status` ainda em `pending`
 - os bloqueios tecnicos atuais passaram a ser variaveis reais por escopo: `COMPLIANCE_TRM_SCREENING_URL` + `COMPLIANCE_TRM_API_KEY` em `p0-02`, `DATABASE_URL` + `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` tokenizada em `p0-03`
-- o checker regulatorio agora devolve `blocking_summary` e `unblock_actions` para explicitar o owner e as variaveis pendentes antes de qualquer tentativa real
+- o checker regulatório agora devolve `blocking_summary` e `unblock_actions` para explicitar o owner e as variaveis pendentes antes de qualquer tentativa real
 - o novo artefato `regulatory-unblock-checklist` consolida `p0-02/p0-03/p0-04` em uma fila unica de handoff por owner
-- o alvo `make refresh-staging-war-room-governance-local WINDOW_ID=<janela>` agora passa a gerar e incorporar esse checklist regulatorio consolidado no pacote recorrente de governanca local (`comms` + `consolidated.json`)
-- enquanto isso nao for corrigido, nao vale a pena tentar `check-compliance-provider-runtime`, janela UE ou bundle regulatorio como se fossem o primeiro gargalo
+- o alvo `make refresh-staging-war-room-governance-local WINDOW_ID=<janela>` agora passa a gerar e incorporar esse checklist regulatório consolidado no pacote recorrente de governança local (`comms` + `consolidated.json`)
+- enquanto isso nao for corrigido, nao vale a pena tentar `check-compliance-provider-runtime`, janela UE ou bundle regulatório como se fossem o primeiro gargalo
 
 ## Troubleshooting
 
-### 1. `sanctions-check` continua sem convergir com a documentacao
+### 1. `sanctions-check` continua sem convergir com a documentação
 
 Verifique:
 
@@ -240,7 +235,7 @@ Verifique:
 - se o `compliance-api` foi rebuildado apos a adicao de `operations.py`
 - se os proxies App Router em `apps/frontend/app/api/app/operations/work-items/*` estao respondendo sem `401`
 
-## Operacao Segura de Mudancas
+## operação Segura de Mudancas
 
 Quando tocar compliance/regulatorio:
 

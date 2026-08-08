@@ -11,7 +11,18 @@ export default defineConfig({
     baseURL: process.env.TEST_BASE_URL || "http://localhost:8080",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
-    trace: "on-first-retry"
+    trace: "on-first-retry",
+    launchOptions: {
+      headless: true,
+      args: [
+        "--disable-gpu",
+        "--disable-software-rasterizer",
+        "--disable-dev-shm-usage",
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-gl-extensions"
+      ]
+    }
   },
   projects: [{ name: "ui", use: { ...devices["Desktop Chrome"] } }]
 });

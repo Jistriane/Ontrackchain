@@ -16,12 +16,12 @@
 
 ## Evidências Novas Apresentadas
 
-- `P0-02` `AML/KYT live`: bundle regulatorio local executado; sem credencial real homologada
+- `P0-02` `AML/KYT live`: bundle regulatório local executado; sem credencial real homologada
 - `P0-03` feed UE real: checks locais gerados; URL tokenizada real ainda pendente
 - `P0-01` `OIDC + MFA`: bundle OIDC local executado; homologacao real ainda pendente
 - owners/SLA: handoff ainda com campos obrigatorios pendentes por dominio
-- retention/recovery: sem nova evidencia executada nesta rodada
-- janela `stg-2026-07-06-a`: validacao agregada de artifact `status=ok`; execucao ponta a ponta `status=failed` por gates locais
+- retention/recovery: sem nova evidência executada nesta rodada
+- janela `stg-2026-07-06-a`: validação agregada de artifact `status=ok`; execucao ponta a ponta `status=failed` por gates locais
 - rerun factual em `2026-07-03T21:40Z`:
   - `prepare_staging_window.py --validate --preflight` com `status=failed` (`generated_at=2026-07-03T21:40:40Z`)
   - `run_staging_window.py` com `status=failed` (`generated_at=2026-07-03T21:40:45Z`)
@@ -60,7 +60,7 @@
 - retention/recovery
   - status anterior: `ready_for_approval`
   - status atual: `ready_for_approval`
-  - evidência: sem nova evidencia
+  - evidência: sem nova evidência
   - observação: manter em trilha de aceite formal
 - janela séria
   - status anterior: `pre-serious-window`
@@ -81,7 +81,7 @@
 
 - nota editorial: na pipeline atual, o resumo curto de comunicacao pode aparecer como `*-comms-summary.md`; nesta janela historica, o papel equivalente ficou concentrado no `governance-dashboard` e no `war-room-action-plan`
 
-- atualizar pacote de governanca local em comando unico:
+- atualizar pacote de governança local em comando unico:
   - `make refresh-staging-war-room-governance-local WINDOW_ID=stg-2026-07-06-a`
   - checklist de desbloqueio: `docs/governance-weekly/generated/windows/stg-2026-07-06-a/stg-2026-07-06-a-unblock-checklist.md`
   - resumo executivo curto: `docs/governance-weekly/generated/windows/stg-2026-07-06-a/stg-2026-07-06-a-governance-dashboard.md`

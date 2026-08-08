@@ -2,18 +2,18 @@
 
 ## Uso
 
-Preencher e executar esta folha durante a validacao real da trilha de diretório federado em `staging`.
+Preencher e executar esta folha durante a validação real da trilha de diretório federado em `staging`.
 
 Ela existe para:
 
 - registrar owner ativo, janela e canal de execucao
 - reduzir ambiguidade entre `auth-service`, `Team` e `Audit`
 - concentrar checkpoints curtos e objetivos para `go/no-go`
-- preservar evidencias minimas da busca, sugestao, `link` e `unlink`
+- preservar evidências minimas da busca, sugestao, `link` e `unlink`
 
 Complementa:
 
-- [Validacao em Staging - Diretorio Federado](../../federated-directory-staging-validation.md)
+- [validação em Staging - Diretorio Federado](../../federated-directory-staging-validation.md)
 - [Pacote Final de Execucao - Janela Seria Integrada](./SERIOUS_WINDOW_FINAL_EXECUTION_PACKET.md)
 - exemplo datado do ciclo atual: [Run Sheet Datada - Diretorio Federado `stg-2026-07-13-federated-a`](../cycles/2026-07-13/2026-07-13-federated-directory-staging-run-sheet.md)
 
@@ -88,7 +88,7 @@ Gate de saida:
 - [ ] `candidate_org` coerente com o tenant
 - [ ] nenhum warning bloqueador
 
-### 3. Validacao da sugestao e `link`
+### 3. validação da sugestao e `link`
 
 Passos resumidos:
 
@@ -200,7 +200,7 @@ Gate de saida:
 
 ## Gate de Saida Final
 
-Marcar a trilha como pronta para validacao homologada somente se todos estiverem verdadeiros:
+Marcar a trilha como pronta para validação homologada somente se todos estiverem verdadeiros:
 
 - [ ] runtime do `auth-service` confirmado
 - [ ] busca assistida funcionando
@@ -209,7 +209,7 @@ Marcar a trilha como pronta para validacao homologada somente se todos estiverem
 - [ ] `Audit` exibindo `team_external_identity_linked`
 - [ ] consulta SQL exibindo `search + suggestion + link`
 - [ ] `unlink` reversivel validado
-- [ ] owner humano revisou a evidencia
+- [ ] owner humano revisou a evidência
 
 ## Resultado da Janela
 

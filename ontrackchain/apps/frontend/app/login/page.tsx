@@ -104,6 +104,54 @@ export default function LoginPage() {
     }
   }
 
+  async function onOidcLoginWithRole(role: string) {
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      if (!authConfig) {
+        setError(t("login.errorConfig"));
+        return;
+      }
+      const authorizationUrl = await createOidcAuthorizationUrl(authConfig, { role });
+      window.location.assign(authorizationUrl);
+    } catch {
+      setError(t("login.errorStartOidc"));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function onMockTokenLogin(role: string) {
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const resToken = await fetch("/api/oidc/mock-token", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ role })
+      });
+      const tokenBody = (await resToken.json().catch(() => null)) as { access_token?: string } | null;
+      const token = tokenBody?.access_token?.trim();
+      if (!resToken.ok || !token) {
+        setError(t("login.errorStartOidc"));
+        return;
+      }
+
+      const resSession = await fetch("/api/session/start", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token })
+      });
+      if (!resSession.ok) {
+        setError(t("login.errorStartOidc"));
+        return;
+      }
+      router.push("/dashboard");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <AuthShell
       title={t("login.title")}
@@ -193,16 +241,69 @@ export default function LoginPage() {
                 <Message>{t("login.oidcActive", { provider: authConfig.oidc.provider ?? "generic" })}</Message>
               ) : null}
 
-              <button
-                className="otc-button"
-                type="button"
-                data-testid="oidc-login-btn"
-                style={{ background: "rgba(255, 255, 255, 0.08)", border: "1px solid var(--otc-border)" }}
-                onClick={onOidcLogin}
-                disabled={isSubmitting}
-              >
-                {t("login.enterKeycloak")}
-              </button>
+              {String(authConfig?.oidc?.provider ?? "").toLowerCase() === "mock" ? (
+                <>
+                  <button
+                    className="otc-button otc-button--accent"
+                    type="button"
+                    data-testid="oidc-login-btn"
+                    style={{ background: "rgba(255, 255, 255, 0.08)", border: "1px solid var(--otc-border)" }}
+                    onClick={onOidcLogin}
+                    disabled={isSubmitting}
+                  >
+                    {t("login.enterKeycloak")}
+                  </button>
+
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {[
+                      { label: "Mock OIDC (Redirect) — Admin", role: "ADMIN" },
+                      { label: "Mock OIDC (Redirect) — Compliance", role: "COMPLIANCE_OFFICER" },
+                      { label: "Mock OIDC (Redirect) — Legal", role: "LEGAL_REVIEWER" }
+                    ].map((entry) => (
+                      <button
+                        key={entry.role}
+                        className="otc-button"
+                        type="button"
+                        style={{ background: "rgba(255, 255, 255, 0.08)", border: "1px solid var(--otc-border)" }}
+                        onClick={() => onOidcLoginWithRole(entry.role)}
+                        disabled={isSubmitting}
+                      >
+                        {entry.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {[
+                      { label: "Mock OIDC (Token) — Admin", role: "ADMIN" },
+                      { label: "Mock OIDC (Token) — Compliance", role: "COMPLIANCE_OFFICER" },
+                      { label: "Mock OIDC (Token) — Legal", role: "LEGAL_REVIEWER" }
+                    ].map((entry) => (
+                      <button
+                        key={`${entry.role}_token`}
+                        className="otc-button"
+                        type="button"
+                        style={{ background: "rgba(255, 255, 255, 0.04)", border: "1px solid var(--otc-border)" }}
+                        onClick={() => onMockTokenLogin(entry.role)}
+                        disabled={isSubmitting}
+                      >
+                        {entry.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <button
+                  className="otc-button"
+                  type="button"
+                  data-testid="oidc-login-btn"
+                  style={{ background: "rgba(255, 255, 255, 0.08)", border: "1px solid var(--otc-border)" }}
+                  onClick={onOidcLogin}
+                  disabled={isSubmitting}
+                >
+                  {t("login.enterKeycloak")}
+                </button>
+              )}
             </div>
           </>
         ) : null}

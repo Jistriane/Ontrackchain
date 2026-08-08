@@ -6,14 +6,14 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-import sys
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(PROJECT_ROOT / "apps" / "auth-service" / "src"))
+SRC_DIR = Path(__file__).resolve().parent.parent / "src"
+sys.path.insert(0, str(SRC_DIR))
 
 from auth_service.secrets_loader import SecretProvider
 

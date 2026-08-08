@@ -114,9 +114,23 @@ export function resolveInitialPlatformAlertSelectionState(storage?: Storage | nu
   }
 }
 
+export function isPlatformAlertFilterStateNonDefault(state: PlatformAlertFilterState) {
+  return (
+    state.status !== "all" ||
+    state.triageStatus !== "all" ||
+    state.service !== "all" ||
+    state.receiver !== "all" ||
+    state.severity !== "all"
+  );
+}
+
 export function shouldPersistPlatformAlertSelection(state: PersistedPlatformAlertSelectionState) {
   return Boolean(
-    state.selectedIds.length || state.selectionScope || state.cursor || state.cursorHistory.length
+    state.selectedIds.length ||
+      state.selectionScope ||
+      state.cursor ||
+      state.cursorHistory.length ||
+      isPlatformAlertFilterStateNonDefault(state)
   );
 }
 

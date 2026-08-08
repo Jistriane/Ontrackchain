@@ -7,7 +7,7 @@ Fornecer um scaffold executavel do `Keycloak` para o `WP-01`, com:
 - import automatico do realm `ontrackchain`
 - clients `ontrackchain-web`, `ontrackchain-api` e `ontrackchain-b2b`
 - claims `org`, `plan` e `otk_role`
-- usuarios base para validacao inicial do fluxo OIDC
+- usuarios base para validação inicial do fluxo OIDC
 
 ## Decisao Operacional
 
@@ -17,7 +17,7 @@ Motivo:
 
 - evita acoplar o IdP ao `postgres` principal da plataforma neste primeiro corte
 - reduz risco de drift sobre o banco operacional ja inicializado pelo `init.sql`
-- mantem o foco do `WP-01` em fluxo de identidade e nao em migracao de infraestrutura
+- mantem o foco do `WP-01` em fluxo de identidade e nao em migração de infraestrutura
 
 Para ambientes serios, o passo seguinte recomendado e migrar o `Keycloak` para `PostgreSQL` dedicado.
 
@@ -32,7 +32,7 @@ COMPOSE_PROFILES=oidc docker compose up -d keycloak
 - admin/debug direto: `http://localhost:8088`
 - issuer local esperado pelo app: `http://auth.localhost:8080/realms/ontrackchain`
 
-Observacao:
+Observação:
 
 - o host `auth.localhost` e a rota preferida para o fluxo OIDC atras do `Traefik`
 - se `auth.localhost` nao resolver no seu ambiente, adicione uma entrada local para `127.0.0.1`
@@ -54,7 +54,7 @@ Observacao:
 - `viewer@ontrackchain.com` / `ViewerPass123!`
 - `sem-org@ontrackchain.com` / `SemOrgPass123!`
 
-Observacao importante:
+Observação importante:
 
 - `sem-org@ontrackchain.com` e um usuario de teste intencionalmente mal provisionado
 - ele nao possui `organization_id`, portanto deve falhar em `/validate` com `invalid_claims`
@@ -124,4 +124,4 @@ COMPOSE_PROFILES=oidc docker compose up -d
 
 - o claim `otk_role` e emitido pelo scaffold local via atributo do usuario para manter o token deterministico
 - as `realm roles` tambem sao provisionadas e atribuidas aos usuarios, mas o mapeamento filtrado de roles pode ser refinado depois com payload real do `Keycloak`
-- o client `ontrackchain-api` esta preparado para validacao de `audience`, sem fluxo server-side adicional neste corte
+- o client `ontrackchain-api` esta preparado para validação de `audience`, sem fluxo server-side adicional neste corte

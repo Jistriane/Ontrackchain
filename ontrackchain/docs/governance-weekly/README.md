@@ -22,7 +22,7 @@ Esta pasta nao substitui a baseline viva de `docs/`. Quando houver conflito, a p
 
 Use esta pasta para:
 
-- registrar snapshots semanais, war rooms, tracking ao vivo, sign-offs e evidencias fechadas por ciclo
+- registrar snapshots semanais, war rooms, tracking ao vivo, sign-offs e evidências fechadas por ciclo
 - preservar historico operacional e executivo sem sobrescrever o estado de semanas anteriores
 - anexar a trilha documental de uma janela seria especifica depois que ela existir de fato
 
@@ -88,7 +88,7 @@ Esse comando atualiza:
 - resumo executivo de uma linha
 - **JSON consolidado machine-readable** com toda a governança (para CI/CD gates, bots, dashboards)
 
-Observacao importante:
+Observação importante:
 
 - este comando atualiza apenas o pacote gerado em `docs/governance-weekly/generated/windows/<window_id>/`
 - ele nao gera sozinho o `sign-off` versionado do ciclo nem o `go/no-go decision packet`
@@ -96,7 +96,7 @@ Observacao importante:
 
 ## Pos-Processamento Executivo da Janela
 
-Quando existir `ci-artifacts/prepare-staging-window-output.json`, o fluxo canonico para sincronizar os artefatos humanos do ciclo e a leitura executiva e:
+Quando existir `ci-artifacts/prepare-staging-window-output.json`, o fluxo canônico para sincronizar os artefatos humanos do ciclo e a leitura executiva e:
 
 - `make postprocess-serious-window RUN_URL=https://github.com/<org>/<repo>/actions/runs/<run_id>`
 
@@ -199,7 +199,7 @@ make evaluate-governance-gate \
 
 - [Rascunho da Governança Semanal 2026-07-13](cycles/2026-07-13/2026-07-13-weekly-governance-draft.md)
 - [Governança Semanal Operacional 2026-07-13](cycles/2026-07-13/2026-07-13-weekly-governance-operational.md)
-- [Rascunho de Execucao por Evidencia 2026-07-13](cycles/2026-07-13/2026-07-13-maturity-evidence-execution-draft.md)
+- [Rascunho de Execucao por evidência 2026-07-13](cycles/2026-07-13/2026-07-13-maturity-evidence-execution-draft.md)
 - [Run Sheet Datada `stg-2026-07-13-a`](cycles/2026-07-13/2026-07-13-first-combined-serious-window-run-sheet.md)
 - [Bridge Quick-Fill `stg-2026-07-13-a`](cycles/2026-07-13/2026-07-13-staging-serious-window-bridge-quick-fill.md)
 - [Go/No-Go Decision Packet `stg-2026-07-13-a`](cycles/2026-07-13/2026-07-13-staging-serious-window-go-no-go-decision-packet.md)

@@ -2,9 +2,9 @@
 
 ## Objetivo
 
-Servir como rascunho da proxima revisao semanal de governanca, derivado do estado consolidado em `2026-07-06`, do plano consolidado vigente e dos gatilhos legitimos de avanço definidos para `P0-01`, `P0-02`, `P0-03` e `RUN-STG-01`.
+Servir como rascunho da proxima revisao semanal de governança, derivado do estado consolidado em `2026-07-06`, do plano consolidado vigente e dos gatilhos legitimos de avanço definidos para `P0-01`, `P0-02`, `P0-03` e `RUN-STG-01`.
 
-Este documento deve ser convertido em registro semanal final apenas quando houver evidencia nova revisavel ou confirmacao formal de que os bloqueios permanecem.
+Este documento deve ser convertido em registro semanal final apenas quando houver evidência nova revisável ou confirmacao formal de que os bloqueios permanecem.
 
 ## Leitura do Ciclo
 
@@ -18,22 +18,22 @@ Este documento deve ser convertido em registro semanal final apenas quando houve
 - origem do snapshot anterior:
   - [Plano Consolidado ate 95%](../../../project-construction-plan-to-95-percent.md)
   - [Governança Semanal 2026-07-06](../2026-07-06/2026-07-06-weekly-governance.md)
-- janela seria em observacao:
+- janela seria em observação:
   - `window_id`: `stg-2026-07-13-a`
   - artefatos vivos do ciclo: `war room`, `tracking`, `run sheet`, `bridge quick-fill`, `sign-off` e `decision packet`
 - criterio macro:
-  - manter `93% / 79% / 89%` se nao houver artefato novo revisavel
+  - manter `93% / 79% / 89%` se nao houver artefato novo revisável
   - recalibrar apenas se houver checker/bundle/dossie/sign-off com valor operacional real
 
 ## Perguntas-Chave do Encontro
 
 1. `P0-02` recebeu credenciais reais e checker verde?
 2. `P0-03` recebeu URL tokenizada valida e JSONs de preflight/sync?
-3. `P0-01` saiu de `blocked` com provider real, bundle OIDC e validacao seria?
-4. `RUN-STG-01` concluiu com `artifact`, `packet`, `dossie` e `sign-off` revisaveis?
+3. `P0-01` saiu de `blocked` com provider real, bundle OIDC e validação seria?
+4. `RUN-STG-01` concluiu com `artifact`, `packet`, `dossie` e `sign-off` revisáveis?
 5. ownership/SLA e retention/recovery receberam aceite formal novo?
 
-## Evidencias Revisadas - Preencher no Encontro
+## evidências Revisadas - Preencher no Encontro
 
 - artifact principal da janela: `serious-staging-window-stg-2026-07-13-a: pending`
 - overall status: `pending` na tentativa datada ainda em preparacao
@@ -47,26 +47,26 @@ Este documento deve ser convertido em registro semanal final apenas quando houve
 - regulatory bundle summary: `P0-02/P0-03` preparados documentalmente, mas ainda sem prova material real na mesma janela
 - decision packet: `pending_no_go`, aguardando owners online, credencial AML/KYT real e URL UE tokenizada
 
-## Matriz Minima de Evidencia para Mover o KPI
+## Matriz Minima de evidência para Mover o KPI
 
-| Frente | Owner primario | Evidencia minima obrigatoria | Estado que pode mover | Efeito executivo esperado |
+| Frente | Owner primario | evidência minima obrigatoria | Estado que pode mover | Efeito executivo esperado |
 | --- | --- | --- | --- | --- |
-| `P0-02` `AML/KYT live` | `Compliance/AML` | `check-compliance-provider-runtime` verde com credencial real + JSON persistido + revisao em governanca | `ready_for_validation` | habilita discutir saida de `89%` para `90%` se a prova for revisavel |
-| `P0-03` feed UE real | `Compliance/Backend` | URL tokenizada valida + `eu-sanctions-preflight.json` + `eu-sanctions-sync.json` + `check_sanctions_sync_status.py` coerente | `ready_for_validation` | habilita discutir saida de `89%` para `90%` se a prova for revisavel |
-| `P0-01` `OIDC + MFA` serio | `Security/Auth` | `preflight_oidc_serious_env.py` verde + `smoke_auth_oidc_mode.py` verde + bundle OIDC + Playwright critico verde com provider real | `ready_for_validation` | reduz risco critico, mas sozinho nao justifica nova baseline sem o fechamento regulatorio correspondente |
-| `P0-04` bundle regulatorio oficial | `Platform/SRE` | `<window>-regulatory-readiness-bundle.json/.md` consolidando `P0-02` e `P0-03` sem erro residual nao classificado; tentativa parcial pode fortalecer dossier e correlacao, mas nao fecha o item | `done` | habilita discutir travessia legitima para `90%+` |
+| `P0-02` `AML/KYT live` | `Compliance/AML` | `check-compliance-provider-runtime` verde com credencial real + JSON persistido + revisao em governança | `ready_for_validation` | habilita discutir saida de `89%` para `90%` se a prova for revisável |
+| `P0-03` feed UE real | `Compliance/Backend` | URL tokenizada valida + `eu-sanctions-preflight.json` + `eu-sanctions-sync.json` + `check_sanctions_sync_status.py` coerente | `ready_for_validation` | habilita discutir saida de `89%` para `90%` se a prova for revisável |
+| `P0-01` `OIDC + MFA` serio | `Security/Auth` | `preflight_oidc_serious_env.py` verde + `smoke_auth_oidc_mode.py` verde + bundle OIDC + Playwright critico verde com provider real | `ready_for_validation` | reduz risco critico, mas sozinho nao justifica nova baseline sem o fechamento regulatório correspondente |
+| `P0-04` bundle regulatório oficial | `Platform/SRE` | `<window>-regulatory-readiness-bundle.json/.md` consolidando `P0-02` e `P0-03` sem erro residual nao classificado; tentativa parcial pode fortalecer dossier e correlacao, mas nao fecha o item | `done` | habilita discutir travessia legitima para `90%+` |
 | `RUN-STG-01` primeira janela seria | `Platform/SRE + Governanca` | artifact oficial + packet + dossier + war room + sign-off formal | `done` | habilita recalibracao executiva mais forte e reduz dependencia de narrativa |
 
 Regras sinteticas:
 
 - uma unica prova isolada de `P0-02` ou `P0-03` pode sustentar debate de `90%`, mas nao de `90%+`
-- `90%+` exige prova combinada e revisavel de readiness regulatoria, preferencialmente fechando `P0-04`
+- `90%+` exige prova combinada e revisável de readiness regulatoria, preferencialmente fechando `P0-04`
 - `P0-01` reduz risco institucional, mas deve ser lido como multiplicador de confianca, nao como gatilho unico de score
 - tentativa parcial deve ser registrada como progresso operacional honesto, sem reclassificar `P0-04` como concluido
 
 ## KPI da Semana - Decisao Esperada
 
-### Cenario A - Sem evidencia material nova
+### Cenario A - Sem evidência material nova
 
 - construcao tecnica: `93%`
 - prontidao regulatoria: `79%`
@@ -77,8 +77,8 @@ Regras sinteticas:
 
 - construcao tecnica: `93-94%`
 - prontidao regulatoria: `82-84%`
-- KPI total consolidado: `90-91%`, usando a borda superior apenas se houver convergencia revisavel entre as duas trilhas
-- houve recalibracao material?: `sim`, se houver artefato revisavel; tentativa isolada tende a sustentar `90%`, nao o fechamento oficial de `90%+`
+- KPI total consolidado: `90-91%`, usando a borda superior apenas se houver convergencia revisável entre as duas trilhas
+- houve recalibracao material?: `sim`, se houver artefato revisável; tentativa isolada tende a sustentar `90%`, nao o fechamento oficial de `90%+`
 
 ### Cenario C - Fechamento de `RUN-STG-01` com dossie aceito
 
@@ -99,7 +99,7 @@ Regras sinteticas:
   - se houver checker + bundle consolidado revisado na mesma trilha de `P0-03`: `done`
   - se nao houver credencial real: manter `ready`
 - impacto minimo no KPI:
-  - isoladamente, pode sustentar debate de `90%` quando a prova for revisavel
+  - isoladamente, pode sustentar debate de `90%` quando a prova for revisável
   - combinado com `P0-03` e `P0-04`, pode sustentar discussao de `90%+`
 
 ### `P0-03` feed UE real
@@ -109,10 +109,10 @@ Regras sinteticas:
   - `source_url` tokenizada valida + JSONs de preflight/sync
 - decisao de passagem:
   - se houver JSONs validos: `ready_for_validation`
-  - se houver bundle regulatorio final revisado na mesma trilha de `P0-02`: `done`
+  - se houver bundle regulatório final revisado na mesma trilha de `P0-02`: `done`
   - se nao houver URL valida: manter `ready`
 - impacto minimo no KPI:
-  - isoladamente, pode sustentar debate de `90%` quando a prova for revisavel
+  - isoladamente, pode sustentar debate de `90%` quando a prova for revisável
   - combinado com `P0-02` e `P0-04`, pode sustentar discussao de `90%+`
 
 ### `P0-01` `OIDC + MFA` serio
@@ -126,7 +126,7 @@ Regras sinteticas:
   - se nao houver provider real: manter `blocked`
 - impacto minimo no KPI:
   - reduz risco critico e fortalece `go/no-go`
-  - nao deve mover baseline sozinho sem fechamento regulatorio correspondente
+  - nao deve mover baseline sozinho sem fechamento regulatório correspondente
 
 ### `RUN-STG-01` primeira janela seria
 
@@ -178,28 +178,28 @@ Regras sinteticas:
 
 ## Decisoes Esperadas do Encontro
 
-- manter baseline, se nao houver prova nova revisavel
+- manter baseline, se nao houver prova nova revisável
 - nao promover `P0-01`, `P0-02` ou `P0-03` sem checker, bundle ou artefato oficial correspondente
-- nao promover `RUN-STG-01` sem `artifact` e `dossie` revisaveis
+- nao promover `RUN-STG-01` sem `artifact` e `dossie` revisáveis
 - explicitar por escrito qualquer excecao usada no war room
 
-### Posicao Base Esperada na Ausencia de Novas Evidencias
+### Posicao Base Esperada na Ausencia de Novas evidências
 
 - decisao executiva: `manter baseline`
 - KPI oficial: `93% / 79% / 89%`
 - leitura da janela: `dress_rehearsal_controlado` com `pending_no_go` operacional mantido
-- proximo melhor candidato a avanço: `P0-02` ou `P0-03`, dependendo da primeira credencial externa valida disponivel
+- próximo melhor candidato a avanço: `P0-02` ou `P0-03`, dependendo da primeira credencial externa valida disponivel
 - principal escalacao da semana: `P0-01`, por depender de provider OIDC serio e aceite institucional
 
 ## Acoes Esperadas para a Semana Seguinte
 
 - concluir o primeiro `P0` que tiver insumo real disponivel
 - executar a primeira janela seria apenas se o `no-go` sair de bloqueio
-- colher aceite formal de ownership/SLA e retention/recovery quando houver evidencia suficiente
-- publicar novo scorecard apenas se a governanca registrar prova material
+- colher aceite formal de ownership/SLA e retention/recovery quando houver evidência suficiente
+- publicar novo scorecard apenas se a governança registrar prova material
 
-## Observacoes
+## observações
 
 - este rascunho existe para acelerar a proxima reuniao semanal
-- se nao houver evidencia nova real, a saida correta continua sendo confirmar bloqueios e manter a baseline
+- se nao houver evidência nova real, a saida correta continua sendo confirmar bloqueios e manter a baseline
 - este documento nao substitui o registro final da semana; ele serve como base de preenchimento

@@ -2,7 +2,7 @@
 
 ## Contexto
 
-`legal_report` e mais sensivel que relatorios tecnicos comuns. Expor este artefato para API Key ou sem fator adicional aumentaria risco de acesso indevido.
+`legal_report` e mais sensivel que relatórios tecnicos comuns. Expor este artefato para API Key ou sem fator adicional aumentaria risco de acesso indevido.
 
 ## Decisao
 
@@ -17,19 +17,19 @@ O enforcement ocorre no `report-api`, e nao apenas no frontend.
 ## Motivacao
 
 - evitar bypass por chamada direta ao backend
-- aplicar seguranca mais forte em recurso sensivel
+- aplicar segurança mais forte em recurso sensivel
 - preparar base para politicas futuras de acesso juridico/regulatorio
 
 ## Alternativas Consideradas
 
-### Opcao A — Validacao apenas no frontend
+### Opcao A — validação apenas no frontend
 
 - Vantagem:
   - implementacao rapida
 - Desvantagem:
   - bypass trivial
 
-### Opcao B — Validacao apenas por JWT
+### Opcao B — validação apenas por JWT
 
 - Vantagem:
   - fluxo simples
@@ -51,7 +51,7 @@ O enforcement ocorre no `report-api`, e nao apenas no frontend.
 
 ## Trade-offs Aceitos
 
-- UX um pouco mais rigorosa em troca de seguranca adequada ao recurso
+- UX um pouco mais rigorosa em troca de segurança adequada ao recurso
 
 ## Status
 

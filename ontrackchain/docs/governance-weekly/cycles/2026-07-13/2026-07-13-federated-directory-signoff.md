@@ -12,7 +12,7 @@
 - war room relacionado: [War Room da Janela `stg-2026-07-13-federated-a`](./2026-07-13-federated-directory-war-room.md)
 - tracking ao vivo relacionado: [Tracking ao Vivo da Janela `stg-2026-07-13-federated-a`](./2026-07-13-federated-directory-live-tracking.md)
 - run sheet datada: [Run Sheet Datada `stg-2026-07-13-federated-a`](./2026-07-13-federated-directory-staging-run-sheet.md)
-- packet de evidência: [Pacote de Evidencia Pos-Execucao `stg-2026-07-13-federated-a`](./2026-07-13-federated-directory-post-execution-evidence-packet.md)
+- packet de evidência: [Pacote de evidência Pos-Execucao `stg-2026-07-13-federated-a`](./2026-07-13-federated-directory-post-execution-evidence-packet.md)
 - decision packet: [Go/No-Go Decision Packet `stg-2026-07-13-federated-a`](./2026-07-13-federated-directory-go-no-go-decision-packet.md)
 
 ## Status Consolidado
@@ -38,7 +38,7 @@
 - `Audit` / preset `identity-federated`: `ready`
 - `audit_logs` / correlacao SQL: `ready`
 - reversao controlada: `pending`
-- governanca e evidencias: `pending`
+- governança e evidências: `pending`
 
 ## Excecoes ou Bloqueios
 
@@ -63,8 +63,8 @@
 ## Decisao Final
 
 - decisao: `pending_no_go`
-- proximo passo: executar a tentativa datada com tenant e operador reais, capturar evidencias e reconciliar os correlators
-- owner do proximo passo: `Release Manager Tecnico`
+- próximo passo: executar a tentativa datada com tenant e operador reais, capturar evidências e reconciliar os correlators
+- owner do próximo passo: `Release Manager Tecnico`
 
 ## Regras de Atualizacao
 

@@ -2,7 +2,7 @@
 
 ## Contexto
 
-Operacoes de investigation, compliance e monitoring consomem creditos. Sem uma etapa formal de cotacao, o sistema ficaria sujeito a disputa de preco, downgrade oportunista e inconsistencias de cobranca.
+operações de investigation, compliance e monitoring consomem creditos. Sem uma etapa formal de cotacao, o sistema ficaria sujeito a disputa de preco, downgrade oportunista e inconsistencias de cobranca.
 
 ## Decisao
 
@@ -36,7 +36,7 @@ Com `plan lock` entre a cotacao e a execucao:
 ### Opcao B — Quote formal com reserva de credito
 
 - Vantagem:
-  - melhor governanca financeira
+  - melhor governança financeira
   - melhora rastreabilidade
 - Desvantagem:
   - mais estados de negocio

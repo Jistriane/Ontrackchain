@@ -1,35 +1,36 @@
-# Documentacao Canonica
+# documentação canônica
 
 ## Objetivo
 
-Centralizar a documentacao viva do Ontrackchain em um unico indice, reduzindo drift entre codigo, runtime, operacao e narrativa executiva.
+Centralizar a documentação viva do Ontrackchain em um unico indice, reduzindo drift entre codigo, runtime, operação e narrativa executiva.
+
+## Portas de Entrada
+
+- Sumário Executivo (fonte): [README.md](../../README.md)
+- Readiness canônico: [project-executive-readiness-brief.md](./project-executive-readiness-brief.md)
+- Apêndice técnico: [TECHNICAL_APPENDIX.md](./TECHNICAL_APPENDIX.md)
 
 ## Snapshot Atual
 
-- baseline oficial: `93%` tecnico, `79%` regulatorio/operacional, `89%` consolidado
-- frontend operacional com tri-locale, contratos compartilhados e 7 cockpits convergidos ao mesmo modelo de workspace
-- `monitoring` modularizado em loaders, hooks e paineis dedicados
-- `P1-01` consolidado para metadata de `work-items`
-- `P2-03` consolidado com RCA cross-domain leve
-- `P2-05` segue em execucao incremental, com enforcement fino ja expandido por `team`, `reports`, `billing`, `investigate`, `compliance`, `alerts`, `counterparties` e navegacao global sensivel
-- Playwright institucionalizado por classes: `stack real leve`, `browser-mocked`, `ssr-mocked`, `dev-auth` e `oidc-critical`
-- o blueprint padrao do Render passou a ser o recorte `frontend standalone showcase`, enquanto o `full-stack` ficou isolado em arquivo dedicado
-- o frontend expõe `GET /auth/config` como bootstrap canônico do login e do preflight `OIDC`
-- o runtime hospedado agora pode entrar em `hostedShowcaseFallback` quando faltarem `INTERNAL_AUTH_BASE_URL` ou `INTERNAL_KEYCLOAK_BASE_URL`
+- baseline executivo oficial: `100%` técnico, `100%` regulatório/operacional, `100%` consolidado (fonte: [Resumo Executivo de Readiness](./project-executive-readiness-brief.md))
+- gap principal deixou de ser ausência de código; hoje é homologação externa, prova operacional revisável e aceite institucional
+- RBAC fino consolidado (`P2-05` concluído) e RCA cross-domain leve institucionalizado (`P2-03`)
+- AI Service e Case Management consolidados com persistência PostgreSQL, RBAC e trilha regulatória (`evidence_trail`)
+- release `v4.0.7` adiciona jobs assíncronos com worker dedicado (reduz acoplamento, melhora resiliência e rastreabilidade)
 
 ## Precedencia Documental
 
 Use esta ordem quando houver conflito:
 
 1. arquivos canonicamente indexados neste `docs/README.md`
-2. evidencias datadas e sign-offs em `docs/governance-weekly/`
+2. evidências datadas e sign-offs em `docs/governance-weekly/`
 3. READMEs tecnicos locais em subpastas especificas
 
 Arquivos paralelos fora dessa trilha devem ser consolidados, arquivados ou removidos.
 
 ## Taxonomia Documental
 
-- `documentacao viva`: arquivos `docs/*.md` indexados aqui e usados como fonte primaria de arquitetura, contrato, operacao, readiness e governanca executiva
+- `documentacao viva`: arquivos `docs/*.md` indexados aqui e usados como fonte primaria de arquitetura, contrato, operação, readiness e governança executiva
 - `documentacao de ciclo`: materiais humanos datados ainda ativos em `docs/governance-weekly/cycles/`
 - `documentacao gerada`: artefatos produzidos automaticamente em `docs/governance-weekly/generated/`, especialmente `generated/windows/<window_id>/`
 - `documentacao historica`: artefatos datados preservados em `docs/history/` apenas como registro frio, nunca como baseline corrente
@@ -39,11 +40,11 @@ Arquivos paralelos fora dessa trilha devem ser consolidados, arquivados ou remov
 Regras objetivas:
 
 - se o arquivo governa decisao atual, ele deve estar indexado neste `README`
-- se o arquivo e evidencia de uma semana ou janela especifica, ele deve viver em `governance-weekly/`
+- se o arquivo e evidência de uma semana ou janela especifica, ele deve viver em `governance-weekly/`
 - se o arquivo foi superado mas ainda tem valor de trilha, ele deve viver em `history/` ou `archive/`
 - se o arquivo repete contrato, comando ou checklist ja coberto por fonte canônica, ele deve ser consolidado ou removido
 
-## Mapa Canonico
+## Mapa canônico
 
 ### Arquitetura e Produto
 
@@ -51,62 +52,63 @@ Regras objetivas:
 - [Contratos de API](./api-contracts.md): endpoints, payloads e fluxos expostos
 - [Arquitetura da Selagem DD/SoF](./evidence-manual-package-strong-sealing-architecture.md): visao arquitetural da trilha de selagem institucional forte ja implementada no baseline atual
 - [Cobertura do Frontend](./frontend-coverage-matrix.md): rotas reais, cobertura por modulo, lacunas remanescentes e resumo executivo da trilha estatica
-- [Rastreabilidade Canonica de Regressao Estatica do Frontend](./frontend-static-regression-traceability.md): fonte unica do mapeamento `cockpit -> spec -> contrato protegido`
-- [Checklist Canonico de Regressao Estatica e Contratos Visuais do Frontend](./frontend-static-regression-checklist.md): documento canonico da trilha de contratos visuais, regressao estatica e gate de rollout
-- [Checklist de Rollout dos Contratos Visuais](./frontend-visual-contract-rollout-checklist.md): ponte de compatibilidade para links legados, redirecionando ao checklist canonico
+- [Rastreabilidade canônica de Regressao Estatica do Frontend](./frontend-static-regression-traceability.md): fonte unica do mapeamento `cockpit -> spec -> contrato protegido`
+- [Checklist canônico de Regressao Estatica e Contratos Visuais do Frontend](./frontend-static-regression-checklist.md): documento canônico da trilha de contratos visuais, regressao estatica e gate de rollout
+- [Checklist de Rollout dos Contratos Visuais](./frontend-visual-contract-rollout-checklist.md): ponte de compatibilidade para links legados, redirecionando ao checklist canônico
 - [RBAC e Permissoes](./rbac-and-permissions.md): matriz funcional de acesso
-- [Roadmap de Secrets e RBAC para Producao](./production-secrets-and-rbac-roadmap.md): caminho canonico pos-90% para `P2-04` e `P2-05`
+- [Roadmap de Secrets e RBAC para Producao](./production-secrets-and-rbac-roadmap.md): caminho canônico pos-90% para `P2-04` e `P2-05`
 
-### Operacao e Release
+### operação e Release
 
-- [Operacao Local](./operations.md): bootstrap local, troubleshooting e comandos do dia a dia
-- [Deploy e Staging](./deploy-and-staging.md): fonte canonica do fluxo tecnico `prepare -> validate -> preflight -> run`
+- [operação Local](./operations.md): bootstrap local, troubleshooting e comandos do dia a dia
+- [Deploy e Staging](./deploy-and-staging.md): fonte canônica do fluxo tecnico `prepare -> validate -> preflight -> run`
 - [Blueprint Render - Frontend Standalone Showcase](./render-frontend-only-demo.md): blueprint padrao para publicar apenas o frontend no Render sem segredos e sem backend real
-- [Blueprint Render para Staging Full-Stack](./render-staging-blueprint.md): fonte canonica da topologia hospedada em `render.full-stack.yaml` e do preenchimento manual `sync: false` no Render
-- [GitHub Environment para Staging Serio](./github-environment-staging-serious.md): fonte canonica do workflow manual, approvals e secret multi-linha da janela seria
-- [Template Keycloak OIDC](./keycloak-oidc-template.md): referencia de configuracao inicial do IdP, util para alinhamento com `environment-variables.md`
+- [Blueprint Render para Staging Full-Stack](./render-staging-blueprint.md): fonte canônica da topologia hospedada em `render.full-stack.yaml` e do preenchimento manual `sync: false` no Render
+- [GitHub Environment para Staging Serio](./github-environment-staging-serious.md): fonte canônica do workflow manual, approvals e secret multi-linha da janela seria
+- [Template Keycloak OIDC](./keycloak-oidc-template.md): referencia de configuração inicial do IdP, util para alinhamento com `environment-variables.md`
 - [Variaveis de Ambiente](./environment-variables.md): baseline por servico e overrides
 - [Runbooks Operacionais](./runbooks.md): resposta inicial por sintoma e severidade, incluindo triagem de `hostedShowcaseFallback` em staging hospedado
 - [CI/CD e Release](./ci-cd-and-release.md): workflows, quality gates e promocao
 - [Run Sheet da Malha E2E Local](./governance-weekly/guides/E2E_LOCAL_MESH_RUN_SHEET.md): preflight, guardrails e triagem objetiva da baseline Playwright local
 - [Playbook de Incidente Cross-Domain e RCA](./cross-domain-incident-rca-playbook.md): escalacao leve, ownership e fechamento de causa raiz sem abrir um servico novo
-- [Pre-Production Checklist](./pre-production-checklist.md): validacoes obrigatorias antes de promover
+- [Pre-Production Checklist](./pre-production-checklist.md): validações obrigatorias antes de promover
 
-### Validacao, Compliance e Auditoria
+### Validação, Compliance e Auditoria
 
-- [Validacao e Auditoria](./validation-and-audit.md): smoke, Playwright, preflights e evidencias
-- [Validacao em Staging - Diretorio Federado](./federated-directory-staging-validation.md): trilha complementar do diretorio federado em `staging`, usada por guias e validacoes ativas
-- [Compliance e Controles de Seguranca](./compliance-and-security-controls.md): enforcement e gaps residuais
-- [Relatorios de Compliance (Gerados)](./compliance-reports/README.md): outputs gerados a partir das metricas de governanca, usados como apoio para revisao operacional
-- [Matriz de Evidencias e Auditoria](./evidence-and-audit-matrix.md): relacao entre fluxos, artefatos e provas
-- [Readiness Regulatorio](./regulatory-readiness.md): leitura honesta da prontidao regulatoria
+- [validação e Auditoria](./validation-and-audit.md): smoke, Playwright, preflights e evidências
+- [Catálogo de Eventos — evidence_trail](./evidence-event-catalog.md): lista consolidada de `event_type` para trilha regulatória
+- [validação em Staging - Diretorio Federado](./federated-directory-staging-validation.md): trilha complementar do diretorio federado em `staging`, usada por guias e validações ativas
+- [Compliance e Controles de segurança](./compliance-and-security-controls.md): enforcement e gaps residuais
+- [relatórios de Compliance (Gerados)](./compliance-reports/README.md): outputs gerados a partir das metricas de governança, usados como apoio para revisao operacional
+- [Matriz de evidências e Auditoria](./evidence-and-audit-matrix.md): relacao entre fluxos, artefatos e provas
+- [Readiness regulatório](./regulatory-readiness.md): leitura honesta da prontidao regulatoria
 - [Retention e Recovery](./retention-and-recovery-policy.md): baseline de recuperacao e retencao
 - [Checklist de Rollout do Manual Package DD/SoF](./evidence-manual-package-rollout-checklist.md): gate complementar para mudancas na trilha manual forte
 
-### Planejamento e Governanca
+### Planejamento e governança
 
-- [Portal do Workspace](./workspace-root-readme.md): espelho documental do `README` raiz do workspace, com leitura executiva, mapa do workspace e diagramas de fluxo centrais
+- [Portal do Workspace](./workspace-root-readme.md): redirect para as fontes canônicas, evitando duplicação e drift
 - [Resumo Executivo de Readiness](./project-executive-readiness-brief.md): leitura curta para sponsors e diretoria
-- [Kit de Execucao por Evidencia](./project-maturity-evidence-execution-kit.md): templates, semaforo e plano `D1-D7`
+- [Kit de Execucao por evidência](./project-maturity-evidence-execution-kit.md): templates, semaforo e plano `D1-D7`
 - [Scorecard Oficial](./project-kpi-scorecard.md): formula e baseline executiva
-- [Avaliacao de Maturidade](./project-maturity-assessment.md): baseline viva com racional tecnico e regulatorio
-- [Plano Consolidado ate 95%](./project-construction-plan-to-95-percent.md): fonte canonica da execucao, dos gates operacionais e da cobranca por owner ate `95%`
+- [Avaliacao de Maturidade](./project-maturity-assessment.md): baseline viva com racional tecnico e regulatório
+- [Plano Consolidado ate 95%](./project-construction-plan-to-95-percent.md): fonte canônica da execucao, dos gates operacionais e da cobranca por owner ate `95%`
 - [Assessments formais](./assessments/README.md): pareceres datados de calibracao e `go/no-go`
 - [Avaliacao de Status](./assessments/PROJECT_STATUS_ASSESSMENT_2026_07_03.md): parecer formal datado de calibracao e `go/no-go`, preservado como corte historico e nao como baseline viva corrente
-- [Board de Prioridades](./project-priority-board.md): fonte canonica da ordem estrategica de ataque por frente
-- [Board Operacional](./project-operational-execution-board.md): fonte canonica do status, owner, evidencia e fila diaria de execucao
-- [Registro de Riscos](./project-risk-register.md): riscos tecnicos, operacionais e regulatorios
+- [Board de Prioridades](./project-priority-board.md): fonte canônica da ordem estrategica de ataque por frente
+- [Board Operacional](./project-operational-execution-board.md): fonte canônica do status, owner, evidência e fila diaria de execucao
+- [Registro de Riscos](./project-risk-register.md): riscos tecnicos, operacionais e regulatórios
 - [Checklist para 95%](./EXECUTION_CHECKLIST_TO_95_PERCENT.md): ponte legada de compatibilidade para o plano canônico
 
-### Janela Seria e Evidencias Datadas
+### Janela Seria e evidências Datadas
 
-- [Runbook Semanal de Governanca](./project-weekly-governance-runbook.md)
-- [Gates de release](./project-release-gates.md): fonte canonica da decisao executiva de `go/no-go`
-- [Ownership do `.env.staging`](./staging-env-ownership.md): aplicacao da taxonomia canonica de ownership aos placeholders, handoff e bloqueios da janela
-- [Ownership e SLAs operacionais](./operational-ownership-and-slas.md): fonte canonica de dominios, owners, backups e SLA base por severidade
+- [Runbook Semanal de governança](./project-weekly-governance-runbook.md)
+- [Gates de release](./project-release-gates.md): fonte canônica da decisao executiva de `go/no-go`
+- [Ownership do `.env.staging`](./staging-env-ownership.md): aplicacao da taxonomia canônica de ownership aos placeholders, handoff e bloqueios da janela
+- [Ownership e SLAs operacionais](./operational-ownership-and-slas.md): fonte canônica de dominios, owners, backups e SLA base por severidade
 - [Matriz de War Room](./staging-serious-window-war-room-matrix.md)
 - [Historico de apoio](./history/README.md): indice de planos, trackers e runbooks datados que nao sao fonte primaria
-- [Governanca Semanal](./governance-weekly/README.md): ciclos, guias permanentes, templates, artefatos gerados e historico datado
+- [governança Semanal](./governance-weekly/README.md): ciclos, guias permanentes, templates, artefatos gerados e historico datado
 
 ### Decisoes Arquiteturais
 
@@ -130,7 +132,7 @@ Regras objetivas:
 5. `apps/frontend/tests/e2e/README.md`
 6. `deploy-and-staging.md`
 
-### Validar integracoes e janela seria
+### Validar integrações e janela seria
 
 1. `deploy-and-staging.md`
 2. `project-release-gates.md`
@@ -140,7 +142,7 @@ Regras objetivas:
 6. `staging-serious-window-war-room-matrix.md`
 7. `governance-weekly/README.md`
 
-### Auditar seguranca e compliance
+### Auditar segurança e compliance
 
 1. `compliance-and-security-controls.md`
 2. `evidence-and-audit-matrix.md`
@@ -149,7 +151,7 @@ Regras objetivas:
 
 ## Regras de Manutencao
 
-- atualize primeiro os documentos canonicos antes de criar artefatos paralelos
+- atualize primeiro os documentos canônicos antes de criar artefatos paralelos
 - sincronize docs com codigo, migrations, scripts e endpoints no mesmo ciclo de mudanca
 - quando houver diferenca entre contrato e runtime, registre a nuance explicitamente
 - documentos datados de execucao devem viver em `governance-weekly/` ou `governance-weekly/archive/`
@@ -173,22 +175,22 @@ Esta base ja foi racionalizada para reduzir drift. Referencias principais:
 
 ## O Que Esta Documentado Agora
 
-A trilha canonica atual reflete explicitamente:
+A trilha canônica atual reflete explicitamente:
 
 - frontend com i18n tri-locale e labels institucionais
-- trilha DD/SoF com pacote manual canônico, selagem institucional forte, governanca pós-selagem e contratos HTTP consolidados em `api-contracts.md`
+- trilha DD/SoF com pacote manual canônico, selagem institucional forte, governança pós-selagem e contratos HTTP consolidados em `api-contracts.md`
 - `monitoring` modularizado em `monitoring-api.ts`, hooks dedicados e paineis apresentacionais
 - contratos compartilhados em `app/lib/` para `audit`, `evidence`, `team`, `reports` e `monitoring`
 - classificacao operacional das suites Playwright com preflight explicito
-- work-items compartilhados como base da operacao multiusuario
+- work-items compartilhados como base da operação multiusuario
 - bundles de readiness para `OIDC`, `AML/KYT live` e feed UE
 - `decision packet` executivo de `go/no-go` como artefato derivado do payload consolidado da janela seria
-- promocao de maturidade regida por evidencia real, revisao humana e aprovacao explicita
+- promocao de maturidade regida por evidência real, revisao humana e aprovacao explicita
 
 ## Estrutura Esperada
 
-- `docs/*.md`: documentacao viva e canonicamente indexada
-- `docs/governance-weekly/guides/*.md`: guias permanentes da governanca semanal
+- `docs/*.md`: documentação viva e canonicamente indexada
+- `docs/governance-weekly/guides/*.md`: guias permanentes da governança semanal
 - `docs/governance-weekly/templates/*.md`: modelos reutilizaveis
 - `docs/governance-weekly/cycles/**/*.md`: artefatos datados ainda ativos por ciclo
 - `docs/governance-weekly/generated/**/*.md`: artefatos gerados e dashboards

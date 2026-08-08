@@ -8,9 +8,9 @@ Converter a baseline atual do Ontrackchain em um plano executavel para sair de:
 - `90%` de prontidao regulatoria/operacional
 - `93%` de maturidade consolidada
 
-e atingir a meta de `95%` de maturidade consolidada com criterio auditavel, evidencias anexaveis e promocao disciplinada por governanca.
+e atingir a meta de `95%` de maturidade consolidada com criterio auditavel, evidências anexaveis e promocao disciplinada por governanca.
 
-Este documento passa a ser a fonte canonica unica da trilha de execucao ate `95%`.
+Este documento passa a ser a fonte canônica unica da trilha de execucao ate `95%`.
 
 Ele consolida:
 
@@ -21,7 +21,7 @@ Ele consolida:
 
 O arquivo legado `EXECUTION_CHECKLIST_TO_95_PERCENT.md` permanece apenas como ponte de compatibilidade para links antigos.
 
-## Fontes Canonicas
+## Fontes canônicas
 
 - `./project-kpi-scorecard.md`
 - `./project-maturity-assessment.md`
@@ -44,7 +44,7 @@ O caminho ate `95%` depende principalmente de:
 
 1. execucao de P2-06 (segunda janela seria) - CONCLUIDO;
 2. atualizacao do plano para 95% - EM ANDAMENTO;
-3. consolidacao operacional continua;
+3. consolidação operacional continua;
 4. recalibracao oficial do scorecard e da baseline.
 
 ## Meta de 95%
@@ -64,10 +64,10 @@ Racional:
 
 | Frente | Estado atual | Leitura executiva |
 | --- | --- | --- |
-| Arquitetura backend | forte | servicos, dados, auditoria e work-items ja sustentam operacao assistida |
+| Arquitetura backend | forte | servicos, dados, auditoria e work-items ja sustentam operação assistida |
 | Frontend operacional | forte | cockpits e contratos visuais ja nao sao o gargalo principal; `P2-03` ja adiciona RCA leve em `alerts`/`monitoring` sem abrir novo servico |
-| Integracoes externas | parcial | `OIDC`, `AML/KYT`, feed UE e RPC serio ainda dependem de prova real |
-| Governanca e staging | parcial | runbooks e workflows existem, incluindo resumo opcional de RCA cross-domain, mas falta recorrencia homologada |
+| integrações externas | parcial | `OIDC`, `AML/KYT`, feed UE e RPC serio ainda dependem de prova real |
+| governança e staging | parcial | runbooks e workflows existem, incluindo resumo opcional de RCA cross-domain, mas falta recorrencia homologada |
 | Sign-offs institucionais | fraco/parcial | owners, SLA, retention e recovery ainda travam promocao |
 
 ## Gaps que Impedem 95%
@@ -77,16 +77,16 @@ Racional:
 - `P0-01` homologar `OIDC + MFA serio`
 - `P0-02` homologar `AML/KYT live`
 - `P0-03` ativar feed UE real
-- `P0-04` gerar bundle regulatorio oficial
+- `P0-04` gerar bundle regulatório oficial
 - `P0-05` executar primeira janela seria material
 - `P0-06` formalizar sign-off de retention/recovery
 - `P0-07` publicar nova baseline oficial
 
-### Gaps de Governanca
+### Gaps de governança
 
 - owners por dominio ainda precisam de aceite formal
 - SLA por severidade ainda precisa de aprovacao institucional
-- restore controlado e `RTO` real ainda precisam de evidencia formal
+- restore controlado e `RTO` real ainda precisam de evidência formal
 - falta completar `2` janelas serias comparaveis com dossier e sign-off
 
 ### Gaps Tecnicos Residenciais
@@ -94,7 +94,7 @@ Racional:
 - `public-api` ainda e parcial e nao move a meta de `95%`
 - `billing` e `team` continuam administrativos e nao sao bloqueadores primarios
 - DD/SoF seguem dependentes de fluxo humano, o que e aceitavel para `95%`, mas nao para maturidade plena futura
-- `P2-03` ja endurece triagem, export e governanca com RCA leve cross-domain, mas ainda nao possui serie recorrente suficiente para mover baseline sozinho
+- `P2-03` ja endurece triagem, export e governança com RCA leve cross-domain, mas ainda nao possui serie recorrente suficiente para mover baseline sozinho
 
 ## Estrategia Recomendada
 
@@ -106,8 +106,8 @@ Racional:
 
 - maximiza impacto no KPI com o menor risco de refactor desnecessario;
 - trata o ponto real de bloqueio: prova operacional e homologacao externa;
-- respeita o `ADR-010`, que proibe promocao por narrativa sem evidencia;
-- usa o frontend e o backend ja construidos como plataforma de prova, nao como proximo alvo de grandes mudancas.
+- respeita o `ADR-010`, que proibe promocao por narrativa sem evidência;
+- usa o frontend e o backend ja construidos como plataforma de prova, nao como próximo alvo de grandes mudancas.
 
 ## Plano por Fases
 
@@ -135,9 +135,9 @@ Criterio de saida:
 - `P0-02` e `P0-03` saem de `blocked` para `in_progress` somente depois do `check-regulatory-window-readiness` verde
 - `P0-01` sai de `blocked` para `ready` ou `in_progress`
 
-### Fase 2 - Homologacao de Integracoes Vivas
+### Fase 2 - Homologacao de integrações Vivas
 
-Objetivo: executar as trilhas P0 com insumos reais e coletar evidencias anexaveis.
+Objetivo: executar as trilhas P0 com insumos reais e coletar evidências anexaveis.
 
 Entregas:
 
@@ -158,13 +158,13 @@ Criterio de saida:
 
 - `P0-01`, `P0-02` e `P0-03` ficam ao menos em `ready_for_validation`
 
-### Fase 3 - Bundle e Governanca Formal
+### Fase 3 - Bundle e governança Formal
 
 Objetivo: transformar readiness tecnica em readiness institucional.
 
 Entregas:
 
-- bundle regulatorio oficial gerado
+- bundle regulatório oficial gerado
 - tentativas regulatorias parciais tratadas como endurecimento de correlacao, dossier e narrativa executiva, sem confundir esse progresso com o fechamento oficial de `P0-04`
 - owners por dominio aprovados
 - SLA por severidade aprovado
@@ -173,7 +173,7 @@ Entregas:
 
 Owners primarios:
 
-- COO / Governanca
+- COO / governança
 - CTO / Platform / DBA
 - Security
 - Compliance
@@ -181,17 +181,17 @@ Owners primarios:
 Criterio de saida:
 
 - `P0-04` e `P0-06` concluidos
-- documentacao de ownership, SLA e recovery sincronizada
+- documentação de ownership, SLA e recovery sincronizada
 
 Regra da fase:
 
 - se apenas `P0-02` ou `P0-03` estiver disponivel em uma janela, o resultado pode fortalecer a trilha operacional e reduzir risco executivo
-- a promocao oficial do bundle regulatorio continua exigindo convergencia revisavel de `P0-02` e `P0-03` na mesma trilha
+- a promocao oficial do bundle regulatório continua exigindo convergencia revisável de `P0-02` e `P0-03` na mesma trilha
 - se houver incidente cross-domain material na semana, registrar RCA minima e resumo executivo como endurecimento operacional; isso melhora handoff e leitura de risco, mas nao substitui nenhum gate P0
 
 ### Fase 4 - Primeira Janela Seria Material
 
-Objetivo: executar uma janela ponta a ponta com evidencias reais e decisao formal.
+Objetivo: executar uma janela ponta a ponta com evidências reais e decisao formal.
 
 Entregas:
 
@@ -206,13 +206,13 @@ Entregas:
 Owners primarios:
 
 - Platform/SRE
-- Governanca
+- governança
 - Security
 - Compliance
 
 Criterio de saida:
 
-- `P0-05` concluido com artefato revisavel
+- `P0-05` concluido com artefato revisável
 - sinais operacionais cross-domain, quando existirem, aparecem de forma coerente em war room, snapshot e comms
 
 ### Fase 5 - Segunda Janela Comparavel
@@ -223,13 +223,13 @@ Entregas:
 
 - segunda janela seria executada sob o mesmo rito
 - comparativo entre as duas execucoes
-- confirmacao de estabilidade de handoff, evidencias e checklist
-- uso recorrente e revisavel do resumo RCA quando houver incidente cross-domain relevante
+- confirmacao de estabilidade de handoff, evidências e checklist
+- uso recorrente e revisável do resumo RCA quando houver incidente cross-domain relevante
 
 Owners primarios:
 
 - Platform/SRE
-- Governanca
+- governança
 - Ops Manager
 
 Criterio de saida:
@@ -238,20 +238,20 @@ Criterio de saida:
 
 ### Fase 6 - Promocao Oficial para 95%
 
-Objetivo: recalibrar o estado oficial do projeto com base em evidencias reais.
+Objetivo: recalibrar o estado oficial do projeto com base em evidências reais.
 
 Entregas:
 
 - `project-kpi-scorecard.md` atualizado
 - `project-maturity-assessment.md` atualizado
 - `project-operational-execution-board.md` atualizado
-- governanca semanal publicada com nova baseline
+- governança semanal publicada com nova baseline
 - assessment formal ou parecer executivo atualizado
 
 Owners primarios:
 
 - Arquitetura
-- Governanca
+- governança
 - CTO
 - COO
 
@@ -272,8 +272,8 @@ Criterio de saida:
 
 - executar `P0-02`
 - executar `P0-03`
-- corrigir falhas de integracao e persistencia de artefatos
-- se a semana terminar com apenas uma trilha regulatoria disponivel, registrar a tentativa parcial como preparo da consolidacao, sem contar `P0-04` como fechado
+- corrigir falhas de integração e persistencia de artefatos
+- se a semana terminar com apenas uma trilha regulatoria disponivel, registrar a tentativa parcial como preparo da consolidação, sem contar `P0-04` como fechado
 
 ### Semana 3
 
@@ -295,7 +295,7 @@ Criterio de saida:
 | credencial AML/KYT indisponivel | externo | muito alto | tratar como dependencia P0 diaria com owner claro |
 | URL UE real indisponivel | externo | alto | escalar para Regulatory/Ops e registrar `blocked` formal |
 | placeholders no staging serio | operacional | alto | gate pre-janela obrigatorio |
-| sign-off institucional lento | governanca | alto | agendar aprovacao como deliverable e nao como atividade paralela |
+| sign-off institucional lento | governança | alto | agendar aprovacao como deliverable e nao como atividade paralela |
 | apenas uma janela executada | maturidade | alto | nao promover baseline antes da segunda janela |
 
 ## Definition of Done para 95%
@@ -305,10 +305,10 @@ Criterio de saida:
 - `P0-04` fechado apenas com bundle oficial coerente entre `P0-02` e `P0-03`; tentativa parcial nao substitui esse gate
 - `OIDC + MFA` homologados em trilho serio
 - owners e SLA formalmente aceitos
-- retention e recovery com evidencia e aceite
+- retention e recovery com evidência e aceite
 - pelo menos `2` janelas serias comparaveis executadas
 - scorecard e baseline oficial publicados
-- RCA cross-domain, quando houver incidente material, registrada de forma revisavel sem ser usada como atalho para promocao artificial de baseline
+- RCA cross-domain, quando houver incidente material, registrada de forma revisável sem ser usada como atalho para promocao artificial de baseline
 
 ## O que Nao Deve Mover o KPI Sozinho
 
@@ -321,10 +321,10 @@ Criterio de saida:
 
 ## Uso Recomendado
 
-- usar este plano como narrativa executiva central e checklist operacional canonico do caminho ate `95%`
+- usar este plano como narrativa executiva central e checklist operacional canônico do caminho ate `95%`
 - usar `EXECUTION_CHECKLIST_TO_95_PERCENT.md` apenas como ponte legada de compatibilidade
 - usar `project-operational-execution-board.md` como fila diaria
-- usar a governanca semanal para mover status e recalibrar risco
+- usar a governança semanal para mover status e recalibrar risco
 
 ## Proxima Acao Recomendada
 
@@ -335,13 +335,13 @@ Executar um kick-off de `D1-D2` com a seguinte pauta:
 3. fechar data da primeira janela seria
 4. confirmar criteria de sign-off de Security, Compliance e Platform
 
-## Checklist Executivo Canonico
+## Checklist Executivo canônico
 
-| Bloco | Owner principal | Estado alvo | Evidencia de fechamento |
+| Bloco | Owner principal | Estado alvo | evidência de fechamento |
 | --- | --- | --- | --- |
 | `P0-02` `AML/KYT live` | Compliance Lead | `ready_for_validation` ou `done` | readiness `p0-02` verde + checker verde + JSON persistido |
-| `P0-03` feed UE real | Regulatory/Ops | `ready_for_validation` ou `done` | readiness `p0-03` verde + preflight/sync JSON + validacao |
-| `P0-04` bundle regulatorio oficial | Platform/SRE | `ready_for_validation` ou `done` | readiness `p0-04` verde + bundle regulatorio coerente + validador final; tentativa parcial alimenta o dossier, mas nao encerra o item |
+| `P0-03` feed UE real | Regulatory/Ops | `ready_for_validation` ou `done` | readiness `p0-03` verde + preflight/sync JSON + validação |
+| `P0-04` bundle regulatório oficial | Platform/SRE | `ready_for_validation` ou `done` | readiness `p0-04` verde + bundle regulatório coerente + validador final; tentativa parcial alimenta o dossier, mas nao encerra o item |
 | `P0-01` `OIDC + MFA` | Security/Auth Lead | `ready_for_validation` ou `done` | preflight + smoke + E2E |
 | `P0-05` primeira janela seria material | Release Manager / Platform | `ready_for_validation` ou `done` | packet + dossier + war room + sign-off |
 | `P0-06` retention e recovery | CTO / Security / Compliance | `done` | restore evidenciado + aceite |
@@ -355,16 +355,16 @@ Executar um kick-off de `D1-D2` com a seguinte pauta:
 
 ### Gate `89% -> 90%`
 
-- [ ] existe pelo menos uma prova revisavel completa de `P0-02` ou `P0-03`
-- [ ] o artefato esta persistido e referenciado na governanca semanal
+- [ ] existe pelo menos uma prova revisável completa de `P0-02` ou `P0-03`
+- [ ] o artefato esta persistido e referenciado na governança semanal
 - [ ] o risco correspondente foi reavaliado como menor ou explicitamente melhor delimitado
 
 ### Gate `90% -> 90%+`
 
 - [ ] `P0-02` possui checker verde com credencial real e JSON persistido
 - [ ] `P0-03` possui JSONs validos da janela UE e checker coerente
-- [ ] `P0-04` consolida o bundle regulatorio oficial com `P0-02` e `P0-03` na mesma trilha revisavel; tentativa parcial isolada nao substitui esse gate
-- [ ] `P0-05` transforma a prova combinada em pacote executivo revisavel
+- [ ] `P0-04` consolida o bundle regulatório oficial com `P0-02` e `P0-03` na mesma trilha revisável; tentativa parcial isolada nao substitui esse gate
+- [ ] `P0-05` transforma a prova combinada em pacote executivo revisável
 - [ ] a leitura executiva foi atualizada sem depender apenas de narrativa
 
 ### Gate de Sustentacao Institucional
@@ -381,7 +381,7 @@ Executar um kick-off de `D1-D2` com a seguinte pauta:
 #### `P0-02` Homologar `AML/KYT live`
 
 - [ ] solicitar credencial real do provider
-- [ ] obter `api_key`, endpoint e requisitos de autenticacao
+- [ ] obter `api_key`, endpoint e requisitos de autenticação
 - [ ] preencher o segredo no ambiente privado correto
 - [ ] executar `make check-compliance-provider-runtime`
 - [ ] validar que o checker ficou verde
@@ -392,12 +392,12 @@ Fechamento minimo:
 
 - checker verde
 - JSON persistido
-- evidencia revisada em governanca semanal
+- evidência revisada em governança semanal
 
-#### `P1` Aceites regulatorios
+#### `P1` Aceites regulatórios
 
 - [ ] revisar o runbook do provider AML/KYT
-- [ ] confirmar se a evidencia coletada e suficiente para recorrencia
+- [ ] confirmar se a evidência coletada e suficiente para recorrencia
 - [ ] registrar aceite de compliance quando `P0-02` e janela real estiverem validos
 
 ### Regulatory/Ops Manager
@@ -410,13 +410,13 @@ Fechamento minimo:
 - [ ] executar `make gate-p0-03-eu-live` com `WINDOW_ID` e `REQUEST_ID`
 - [ ] validar `eu-sanctions-preflight.json`
 - [ ] validar `eu-sanctions-sync.json`
-- [ ] anexar os JSONs na trilha de governanca
+- [ ] anexar os JSONs na trilha de governança
 
 Fechamento minimo:
 
 - URL real validada
 - JSONs persistidos
-- status do sync aceito em governanca
+- status do sync aceito em governança
 
 #### Janela seria e war room
 
@@ -439,16 +439,16 @@ Fechamento minimo:
 - [ ] executar `python scripts/smoke_auth_oidc_mode.py`
 - [ ] executar `npm run test:e2e:oidc-critical` com preflight explicito do ambiente OIDC serio
 - [ ] validar MFA federado sem fallback silencioso
-- [ ] anexar bundle ou evidencia equivalente
+- [ ] anexar bundle ou evidência equivalente
 
 Fechamento minimo:
 
 - preflight verde
 - smoke verde
 - E2E critico verde
-- evidencia de autenticacao forte homologada
+- evidência de autenticação forte homologada
 
-#### `P1` Owners e seguranca operacional
+#### `P1` Owners e segurança operacional
 
 - [ ] revisar envolvimento obrigatorio de Security em incidentes `P0/P1`
 - [ ] aprovar formalmente owners e SLA sensiveis
@@ -463,17 +463,17 @@ Fechamento minimo:
 - [ ] executar restore controlado em base isolada
 - [ ] medir `RTO`
 - [ ] validar integridade minima pos-restore
-- [ ] registrar evidencia do teste
+- [ ] registrar evidência do teste
 - [ ] obter aceite formal de Platform/DBA
 
 Fechamento minimo:
 
 - restore executado
 - `RTO` registrado
-- evidencia anexada
+- evidência anexada
 - aceite tecnico formal
 
-### COO / Governanca
+### COO / governança
 
 #### Owners e SLA
 
@@ -491,10 +491,10 @@ Fechamento minimo:
 
 ### Tech Lead / QA
 
-#### Validacao cruzada da trilha P0
+#### Validação cruzada da trilha P0
 
 - [ ] consolidar `.env` privado apenas no ambiente correto
-- [ ] executar bundle regulatorio quando `P0-02` e `P0-03` estiverem prontos
+- [ ] executar bundle regulatório quando `P0-02` e `P0-03` estiverem prontos
 - [ ] validar artefatos gerados
 - [ ] registrar qualquer delta entre readiness documental e runtime
 - [ ] manter a suite principal de regressao verde
@@ -503,10 +503,10 @@ Fechamento minimo:
 Fechamento minimo:
 
 - bundle consistente
-- evidencias revisadas
+- evidências revisadas
 - regressao verde
 
-#### `P2-03` Evidencia complementar de RCA cross-domain
+#### `P2-03` evidência complementar de RCA cross-domain
 
 - [ ] confirmar se houve incidente cross-domain material na semana
 - [ ] registrar `work_item_id` do alerta rastreado quando aplicavel
@@ -527,15 +527,15 @@ Fechamento minimo:
 - [ ] feed UE real validado com artefatos persistidos
 - [ ] `OIDC + MFA` homologados em trilho serio
 - [ ] owners e SLA formalmente aceitos
-- [ ] retention e recovery com evidencia e aceite formal
+- [ ] retention e recovery com evidência e aceite formal
 - [ ] pelo menos `2` janelas serias comparaveis executadas com dossier e sign-off
-- [ ] incidentes cross-domain materiais, quando existirem, possuem RCA revisavel sem serem usados como atalho para mover score
+- [ ] incidentes cross-domain materiais, quando existirem, possuem RCA revisável sem serem usados como atalho para mover score
 
 ## Regras para Nao Promover Artificialmente
 
 - [ ] nao subir `P0-01`, `P0-02` ou `P0-03` sem artefato real
 - [ ] nao considerar aceite verbal como sign-off formal
-- [ ] nao confundir validacao local com homologacao externa
-- [ ] nao usar documentacao forte para esconder ausencia de prova operacional
+- [ ] nao confundir validação local com homologacao externa
+- [ ] nao usar documentação forte para esconder ausencia de prova operacional
 - [ ] nao considerar tentativa regulatoria parcial como equivalente ao fechamento oficial de `P0-04`
-- [ ] nao usar RCA leve em UI/export/governanca como substituto de gate regulatorio ou de recorrencia operacional
+- [ ] nao usar RCA leve em UI/export/governanca como substituto de gate regulatório ou de recorrencia operacional

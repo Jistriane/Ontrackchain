@@ -1,4 +1,4 @@
-# Guia de Uso dos Artefatos da Governanca Semanal
+# Guia de Uso dos Artefatos da governança Semanal
 
 ## Objetivo
 
@@ -32,7 +32,7 @@ Quando usar:
 
 Usar:
 
-- [Roteiro de Facilitacao da Governanca Semanal](./WEEKLY_GOVERNANCE_FACILITATION_SCRIPT.md)
+- [Roteiro de Facilitacao da governança Semanal](./WEEKLY_GOVERNANCE_FACILITATION_SCRIPT.md)
 
 Quando usar:
 
@@ -68,8 +68,8 @@ Quando usar:
 
 Usar:
 
-- [Workflow de Atualizacao Semanal da Governanca](./WEEKLY_GOVERNANCE_UPDATE_WORKFLOW.md)
-- [Checklist de Fechamento Semanal da Governanca](./WEEKLY_GOVERNANCE_CLOSEOUT_CHECKLIST.md)
+- [Workflow de Atualizacao Semanal da governança](./WEEKLY_GOVERNANCE_UPDATE_WORKFLOW.md)
+- [Checklist de Fechamento Semanal da governança](./WEEKLY_GOVERNANCE_CLOSEOUT_CHECKLIST.md)
 
 Quando usar:
 

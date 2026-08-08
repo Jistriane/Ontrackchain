@@ -9,7 +9,7 @@ Ela existe para:
 - reduzir ambiguidade entre `gateway`, `frontend`, `auth-service` e `Keycloak`
 - concentrar os checks minimos do primeiro `sync`
 - validar o contrato operacional do frontend sem depender apenas do login completo
-- preservar evidencias minimas antes de seguir para smoke, Playwright e `go/no-go`
+- preservar evidências minimas antes de seguir para smoke, Playwright e `go/no-go`
 
 Complementa:
 
@@ -52,7 +52,7 @@ Interpretacao operacional:
 - [ ] variable `RENDER_STAGING_ALLOW_SHOWCASE_FALLBACK=false`
 - [ ] hook do Render aponta para o servico de staging real, e nao para um showcase isolado
 - [ ] owner humano do disparo registrado nesta folha
-- [ ] aprovacao de governanca disponivel caso o gate do workflow exija
+- [ ] aprovacao de governança disponivel caso o gate do workflow exija
 
 ## Checklist de Prontidao
 
@@ -235,7 +235,7 @@ Marcar esta trilha como pronta para handoff tecnico somente se todos estiverem v
 - [ ] `deploymentModel=render-full-stack-staging` no endpoint publico
 - [ ] `/auth/config` retornou `auth_mode=oidc`
 - [ ] `/auth/config` retornou `app_env=staging`
-- [ ] owner humano revisou as evidencias minimas
+- [ ] owner humano revisou as evidências minimas
 
 ## Resultado da Janela
 

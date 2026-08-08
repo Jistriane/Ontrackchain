@@ -2,7 +2,7 @@
 
 ## Uso
 
-Preencher e executar esta folha durante a janela real de `P0-01`. Ela existe para reduzir ambiguidade operacional, registrar o owner ativo, confirmar a configuracao seria sem expor segredos e listar os artefatos que precisam ser preservados.
+Preencher e executar esta folha durante a janela real de `P0-01`. Ela existe para reduzir ambiguidade operacional, registrar o owner ativo, confirmar a configuração seria sem expor segredos e listar os artefatos que precisam ser preservados.
 
 Complementa o [Guia de Execucao Assistida de `P0-01` OIDC + MFA serio](./P0-01_OIDC_MFA_EXECUTION_GUIDE.md).
 
@@ -31,12 +31,12 @@ Complementa o [Guia de Execucao Assistida de `P0-01` OIDC + MFA serio](./P0-01_O
 
 ## Ordem de Execucao
 
-### Execucao local canonica (quando aplicavel)
+### Execucao local canônica (quando aplicavel)
 
 Quando a janela estiver sendo ensaiada localmente (Keycloak + stack docker), executar o gate canônico:
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 cp .env.oidc-local.example .env.oidc-local
 make gate-p0-01-oidc-local
 ```
@@ -51,7 +51,7 @@ Se a execucao ocorrer no GitHub Actions via `P0-01 OIDC Local Gate`, registrar t
 ### 1. Validar handoff e placeholders
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
 python3 scripts/check_staging_env_placeholders.py --file .env.staging.private
 ```
@@ -64,31 +64,31 @@ Resultado esperado:
 ### 2. Preflight OIDC serio
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/preflight_oidc_serious_env.py
 ```
 
 Registrar:
 
 - `preflight_status`: `preencher`
-- observacao curta: `preencher`
+- observação curta: `preencher`
 
 ### 3. Smoke auth serio
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/smoke_auth_oidc_mode.py
 ```
 
 Registrar:
 
 - `smoke_status`: `preencher`
-- observacao curta: `preencher`
+- observação curta: `preencher`
 
 ### 4. Gate critico do frontend
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain/apps/frontend
+cd github_main/ontrackchain/apps/frontend
 npm ci
 npm run test:e2e:oidc-critical
 ```
@@ -96,12 +96,12 @@ npm run test:e2e:oidc-critical
 Registrar:
 
 - `frontend_gate_status`: `preencher`
-- observacao curta: `preencher`
+- observação curta: `preencher`
 
 ### 5. Bundle OIDC
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make run-oidc-readiness-bundle-local \
   WINDOW_ID=<window_id> \
   BASE_URL=http://localhost:8080
@@ -115,7 +115,7 @@ Registrar:
 ### 6. Homologacao externa quando aplicavel
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/homologation_external_evidence.py --mode both --include-oidc-legal-report
 ```
 
@@ -125,10 +125,10 @@ Registrar somente se aplicavel:
 - `homologation_json`: `preencher`
 - `homologation_manifest`: `preencher`
 
-### 7. Reconciliar governanca
+### 7. Reconciliar governança
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID=<window_id>
 ```
 
@@ -144,7 +144,7 @@ Registrar:
 - `artifacts/staging/dossiers/<window_id>-oidc-readiness-bundle.md`
 - `artifacts/homologation/<arquivo>.json`, quando aplicavel
 - `artifacts/homologation/<arquivo>.manifest.json`, quando aplicavel
-- relatorio do `oidc-critical`
+- relatório do `oidc-critical`
 - `ci-artifacts/p0-01-oidc-local-gate.log`, quando a trilha rodar em GitHub Actions
 - `ci-artifacts/auth-config-public.json`, quando a trilha rodar em GitHub Actions
 - `ci-artifacts/auth-config-auth-service.json`, quando a trilha rodar em GitHub Actions
@@ -156,18 +156,18 @@ Registrar:
 
 ## Gate de Saida
 
-Marcar a trilha como pronta para validacao somente se todos estiverem verdadeiros:
+Marcar a trilha como pronta para validação somente se todos estiverem verdadeiros:
 
 - [ ] preflight OIDC serio verde
 - [ ] smoke auth serio verde
 - [ ] gate critico do frontend executado
 - [ ] bundle OIDC preservado
-- [ ] governanca reprocessada
-- [ ] owner humano revisou a evidencia
+- [ ] governança reprocessada
+- [ ] owner humano revisou a evidência
 
 ## Resultado da Janela
 
 - decisao sugerida: `preencher`
 - motivo resumido: `preencher`
-- proximo passo: `preencher`
+- próximo passo: `preencher`
 - accountable: `preencher`

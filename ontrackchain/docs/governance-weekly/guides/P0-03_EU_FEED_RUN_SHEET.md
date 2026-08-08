@@ -31,7 +31,7 @@ Complementa o [Guia de Execucao Assistida de `P0-03` Feed UE real](./P0-03_EU_FE
 ### 1. Validar handoff e placeholders
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
 python3 scripts/check_staging_env_placeholders.py --file .env.staging.private
 ```
@@ -44,31 +44,31 @@ Resultado esperado:
 ### 2. Preflight externo
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/preflight_external_integrations.py
 ```
 
 Registrar:
 
 - `status`: `preencher`
-- observacao curta: `preencher`
+- observação curta: `preencher`
 
 ### 3. Reexecutar worker
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make rerun-compliance-worker
 ```
 
 Registrar:
 
 - `worker_status`: `preencher`
-- observacao curta: `preencher`
+- observação curta: `preencher`
 
 ### 4. Runner da janela UE
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-03-eu-live \
   WINDOW_ID=<window_id> \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -85,7 +85,7 @@ Registrar:
 ### 5. Checker pos-sync
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make check-eu-sanctions-window REQUEST_ID=<eu_request_id>
 ```
 
@@ -102,10 +102,10 @@ Se a execucao for hospedada via GitHub Actions, preencher tambem:
 - `run_url`: `preencher`
 - `artifact_name`: `p0-03-eu-live-<window_id>`
 
-### 6. Bundle regulatorio se `P0-02` estiver junto
+### 6. Bundle regulatório se `P0-02` estiver junto
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-04-regulatory-bundle \
   WINDOW_ID=<window_id> \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -120,10 +120,10 @@ Registrar somente se aplicavel:
 - `bundle_json`: `preencher`
 - `bundle_md`: `preencher`
 
-### 7. Reconciliar governanca
+### 7. Reconciliar governança
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID=<window_id>
 ```
 
@@ -153,7 +153,7 @@ Registrar:
 
 ## Gate de Saida
 
-Marcar a trilha como pronta para validacao somente se todos estiverem verdadeiros:
+Marcar a trilha como pronta para validação somente se todos estiverem verdadeiros:
 
 - [ ] preflight externo verde
 - [ ] worker reexecutado com a env correta
@@ -161,12 +161,12 @@ Marcar a trilha como pronta para validacao somente se todos estiverem verdadeiro
 - [ ] `eu-sanctions-sync.json` preservado
 - [ ] checker pos-sync verde
 - [ ] `source_url` persistido igual ao override
-- [ ] governanca reprocessada
-- [ ] owner humano revisou a evidencia
+- [ ] governança reprocessada
+- [ ] owner humano revisou a evidência
 
 ## Resultado da Janela
 
 - decisao sugerida: `preencher`
 - motivo resumido: `preencher`
-- proximo passo: `preencher`
+- próximo passo: `preencher`
 - accountable: `preencher`

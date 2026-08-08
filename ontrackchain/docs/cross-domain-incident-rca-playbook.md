@@ -1,4 +1,4 @@
-# Playbook Canonico de Incidente Cross-Domain e RCA
+# Playbook canônico de Incidente Cross-Domain e RCA
 
 ## Objetivo
 
@@ -17,7 +17,7 @@ Use este documento junto com:
 - [Runbooks Operacionais](./runbooks.md)
 - [Ownership e SLAs operacionais](./operational-ownership-and-slas.md)
 - [Matriz de War Room](./staging-serious-window-war-room-matrix.md)
-- [Runbook Semanal de Governanca](./project-weekly-governance-runbook.md)
+- [Runbook Semanal de governança](./project-weekly-governance-runbook.md)
 - [Board de Prioridades](./project-priority-board.md)
 - [Board Operacional](./project-operational-execution-board.md)
 
@@ -34,8 +34,8 @@ Abra um incidente cross-domain quando pelo menos uma das condicoes abaixo for ve
 Nao abra incidente cross-domain quando:
 
 - o sintoma estiver restrito a um unico dominio sem risco de propagacao
-- a mitigacao for local, reversivel e concluida sem efeito em fila, prazo ou integracao critica
-- nao houver impacto operacional, regulatorio ou de disponibilidade observavel
+- a mitigacao for local, reversivel e concluida sem efeito em fila, prazo ou integração critica
+- nao houver impacto operacional, regulatório ou de disponibilidade observavel
 
 ## Limites do Sistema
 
@@ -46,7 +46,7 @@ Ele reaproveita a trilha ja existente:
 - `operational_alert_events` como source of truth de deteccao e acknowledge
 - `regulatory_work_items` como workspace operacional e timeline persistida para incidentes rastreados
 - `audit_logs` como trilha auditavel das acoes relevantes
-- `docs/governance-weekly/` como registro datado de war room, sign-off e proximos passos
+- `docs/governance-weekly/` como registro datado de war room, sign-off e próximos passos
 
 O diagrama abaixo mostra a passagem do incidente entre observabilidade, workspace operacional, auditoria e governanca.
 
@@ -69,7 +69,7 @@ flowchart LR
 
 ## Papeis e Responsabilidades
 
-| Papel | Responsabilidade minima | Fonte canonica de apoio |
+| Papel | Responsabilidade minima | Fonte canônica de apoio |
 | --- | --- | --- |
 | `Incident Commander` | coordenar resposta, definir prioridade, decidir escalacao e encerramento | `operational-ownership-and-slas.md` |
 | `Domain Owner` | investigar sintoma no dominio, propor mitigacao e confirmar recuperacao | `runbooks.md` |
@@ -77,13 +77,13 @@ flowchart LR
 | `Platform/SRE` | validar observabilidade, health checks, scraping, alert routing e estabilidade da plataforma | `runbooks.md` + `staging-serious-window-war-room-matrix.md` |
 | `Arquitetura/Governanca` | revisar blast radius, impacto em baseline, follow-ups e backlog estrutural | `project-weekly-governance-runbook.md` |
 
-## Fluxo Canonico
+## Fluxo canônico
 
 1. **Detectar**
    - alerta entra por `Alertmanager` e e persistido em `operational_alert_events`
    - triagem inicial ocorre em `/monitoring`, `/alerts` ou `/incident-response`
 2. **Qualificar**
-   - confirmar severidade, dominios afetados, risco regulatorio, impacto em backlog e repeticao
+   - confirmar severidade, dominios afetados, risco regulatório, impacto em backlog e repeticao
    - decidir se o evento continua local ou vira incidente cross-domain
 3. **Promover**
    - para incidente cross-domain, garantir work-item rastreado em `module=alerts`
@@ -93,14 +93,14 @@ flowchart LR
    - registrar owner, ETA e status de contencao
 5. **Explicar**
    - registrar `suspected_root_cause`
-   - confirmar ou revisar a causa apos coleta de evidencia
+   - confirmar ou revisar a causa apos coleta de evidência
 6. **Corrigir**
    - abrir acoes corretivas e preventivas com owner e prazo
    - diferenciar mitigacao temporaria de correcao estrutural
 7. **Fechar**
-   - rodar validacoes finais
-   - registrar `confirmed_root_cause`, evidencias e follow-ups
-   - publicar resumo em governanca quando o impacto justificar
+   - rodar validações finais
+   - registrar `confirmed_root_cause`, evidências e follow-ups
+   - publicar resumo em governança quando o impacto justificar
 
 ## Modelo de RCA Leve no Baseline Atual
 
@@ -127,7 +127,7 @@ Campos minimos recomendados em `metadata` do `regulatory_work_item`:
 Regras:
 
 - usar comentarios para narrativa cronologica curta e legivel
-- usar `audit_logs` para provas de ack, export, rerun, sign-off e operacoes automatizadas
+- usar `audit_logs` para provas de ack, export, rerun, sign-off e operações automatizadas
 - nao armazenar segredo, token, webhook ou dump sensivel em comentarios ou metadata
 
 ## Criticidade e Escalacao
@@ -136,10 +136,10 @@ Regras:
 | --- | --- | --- |
 | `L1` | incidente local com owner definido e mitigacao rapida | manter no dominio, sem war room formal |
 | `L2` | impacto cross-domain controlado | abrir incidente cross-domain, work-item rastreado e comandante definido |
-| `L3` | risco de SLA, bloqueio regulatorio ou indisponibilidade relevante | ativar war room leve, revisar a cada checkpoint e registrar resumo na governanca |
+| `L3` | risco de SLA, bloqueio regulatório ou indisponibilidade relevante | ativar war room leve, revisar a cada checkpoint e registrar resumo na governança |
 | `L4` | risco institucional, `no-go`, perda de controle operacional ou falha repetitiva critica | ativar matriz de war room, escalar sponsors tecnicos e anexar artefatos datados |
 
-## Evidencias Minimas para Encerramento
+## evidências Minimas para Encerramento
 
 Antes de encerrar um incidente cross-domain:
 
@@ -148,12 +148,12 @@ Antes de encerrar um incidente cross-domain:
 - validar `audit_logs` e export do alerta quando aplicavel
 - confirmar recuperacao em `/monitoring`, `/alerts` ou no endpoint operacional do dominio
 - registrar `confirmed_root_cause`
-- registrar se houve gap de teste, observabilidade, ownership ou documentacao
+- registrar se houve gap de teste, observabilidade, ownership ou documentação
 - abrir follow-up para qualquer correcao estrutural que nao caiba no incidente atual
 
 ## Template de Registro
 
-Use o formato abaixo no comentario principal do work-item ou no artefato datado da governanca:
+Use o formato abaixo no comentario principal do work-item ou no artefato datado da governança:
 
 ```md
 ## RCA
@@ -173,7 +173,7 @@ Use o formato abaixo no comentario principal do work-item ou no artefato datado 
 - follow_up: <board item, issue, ADR ou none>
 ```
 
-## Integracao com War Room
+## integração com War Room
 
 Se o incidente ocorrer durante a janela seria ou bloquear um gate `P0`, faca tambem:
 
@@ -184,7 +184,7 @@ Se o incidente ocorrer durante a janela seria ou bloquear um gate `P0`, faca tam
 Se o incidente for operacional, mas fora da janela seria:
 
 - manter a RCA leve no work-item
-- levar apenas o resumo executivo e os follow-ups para a governanca semanal
+- levar apenas o resumo executivo e os follow-ups para a governança semanal
 
 ## Definition of Done
 
@@ -192,15 +192,15 @@ Um incidente cross-domain so pode ser fechado quando:
 
 - a contencao estiver validada
 - a causa raiz estiver confirmada
-- a evidencia minima estiver anexavel
+- a evidência minima estiver anexavel
 - houver owner e prazo para as acoes corretivas remanescentes
 - a necessidade de update em runbook, dashboard, alerta, teste ou arquitetura estiver explicitamente registrada
 
-## Proximo Incremento Tecnico Recomendado
+## próximo Incremento Tecnico Recomendado
 
-Sem criar novo servico, o proximo incremento coerente e:
+Sem criar novo servico, o próximo incremento coerente e:
 
 - enriquecer `module=alerts` com os campos de RCA leve acima
 - expor esse bloco de RCA no cockpit `/alerts` e no cockpit operacional `/incident-response`
-- preservar `/monitoring` como hub de saude da plataforma, `/alerts` como triagem global canonica e `/incident-response` como cockpit operacional de resposta
+- preservar `/monitoring` como hub de saude da plataforma, `/alerts` como triagem global canônica e `/incident-response` como cockpit operacional de resposta
 - usar war room datado apenas quando a severidade justificar escalacao institucional

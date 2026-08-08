@@ -1,4 +1,4 @@
-# Checklist de Fechamento Semanal da Governanca
+# Checklist de Fechamento Semanal da governança
 
 ## Objetivo
 
@@ -14,11 +14,11 @@ Servir como lista curta e objetiva para fechar um ciclo semanal sem inflar progr
 
 - [ ] atualizar o pacote operacional da janela seria ativa, quando aplicavel
 - [ ] revisar `dashboard`, `status snapshot`, `delta`, `sign-off` e `JSON consolidado`
-- [ ] confirmar se houve evidência nova material revisavel no proprio ciclo
+- [ ] confirmar se houve evidência nova material revisável no proprio ciclo
 - [ ] registrar a decisao da semana: `manter baseline`, `recalibrar`, `pending`, `no-go` ou `go_with_exception`
 - [ ] validar se algum `P0`, `P1` ou `P2` mudou de status por evidência real
 - [ ] confirmar quais itens permanecem `blocked`
-- [ ] registrar a proxima evidencia esperada por item critico
+- [ ] registrar a proxima evidência esperada por item critico
 - [ ] preencher ou revisar a versao operacional da semana
 - [ ] sincronizar o rascunho completo da semana
 - [ ] decidir se a semana deve ser promovida para `YYYY-MM-DD-weekly-governance.md`
@@ -51,6 +51,6 @@ Ao final do fechamento, deve estar claro:
 
 - qual e a baseline oficial da semana
 - quais itens continuam `blocked`
-- qual item esta mais proximo de fechar
-- qual artefato legitima o proximo avanço
+- qual item esta mais próximo de fechar
+- qual artefato legitima o próximo avanço
 - se a semana terminou em `go`, `go_with_exception`, `pending` ou `no-go`

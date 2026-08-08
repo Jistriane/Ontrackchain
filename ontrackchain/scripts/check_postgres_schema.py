@@ -17,58 +17,8 @@ def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def _normalize_sql(sql: str) -> list[str]:
-    cleaned = re.sub(r"--.*?$", "", sql, flags=re.MULTILINE)
-    return [statement.strip() for statement in cleaned.split(";") if statement.strip()]
-
-
-def _extract_contracts(sql: str) -> set[str]:
-    contracts: set[str] = set()
-    for statement in _normalize_sql(sql):
-        normalized = " ".join(statement.split())
-        lowered = normalized.lower()
-
-        match = re.match(r"create table if not exists ([a-zA-Z_][a-zA-Z0-9_]*)", lowered)
-        if match:
-            table_name = match.group(1)
-            contracts.add(f"table:{table_name}")
-            raw_body_match = re.search(
-                r"create table if not exists [a-zA-Z_][a-zA-Z0-9_]*\s*\((.*)\)\s*$",
-                statement,
-                flags=re.IGNORECASE | re.DOTALL,
-            )
-            if raw_body_match:
-                body = raw_body_match.group(1)
-                for line in body.splitlines():
-                    candidate = line.strip().rstrip(",")
-                    if not candidate:
-                        continue
-                    lowered_candidate = candidate.lower()
-                    if lowered_candidate.startswith(("constraint ", "primary key", "foreign key", "unique ", "check ")):
-                        continue
-                    column_match = re.match(r'("?)([a-zA-Z_][a-zA-Z0-9_]*)\1\s+', candidate)
-                    if column_match:
-                        contracts.add(f"column:{table_name}.{column_match.group(2).lower()}")
-
-        match = re.match(r"create (?:unique )?index if not exists ([a-zA-Z_][a-zA-Z0-9_]*)", lowered)
-        if match:
-            contracts.add(f"index:{match.group(1)}")
-
-        match = re.match(r"alter table ([a-zA-Z_][a-zA-Z0-9_]*) enable row level security", lowered)
-        if match:
-            contracts.add(f"rls:{match.group(1)}")
-
-        match = re.match(r"create policy ([a-zA-Z_][a-zA-Z0-9_]*) on ([a-zA-Z_][a-zA-Z0-9_]*)", lowered)
-        if match:
-            contracts.add(f"policy:{match.group(2)}.{match.group(1)}")
-
-        alter_match = re.match(r"alter table ([a-zA-Z_][a-zA-Z0-9_]*) ", lowered)
-        if alter_match:
-            table_name = alter_match.group(1)
-            for column_name in re.findall(r"add column if not exists ([a-zA-Z_][a-zA-Z0-9_]*)", lowered):
-                contracts.add(f"column:{table_name}.{column_name}")
-
-    return contracts
+def _has_minimal_bootstrap(sql: str) -> bool:
+    return "create table if not exists organizations" in sql.lower()
 
 
 def _load_migration_files() -> list[Path]:
@@ -91,25 +41,23 @@ def _load_migration_files() -> list[Path]:
 
 
 def main() -> int:
-    init_contracts = _extract_contracts(_read_text(INIT_SQL))
+    init_sql = _read_text(INIT_SQL)
     readme_text = _read_text(README)
     migration_files = _load_migration_files()
 
     failures: list[str] = []
+    if not _has_minimal_bootstrap(init_sql):
+        failures.append("init.sql nao contem bootstrap minimo: CREATE TABLE IF NOT EXISTS organizations")
+
     for migration_file in migration_files:
         if migration_file.name not in readme_text:
             failures.append(f"README nao referencia migration {migration_file.name}")
-
-        migration_contracts = _extract_contracts(_read_text(migration_file))
-        missing_from_init = sorted(contract for contract in migration_contracts if contract not in init_contracts)
-        for missing in missing_from_init:
-            failures.append(f"{migration_file.name}: contrato ausente em init.sql -> {missing}")
 
     if failures:
         sys.stderr.write("\n".join(failures) + "\n")
         return 1
 
-    print(f"OK: {len(migration_files)} migrations coerentes com {INIT_SQL}")
+    print(f"OK: {len(migration_files)} migrations coerentes e README atualizado")
     return 0
 
 

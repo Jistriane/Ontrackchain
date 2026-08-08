@@ -66,8 +66,8 @@ Registrar:
 
 - [ ] `P0-02` disparado ou bloqueado explicitamente
 - [ ] `P0-03` disparado ou bloqueado explicitamente
-- [ ] ETA do bundle regulatorio recalculado
-- [ ] proximo checkpoint combinado definido
+- [ ] ETA do bundle regulatório recalculado
+- [ ] próximo checkpoint combinado definido
 
 Registrar:
 

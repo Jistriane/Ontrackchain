@@ -2,6 +2,9 @@
 .env
 .env.local
 .env.*.local
+.env.oidc-mock
+.env.oidc-local
+.env.staging
 
 # Python
 __pycache__/
@@ -22,6 +25,10 @@ Thumbs.db
 
 # Docker
 *.log
+
+# Runtime artifacts
+ci-artifacts/
+tmp/
 
 # Secrets (never commit)
 *secret*

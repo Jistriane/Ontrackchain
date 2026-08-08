@@ -38,12 +38,12 @@
   - ack do owner: `no`
   - ultima atualizacao: `ultimo rerun local via comando unico`
   - ultimo checkpoint: `placeholders.json` manteve `POSTGRES_PASSWORD`, `ALERTMANAGER_WEBHOOK_BEARER_TOKEN`, `GRAFANA_ADMIN_PASSWORD`
-  - proximo checkpoint: provisionar segredos base e atualizar handoff
-  - hora do proximo checkpoint: `<preencher_HH:MMZ>`
+  - próximo checkpoint: provisionar segredos base e atualizar handoff
+  - hora do próximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `30 min`
   - dependencia ativa: `POSTGRES_PASSWORD`, `ALERTMANAGER_WEBHOOK_BEARER_TOKEN`, `GRAFANA_ADMIN_PASSWORD`
   - bridge de escalacao: `<preencher_bridge_platform>`
-  - observacoes: base da stack ainda nao formalizada
+  - observações: base da stack ainda nao formalizada
 - `Auth/OIDC`
   - status atual: `blocked`
   - responsavel online: `<preencher_nome_owner_online_auth>`
@@ -51,12 +51,12 @@
   - ack do owner: `no`
   - ultima atualizacao: `ultimo rerun local via comando unico`
   - ultimo checkpoint: handoff de `Auth/OIDC` ainda sem `date/status`; placeholders OIDC mantidos
-  - proximo checkpoint: provisionar secrets OIDC serio e rodar preflight OIDC
-  - hora do proximo checkpoint: `<preencher_HH:MMZ>`
+  - próximo checkpoint: provisionar secrets OIDC serio e rodar preflight OIDC
+  - hora do próximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `30 min`
   - dependencia ativa: `KEYCLOAK_ADMIN_PASSWORD`, `KEYCLOAK_B2B_CLIENT_SECRET`, `JWT_HS256_SECRET`, `MFA_TOTP_SECRET`
   - bridge de escalacao: `<preencher_bridge_auth>`
-  - observacoes: depende de evidencia externa de identidade
+  - observações: depende de evidência externa de identidade
 - `Investigation/RPC`
   - status atual: `blocked`
   - responsavel online: `<preencher_nome_owner_online_rpc>`
@@ -64,12 +64,12 @@
   - ack do owner: `no`
   - ultima atualizacao: `ultimo rerun local via comando unico`
   - ultimo checkpoint: endpoints RPC primario/fallback ainda em placeholder
-  - proximo checkpoint: preencher RPC primario/fallback e rerodar preflight externo
-  - hora do proximo checkpoint: `<preencher_HH:MMZ>`
+  - próximo checkpoint: preencher RPC primario/fallback e rerodar preflight externo
+  - hora do próximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `30 min`
   - dependencia ativa: `INVESTIGATION_RPC_PRIMARY_URL`, `INVESTIGATION_RPC_FALLBACK_URL`
   - bridge de escalacao: `<preencher_bridge_rpc>`
-  - observacoes: dependencia externa de conectividade
+  - observações: dependencia externa de conectividade
 - `Compliance/AML`
   - status atual: `blocked`
   - responsavel online: `<preencher_nome_owner_online_compliance>`
@@ -77,12 +77,12 @@
   - ack do owner: `no`
   - ultima atualizacao: `ultimo rerun local via comando unico`
   - ultimo checkpoint: provider AML/KYT e feed UE tokenizado continuam sem insumo real
-  - proximo checkpoint: provisionar credenciais AML/KYT e URL UE tokenizada
-  - hora do proximo checkpoint: `<preencher_HH:MMZ>`
+  - próximo checkpoint: provisionar credenciais AML/KYT e URL UE tokenizada
+  - hora do próximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `60 min`
   - dependencia ativa: `COMPLIANCE_TRM_SCREENING_URL`, `COMPLIANCE_TRM_API_KEY`, `COMPLIANCE_EU_SANCTIONS_SOURCE_URL`
   - bridge de escalacao: `<preencher_bridge_compliance>`
-  - observacoes: `P0-02` e `P0-03` ainda sem artefato real
+  - observações: `P0-02` e `P0-03` ainda sem artefato real
 - `Gate Agregado da Janela`
   - status atual: `blocked`
   - responsavel online: `<preencher_nome_facilitador_online>`
@@ -90,12 +90,12 @@
   - ack do owner: `yes`
   - ultima atualizacao: `ultimo rerun local via comando unico`
   - ultimo checkpoint: `prepare_staging_window` e `run_staging_window` com `status=failed`; delta com semaforo `amarelo`
-  - proximo checkpoint: executar `prepare_staging_window.py --validate --preflight`
-  - hora do proximo checkpoint: `<preencher_HH:MMZ>`
+  - próximo checkpoint: executar `prepare_staging_window.py --validate --preflight`
+  - hora do próximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `15 min`
   - dependencia ativa: todas as trilhas anteriores precisam sair de `blocked`
   - bridge de escalacao: `<preencher_bridge_go_no_go>`
-  - observacoes: ainda nao elegivel para `run-serious-window-local`
+  - observações: ainda nao elegivel para `run-serious-window-local`
 
 ## Linha do Tempo
 
@@ -138,28 +138,28 @@
   - owner da escalacao: `<preencher_nome_owner_escalacao_platform>`
   - canal da escalacao: `<preencher_bridge_platform>`
   - ETA: `30 min`
-  - observacao: resolver segredos base primeiro reduz risco de retrabalho
+  - observação: resolver segredos base primeiro reduz risco de retrabalho
 - ID: `WR-02`
   - trilha: `Auth/OIDC`
   - status: `open`
   - owner da escalacao: `<preencher_nome_owner_escalacao_auth>`
   - canal da escalacao: `<preencher_bridge_auth>`
   - ETA: `30 min`
-  - observacao: depende de handoff e preflight OIDC verde
+  - observação: depende de handoff e preflight OIDC verde
 - ID: `WR-03`
   - trilha: `Investigation/RPC`
   - status: `open`
   - owner da escalacao: `<preencher_nome_owner_escalacao_rpc>`
   - canal da escalacao: `<preencher_bridge_rpc>`
   - ETA: `30 min`
-  - observacao: precisa de endpoints reais antes do preflight externo
+  - observação: precisa de endpoints reais antes do preflight externo
 - ID: `WR-04`
   - trilha: `Compliance/AML`
   - status: `open`
   - owner da escalacao: `<preencher_nome_owner_escalacao_compliance>`
   - canal da escalacao: `<preencher_bridge_compliance>`
   - ETA: `60 min`
-  - observacao: depende de credenciais AML/KYT e URL UE tokenizada
+  - observação: depende de credenciais AML/KYT e URL UE tokenizada
 
 ## Decisoes Operacionais
 
@@ -184,5 +184,5 @@ Nota editorial:
 - comando unico recomendado: `make refresh-staging-war-room-governance-local WINDOW_ID=stg-2026-07-06-a`
 - delta esperado: `docs/governance-weekly/generated/windows/stg-2026-07-06-a/stg-2026-07-06-a-status-snapshot-delta.md`
 - decisao recomendada: `pending_no_go`
-- owner do proximo passo: `owners nominais por trilha com coordenacao do facilitador/Release Manager Tecnico`
-- canal do proximo passo: `<preencher_canal_principal_war_room>`
+- owner do próximo passo: `owners nominais por trilha com coordenacao do facilitador/Release Manager Tecnico`
+- canal do próximo passo: `<preencher_canal_principal_war_room>`

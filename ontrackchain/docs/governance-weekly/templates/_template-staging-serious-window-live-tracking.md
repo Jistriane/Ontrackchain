@@ -27,12 +27,12 @@
   - ack do owner: `yes` | `no`
   - ultima atualizacao: `<YYYY-MM-DDTHH:MM:SSZ>`
   - ultimo checkpoint: `<checkpoint_anterior>`
-  - proximo checkpoint: `<proximo_checkpoint>`
-  - hora do proximo checkpoint: `<HH:MMZ>`
+  - próximo checkpoint: `<proximo_checkpoint>`
+  - hora do próximo checkpoint: `<HH:MMZ>`
   - ETA desbloqueio: `<15 min | 30 min | 60 min | >60 min>`
   - dependencia ativa: `<secret_ou_gate_ativo>`
   - bridge de escalacao: `<canal_bridge_ou_incident_room>`
-  - observacoes: `<observacao_curta>`
+  - observações: `<observacao_curta>`
 - `Auth/OIDC`
   - status atual: `pending`
   - responsavel online: `<nome_owner_online>`
@@ -40,12 +40,12 @@
   - ack do owner: `yes` | `no`
   - ultima atualizacao: `<YYYY-MM-DDTHH:MM:SSZ>`
   - ultimo checkpoint: `<checkpoint_anterior>`
-  - proximo checkpoint: `<proximo_checkpoint>`
-  - hora do proximo checkpoint: `<HH:MMZ>`
+  - próximo checkpoint: `<proximo_checkpoint>`
+  - hora do próximo checkpoint: `<HH:MMZ>`
   - ETA desbloqueio: `<15 min | 30 min | 60 min | >60 min>`
   - dependencia ativa: `<secret_ou_gate_ativo>`
   - bridge de escalacao: `<canal_bridge_ou_incident_room>`
-  - observacoes: `<observacao_curta>`
+  - observações: `<observacao_curta>`
 - `Investigation/RPC`
   - status atual: `pending`
   - responsavel online: `<nome_owner_online>`
@@ -53,12 +53,12 @@
   - ack do owner: `yes` | `no`
   - ultima atualizacao: `<YYYY-MM-DDTHH:MM:SSZ>`
   - ultimo checkpoint: `<checkpoint_anterior>`
-  - proximo checkpoint: `<proximo_checkpoint>`
-  - hora do proximo checkpoint: `<HH:MMZ>`
+  - próximo checkpoint: `<proximo_checkpoint>`
+  - hora do próximo checkpoint: `<HH:MMZ>`
   - ETA desbloqueio: `<15 min | 30 min | 60 min | >60 min>`
   - dependencia ativa: `<secret_ou_gate_ativo>`
   - bridge de escalacao: `<canal_bridge_ou_incident_room>`
-  - observacoes: `<observacao_curta>`
+  - observações: `<observacao_curta>`
 - `Compliance/AML`
   - status atual: `pending`
   - responsavel online: `<nome_owner_online>`
@@ -66,12 +66,12 @@
   - ack do owner: `yes` | `no`
   - ultima atualizacao: `<YYYY-MM-DDTHH:MM:SSZ>`
   - ultimo checkpoint: `<checkpoint_anterior>`
-  - proximo checkpoint: `<proximo_checkpoint>`
-  - hora do proximo checkpoint: `<HH:MMZ>`
+  - próximo checkpoint: `<proximo_checkpoint>`
+  - hora do próximo checkpoint: `<HH:MMZ>`
   - ETA desbloqueio: `<15 min | 30 min | 60 min | >60 min>`
   - dependencia ativa: `<secret_ou_gate_ativo>`
   - bridge de escalacao: `<canal_bridge_ou_incident_room>`
-  - observacoes: `<observacao_curta>`
+  - observações: `<observacao_curta>`
 - `Gate Agregado da Janela`
   - status atual: `pending`
   - responsavel online: `<nome_owner_online>`
@@ -79,12 +79,12 @@
   - ack do owner: `yes` | `no`
   - ultima atualizacao: `<YYYY-MM-DDTHH:MM:SSZ>`
   - ultimo checkpoint: `<checkpoint_anterior>`
-  - proximo checkpoint: `<proximo_checkpoint>`
-  - hora do proximo checkpoint: `<HH:MMZ>`
+  - próximo checkpoint: `<proximo_checkpoint>`
+  - hora do próximo checkpoint: `<HH:MMZ>`
   - ETA desbloqueio: `<15 min | 30 min | 60 min | >60 min>`
   - dependencia ativa: `<secret_ou_gate_ativo>`
   - bridge de escalacao: `<canal_bridge_ou_incident_room>`
-  - observacoes: `<observacao_curta>`
+  - observações: `<observacao_curta>`
 
 ## Linha do Tempo
 
@@ -103,7 +103,7 @@
   - owner da escalacao: `<nome_owner_escalacao>`
   - canal da escalacao: `<bridge_de_escalacao>`
   - ETA: `<HH:MMZ ou 30 min>`
-  - observacao: `<observacao_curta>`
+  - observação: `<observacao_curta>`
 
 ## Decisoes Operacionais
 
@@ -114,5 +114,5 @@
 - war room:
 - sign-off:
 - decisao recomendada:
-- owner do proximo passo: `<nome_owner_online>`
-- canal do proximo passo: `<slack_ou_teams_canal>`
+- owner do próximo passo: `<nome_owner_online>`
+- canal do próximo passo: `<slack_ou_teams_canal>`

@@ -21,7 +21,7 @@ Registros gerados por este rito devem ser armazenados em:
 - [Registros Semanais de Governança](governance-weekly/README.md)
   - usar o template: [Template de Registro Semanal](governance-weekly/templates/_template-weekly-governance.md)
   - quando houver recalibracao material de nota, usar tambem: [Template de Atualizacao de KPI](governance-weekly/templates/_template-kpi-scorecard-update.md)
-  - quando houver ciclo orientado por `D1-D7`, usar tambem: [Template de Execucao por Evidencia](governance-weekly/templates/_template-maturity-evidence-execution-cycle.md)
+  - quando houver ciclo orientado por `D1-D7`, usar tambem: [Template de Execucao por evidência](governance-weekly/templates/_template-maturity-evidence-execution-cycle.md)
 
 ## Quando Executar
 
@@ -34,7 +34,7 @@ Registros gerados por este rito devem ser armazenados em:
 | Papel | Obrigatorio | Responsabilidade |
 | --- | --- | --- |
 | Arquiteto/Responsável Técnico | sim | validar leitura macro, trade-offs e prioridades |
-| Owner nominal dos itens `in_progress` ou `blocked` | sim | apresentar evidencias, bloqueios e proximo movimento |
+| Owner nominal dos itens `in_progress` ou `blocked` | sim | apresentar evidências, bloqueios e próximo movimento |
 | Plataforma/DevOps | sim quando houver item de release, staging ou CI/CD | atualizar readiness operacional e gates |
 | Security/Compliance | sim quando houver item regulatório, retention ou AML/KYT | validar sign-off, risco e pendências externas |
 | SRE/Operação | sim quando houver item de incidente, SLA, RPC ou observabilidade | atualizar bloqueios operacionais e readiness de resposta |
@@ -57,7 +57,7 @@ Antes da reunião, o facilitador deve reunir:
    - artifact `serious-staging-window-<janela>` quando houver janela séria via CI controlado
    - `go/no-go decision packet` da janela, quando houver payload consolidado pós-processado
    - sign-offs formais recebidos
-   - registro `D1-D7` quando houver execucao guiada pelo kit de evidencia
+   - registro `D1-D7` quando houver execucao guiada pelo kit de evidência
    - resumo RCA cross-domain quando houver incidente material na semana
 6. lista de itens `blocked`, itens com prazo alvo vencido e itens sem artefato atualizado
 7. quando houver janela seria ativa ou planejada:
@@ -107,8 +107,8 @@ Para cada item `in_progress`, `ready` ou `blocked`, revisar:
 - prazo alvo
 - risco associado
 - artefato esperado
-- evidencia mais recente
-- proximo passo
+- evidência mais recente
+- próximo passo
 - quando houver incidente cross-domain relevante: confirmar `work_item_id`, RCA minima, comentario automatico de timeline e presenca ou ausencia do resumo executivo
 
 Regras:

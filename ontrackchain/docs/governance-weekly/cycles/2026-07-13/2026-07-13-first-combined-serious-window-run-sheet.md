@@ -9,7 +9,7 @@ Use esta folha junto com:
 - [Run Sheet Preenchivel da Primeira Janela Combinada](../../guides/FIRST_COMBINED_SERIOUS_WINDOW_RUN_SHEET.md)
 - [Checklist Executivo da Primeira Janela Combinada `P0-02 + P0-03`](../../guides/FIRST_COMBINED_SERIOUS_WINDOW_EXECUTIVE_CHECKLIST.md)
 - [Governança Semanal Operacional 2026-07-13](./2026-07-13-weekly-governance-operational.md)
-- [Rascunho de Execucao por Evidencia 2026-07-13](./2026-07-13-maturity-evidence-execution-draft.md)
+- [Rascunho de Execucao por evidência 2026-07-13](./2026-07-13-maturity-evidence-execution-draft.md)
 - [Bridge Quick-Fill `stg-2026-07-13-a`](./2026-07-13-staging-serious-window-bridge-quick-fill.md)
 
 ## Identificacao da Tentativa
@@ -34,7 +34,7 @@ Use esta folha junto com:
 | `P0-02` AML/KYT | `preencher` | `preencher` | `preencher` | `sim ou nao` |
 | `P0-03` Feed UE | `preencher` | `preencher` | `preencher` | `sim ou nao` |
 | `P0-04` consolidado | `preencher` | `preencher` | `preencher` | `sim ou nao` |
-| Governanca / sign-off | `preencher` | `preencher` | `preencher` | `sim ou nao` |
+| governança / sign-off | `preencher` | `preencher` | `preencher` | `sim ou nao` |
 
 ## Preenchimento Guiado por Papel
 
@@ -43,15 +43,15 @@ Use esta folha junto com:
 | Gate agregado | `Release Manager Tecnico` | `facilitador`, `canal_principal`, `bridge_principal`, `hora_inicio_utc`, `hora_limite_go_no_go_utc` | war room + tracking |
 | `P0-02` AML/KYT | `Compliance/Backend Lead` | `preflight_status`, `runtime_status`, `homologation_status`, `compliance_request_id`, `homologation_request_id` | checker AML/KYT + homologacao |
 | `P0-03` Feed UE | `Compliance/Ops Lead` | `runner_status`, `checker_status`, `eu_request_id`, `eu_consolidated_status`, `source_url_matches_expected` | janela UE + checker |
-| `P0-04` consolidado | `Platform/SRE` | `compliance_readiness`, `eu_readiness`, `regulatory_bundle_readiness`, `artifact_validation_status` | bundle regulatorio + validador |
-| Governanca / sign-off | `Arquitetura / Governanca` | `snapshot_md`, `consolidated_json`, `signoff_md`, `decisao_final`, `proximo_passo` | refresh do war room + sign-off |
+| `P0-04` consolidado | `Platform/SRE` | `compliance_readiness`, `eu_readiness`, `regulatory_bundle_readiness`, `artifact_validation_status` | bundle regulatório + validador |
+| governança / sign-off | `Arquitetura / Governanca` | `snapshot_md`, `consolidated_json`, `signoff_md`, `decisao_final`, `proximo_passo` | refresh do war room + sign-off |
 
 ## Handoff Minimo por Dominio
 
 - `Compliance/AML`: confirmar credencial real, owner online, status do checker e correlator da homologacao
 - `Compliance/Backend`: confirmar URL tokenizada real, owner online, status do runner/checker e correlator da janela UE
-- `Platform/SRE`: confirmar bundle regulatorio, validacao final e readiness consolidado
-- `Security/Auth`: registrar explicitamente se `P0-01` permanece apenas como risco residual ou se houve artefato novo revisavel
+- `Platform/SRE`: confirmar bundle regulatório, validação final e readiness consolidado
+- `Security/Auth`: registrar explicitamente se `P0-01` permanece apenas como risco residual ou se houve artefato novo revisável
 - `Governanca`: registrar a decisao da tentativa e o criterio objetivo para rerun ou promocao
 
 ## Warmup `T-30 min`
@@ -70,7 +70,7 @@ Registrar:
 ## Gate Agregado `T-15 min`
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-05-serious-window \
   WINDOW_ID=stg-2026-07-13-a \
   MODE=baseline \
@@ -90,7 +90,7 @@ Registrar:
 ## Execucao `P0-02`
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/preflight_external_integrations.py
 make check-compliance-provider-runtime \
   INTERNAL_BASE_URL=http://compliance-api:8002 \
@@ -114,7 +114,7 @@ Registrar:
 ## Execucao `P0-03`
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make rerun-compliance-worker
 export REQUEST_ID="stg-2026-07-13-a-eu-check"
 make gate-p0-03-eu-live WINDOW_ID=stg-2026-07-13-a REQUEST_ID="$REQUEST_ID"
@@ -134,10 +134,10 @@ Registrar:
 - `eu_preflight_json`: `artifacts/staging/checks/stg-2026-07-13-a-eu-sanctions-preflight.json | preencher`
 - `eu_sync_json`: `artifacts/staging/checks/stg-2026-07-13-a-eu-sanctions-sync.json | preencher`
 
-## Consolidacao `P0-04`
+## consolidação `P0-04`
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-04-regulatory-bundle \
   WINDOW_ID=stg-2026-07-13-a \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -166,7 +166,7 @@ Registrar:
 ## Reconciliacao Final
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID=stg-2026-07-13-a
 ```
 

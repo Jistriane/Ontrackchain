@@ -1,8 +1,8 @@
-# Ciclo Semanal de Governanca — 2026-07-23
+# Ciclo Semanal de governança — 2026-07-23
 
 ## Resumo Executivo
 
-Ciclo focado em consolidacao de P2-05 (RBAC), P2-01 (modulo team) e P2-04 (vault/secrets). Todos os itens P2 estao concluidos. Projeto atinge 93% de construcao tecnica com 80/80 testes E2E passando.
+Ciclo focado em consolidação de P2-05 (RBAC), P2-01 (modulo team) e P2-04 (vault/secrets). Todos os itens P2 estao concluidos. Projeto atinge 93% de construcao tecnica com 80/80 testes E2E passando.
 
 ## Itens Concluidos Neste Ciclo
 
@@ -12,7 +12,7 @@ Ciclo focado em consolidacao de P2-05 (RBAC), P2-01 (modulo team) e P2-04 (vault
 - `auth/context` route corrigida para usar X-Role do auth-service
 - `roleByEmail` em session/start corrigido para mapeamento correto por papel
 - 80/80 testes E2E passando
-- Documentacao sincronizada
+- documentação sincronizada
 
 ### P2-01 — Modulo Team (done)
 - ADR-015 criado com definicao de escopo e evolucao incremental
@@ -38,10 +38,10 @@ Ciclo focado em consolidacao de P2-05 (RBAC), P2-01 (modulo team) e P2-04 (vault
 | P2-01 | done |
 | P2-04 | done |
 
-## Proximos Passos
+## próximos Passos
 
 ### Now
-- P1-02: Converter capacidade tecnica em evidencia operacional recorrente
+- P1-02: Converter capacidade tecnica em evidência operacional recorrente
 - P0-07: Publicar nova baseline oficial
 
 ### Next
@@ -50,7 +50,7 @@ Ciclo focado em consolidacao de P2-05 (RBAC), P2-01 (modulo team) e P2-04 (vault
 - P2-06: Executar segunda janela seria comparavel
 - P2-07: Atualizar o plano para 95%
 
-## Evidencias
+## evidências
 
 - 80/80 testes browser-mocked passando
 - 5/5 testes enterprise-compliance passando
@@ -66,6 +66,6 @@ Ciclo focado em consolidacao de P2-05 (RBAC), P2-01 (modulo team) e P2-04 (vault
 
 ## Acoes da Proxima Semana
 
-1. Concluir P1-02 (evidencia operacional recorrente)
+1. Concluir P1-02 (evidência operacional recorrente)
 2. Atualizar baseline oficial (P0-07)
 3. Preparar para proxima janela seria (P2-06)

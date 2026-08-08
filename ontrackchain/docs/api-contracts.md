@@ -114,9 +114,9 @@ Campos relevantes:
 - `hostedShowcaseFallback`
 - `missingEnvKeys`
 
-## Regras Canonicas de Catalogo
+## Regras canônicas de Catalogo
 
-- aliases sao aceitos por UX e API, mas devem ser resolvidos para o nome canonico antes de billing, persistencia e auditoria
+- aliases sao aceitos por UX e API, mas devem ser resolvidos para o nome canônico antes de billing, persistencia e auditoria
 - `quote -> start` continua sujeito a `plan lock`; downgrade invalida a execucao e upgrade exige novo `quote`
 - consumidores devem preferir os endpoints de catalogo, e nao listas estaticas embutidas no frontend:
   - `GET /api/v1/report-types`
@@ -380,7 +380,7 @@ Requisitos:
 - `X-MFA-Provider-Homologated=true`
 - `X-Org-Id` e usuario persistido valido
 - role `ADMIN|COMPLIANCE_OFFICER|OTK_COMPLIANCE_OFFICER`
-- `ANALYST` permanece em `blocks/evaluate`, mas nao executa o lift regulatorio
+- `ANALYST` permanece em `blocks/evaluate`, mas nao executa o lift regulatório
 
 Erros relevantes:
 
@@ -399,7 +399,7 @@ Comportamento atual:
 
 - calcula `risk_level`, `risk_rationale`, `enhanced_dd_required`, `next_review_date`
 - persiste `counterparties` e `counterparty_history`
-- registra evidencia `COUNTERPARTY_ONBOARDED`
+- registra evidência `COUNTERPARTY_ONBOARDED`
 
 Requisitos:
 
@@ -411,7 +411,7 @@ Requisitos:
 
 Uso:
 
-- cotar custo e operacao canonica antes da abertura de um case de compliance
+- cotar custo e operação canônica antes da abertura de um case de compliance
 
 Comportamento atual:
 
@@ -444,7 +444,7 @@ Uso:
 Comportamento atual:
 
 - retorna carteira operacional com `risk_level`, `kyc_status`, `PEP`, janela de revisao e snapshot DD/SoF
-- exige `X-Role` regulatorio compativel (`ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `OTK_COMPLIANCE_OFFICER`, `REVIEWER`, `OTK_REVIEWER`)
+- exige `X-Role` regulatório compativel (`ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `OTK_COMPLIANCE_OFFICER`, `REVIEWER`, `OTK_REVIEWER`)
 - retorna `403 counterparty_read_role_required` quando a sessao nao possui leitura operacional regulatoria
 - persiste `authorization_denied` auditado com `request_id`, `effective_role`, `allowed_roles` e endpoint quando a role nao atende
 
@@ -452,7 +452,7 @@ Comportamento atual:
 
 Uso:
 
-- carregar o dossie oficial da contraparte, incluindo snapshot regulatorio e revisao DD/SoF consolidada
+- carregar o dossie oficial da contraparte, incluindo snapshot regulatório e revisao DD/SoF consolidada
 
 Comportamento atual:
 
@@ -471,10 +471,10 @@ Comportamento atual:
 
 - pagina por `limit/offset`
 - retorna `change_type`, `field_changed`, valores antigo/novo, motivo, `changed_at`, `changed_by_user_id` e `evidence_hash`
-- exige `X-Role` regulatorio de revisao (`ADMIN`, `COMPLIANCE_OFFICER`, `OTK_COMPLIANCE_OFFICER`, `REVIEWER`, `OTK_REVIEWER`)
+- exige `X-Role` regulatório de revisao (`ADMIN`, `COMPLIANCE_OFFICER`, `OTK_COMPLIANCE_OFFICER`, `REVIEWER`, `OTK_REVIEWER`)
 - `ANALYST` preserva a leitura operacional da carteira/detalhe, mas nao recebe o historico formal DD/SoF
 - retorna `404 counterparty_not_found` quando a contraparte nao existe no tenant
-- retorna `403 counterparty_review_role_required` quando a sessao nao possui autorizacao regulatoria de revisao
+- retorna `403 counterparty_review_role_required` quando a sessao nao possui autorização regulatoria de revisao
 
 ## Report API
 
@@ -482,20 +482,20 @@ Comportamento atual:
 
 Uso:
 
-- catalogo comercial e operacional dos tipos de relatorio suportados pela plataforma
+- catalogo comercial e operacional dos tipos de relatório suportados pela plataforma
 
 Comportamento atual:
 
-- resolve aliases para o nome canonico antes do `quote` e do `start`
+- resolve aliases para o nome canônico antes do `quote` e do `start`
 - reflete a hierarquia `free -> starter -> professional -> enterprise`
 - preserva `plan lock` entre a cotacao e a execucao
 
-Leitura canonica atual:
+Leitura canônica atual:
 
-| Tipo canonico | Plano minimo | Formato | Observacao |
+| Tipo canônico | Plano minimo | Formato | observação |
 | --- | --- | --- | --- |
 | `risk_check_instant` | `starter` | `json` | score AML 5D sem PDF |
-| `technical_basic` | `starter` | `pdf` | relatorio tecnico basico |
+| `technical_basic` | `starter` | `pdf` | relatório tecnico basico |
 | `technical_full` | `professional` | `pdf` | analise aprofundada |
 | `compliance_aml` | `starter` | `pdf` | compliance/AML/KYT |
 | `coaf_ready_report` | `professional` | `pdf` | baseline regulatoria |
@@ -616,7 +616,7 @@ Response:
 
 Uso:
 
-- listagem oficial de relatorios persistidos da organizacao com paginacao e filtros
+- listagem oficial de relatórios persistidos da organizacao com paginacao e filtros
 
 Query params:
 
@@ -624,7 +624,7 @@ Query params:
 - `limit` (default `20`, max `100`)
 - `report_id` (opcional; match exato do `external_report_id`)
 - `case_id` (opcional, UUID)
-- `report_type` (opcional; aceita alias e resolve para canonico)
+- `report_type` (opcional; aceita alias e resolve para canônico)
 - `created_from` (opcional; ISO datetime, inclusivo)
 - `created_to` (opcional; ISO datetime, inclusivo)
 
@@ -661,7 +661,7 @@ Response:
 
 Uso:
 
-- gerar relatorio basico on-demand a partir de `case_id` e `report_type`
+- gerar relatório basico on-demand a partir de `case_id` e `report_type`
 
 Requisitos:
 
@@ -877,7 +877,7 @@ Response:
 
 Uso:
 
-- emissao do dossie regulatorio unificado (dominio + operacao) para o `ros_id`, consolidando:
+- emissao do dossie regulatório unificado (dominio + operação) para o `ros_id`, consolidando:
   - leitura oficial do `ros_record` (inclui `audit_logs`)
   - snapshot do `regulatory_work_item` (quando existir)
   - eventos e comentarios operacionais persistidos (`regulatory_work_events`/`regulatory_work_comments`)
@@ -922,7 +922,7 @@ Response:
 
 Uso:
 
-- metadados e download de relatorios deterministas
+- metadados e download de relatórios deterministas
 
 Requisitos para `GET /api/v1/reports/{report_id}`:
 
@@ -1046,7 +1046,7 @@ Requisitos:
 - role `ADMIN`
 - body com `provider` e `external_subject` validos
 - quando a role nao atende, o backend retorna `403 team_federated_identity_unlink_role_required`
-- o App Router de `/api/app/team/users/{memberId}/external-identities` preserva o `detail` canônico do backend, evitando mascarar recusas de autorizacao
+- o App Router de `/api/app/team/users/{memberId}/external-identities` preserva o `detail` canônico do backend, evitando mascarar recusas de autorização
 - o backend emite trilha auditavel local com `team_external_identity_unlinked`
 
 Erros relevantes:
@@ -1133,7 +1133,7 @@ Erros relevantes:
 
 Uso:
 
-- exportar o pacote manual canonico DD/SoF com manifesto `manual_review_package/v2`
+- exportar o pacote manual canônico DD/SoF com manifesto `manual_review_package/v2`
 - emitir o evento oficial `evidence_manual_review_package_exported` em `audit_logs`
 
 Comportamento atual:
@@ -1220,7 +1220,7 @@ Regras:
 - quando `signoff_method=platform_authenticated_2fa`, o backend exige MFA real:
 - `local_totp` com `X-2FA=ok`; ou
 - `external_provider` homologado com `X-MFA-Provider-Homologated=true` e `X-2FA` em `managed_externally|managed_externally_homologated|ok`
-- quando a validacao MFA falha, o backend registra `evidence_manual_review_package_mfa_violation` em `audit_logs`
+- quando a validação MFA falha, o backend registra `evidence_manual_review_package_mfa_violation` em `audit_logs`
 - o snapshot operacional e o Prometheus passam a expor total + breakdown `last_hour` para `2fa_required` e `mfa_not_homologated_for_oidc`
 - `ADMIN` pode assinar qualquer papel
 - `COMPLIANCE_OFFICER` pode assinar apenas `compliance_owner`
@@ -1378,12 +1378,12 @@ Erros relevantes:
 Uso:
 
 - leitura direta do selo por identificador tecnico
-- contrato secundario, util para auditoria, governanca e correlacao administrativa
+- contrato secundario, util para auditoria, governança e correlacao administrativa
 
 Regras:
 
 - roles permitidas: `ADMIN`, `AUDITOR`, `COMPLIANCE_OFFICER`, `LEGAL_REVIEWER` e `REVIEWER`
-- retorna o mesmo payload serializado das operacoes de escrita
+- retorna o mesmo payload serializado das operações de escrita
 
 Erros relevantes:
 
@@ -1394,7 +1394,7 @@ Erros relevantes:
 
 Uso:
 
-- leitura canonica do selo no frontend a partir de `package_sha256`
+- leitura canônica do selo no frontend a partir de `package_sha256`
 
 Query:
 
@@ -1457,9 +1457,9 @@ Uso:
 
 - catalogo comercial e operacional das janelas de monitoring suportadas
 
-Leitura canonica atual:
+Leitura canônica atual:
 
-| Operacao canonica | Plano minimo | Duracao | Formato |
+| operação canônica | Plano minimo | Duracao | Formato |
 | --- | --- | --- | --- |
 | `monitoring_30days` | `starter` | 30 dias | `json+alerts` |
 | `monitoring_90days` | `professional` | 90 dias | `json+alerts` |
@@ -1564,7 +1564,7 @@ Uso:
 Comportamento atual:
 
 - quando existir `work-item` rastreado para `resource_type=operational_alert` na organizacao atual, o export inclui colunas/campos `work_item_*`
-- o mesmo export propaga o resumo leve de RCA via `rca_*`, incluindo dominio, contencao, commander, dominios afetados, impacto, causa suspeita/confirmada, acoes corretivas e referencias de evidencia
+- o mesmo export propaga o resumo leve de RCA via `rca_*`, incluindo dominio, contencao, commander, dominios afetados, impacto, causa suspeita/confirmada, acoes corretivas e referencias de evidência
 - no formato `csv`, os campos de lista (`affected_domains`, `corrective_actions`, `evidence_refs`) saem serializados como JSON em colunas `*_json`
 - a ausencia de `work-item` nao bloqueia o export; os campos `work_item_*` e `rca_*` permanecem `null` ou listas vazias
 
@@ -1708,24 +1708,24 @@ Corpo:
 }
 ```
 
-Observacoes:
+observações:
 
 - o endpoint aceita os modulos `alerts`, `sanctions`, `blocks`, `reports`, `ros_coaf`, `counterparties` e `evidence`
 - `sanctions` persiste o `owner` textual atual em `metadata.owner_label`, porque o assignment formal por `owner_user_id` ainda nao esta completo no frontend
-- a camada frontend passa a tratar `metadata.workspace_status` como chave canonica de status de workspace
-- aliases legados como `metadata.local_workspace_status`, `metadata.local_block_status`, `metadata.local_case_id` e `metadata.ros_status` seguem aceitos na leitura durante a migracao incremental
+- a camada frontend passa a tratar `metadata.workspace_status` como chave canônica de status de workspace
+- aliases legados como `metadata.local_workspace_status`, `metadata.local_block_status`, `metadata.local_case_id` e `metadata.ros_status` seguem aceitos na leitura durante a migração incremental
 - `owner_label` continua como contexto humano de handoff; `owner_user_id` permanece como identificador tecnico de assignment quando disponivel
-- o backend agora valida o par canonico `module + resource_type` e retorna `422 invalid_module_resource_type_pair` quando houver combinacao invalida
-- o backend normaliza aliases canonicos de `metadata` na escrita (`workspace_status`, `case_id`, `owner_user_id`, `note`) sem bloquear campos extras de compatibilidade
+- o backend agora valida o par canônico `module + resource_type` e retorna `422 invalid_module_resource_type_pair` quando houver combinacao invalida
+- o backend normaliza aliases canônicos de `metadata` na escrita (`workspace_status`, `case_id`, `owner_user_id`, `note`) sem bloquear campos extras de compatibilidade
 - o backend valida tipos dos campos conhecidos de `metadata` e retorna `422 invalid_work_item_metadata` quando houver shape claramente invalido
 - o frontend deve preferir helpers compartilhados para convergencia incremental do contrato: `withCanonicalWorkItemMetadata(...)` na escrita, `resolveWorkItemOwnerDisplay(...)` para ownership legivel e `resolveWorkItemWorkspaceStatus(...)` para leitura resiliente de status
 - a fila operacional compartilhada ja utiliza esse padrao nos cockpits `alerts`, `evidence`, `ros-coaf`, `blocks`, `sanctions`, `reports` e `counterparties`, reduzindo drift entre leitura e persistencia de `metadata`
 
-Politica canonica atual de aliases:
+Politica canônica atual de aliases:
 
-- campos canonicos de transporte e persistencia: `case_id`, `workspace_status`, `owner_user_id`, `note`
-- aliases tolerados durante a migracao: `local_case_id`, `local_workspace_status`, `local_block_status`, `ros_status`
-- na escrita, o backend promove aliases tolerados para o campo canonico correspondente quando este nao vier preenchido
+- campos canônicos de transporte e persistencia: `case_id`, `workspace_status`, `owner_user_id`, `note`
+- aliases tolerados durante a migração: `local_case_id`, `local_workspace_status`, `local_block_status`, `ros_status`
+- na escrita, o backend promove aliases tolerados para o campo canônico correspondente quando este nao vier preenchido
 - para compatibilidade de leitura, o backend reemite aliases por `resource_type` quando necessario:
   - `sanctions_screening` e `preventive_block`: mantem `local_case_id` sincronizado com `case_id`
   - `sanctions_screening`, `formal_report_case`, `counterparty`, `evidence_event` e `preventive_block`: mantem `local_workspace_status` sincronizado com `workspace_status`
@@ -1736,7 +1736,7 @@ Campos canonizados por `resource_type` nesta rodada `P1-01`:
 
 - `operational_alert`: alem dos campos base de alerta (`alertname`, `receiver`, `service`, `severity`, `fingerprint`, `triage_*`), aceita o bloco leve de RCA (`domain`, `affected_domains`, `incident_commander`, `containment_status`, `runbook_ref`, `impact_summary`, `suspected_root_cause`, `confirmed_root_cause`, `corrective_actions`, `evidence_refs`)
 - `evidence_event`: alem de `event_id`, `audit_*`, `request_id`, `report_id` e `file_hash_sha256`, aceita o contexto de revisao manual (`provider`, `provider_status`, `degraded_reason`, `capability_status`, `delivery_mode`, `origin_analysis_status`, `requires_human_review`, `counterparty_context_present`, `counterparty_context`, `purpose`, `amount`, `manual_review_action`, `package_sha256`, `filename`)
-- `ros_record`: mantem compatibilidade com `ros_status` e adiciona `ros_phase`, `approval_2fa_verified` e `rejection_reason` como extensoes canonicas do workspace operacional
+- `ros_record`: mantem compatibilidade com `ros_status` e adiciona `ros_phase`, `approval_2fa_verified` e `rejection_reason` como extensoes canônicas do workspace operacional
 
 ### `PATCH /api/v1/operations/work-items/{work_item_id}`
 
@@ -1766,7 +1766,7 @@ Uso:
 
 - registrar comentario estruturado de `note`, `decision` ou `handoff`
 
-Leitura canonica atual do frontend:
+Leitura canônica atual do frontend:
 
 - `/sanctions` consome `GET/POST/PATCH /work-items` como fonte primaria da fila operacional
 - `/alerts` consome `GET/POST/PATCH /work-items` para rastrear incidentes e encerrar o item compartilhado ao fazer `ack`
@@ -1816,7 +1816,338 @@ Base: `/api/v1/ai` — microservico independente (porta 8005), exposto via Traef
 
 Headers obrigatórios: `X-Org-Id`, `X-Role`. Headers opcionais: `X-User-Id`.
 
+Trilha operacional (audit):
+
+| Endpoint | `audit_logs.action` |
+| --- | --- |
+| `POST /ai/explain` | `ai_explain_requested` |
+| `POST /ai/risk-model` | `ai_risk_model_assessed` |
+| `POST /ai/confidence` | `ai_confidence_generated` |
+| `POST /ai/case-insights` | `ai_case_insights_generated` |
+| `POST /ai/graph-analysis` | `ai_graph_analysis_completed` |
+| `POST /ai/graph-narrator` | `ai_graph_narrator_generated` |
+| `POST /ai/law-enforcement-export` | `ai_job_queued` (`analysis_type=law_enforcement_export`) |
+| `POST /ai/themis` | `ai_job_queued` (`analysis_type=themis`) |
+
+### Contrato de fila/job (assíncrono)
+
+Uso:
+
+- lidar com `429` do provedor LLM, bursts e operações longas sem degradar o cockpit
+- suportar fluxos que exigem “human gate” antes de liberar resultado final
+
+Quando ocorre:
+
+- estouro do limite por organização (`2 req/min`)
+- `429` do provedor LLM
+- operações longas (ex.: `themis`, `law-enforcement-export`, grafos extensos)
+
+Response 202 (enfileirado):
+
+```json
+{
+  "job_id": "uuid",
+  "status": "queued",
+  "queue_reason": "ORG_RATE_LIMIT | LLM_429 | LONG_RUNNING_OPERATION",
+  "estimated_wait_seconds": 30,
+  "human_gate_required": false,
+  "request_id": "uuid"
+}
+```
+
+Status possíveis:
+
+- `queued`
+- `processing`
+- `completed`
+- `failed`
+- `degraded`
+- `awaiting_human_gate`
+- `cancelled`
+
+Política de degradação (quando usar `degraded` vs `failed`)
+
+- `degraded` é permitido quando o resultado pode ser entregue com marcação explícita de parcialidade/limitações, mantendo defensabilidade.
+- `failed` deve ser usado quando a ausência de dados compromete a confiabilidade mínima do output e não há forma segura de retornar parcial.
+
+Regras recomendadas por endpoint:
+
+| Endpoint | `degraded` permitido? | Exemplos de degradação | `failed` quando |
+| --- | --- | --- | --- |
+| `POST /ai/graph-analysis` | sim | `RPC_PARTIAL`, `RPC_TIMEOUT` com retorno parcial e lacunas | não há dados mínimos para formar grafo |
+| `POST /ai/graph-narrator` | sim | `RPC_PARTIAL` com narrativa limitada; `LLM_429` vira fila | não há grafo mínimo ou contexto suficiente |
+| `POST /ai/explain` | sim (com restrição) | `LLM_DOWN` retorna orientação operacional sem conclusão final | solicitado para justificar ação regulatória e não há output |
+| `POST /ai/case-insights` | sim | histórico incompleto; recomendações limitadas | ausência de dados do caso impede summary coerente |
+| `POST /ai/risk-model` | não (recomendado) | n/a | `RPC_TIMEOUT`, dados insuficientes ou falha do modelo |
+| `POST /ai/law-enforcement-export` | não | n/a | qualquer falha/parcialidade relevante |
+| `POST /ai/themis` | sim (com gate) | partes concluídas; `human_gate_required=true` | falha geral sem componentes mínimos |
+
+Pré-condições mínimas (dados mínimos) por endpoint
+
+| Endpoint | Dados mínimos (antes de executar) | Se faltar, retornar |
+| --- | --- | --- |
+| `POST /ai/explain` | `case_id` resolvível + dados do caso disponíveis | `failed` (ou `queued` se for limite/429) |
+| `POST /ai/risk-model` | `address` válido + `chain` suportada + conectividade RPC/Indexer | `failed` |
+| `POST /ai/confidence` | `analysis_id` existente ou fatores suficientes no request | `failed` |
+| `POST /ai/case-insights` | `case_id` resolvível + histórico mínimo do caso | `degraded` se histórico parcial; `failed` se caso inexistente |
+| `POST /ai/graph-analysis` | `address` válido + `chain` suportada + RPC disponível | `degraded` quando parcial; `failed` se nenhum dado mínimo |
+| `POST /ai/graph-narrator` | grafo mínimo (`nodes>=2`, `edges>=1`) | `failed` (sem narrativa sem grafo) |
+| `POST /ai/law-enforcement-export` | `case_id` + evidências mínimas correlacionáveis | `failed` |
+| `POST /ai/themis` | `case_id` + `address` + `chain` + permissão de execução | `failed` |
+
+Formato de erro padronizado para pré-condições (recomendado)
+
+Quando retornar `failed` por falta de dados mínimos, o `error` deve carregar um payload estruturado para o cockpit:
+
+```json
+{
+  "code": "MISSING_PREREQUISITES",
+  "message": "Pré-condições mínimas não atendidas.",
+  "missing_prerequisites": [
+    {"check": "case_exists", "field": "case_id", "detail": "case_id inexistente ou inacessível"},
+    {"check": "rpc_reachable", "field": "chain", "detail": "RPC indisponível para a chain informada"}
+  ]
+}
+```
+
+Catálogo de checks para `missing_prerequisites.check` (baseline)
+
+| check | Quando usar | Observação |
+| --- | --- | --- |
+| `case_exists` | `case_id` não encontrado ou inacessível (tenant/RBAC) | não vazar se existe em outro tenant |
+| `case_data_available` | caso existe, mas payload mínimo está incompleto | pode retornar `degraded` em insights |
+| `chain_supported` | `chain` não suportada | preferir erro 400 de validação |
+| `address_valid` | address inválido/formato incorreto | preferir erro 400 de validação |
+| `rpc_reachable` | RPC/Indexer indisponível para a chain | diferenciar de `RPC_TIMEOUT` (runtime) |
+| `graph_minimum` | grafo mínimo não atingido (`nodes<2` ou `edges<1`) | usado em `graph-narrator` |
+| `role_allowed` | role não permite execução/aprovação | pode mapear para `JOB_FORBIDDEN` |
+
+Mapeamento recomendado: `check` → HTTP status
+
+| check | HTTP status | Observação |
+| --- | --- | --- |
+| `address_valid` | `400` | erro de validação de entrada |
+| `chain_supported` | `400` | erro de validação de entrada |
+| `role_allowed` | `403` | falta de permissão (RBAC) |
+| `case_exists` | `404` | não vazar cross-tenant; tratar como “não encontrado” |
+| `case_data_available` | `424` | dependência interna não satisfeita (dados insuficientes) |
+| `rpc_reachable` | `503` | dependência externa indisponível (antes de executar) |
+| `graph_minimum` | `424` | pré-condição lógica não satisfeita |
+
+Catálogo de `degradation_reason` (baseline) e efeitos
+
+| degradation_reason | Quando ocorre | human_gate_required | Observação |
+| --- | --- | --- | --- |
+| `LLM_DOWN` | provedor LLM indisponível no runtime | sim | evitar conclusão final; registrar evidência |
+| `LLM_429` | throttling no runtime (se não entrar em fila) | sim | preferir fila; se degradar, marcar claramente |
+| `RPC_PARTIAL` | dados on-chain incompletos | sim | permitido em grafo; exigir gate quando sustentar decisão |
+| `RPC_TIMEOUT` | timeout no provedor RPC/Indexer | sim | pode virar `degraded` em grafo ou `failed` em risk/export |
+| `PROVIDER_DEGRADED` | fallback parcial (ex.: provedores alternativos) | sim | manter rastreabilidade do provider |
+
+Mensagens do cockpit e evidência (baseline)
+
+| degradation_reason | Mensagem sugerida (cockpit) | Evidência sugerida |
+| --- | --- | --- |
+| `LLM_DOWN` | "IA temporariamente indisponível. A solicitação foi registrada para auditoria; tente novamente ou siga o fluxo manual." | `AI_DEGRADED_LLM_DOWN` |
+| `LLM_429` | "Limite do provedor de IA atingido. A solicitação foi enfileirada para reprocessamento." | `AI_DEGRADED_LLM_429` |
+| `RPC_PARTIAL` | "Dados on-chain incompletos. Resultado parcial foi gerado e requer revisão humana." | `AI_DEGRADED_RPC_PARTIAL` |
+| `RPC_TIMEOUT` | "Timeout ao consultar dados on-chain. Resultado parcial/indisponível; tente novamente." | `AI_DEGRADED_RPC_TIMEOUT` |
+| `PROVIDER_DEGRADED` | "Serviço operando em modo degradado. Resultado parcial pode ser impreciso; revise antes de decidir." | `AI_DEGRADED_PROVIDER_DEGRADED` |
+
+Payload mínimo sugerido em `evidence_trail.event_payload` (para eventos `AI_DEGRADED_*`):
+
+```json
+{
+  "job_id": "uuid",
+  "analysis_type": "explain | risk_model | confidence | case_insights | graph_analysis | graph_narrator | law_enforcement_export | themis",
+  "degradation_reason": "LLM_DOWN | LLM_429 | RPC_PARTIAL | RPC_TIMEOUT | PROVIDER_DEGRADED",
+  "queue_reason": "ORG_RATE_LIMIT | LLM_429 | LONG_RUNNING_OPERATION | null",
+  "request_id": "uuid",
+  "result_analysis_id": "uuid | null"
+}
+```
+
+Evidência de lifecycle do job (baseline)
+
+Objetivo:
+
+- auditar transições de estado relevantes para decisões e para trilha regulatória (especialmente quando houver `human_gate_required`)
+
+Event types sugeridos:
+
+- `AI_JOB_QUEUED`
+- `AI_JOB_PROCESSING_STARTED`
+- `AI_JOB_AWAITING_HUMAN_GATE`
+- `AI_JOB_APPROVAL_RECORDED`
+- `AI_JOB_COMPLETED`
+- `AI_JOB_DEGRADED`
+- `AI_JOB_FAILED`
+- `AI_JOB_CANCELLED`
+
+Payload mínimo sugerido em `evidence_trail.event_payload` (para eventos `AI_JOB_*`):
+
+```json
+{
+  "job_id": "uuid",
+  "status": "queued | processing | awaiting_human_gate | completed | degraded | failed | cancelled",
+  "analysis_type": "explain | risk_model | confidence | case_insights | graph_analysis | graph_narrator | law_enforcement_export | themis",
+  "case_id": "string | null",
+  "queue_reason": "ORG_RATE_LIMIT | LLM_429 | LONG_RUNNING_OPERATION | null",
+  "human_gate_required": true,
+  "approvals_received": 0,
+  "required_approvals": 1,
+  "degradation_reason": "LLM_DOWN | LLM_429 | RPC_PARTIAL | RPC_TIMEOUT | PROVIDER_DEGRADED | null",
+  "result_analysis_id": "uuid | null",
+  "request_id": "uuid"
+}
+```
+
+Recomendação:
+
+- gravar em `evidence_trail` obrigatoriamente: `AI_JOB_AWAITING_HUMAN_GATE`, `AI_JOB_APPROVAL_RECORDED`, `AI_JOB_DEGRADED` e `AI_JOB_FAILED` (quando impactar decisão ou export regulatório)
+- demais eventos podem ficar na trilha operacional (`audit_logs`) para reduzir ruído regulatório
+
+Transições permitidas:
+
+| Status atual | Ação | Próximo status |
+| --- | --- | --- |
+| `queued` | iniciar processamento | `processing` |
+| `queued` | cancelar | `cancelled` |
+| `processing` | finalizar | `completed` |
+| `processing` | degradar | `degraded` |
+| `processing` | falhar | `failed` |
+| `processing` | exigir human gate | `awaiting_human_gate` |
+| `processing` | cancelar | `cancelled` |
+| `awaiting_human_gate` | aprovar | `awaiting_human_gate` ou `completed` |
+| `completed` | (terminal) | `completed` |
+| `failed` | (terminal) | `failed` |
+| `degraded` | (terminal) | `degraded` |
+| `cancelled` | (terminal) | `cancelled` |
+
+Erros padronizados:
+
+- `404` `JOB_NOT_FOUND`
+- `409` `JOB_STATE_CONFLICT` (ação não permitida para o status atual)
+- `403` `JOB_FORBIDDEN` (RBAC insuficiente)
+
+Formato de aprovações (dupla revisão):
+
+- `required_approvals` indica se o job exige 1 ou 2 aprovações.
+- `approvals_received` reflete quantas aprovações válidas já foram registradas.
+- A lista de aprovações deve registrar quem aprovou e com qual role.
+- `approvals_received` deve ser derivado do total de entradas únicas em `approvals` (após deduplicação por idempotência).
+
+Schema sugerido para `approvals` (persistência):
+
+```json
+[
+  {
+    "approved_by": "string",
+    "role": "COMPLIANCE_OFFICER | LEGAL_REVIEWER",
+    "approved_at": "2026-07-31T00:00:00Z"
+  }
+]
+```
+
+Regras:
+
+- idempotência: a mesma combinação (`approved_by`, `role`) não deve ser registrada duas vezes.
+- dupla revisão (`law-enforcement-export`): exige ao menos uma aprovação de `COMPLIANCE_OFFICER` e uma de `LEGAL_REVIEWER`.
+- usuários distintos: recomendado para reduzir risco operacional; quando não for possível (times pequenos), permitir desde que as aprovações sejam por roles distintos e toda evidência/auditoria esteja íntegra.
+
+#### `GET /api/v1/ai/jobs/{job_id}`
+
+Uso:
+
+- consultar status e resultado de uma execução assíncrona
+
+Response 200:
+
+```json
+{
+  "job_id": "uuid",
+  "status": "queued | processing | completed | failed | degraded | awaiting_human_gate | cancelled",
+  "queue_reason": "ORG_RATE_LIMIT | LLM_429 | LONG_RUNNING_OPERATION | null",
+  "analysis_type": "explain | risk_model | confidence | case_insights | graph_analysis | graph_narrator | law_enforcement_export | themis",
+  "case_id": "string | null",
+  "human_gate_required": true,
+  "approvals_received": 0,
+  "required_approvals": 1,
+  "result_analysis_id": "uuid | null",
+  "result": {},
+  "degradation_reason": "LLM_DOWN | LLM_429 | RPC_PARTIAL | RPC_TIMEOUT | null",
+  "error": {"code": "string", "message": "string"},
+  "created_at": "2026-07-31T00:00:00Z",
+  "updated_at": "2026-07-31T00:00:00Z"
+}
+```
+
+Notas:
+
+- `result_analysis_id` é a referência canônica para auditoria (`ai_analysis_results`).
+- `result` pode vir vazio quando o job não estiver em `completed|degraded` ou quando o cliente preferir buscar detalhes via `result_analysis_id`.
+- Política recomendada para `result` inline:
+  - permitido (payload pequeno): `explain`, `confidence`, `case_insights`
+  - permitido com cautela (pode crescer): `risk_model`, `graph_analysis`, `graph_narrator`
+  - não permitido (sensível/grande): `law_enforcement_export`, `themis` (usar apenas `result_analysis_id`)
+
+RBAC: leitura requer `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `AUDITOR`
+
+#### `POST /api/v1/ai/jobs/{job_id}/cancel`
+
+Uso:
+
+- cancelar job quando `queued` ou `processing`
+
+Response 200:
+
+```json
+{
+  "job_id": "uuid",
+  "status": "cancelled",
+  "cancelled_at": "2026-07-31T00:00:00Z"
+}
+```
+
+Erros:
+
+- `404` `JOB_NOT_FOUND`
+- `409` se o job já está em estado terminal (`completed|failed|cancelled`)
+
+RBAC: escrita requer `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`
+
+#### `POST /api/v1/ai/jobs/{job_id}/approve`
+
+Uso:
+
+- aprovar resultado quando `awaiting_human_gate` (ex.: export regulatório)
+
+Response 200:
+
+```json
+{
+  "job_id": "uuid",
+  "status": "awaiting_human_gate | completed",
+  "approvals_received": 1,
+  "required_approvals": 2,
+  "approved_by": "string | null",
+  "approved_at": "2026-07-31T00:00:00Z | null"
+}
+```
+
+Erros:
+
+- `404` `JOB_NOT_FOUND`
+- `409` `JOB_STATE_CONFLICT` (quando status != `awaiting_human_gate`)
+- `403` `JOB_FORBIDDEN` (quando o role exigido não está presente)
+- `409` `JOB_STATE_CONFLICT` (quando a mesma combinação `approved_by` + `role` já aprovou anteriormente)
+
+RBAC:
+
+- Requer `COMPLIANCE_OFFICER`
+- Para `law-enforcement-export`, requer dupla revisão: `COMPLIANCE_OFFICER` e `LEGAL_REVIEWER` (duas aprovações distintas antes de marcar `completed`)
 ### `POST /api/v1/ai/explain`
+
 
 Uso:
 
@@ -1851,6 +2182,9 @@ RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `AUDITOR`
 
 Persistência: registra em `ai_analysis_results` e `evidence_trail`.
 
+Response 202:
+
+- retornado quando o request for enfileirado (`ORG_RATE_LIMIT`, `LLM_429` ou operação longa)
 ### `POST /api/v1/ai/risk-model`
 
 Uso:
@@ -1872,6 +2206,9 @@ Response 200: `RiskModelResponse` com `risk_score`, `risk_level`, `factors`, `ev
 
 RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `AUDITOR`
 
+Response 202:
+
+- retornado quando o request for enfileirado (`ORG_RATE_LIMIT`, `LLM_429` ou operação longa)
 ### `POST /api/v1/ai/confidence`
 
 Uso:
@@ -1890,6 +2227,10 @@ Request body:
 Response 200: `ConfidenceResponse` com `overall_confidence`, `uncertainty_factors`, `classifications`.
 
 RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `AUDITOR`
+
+Response 202:
+
+- retornado quando o request for enfileirado (`ORG_RATE_LIMIT`, `LLM_429` ou operação longa)
 
 ### `POST /api/v1/ai/case-insights`
 
@@ -1913,6 +2254,10 @@ RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `AUDITOR`
 
 Dados reais: busca dados do caso em `cases` e `case_management_cases`, eventos em `regulatory_work_events`, evidências em `evidence_trail`.
 
+Response 202:
+
+- retornado quando o request for enfileirado (`ORG_RATE_LIMIT`, `LLM_429` ou operação longa)
+
 ### `POST /api/v1/ai/graph-analysis`
 
 Uso:
@@ -1933,6 +2278,10 @@ Request body:
 Response 200: `GraphAnalysisResponse` com `nodes`, `edges`, `clusters`, `risk_indicators`.
 
 RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `AUDITOR`
+
+Response 202:
+
+- retornado quando o request for enfileirado (`ORG_RATE_LIMIT`, `LLM_429` ou operação longa)
 
 ### `POST /api/v1/ai/graph-narrator`
 
@@ -1956,6 +2305,10 @@ RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `AUDITOR`
 
 Perfis: `analyst` (técnico), `legal` (regulatório com base na Circular 3.978), `executive` (resumido).
 
+Response 202:
+
+- retornado quando o request for enfileirado (`ORG_RATE_LIMIT`, `LLM_429` ou operação longa)
+
 ### `POST /api/v1/ai/law-enforcement-export`
 
 Uso:
@@ -1972,10 +2325,11 @@ Request body:
 }
 ```
 
-Response 200: `LawEnforcementExportResponse` com `document` (estrutura formatada) e `evidence_chain`.
+Response 202: `JobQueuedResponse` (sempre assíncrono; exige dupla revisão antes de concluir).
 
 RBAC: `ADMIN`, `COMPLIANCE_OFFICER`, `LEGAL_REVIEWER` (roles restritas)
 
+- Observação: `human_gate_required` sempre retorna `true` nesse endpoint.
 ### `POST /api/v1/ai/themis`
 
 Uso:
@@ -1993,11 +2347,17 @@ Request body:
 }
 ```
 
-Response 200: `THEMISResponse` com `case_card`, `graph_narrative`, `risk_assessment`, `law_enforcement_package`, `human_gate_required`.
+Response 202: `JobQueuedResponse` (assíncrono; pode exigir `human gate` dependendo do risco).
+
+- Observação: `human_gate_required` no `JobQueuedResponse` é a avaliação inicial do request; o worker pode atualizar para `true` após processar e calcular risco.
 
 RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER` (roles restritas)
 
 Dados reais: busca caso em `cases`/`case_management_cases`, orquestra todos os módulos AI internamente.
+
+Response 202:
+
+- retornado quando o request for enfileirado ou executado como operação longa (`LONG_RUNNING_OPERATION`)
 
 ## Case Management API
 
@@ -2152,6 +2512,5 @@ RBAC: `ADMIN`, `ANALYST`, `COMPLIANCE_OFFICER`, `AUDITOR`, `VIEWER`
 ## Notas de Contrato
 
 - degradacao honesta e parte do contrato do produto atual; ausencia de score nao e bug quando a capability e manual ou depende de provider nao homologado
-- `sanctions-check` direto e o catalogo de operacoes agora convergem para `live` via cache local sincronizado
+- `sanctions-check` direto e o catalogo de operações agora convergem para `live` via cache local sincronizado
 - endpoints públicos sob `/public/*` aplicam rate limiting rigoroso e cabeçalhos de otimização CDN por padrão
-

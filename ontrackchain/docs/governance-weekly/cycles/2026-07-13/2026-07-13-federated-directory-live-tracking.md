@@ -38,25 +38,25 @@
   - ack do owner: `no`
   - ultima atualizacao: `pre-run do ciclo 2026-07-13`
   - ultimo checkpoint: backend, blueprint e segredos modelados; falta validar escopo real do client tecnico
-  - proximo checkpoint: confirmar client tecnico e disponibilidade do runtime
-  - hora do proximo checkpoint: `<preencher_HH:MMZ>`
+  - próximo checkpoint: confirmar client tecnico e disponibilidade do runtime
+  - hora do próximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `2026-07-13`
   - dependencia ativa: `KEYCLOAK_ADMIN_CLIENT_SECRET` real + leitura do diretório
   - bridge de escalacao: `<preencher_bridge_auth>`
-  - observacoes: principal risco tecnico da tentativa
+  - observações: principal risco tecnico da tentativa
 - `Team / Busca Assistida`
   - status atual: `ready`
   - responsavel online: `<preencher_nome_owner_online_frontend>`
   - canal de contato: `<preencher_slack_ou_teams_frontend>`
   - ack do owner: `no`
   - ultima atualizacao: `pre-run do ciclo 2026-07-13`
-  - ultimo checkpoint: UI pronta com busca, validacao e link; falta execucao real no tenant
-  - proximo checkpoint: executar `search -> suggestion -> link`
-  - hora do proximo checkpoint: `<preencher_HH:MMZ>`
+  - ultimo checkpoint: UI pronta com busca, validação e link; falta execucao real no tenant
+  - próximo checkpoint: executar `search -> suggestion -> link`
+  - hora do próximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `2026-07-13`
   - dependencia ativa: operador `ADMIN` e principal externo coerente
   - bridge de escalacao: `<preencher_bridge_frontend>`
-  - observacoes: ponto de prova funcional mais visivel
+  - observações: ponto de prova funcional mais visivel
 - `Audit / Preset identity-federated`
   - status atual: `ready`
   - responsavel online: `<preencher_nome_owner_online_frontend>`
@@ -64,12 +64,12 @@
   - ack do owner: `no`
   - ultima atualizacao: `pre-run do ciclo 2026-07-13`
   - ultimo checkpoint: preset e deep-link modelados; falta evento real
-  - proximo checkpoint: validar evento `team_external_identity_linked`
-  - hora do proximo checkpoint: `<preencher_HH:MMZ>`
+  - próximo checkpoint: validar evento `team_external_identity_linked`
+  - hora do próximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `2026-07-13`
   - dependencia ativa: evento real de `link` no backend
   - bridge de escalacao: `<preencher_bridge_frontend>`
-  - observacoes: evidencia visual de governanca operacional
+  - observações: evidência visual de governança operacional
 - `Banco / audit_logs`
   - status atual: `ready`
   - responsavel online: `<preencher_nome_owner_online_platform>`
@@ -77,12 +77,12 @@
   - ack do owner: `no`
   - ultima atualizacao: `pre-run do ciclo 2026-07-13`
   - ultimo checkpoint: SQL e criterios ja preparados; falta correlacao real
-  - proximo checkpoint: verificar `search + suggestion + link`
-  - hora do proximo checkpoint: `<preencher_HH:MMZ>`
+  - próximo checkpoint: verificar `search + suggestion + link`
+  - hora do próximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `2026-07-13`
   - dependencia ativa: acesso operacional ao banco ou evidence path equivalente
   - bridge de escalacao: `<preencher_bridge_platform>`
-  - observacoes: prova tecnica final da tentativa
+  - observações: prova tecnica final da tentativa
 - `Gate Agregado Federado`
   - status atual: `pending`
   - responsavel online: `<preencher_nome_facilitador_online>`
@@ -90,12 +90,12 @@
   - ack do owner: `yes`
   - ultima atualizacao: `pre-run do ciclo 2026-07-13`
   - ultimo checkpoint: run sheet, guide e packet datados criados
-  - proximo checkpoint: confirmar owners e disparar a validacao manual
-  - hora do proximo checkpoint: `<preencher_HH:MMZ>`
+  - próximo checkpoint: confirmar owners e disparar a validação manual
+  - hora do próximo checkpoint: `<preencher_HH:MMZ>`
   - ETA desbloqueio: `2026-07-13`
   - dependencia ativa: disponibilidade humana e runtime real
   - bridge de escalacao: `<preencher_bridge_go_no_go>`
-  - observacoes: nao declarar `approved` sem evidencias capturadas
+  - observações: nao declarar `approved` sem evidências capturadas
 
 ## Linha do Tempo
 
@@ -144,21 +144,21 @@
   - owner da escalacao: `<preencher_nome_owner_escalacao_auth>`
   - canal da escalacao: `<preencher_bridge_auth>`
   - ETA: `2026-07-13`
-  - observacao: sem escopo minimo do client tecnico, a tentativa nao deve comecar
+  - observação: sem escopo minimo do client tecnico, a tentativa nao deve comecar
 - ID: `FD-02`
   - trilha: `Team / Busca Assistida`
   - status: `watching`
   - owner da escalacao: `<preencher_nome_owner_escalacao_frontend>`
   - canal da escalacao: `<preencher_bridge_frontend>`
   - ETA: `2026-07-13`
-  - observacao: depende de tenant, operador e principal externo coerentes
+  - observação: depende de tenant, operador e principal externo coerentes
 - ID: `FD-03`
   - trilha: `Banco / audit_logs`
   - status: `watching`
   - owner da escalacao: `<preencher_nome_owner_escalacao_platform>`
   - canal da escalacao: `<preencher_bridge_platform>`
   - ETA: `2026-07-13`
-  - observacao: sem evidencias SQL, a prova tecnica fica incompleta
+  - observação: sem evidências SQL, a prova tecnica fica incompleta
 
 ## Decisoes Operacionais
 

@@ -52,7 +52,7 @@
   - status atual: `in_progress`
   - owner nominal: `Security Officer Operacional`
   - artefato revisado: politica de retention/recovery publicada
-  - proxima evidencia esperada: sign-off formal de Security/Compliance
+  - proxima evidência esperada: sign-off formal de Security/Compliance
 
 - ID: `P2-02`
   - status anterior: `in_progress`
@@ -109,8 +109,8 @@
 - obter retorno operacional sobre `P2-02`
 - reavaliar se `RUN-STG-01` pode sair de `ready` para `in_progress`
 
-## Observacoes
+## observações
 
-- este primeiro registro e predominantemente de consolidacao documental e de readiness
+- este primeiro registro e predominantemente de consolidação documental e de readiness
 - ainda nao existe evidência real de janela seria executada com `dossier ok`
 - nenhum item foi promovido artificialmente para `done`

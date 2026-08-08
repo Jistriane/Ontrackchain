@@ -1,3 +1,55 @@
+const OTK_TO_CANONICAL_ROLE: Record<string, string> = {
+  OTK_ADMIN: "ADMIN",
+  OTK_ANALYST: "ANALYST",
+  OTK_AUDITOR: "AUDITOR",
+  OTK_VIEWER: "VIEWER",
+  OTK_COMPLIANCE_OFFICER: "COMPLIANCE_OFFICER",
+  OTK_LEGAL_REVIEWER: "LEGAL_REVIEWER",
+  OTK_TESTER: "TESTER",
+  OTK_REVIEWER: "REVIEWER",
+  OTK_BILLING_ADMIN: "BILLING_ADMIN"
+};
+
+export const CANONICAL_ROLE_TO_OTK: Record<string, string> = Object.fromEntries(
+  Object.entries(OTK_TO_CANONICAL_ROLE).map(([k, v]) => [v, k])
+);
+
+export function canonicalizeRole(rawRole: unknown): string {
+  if (rawRole == null) return "";
+  let role: unknown = rawRole;
+  if (Array.isArray(role) && role.length > 0) {
+    role = role[0];
+  }
+  const trimmed = String(role).trim();
+  if (!trimmed) return "";
+  if (trimmed in OTK_TO_CANONICAL_ROLE) return OTK_TO_CANONICAL_ROLE[trimmed];
+  const lower = trimmed.toLowerCase();
+  for (const [otk, canonical] of Object.entries(OTK_TO_CANONICAL_ROLE)) {
+    if (lower === otk.toLowerCase()) return canonical;
+  }
+  const upper = trimmed.toUpperCase();
+  if (upper in OTK_TO_CANONICAL_ROLE) return OTK_TO_CANONICAL_ROLE[upper];
+  return upper;
+}
+
+export function isFederatedOtkRole(rawRole: unknown): boolean {
+  const role = canonicalizeRole(rawRole);
+  const trimmed = String(rawRole ?? "").trim().toUpperCase();
+  return trimmed.startsWith("OTK_") && role in CANONICAL_ROLE_TO_OTK;
+}
+
+export function expandAllowedRoles(baseRoles: Iterable<string>): Set<string> {
+  const expanded = new Set<string>();
+  for (const base of baseRoles) {
+    const canonical = canonicalizeRole(base);
+    if (!canonical) continue;
+    expanded.add(canonical);
+    const otkAlias = CANONICAL_ROLE_TO_OTK[canonical];
+    if (otkAlias) expanded.add(otkAlias);
+  }
+  return expanded;
+}
+
 const TEAM_READ_ROLES = new Set(["ADMIN", "OTK_ADMIN"]);
 const BILLING_READ_ROLES = new Set(["ADMIN", "OTK_ADMIN", "BILLING_ADMIN", "OTK_BILLING_ADMIN"]);
 const AI_INTELLIGENCE_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "OTK_ANALYST", "AUDITOR", "OTK_AUDITOR"]);
@@ -8,21 +60,23 @@ const MONITORING_CORE_READ_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "OT
 const PRIVILEGED_ADMIN_READ_ROLES = new Set(["ADMIN", "OTK_ADMIN", "AUDITOR", "OTK_AUDITOR"]);
 const PRIVILEGED_ADMIN_MUTATION_ROLES = new Set(["ADMIN", "OTK_ADMIN"]);
 const MONITORING_TEST_TRIGGER_ROLES = new Set(["ADMIN", "OTK_ADMIN", "TESTER", "OTK_TESTER"]);
-const COUNTERPARTY_CREATE_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"]);
+const COUNTERPARTY_CREATE_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "OTK_ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"]);
 const COUNTERPARTY_READ_ROLES = new Set([
   "ADMIN",
   "OTK_ADMIN",
   "ANALYST",
+  "OTK_ANALYST",
   "COMPLIANCE_OFFICER",
   "OTK_COMPLIANCE_OFFICER",
   "REVIEWER",
   "OTK_REVIEWER"
 ]);
-const SANCTIONS_CHECK_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"]);
+const SANCTIONS_CHECK_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "OTK_ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"]);
 const SANCTIONS_TRIAGE_ROLES = new Set([
   "ADMIN",
   "OTK_ADMIN",
   "ANALYST",
+  "OTK_ANALYST",
   "COMPLIANCE_OFFICER",
   "OTK_COMPLIANCE_OFFICER",
   "REVIEWER",
@@ -33,10 +87,11 @@ const REPORT_WRITE_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "OTK_ANALYS
 const REPORT_DETAIL_ROLES = new Set(["ADMIN", "OTK_ADMIN", "AUDITOR", "OTK_AUDITOR", "ANALYST", "OTK_ANALYST"]);
 const REPORT_DOWNLOAD_ROLES = new Set(["ADMIN", "OTK_ADMIN", "AUDITOR", "OTK_AUDITOR", "ANALYST", "OTK_ANALYST"]);
 const TEAM_FEDERATED_IDENTITY_MANAGE_ROLES = new Set(["ADMIN", "OTK_ADMIN"]);
-const BLOCK_EVALUATE_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"]);
+const BLOCK_EVALUATE_ROLES = new Set(["ADMIN", "OTK_ADMIN", "ANALYST", "OTK_ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"]);
 const BLOCK_LIFT_ROLES = new Set(["ADMIN", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"]);
 const COUNTERPARTY_REVIEW_ROLES = new Set([
   "ADMIN",
+  "OTK_ADMIN",
   "COMPLIANCE_OFFICER",
   "OTK_COMPLIANCE_OFFICER",
   "REVIEWER",
@@ -44,6 +99,7 @@ const COUNTERPARTY_REVIEW_ROLES = new Set([
 ]);
 const ROS_COAF_REVIEW_ROLES = new Set([
   "ADMIN",
+  "OTK_ADMIN",
   "COMPLIANCE_OFFICER",
   "OTK_COMPLIANCE_OFFICER",
   "LEGAL_REVIEWER",
@@ -54,7 +110,7 @@ const ROS_COAF_REVIEW_ROLES = new Set([
 const ROS_COAF_SUBMISSION_ROLES = new Set(["ADMIN", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"]);
 
 export function normalizeAuthRole(role: string | null | undefined) {
-  return String(role ?? "").trim().toUpperCase();
+  return canonicalizeRole(role);
 }
 
 function normalizeAuthMethod(authMethod: string | null | undefined) {

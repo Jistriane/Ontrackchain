@@ -83,19 +83,27 @@ async function exchangeAuthorizationCode(params: {
 }
 
 function resolveServerSideTokenUrl(publicTokenUrl: string): string {
-  const internalKeycloakBaseUrl = process.env.INTERNAL_KEYCLOAK_BASE_URL?.trim();
-  if (!internalKeycloakBaseUrl) {
-    return publicTokenUrl;
-  }
   try {
     const url = new URL(publicTokenUrl);
-    const internalBase = new URL(internalKeycloakBaseUrl);
-    url.protocol = internalBase.protocol;
-    url.host = internalBase.host;
-    return url.toString();
+    const internalOidcBaseUrl = process.env.INTERNAL_OIDC_BASE_URL?.trim();
+    if (internalOidcBaseUrl && url.host === "oidc.localhost") {
+      const internalBase = new URL(internalOidcBaseUrl);
+      url.protocol = internalBase.protocol;
+      url.host = internalBase.host;
+      return url.toString();
+    }
+
+    const internalKeycloakBaseUrl = process.env.INTERNAL_KEYCLOAK_BASE_URL?.trim();
+    if (internalKeycloakBaseUrl) {
+      const internalBase = new URL(internalKeycloakBaseUrl);
+      url.protocol = internalBase.protocol;
+      url.host = internalBase.host;
+      return url.toString();
+    }
   } catch {
     return publicTokenUrl;
   }
+  return publicTokenUrl;
 }
 
 export async function POST(request: Request) {
@@ -164,6 +172,11 @@ export async function POST(request: Request) {
         headers: { "content-type": "application/json" }
       });
     }
+
+    return new Response(JSON.stringify({ error: "missing_oidc_code_exchange" }), {
+      status: 401,
+      headers: { "content-type": "application/json" }
+    });
   }
 
   // Handle email/password direct login fallback (or dev auth)

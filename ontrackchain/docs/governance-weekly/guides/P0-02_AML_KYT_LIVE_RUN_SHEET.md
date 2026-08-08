@@ -35,7 +35,7 @@ Complementa o [Guia de Execucao Assistida de `P0-02` AML/KYT live](./P0-02_AML_K
 ### 1. Validar handoff e placeholders
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/check_staging_env_handoff.py --file docs/staging-env-ownership.md
 python3 scripts/check_staging_env_placeholders.py --file .env.staging.private
 ```
@@ -48,19 +48,19 @@ Resultado esperado:
 ### 2. Preflight externo
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/preflight_external_integrations.py
 ```
 
 Registrar:
 
 - `status`: `preencher`
-- observacao curta: `preencher`
+- observação curta: `preencher`
 
 ### 3. Runtime gate AML/KYT
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-02-aml-live \
   PRIVATE_ENV_FILE=.env.staging.private \
   COMPLIANCE_INTERNAL_BASE_URL=http://localhost:8002 \
@@ -83,19 +83,19 @@ Se a execucao for hospedada via GitHub Actions, preencher tambem:
 ### 4. Smoke funcional
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/smoke_runtime.py
 ```
 
 Registrar:
 
 - `smoke_status`: `preencher`
-- observacao curta: `preencher`
+- observação curta: `preencher`
 
-### 5. Evidencia externa
+### 5. evidência externa
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 python3 scripts/homologation_external_evidence.py --mode compliance
 ```
 
@@ -105,10 +105,10 @@ Registrar:
 - `homologation_json`: `preencher`
 - `homologation_manifest`: `preencher`
 
-### 6. Bundle regulatorio se `P0-03` estiver junto
+### 6. Bundle regulatório se `P0-03` estiver junto
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make gate-p0-04-regulatory-bundle \
   WINDOW_ID=<window_id> \
   PRIVATE_ENV_FILE=.env.staging.private \
@@ -123,10 +123,10 @@ Registrar somente se aplicavel:
 - `bundle_json`: `preencher`
 - `bundle_md`: `preencher`
 
-### 7. Reconciliar governanca
+### 7. Reconciliar governança
 
 ```bash
-cd /home/jistriane/Ontrackchain/github_main/ontrackchain
+cd github_main/ontrackchain
 make refresh-staging-war-room-governance-local WINDOW_ID=<window_id>
 ```
 
@@ -157,18 +157,18 @@ Registrar:
 
 ## Gate de Saida
 
-Marcar a trilha como pronta para validacao somente se todos estiverem verdadeiros:
+Marcar a trilha como pronta para validação somente se todos estiverem verdadeiros:
 
 - [ ] preflight externo verde
 - [ ] runtime gate verde
 - [ ] homologacao externa preservada
 - [ ] `request_id` correlacionavel
-- [ ] governanca reprocessada
-- [ ] owner humano revisou a evidencia
+- [ ] governança reprocessada
+- [ ] owner humano revisou a evidência
 
 ## Resultado da Janela
 
 - decisao sugerida: `preencher`
 - motivo resumido: `preencher`
-- proximo passo: `preencher`
+- próximo passo: `preencher`
 - accountable: `preencher`

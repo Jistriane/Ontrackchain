@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Template curto para conduzir a reuniao semanal com foco em evidencia, decisao de status e proxima acao verificavel.
+Template curto para conduzir a reuniao semanal com foco em evidência, decisao de status e proxima acao verificavel.
 
 Usar este template quando a necessidade principal for:
 
@@ -20,19 +20,19 @@ Para registro completo, complementar com:
 - construcao tecnica:
 - prontidao regulatoria:
 - KPI consolidado:
-- houve evidencia nova material?: `sim | nao`
+- houve evidência nova material?: `sim | nao`
 
 ## Decisao Executiva Rapida
 
 - decisao da semana: `manter baseline | recalibrar | pending | no-go | go_with_exception`
 - principal ganho:
 - principal bloqueio:
-- item mais proximo de fechamento:
+- item mais próximo de fechamento:
 - item que exige escalacao externa:
 
 ## Snapshot dos Itens Criticos
 
-| Bloco | Status atual | Ultima evidencia revisada | Bloqueio atual | Proxima acao verificavel | Data alvo | Semaforo |
+| Bloco | Status atual | Ultima evidência revisada | Bloqueio atual | Proxima acao verificavel | Data alvo | Semaforo |
 | --- | --- | --- | --- | --- | --- | --- |
 | `P0-02` `AML/KYT live` | `preencher` | `preencher` | `preencher` | `preencher` | `preencher` | `vermelho/amarelo/verde` |
 | `P0-03` feed UE real | `preencher` | `preencher` | `preencher` | `preencher` | `preencher` | `vermelho/amarelo/verde` |
@@ -47,13 +47,13 @@ Para registro completo, complementar com:
 - usar `ready` quando o gate existir, mas ainda faltar insumo real
 - usar `in_progress` apenas quando houver execucao real em curso
 - usar `ready_for_validation` quando a prova existir, mas ainda faltar revisao formal
-- usar `done` apenas com artefato revisavel, aceite correspondente e documentacao sincronizada
+- usar `done` apenas com artefato revisável, aceite correspondente e documentação sincronizada
 
 ## Checklist de Encerramento do Encontro
 
 - [ ] itens `blocked` explicitamente marcados
 - [ ] paths dos artefatos relevantes registrados
-- [ ] proxima evidencia esperada anotada por item critico
+- [ ] proxima evidência esperada anotada por item critico
 - [ ] decisao executiva da semana registrada
 - [ ] owner de escalacao definido para cada bloqueio que permaneceu
 

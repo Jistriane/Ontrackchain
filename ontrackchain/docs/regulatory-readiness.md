@@ -1,18 +1,18 @@
-# Readiness Regulatorio
+# Readiness regulatório
 
 ## Objetivo
 
-Consolidar o estado atual do Ontrackchain frente a um contexto de operacao regulada, com foco em trilha auditavel, sancoes, bloqueio preventivo, onboarding de contrapartes e workflow ROS/COAF.
+Consolidar o estado atual do Ontrackchain frente a um contexto de operação regulada, com foco em trilha auditavel, sancoes, bloqueio preventivo, onboarding de contrapartes e workflow ROS/COAF.
 
 ## Resumo Executivo
 
 Leituras oficiais:
 
-- `100%` de prontidao para operacao regulada forte
+- `100%` de prontidao para operação regulada forte
 - `100%` de construcao tecnica como plataforma funcional
 - `100%` de construcao total consolidada conforme o [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
 
-Referencias canonicas da baseline atual:
+Referencias canônicas da baseline atual:
 
 - [Scorecard Oficial do Projeto](./project-kpi-scorecard.md)
 - [Avaliacao de Maturidade do Projeto](./project-maturity-assessment.md)
@@ -21,34 +21,34 @@ Referencias canonicas da baseline atual:
 Interpretacao:
 
 - o projeto ja possui base tecnica regulatoria substancialmente mais madura do que antes
-- os maiores gaps deixaram de ser estruturalmente de codigo e passaram a ser de homologacao, aceite formal e integracao real recorrente
+- os maiores gaps deixaram de ser estruturalmente de codigo e passaram a ser de homologacao, aceite formal e integração real recorrente
 
 Execucao real local mais recente, em `2026-07-19`:
 
 - `P0-02`, `P0-03` e `P0-04` foram exercitados via `make check-regulatory-window-readiness`
 - os tres retornaram `readiness_status=blocked`
 - o scaffold local de `.env.staging.private` ja foi materializado sem secrets reais, entao o bloqueio dominante deixou de ser "arquivo ausente"
-- o bloqueio dominante atual continua concentrado em `Compliance/AML.date`, `Compliance/AML.status` e nas variaveis reais pendentes do escopo regulatorio
+- o bloqueio dominante atual continua concentrado em `Compliance/AML.date`, `Compliance/AML.status` e nas variaveis reais pendentes do escopo regulatório
 - em `P0-02`, faltam `COMPLIANCE_TRM_SCREENING_URL` e `COMPLIANCE_TRM_API_KEY`
 - em `P0-03`, faltam `DATABASE_URL` e uma `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` real, HTTPS e tokenizada
 - em `P0-04`, o bundle combinado segue bloqueado pela soma das pendencias de `P0-02` e `P0-03`
-- esta leitura substitui a interpretacao antiga de "`ready` aguardando apenas runtime", porque agora existe evidencia executada de bloqueio operacional real
+- esta leitura substitui a interpretacao antiga de "`ready` aguardando apenas runtime", porque agora existe evidência executada de bloqueio operacional real
 
 ## Mapa de Cobertura Atual
 
-| Requisito | Estado Atual | Evidencia | Gap Residual |
+| Requisito | Estado Atual | evidência | Gap Residual |
 | --- | --- | --- | --- |
 | Isolamento entre organizacoes | coberto | `RLS` + contexto SQL | ampliar testes negativos especificos |
 | Screening de sancoes | coberto parcialmente | cache local + worker + checker pos-sync + runner UE | homologacao recorrente do feed UE tokenizado com URL real |
-| Bloqueio preventivo | coberto | `preventive_blocks` + evidencia + audit log | refinamento de operacao/manual review |
+| Bloqueio preventivo | coberto | `preventive_blocks` + evidência + audit log | refinamento de operacao/manual review |
 | Onboarding regulado de contraparte | coberto | `counterparties` + `counterparty_history` | documentar artefatos de manual review complementares |
 | ROS/COAF | coberto | `ros_records` + `reports` + `evidence_trail` | submissao continua manual por desenho |
-| Fila operacional compartilhada | coberto | `regulatory_work_items` + `regulatory_work_events/comments` + integracao multi-cockpit com paineis de historico e timeline | aprofundar actions customizadas por owner, escalacao e handoff operacional |
+| Fila operacional compartilhada | coberto | `regulatory_work_items` + `regulatory_work_events/comments` + integração multi-cockpit com paineis de historico e timeline | aprofundar actions customizadas por owner, escalacao e handoff operacional |
 | Auth forte | coberto parcialmente | OIDC + MFA federado previsto | homologacao formal fora do contexto local |
 | Billing auditavel | coberto | `credit_ledger` + `audit_logs` | reconciliacao financeira mais rica |
-| Cadeia de custodia | coberto parcialmente | `evidence_trail`, manifestos, dossier | sign-off formal e classificacao de evidencias |
+| Cadeia de custodia | coberto parcialmente | `evidence_trail`, manifestos, dossier | sign-off formal e classificacao de evidências |
 | Retention e recovery | coberto parcialmente | politica publicada + restore evidenciado | aceite institucional recorrente |
-| Operacao seria | coberto parcialmente | preflights + handoff + dossier | execucao recorrente e aprovadores formais |
+| operação seria | coberto parcialmente | preflights + handoff + dossier | execucao recorrente e aprovadores formais |
 
 ## O Que Ja Esta Operacional
 
@@ -70,14 +70,14 @@ Execucao real local mais recente, em `2026-07-19`:
 
 - KYC/KYB, PEP, DD reforcada e periodicidade de revisao
 - historico regulado em `counterparty_history`
-- hash deterministico de evidencia
+- hash deterministico de evidência
 
 ### ROS/COAF
 
 - geracao de `coaf_ready_report`
 - aprovacao ou rejeicao por operador habilitado
 - submissao manual com `coaf_protocol_number` e `coaf_receipt_hash`
-- eventos regulatorios correspondentes na trilha de evidencia
+- eventos regulatórios correspondentes na trilha de evidência
 
 ### Fila Operacional Compartilhada
 
@@ -85,7 +85,7 @@ Execucao real local mais recente, em `2026-07-19`:
 - `sanctions` sincroniza sua fila operacional no backend e bloqueia com erro explicito quando a fila compartilhada nao estiver disponivel
 - `alerts` rastreia incidentes em `work-items` e sincroniza o fechamento do item compartilhado quando ocorre `ack`
 
-## Gaps Regulatorios Reais
+## Gaps regulatórios Reais
 
 ### 1. Homologacao externa
 
@@ -99,7 +99,7 @@ Execucao real local mais recente, em `2026-07-19`:
 - falta ativacao da URL tokenizada real para fechar a prova em ambiente serio
 - leitura executiva atual: `P0-03` agora esta `blocked`, porque a tentativa real local confirmou `Compliance/AML.status/date` pendentes, `DATABASE_URL` ausente e `COMPLIANCE_EU_SANCTIONS_SOURCE_URL` ainda placeholder/nao-tokenizada
 
-### 2.1. Bundle regulatorio combinado
+### 2.1. Bundle regulatório combinado
 
 - `P0-04` tambem esta `blocked` no estado atual local
 - o bundle combinado nao pode ser tratado como `todo` abstrato enquanto os dois prechecks reais seguem falhando no mesmo dominio de handoff/segredos
@@ -108,15 +108,15 @@ Execucao real local mais recente, em `2026-07-19`:
 ### 3. Cadeia formal de custodia
 
 - artefatos, hashes e manifestos existem
-- a trilha forte de selagem DD/SoF ja entrega sign-off institucional por papel, `finalize`, `revoke`, `supersede`, leitura canônica por `package_sha256` e preset de governanca no `audit`
+- a trilha forte de selagem DD/SoF ja entrega sign-off institucional por papel, `finalize`, `revoke`, `supersede`, leitura canônica por `package_sha256` e preset de governança no `audit`
 - faltam classificacao formal de sensibilidade recorrente, homologacao do provider institucional definitivo e trust bundle institucional versionado
 - contrato HTTP canônico documentado em `./api-contracts.md`
 - arquitetura complementar documentada em `./evidence-manual-package-strong-sealing-architecture.md`
 
 ### 4. Profundidade operacional da fila compartilhada
 
-- a camada multiusuario ja cobre os cockpits regulatorios principais
-- o gap residual saiu de "cobertura de cockpit" e foi para "actions mais profundas", como escalacao, handoff mais rico e governanca por owner
+- a camada multiusuario ja cobre os cockpits regulatórios principais
+- o gap residual saiu de "cobertura de cockpit" e foi para "actions mais profundas", como escalacao, handoff mais rico e governança por owner
 
 ### 5. Manual review estruturado
 

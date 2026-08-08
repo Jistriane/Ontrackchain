@@ -11,9 +11,9 @@ Este documento complementa:
 - [Deploy e Staging](deploy-and-staging.md)
 - [Owners e SLAs Operacionais](operational-ownership-and-slas.md)
 - [Matriz de Execucao por Owner para Janela Seria](staging-serious-window-war-room-matrix.md)
-- [Governanca Semanal](./governance-weekly/README.md)
+- [governança Semanal](./governance-weekly/README.md)
 
-## Escopo Canonico
+## Escopo canônico
 
 Use este documento para:
 
@@ -25,21 +25,21 @@ Use este documento para:
 Nao use este documento como fonte primaria para:
 
 - coordenar war room, tracking ou decisao `go/no-go`: use os artefatos vivos em `docs/governance-weekly/`
-- use o indice do ciclo ativo em [Governanca Semanal](./governance-weekly/README.md) para tracking e decisao corrente
+- use o indice do ciclo ativo em [governança Semanal](./governance-weekly/README.md) para tracking e decisao corrente
 - preencher rapidamente contatos, canais e bridges da janela corrente: use a `run sheet` datada e a `bridge quick-fill` do ciclo ativo
 
 ## Papel Especifico
 
 Este documento nao redefine a taxonomia geral de ownership do projeto.
 
-Ele especializa, para a janela de staging, a taxonomia canonica publicada em [Owners e SLAs Operacionais](./operational-ownership-and-slas.md), cobrindo apenas:
+Ele especializa, para a janela de staging, a taxonomia canônica publicada em [Owners e SLAs Operacionais](./operational-ownership-and-slas.md), cobrindo apenas:
 
 - `placeholder/grupo -> owner da janela`
 - apoio e sign-off no escopo do `.env.staging.private`
 - `Data` e `Status` humanos do handoff
 - bloqueios que impedem `prepare`, `preflight` ou `run` da janela
 
-Se houver conflito entre este arquivo e a taxonomia de dominios do documento canonico de ownership operacional, corrigir este arquivo e nao o contrario, exceto quando a mudanca for estrutural para todo o projeto.
+Se houver conflito entre este arquivo e a taxonomia de dominios do documento canônico de ownership operacional, corrigir este arquivo e nao o contrario, exceto quando a mudanca for estrutural para todo o projeto.
 
 ## Regra Geral
 
@@ -52,7 +52,7 @@ Se houver conflito entre este arquivo e a taxonomia de dominios do documento can
 
 ## Matriz de Ownership
 
-| Placeholder / grupo | Owner primario | Apoio | Evidencia esperada |
+| Placeholder / grupo | Owner primario | Apoio | evidência esperada |
 | --- | --- | --- | --- |
 | `__FILL_STAGING_POSTGRES_PASSWORD__` | `Platform/DBA` | `Security` | secret provisionado no vault ou canal controlado |
 | `__FILL_STAGING_KEYCLOAK_ADMIN_PASSWORD__` | `Backend/Auth` | `Security` | credencial admin nao-dev validada e armazenada com controle |
@@ -78,7 +78,7 @@ Se houver conflito entre este arquivo e a taxonomia de dominios do documento can
 - `MFA_TOTP_SECRET`
 - `ONTRACKCHAIN_HOMOLOGATION_OIDC_TOKEN`
 
-Owner principal herdado da taxonomia canonica:
+Owner principal herdado da taxonomia canônica:
 
 - `Backend/Auth`
 
@@ -93,7 +93,7 @@ Sign-off recomendado na janela:
 - `OPENSANCTIONS_API_KEY`
 - `COMPLIANCE_EU_SANCTIONS_SOURCE_URL`
 
-Owner principal herdado da taxonomia canonica:
+Owner principal herdado da taxonomia canônica:
 
 - `Compliance/Backend`
 
@@ -101,7 +101,7 @@ Sign-off recomendado na janela:
 
 - `Security`
 
-Observacao:
+Observação:
 
 - `OPENSANCTIONS_API_KEY` passa a ser obrigatoria quando o escopo incluir o worker de sancoes com enriquecimento via OpenSanctions ou quando o blueprint `full-stack` do Render for usado como baseline serio de compliance
 
@@ -110,7 +110,7 @@ Observacao:
 - `INVESTIGATION_RPC_PRIMARY_URL` quando `ONTRACKCHAIN_EXPECT_RPC_MODE=live`
 - `INVESTIGATION_RPC_FALLBACK_URL`
 
-Owner principal herdado da taxonomia canonica:
+Owner principal herdado da taxonomia canônica:
 
 - `Backend Core`
 
@@ -118,7 +118,7 @@ Sign-off recomendado na janela:
 
 - `Platform/DBA`
 
-Observacao:
+Observação:
 
 - quando a janela for aprovada em modo `fallback_only`, o owner de `Backend Core` deve preencher apenas `INVESTIGATION_RPC_FALLBACK_URL` e manter `INVESTIGATION_RPC_PRIMARY_URL` vazio
 
@@ -128,7 +128,7 @@ Observacao:
 - `ALERTMANAGER_WEBHOOK_BEARER_TOKEN`
 - `GRAFANA_ADMIN_PASSWORD`
 
-Owner principal herdado da taxonomia canonica:
+Owner principal herdado da taxonomia canônica:
 
 - `Platform/SRE` ou `Platform/DBA` conforme o item
 
@@ -163,7 +163,7 @@ Sequencia tecnica correspondente:
 5. preencher os valores reais em canal seguro
 6. executar `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-02 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md` quando houver `AML/KYT live`
 7. executar `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-03 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md` quando houver feed UE real
-8. executar `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-04 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md` quando a janela quiser consolidar o bundle regulatorio
+8. executar `make check-regulatory-window-readiness REGULATORY_SCOPE=p0-04 PRIVATE_ENV_FILE=.env.staging.private OWNERSHIP_FILE=docs/staging-env-ownership.md` quando a janela quiser consolidar o bundle regulatório
 9. rerodar o gate agregado com `make gate-p0-05-serious-window WINDOW_ID=<janela> MODE=baseline PRIVATE_ENV_FILE=.env.staging.private GOVERNANCE_WEEKLY_DIR=docs/governance-weekly`
 10. seguir para `python3 scripts/run_staging_window.py --window-id <janela> --private-env-file .env.staging.private` apenas se o gate agregado retornar `status=ok`
 11. anexar o `window packet`, os JSONs em `artifacts/staging/checks/`, a homologacao, o dossier final e, quando houver `P0-01`, o resumo `artifacts/staging/dossiers/<janela>-oidc-readiness-bundle.md`, alem do resumo `artifacts/staging/dossiers/<janela>-regulatory-readiness-bundle.md` quando houver `P0-02/P0-03`, ao sign-off da janela
@@ -192,7 +192,7 @@ O runner acima encapsula, em ordem, os gates de `ownership coverage`, `window pa
 
 Na pratica, os checks regulatórios acima devem ser tratados como precondicao humana e tecnica do restante da janela. Se qualquer um deles falhar por handoff pendente de `Compliance/AML` ou por variaveis reais ainda ausentes no `.env.staging.private`, a execucao deve parar antes do runtime real.
 
-Leitura esperada do checker regulatorio:
+Leitura esperada do checker regulatório:
 
 - `blocking_summary`: resumo executivo do bloqueio dominante da trilha
 - `unblock_actions`: lista acionavel por owner/grupo e por variavel para acelerar o handoff antes de qualquer runtime real
@@ -210,7 +210,7 @@ Status aceitos:
 
 - `approved`: owner preencheu ou confirmou os valores da janela
 - `reviewed`: owner revisou a janela e manteve o valor/integração vigente
-- `waived`: excecao documentada; exige observacao nao-pendente
+- `waived`: excecao documentada; exige observação nao-pendente
 
 Enquanto qualquer linha permanecer com `pending`, o checker deve falhar e a janela nao deve seguir para `preflight_oidc_serious_env.py`, `preflight_external_integrations.py` ou `homologation_external_evidence.py`.
 
@@ -218,11 +218,11 @@ Scaffold controlado atual:
 
 - a coluna `Owner` pode ser pre-preenchida com o responsavel nominal do dominio
 - as colunas `Data` e `Status` continuam bloqueadoras ate confirmacao humana da janela
-- nao promover `reviewed`, `approved` ou `waived` sem evidencias reais do owner correspondente
+- nao promover `reviewed`, `approved` ou `waived` sem evidências reais do owner correspondente
 - preencher primeiro facilitador, canal principal, bridge principal e checkpoint na folha manual antes de avancar nos dominios
 - usar a [Matriz de Execucao por Owner para Janela Seria](staging-serious-window-war-room-matrix.md) durante o war room da janela para coordenar dependencias, comandos e escalacoes
 
-| Grupo | Owner | Data | Status | Observacoes |
+| Grupo | Owner | Data | Status | observações |
 | --- | --- | --- | --- | --- |
 | Auth/OIDC | `Backend/Auth` | `2026-07-19` | `approved` | secrets, claims finais e parâmetros OIDC de staging provisionados no .env.staging.private |
 | Compliance/AML | `Compliance/Backend` | `2026-07-19` | `approved` | URLs, credenciais TRM, OpenSanctions e URL de sanções UE provisionadas para staging |

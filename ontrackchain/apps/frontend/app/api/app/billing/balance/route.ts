@@ -1,4 +1,5 @@
 import { validateAndGetRole } from "../../../../lib/auth-validate";
+import { canReadBilling } from "../../../../lib/authz";
 export const dynamic = "force-dynamic";
 
 
@@ -14,9 +15,21 @@ const DEFAULT_BILLING_BALANCE = {
   credits_used_total: 250
 } as const;
 
+const BILLING_BALANCE_DENIED = {
+  detail: "billing_balance_role_required"
+} as const;
+
 export async function GET(request: Request) {
   const auth = await validateAndGetRole(request);
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+
+  if (!canReadBilling(auth.role)) {
+    return new Response(JSON.stringify(BILLING_BALANCE_DENIED), {
+      status: 403,
+      headers: { "content-type": "application/json" }
+    });
+  }
+
   const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
 
   try {

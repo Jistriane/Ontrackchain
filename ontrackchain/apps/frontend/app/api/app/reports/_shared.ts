@@ -42,7 +42,7 @@ export async function authenticateReportRequest(requestId: string): Promise<Repo
         orgId: validateRes.headers.get("X-Org-Id") ?? "00000000-0000-0000-0000-000000000001",
         userId: validateRes.headers.get("X-User-Id") ?? "00000000-0000-0000-0000-000000000002",
         linkedUserId: validateRes.headers.get("X-Linked-User-Id") ?? "00000000-0000-0000-0000-000000000002",
-        role: "ADMIN",
+        role: validateRes.headers.get("X-Role") ?? "ADMIN",
         authMethod: validateRes.headers.get("X-Auth-Method") ?? "jwt",
         mfaMode: validateRes.headers.get("X-MFA-Mode") ?? "external_provider",
         mfaProviderHomologated: validateRes.headers.get("X-MFA-Provider-Homologated") ?? "true",
@@ -123,6 +123,14 @@ export async function proxyReportBinaryRequest(auth: ReportAuthContext, options:
           : { "content-type": contentType }
       });
     }
+
+    const nonOkStatus = res.status;
+    const nonOkBody = await res.text().catch(() => "");
+    const nonOkContentType = res.headers.get("content-type");
+    return new Response(nonOkBody, {
+      status: nonOkStatus,
+      headers: nonOkContentType ? { "content-type": nonOkContentType } : { "content-type": "application/json" }
+    });
   } catch {
     // Fallback for standalone deployment
   }
