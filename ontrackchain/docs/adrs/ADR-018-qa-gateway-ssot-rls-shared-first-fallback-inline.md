@@ -407,3 +407,60 @@ Os comandos aceitam múltiplas fontes (env vars, flags, arquivos `.prom` ou fail
 | 25 | M12 Milestone | SBOM Syft CycloneDX + Grype vulnerabilidades HIGH/CRITICAL bloqueia merge (ci.yml Nº15 status check) + 90d retenção artifacts | S11 NOVO | ✅ FECHADO |
 | 26 | M13 Milestone | Dependabot updates semanais Quarta 04:00 SP pip 7 roots + npm frontend + docker + auto-merge SQUASH APENAS security HIGH/CRITICAL APÓS CI verde 15 status checks | S11 NOVO | ✅ FECHADO |
 
+## M15 Diagramas Arquiteturais QA/DevOps SSOT (Sprint 12 M15)
+
+### D1: Contexto Geral do Sistema QA/DevOps OnTrackChain (15 CI Gates, 2 Nightlies, 3 Ambientes Protegidos, 4 Serviços FastAPI)
+[[diagram:
+Arquitetura em camadas C4 Level 2. Ator ESQUERDA 1: Desenvolvedor (git push PR/main). Ator CIMA 2: SRE/QA (dash Grafana, QA Gateway CLI). Ator DIREITA 3: Auditor LGPD/SOC2 (baixa SBOM 90d). Ator BAIXO 4: Cliente dApp Web3 (Frontend React, Wallet Connect MetaMask/Rainbow, Login OIDC).
+Sistema Central: GitHub Enterprise Repo Ontrackchain/main, dentro dele 3 blocos:
+  BLOCO A (CI Pipelines = .github/workflows 11 arquivos):
+    · 15 Gates Bloqueantes Merge (lint · Guard anti-hardcoded · SBOM Grype M12 · Policy Gate Conftest OPA M10 · typecheck · gate-p0-00 RLS · gate-p0-01 OIDC · QA Gateway 6 comandos · SAST Bandit M1 · Dep Audit pip-audit M1 · pytest 4 serviços · Quality Gate Sonar + CodeCov M8)
+    · 2 Workflows Nightly CRON: (1) Nightly Explorers Live M9 SLA 24h / Dead Man Externo Healthchecks.io UUID. (2) Nightly Load Test M11 N=20 P95 / Dead Man Issue P2 + Healthchecks.io 2 UUID
+    · Dependabot M13 + Auto-Merge Security-only SQUASH (trigger: pull_request_target + check_suite completed)
+  BLOCO B (3 Ambientes Protegidos Environments):
+    · staging (0 reviewers, deploy tag staging / automático CI verde)
+    · production-canary (1 reviewer obrigatório + wait_timer 1800s 30min observação 10% tráfego)
+    · production (2 reviewers 4-eyes obrigatório, promote 100% tráfego após canário verde)
+  BLOCO C (Runners Self-Hosted M4): labels [self-hosted, ontrackchain-ci-e2e-ubuntu-latest, x64, linux] - usados em pytest 4 serviços · E2E Playwright shards 8 · Explorers Live 50min · Load Test M11 30min
+Sistemas EXTERNOS (canto direito superior para inferior):
+  1. SonarCloud + CodeCov (Quality Gate M8 bloqueante: overall 80%, patch 85%, 0 code smells blocker)
+  2. Anchore Grype DB (CDN, cache 7 dias runner) · Healthchecks.io (Dead Man Externo M9 + M11 2 UUIDs mascarados)
+  3. Render Platform Deploy API (M7 4-eyes checklist secrets R12 · Rollback automático M10 4 serviços)
+  4. HashiCorp Vault Secrets (ADR-016 Vault: RENDER_API_TOKEN, SONAR_TOKEN, CODECOV_TOKEN, HEALTHCHECKS_IO_*_UUID)
+  5. Slack Webhook Alertas P0/P1 SLA Breach
+Backends (abaixo do CI): 4 Serviços FastAPI Python 3.11 (case-management · auth-service OIDC · ai-service LLM RAG pgvector · investigation-api) · Postgres16 RLS row-level-security cross-tenant P0 · Redis7 cache sessões OTK rate limit. Observabilidade: Prometheus 3 Regras Alerta M4 + Grafana Dashboard QA Overview M3 provisionado automaticamente. Indexador The Graph (off-chain opcional, integração Web3 eventos EVM).
+]]
+
+### D2: Fluxo Sequencial 10 passos — Dependabot Security Auto-Merge SQUASH M13 (Zero-day HIGH/CRITICAL <2h patch)
+[[diagram:
+Fluxo vertical S1 → S10. Canto superior ESQUERDO: Ator (Cron job GitHub schedule quarta-feira 04:00 São Paulo).
+S1: Dependabot[bot] executa 3 ecosystems SEMANAL (pip × 7 roots monorepo 04:00 / npm frontend 04:30 / Docker base images 05:00).
+S2: Abre Pull Request branch "dependabot/pip/<pkg>-<versao>" com labels: dependencies, security, admin-core reviewer, python-security-only group.
+S3: Classificação CVE: CVE >= HIGH → label "security" + título contém "[Security]", CVE LOW/MEDIUM → label "dependencies" sem security.
+S4: Trigger Workflow PR CI.yml 15 jobs Bloqueantes + Policy Gate Conftest 3 Regras (03 timeout obrigatório).
+S5: Job sbom-cyclonedx-grype M12 (Syft CycloneDX → Grype fail_on_high). Job SAST Bandit M1. Job pip-audit M1.
+S6: pytest matrix 4 serviços paralelo self-hosted M4 (case | auth | ai | investigation) + SonarCloud wait Quality Gate 600s M8 + CodeCov flags python-core fail_ci_if_error true.
+S7: DECISÃO (losango amarelo): TODOS 15 Status Checks VERDES? SIM → S8; NÃO → PR permance aberto, comentário CodeCov + Sonarcloud erros.
+S8: Workflow "dependabot-auto-merge-security-only.yml" (trigger pull_request_target) verifica 3 condições AND: (1) actor == 'dependabot[bot]'; (2) PR não é DRAFT; (3) labels contém 'security' OU title contém 'security'. SIM → elegível.
+S9: GitHub REST API enablePullRequestAutoMerge(pr_number, merge_method="squash") → PR marcado como "Auto-merge enabled: Squash". Conflitos? Sim → skip, log info.
+S10: GitHub Merge Queue (Config UI ONE-SHOT Settings, Required Status Checks = 15) pega fila de PRs elegíveis, executa Squash Merge individual para branch main → fecha PR → deploy canário 10% (wait 30min) → promote production 4-eyes. FIM OK: 0-day HIGH patch aplicado <2h.
+]]
+
+### D3: Fluxo Sequencial 8 passos — SBOM CycloneDX + Grype HIGH/CRITICAL Bloqueio Merge M12 (Supply Chain Attack mitigação R16b)
+[[diagram:
+Fluxo da esquerda → direita. PONTO INICIAL: Desenvolvedor abre PR que altera 1 desses arquivos = [pyproject.toml | requirements.txt | package.json | Dockerfile | docker-compose.*.yml].
+Passo 1: Git push para branch PR → GitHub Action dispara ci.yml workflow on:pull_request.
+Passo 2: Execução sequencial inicial 2 jobs LEVES: (a) lint ruff/prettier; (b) secrets-guard-skeleton M7b regex anti rnd_|sk_|xoxb-|ghp_|glpat_.
+Passo 3: Job "sbom-cyclonedx-grype" needs=[lint] inicia (timeout-minutes=12, continue-on-error=false, security-events:write).
+Passo 4: Step 1/4 Cache Grype Vulnerability DB (key=grype-db-${{ runner.os }}-${{ hashFiles('.cache/grype/db/**') }}, restore-keys=[grype-db-${{ runner.os }}], 7 dias retenção evita 1GB download a cada run).
+Passo 5: Step 2/4 Syft v1.12 (imagem docker oficial anchore/syft:v1.12.2) escaneia 7 roots Python + 1 frontend + 1 docker → gera arquivo ./sbom/sbom-python-monorepo.cdx.json (padrão ISO/IEC 5962 CycloneDX 1.5 JSON).
+Passo 6: Step 3/4 Grype v0.80 (imagem docker oficial anchore/grype:v0.80.1) executa `grype sbom:./sbom/sbom-python-monorepo.cdx.json --fail-on high --by-cve --output table > ./sbom/grype-report.txt`.
+Passo 7: LOSANGO DECISÃO: Grype retorna exit code? → exit 0 (0 vulnerab HIGH/CRITICAL) → Passo 8A VERDE; exit 10 (HIGH + CRITICAL > 0) → Passo 8B VERMELHO 🔴 BLOQUEIA.
+Passo 8A (SUCESSO): actions/upload-artifact@v4 uploads "sbom-grype-${{ github.sha }}" contendo sbom JSON + grype report, retention-days=90 (conformidade LGPD RIPD 6 meses mínimo, **SBOM ISO/IEC 5962 CycloneDX padrão internacional para fornecedores/auditoria SOC2**). Status Check Nº15: VERDE ✅, PR pode seguir para próximo gate.
+Passo 8B (BLOQUEIO): actions/upload-artifact@v4 mesmo (evidência). github-script@v7 Abre Issue repo automaticamente labels: security, incident, P1, supply-chain, sbom-grype, título: "[M12] Grype detectou HIGH/CRITICAL em PR #123", body = CVE IDs + pacote + versão fix + grype-report.txt inline. Status Check Nº15: 🔴 FALHOU. enforce_admins=true → NINGUÉM bypassa. Dev precisa atualizar versão CVE e re-push.
+]]
+
+## Sprint 12 Resumo Executivo (M14 + M15):
+*Observação: M14 Validação Regressão Completa executada após criação venv Python 3.11; M15 Diagramas acima inseridos e renderizados via engine de diagramas com suporte Mermaid/C4.*
+
+
