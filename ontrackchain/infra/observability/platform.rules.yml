@@ -10,3 +10,56 @@ groups:
         annotations:
           summary: Watchdog da plataforma ativo
           description: Alerta sentinela para validar a cadeia Prometheus -> Alertmanager -> receiver interno.
+
+      # ============================================================
+      # R8 — Alertas Sprint 4 (GAP#7 95% fechado): SLA / RLS / E2E
+      # ============================================================
+      - alert: InvestigationExplorerSlaDeadManSwitch
+        expr: |
+          (time() - investigation_explorer_last_success_timestamp) > 86400
+        for: 5m
+        labels:
+          severity: critical
+          sla_target: 24h
+          service: investigation-api
+          alert_type: sla-deadman
+          runbook: docs/runbooks/sla-explorer-down.md
+        annotations:
+          summary: "🚨 SLA 24h exploração live VIOLADA (último sucesso há > 86400s)."
+          description: >
+            investigation_explorer_last_success_timestamp mais recente do que 24h.
+            Verificar RPCs (Alchemy/Infura/Ankr), investigador de casos e worker.
+            Workflow nightly-explorers-live criará issue GitHub automática label `P1-critical sla-deadman investigation-down`.
+
+      - alert: RlsViolationBurstDetected
+        expr: |
+          sum by (service, organization_id) (rate(http_requests_total{status="401",reason="rls_organization_mismatch"}[5m])) > 0.333
+        for: 2m
+        labels:
+          severity: warning
+          service: platform
+          alert_type: rls-tenant-escape
+          runbook: docs/runbooks/rls-401-burst.md
+        annotations:
+          summary: "⚠️ RLS 401 burst — possível tentativa cross-tenant em andamento."
+          description: >
+            +20 HTTP 401 reason=rls_organization_mismatch em 5min por organização.
+            Rastrear correlação correlation_id em logs (middleware audit_rls_access) e user_id.
+
+      - alert: E2ePlaywrightSuccessRateBelowSla
+        expr: |
+          (
+            ci_e2e_playwright_successes_1h
+            / (ci_e2e_playwright_runs_1h + 0.0001)
+          ) < 0.90
+        for: 0m
+        labels:
+          severity: warning
+          service: qa-gateway
+          alert_type: e2e-regression
+          runbook: docs/runbooks/e2e-regression-below-90pct.md
+        annotations:
+          summary: "⚠️ Playwright E2E < 90% passagem na janela 1h — possível regressão visual/funcional."
+          description: >
+            Taxa sucesso Playwright (sucessos_1h / runs_1h) < 90%. Investigar trace de falhas em
+            artifact GitHub Actions upload (playwright-report/ + traces/) antes merge PR.

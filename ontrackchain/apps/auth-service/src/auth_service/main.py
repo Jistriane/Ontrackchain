@@ -93,6 +93,148 @@ TEAM_FEDERATED_DIRECTORY_SUGGESTION_ALLOWED_ROLES = {"ADMIN"}
 app = FastAPI(title="OnTrackChain Auth Service")
 
 
+# ==========================================================================
+# RLS CONTEXT INJECTION MIDDLEWARE (Habilita isolamento multi-tenant)
+# Fonte Única: packages/shared/src/ontrackchain_shared/middleware_rls.py
+# Strategy: Shared Package First → Fallback Inline (compatível host antigo)
+# ATENÇÃO (auth-service específico): login/dev-token/sso bypass é obrigatório!
+# ==========================================================================
+try:  # SHARED PACKAGE FIRST
+    from ontrackchain_shared.middleware_rls import (
+        DEFAULT_BYPASS_RLS_PATHS,
+        DEFAULT_BYPASS_RLS_PREFIXES,
+        register_rls_context_middleware as _register_rls_mw,
+    )
+
+    def _auth_get_pool_for_rls(request: Request):
+        return get_pool()
+
+    _AUTH_BYPASS_PATHS = set(DEFAULT_BYPASS_RLS_PATHS) | {
+        "/auth/dev-token",
+        "/auth/login",
+        "/auth/callback",
+        "/auth/sso/login",
+        "/auth/sso/callback",
+        "/auth/logout",
+    }
+    _AUTH_BYPASS_PFX = tuple(DEFAULT_BYPASS_RLS_PREFIXES) + ("/team/", "/federated/")
+    _register_rls_mw(
+        app,
+        get_pool_sync_fn=_auth_get_pool_for_rls,
+        bypass_paths=_AUTH_BYPASS_PATHS,
+        bypass_prefixes=_AUTH_BYPASS_PFX,
+    )
+    del _register_rls_mw, _auth_get_pool_for_rls, _AUTH_BYPASS_PATHS, _AUTH_BYPASS_PFX
+except Exception as _mw_exc:  # noqa: BLE001 — FALLBACK INLINE (host sem shared package)
+    import logging as _mw_log
+    import re as _mw_re
+    import uuid as _mw_uuid
+
+    _mw_log.getLogger(__name__).warning(
+        "auth-service: RLS middleware shared import failed (%s). Using inline fallback.",
+        type(_mw_exc).__name__,
+    )
+
+    _MW_RLS_BYPASS = frozenset(
+        {
+            "/",
+            "/health",
+            "/healthz",
+            "/ready",
+            "/metrics",
+            "/docs",
+            "/docs/",
+            "/openapi.json",
+            "/redoc",
+            "/auth/dev-token",
+            "/auth/login",
+            "/auth/callback",
+            "/auth/sso/login",
+            "/auth/sso/callback",
+            "/auth/logout",
+        }
+    )
+    _MW_RLS_BYPASS_PFX = ("/public/", "/health", "/docs", "/openapi", "/auth/", "/static/", "/team/", "/federated/")
+    _MW_UUID_RE = _mw_re.compile(
+        r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    )
+
+    def _mw_is_uuid(s: object) -> bool:
+        if s is None:
+            return False
+        s2 = str(s).strip()
+        if _MW_UUID_RE.match(s2):
+            return True
+        try:
+            _mw_uuid.UUID(s2)
+            return True
+        except Exception:  # noqa: BLE001
+            return False
+
+    def _mw_path_needs(p: str) -> bool:
+        if p in _MW_RLS_BYPASS:
+            return False
+        return not any(p.startswith(x) for x in _MW_RLS_BYPASS_PFX)
+
+    def _mw_extract(request: Request) -> "str | None":
+        raw = request.headers.get("X-Organization-Id")
+        if raw and _mw_is_uuid(raw):
+            return str(_mw_uuid.UUID(str(raw).strip()))
+        q = request.query_params.get("organization_id") or request.query_params.get("org_id")
+        if q and _mw_is_uuid(q):
+            return str(_mw_uuid.UUID(str(q).strip()))
+        # Auth service: rota /team/* aceita o claim org_id já decodificado no state.auth
+        try:
+            auth = getattr(request.state, "auth", None)
+            if isinstance(auth, dict) and _mw_is_uuid(auth.get("organization_id")):
+                return str(_mw_uuid.UUID(str(auth["organization_id"])))
+        except Exception:  # noqa: BLE001
+            pass
+        return None
+
+    try:
+        from starlette.middleware.base import BaseHTTPMiddleware as _MWBase
+
+        class _AuthRlsInlineMiddleware(_MWBase):
+            async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+                path = request.url.path or request.scope.get("path", "/")
+                if not _mw_path_needs(path):
+                    return await call_next(request)
+                org_id = _mw_extract(request)
+                if not org_id:
+                    raise HTTPException(
+                        status_code=401,
+                        detail="SECURITY-RLS-VIOLATION-NO-CONTEXT: missing X-Organization-Id header or authenticated JWT with org_id claim",
+                    )
+                pool_obj = get_pool()
+                try:
+                    with pool_obj.connection() as _c:
+                        with _c.cursor() as _cur:
+                            _cur.execute(
+                                "SELECT set_config('app.organization_id', %s, True)",
+                                (str(_mw_uuid.UUID(org_id)),),
+                            )
+                except HTTPException:
+                    raise
+                except Exception as _x:  # noqa: BLE001
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"SECURITY-RLS-CONTEXT-SET-FAILED: {type(_x).__name__}",
+                    )
+                try:
+                    setattr(request.state, "current_organization_id", org_id)
+                except Exception:  # noqa: BLE001
+                    pass
+                return await call_next(request)
+
+        app.add_middleware(_AuthRlsInlineMiddleware)
+    except Exception as _fb_exc:  # noqa: BLE001
+        _mw_log.getLogger(__name__).warning(
+            "auth-service: RLS inline fallback ALSO failed (%s). RLS NOT ACTIVE!", type(_fb_exc).__name__
+        )
+    del _mw_log, _mw_re, _mw_uuid
+
+
 class DevTokenRequest(BaseModel):
     org_id: str = "00000000-0000-0000-0000-000000000001"
     user_id: str = "00000000-0000-0000-0000-000000000002"

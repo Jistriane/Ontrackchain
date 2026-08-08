@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-ENV REBUILD_NONCE=20260808_v4
+ENV REBUILD_NONCE=20260808_cm_rls_v6
 
 COPY apps/case-management/pyproject.toml /app/pyproject.toml
 COPY apps/case-management/src /app/src

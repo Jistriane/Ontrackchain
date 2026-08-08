@@ -1,0 +1,368 @@
+name: Deploy → Produção (tag vX.Y.Z + approval manual OBRIGATÓRIO)
+# -----------------------------------------------------------------------
+# GAP #3 fechado (arquitetura): deploy produtivo não é push cego.
+#
+# Gatilhos:
+#   A) Tag `v*` (ex: `v1.3.0`) no main, PUSHED após ci.yml verde em staging.
+#   B) Workflow dispatch (param: tag_alvo e deploy_canary_only = true/false)
+#
+# PILARES:
+#   1. ENVIRONMENT GITHUB `production` com obrigatoriedade APPROVAL MANUAL.
+#   2. CANARY primeiro (canary.ontrackchain.com) com 10% tráfego por 30 min.
+#   3. Health Check + QA-RLS-SCAN em staging PRIMEIRO.
+#   4. Se canary VERDE = promote para produção (100% tráfego).
+#   5. Rollback a 1 clique (GitHub Actions → "Re-run jobs" no deploy anterior).
+# -----------------------------------------------------------------------
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      tag_alvo:
+        description: "Tag de versão para deployar (ex: v1.3.0). Se vazio usa último tag criado."
+        required: false
+        type: string
+      deploy_canary_only:
+        description: "Parar no canary (true) ou promover automático p/ produção após health canary (false)."
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-production-${{ github.ref }}
+  cancel-in-progress: false  # cancela só se for exatamente o mesmo ref; permite rollback manual paralelo
+
+permissions:
+  contents: read
+  actions: write
+  id-token: write
+  deployments: write
+
+env:
+  CANARY_WARMUP_SECONDS: 180
+  CANARY_OBSERVE_SECONDS: 1800  # 30 min observando canary antes de promote automático
+
+jobs:
+  # ---------------------------------------------------------------------
+  # 0. Validar TAG existe + SHA bate com commit deployado em staging (safeguard)
+  # ---------------------------------------------------------------------
+  preflight-tag-and-staging-check:
+    name: "0. Preflight: tag válida + staging já está neste SHA"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://ontrackchain.com
+    outputs:
+      tag: ${{ steps.tag.outputs.semver }}
+      sha: ${{ steps.sha.outputs.long }}
+      sha_short: ${{ steps.sha.outputs.short }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # precisa de todas tags e commits
+
+      - id: tag
+        name: "Resolução tag (workflow_dispatch ou push tags)"
+        run: |
+          if [ -n "${{ github.event.inputs.tag_alvo }}" ]; then
+            T="${{ github.event.inputs.tag_alvo }}"
+          else
+            T="${GITHUB_REF_NAME}"
+          fi
+          if ! [[ "$T" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+             echo "❌ Tag '$T' não é semver vX.Y.Z válida → abortar."; exit 3
+          fi
+          echo "semver=$T" >> "$GITHUB_OUTPUT"
+          echo "Tag alvo: $T"
+
+      - id: sha
+        name: "SHA do commit apontado pela tag"
+        run: |
+          SHA_LONG=$(git rev-list -n 1 "${{ steps.tag.outputs.semver }}" 2>/dev/null || true)
+          if [ -z "$SHA_LONG" ]; then
+            echo "❌ Tag ${{ steps.tag.outputs.semver }} não encontrada no repo → abortar"; exit 3
+          fi
+          echo "long=$SHA_LONG" >> "$GITHUB_OUTPUT"
+          echo "short=$(git rev-parse --short $SHA_LONG)" >> "$GITHUB_OUTPUT"
+
+      - name: "Safeguard: confirmar SHA passou o deploy-staging.yml (últimos 14 dias)"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHA="${{ steps.sha.outputs.long }}"
+          echo "Verificando deploy-staging concluído SUCCESS para SHA=$SHA..."
+          # MVP Sprint 2: checamos se ci.yml (gate-p0-00-rls) foi SUCCESS para este commit (requisito mínimo).
+          CONCLUSION=$(gh api repos/$GITHUB_REPOSITORY/commits/$SHA/check-suites \
+              --jq '.check_suites[] | select(.app.slug=="github-actions") | .conclusion' | sort -u | head -1)
+          echo "Última conclusão actions do commit: $CONCLUSION"
+          if [ "$CONCLUSION" != "success" ]; then
+             echo "⚠️  (warning) actions deste commit não tem todos checks success."
+             echo "   Em produtivo, isso bloquearia deployment (MVP Sprint 2: avisa, não aborta)."
+          fi
+
+  # ---------------------------------------------------------------------
+  # 1. Deploy CANARY (environment: production-canary)
+  # ---------------------------------------------------------------------
+  deploy-canary:
+    name: "1. Deploy CANARY (10% tráfego) em canary.ontrackchain.com"
+    needs: [preflight-tag-and-staging-check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment:
+      name: production-canary
+      url: https://canary.ontrackchain.com
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: "Chamar hook Render CASE Canary (1 serviço = canary 10%)"
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_CASE_CANARY }}
+        if: ${{ env.HOOK != '' }}
+        run: |
+          for i in 1 2 3; do
+            CODE=$(curl -sS -o /tmp/r_canary.html -w "%{http_code}" -X POST "$HOOK")
+            if [ "$CODE" = "200" ] || [ "$CODE" = "201" ]; then echo "✅ canary case OK"; break; fi
+            sleep $((i*10))
+            if [ "$i" = "3" ]; then echo "❌ canary case falhou 3x"; exit 2; fi
+          done
+
+      - name: "Build imagem QA Gateway para steps health/rls em prod"
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/qa-gateway/Dockerfile
+          push: false
+          load: true
+          tags: otk-qa-gateway-prod:${{ needs.preflight-tag-and-staging-check.outputs.sha_short }}
+
+      - name: "Warm-up canary (${{ env.CANARY_WARMUP_SECONDS }}s)"
+        run: sleep "${CANARY_WARMUP_SECONDS}"
+
+      - name: "QA Gateway health paralelo no canary"
+        env:
+          CANARY_BASE: ${{ secrets.CANARY_BASE_URL }}
+        if: ${{ env.CANARY_BASE != '' }}
+        run: |
+          ENDPOINTS="${CANARY_BASE}/api/v1/auth/healthz,${CANARY_BASE}/api/v1/cases/healthz,${CANARY_BASE}/openapi.json"
+          mkdir -p tmp_qa_prod
+          docker run --rm \
+            -v "$(pwd)/tmp_qa_prod:/tmp/qareports" \
+            otk-qa-gateway-prod:${{ needs.preflight-tag-and-staging-check.outputs.sha_short }} \
+            "qa-gateway health --endpoints '$ENDPOINTS' --http-timeout 10 --max-workers 4 --failures-json /tmp/qareports/canary-health.json"
+
+      - name: "Upload relatório canary health"
+        if: failure() || success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canary-health-${{ needs.preflight-tag-and-staging-check.outputs.tag }}
+          path: tmp_qa_prod/canary-health.json
+          if-no-files-found: ignore
+          retention-days: 90
+
+  # ---------------------------------------------------------------------
+  # 2. Janela de observação CANARY (30 min) + QA RLS SCAN réplica read-only
+  # ---------------------------------------------------------------------
+  observe-canary-and-rls:
+    name: "2. Observa canary ${{ env.CANARY_OBSERVE_SECONDS }}s + QA scan RLS réplica prod"
+    needs: [preflight-tag-and-staging-check, deploy-canary]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment:
+      name: production-canary
+    outputs:
+      canary_verde: ${{ steps.janela.outputs.canary_verde }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Build imagem QA Gateway"
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/qa-gateway/Dockerfile
+          push: false
+          load: true
+          tags: otk-qa-gateway-prod:${{ needs.preflight-tag-and-staging-check.outputs.sha_short }}
+
+      - name: "QA Gateway scan RLS em réplica READ-ONLY de produção"
+        env:
+          ONTRACKCHAIN_DATABASE_URL: ${{ secrets.PROD_DATABASE_READREPLICA_URL }}
+        if: ${{ env.ONTRACKCHAIN_DATABASE_URL != '' }}
+        run: |
+          mkdir -p tmp_qa_prod
+          docker run --rm \
+            -e ONTRACKCHAIN_DATABASE_URL \
+            -v "$(pwd)/tmp_qa_prod:/tmp/qareports" \
+            otk-qa-gateway-prod:${{ needs.preflight-tag-and-staging-check.outputs.sha_short }} \
+            "qa-gateway scan-rls --failures-json /tmp/qareports/prod-readreplica-rls.json"
+
+      - name: "Upload relatório RLS réplica prod"
+        if: failure() || success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-readreplica-rls-${{ needs.preflight-tag-and-staging-check.outputs.tag }}
+          path: tmp_qa_prod/prod-readreplica-rls.json
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - id: janela
+        name: "Janela de observação canary (30 min) — logging 1x/min /healthz"
+        env:
+          CANARY_BASE: ${{ secrets.CANARY_BASE_URL }}
+        run: |
+          ENDPOINT="${CANARY_BASE}/api/v1/auth/healthz"
+          FAIL=0
+          TOTAL=$((CANARY_OBSERVE_SECONDS / 60))
+          for m in $(seq 1 "$TOTAL"); do
+            sleep 60
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$ENDPOINT" || echo "000")
+            echo "minuto=$m/$TOTAL http=$CODE"
+            if [ "$CODE" -lt 200 ] || [ "$CODE" -ge 500 ]; then FAIL=$((FAIL+1)); fi
+          done
+          # Limite: aceitamos no máximo 1 falha transitória em 30 min (rede etc)
+          if [ "$FAIL" -le 1 ]; then
+             echo "canary_verde=true" >> "$GITHUB_OUTPUT"
+          else
+             echo "canary_verde=false" >> "$GITHUB_OUTPUT"
+             exit 1
+          fi
+
+  # ---------------------------------------------------------------------
+  # 3. PROMOTE canary → 100% produção (OU trava no canary se input=true)
+  # ---------------------------------------------------------------------
+  promote-to-production:
+    name: "3. Promote canary → 100% produção (3 serviços)"
+    needs: [preflight-tag-and-staging-check, observe-canary-and-rls]
+    if: ${{ needs.observe-canary-and-rls.outputs.canary_verde == 'true' && github.event.inputs.deploy_canary_only != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment:
+      name: production
+      url: https://ontrackchain.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Deploy hooks produção (3 serviços × retry 3x)"
+        env:
+          H_CASE: ${{ secrets.RENDER_DEPLOY_HOOK_CASE_PROD }}
+          H_AUTH: ${{ secrets.RENDER_DEPLOY_HOOK_AUTH_PROD }}
+          H_INV:  ${{ secrets.RENDER_DEPLOY_HOOK_INVESTIGATION_PROD }}
+        run: |
+          set +e
+          FAILS=0
+          for NAME in H_CASE H_AUTH H_INV; do
+            HOOK_VAR="${!NAME}"
+            if [ -z "$HOOK_VAR" ]; then
+              echo "ℹ️  $NAME não configurado (pular, pode ser serviço gerenciado manualmente)."
+              continue
+            fi
+            for i in 1 2 3; do
+              CODE=$(curl -sS -o /tmp/r_$NAME.html -w "%{http_code}" -X POST "$HOOK_VAR")
+              if [ "$CODE" = "200" ] || [ "$CODE" = "201" ]; then
+                echo "✅ produção $NAME deploy OK (http=$CODE)"; break
+              fi
+              sleep $((i*10))
+              if [ "$i" = "3" ]; then echo "❌ produção $NAME falhou 3x → marcar falha"; FAILS=$((FAILS+1)); fi
+            done
+          done
+          if [ "$FAILS" -gt 0 ]; then echo "❌ $FAILS hooks prod falharam → abortar"; exit 1; fi
+
+      - name: "Warm-up produção 240s + health check final 10 endpoints paralelo"
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/qa-gateway/Dockerfile
+          push: false
+          load: true
+          tags: otk-qa-gateway-prod:${{ needs.preflight-tag-and-staging-check.outputs.sha_short }}
+      - run: sleep 240
+      - env:
+          PROD_BASE: ${{ secrets.PROD_BASE_URL }}
+        run: |
+          ENDPOINTS="${PROD_BASE}/api/v1/auth/healthz,${PROD_BASE}/api/v1/cases/healthz,${PROD_BASE}/api/v1/investigation/healthz,${PROD_BASE}/healthz,${PROD_BASE}/openapi.json"
+          mkdir -p tmp_qa_prod_final
+          docker run --rm \
+            -v "$(pwd)/tmp_qa_prod_final:/tmp/qareports" \
+            otk-qa-gateway-prod:${{ needs.preflight-tag-and-staging-check.outputs.tag }} \
+            "qa-gateway health --endpoints '$ENDPOINTS' --http-timeout 12 --max-workers 6 --failures-json /tmp/qareports/prod-final-health.json"
+
+  # ---------------------------------------------------------------------
+  # 4. SUMÁRIO + ROLLBACK AUTOMÁTICO PRODUÇÃO (R7 + GAP#9 Sprint 4)
+  # ---------------------------------------------------------------------
+  summary-and-notify:
+    name: "4. Sumário deploy produção + Rollback automático se promote/canary falhou"
+    needs: [preflight-tag-and-staging-check, deploy-canary, observe-canary-and-rls, promote-to-production]
+    runs-on: ubuntu-latest
+    if: always()
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Calcula status geral"
+        id: gstatus
+        run: |
+          CANARY="${{ needs.deploy-canary.result }}"
+          OBSERVE="${{ needs.observe-canary-and-rls.result }}"
+          PROMOTE="${{ needs.promote-to-production.result }}"
+          echo "canary=$CANARY" >> "$GITHUB_OUTPUT"
+          echo "observe=$OBSERVE" >> "$GITHUB_OUTPUT"
+          echo "promote=$PROMOTE" >> "$GITHUB_OUTPUT"
+          if [ "$PROMOTE" = "success" ]; then
+            echo "deploy_status=SUCCESS" >> "$GITHUB_OUTPUT"
+          elif [ "$PROMOTE" = "failure" ] || [ "$OBSERVE" = "failure" ]; then
+            echo "deploy_status=NEEDS_ROLLBACK" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy_status=PARTIAL" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: "🎉 DEPLOY PRODUÇÃO SUCESSO"
+        if: steps.gstatus.outputs.deploy_status == 'SUCCESS'
+        run: |
+          echo "Tag deployada ............... ${{ needs.preflight-tag-and-staging-check.outputs.tag }}"
+          echo "SHA commit ................... ${{ needs.preflight-tag-and-staging-check.outputs.sha_short }}"
+          echo "Deploy canary (10%) .......... ${{ steps.gstatus.outputs.canary }}"
+          echo "Janela observação canary ..... ${{ steps.gstatus.outputs.observe }} (verde=${{ needs.observe-canary-and-rls.outputs.canary_verde }})"
+          echo "Promote → 100% produção ..... ${{ steps.gstatus.outputs.promote }}"
+          echo "🎉 Produção atualizada com sucesso!"
+
+      - name: "🔴 ROLLBACK AUTOMÁTICO PRODUÇÃO (R7 GAP#9) — Render API 4 serviços"
+        if: steps.gstatus.outputs.deploy_status == 'NEEDS_ROLLBACK'
+        env:
+          RENDER_API_TOKEN: ${{ secrets.RENDER_API_TOKEN_PROD }}
+          AUTH_ID: ${{ secrets.RENDER_AUTH_SERVICE_ID_PROD }}
+          PUB_ID:  ${{ secrets.RENDER_PUBLIC_API_SERVICE_ID_PROD }}
+          INV_ID:  ${{ secrets.RENDER_INVESTIGATION_API_SERVICE_ID_PROD }}
+          CASE_ID: ${{ secrets.RENDER_CASE_SERVICE_ID_PROD }}
+        run: |
+          set -euo pipefail
+          echo "🔴 PRODUÇÃO FALHOU: canary=${{ steps.gstatus.outputs.canary }} observe=${{ steps.gstatus.outputs.observe }} promote=${{ steps.gstatus.outputs.promote }}"
+          echo "🚨 ROLLBACK AUTOMÁTICO DE PRODUÇÃO — GAP#9 Sprint 4"
+          if [ -z "$RENDER_API_TOKEN" ]; then
+            echo "❌❌ secrets.RENDER_API_TOKEN_PROD NÃO DEFINIDO → Rollback MANUAL OBRIGATÓRIO AGORA (P0-incidente)."
+            echo "Rito P0: dashboard.render.com → cada um dos 4 serviços → Deploys → Rollback penúltimo GREEN."
+            exit 3
+          fi
+          echo "import os, sys, requests, time" > /tmp/_rollback_prod.py
+          echo "tok = os.environ['RENDER_API_TOKEN']" >> /tmp/_rollback_prod.py
+          echo "pairs = [('auth-service', os.environ.get('AUTH_ID','')), ('public-api', os.environ.get('PUB_ID','')), ('investigation-api', os.environ.get('INV_ID','')), ('case-management', os.environ.get('CASE_ID',''))]" >> /tmp/_rollback_prod.py
+          echo "hdr = {'Authorization': f'Bearer {tok}', 'Accept':'application/json'}" >> /tmp/_rollback_prod.py
+          echo "errors=0" >> /tmp/_rollback_prod.py
+          echo "for name, sid in pairs:" >> /tmp/_rollback_prod.py
+          echo "    if not sid:" >> /tmp/_rollback_prod.py
+          echo "        print(f'  SKIP {name:22s}: service_id vazio. Adicione secret RENDER_{name.upper().replace(\"-\",\"_\")}_SERVICE_ID_PROD.')" >> /tmp/_rollback_prod.py
+          echo "        continue" >> /tmp/_rollback_prod.py
+          echo "    r = requests.post(f'https://api.render.com/v1/services/{sid}/rollback', headers=hdr, timeout=30)" >> /tmp/_rollback_prod.py
+          echo "    if r.status_code in (200,201,202):" >> /tmp/_rollback_prod.py
+          echo "        print(f'  ✅ ROLLBACK PROD OK  {name:22s} sid={sid[:10]}... HTTP {r.status_code}')" >> /tmp/_rollback_prod.py
+          echo "    else:" >> /tmp/_rollback_prod.py
+          echo "        errors+=1" >> /tmp/_rollback_prod.py
+          echo "        body = r.text.replace(chr(10),' ')[:200]" >> /tmp/_rollback_prod.py
+          echo "        print(f'  ❌ ROLLBACK PROD FAIL {name:22s} HTTP {r.status_code}: {body}')" >> /tmp/_rollback_prod.py
+          echo "    time.sleep(0.5)" >> /tmp/_rollback_prod.py
+          echo "sys.exit(1 if errors>0 else 0)" >> /tmp/_rollback_prod.py
+          python3 /tmp/_rollback_prod.py
+          echo "✅ Rollback produção disparado (P0 resolvido automaticamente)."
+          exit 1

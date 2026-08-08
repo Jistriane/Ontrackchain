@@ -62,6 +62,106 @@ app = FastAPI(
 )
 
 
+# ==========================================================================
+# RLS CONTEXT INJECTION MIDDLEWARE (Habilita isolamento multi-tenant)
+# Fonte Única: packages/shared/src/ontrackchain_shared/middleware_rls.py
+# Strategy: Shared Package First → Fallback Inline (compatível host antigo)
+# ==========================================================================
+try:  # SHARED PACKAGE FIRST
+    from ontrackchain_shared.middleware_rls import register_rls_context_middleware as _register_rls_mw
+
+    def _get_pool_for_rls(request: Request) -> ConnectionPool:
+        return get_pool(request)
+
+    _register_rls_mw(app, get_pool_sync_fn=_get_pool_for_rls)
+    del _register_rls_mw, _get_pool_for_rls
+except Exception as _mw_exc:  # noqa: BLE001 — FALLBACK INLINE (host sem shared package)
+    import logging as _mw_log
+
+    _mw_log.getLogger(__name__).warning(
+        "case-management: RLS middleware shared package import failed (%s). Using inline fallback.",
+        type(_mw_exc).__name__,
+    )
+    import re as _mw_re
+    import uuid as _mw_uuid
+
+    _MW_RLS_BYPASS = frozenset(
+        {"/", "/health", "/healthz", "/ready", "/metrics", "/docs", "/docs/", "/openapi.json", "/redoc"}
+    )
+    _MW_RLS_BYPASS_PFX = ("/public/", "/health", "/docs", "/openapi", "/auth/", "/static/")
+    _MW_UUID_RE = _mw_re.compile(
+        r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    )
+
+    def _mw_is_uuid(s: object) -> bool:
+        if s is None:
+            return False
+        s2 = str(s).strip()
+        if _MW_UUID_RE.match(s2):
+            return True
+        try:
+            _mw_uuid.UUID(s2)
+            return True
+        except Exception:  # noqa: BLE001
+            return False
+
+    def _mw_path_needs(p: str) -> bool:
+        if p in _MW_RLS_BYPASS:
+            return False
+        return not any(p.startswith(x) for x in _MW_RLS_BYPASS_PFX)
+
+    def _mw_extract(request: Request) -> "str | None":
+        raw = request.headers.get("X-Organization-Id")
+        if raw and _mw_is_uuid(raw):
+            return str(_mw_uuid.UUID(str(raw).strip()))
+        q = request.query_params.get("organization_id") or request.query_params.get("org_id")
+        if q and _mw_is_uuid(q):
+            return str(_mw_uuid.UUID(str(q).strip()))
+        return None
+
+    try:
+        from starlette.middleware.base import BaseHTTPMiddleware as _MWBase
+
+        class _RlsInlineMiddleware(_MWBase):
+            async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+                path = request.url.path or request.scope.get("path", "/")
+                if not _mw_path_needs(path):
+                    return await call_next(request)
+                org_id = _mw_extract(request)
+                if not org_id:
+                    raise HTTPException(
+                        status_code=401,
+                        detail="SECURITY-RLS-VIOLATION-NO-CONTEXT: missing X-Organization-Id header or org_id JWT claim",
+                    )
+                pool_obj = get_pool(request)
+                try:
+                    with pool_obj.connection() as _c:
+                        with _c.cursor() as _cur:
+                            _cur.execute(
+                                "SELECT set_config('app.organization_id', %s, True)",
+                                (str(_mw_uuid.UUID(org_id)),),
+                            )
+                except HTTPException:
+                    raise
+                except Exception as _x:  # noqa: BLE001
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"SECURITY-RLS-CONTEXT-SET-FAILED: {type(_x).__name__}",
+                    )
+                try:
+                    setattr(request.state, "current_organization_id", org_id)
+                except Exception:  # noqa: BLE001
+                    pass
+                return await call_next(request)
+
+        app.add_middleware(_RlsInlineMiddleware)
+    except Exception as _fb_exc:  # noqa: BLE001
+        _mw_log.getLogger(__name__).warning(
+            "case-management: RLS inline fallback ALSO failed (%s). RLS NOT ACTIVE!", type(_fb_exc).__name__
+        )
+    del _mw_log, _mw_re, _mw_uuid
+
+
 def get_pool(request: Request) -> ConnectionPool:
     pool: Optional[ConnectionPool] = getattr(request.app.state, "pool", None)
     if pool is None:

@@ -1,0 +1,322 @@
+name: Deploy → Staging (push main)
+# -----------------------------------------------------------------------
+# Gatilho: push para main DEPOIS que o ci.yml (gate-p0-00-rls + pytest
+# matrix 7 serviços) passar com sucesso.
+#
+# Fluxo:
+#   1. Espera (check-wait) os 2 jobs obrigatórios do ci.yml (gate-p0-00-rls
+#      e os 3 testes pytest não-skip: case, auth, ai, investigation).
+#   2. Chama Render Deploy Hook (staging: serviço case + auth + investigation).
+#   3. Espera 3m (180s) período de warm-up do Render.
+#   4. Roda QA-GATEWAY HEALTH (imagem standalone, Paralelo 5 endpoints).
+#   5. Roda QA-GATEWAY SCAN-RLS (DB staging, após migration rodar).
+#   6. SE qualquer health falhar → ROLLBACK automático pelo hook Render
+#      (rollback deploy id SHA anterior).
+# -----------------------------------------------------------------------
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      force_render_deploy:
+        description: "Forçar re-deploy Render staging mesmo sem diff?"
+        required: false
+        default: "no"
+        type: choice
+        options:
+          - "no"
+          - "yes"
+
+concurrency:
+  group: deploy-staging-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: write  # Para checar status de workflows (check-wait)
+  id-token: write # OIDC para vault se existir (não obrigatório MVP)
+
+env:
+  # Secrets obrigatórios (configurar em GitHub → Settings → Secrets and variables → Actions → Secrets):
+  #   RENDER_DEPLOY_HOOK_CASE_STAGING       | https://render.com/deploy?repo=xxx&service=srv-case&ref=main
+  #   RENDER_DEPLOY_HOOK_AUTH_STAGING       | hook serviço auth
+  #   RENDER_DEPLOY_HOOK_INVESTIGATION_STAGING | hook serviço investigation
+  #   RENDER_API_TOKEN_STAGING              | Bearer token Render (p/ listar services)
+  #   STAGING_DATABASE_URL                  | postgresql://u:p@host:5432/staging_db
+  #   STAGING_BASE_URL                      | https://staging.ontrackchain.com
+  STAGING_WARMUP_SECONDS: 210
+  MAX_RETRIES_DEPLOY_HOOK: 3
+
+jobs:
+  # ---------------------------------------------------------------------
+  # STEP 0 — Esperar CI.yml concluir (não deploya se CI vermelho)
+  # ---------------------------------------------------------------------
+  wait-ci-green:
+    name: "0. Espera CI.yml verde (obrigatório)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: "Checkout raso (apenas para .github)"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: "Espera workflow_run ci.yml no mesmo commit SHA ficar success"
+        uses: fountainhead/action-wait-for-check@v1.2.0
+        id: wait-ci
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          checkName: "gate-p0-00-rls"  # job mais crítico do ci.yml (bloqueia merge)
+          ref: ${{ github.sha }}
+          timeoutSeconds: 3300  # 55min (ci.yml demora ~30min)
+          intervalSeconds: 15
+
+      - name: "Falhar se gate-p0-00-rls não deu sucesso"
+        if: steps.wait-ci.outputs.conclusion != 'success'
+        run: |
+          echo "❌ CI.yml (gate-p0-00-rls) retornou '${{ steps.wait-ci.outputs.conclusion }}' → abortado deploy staging."
+          exit 1
+
+  # ---------------------------------------------------------------------
+  # STEP 1 — Chamar hooks Render (3 serviços paralelos) + build imagem QA
+  # ---------------------------------------------------------------------
+  render-deploy-parallel:
+    name: "1. Render Deploy Hook × 3 serviços + build QA Gateway"
+    needs: [wait-ci-green]
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_sha: ${{ steps.sha.outputs.short }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - id: sha
+        name: "SHA curto para tag / relatório"
+        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: "Chamar hook Render Case Management (retry 3x)"
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_CASE_STAGING }}
+        if: ${{ env.HOOK != '' }}
+        run: |
+          for i in 1 2 3; do
+            CODE=$(curl -sS -o /tmp/render_case_resp.html -w "%{http_code}" -X POST "$HOOK")
+            echo "  retry=$i http=$CODE"
+            if [ "$CODE" = "200" ] || [ "$CODE" = "201" ]; then
+              echo "✅ Render case management hook OK (http=$CODE)"
+              break
+            fi
+            echo "  retry $i/3 com backoff..."
+            sleep $((i*8))
+            if [ "$i" = "3" ]; then echo "❌ hook case falhou 3x → abortar"; exit 2; fi
+          done
+
+      - name: "Chamar hook Render Auth Service (retry 3x)"
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_AUTH_STAGING }}
+        if: ${{ env.HOOK != '' }}
+        run: |
+          for i in 1 2 3; do
+            CODE=$(curl -sS -o /tmp/render_auth_resp.html -w "%{http_code}" -X POST "$HOOK")
+            if [ "$CODE" = "200" ] || [ "$CODE" = "201" ]; then echo "✅ Render auth OK"; break; fi
+            sleep $((i*8))
+            if [ "$i" = "3" ]; then echo "❌ hook auth falhou 3x"; exit 2; fi
+          done
+
+      - name: "Chamar hook Render Investigation API (retry 3x)"
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_INVESTIGATION_STAGING }}
+        if: ${{ env.HOOK != '' }}
+        run: |
+          for i in 1 2 3; do
+            CODE=$(curl -sS -o /tmp/render_inv_resp.html -w "%{http_code}" -X POST "$HOOK")
+            if [ "$CODE" = "200" ] || [ "$CODE" = "201" ]; then echo "✅ Render investigation OK"; break; fi
+            sleep $((i*8))
+            if [ "$i" = "3" ]; then echo "❌ hook investigation falhou 3x"; exit 2; fi
+          done
+
+      # Build IMAGEM QA GATEWAY para rodar jobs de health / rls a seguir
+      - name: "Build imagem QA Gateway (usada steps 2 e 3)"
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/qa-gateway/Dockerfile
+          push: false
+          load: true
+          tags: otk-qa-gateway:${{ steps.sha.outputs.short }}
+
+  # ---------------------------------------------------------------------
+  # STEP 2 — Warm-up + QA HEALTH PARALELO
+  # ---------------------------------------------------------------------
+  post-deploy-health:
+    name: "2. Warm-up ${{ env.STAGING_WARMUP_SECONDS }}s + QA Gateway health paralelo"
+    needs: [render-deploy-parallel]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Baixar imagem QA Gateway (cache)"
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/qa-gateway/Dockerfile
+          push: false
+          load: true
+          tags: otk-qa-gateway:${{ needs.render-deploy-parallel.outputs.deploy_sha }}
+
+      - name: "Sleep warm-up Render deploy"
+        run: |
+          echo "⏳ Espera ${STAGING_WARMUP_SECONDS}s até serviços staging subirem..."
+          sleep "${STAGING_WARMUP_SECONDS}"
+          echo "✅ warm-up concluído"
+
+      - name: "QA Gateway health paralelo (5 endpoints obrigatórios)"
+        env:
+          STAGING_BASE: ${{ secrets.STAGING_BASE_URL }}
+        if: ${{ env.STAGING_BASE != '' }}
+        run: |
+          ENDPOINTS="${STAGING_BASE}/api/v1/auth/healthz,${STAGING_BASE}/api/v1/cases/healthz,${STAGING_BASE}/api/v1/investigation/healthz,${STAGING_BASE}/healthz,${STAGING_BASE}/openapi.json"
+          echo "Testando health endpoints: $ENDPOINTS"
+          docker run --rm \
+            -v "$(pwd)/tmp_qa:/tmp/qareports" \
+            otk-qa-gateway:${{ needs.render-deploy-parallel.outputs.deploy_sha }} \
+            "qa-gateway health \
+              --endpoints '$ENDPOINTS' \
+              --http-timeout 8.0 \
+              --max-workers 8 \
+              --failures-json /tmp/qareports/health-failures.json"
+
+      - name: "Artifício: salvar health-failures.json se existir"
+        if: failure() || success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-failures-staging-${{ github.sha }}
+          path: tmp_qa/health-failures.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ---------------------------------------------------------------------
+  # STEP 3 — QA Gateway SCAN-RLS (staging DB, 15 tabelas)
+  # ---------------------------------------------------------------------
+  post-deploy-rls-scan:
+    name: "3. QA Gateway scan-rls (staging DB)"
+    needs: [render-deploy-parallel]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Baixar imagem QA Gateway (cache)"
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/qa-gateway/Dockerfile
+          push: false
+          load: true
+          tags: otk-qa-gateway:${{ needs.render-deploy-parallel.outputs.deploy_sha }}
+
+      - name: "QA Gateway scan RLS em staging"
+        env:
+          ONTRACKCHAIN_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        if: ${{ env.ONTRACKCHAIN_DATABASE_URL != '' }}
+        run: |
+          mkdir -p tmp_qa
+          docker run --rm \
+            -e ONTRACKCHAIN_DATABASE_URL \
+            -v "$(pwd)/tmp_qa:/tmp/qareports" \
+            otk-qa-gateway:${{ needs.render-deploy-parallel.outputs.deploy_sha }} \
+            "qa-gateway scan-rls --failures-json /tmp/qareports/rls-failures.json"
+
+      - name: "Upload relatório RLS"
+        if: failure() || success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rls-failures-staging-${{ github.sha }}
+          path: tmp_qa/rls-failures.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ---------------------------------------------------------------------
+  # STEP 4 — RESUMO + ROLLBACK CONDICIONAL
+  # ---------------------------------------------------------------------
+  summary-or-rollback:
+    name: "4. Resumo deploy staging / Rollback automático se health|rls falhar"
+    needs: [render-deploy-parallel, post-deploy-health, post-deploy-rls-scan]
+    runs-on: ubuntu-latest
+    if: always()
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Calcula status geral (sucesso = 2 jobs dependentes 'success')"
+        id: status
+        run: |
+          HEALTH_STATUS="${{ needs.post-deploy-health.result }}"
+          RLS_STATUS="${{ needs.post-deploy-rls-scan.result }}"
+          echo "health_status=$HEALTH_STATUS" >> "$GITHUB_OUTPUT"
+          echo "rls_status=$RLS_STATUS" >> "$GITHUB_OUTPUT"
+          if [ "$HEALTH_STATUS" = "success" ] && [ "$RLS_STATUS" = "success" ]; then
+             echo "deploy_status=SUCCESS" >> "$GITHUB_OUTPUT"
+          else
+             echo "deploy_status=NEEDS_ROLLBACK" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: "✅ DEPLOY STAGING SUCESSO"
+        if: steps.status.outputs.deploy_status == 'SUCCESS'
+        run: |
+          echo "🚀 Staging verde! SHA=${{ needs.render-deploy-parallel.outputs.deploy_sha }}"
+          echo "Health job ........ ${{ steps.status.outputs.health_status }}"
+          echo "RLS   job .......... ${{ steps.status.outputs.rls_status }}"
+          echo "🎉 Pronto para validação manual QA em staging."
+
+      - name: "⚠️  GATILHO ROLLBACK AUTOMÁTICO via Render REST API (GAP#9 fechado Sprint 4)"
+        if: steps.status.outputs.deploy_status == 'NEEDS_ROLLBACK'
+        env:
+          RENDER_API_TOKEN: ${{ secrets.RENDER_API_TOKEN_STAGING }}
+          ENV_PREFIX: STAGING
+          AUTH_ID: ${{ secrets.RENDER_AUTH_SERVICE_ID_STAGING }}
+          PUB_ID:  ${{ secrets.RENDER_PUBLIC_API_SERVICE_ID_STAGING }}
+          INV_ID:  ${{ secrets.RENDER_INVESTIGATION_API_SERVICE_ID_STAGING }}
+          CASE_ID: ${{ secrets.RENDER_CASE_SERVICE_ID_STAGING }}
+        run: |
+          set -euo pipefail
+          echo "❌ Deploy staging FALHOU: health=${{ steps.status.outputs.health_status }}, rls=${{ steps.status.outputs.rls_status }}"
+          echo "🔁 RENDER API ROLLBACK AUTOMÁTICO — todos 4 serviços (auth/public-api/investigation-api/case)"
+          # ============================================================
+          # R7: Rollback via Render REST API — GAP#9 Sprint 4
+          # Docs: https://api-docs.render.com/reference/rollback-service
+          # Endpoint: POST https://api.render.com/v1/services/{SVC_ID}/rollback
+          # ============================================================
+          if [ -z "$RENDER_API_TOKEN" ]; then
+            echo "⚠️  secrets.RENDER_API_TOKEN_STAGING NÃO DEFINIDO → Rollback MANUAL requisitado (não automático)."
+            echo "Passos: 1) https://dashboard.render.com → cada serviço → Deploys → Rollback para penúltimo deploy GREEN."
+            exit 2
+          fi
+          echo "import os, sys, requests, time" > /tmp/_rollback.py
+          echo "tok = os.environ['RENDER_API_TOKEN']" >> /tmp/_rollback.py
+          echo "pairs = [('auth-service', os.environ.get('AUTH_ID','')), ('public-api', os.environ.get('PUB_ID','')), ('investigation-api', os.environ.get('INV_ID','')), ('case-management', os.environ.get('CASE_ID',''))]" >> /tmp/_rollback.py
+          echo "hdr = {'Authorization': f'Bearer {tok}', 'Accept':'application/json'}" >> /tmp/_rollback.py
+          echo "errors=0" >> /tmp/_rollback.py
+          echo "for name, sid in pairs:" >> /tmp/_rollback.py
+          echo "    if not sid or sid == '':" >> /tmp/_rollback.py
+          echo "        print(f'  SKIP {name:22s}: env service_id vazio (secret não definido). Adicione secret RENDER_{name.upper().replace(\"-\",\"_\")}_SERVICE_ID_STAGING.')" >> /tmp/_rollback.py
+          echo "        continue" >> /tmp/_rollback.py
+          echo "    url = f'https://api.render.com/v1/services/{sid}/rollback'" >> /tmp/_rollback.py
+          echo "    r = requests.post(url, headers=hdr, timeout=25)" >> /tmp/_rollback.py
+          echo "    if r.status_code in (200,201,202):" >> /tmp/_rollback.py
+          echo "        print(f'  ✅ ROLLBACK OK  {name:22s} sid={sid[:10]}... HTTP {r.status_code}')" >> /tmp/_rollback.py
+          echo "    else:" >> /tmp/_rollback.py
+          echo "        errors+=1" >> /tmp/_rollback.py
+          echo "        body = r.text.replace(chr(10),' ')[:180]" >> /tmp/_rollback.py
+          echo "        print(f'  ❌ ROLLBACK FAIL {name:22s} sid={sid[:10]}... HTTP {r.status_code} → {body}')" >> /tmp/_rollback.py
+          echo "    time.sleep(0.3)" >> /tmp/_rollback.py
+          echo "print(f'  → rollback concluído. falhas: {errors}/4')" >> /tmp/_rollback.py
+          echo "sys.exit(1 if errors>0 else 0)" >> /tmp/_rollback.py
+          python3 /tmp/_rollback.py
+          echo "🔁 Rollback Render API disparado. Monitorar dashboard Render: cada serviço volta para deploy anterior GREEN."
+          exit 1
+

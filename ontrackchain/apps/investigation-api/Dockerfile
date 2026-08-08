@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-ENV REBUILD_NONCE=20260808_v7
+ENV REBUILD_NONCE=20260808_v8_rls_middleware
 
 COPY apps/investigation-api/pyproject.toml /app/pyproject.toml
 COPY apps/investigation-api/src /app/src
