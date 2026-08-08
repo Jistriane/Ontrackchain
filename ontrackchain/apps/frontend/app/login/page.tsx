@@ -243,6 +243,17 @@ export default function LoginPage() {
 
               {String(authConfig?.oidc?.provider ?? "").toLowerCase() === "mock" ? (
                 <>
+                  <button
+                    className="otc-button otc-button--accent"
+                    type="button"
+                    data-testid="oidc-login-btn"
+                    style={{ background: "rgba(255, 255, 255, 0.08)", border: "1px solid var(--otc-border)" }}
+                    onClick={onOidcLogin}
+                    disabled={isSubmitting}
+                  >
+                    {t("login.enterKeycloak")}
+                  </button>
+
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {[
                       { label: "Mock OIDC (Redirect) — Admin", role: "ADMIN" },

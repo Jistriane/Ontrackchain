@@ -1,4 +1,5 @@
 import { validateAndGetRole } from "../../../../lib/auth-validate";
+import { canReadMonitoringAdmin } from "../../../../lib/authz";
 
 const EMPTY_PLATFORM_OPERATIONAL_ALERTS = {
   status_filter: null,
@@ -15,9 +16,21 @@ const EMPTY_PLATFORM_OPERATIONAL_ALERTS = {
   data: []
 } as const;
 
+const MONITORING_READ_DENIED = {
+  detail: "monitoring_read_role_required"
+} as const;
+
 export async function GET(request: Request) {
   const auth = await validateAndGetRole(request);
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+
+  if (!canReadMonitoringAdmin(auth.role)) {
+    return new Response(JSON.stringify(MONITORING_READ_DENIED), {
+      status: 403,
+      headers: { "content-type": "application/json" }
+    });
+  }
+
   const url = new URL(request.url);
   const query = url.search ? url.search : "";
   const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";

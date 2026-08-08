@@ -172,6 +172,11 @@ export async function POST(request: Request) {
         headers: { "content-type": "application/json" }
       });
     }
+
+    return new Response(JSON.stringify({ error: "missing_oidc_code_exchange" }), {
+      status: 401,
+      headers: { "content-type": "application/json" }
+    });
   }
 
   // Handle email/password direct login fallback (or dev auth)

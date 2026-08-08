@@ -9,7 +9,12 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+SRC_DIR = Path(__file__).resolve().parent.parent / "src"
+TESTS_ROOT = Path(__file__).resolve().parent.parent
+TESTS_DIR = Path(__file__).resolve().parent
+for d in (str(SRC_DIR), str(TESTS_ROOT), str(TESTS_DIR)):
+    if d not in sys.path:
+        sys.path.insert(0, d)
 
 FASTAPI_AVAILABLE = importlib.util.find_spec("fastapi") is not None
 

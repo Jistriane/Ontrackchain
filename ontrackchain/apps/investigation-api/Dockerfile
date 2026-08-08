@@ -2,16 +2,17 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-ENV REBUILD_NONCE=20260720_v3
+ENV REBUILD_NONCE=20260808_v7
 
 COPY apps/investigation-api/pyproject.toml /app/pyproject.toml
 COPY apps/investigation-api/src /app/src
+COPY apps/investigation-api/tests /app/tests
 COPY packages/agents /tmp/ontrackchain-agents
 
 RUN pip install --no-cache-dir --upgrade pip \
   && pip install --no-cache-dir hatchling \
   && pip install --no-cache-dir /tmp/ontrackchain-agents \
-  && pip install --no-cache-dir .
+  && pip install --no-cache-dir ".[dev]"
 
 EXPOSE 8001
 

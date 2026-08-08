@@ -2,18 +2,19 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-ENV REBUILD_NONCE=20260726_v2
+ENV REBUILD_NONCE=20260808_v8
 
 COPY packages/shared /tmp/ontrackchain-shared
 COPY packages/agents /tmp/ontrackchain-agents
 COPY apps/ai-service/pyproject.toml /app/pyproject.toml
 COPY apps/ai-service/src /app/src
+COPY apps/ai-service/tests /app/tests
 
 RUN pip install --no-cache-dir --upgrade pip \
   && pip install --no-cache-dir hatchling \
   && pip install --no-cache-dir /tmp/ontrackchain-shared \
   && pip install --no-cache-dir "/tmp/ontrackchain-agents[all]" \
-  && pip install --no-cache-dir ".[llm]"
+  && pip install --no-cache-dir ".[llm,dev]"
 
 EXPOSE 8005
 

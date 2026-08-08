@@ -1,4 +1,5 @@
 import { validateAndGetRole } from "../../../../lib/auth-validate";
+import { canReadInvestigationAdmin } from "../../../../lib/authz";
 
 const EMPTY_METRICS_PREVIEW = "# metrics_unavailable_anonymous 1\n";
 
@@ -9,11 +10,26 @@ ontrackchain_investigation_jobs_total{status="failed"} 0
 # HELP ontrackchain_active_watchlists Active monitoring watchlists
 # TYPE ontrackchain_active_watchlists gauge
 ontrackchain_active_watchlists 5
+# HELP ontrack_investigation_states_dlq_failed Cases in failed_permanent DLQ state
+# TYPE ontrack_investigation_states_dlq_failed gauge
+ontrack_investigation_states_dlq_failed 1
 `;
+
+const PRIVILEGED_READ_DENIED = {
+  detail: "privileged_read_role_required"
+} as const;
 
 export async function GET(request: Request) {
   const auth = await validateAndGetRole(request);
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+
+  if (!canReadInvestigationAdmin(auth.role)) {
+    return new Response(JSON.stringify(PRIVILEGED_READ_DENIED), {
+      status: 403,
+      headers: { "content-type": "application/json" }
+    });
+  }
+
   const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
 
   try {

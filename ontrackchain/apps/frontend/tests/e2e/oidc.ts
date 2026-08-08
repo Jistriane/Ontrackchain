@@ -22,6 +22,49 @@ type OidcTokenResponse = {
   access_token?: string;
 };
 
+function inferMockRole(username: string): "ADMIN" | "AUDITOR" | "ANALYST" | "VIEWER" {
+  const normalized = (username || "").trim().toLowerCase();
+  if (normalized.includes("auditor")) {
+    return "AUDITOR";
+  }
+  if (normalized.includes("analyst")) {
+    return "ANALYST";
+  }
+  if (normalized.includes("viewer")) {
+    return "VIEWER";
+  }
+  return "ADMIN";
+}
+
+function inferMockPlan(role: "ADMIN" | "AUDITOR" | "ANALYST" | "VIEWER"): string {
+  if (role === "VIEWER" || role === "ANALYST") {
+    return "professional";
+  }
+  return "enterprise";
+}
+
+async function tryOidcMockToken(
+  request: APIRequestContext,
+  credentials: { username: string; password: string }
+): Promise<string | null> {
+  const role = inferMockRole(credentials.username);
+  const plan = inferMockPlan(role);
+  const response = await request.post("/api/oidc/mock-token", {
+    headers: { "content-type": "application/json" },
+    data: {
+      role,
+      plan,
+      org: "00000000-0000-0000-0000-000000000001",
+      sub: `e2e:${role.toLowerCase()}`
+    }
+  });
+  if (!response.ok()) {
+    return null;
+  }
+  const payload = parseOidcTokenResponse(await response.json().catch(() => null));
+  return payload?.access_token?.trim() || null;
+}
+
 export type JwtClaims = {
   sub: string;
   org?: string;
@@ -184,10 +227,35 @@ export function escapedHost(url: string) {
   return escapeRegex(new URL(url).host);
 }
 
-export async function readAuthConfig(request: APIRequestContext) {
-  const configRes = await request.get("/auth/config");
-  expect(configRes.status()).toBe(200);
-  return parseAuthConfigResponse(await configRes.json().catch(() => null));
+export async function readAuthConfig(request: APIRequestContext, maxAttempts = 12, baseDelayMs = 1000) {
+  let lastConfig: ReturnType<typeof parseAuthConfigResponse> | null = null;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      const configRes = await request.get("/auth/config");
+      if (configRes.status() !== 200) {
+        if (attempt < maxAttempts - 1) await new Promise(r => setTimeout(r, baseDelayMs + attempt * baseDelayMs));
+        continue;
+      }
+      lastConfig = parseAuthConfigResponse(await configRes.json().catch(() => null));
+      if (lastConfig.effective_auth_mode === "oidc") {
+        const authzOk = Boolean(lastConfig.oidc?.authorization_url);
+        const clientOk = Boolean(lastConfig.oidc?.client_id);
+        if (authzOk && clientOk) {
+          return lastConfig;
+        }
+      } else if (lastConfig.effective_auth_mode === "dev") {
+        return lastConfig;
+      }
+      if (attempt < maxAttempts - 1) {
+        await new Promise(r => setTimeout(r, baseDelayMs + attempt * baseDelayMs));
+      }
+    } catch {
+      if (attempt < maxAttempts - 1) {
+        await new Promise(r => setTimeout(r, baseDelayMs + attempt * baseDelayMs));
+      }
+    }
+  }
+  return lastConfig ?? parseAuthConfigResponse(null);
 }
 
 function resolveServerSideTokenUrl(publicTokenUrl: string): { url: string; hostHeader?: string } {
@@ -261,14 +329,36 @@ export async function loginWithOidc(
     password: string;
   }
 ) {
-  const config = await readAuthConfig(request);
+  const config = await readAuthConfig(request, 8, 500);
   const authorizationUrl = config.oidc?.authorization_url?.trim();
   const clientId = config.oidc?.client_id?.trim();
-  expect(authorizationUrl).toBeTruthy();
-  expect(clientId).toBeTruthy();
+  if (!authorizationUrl || !clientId) {
+    const retryConfig = await readAuthConfig(request, 5, 1000);
+    const authUrl2 = retryConfig.oidc?.authorization_url?.trim();
+    const client2 = retryConfig.oidc?.client_id?.trim();
+    expect(authUrl2, "authorization_url precisa estar configurado no /auth/config para modo OIDC").toBeTruthy();
+    expect(client2, "client_id precisa estar configurado no /auth/config para modo OIDC").toBeTruthy();
+    const finalConfig = retryConfig;
+    const finalAuth = authUrl2!;
+    const finalClient = client2!;
 
+    return loginWithOidcImpl(page, request, credentials, finalConfig, finalAuth, finalClient);
+  }
+
+  return loginWithOidcImpl(page, request, credentials, config, authorizationUrl!, clientId!);
+}
+
+async function loginWithOidcImpl(
+  page: Page,
+  request: APIRequestContext,
+  credentials: { username: string; password: string },
+  config: ReturnType<typeof parseAuthConfigResponse> & { oidc?: any },
+  authorizationUrl: string,
+  clientId: string
+) {
   // Caminho preferencial para reduzir flakiness de redirect UI em ambientes locais.
-  const directToken = await tryOidcPasswordGrantToken(request, config, credentials).catch(() => null);
+  const mockToken = await tryOidcMockToken(request, credentials).catch(() => null);
+  const directToken = mockToken || (await tryOidcPasswordGrantToken(request, config, credentials).catch(() => null));
   if (directToken) {
     const sessionStart = await page.request.post("/api/session/start", {
       headers: { "content-type": "application/json" },

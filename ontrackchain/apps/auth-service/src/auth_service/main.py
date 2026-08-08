@@ -534,7 +534,19 @@ def _oidc_token_url() -> Optional[str]:
     return None
 
 
-def _canonicalize_role(raw_role: object) -> str:
+try:
+    from ontrackchain_shared.auth import canonicalize_role as _shared_canonicalize_role
+
+    def _canonicalize_role(raw_role: object) -> str:
+        resolved = _shared_canonicalize_role(raw_role)
+        return resolved or _fallback_canonicalize_role(raw_role)
+
+except Exception:  # noqa: BLE001 - fallback inline for host / old environments
+    def _canonicalize_role(raw_role: object) -> str:  # type: ignore[no-redef]
+        return _fallback_canonicalize_role(raw_role)
+
+
+def _fallback_canonicalize_role(raw_role: object) -> str:
     if isinstance(raw_role, list):
         raw_role = raw_role[0] if raw_role else "ANALYST"
     normalized = str(raw_role or "ANALYST").strip()
@@ -548,8 +560,17 @@ def _canonicalize_role(raw_role: object) -> str:
         "otk_legal_reviewer": "LEGAL_REVIEWER",
         "otk_reviewer": "REVIEWER",
         "otk_billing_admin": "BILLING_ADMIN",
+        "OTK_ADMIN": "ADMIN",
+        "OTK_ANALYST": "ANALYST",
+        "OTK_TESTER": "TESTER",
+        "OTK_AUDITOR": "AUDITOR",
+        "OTK_VIEWER": "VIEWER",
+        "OTK_COMPLIANCE_OFFICER": "COMPLIANCE_OFFICER",
+        "OTK_LEGAL_REVIEWER": "LEGAL_REVIEWER",
+        "OTK_REVIEWER": "REVIEWER",
+        "OTK_BILLING_ADMIN": "BILLING_ADMIN",
     }
-    return mapping.get(normalized.lower(), normalized.upper())
+    return mapping.get(normalized, mapping.get(normalized.lower(), normalized.upper()))
 
 
 def _normalize_team_user_role(raw_role: Optional[str]) -> str:

@@ -13,6 +13,7 @@ import json
 import logging
 import time
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Literal, Optional
 from uuid import UUID
@@ -29,12 +30,6 @@ logger = logging.getLogger(__name__)
 
 # ─── Agent Framework v4.0 ─────────────────────────────────────────────────────
 agent_framework = AgentFramework()
-
-app = FastAPI(
-    title="OnTrackChain AI Service",
-    description="Explainable AI, Graph Intelligence 4.0, Case Intelligence — Production",
-    version="4.1.0",
-)
 
 
 class Settings(BaseSettings):
@@ -55,25 +50,36 @@ def _dsn() -> str:
     )
 
 
-@app.on_event("startup")
-async def _startup() -> None:
-    app.state.pool = ConnectionPool(conninfo=_dsn(), kwargs={"row_factory": dict_row})
-    # Initialize Agent Framework v4.0
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    _app.state.pool = ConnectionPool(conninfo=_dsn(), kwargs={"row_factory": dict_row})
     try:
-        await agent_framework.initialize()
-        logger.info("ai_service.agent_framework_initialized")
-    except Exception as e:
-        logger.warning("ai_service.agent_framework_init_failed", extra={"error": str(e)})
+        try:
+            await agent_framework.initialize()
+            logger.info("ai_service.agent_framework_initialized")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("ai_service.agent_framework_init_failed", extra={"error": str(e)})
+        yield
+    finally:
+        pool: Optional[ConnectionPool] = getattr(_app.state, "pool", None)
+        if pool is not None:
+            pool.close()
 
 
-@app.on_event("shutdown")
-async def _shutdown() -> None:
-    pool: ConnectionPool = app.state.pool
-    pool.close()
+app = FastAPI(
+    title="OnTrackChain AI Service",
+    description="Explainable AI, Graph Intelligence 4.0, Case Intelligence — Production",
+    version="4.1.0",
+    lifespan=_lifespan,
+)
 
 
 def get_pool(request: Request) -> ConnectionPool:
-    return request.app.state.pool
+    pool: Optional[ConnectionPool] = getattr(request.app.state, "pool", None)
+    if pool is None:
+        pool = ConnectionPool(conninfo=_dsn(), kwargs={"row_factory": dict_row})
+        request.app.state.pool = pool
+    return pool
 
 
 def _apply_rls_context(conn, org_id: str) -> None:
@@ -105,8 +111,35 @@ def _get_resolved_org_id(pool, org_id: str) -> str:
     return resolved or org_id
 
 
+try:
+    from ontrackchain_shared.auth import canonicalize_role as _canonicalize_role
+except Exception:  # noqa: BLE001 - fallback inline for host / old environments
+    def _canonicalize_role(raw_role: object) -> str:
+        if raw_role is None:
+            return ""
+        role = str(raw_role).strip()
+        if not role:
+            return ""
+        mapping = {
+            "OTK_ADMIN": "ADMIN",
+            "OTK_ANALYST": "ANALYST",
+            "OTK_AUDITOR": "AUDITOR",
+            "OTK_VIEWER": "VIEWER",
+            "OTK_COMPLIANCE_OFFICER": "COMPLIANCE_OFFICER",
+            "OTK_LEGAL_REVIEWER": "LEGAL_REVIEWER",
+            "OTK_TESTER": "TESTER",
+            "OTK_REVIEWER": "REVIEWER",
+            "OTK_BILLING_ADMIN": "BILLING_ADMIN",
+        }
+        if role in mapping:
+            return mapping[role]
+        if role.upper() in mapping:
+            return mapping[role.upper()]
+        return role.upper()
+
+
 def _require_role(x_role: Optional[str], allowed_roles: set[str], detail: str) -> str:
-    normalized = (x_role or "").strip().upper()
+    normalized = _canonicalize_role(x_role)
     if normalized not in allowed_roles:
         raise HTTPException(status_code=403, detail=detail)
     return normalized
@@ -228,12 +261,7 @@ def _record_evidence_event(
 def _canonical_role_for_approval(role: Optional[str]) -> Optional[str]:
     if not role:
         return None
-    normalized = role.strip().upper()
-    if normalized == "OTK_COMPLIANCE_OFFICER":
-        return "COMPLIANCE_OFFICER"
-    if normalized == "OTK_LEGAL_REVIEWER":
-        return "LEGAL_REVIEWER"
-    return normalized
+    return _canonicalize_role(role) or None
 
 
 def _hash_request_payload(payload: dict[str, Any]) -> str:
@@ -305,10 +333,28 @@ def _serialize_job_row(
     }
 # ── RBAC constants ──
 
-AI_READ_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER", "AUDITOR", "OTK_AUDITOR"}
-AI_WRITE_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
-AI_EXPORT_ALLOWED_ROLES = {"ADMIN", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER", "LEGAL_REVIEWER", "OTK_LEGAL_REVIEWER"}
-AI_THEMIS_ALLOWED_ROLES = {"ADMIN", "ANALYST", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER"}
+AI_READ_ALLOWED_ROLES = {
+    "ADMIN", "OTK_ADMIN",
+    "ANALYST", "OTK_ANALYST",
+    "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+    "AUDITOR", "OTK_AUDITOR",
+    "LEGAL_REVIEWER", "OTK_LEGAL_REVIEWER",
+}
+AI_WRITE_ALLOWED_ROLES = {
+    "ADMIN", "OTK_ADMIN",
+    "ANALYST", "OTK_ANALYST",
+    "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+}
+AI_EXPORT_ALLOWED_ROLES = {
+    "ADMIN", "OTK_ADMIN",
+    "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+    "LEGAL_REVIEWER", "OTK_LEGAL_REVIEWER",
+}
+AI_THEMIS_ALLOWED_ROLES = {
+    "ADMIN", "OTK_ADMIN",
+    "ANALYST", "OTK_ANALYST",
+    "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+}
 
 
 # ──────────────────────────────────────────────

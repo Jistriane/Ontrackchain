@@ -2,14 +2,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-ENV REBUILD_NONCE=20260726_v1
+ENV REBUILD_NONCE=20260808_v4
 
 COPY apps/case-management/pyproject.toml /app/pyproject.toml
 COPY apps/case-management/src /app/src
+COPY apps/case-management/tests /app/tests
 
 RUN pip install --no-cache-dir --upgrade pip \
   && pip install --no-cache-dir hatchling \
-  && pip install --no-cache-dir .
+  && pip install --no-cache-dir ".[dev]"
 
 EXPOSE 8006
 

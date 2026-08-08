@@ -38,7 +38,7 @@ export function readExternalIdentitySnapshot(orgId: string, externalUserId: stri
       COALESCE(user_id::text, '') || '|' || COALESCE(email_snapshot, '') || '|' || COALESCE(role_snapshot, '')
     FROM external_identities
     WHERE organization_id = ${sqlLiteral(orgId)}
-      AND provider = 'keycloak'
+      AND provider = 'mock'
       AND external_subject = ${sqlLiteral(externalUserId)}
     LIMIT 1;
   `).trim();
@@ -63,7 +63,7 @@ export function upsertExternalIdentityLink(
     INSERT INTO external_identities (organization_id, provider, external_subject, user_id, email_snapshot, role_snapshot, last_seen_at)
     VALUES (
       ${sqlLiteral(orgId)},
-      'keycloak',
+      'mock',
       ${sqlLiteral(externalUserId)},
       ${sqlLiteral(LINKED_USER_ID)},
       ${sqlLiteral(emailSnapshot)},
@@ -83,7 +83,7 @@ export function restoreExternalIdentity(orgId: string, externalUserId: string, s
   psqlExec(`
     DELETE FROM external_identities
     WHERE organization_id = ${sqlLiteral(orgId)}
-      AND provider = 'keycloak'
+      AND provider = 'mock'
       AND external_subject = ${sqlLiteral(externalUserId)};
 
     ${snapshot.hadPreviousIdentity
@@ -91,7 +91,7 @@ export function restoreExternalIdentity(orgId: string, externalUserId: string, s
     INSERT INTO external_identities (organization_id, provider, external_subject, user_id, email_snapshot, role_snapshot, last_seen_at)
     VALUES (
       ${sqlLiteral(orgId)},
-      'keycloak',
+      'mock',
       ${sqlLiteral(externalUserId)},
       ${snapshot.previousLinkedUserId ? sqlLiteral(snapshot.previousLinkedUserId) : "NULL"},
       ${snapshot.previousEmailSnapshot ? sqlLiteral(snapshot.previousEmailSnapshot) : "NULL"},

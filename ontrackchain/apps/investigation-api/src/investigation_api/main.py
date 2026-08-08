@@ -6,6 +6,7 @@ import uuid
 import hashlib
 import hmac
 import logging
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from datetime import timedelta
 from typing import Annotated, Any, Literal, Optional
@@ -120,19 +121,23 @@ MANUAL_PACKAGE_ALLOWED_SIGNER_ROLES = MANUAL_PACKAGE_REQUIRED_SIGNER_ROLES + ("l
 MANUAL_PACKAGE_SIGNOFF_METHODS = ("platform_authenticated_2fa", "governance_ticket")
 MANUAL_PACKAGE_SIGNOFF_DECISIONS = ("approved", "rejected")
 MANUAL_PACKAGE_MFA_VIOLATION_ACTION = "evidence_manual_review_package_mfa_violation"
-MANUAL_PACKAGE_READ_ALLOWED_ROLES = {"ADMIN", "AUDITOR", "COMPLIANCE_OFFICER", "LEGAL_REVIEWER", "REVIEWER", "OTK_REVIEWER"}
-MANUAL_PACKAGE_ADMIN_MUTATION_ALLOWED_ROLES = {"ADMIN"}
+MANUAL_PACKAGE_READ_ALLOWED_ROLES = {
+    "ADMIN", "OTK_ADMIN",
+    "AUDITOR", "OTK_AUDITOR",
+    "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+    "LEGAL_REVIEWER", "OTK_LEGAL_REVIEWER",
+    "REVIEWER", "OTK_REVIEWER",
+}
+MANUAL_PACKAGE_ADMIN_MUTATION_ALLOWED_ROLES = {"ADMIN", "OTK_ADMIN"}
 MANUAL_PACKAGE_SIGNOFF_ALLOWED_ROLES = {
-    "ADMIN",
-    "COMPLIANCE_OFFICER",
-    "OTK_COMPLIANCE_OFFICER",
-    "LEGAL_REVIEWER",
-    "OTK_LEGAL_REVIEWER",
-    "REVIEWER",
-    "OTK_REVIEWER",
+    "ADMIN", "OTK_ADMIN",
+    "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+    "LEGAL_REVIEWER", "OTK_LEGAL_REVIEWER",
+    "REVIEWER", "OTK_REVIEWER",
 }
 MANUAL_PACKAGE_AUTH_ROLE_TO_SIGNER_ROLES = {
     "ADMIN": set(MANUAL_PACKAGE_ALLOWED_SIGNER_ROLES),
+    "OTK_ADMIN": set(MANUAL_PACKAGE_ALLOWED_SIGNER_ROLES),
     "COMPLIANCE_OFFICER": {"compliance_owner"},
     "OTK_COMPLIANCE_OFFICER": {"compliance_owner"},
     "LEGAL_REVIEWER": {"legal_owner_optional"},
@@ -140,8 +145,13 @@ MANUAL_PACKAGE_AUTH_ROLE_TO_SIGNER_ROLES = {
     "REVIEWER": {"legal_owner_optional"},
     "OTK_REVIEWER": {"legal_owner_optional"},
 }
-BILLING_READ_ALLOWED_ROLES = {"ADMIN", "BILLING_ADMIN", "OTK_BILLING_ADMIN"}
-INVESTIGATION_READ_ALLOWED_ROLES = {"ADMIN", "ANALYST", "OTK_ANALYST", "AUDITOR", "OTK_AUDITOR", "VIEWER", "OTK_VIEWER"}
+BILLING_READ_ALLOWED_ROLES = {"ADMIN", "OTK_ADMIN", "BILLING_ADMIN", "OTK_BILLING_ADMIN"}
+INVESTIGATION_READ_ALLOWED_ROLES = {
+    "ADMIN", "OTK_ADMIN",
+    "ANALYST", "OTK_ANALYST",
+    "AUDITOR", "OTK_AUDITOR",
+    "VIEWER", "OTK_VIEWER",
+}
 MANUAL_PACKAGE_SEAL_STATUSES = (
     "pending_signoff",
     "ready_to_seal",
@@ -294,18 +304,25 @@ def _dsn() -> str:
     )
 
 
-@app.on_event("startup")
-async def _startup() -> None:
-    app.state.pool = ConnectionPool(conninfo=_dsn(), kwargs={"row_factory": dict_row})
-    app.state.redis = Redis(host=settings.redis_host, port=settings.redis_port, decode_responses=True)
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    _app.state.pool = ConnectionPool(conninfo=_dsn(), kwargs={"row_factory": dict_row})
+    _app.state.redis = Redis(host=settings.redis_host, port=settings.redis_port, decode_responses=True)
+    try:
+        yield
+    finally:
+        pool: Optional[ConnectionPool] = getattr(_app.state, "pool", None)
+        if pool is not None:
+            pool.close()
+        redis_client: Optional[Redis] = getattr(_app.state, "redis", None)
+        if redis_client is not None:
+            try:
+                await redis_client.aclose()
+            except Exception:  # noqa: BLE001
+                pass
 
 
-@app.on_event("shutdown")
-async def _shutdown() -> None:
-    pool: ConnectionPool = app.state.pool
-    pool.close()
-    redis: Redis = app.state.redis
-    await redis.aclose()
+app.router.lifespan_context = _lifespan
 
 
 def get_pool() -> ConnectionPool:
@@ -339,8 +356,35 @@ def _require_org_id(org_id: Optional[str]) -> str:
     return org_id
 
 
+try:
+    from ontrackchain_shared.auth import canonicalize_role as _canonicalize_role
+except Exception:  # noqa: BLE001 - fallback inline for host / old environments
+    def _canonicalize_role(raw_role: object) -> str:
+        if raw_role is None:
+            return ""
+        role = str(raw_role).strip()
+        if not role:
+            return ""
+        mapping = {
+            "OTK_ADMIN": "ADMIN",
+            "OTK_ANALYST": "ANALYST",
+            "OTK_AUDITOR": "AUDITOR",
+            "OTK_VIEWER": "VIEWER",
+            "OTK_COMPLIANCE_OFFICER": "COMPLIANCE_OFFICER",
+            "OTK_LEGAL_REVIEWER": "LEGAL_REVIEWER",
+            "OTK_TESTER": "TESTER",
+            "OTK_REVIEWER": "REVIEWER",
+            "OTK_BILLING_ADMIN": "BILLING_ADMIN",
+        }
+        if role in mapping:
+            return mapping[role]
+        if role.upper() in mapping:
+            return mapping[role.upper()]
+        return role.upper()
+
+
 def _normalized_role(x_role: Optional[str]) -> str:
-    return (x_role or "").strip().upper()
+    return _canonicalize_role(x_role)
 
 
 def _require_platform_authenticated_2fa(
@@ -5511,3 +5555,70 @@ async def delete_case(
         raise HTTPException(status_code=404, detail="case_not_found")
 
     return {"status": "deleted", "case_id": str(case_id)}
+
+
+class EnsureCaseDlqTestRequest(BaseModel):
+    case_id: uuid.UUID
+    status: Optional[str] = Field(default=None)
+    failure_reason: Optional[str] = Field(default="dlq_seeded_by_e2e_test")
+
+
+@app.post("/api/v1/investigation/test/ensure-case-dlq")
+async def ensure_case_dlq_for_e2e_test(
+    body: EnsureCaseDlqTestRequest,
+    pool: ConnectionPool = Depends(get_pool),
+    x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
+    x_user_id: Annotated[Optional[str], Header(alias="X-User-Id")] = None,
+    x_linked_user_id: Annotated[Optional[str], Header(alias="X-Linked-User-Id")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    x_request_id: Annotated[Optional[str], Header(alias="X-Request-Id")] = None,
+) -> dict:
+    org_id = _require_org_id(x_org_id)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = _resolve_actor_ids(
+        external_user_id=x_user_id,
+        linked_user_id=x_linked_user_id,
+    )
+    _require_role_with_audit(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles={"ADMIN"},
+        detail="admin_role_required",
+        resource_type="case_admin",
+        resource_id=str(body.case_id),
+        endpoint="/api/v1/investigation/test/ensure-case-dlq",
+        method="POST",
+    )
+    seeded_status = body.status or "failed"
+    effective_now = datetime.now(timezone.utc).isoformat()
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE cases
+                SET status = %s,
+                    completed_at = COALESCE(completed_at, NOW()),
+                    metadata = COALESCE(metadata::jsonb, '{}'::jsonb) || jsonb_build_object(
+                        'dlq_state', 'failed_permanent',
+                        'worker_queue_state', 'dlq',
+                        'dlq_failed_at', %s::text,
+                        'failure_reason', %s::text
+                    )::jsonb
+                WHERE id = %s AND case_type = 'investigation'
+                RETURNING id, status, metadata->>'dlq_state' AS dlq_state
+                """,
+                (seeded_status, effective_now, body.failure_reason, str(body.case_id)),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="case_not_found")
+            conn.commit()
+    return {
+        "case_id": str(row["id"]),
+        "status": row["status"],
+        "dlq_state": row["dlq_state"],
+    }

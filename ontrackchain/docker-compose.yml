@@ -69,9 +69,9 @@ services:
       context: ./apps/auth-service
     environment:
       APP_ENV: ${APP_ENV:-local}
-      AUTH_MODE: ${AUTH_MODE:-dev}
-      DEV_AUTH_ENABLED: ${DEV_AUTH_ENABLED:-true}
-      OIDC_PROVIDER: ${OIDC_PROVIDER:-keycloak}
+      AUTH_MODE: ${AUTH_MODE:-oidc}
+      DEV_AUTH_ENABLED: ${DEV_AUTH_ENABLED:-false}
+      OIDC_PROVIDER: ${OIDC_PROVIDER:-mock}
       JWT_ISSUER: ${JWT_ISSUER:-ontrackchain}
       JWT_AUDIENCE: ${JWT_AUDIENCE:-ontrackchain}
       JWT_HS256_SECRET: ${JWT_HS256_SECRET:-change-me}
@@ -81,11 +81,11 @@ services:
       MFA_TOTP_PERIOD_SECONDS: ${MFA_TOTP_PERIOD_SECONDS:-30}
       MFA_TOTP_DIGITS: ${MFA_TOTP_DIGITS:-6}
       MFA_TOTP_WINDOW: ${MFA_TOTP_WINDOW:-1}
-      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
-      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
-      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
-      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-}
-      OIDC_AUTHORIZATION_URL: ${OIDC_AUTHORIZATION_URL:-}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://oidc.localhost:${TRAEFIK_HTTP_PORT:-8080}}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-ontrackchain-api}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-ontrackchain-web}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://mock-oidc:9101/.well-known/jwks.json}
+      OIDC_AUTHORIZATION_URL: ${OIDC_AUTHORIZATION_URL:-http://oidc.localhost:${TRAEFIK_HTTP_PORT:-8080}/authorize}
       OIDC_ORG_CLAIM: ${OIDC_ORG_CLAIM:-}
       OIDC_PLAN_CLAIM: ${OIDC_PLAN_CLAIM:-}
       OIDC_ROLE_CLAIM: ${OIDC_ROLE_CLAIM:-}
@@ -207,7 +207,7 @@ services:
     build:
       context: .
       dockerfile: apps/investigation-api/Dockerfile
-    command: ["python", "-m", "investigation_api.worker"]
+    entrypoint: ["python3", "-m", "investigation_api.worker"]
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
@@ -280,7 +280,7 @@ services:
     build:
       context: .
       dockerfile: apps/compliance-api/Dockerfile
-    command: ["python", "-m", "compliance_api.worker"]
+    entrypoint: ["python3", "-m", "compliance_api.worker"]
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
@@ -562,11 +562,11 @@ services:
       target: dev
     environment:
       APP_ENV: ${APP_ENV:-local}
-      AUTH_MODE: ${AUTH_MODE:-dev}
-      DEV_AUTH_ENABLED: ${DEV_AUTH_ENABLED:-true}
+      AUTH_MODE: ${AUTH_MODE:-oidc}
+      DEV_AUTH_ENABLED: ${DEV_AUTH_ENABLED:-false}
       NEXT_PUBLIC_APP_ENV: ${NEXT_PUBLIC_APP_ENV:-local}
-      NEXT_PUBLIC_AUTH_MODE: ${NEXT_PUBLIC_AUTH_MODE:-dev}
-      NEXT_PUBLIC_DEV_AUTH_ENABLED: ${NEXT_PUBLIC_DEV_AUTH_ENABLED:-true}
+      NEXT_PUBLIC_AUTH_MODE: ${NEXT_PUBLIC_AUTH_MODE:-oidc}
+      NEXT_PUBLIC_DEV_AUTH_ENABLED: ${NEXT_PUBLIC_DEV_AUTH_ENABLED:-false}
       INTERNAL_API_BASE_URL: ${INTERNAL_API_BASE_URL:-http://traefik}
       INTERNAL_AUTH_BASE_URL: ${INTERNAL_AUTH_BASE_URL:-http://auth-service:9000}
       INTERNAL_KEYCLOAK_BASE_URL: ${INTERNAL_KEYCLOAK_BASE_URL:-http://keycloak:8080}

@@ -18,7 +18,9 @@ const FALLBACK_AUTH: AuthValidation = {
 };
 
 export async function validateAndGetRole(request?: Request): Promise<AuthValidation> {
-  const token = cookies().get("otc_token")?.value ?? "";
+  const authHeader = request?.headers.get("authorization") ?? "";
+  const bearerFromHeader = authHeader?.toLowerCase().startsWith("bearer ") ? authHeader.slice(7).trim() : "";
+  const token = cookies().get("otc_token")?.value ?? bearerFromHeader ?? "";
   const requestId = request?.headers.get("x-request-id") ?? crypto.randomUUID();
   const authBaseUrl = ensureHttpUrl(process.env.INTERNAL_AUTH_BASE_URL, "http://auth-service:9000");
 

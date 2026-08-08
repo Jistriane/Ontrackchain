@@ -14,6 +14,14 @@ import { generateTotpCode } from "./totp";
 import { type PersistedPlatformAlertSelectionState } from "../../app/lib/monitoring-platform-alerts";
 
 const API_KEY = process.env.ONTRACKCHAIN_API_KEY || "otc_live_demo_key";
+
+test.beforeAll(async ({ request }) => {
+  const cfg = await readAuthConfig(request, 30, 2000);
+  if (cfg.effective_auth_mode === "oidc") {
+    expect(cfg.oidc?.authorization_url, "beforeAll: /auth/config modo OIDC precisa ter authorization_url preenchido").toBeTruthy();
+    expect(cfg.oidc?.client_id, "beforeAll: /auth/config modo OIDC precisa ter client_id preenchido").toBeTruthy();
+  }
+});
 const OIDC_AUDITOR_USER = process.env.ONTRACKCHAIN_OIDC_AUDITOR_USER || "auditor@ontrackchain.com";
 const OIDC_AUDITOR_PASSWORD = process.env.ONTRACKCHAIN_OIDC_AUDITOR_PASSWORD || "AuditorPass123!";
 const OIDC_ANALYST_USER = process.env.ONTRACKCHAIN_OIDC_ANALYST_USER || "analyst@ontrackchain.com";
@@ -186,49 +194,33 @@ async function openPageWithCleanSessionStorage(page: Page, path: string) {
   await page.reload();
 }
 
-async function loginAsAdmin(page: Page) {
-  const config = await readAuthConfig(page.request);
-  if (config.effective_auth_mode === "oidc") {
-    await loginWithOidc(page, page.request, undefined, {
-      username: OIDC_FEDERATED_ADMIN_USER,
-      password: OIDC_FEDERATED_ADMIN_PASSWORD
-    });
-    return;
-  }
+function platformAlertRows(page: Page) {
+  return page.locator('[data-testid="platform-alert-row"], div[data-testid^="platform-alert-row-"]');
+}
 
-  await page.goto("/login");
-  await page.fill('[data-testid="email-input"]', "analyst@test.com");
-  await page.fill('[data-testid="password-input"]', "TestPass123!");
-  await page.click('[data-testid="login-btn"]');
-  await expect(page).toHaveURL("/dashboard");
+async function loginAsAdmin(page: Page) {
+  await loginWithOidc(page, page.request, undefined, {
+    username: OIDC_FEDERATED_ADMIN_USER,
+    password: OIDC_FEDERATED_ADMIN_PASSWORD
+  });
 }
 
 async function loginAsRole(page: Page, role: "ADMIN" | "AUDITOR" | "ANALYST") {
-  const config = await readAuthConfig(page.request);
-  if (config.effective_auth_mode === "oidc") {
-    const credentialsByRole = {
-      ADMIN: {
-        username: OIDC_FEDERATED_ADMIN_USER,
-        password: OIDC_FEDERATED_ADMIN_PASSWORD
-      },
-      AUDITOR: {
-        username: OIDC_AUDITOR_USER,
-        password: OIDC_AUDITOR_PASSWORD
-      },
-      ANALYST: {
-        username: OIDC_ANALYST_USER,
-        password: OIDC_ANALYST_PASSWORD
-      }
-    } as const;
-    await loginWithOidc(page, page.request, undefined, credentialsByRole[role]);
-    return;
-  }
-
-  const session = await page.request.post("/api/session/start", {
-    headers: { "content-type": "application/json" },
-    data: { plan: "professional", role }
-  });
-  expect(session.status()).toBe(200);
+  const credentialsByRole = {
+    ADMIN: {
+      username: OIDC_FEDERATED_ADMIN_USER,
+      password: OIDC_FEDERATED_ADMIN_PASSWORD
+    },
+    AUDITOR: {
+      username: OIDC_AUDITOR_USER,
+      password: OIDC_AUDITOR_PASSWORD
+    },
+    ANALYST: {
+      username: OIDC_ANALYST_USER,
+      password: OIDC_ANALYST_PASSWORD
+    }
+  } as const;
+  await loginWithOidc(page, page.request, undefined, credentialsByRole[role]);
 }
 
 test("risco score é exibido corretamente com 5 dimensões", async ({ request }) => {
@@ -1002,12 +994,28 @@ test("monitoring exibe alerta operacional quando ha item aberto em DLQ", async (
   }
   expect(currentStatus).toBe("failed");
 
+  const seedDlq = await request.post("/api/v1/investigation/test/ensure-case-dlq", {
+    headers: {
+      "X-API-Key": API_KEY,
+      "X-Org-Id": "00000000-0000-0000-0000-000000000001",
+      "content-type": "application/json"
+    },
+    data: { case_id: startBody.case_id }
+  });
+  expect(seedDlq.status()).toBe(200);
+  const seedDlqBody = (await seedDlq.json()) as any;
+  expect(seedDlqBody.dlq_state).toBe("failed_permanent");
+  await page.waitForTimeout(1500);
+
   await loginAsAdmin(page);
   await openPageWithCleanSessionStorage(page, "/incident-response");
+  await page.waitForSelector('[data-testid="worker-alerts-refresh-btn"]', { state: "attached", timeout: 30_000 });
+  await page.waitForSelector('[data-testid="worker-metrics-refresh-btn"]', { state: "attached", timeout: 30_000 });
   await page.click('[data-testid="worker-alerts-refresh-btn"]');
+  await page.click('[data-testid="worker-metrics-refresh-btn"]');
 
   await expect(page.locator('[data-testid="worker-alerts-summary"]')).toContainText("abertos:");
-  const alertRow = page.locator('[data-testid="worker-operational-alert"]').filter({ hasText: "Itens abertos em DLQ" });
+  const alertRow = page.locator('div.worker-operational-alert, [data-testid="worker-operational-alert"], [data-testid^="worker-operational-alert-"]').filter({ hasText: "Itens abertos em DLQ" }).first();
   await expect(alertRow).toBeVisible();
   await expect(alertRow).toContainText("critical");
   await expect(page.locator('[data-testid="worker-metrics-preview"]')).toContainText("ontrack_investigation_states_dlq_failed");
@@ -1036,7 +1044,7 @@ test("monitoring exibe incidentes globais recebidos do Alertmanager", async ({ p
   await page.click('[data-testid="platform-alerts-refresh-btn"]');
 
   await expect(page.locator('[data-testid="platform-alerts-summary"]')).toContainText("incidentes:");
-  const watchdogRow = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: alertname });
+  const watchdogRow = platformAlertRows(page).filter({ hasText: alertname });
   await expect(watchdogRow).toBeVisible();
   await expect(watchdogRow).toContainText("platform");
   await expect(watchdogRow).toContainText("monitoring-webhook");
@@ -1129,7 +1137,7 @@ test("monitoring navega entre paginas de incidentes globais", async ({ page, req
   const summary = page.locator('[data-testid="platform-alerts-summary"]');
   const prevButton = page.locator('[data-testid="platform-alerts-prev-btn"]');
   const nextButton = page.locator('[data-testid="platform-alerts-next-btn"]');
-  const syntheticRows = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: prefix });
+  const syntheticRows = platformAlertRows(page).filter({ hasText: prefix });
 
   await expect(summary).toContainText("incidentes:");
   await expect(summary).toContainText("/");
@@ -1172,7 +1180,7 @@ test("monitoring permite reconhecer incidente global de plataforma", async ({ pa
   await page.selectOption('[data-testid="platform-alert-filter-severity"]', "warning");
   await page.click('[data-testid="platform-alerts-refresh-btn"]');
 
-  const incidentRow = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: alertname });
+  const incidentRow = platformAlertRows(page).filter({ hasText: alertname });
   await expect(incidentRow).toBeVisible();
   const ackButton = incidentRow.locator("button").filter({ hasText: "Reconhecer" });
   await ackButton.click();
@@ -1182,7 +1190,7 @@ test("monitoring permite reconhecer incidente global de plataforma", async ({ pa
 
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "acknowledged");
   await page.click('[data-testid="platform-alerts-refresh-btn"]');
-  const acknowledgedRow = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: alertname });
+  const acknowledgedRow = platformAlertRows(page).filter({ hasText: alertname });
   await expect(acknowledgedRow).toBeVisible();
   await expect(acknowledgedRow).toContainText("triagem=Reconhecido");
 });
@@ -1710,8 +1718,8 @@ test("monitoring permite filtrar incidentes globais por receiver", async ({ page
   await page.selectOption('[data-testid="platform-alert-filter-severity"]', "warning");
   await page.click('[data-testid="platform-alerts-refresh-btn"]');
 
-  await expect(page.locator('[data-testid="platform-alert-row"]').filter({ hasText: testAlert }).first()).toBeVisible();
-  await expect(page.locator('[data-testid="platform-alert-row"]').filter({ hasText: webhookAlert })).toHaveCount(0);
+  await expect(platformAlertRows(page).filter({ hasText: testAlert }).first()).toBeVisible();
+  await expect(platformAlertRows(page).filter({ hasText: webhookAlert })).toHaveCount(0);
 });
 
 test("monitoring carrega dinamicamente opcoes de service e receiver na UI", async ({ page, request }) => {
@@ -1755,8 +1763,8 @@ test("monitoring carrega dinamicamente opcoes de service e receiver na UI", asyn
   await page.selectOption('[data-testid="platform-alert-filter-severity"]', "warning");
   await page.click('[data-testid="platform-alerts-refresh-btn"]');
 
-  await expect(page.locator('[data-testid="platform-alert-row"]').filter({ hasText: selectedAlert }).first()).toBeVisible();
-  await expect(page.locator('[data-testid="platform-alert-row"]').filter({ hasText: otherAlert })).toHaveCount(0);
+  await expect(platformAlertRows(page).filter({ hasText: selectedAlert }).first()).toBeVisible();
+  await expect(platformAlertRows(page).filter({ hasText: otherAlert })).toHaveCount(0);
 });
 
 test("monitoring exporta incidentes selecionados em json pela UI", async ({ page, request }) => {
@@ -1801,7 +1809,7 @@ test("monitoring exporta incidentes selecionados em json pela UI", async ({ page
   await page.click('[data-testid="platform-alerts-refresh-btn"]');
   await page.selectOption('[data-testid="platform-alert-export-format"]', "json");
 
-  const selectedRow = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: selectedAlert }).first();
+  const selectedRow = platformAlertRows(page).filter({ hasText: selectedAlert }).first();
   await expect(selectedRow).toBeVisible();
   await selectedRow.locator('input[type="checkbox"]').click();
   await expect(page.locator('[data-testid="platform-alerts-summary"]')).toContainText("selecionados: 1");
@@ -1857,7 +1865,7 @@ test("monitoring permite reconhecer em lote os incidentes filtrados", async ({ p
   await page.selectOption('[data-testid="platform-alert-filter-severity"]', "critical");
   await page.click('[data-testid="platform-alerts-refresh-btn"]');
 
-  const rows = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: prefix });
+  const rows = platformAlertRows(page).filter({ hasText: prefix });
   await expect(rows.first()).toBeVisible();
 
   await page.click('[data-testid="platform-alerts-ack-batch-btn"]');
@@ -1865,11 +1873,11 @@ test("monitoring permite reconhecer em lote os incidentes filtrados", async ({ p
   await page.click('[data-testid="platform-alert-confirm-dialog-filtered-confirm"]');
 
   await expect(page.locator('[data-testid="platform-alert-message"]')).toContainText("reconhecidos em lote");
-  await expect(page.locator('[data-testid="platform-alert-row"]').filter({ hasText: prefix })).toHaveCount(0);
+  await expect(platformAlertRows(page).filter({ hasText: prefix })).toHaveCount(0);
 
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "acknowledged");
   await page.click('[data-testid="platform-alerts-refresh-btn"]');
-  await expect(page.locator('[data-testid="platform-alert-row"]').filter({ hasText: prefix }).first()).toBeVisible();
+  await expect(platformAlertRows(page).filter({ hasText: prefix }).first()).toBeVisible();
 });
 
 test("monitoring permite selecionar manualmente incidentes e reconhecer apenas os escolhidos", async ({ page, request }) => {
@@ -1901,7 +1909,7 @@ test("monitoring permite selecionar manualmente incidentes e reconhecer apenas o
   await page.selectOption('[data-testid="platform-alert-filter-severity"]', "warning");
   await page.click('[data-testid="platform-alerts-refresh-btn"]');
 
-  const rows = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: prefix });
+  const rows = platformAlertRows(page).filter({ hasText: prefix });
   await expect(rows).toHaveCount(3);
 
   const selectedRow = rows.nth(0);
@@ -1918,12 +1926,12 @@ test("monitoring permite selecionar manualmente incidentes e reconhecer apenas o
   await page.click('[data-testid="platform-alert-confirm-dialog-selected-confirm"]');
 
   await expect(page.locator('[data-testid="platform-alert-message"]')).toContainText("1 incidentes selecionados reconhecidos");
-  await expect(page.locator('[data-testid="platform-alert-row"]').filter({ hasText: selectedName })).toHaveCount(0);
-  await expect(page.locator('[data-testid="platform-alert-row"]').filter({ hasText: prefix })).toHaveCount(2);
+  await expect(platformAlertRows(page).filter({ hasText: selectedName })).toHaveCount(0);
+  await expect(platformAlertRows(page).filter({ hasText: prefix })).toHaveCount(2);
 
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "acknowledged");
   await page.click('[data-testid="platform-alerts-refresh-btn"]');
-  await expect(page.locator('[data-testid="platform-alert-row"]').filter({ hasText: selectedName }).first()).toBeVisible();
+  await expect(platformAlertRows(page).filter({ hasText: selectedName }).first()).toBeVisible();
 });
 
 test("monitoring preserva selecao manual entre paginas do mesmo recorte", async ({ page, request }) => {
@@ -1956,7 +1964,7 @@ test("monitoring preserva selecao manual entre paginas do mesmo recorte", async 
   await page.click('[data-testid="platform-alerts-refresh-btn"]');
 
   const summary = page.locator('[data-testid="platform-alerts-summary"]');
-  const firstPageRows = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: prefix });
+  const firstPageRows = platformAlertRows(page).filter({ hasText: prefix });
   await expect(firstPageRows).toHaveCount(20);
 
   const firstSelectedRow = firstPageRows.nth(0);
@@ -1967,7 +1975,7 @@ test("monitoring preserva selecao manual entre paginas do mesmo recorte", async 
   await expect(summary).toContainText("selecionados: 1");
 
   await page.click('[data-testid="platform-alerts-next-btn"]');
-  const secondPageRows = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: prefix });
+  const secondPageRows = platformAlertRows(page).filter({ hasText: prefix });
   await expect(secondPageRows).toHaveCount(1);
   await expect(summary).toContainText("selecionados: 1");
   await expect(page.locator('[data-testid="platform-alerts-ack-selected-btn"]')).toContainText("(1)");
@@ -1991,8 +1999,8 @@ test("monitoring preserva selecao manual entre paginas do mesmo recorte", async 
 
   await page.selectOption('[data-testid="platform-alert-filter-triage"]', "acknowledged");
   await page.click('[data-testid="platform-alerts-refresh-btn"]');
-  await expect(page.locator('[data-testid="platform-alert-row"]').filter({ hasText: firstSelectedName }).first()).toBeVisible();
-  await expect(page.locator('[data-testid="platform-alert-row"]').filter({ hasText: secondSelectedName }).first()).toBeVisible();
+  await expect(platformAlertRows(page).filter({ hasText: firstSelectedName }).first()).toBeVisible();
+  await expect(platformAlertRows(page).filter({ hasText: secondSelectedName }).first()).toBeVisible();
 });
 
 test("monitoring limpa selecao quando o recorte logico muda", async ({ page, request }) => {
@@ -2018,7 +2026,7 @@ test("monitoring limpa selecao quando o recorte logico muda", async ({ page, req
   await page.selectOption('[data-testid="platform-alert-filter-severity"]', "critical");
   await page.click('[data-testid="platform-alerts-refresh-btn"]');
 
-  const row = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: prefix }).first();
+  const row = platformAlertRows(page).filter({ hasText: prefix }).first();
   await expect(row).toBeVisible();
   const checkbox = row.locator('input[type="checkbox"]');
   await checkbox.click();
@@ -2063,11 +2071,11 @@ test("monitoring preserva recorte e selecao manual apos refresh da pagina", asyn
   const summary = page.locator('[data-testid="platform-alerts-summary"]');
   await expect(summary).toContainText("página 1 de 2");
 
-  const firstPageRows = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: prefix });
+  const firstPageRows = platformAlertRows(page).filter({ hasText: prefix });
   await expect(firstPageRows).toHaveCount(20);
   await page.click('[data-testid="platform-alerts-next-btn"]');
 
-  const row = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: prefix }).first();
+  const row = platformAlertRows(page).filter({ hasText: prefix }).first();
   await expect(row).toBeVisible();
   await expect(summary).toContainText("página 2 de 2");
   const selectedBefore = readSelectedCount((await summary.textContent()) ?? "");
@@ -2101,7 +2109,7 @@ test("monitoring preserva recorte e selecao manual apos refresh da pagina", asyn
   await expect.poll(async () => readSelectedCount((await summary.textContent()) ?? "")).toBeGreaterThan(selectedBefore!);
   await expect(summary).toContainText("página 2 de 2");
 
-  const restoredRow = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: prefix }).first();
+  const restoredRow = platformAlertRows(page).filter({ hasText: prefix }).first();
   await expect(restoredRow).toBeVisible();
   await expect(page.locator('[data-testid="platform-alerts-prev-btn"]')).toBeEnabled();
 });
@@ -2163,7 +2171,7 @@ test("monitoring reidrata o recorte salvo pela superficie alerts", async ({ page
   await expect(page.locator('[data-testid="platform-alert-filter-receiver"]')).toHaveValue(receiver);
   await expect(page.locator('[data-testid="platform-alert-filter-severity"]')).toHaveValue("warning");
 
-  const monitoringRow = page.locator('[data-testid="platform-alert-row"]').filter({ hasText: alertname }).first();
+  const monitoringRow = platformAlertRows(page).filter({ hasText: alertname }).first();
   await expect(monitoringRow).toBeVisible();
 });
 

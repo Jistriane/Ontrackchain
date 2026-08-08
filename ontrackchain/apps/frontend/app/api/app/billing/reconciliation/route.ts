@@ -1,4 +1,5 @@
 import { validateAndGetRole } from "../../../../lib/auth-validate";
+import { canReadBilling } from "../../../../lib/authz";
 
 const EMPTY_BILLING_RECONCILIATION_RESPONSE = {
   generated_at: new Date(0).toISOString(),
@@ -21,9 +22,21 @@ const EMPTY_BILLING_RECONCILIATION_RESPONSE = {
   }
 } as const;
 
+const BILLING_RECONCILIATION_DENIED = {
+  detail: "billing_reconciliation_role_required"
+} as const;
+
 export async function GET(request: Request) {
   const auth = await validateAndGetRole(request);
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+
+  if (!canReadBilling(auth.role)) {
+    return new Response(JSON.stringify(BILLING_RECONCILIATION_DENIED), {
+      status: 403,
+      headers: { "content-type": "application/json" }
+    });
+  }
+
   const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
   const url = new URL(request.url);
   const limit = url.searchParams.get("limit");

@@ -1,8 +1,11 @@
 import { cookies } from "next/headers";
+import { ensureHttpUrl } from "../../../../../lib/api-url";
 
 export async function POST(request: Request) {
+  const token = cookies().get("otc_token")?.value ?? (request.headers.get("authorization")?.toLowerCase().startsWith("bearer ")
+    ? request.headers.get("authorization")!.slice(7).trim()
+    : "");
 
-  const token = cookies().get("otc_token")?.value;
   if (!token) {
     return new Response(JSON.stringify({ error: "not_authenticated" }), {
       status: 401,
@@ -11,9 +14,7 @@ export async function POST(request: Request) {
   }
 
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
-  const body = await request.text();
-  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
-  const authBaseUrl = process.env.INTERNAL_AUTH_BASE_URL ?? "http://auth-service:9000";
+  const authBaseUrl = ensureHttpUrl(process.env.INTERNAL_AUTH_BASE_URL, "http://auth-service:9000");
   const validateRes = await fetch(`${authBaseUrl}/validate`, {
     method: "GET",
     headers: { Authorization: `Bearer ${token}`, "X-Request-Id": requestId },
@@ -27,10 +28,14 @@ export async function POST(request: Request) {
     });
   }
 
+  const role = validateRes.headers.get("X-Role") ?? "ANALYST";
   const orgId = validateRes.headers.get("X-Org-Id");
   const userId = validateRes.headers.get("X-User-Id");
   const linkedUserId = validateRes.headers.get("X-Linked-User-Id");
-  const role = validateRes.headers.get("X-Role") ?? "ANALYST";
+
+  const body = await request.text();
+  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://traefik";
+
   const res = await fetch(`${baseUrl}/api/v1/monitoring/admin/operational-alerts/acknowledge-batch`, {
     method: "POST",
     headers: {

@@ -212,7 +212,7 @@ export function InvestigationOperationsPanel({
                   <div
                     key={alert.code}
                     data-testid={`worker-operational-alert-${alert.code}`}
-                    className={`otc-monitoring-card ${alert.severity === "critical" ? "otc-monitoring-card--danger" : "otc-monitoring-card--warning"}`}
+                    className={`worker-operational-alert otc-monitoring-card ${alert.severity === "critical" ? "otc-monitoring-card--danger" : "otc-monitoring-card--warning"}`}
                   >
                     <div className="otc-monitoring-row">
                       <strong>{alert.title}</strong>
