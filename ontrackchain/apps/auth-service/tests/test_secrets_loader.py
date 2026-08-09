@@ -9,11 +9,11 @@ import os
 import sys
 import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-SRC_DIR = Path(__file__).resolve().parent.parent / "src"
-sys.path.insert(0, str(SRC_DIR))
+# Sprint 18 (T2-08): sys.path.insert HACK removido.
+# PYTHONPATH de monorepo é injetado AUTOMATICAMENTE por
+# workspace-root conftest.py + pyproject.toml [tool.pytest.ini_options] pythonpath.
 
 from auth_service.secrets_loader import SecretProvider
 

@@ -192,6 +192,44 @@ postgres:
   pdb: { enabled: true, minAvailable: 1 }
 
 # =============================================================================
+# PG16 DAILY BACKUP (T2-07 Sprint 18 Helm v3.1.0 — DR M16 Nativo K8s)
+# =============================================================================
+backup:
+  enabled: true
+  image: "postgres:16-alpine"
+  # Horário: 04:00 UTC = 01:00 AM BRST / 02:00 BRT (janela de menor tráfego)
+  schedule: "0 4 * * *"
+  timezone: "UTC"
+  # Retenção 14 dias padrão (RIPD Art.15 — LGPD prazo mínimo pra contestação)
+  retentionDays: 14
+  startingDeadlineSeconds: 900
+  backoffLimit: 2
+  activeDeadlineSeconds: 14400
+  ttlSecondsAfterFinished: 604800
+  history:
+    success: 3
+    failed: 2
+  persistence:
+    enabled: true
+    # Label LGPD OBRIGATÓRIO no template 05-backup-cronjob PVC: restricted-dados-pessoais
+    size: 20Gi
+    accessMode: ReadWriteOnce
+    # Annotations Velero/Restic (DR cross-region):
+    additionalAnnotations:
+      backup.velero.io/backup-volumes: backup-storage
+      pre.hook.backup.velero.io/timeout: 10m
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "2Gi"
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
+
+# =============================================================================
 # OBSERVABILIDADE (M4 Prometheus + Grafana Dashboards 6 + Alertmanager)
 # =============================================================================
 observability:

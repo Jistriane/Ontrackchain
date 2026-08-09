@@ -15,26 +15,19 @@ Este arquivo RODA COM pytest. Requer:
 - Banco PostgreSQL 16+ ALVO com todas migrations aplicadas (0001 a 0021)
 
 Se falhar = NÃO FAZ MERGE.
+
+Sprint 18 (T2-08): sys.path HACK removido. PYTHONPATH de monorepo é injetado
+AUTOMATICAMENTE por workspace/conftest.py + pyproject.toml
+[tool.pytest.ini_options] pythonpath = [...]
 """
 from __future__ import annotations
 
 import os
-import sys
 import uuid
 from pathlib import Path
 
 import pytest
-
-# -------------------- sys.path HACK: encontrar packages/* --------------------
-REPO_ROOT = Path(__file__).resolve().parent.parent
-SHARED_SRC = REPO_ROOT / "packages" / "shared" / "src"
-QAGW_SRC = REPO_ROOT / "packages" / "qa-gateway" / "src"
-AGENTS_SRC = REPO_ROOT / "packages" / "agents" / "src"
-for _d in (str(SHARED_SRC), str(QAGW_SRC), str(AGENTS_SRC), str(REPO_ROOT)):
-    if _d not in sys.path:
-        sys.path.insert(0, _d)
-
-import psycopg  # noqa: E402 (import após sys.path)
+import psycopg
 
 # ------------------ setup: conexão bd -----------------
 DB_URL_VAR = "ONTRACKCHAIN_DATABASE_URL"

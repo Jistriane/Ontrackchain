@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import importlib
-import sys
 import unittest
-from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+# Sprint 18 (T2-08): sys.path.insert HACK removido.
+# PYTHONPATH de monorepo é injetado AUTOMATICAMENTE por
+# workspace-root conftest.py + pyproject.toml [tool.pytest.ini_options] pythonpath.
 
 AUTH_SERVICE_IMPORTABLE = True
 try:

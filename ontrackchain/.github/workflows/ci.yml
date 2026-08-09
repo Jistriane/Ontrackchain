@@ -772,6 +772,140 @@ jobs:
           echo "✅ 6/6 qa-gateway comandos --help OK. MVP SSOT válido."
 
   # ============================================================================
+  # T2-02 Sprint 18 P0-08: GATE OBRIGATÓRIO SLA 24h Exploração Live (Dead Man)
+  # ADR-018 §Workflows item scan-sla: SLA<24h para exploradores live.
+  # 3 Modos:
+  #   · STRICT = merge blocking (main / release/*)
+  #   · CI_DRY_RUN = info + exit 0 (qualquer PR feature)
+  #   · DATA_NA = nenhuma fonte de dado → warning + exit 0
+  # ============================================================================
+  qa-gateway-scan-sla-ci-p008:
+    name: "QA Gate P0-08: SLA 24h Exploradores Live (scan-sla)"
+    runs-on: ubuntu-latest
+    needs: [qa-gateway-cli-smoke, sonarcloud-codecov-quality-gate]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2   # precisa de push.before / commits para timestamp
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: "Install qa-gateway + shared"
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip hatchling
+          python -m pip install --no-cache-dir ./packages/shared ./packages/qa-gateway click psycopg requests PyYAML
+
+      - name: "Resolver dados de entrada para scan-sla (prom file / before timestamp / dummy)"
+        id: sla_inputs
+        run: |
+          set -euo pipefail
+          SLA_SECONDS="${{ vars.SLA_EXPLORERS_24H_SECONDS || '86400' }}"
+          PROM_FILE=""
+          LAST_UNIX=""
+          DATA_SOURCE="none"
+
+          # Preferência 1: artifact do nightly-explorers-live.yml (se houver último run)
+          if [ -f "artifacts/explorers_live/explorers.prom" ]; then
+            PROM_FILE="artifacts/explorers_live/explorers.prom"
+            DATA_SOURCE="prom-file-prev-run"
+          fi
+
+          # Preferência 2: github.event.push.before (último commit push tempo = proxy último sucesso)
+          if [ -z "$DATA_SOURCE" ]; then
+            BEFORE="${{ github.event.before }}"
+            if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+              # Converter data do commit para Unix Epoch (UTC)
+              LAST_UNIX=$(git show -s --format=%ct "$BEFORE" 2>/dev/null || echo 0)
+              if [ "${LAST_UNIX:-0}" -gt 0 ]; then
+                DATA_SOURCE="git.event.push.before.commit.time"
+              else
+                LAST_UNIX=""
+              fi
+            fi
+          fi
+
+          # Preferência 3: dados NA (primeiro push de repo vazio etc)
+          if [ -z "$DATA_SOURCE" ]; then
+            LAST_UNIX="$(date +%s)"
+            DATA_SOURCE="ci-dry-run.now (dado indisponível nesta execução — INFO level)"
+          fi
+
+          # Decidir MODE por branch
+          REF="${{ github.ref_name }}"
+          MODE="CI_DRY_RUN"
+          case "$REF" in
+            main|master|release/*|hotfix/*) MODE="STRICT" ;;
+          esac
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            MODE="CI_DRY_RUN"   # PRs: não bloquear por SLA stale (é problema do nightly, não do PR)
+          fi
+
+          echo "sla_seconds=${SLA_SECONDS}"  >> "$GITHUB_OUTPUT"
+          echo "prom_file=${PROM_FILE}"       >> "$GITHUB_OUTPUT"
+          echo "last_unix=${LAST_UNIX}"       >> "$GITHUB_OUTPUT"
+          echo "data_source=${DATA_SOURCE}"   >> "$GITHUB_OUTPUT"
+          echo "mode=${MODE}"                 >> "$GITHUB_OUTPUT"
+
+      - name: "Executar qa-gateway scan-sla — MODE=${{ steps.sla_inputs.outputs.mode }}"
+        env:
+          ONTRACKCHAIN_DATABASE_URL: ""    # CI não tem PG16 staging; usar apenas timestamps (PRs é info)
+        run: |
+          set -u
+          MODE="${{ steps.sla_inputs.outputs.mode }}"
+          SLA_SEC="${{ steps.sla_inputs.outputs.sla_seconds }}"
+          PROM_FILE="${{ steps.sla_inputs.outputs.prom_file }}"
+          LAST_UNIX="${{ steps.sla_inputs.outputs.last_unix }}"
+          SRC="${{ steps.sla_inputs.outputs.data_source }}"
+
+          ARGS=(--sla-seconds "$SLA_SEC" --failures-json tmp_sla/scan-sla-ci.json)
+          if [ -n "$PROM_FILE" ]; then ARGS+=( --prom-file "$PROM_FILE" ); fi
+          if [ -n "$LAST_UNIX" ] && [ "$LAST_UNIX" -gt 0 ] 2>/dev/null; then ARGS+=( --last-success-unix "$LAST_UNIX" ); fi
+
+          mkdir -p tmp_sla
+          echo "🔎 qa-gateway scan-sla mode=$MODE  data_source=$SRC  sla_seconds=$SLA_SEC  last_unix=$LAST_UNIX"
+          set +e
+          qa-gateway scan-sla "${ARGS[@]}"
+          EXIT=$?
+          set -e
+          echo ""
+          echo "=== RESUMO P0-08 SLA 24h ==="
+          echo "  exit_code_scan = ${EXIT}"
+          echo "  mode = ${MODE}"
+          echo "  data_source = ${SRC}"
+
+          # Decisão de quebra de CI por MODE:
+          case "$MODE" in
+            STRICT)
+              # Em MAIN / RELEASES: bloqueia (EXIT=0 SLA ok, EXIT=1 violado, EXIT>=2 erro técnico)
+              if [ "$EXIT" -ne 0 ]; then
+                echo "❌ P0-08 FAIL (STRICT MODE main/release/hotfix). SLA violado ou erro técnico."
+                echo "   Ação necessária: rodar workflow nightly-explorers-live.yml OU investigar monitoring-api."
+                exit "$EXIT"
+              fi
+              echo "✅ P0-08 PASS (STRICT MODE)."
+              ;;
+            *)
+              # CI_DRY_RUN / DATA_NA: mostra resultado mas NÃO quebra PRs (SLA não é responsabilidade do PR)
+              echo "ℹ️  CI_DRY_RUN (PR/feature branch): scan-sla executado, NÃO bloqueia merge."
+              echo "   Verifique nightly-explorers-live.yml para correção SLA violations reais."
+              ;;
+          esac
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-gateway-scan-sla-${{ github.sha }}
+          path: |
+            tmp_sla/
+          retention-days: 60
+          if-no-files-found: ignore
+
+  # ============================================================================
   # GAP #12 (SAST) — Static Application Security Testing: Bandit em Python apps
   # Documento 341L §4.1 item 8: WAF / Rate limit / SAST / Dependabot
   # Sprint 7 M1 (upgrade warning → bloqueio): continue-on-error = FALSE

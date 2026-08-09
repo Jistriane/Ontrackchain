@@ -1,0 +1,109 @@
+[build-system]
+requires = ["hatchling>=1.24.2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ontrackchain-platform"
+version = "3.1.0"
+description = "Ontrackchain Platform Workspace Root (Sprint 18)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [
+  { name = "Ontrackchain" },
+]
+dependencies = [
+  "ontrackchain-shared @ file:///${PROJECT_ROOT}/packages/shared",
+  "ontrackchain-qa-gateway @ file:///${PROJECT_ROOT}/packages/qa-gateway",
+  "ontrackchain-agents @ file:///${PROJECT_ROOT}/packages/agents",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+  "pytest-asyncio>=0.23.8",
+  "httpx>=0.27.0",
+  "ruff>=0.5.0",
+  "mypy>=1.10.0",
+  "types-requests",
+  "types-PyYAML",
+]
+
+[tool.hatch.envs.default]
+dependencies = [
+  "ontrackchain-shared[dev] @ file:///${PROJECT_ROOT}/packages/shared",
+  "ontrackchain-qa-gateway[dev] @ file:///${PROJECT_ROOT}/packages/qa-gateway",
+  "ontrackchain-agents @ file:///${PROJECT_ROOT}/packages/agents",
+  "pytest>=8.0.0",
+  "pytest-asyncio>=0.23.8",
+  "httpx>=0.27.0",
+]
+[tool.hatch.envs.default.extra-dirs]
+"/app/src" = [
+  "apps/auth-service/src",
+  "apps/compliance-api/src",
+  "apps/case-management/src",
+  "apps/investigation-api/src",
+  "apps/monitoring-api/src",
+  "apps/public-api/src",
+  "apps/report-api/src",
+  "apps/ai-service/src",
+  "apps/mock-oidc/src",
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = [
+  "tests",
+  "apps/auth-service/tests",
+  "apps/compliance-api/tests",
+  "apps/case-management/tests",
+  "apps/investigation-api/tests",
+  "apps/monitoring-api/tests",
+  "apps/public-api/tests",
+  "apps/report-api/tests",
+  "apps/ai-service/tests",
+  "apps/mock-oidc/tests",
+  "packages/shared/tests",
+  "packages/qa-gateway/tests",
+  "packages/agents/tests",
+]
+asyncio_mode = "auto"
+pythonpath = [
+  ".",
+  "packages/shared/src",
+  "packages/qa-gateway/src",
+  "packages/agents/src",
+  "apps/auth-service/src",
+  "apps/compliance-api/src",
+  "apps/case-management/src",
+  "apps/investigation-api/src",
+  "apps/monitoring-api/src",
+  "apps/public-api/src",
+  "apps/report-api/src",
+  "apps/ai-service/src",
+  "apps/mock-oidc/src",
+  "apps/auth-service/tests",
+  "apps/investigation-api/tests",
+  "apps/case-management/tests",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+lint.select = ["E", "F", "I", "N", "B", "UP", "W"]
+lint.ignore = ["E501", "B008"]
+lint.isort.known-first-party = [
+  "ontrackchain_shared",
+  "qa_gateway",
+  "ontrackchain_agents",
+  "auth_service",
+  "compliance_api",
+  "case_management",
+  "investigation_api",
+  "monitoring_api",
+  "public_api",
+  "report_api",
+  "ai_service",
+  "mock_oidc",
+]
