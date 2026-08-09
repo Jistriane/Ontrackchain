@@ -34,6 +34,7 @@ from psycopg_pool import ConnectionPool
 
 from compliance_api.operations import router as operations_router
 from compliance_api.risk_provider import TrmRiskProviderConfig, describe_provider_readiness, screen_address
+from compliance_api.structural_screens import router as structural_screens_router  # S20 T2-04
 
 
 class Settings(BaseSettings):
@@ -65,6 +66,7 @@ settings = Settings()
 
 app = FastAPI(title="OnTrackChain Compliance API")
 app.include_router(operations_router)
+app.include_router(structural_screens_router)  # S20 T2-04 Due Diligence/Screenings estruturados
 logger = logging.getLogger("compliance_api")
 
 

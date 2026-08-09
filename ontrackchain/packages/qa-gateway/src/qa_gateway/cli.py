@@ -445,28 +445,81 @@ def cmd_scan_sla(
     help="Máximo permitido de endpoints POST/PUT/PATCH/DELETE sem _require_role_with_audit por serviço (0 = nenhum permitido).",
 )
 @click.option("--failures-json", type=click.Path(dir_okay=False, writable=True))
+@click.option(
+    "--strict/--no-strict",
+    "strict_mode",
+    default=True,
+    show_default=True,
+    help="(Sprint 20 T2-03) Padrão STRICT=True: warnings também contam como ISSUES e retornam exit=1. Use --no-strict apenas em branches feature onde warnings são aceitáveis temporariamente.",
+)
+@click.option(
+    "--max-warnings",
+    "max_warnings",
+    type=int,
+    default=0,
+    show_default=True,
+    help="(Sprint 20 T2-03) Quantidade máxima de WARNINGS permitidos. Se --strict=True e warnings > max_warnings, somam em ISSUES (bloqueia).",
+)
 def cmd_scan_rbac(
     targets: str,
     project_root: Optional[Path],
     db_url: Optional[str],
     max_anonymous_write_per_service: int,
     failures_json: Optional[str],
+    strict_mode: bool,
+    max_warnings: int,
 ) -> None:
     """
-    SCAN-RBAC: Duas fases.
+    SCAN-RBAC: Duas fases + WARNINGS estruturais (Sprint 20 T2-03).
       (A) Static scan: busca cada main.py FastAPI por rotas write method sem role check.
       (B) DB scan: valida que users.role contém apenas {VIEWER,ANALYST,COMPLIANCE,ADMIN,OWNER}
           e que ninguém tem OWNER duplicado por organização.
+      (W) WARNINGS estruturais: < 3 rotas write / serviços main.py vazio / services nao listados
+          em targets mas existentes fisicamente em apps/.
     """
     issues: List[str] = []
+    warnings: List[str] = []
     if project_root is None:
         # default raiz apps/
         here = Path(__file__).resolve().parents[5]  # qa-gateway/src/qa_gateway/cli.py → ontrackchain/
         project_root = here
     apps_root = project_root / "apps"
 
+    # --- FASE W (WARNINGS estruturais - antes de A/B) ---
+    target_list = [x.strip() for x in targets.split(",") if x.strip()]
+    click.echo("🚦 SCAN-RBAC FASE W (WARNINGS estruturais Sprint 20 T2-03):")
+    # W-1: serviços em apps/ não listados no targets (risco: serviço novo adicionado sem scan)
+    if apps_root.is_dir():
+        actual_services = sorted(
+            p.name for p in apps_root.iterdir() if p.is_dir() and (p / "src").is_dir()
+        )
+        missing_in_targets = sorted(set(actual_services) - set(target_list))
+        if missing_in_targets:
+            msg = f"[RBAC-W001] serviços em apps/ NÃO listados em --targets: {missing_in_targets}. Adicione-os para não bypassar o scan."
+            warnings.append(msg)
+            click.echo(f"  ⚠️  {msg}")
+    for svc in target_list:
+        svc_root = apps_root / svc / "src" / svc.replace("-", "_") / "main.py"
+        if not svc_root.exists():
+            # ISSUE FATAL como no original
+            pass
+        else:
+            content = svc_root.read_text(encoding="utf-8")
+            endpoints = _extract_rbac_routes(content)
+            # W-2: serviço main.py com ZERO rotas write (muito estranho)
+            if len(endpoints) == 0:
+                msg = f"[RBAC-W002] {svc}: ZERO endpoints write (POST/PUT/PATCH/DELETE) detectados. Verifique se este FastAPI main.py tem rotas protegidas."
+                warnings.append(msg)
+                click.echo(f"  ⚠️  {msg}")
+            # W-3: serviço main.py com < 3 endpoints write (baixa cobertura)
+            elif 0 < len(endpoints) < 3:
+                msg = f"[RBAC-W003] {svc}: apenas {len(endpoints)} endpoint(s) write (< 3). Possível cobertura de autorização incompleta."
+                warnings.append(msg)
+                click.echo(f"  ⚠️  {msg}")
+    click.echo(f"  · total warnings: {len(warnings)} (max permitidos={max_warnings})")
+
     # --- FASE A: static scan por serviço ---
-    svc_list = [x.strip() for x in targets.split(",") if x.strip()]
+    svc_list = target_list
     click.echo("🚦 SCAN-RBAC FASE A (code scan FastAPI):")
     for svc in svc_list:
         svc_root = apps_root / svc / "src" / svc.replace("-", "_") / "main.py"
@@ -490,6 +543,7 @@ def cmd_scan_rbac(
     click.echo("🚦 SCAN-RBAC FASE B (DB scan users.role):")
     if not db_url:
         click.echo("  ⚠️  --db-url / ONTRACKCHAIN_DATABASE_URL não informado → skip FASE B.")
+        warnings.append("[RBAC-W004] FASE B (DB scan users.role) SKIPPADA — --db-url não informado. Roles não validadas no banco.")
     else:
         import psycopg  # type: ignore
         ALLOWED_ROLES = {"VIEWER", "ANALYST", "COMPLIANCE", "ADMIN", "OWNER", "SYSTEM"}
@@ -523,7 +577,17 @@ def cmd_scan_rbac(
         except Exception as exc:  # noqa: BLE001
             issues.append(f"[RBAC-B/DB] Erro conexão/query: {type(exc).__name__}: {str(exc)[:220]}")
 
-    click.echo(f"  resumo: {len(issues)} problema(s)")
+    # --- Sprint 20 T2-03: STRICT MODE = warnings > max_warnings → acrescenta em issues ---
+    if strict_mode and len(warnings) > max_warnings:
+        click.echo(
+            f"\n🚨 RBAC STRICT MODE ativo (padrão): warnings={len(warnings)} > max_warnings={max_warnings}. "
+            f"WARNINGS elevados a ISSUES (bloqueia merge em main/release/hotfix)."
+        )
+        issues.extend(warnings)
+    elif not strict_mode:
+        click.echo(f"\nℹ️  RBAC --no-strict: warnings {len(warnings)} IGNORADOS (apenas informativos). Recomendado só em branches feature.")
+
+    click.echo(f"  resumo: {len(issues)} erro(s);  {len(warnings)} warning(s);  strict_mode={strict_mode}")
     _exit_report(len(issues) == 0, issues, failures_json)
 
 
