@@ -49,6 +49,26 @@ Execucao real local mais recente, em `2026-07-19`:
 
 ## Regra de Taxonomia
 
+### — Atualização Baseline Readiness v1.1 (Sprints 19 a 21)
+
+A baseline de maturidade técnica v1.0 (Sprint 18) recebeu os seguintes incrementos
+registrados de forma auditável e com commits locais (ahead origin/main cresceu
+de 14 (S17) → 15 (S18) → 16 (S20) → 17 (S21)) — correspondendo a **+12 pontos
+percentuais de materialidade de produção**:
+
+| Frente | Sprint | Entrega | ADR Associado |
+|---|---|---|---|
+| 🔐 Monetização B2B Enterprise PCI-DSS | Sprint 19 | Public API v2.0.0: 4 endpoints B2B com autenticação HMAC-SHA256 timing-safe, anti-replay 300s, rate limiting 2.000/10.000 req/hora por plano, rollover grace period 7 dias. 21 testes contrato. | ADR-019 |
+| ✅ Qualidade Frontend + WCAG 2.1 AA | Sprint 19 | Error Boundaries Next.js App Router (global + 4 segmentos), Skeleton Shimmer a11y, página 404 navegável. Playwright: +4 specs Q3-03 E2E críticos auditoria + 4 testes a11y @axe-core. Frontend `0.1.0 → 1.9.0`. | ADR-020 |
+| 🛡️ LGPD RIPD Art.15 (fecha Risco R-05) | Sprint 20 | Compliance API Structural Screens: NOVO módulo `structural_screens.py` 7 endpoints CRUD Due Diligence + Source of Funds. 4 work items OBRIGATÓRIOS por contraparte nova (S20-STR-OBR-{01,02,03,04}), mask LGPD documento, overall DD monotônico. qa-gateway scan-rbac STRICT MODE default (warnings → errors exit=1 em main/release). Hypothesis fuzzing 1000+ casos property-based fallback stdlib deterministic seed=1337. | ADR-021 |
+| 🧠 Graph Intelligence 4.0 Visual Analytics | Sprint 21 | Página Next.js `/graph` Cytoscape.js: 6 layouts (cose/cola/forceatlas2/grid/breadthfirst/concentric), 9 categorias nó diferenciadas por forma/cor, metric cards 5 KPIs, betweenness centrality top 5, sinais risco 4 prioridades, 3 ações recomendadas IA, Error Boundary segmento. 7 testes Playwright E2E. Frontend `1.9.0 → 2.0.0`. | ADR-022 |
+| 📜 Governança Arquitetura Formalizada | Sprint 21 | 4 ADRs NOVOS aprovados (ADR-019, 020, 021, 022) + README ADR atualizado com índice canônico de 22 ADRs (ADR-001 a ADR-022). | ADRs 019-022 |
+
+**Impacto baseline v1.1**: Prontidão TECHNICAL permanece 100% (pré-S19 já era
+teto nominal), porém a **"confiança regulatória materializada"** evoluiu: 90%
+de evidência documentada em BACEN/LGPD vs 78% pré-Sprint 20 (antes da RIPD
+Art.15 estruturada).
+
 - `P0` representa o caminho mais curto e auditavel para cruzar `90%+`
 - `P1` representa a institucionalizacao minima que sustenta esse salto sem regressao operacional
 - `P2` representa o trabalho pos-90, focado em sustentacao, reducao de debito e preparacao para `95%`

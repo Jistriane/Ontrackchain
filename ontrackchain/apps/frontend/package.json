@@ -1,13 +1,14 @@
 {
   "name": "ontrackchain-frontend",
   "private": true,
-  "version": "1.9.0",
+  "version": "2.0.0",
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3000",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3000",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:a11y": "playwright test tests/e2e/accessibility-wcag-aa.spec.ts",
+    "test:graph": "playwright test tests/e2e/graph-intelligence-t205.spec.ts",
     "test:e2e:reset-state": "docker compose -f ../../docker-compose.yml exec -T postgres psql -U ontrackchain -d ontrackchain -c \"UPDATE organizations SET credits_available = 1000.0000, credits_reserved = 0, credits_used_total = 0, updated_at = NOW() WHERE id = '00000000-0000-0000-0000-000000000001';\"",
     "test:e2e": "playwright test",
     "test:e2e:api-consumer:real": "bash tests/e2e/run-stack-real.sh api-consumer",
@@ -25,14 +26,17 @@
     "test:e2e:alerts-dashboard-context:mocked": "npm run test:e2e:ssr-mocked"
   },
   "dependencies": {
+    "cytoscape": "^3.30.0",
     "next": "^14.2.35",
     "react": "18.3.1",
+    "react-cytoscapejs": "^2.0.0",
     "react-dom": "18.3.1",
     "sharp": "^0.33.5"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.0",
     "@playwright/test": "^1.46.0",
+    "@types/cytoscape": "^3.21.8",
     "@types/node": "20.14.10",
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",

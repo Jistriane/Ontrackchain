@@ -21,6 +21,11 @@ Este diretorio concentra as Architectural Decision Records do scaffold atual.
 - [ADR-015 — Futuro do Modulo Team](./ADR-015-futuro-do-modulo-team.md)
 - [ADR-016 — Estrategia de Vault e Secrets para Producao](./ADR-016-estrategia-de-vault-e-secrets-para-producao.md)
 - [ADR-017 — Nomeação de Eventos de Evidência para IA (AI_DEGRADED)](./ADR-017-evidence-event-naming-ai-degraded.md)
+- [ADR-018 — QA Gateway como Single Source of Truth para RLS + Shared First / Fallback Inline](./ADR-018-qa-gateway-ssot-rls-shared-first-fallback-inline.md)
+- [ADR-019 — Public API v2.0.0 B2B Enterprise com Autenticação HMAC-SHA256 Timing-Safe e Anti-Replay](./ADR-019-public-api-v2-b2b-hmac-authentication-monetization.md)
+- [ADR-020 — Frontend Next.js App Router: Error Boundaries Global + Segmentos + WCAG AA Loading Skeletons a11y](./ADR-020-frontend-nextjs-error-boundaries-wcag-aa-loading-skeletons.md)
+- [ADR-021 — Compliance API Structural Screens RIPD Art.15 LGPD Due Diligence + Source of Funds CRUD](./ADR-021-compliance-api-structural-screens-lgpd-ripd-art15.md)
+- [ADR-022 — Graph Intelligence 4.0 Cytoscape.js Counterparty↔Wallet↔Risk Network Multi-Layout Frontend](./ADR-022-graph-intelligence-4-cytoscape-counterparty-wallet-risk-network.md)
 
 ## Como usar
 
