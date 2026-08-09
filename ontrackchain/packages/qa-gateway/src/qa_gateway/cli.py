@@ -592,6 +592,175 @@ def cmd_scan_rbac(
 
 
 # ---------------------------------------------------------------------------
+# Sprint 23 Q3-05: cmd_scan_billing_capabilities — validação do T2-10
+# 4 códigos WARNING estruturais: BW-001..BW-004
+# ---------------------------------------------------------------------------
+
+@app.command("scan-billing-capabilities")
+@click.option(
+    "--project-root",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="Raiz do workspace (ontrackchain raiz ou apps/). Default = auto detecta.",
+)
+@click.option(
+    "--strict/--no-strict",
+    "strict_mode",
+    default=True,
+    show_default=True,
+    help="Sprint 23 Q3-05: warnings elevados a issues se excederem max_warnings.",
+)
+@click.option(
+    "--max-warnings",
+    type=int,
+    default=0,
+    show_default=True,
+    help="Máximo de warnings permitidos sem transformar em issues.",
+)
+@click.option(
+    "--failures-json",
+    type=click.Path(dir_okay=False, writable=True),
+    default=None,
+    help="Opcional: caminho arquivo JSON para persistir issues e warnings.",
+)
+def cmd_scan_billing_capabilities(
+    project_root: Optional[Path],
+    strict_mode: bool,
+    max_warnings: int,
+    failures_json: Optional[str],
+) -> None:
+    """
+    SCAN-BILLING-CAPABILITIES Q3-05 (Sprint 23):
+      Valida que o módulo billing_capabilities.py (T2-10) está consistente,
+      monotônico por tier, e que o main.py investigation incluiu o router.
+      WARNINGS BW-001..BW-004.
+    """
+    issues: List[str] = []
+    warnings: List[str] = []
+    if project_root is None:
+        here = Path(__file__).resolve().parents[5]
+        project_root = here
+    inv_root = project_root / "apps" / "investigation-api"
+    inv_src = inv_root / "src" / "investigation_api"
+    cap_file = inv_src / "billing_capabilities.py"
+    main_file = inv_src / "main.py"
+    stripe_billing_file = inv_src / "billing_stripe.py"
+
+    click.echo("🧾 Q3-05 SCAN BILLING CAPABILITIES (Sprint 23 T2-10):")
+
+    # --- BW-001: Arquivos billing_capabilities.py ausentes ou vazios
+    if not cap_file.is_file():
+        warnings.append(
+            "[BW-001] billing_capabilities.py NÃO existe em investigation-api. Módulo T2-10 não foi criado."
+        )
+    elif cap_file.stat().st_size == 0:
+        warnings.append(
+            "[BW-001] billing_capabilities.py VAZIO. Nenhuma capability definida."
+        )
+
+    # --- BW-002: main.py investigation NÃO contém include_router billing_capabilities_router
+    if not main_file.is_file():
+        warnings.append("[BW-002] investigation-api main.py NÃO encontrado. Impossível validar include_router.")
+    else:
+        main_text = main_file.read_text(encoding="utf-8")
+        if "billing_capabilities_router" not in main_text or "include_router(billing_capabilities_router)" not in main_text:
+            warnings.append(
+                "[BW-002] investigation-api main.py NÃO tem `app.include_router(billing_capabilities_router)`."
+                " Endpoint /capabilities/* SEM ROTAS EXPOSTAS."
+            )
+
+    # --- BW-003: Tentar importar billing_capabilities dinamicamente + validar monotonicidade
+    cap_importable = False
+    try:
+        # Tenta importação real do módulo: adiciona ao sys.path temporariamente
+        import importlib.util
+        import sys
+        inv_src_str = str(inv_src.parent)  # .../src
+        if inv_src_str not in sys.path:
+            sys.path.insert(0, inv_src_str)
+        spec = importlib.util.spec_from_file_location(
+            "investigation_api.billing_capabilities", str(cap_file)
+        )
+        if spec and spec.loader:
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)  # type: ignore[union-attr]
+            OTK = getattr(mod, "OTK_PLAN_CAPABILITIES", None)
+            if OTK is None:
+                warnings.append("[BW-003] Constante OTK_PLAN_CAPABILITIES NÃO encontrada em billing_capabilities.py.")
+            else:
+                cap_importable = True
+                for tier_required in ("startup", "business", "enterprise"):
+                    if tier_required not in OTK:
+                        issues.append(f"[BILLING-CAP-E001] Tier {tier_required} ausente em OTK_PLAN_CAPABILITIES.")
+
+                if all(t in OTK for t in ("startup", "business", "enterprise")):
+                    # Monotonicidade AI credits
+                    if not (OTK["startup"]["included_ai_credits_per_month"]
+                            < OTK["business"]["included_ai_credits_per_month"]
+                            < OTK["enterprise"]["included_ai_credits_per_month"]):
+                        issues.append(
+                            "[BILLING-CAP-E002] included_ai_credits_per_month NÃO é estritamente crescente"
+                            " por tier (viola monotonicidade)."
+                        )
+                    # Monotonicidade B2B quota por hora
+                    if not (OTK["startup"]["b2b_api_calls_per_hour_quota"]
+                            <= OTK["business"]["b2b_api_calls_per_hour_quota"]
+                            <= OTK["enterprise"]["b2b_api_calls_per_hour_quota"]):
+                        issues.append(
+                            "[BILLING-CAP-E003] b2b_api_calls_per_hour_quota NÃO é monotônico crescente por tier."
+                        )
+                    # Enterprise tem SSO, business e startup não
+                    if OTK["enterprise"]["has_sso_saml_oidc_federation"] is not True:
+                        issues.append(
+                            "[BILLING-CAP-E004] Enterprise DEVE ter has_sso_saml_oidc_federation=True."
+                        )
+                    if OTK["business"]["has_sso_saml_oidc_federation"] is not False:
+                        warnings.append(
+                            "[BW-003] Business NÃO DEVE ter SSO (padrão: só Enterprise). Ajuste ou atualize regra de negócio se aprovado."
+                        )
+                    # Startup max 5 usuários
+                    if OTK["startup"]["included_users_max"] != 5:
+                        warnings.append(
+                            "[BW-003] Startup: esperado included_users_max=5 (padrão T2-10)."
+                            f" Encontrado = {OTK['startup']['included_users_max']}."
+                        )
+    except Exception as exc:  # noqa: BLE001
+        warnings.append(
+            f"[BW-003] Falha ao importar billing_capabilities.py (não crítico no STRICT): {type(exc).__name__}: {str(exc)[:260]}"
+        )
+
+    # --- BW-004: billing_stripe.py existe (T2-09 é pré-requisito de T2-10 capabilities)
+    if not stripe_billing_file.is_file():
+        warnings.append(
+            "[BW-004] Módulo billing_stripe.py T2-09 ausente (pré-requisito de T2-10). "
+            "billing_capabilities depende de _ensure_org_skeleton_subscription do billing_stripe."
+        )
+
+    # --- Resumo e STRICT MODE ---
+    if strict_mode and len(warnings) > max_warnings:
+        click.echo(
+            f"\n🚨 BILLING STRICT MODE ativo (padrão): warnings={len(warnings)} > max_warnings={max_warnings}. "
+            "WARNINGS elevados a ISSUES."
+        )
+        issues.extend(warnings)
+    elif not strict_mode:
+        click.echo(f"\nℹ️  --no-strict: warnings {len(warnings)} informativos APENAS. Recomendado só feature branches.")
+
+    click.echo(f"  resumo: {len(issues)} issue(s);  {len(warnings)} warning(s);  strict={strict_mode};  cap_importable={cap_importable}")
+
+    # Show listas detalhadas
+    if warnings:
+        click.echo("\n--- WARNINGS ---")
+        for w in warnings:
+            click.echo(f"  ⚠️  {w}")
+    if issues:
+        click.echo("\n--- ISSUES ---")
+        for i in issues:
+            click.echo(f"  ❌ {i}")
+    _exit_report(len(issues) == 0, issues, failures_json)
+
+
+# ---------------------------------------------------------------------------
 # Helpers para scan-rbac (static parse rotas FastAPI)
 # ---------------------------------------------------------------------------
 class _RbacRoute(NamedTuple):

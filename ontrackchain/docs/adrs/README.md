@@ -26,6 +26,10 @@ Este diretorio concentra as Architectural Decision Records do scaffold atual.
 - [ADR-020 — Frontend Next.js App Router: Error Boundaries Global + Segmentos + WCAG AA Loading Skeletons a11y](./ADR-020-frontend-nextjs-error-boundaries-wcag-aa-loading-skeletons.md)
 - [ADR-021 — Compliance API Structural Screens RIPD Art.15 LGPD Due Diligence + Source of Funds CRUD](./ADR-021-compliance-api-structural-screens-lgpd-ripd-art15.md)
 - [ADR-022 — Graph Intelligence 4.0 Cytoscape.js Counterparty↔Wallet↔Risk Network Multi-Layout Frontend](./ADR-022-graph-intelligence-4-cytoscape-counterparty-wallet-risk-network.md)
+- [ADR-023 — CHANGELOG Oficial Hierárquico por Sprint Keep a Changelog 1.1.0 + SemVer 2.0.0](./ADR-023-changelog-hierarquico-keep-a-changelog-semver-sprint.md)
+- [ADR-024 — Billing Stripe Multi-Tenant DUAL MODE optional-deps group [stripe] Fake Fallback contrato idêntico](./ADR-024-billing-stripe-multi-tenant-dual-mode-optional-sdk.md)
+- [ADR-025 — Load Testing k6 Thresholds SLA Rigorosamente Definidos por Rota Crítica](./ADR-025-load-testing-k6-thresholds-sla-rigoroso-por-rota-critica.md)
+- [ADR-026 — Bloqueio Absoluto Push Remoto M5 Governança de Risco Operacional Crítico Condição 3A](./ADR-026-m5-bloqueio-absoluto-push-remoto-risco-operacional-critico.md)
 
 ## Como usar
 

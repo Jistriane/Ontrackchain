@@ -69,6 +69,27 @@ teto nominal), porém a **"confiança regulatória materializada"** evoluiu: 90%
 de evidência documentada em BACEN/LGPD vs 78% pré-Sprint 20 (antes da RIPD
 Art.15 estruturada).
 
+### — Atualização Baseline Readiness v1.2 (Sprints 22 a 23)
+
+A baseline v1.1 (Sprint 21) recebeu **+5 pontos percentuais adicionais** de
+materialidade (de 90% → 95%) nas entregas Sprints 22 e 23. Commits ahead
+cresceram de 17 (S21) → 18 (S22) → 19 (S23). Adições abaixo:
+
+| Frente | Sprint | Entrega | ADR Associado |
+|---|---|---|---|
+| 📚 CHANGELOG Oficial Hierárquico | Sprint 22 | `CHANGELOG.md` Keep a Changelog 1.1.0 raiz com 8 releases semver (v5.6.0 S22 → v4.x S1-13). Added/Changed/Fixed/Security. Fonte única para comunicação release-to-release com clientes B2B Enterprise. | ADR-023 |
+| 💰 Billing Stripe Multi-tenant 3 moedas | Sprint 22 | `investigation-api billing_stripe.py` NOVO: 5 endpoints `/api/v1/billing/stripe/*`. 3 planos × 3 moedas (BRL/USD/EUR). DUAL MODE optional-deps `[stripe]` + Fake Fallback idêntico (NÃO quebra CI). 12 pytest, HMAC webhook verify, idempotência event_id. | ADR-024 |
+| 🧪 SLA de Performance Formal via k6 | Sprint 22 | 4 scripts k6 v0.50+ Q3-04: (1) B2B HMAC 50VUs p95<500ms, (2) Structural Screening 30VUs p95<650ms, (3) Create Case 25VUs p95<900ms, (4) Multi-serviço healthz 10VUs p95<120ms. Thresholds obrigatórios em CI futuros. | ADR-025 |
+| ⚖️ Governança M5 Formalizada em ADR | Sprint 23 | ADR-026: Bloqueio push remoto M5 agora é REGRA ESCRITA com Condição 3A (3 requisitos cumulativos) + 14 passos de procedimento seguro. Nenhum engenheiro mais age "na memória". 4 opções de método de push avaliadas (Opção C = GitHub App short-lived JWT, recomendado). | ADR-026 |
+| 🔌 Usage Meters Billing Capabilities | Sprint 23 | `billing_capabilities.py` NOVO investigation-api T2-10. Fonte Única da Verdade `OTK_PLAN_CAPABILITIES` 3 tiers (startup 5 usuários, business ilimitado B2B HMAC, enterprise ilimitado + SSO SAML + AI credits 1M). 2 endpoints /matrix + /my/{org_id}. Rate limit headers spec demo. Monotonicidade validada. qa-gateway `scan-billing-capabilities` Q3-05 validação. 12 pytest contrato. | (governança T2-10) |
+
+**Impacto baseline v1.2**: Materialidade regulatória **de 90% → 95% evidências
+formalizadas em BACEN/LGPD (faturamento BRL/USD/EUR em compliance, changelog
+de release, SLA performance mensurável, regra de risco M5 escrita)**.
+
+A partir daqui, o caminho até 100% passa EXCLUSIVAMENTE por handoff humano
+(P0-01 OIDC real + P0-02/P0-03 AML live provider com credenciais reais).
+
 - `P0` representa o caminho mais curto e auditavel para cruzar `90%+`
 - `P1` representa a institucionalizacao minima que sustenta esse salto sem regressao operacional
 - `P2` representa o trabalho pos-90, focado em sustentacao, reducao de debito e preparacao para `95%`
