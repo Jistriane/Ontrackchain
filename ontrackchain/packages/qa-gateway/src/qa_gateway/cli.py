@@ -15,11 +15,13 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Iterable, List, NamedTuple, Optional
+from typing import Dict, Iterable, List, NamedTuple, Optional
 
 import click
 import psycopg
@@ -1145,6 +1147,405 @@ def _extract_rbac_routes(main_content: str) -> List[_RbacRoute]:
         )
         results.append(_RbacRoute(method=method.upper(), path=path, line=idx, has_role_check=has_rc))
     return results
+
+
+# ---------------------------------------------------------------------------
+# Comando Q3-08: scan-secrets-trufflehog
+# ---------------------------------------------------------------------------
+TRUFFLEHOG_MIN_VERSION = (3, 80, 0)
+TRUFFLEHOG_VERIFIED_WARN = (
+    "[TS-W%d] %s: %s (%s). Detector=%s. Raw=%s"
+)
+TRUFFLEHOG_VERIFIED_ERR = (
+    "[TS-E%d] Segredo VERIFICADO encontrado (P0 LGPD Art.48 multa 2%%). Arquivo=%s linha=%d. Detector=%s. RawPrefix=%s"
+)
+
+
+def _find_trufflehog_bin() -> Optional[str]:
+    """Procura binário trufflehog em PATH, ~/.local/bin, /usr/local/bin."""
+    candidates = [shutil.which("trufflehog")]
+    extra_dirs = [
+        Path.home() / ".local" / "bin",
+        Path("/usr/local/bin"),
+        Path("/opt/homebrew/bin"),
+    ]
+    for d in extra_dirs:
+        p = d / "trufflehog"
+        if p.is_file():
+            candidates.append(str(p))
+    for c in candidates:
+        if c and Path(c).is_file():
+            return c
+    return None
+
+
+def _parse_trufflehog_json_lines(raw: str) -> List[Dict]:
+    """Parse stdout JSON lines do trufflehog --json --only-verified."""
+    out = []
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict) and obj.get("Verified", False):
+            out.append(obj)
+    return out
+
+
+def _finish_trufflehog(
+    issues: List[str],
+    warnings: List[str],
+    failures_json: Optional[str],
+    strict_mode: bool,
+    max_warnings: int,
+) -> None:
+    if strict_mode and len(warnings) > max_warnings:
+        click.echo(
+            f"\n🚨 TruffleHog STRICT default: warnings={len(warnings)} > max_warnings={max_warnings}. "
+            "WARNINGS elevados a ISSUES exit=1."
+        )
+        issues.extend(warnings)
+    elif not strict_mode:
+        click.echo(f"\nℹ️  --no-strict: warnings={len(warnings)} informativos APENAS")
+
+    click.echo(
+        f"  resumo: {len(issues)} issue(s);  {len(warnings)} warning(s);  strict={strict_mode};  exit={0 if not issues else 1}"
+    )
+    if warnings:
+        click.echo("\n--- WARNINGS ---")
+        for w in warnings:
+            click.echo(f"  ⚠️  {w}")
+    if issues:
+        click.echo("\n--- ISSUES ---")
+        for i in issues:
+            click.echo(f"  ❌ {i}")
+    _exit_report(len(issues) == 0, issues, failures_json)
+
+
+@cli.command("scan-secrets-trufflehog", help="Q3-08: TruffleHog segredos verificados P0 segurança (strict default).")
+@click.option(
+    "--scan-path",
+    default=".",
+    show_default=True,
+    type=click.Path(exists=True, file_okay=True, dir_okay=True, resolve_path=True),
+    help="Diretório ou arquivo a scannear (padrão repo root).",
+)
+@click.option("--only-verified/--no-only-verified", default=True, show_default=True, help="Apenas segredos VERIFICADOS.")
+@click.option("--fail-verified/--no-fail-verified", default=True, show_default=True, help="Exit 1 se houver verificado (P0).")
+@click.option(
+    "--trufflehog-bin",
+    type=str,
+    default=None,
+    show_default=False,
+    help="Caminho explícito binário trufflehog. Padrão: auto-detect PATH.",
+)
+@click.option("--dry-run", is_flag=True, default=False, help="Não executa trufflehog; apenas valida parâmetros.")
+@click.option("--strict/--no-strict", default=True, show_default=True, help="Warnings>max → issues exit=1.")
+@click.option("--max-warnings", type=int, default=0, show_default=True, help="Máximo warnings permitidos (padrão 0 STRICT).")
+@click.option(
+    "--failures-json",
+    type=str,
+    default=None,
+    show_default=False,
+    help="Escreve relatório em JSON para arquivo opcional (auditoria BACEN Art.15).",
+)
+def cmd_scan_secrets_trufflehog(
+    scan_path: str,
+    only_verified: bool,
+    fail_verified: bool,
+    trufflehog_bin: Optional[str],
+    dry_run: bool,
+    strict: bool,
+    max_warnings: int,
+    failures_json: Optional[str],
+) -> None:
+    issues: List[str] = []
+    warnings: List[str] = []
+
+    click.echo(f"🔐 qa-gateway scan-secrets-trufflehog (Q3-08)")
+    click.echo(f"  path={scan_path}")
+    click.echo(f"  only_verified={only_verified}, fail_verified={fail_verified}, dry_run={dry_run}")
+    click.echo(f"  strict={strict}, max_warnings={max_warnings}")
+
+    bin_path = trufflehog_bin or _find_trufflehog_bin()
+    if dry_run:
+        if not bin_path:
+            warnings.append(
+                "[TS-W001] Modo dry-run: trufflehog bin NÃO encontrado PATH. CI instalar via pipx ou Docker image trufflesecurity/trufflehog."
+            )
+        else:
+            click.echo(f"  ✅ Binário detectado: {bin_path}")
+            click.echo("  🟢 DRY-RUN: nada executou.")
+        _finish_trufflehog(issues, warnings, failures_json, strict, max_warnings)
+        return
+
+    if not bin_path:
+        issues.append(
+            "[TS-E001] Binário trufflehog NÃO encontrado. Instale: https://github.com/trufflesecurity/trufflehog"
+            " OU use --trufflehog-bin /caminho/trufflehog OU ative imagem Docker no CI."
+        )
+        _finish_trufflehog(issues, warnings, failures_json, strict, max_warnings)
+        return
+
+    cmd: List[str] = [bin_path, "filesystem", scan_path, "--json"]
+    if only_verified:
+        cmd.append("--only-verified")
+    if fail_verified:
+        cmd.append("--fail-verified")
+
+    started = time.monotonic()
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=2 * 3600)  # max 2h repo grande
+    except subprocess.TimeoutExpired:
+        issues.append(
+            "[TS-E002] Timeout TruffleHog excedeu 2h. Repositório grande? Aumente CI timeout ou use --scan-path reduzido."
+        )
+        _finish_trufflehog(issues, warnings, failures_json, strict, max_warnings)
+        return
+
+    duration_s = round(time.monotonic() - started, 2)
+    click.echo(f"  ✅ TruffleHog executou em {duration_s}s (exit={proc.returncode})")
+
+    if proc.stderr:
+        # TruffleHog warnings de filtros, NÃO são segredos
+        for ln in proc.stderr.splitlines()[:20]:
+            if "warning" in ln.lower() or "WARN" in ln:
+                warnings.append(f"[TS-W002] TruffleHog stderr warning: {ln.strip()[:180]}")
+
+    findings = _parse_trufflehog_json_lines(proc.stdout)
+    click.echo(f"  🔎 Achados VERIFICADOS: {len(findings)}")
+
+    for idx, f in enumerate(findings, start=1):
+        file_name = f.get("SourceMetadata", {}).get("Data", {}).get("Filesystem", {}).get("file", "<unknown>")
+        line_no = f.get("SourceMetadata", {}).get("Data", {}).get("Filesystem", {}).get("line", 0)
+        detector = f.get("DetectorName", "<unknown>")
+        raw_prefix = (f.get("Raw", "") or "")[:32]
+        if fail_verified and only_verified:
+            issues.append(TRUFFLEHOG_VERIFIED_ERR % (idx, file_name, line_no, detector, raw_prefix))
+        else:
+            warnings.append(TRUFFLEHOG_VERIFIED_WARN % (idx, file_name, line_no, f.get("Description", ""), detector, raw_prefix))
+
+    if proc.returncode != 0 and not findings:
+        warnings.append(
+            f"[TS-W003] TruffleHog exit={proc.returncode} sem findings. Pode ser --fail-verified ou erro de rede ao validar segredos."
+        )
+
+    _finish_trufflehog(issues, warnings, failures_json, strict, max_warnings)
+
+
+# ---------------------------------------------------------------------------
+# Comando Q3-09: run-pre-merge-gates (Orquestrador FAIL-FAST 5 gates ADR-029)
+# ---------------------------------------------------------------------------
+@cli.command("run-pre-merge-gates", help="ADR-029: FAIL-FAST 5 gates. Q1→Q4 fail-fast, Q5 segredos SEMPRE roda.")
+@click.option("--dpo-email", type=str, required=True, help="Email DPO obrigatório para Q4 scan-lgpd-ropd.")
+@click.option("--strict/--no-strict", default=True, show_default=True, help="STRICT todos os 5 gates (warnings>0→exit1).")
+@click.option("--max-warnings", type=int, default=0, show_default=True, help="Máximo warnings global por gate.")
+@click.option("--check-prod-redis/--skip-prod-redis", default=True, show_default=True, help="Q3 check OTK_REDIS_URL overlay prod.")
+@click.option("--skip-q1", is_flag=True, default=False, help="DEV LOCAL: pular Q1 RBAC (NÃO PERMITIDO se OTK_CI_PRE_MERGE_ENFORCE_ALL=true).")
+@click.option("--skip-q2", is_flag=True, default=False, help="DEV LOCAL: pular Q2 billing capabilities.")
+@click.option("--skip-q3", is_flag=True, default=False, help="DEV LOCAL: pular Q3 billing enforcement.")
+@click.option("--skip-q4", is_flag=True, default=False, help="DEV LOCAL: pular Q4 ROPD.")
+@click.option("--skip-q5", is_flag=True, default=False, help="DEV LOCAL: pular Q5 segredos (SOMENTE dev! NUNCA CI).")
+@click.option("--dry-run", is_flag=True, default=False, help="Não executa subprocessos, valida flags + gera relatório vazio.")
+@click.option(
+    "--report-dir",
+    type=click.Path(dir_okay=True, file_okay=False, resolve_path=True),
+    default="./qa-reports",
+    show_default=True,
+    help="Pasta para relatório JSON consolidado pre-merge.",
+)
+@click.option(
+    "--failures-json",
+    type=str,
+    default=None,
+    show_default=False,
+    help="Compatibilidade com helpers qa-gateway: escreve failures resumido.",
+)
+def cmd_run_pre_merge_gates(
+    dpo_email: str,
+    strict: bool,
+    max_warnings: int,
+    check_prod_redis: bool,
+    skip_q1: bool,
+    skip_q2: bool,
+    skip_q3: bool,
+    skip_q4: bool,
+    skip_q5: bool,
+    dry_run: bool,
+    report_dir: str,
+    failures_json: Optional[str],
+) -> None:
+    enforce_all = os.environ.get("OTK_CI_PRE_MERGE_ENFORCE_ALL", "").lower() == "true"
+    if enforce_all and (skip_q1 or skip_q2 or skip_q3 or skip_q4 or skip_q5):
+        click.echo("🔴 OTK_CI_PRE_MERGE_ENFORCE_ALL=true: flags --skip-Q* NÃO PERMITIDAS em CI.")
+        sys.exit(1)
+
+    started_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ")
+    started_mono = time.monotonic()
+    commit_sha = os.environ.get("GITHUB_SHA", "local-" + started_iso.replace(":", ""))
+
+    click.echo(f"🛂 qa-gateway run-pre-merge-gates (ADR-029, commit={commit_sha})")
+    click.echo(f"  dpo_email={dpo_email}, strict={strict}, max_warnings={max_warnings}, check_prod_redis={check_prod_redis}")
+    click.echo(f"  dry_run={dry_run}, report_dir={report_dir}, enforce_all={enforce_all}")
+    if any([skip_q1, skip_q2, skip_q3, skip_q4, skip_q5]):
+        click.echo(f"  ⚠️  DEV LOCAL skips: Q1={skip_q1} Q2={skip_q2} Q3={skip_q3} Q4={skip_q4} Q5={skip_q5}")
+
+    Path(report_dir).mkdir(parents=True, exist_ok=True)
+
+    gates_def: List[Dict] = [
+        {
+            "id": "Q1-RBAC",
+            "name": "qa-gateway scan-rbac",
+            "cmd": ["qa-gateway", "scan-rbac", "--strict" if strict else "--no-strict", "--max-warnings", str(max_warnings)],
+            "always_run": False,
+            "skip_flag": skip_q1,
+        },
+        {
+            "id": "Q2-BILLING-CAP",
+            "name": "qa-gateway scan-billing-capabilities",
+            "cmd": ["qa-gateway", "scan-billing-capabilities", "--strict" if strict else "--no-strict", "--max-warnings", str(max_warnings)],
+            "always_run": False,
+            "skip_flag": skip_q2,
+        },
+        {
+            "id": "Q3-BILLING-ENF",
+            "name": "qa-gateway scan-billing-enforcement",
+            "cmd": ["qa-gateway", "scan-billing-enforcement",
+                    "--strict" if strict else "--no-strict",
+                    "--max-warnings", str(max_warnings),
+                    "--check-prod-redis" if check_prod_redis else "--skip-prod-redis"],
+            "always_run": False,
+            "skip_flag": skip_q3,
+        },
+        {
+            "id": "Q4-LGPD-ROPD",
+            "name": "qa-gateway scan-lgpd-ropd",
+            "cmd": ["qa-gateway", "scan-lgpd-ropd", "--strict" if strict else "--no-strict",
+                    "--max-warnings", str(max_warnings), "--dpo-email", dpo_email],
+            "always_run": False,
+            "skip_flag": skip_q4,
+        },
+        {
+            "id": "Q5-SECRETS",
+            "name": "qa-gateway scan-secrets-trufflehog",
+            "cmd": ["qa-gateway", "scan-secrets-trufflehog", "--strict" if strict else "--no-strict",
+                    "--max-warnings", str(max_warnings)],
+            "always_run": True,  # SEGURANÇA SOBRE FAIL-FAST
+            "skip_flag": skip_q5,
+        },
+    ]
+
+    global_issues: List[str] = []
+    global_warnings: List[str] = []
+    gates_report: List[Dict] = []
+    early_stop_exit_1 = False
+
+    for g in gates_def:
+        gid = g["id"]
+        if g["skip_flag"]:
+            click.echo(f"\n⏭️  [{gid}] SKIP (dev local flag)")
+            gates_report.append({"id": gid, "name": g["name"], "exit": 0, "duration_ms": 0,
+                                 "skipped": True, "issues": [], "warnings": ["skipped dev local"]})
+            continue
+
+        t0 = time.monotonic()
+        if g["always_run"]:
+            click.echo(f"\n🧿 [{gid}] SEMPRE roda (segurança). mesmo se anterior falhou.")
+        else:
+            click.echo(f"\n▶️  [{gid}] {g['name']}")
+
+        if early_stop_exit_1 and not g["always_run"]:
+            click.echo(f"⏹️  [{gid}] FAIL-FAST: gate anterior falhou, SKIP este.")
+            gates_report.append({"id": gid, "name": g["name"], "exit": 2, "duration_ms": 0,
+                                 "skipped": True, "issues": ["fail-fast anterior"], "warnings": []})
+            continue
+
+        if dry_run:
+            exit_code = 0
+            stdout = ""
+            stderr = ""
+        else:
+            try:
+                proc = subprocess.run(g["cmd"], capture_output=True, text=True, timeout=180 * 60)  # max 3h soma
+                exit_code = proc.returncode
+                stdout = proc.stdout or ""
+                stderr = proc.stderr or ""
+            except subprocess.TimeoutExpired:
+                exit_code = 2
+                stdout = ""
+                stderr = "timeout 3h excedido"
+                global_issues.append(f"[{gid}] TIMEOUT 3h orquestrador")
+
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        gate_issues: List[str] = []
+        gate_warnings: List[str] = []
+
+        # Parse warnings e issues simples: linhas que começam com ⚠️  e ❌
+        for src in (stdout, stderr):
+            for ln in src.splitlines():
+                s = ln.strip()
+                if s.startswith("⚠️"):
+                    gate_warnings.append(f"[{gid}] {s[2:].strip()}")
+                elif s.startswith("❌"):
+                    gate_issues.append(f"[{gid}] {s[2:].strip()}")
+                elif s.startswith("[") and ("WARN" in s or "-W" in s) and len(gate_warnings) < 50:
+                    gate_warnings.append(f"[{gid}] {s[:200]}")
+
+        if exit_code != 0 and not gate_issues:
+            gate_issues.append(f"[{gid}] exit_code={exit_code} sem issues parseáveis (ver log completo)")
+
+        gates_report.append({
+            "id": gid,
+            "name": g["name"],
+            "exit": exit_code,
+            "duration_ms": duration_ms,
+            "skipped": False,
+            "issues": gate_issues,
+            "warnings": gate_warnings,
+        })
+        click.echo(f"  result: exit={exit_code}, duration={duration_ms}ms, issues={len(gate_issues)}, warnings={len(gate_warnings)}")
+        global_issues.extend(gate_issues)
+        global_warnings.extend(gate_warnings)
+
+        if exit_code != 0 and not g["always_run"]:
+            click.echo(f"  🛑 FAIL-FAST ADR-029: {gid} exit≠0 → não executa Q2/Q3/Q4 seguintes. Q5 SEMPRE roda.")
+            early_stop_exit_1 = True
+
+    overall_duration_ms = int((time.monotonic() - started_mono) * 1000)
+    overall_exit = 1 if global_issues else 0
+
+    report: Dict = {
+        "schema_version": "1.0",
+        "run_id": f"pre-merge-{commit_sha}",
+        "started_at_iso": started_iso,
+        "duration_ms": overall_duration_ms,
+        "commit_sha": commit_sha,
+        "dpo_email": dpo_email,
+        "strict": strict,
+        "max_warnings": max_warnings,
+        "check_prod_redis": check_prod_redis,
+        "dry_run": dry_run,
+        "gates": gates_report,
+        "overall_issues": global_issues,
+        "overall_warnings": global_warnings,
+        "overall_exit": overall_exit,
+    }
+
+    report_path = Path(report_dir) / f"pre-merge-{commit_sha}.json"
+    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    click.echo(f"\n📄 Relatório consolidado: {report_path}")
+    click.echo(f"   overall_exit={overall_exit} (issues={len(global_issues)}, warnings={len(global_warnings)}, duration={overall_duration_ms}ms)")
+
+    if failures_json:
+        _exit_report(overall_exit == 0, global_issues, failures_json)
+    else:
+        if overall_exit != 0:
+            click.echo("\n⛔ PRE-MERGE BLOQUEADO (ADR-029). Resolva issues e force push novamente.")
+            sys.exit(1)
+        click.echo("\n✅ PRE-MERGE APROVADO — merge liberado (ADR-029).")
 
 
 if __name__ == "__main__":

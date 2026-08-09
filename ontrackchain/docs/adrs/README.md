@@ -32,6 +32,7 @@ Este diretorio concentra as Architectural Decision Records do scaffold atual.
 - [ADR-026 — Bloqueio Absoluto Push Remoto M5 Governança de Risco Operacional Crítico Condição 3A](./ADR-026-m5-bloqueio-absoluto-push-remoto-risco-operacional-critico.md)
 - [ADR-027 — Billing Capabilities Enforcement Middleware Redis Compartilhado Fail-Closed 402 DUAL MODE InMemory](./ADR-027-billing-capabilities-enforcement-middleware-redis-failclosed-402-dual-mode.md)
 - [ADR-028 — LGPD Art.37 Registro Operações Tratamento Dados Pessoais (ROPD) Markdown CSV qa-gateway scan](./ADR-028-lgpd-ropd-artigo37-registro-operacoes-tratamento-dados-pessoais.md)
+- [ADR-029 — Pre-Merge Gate CI Pipeline 5 Gates (qa-gateway ×4 + TruffleHog) Orquestrador run-pre-merge-gates](./ADR-029-ci-pre-merge-gate-pipeline-5-qa-gateway-4-scans-trufflehog.md)
 
 ## Como usar
 

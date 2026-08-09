@@ -125,6 +125,35 @@ caminho até 97%→100% é composto APENAS por handoff humano: P0-01 OIDC creden
 reais + P0-02 AML live provider + P0-03 sign-off M5 real para sincronizar 21
 commits locais remoto. Nada mais no código do repositório.
 
+### — Atualização Baseline Readiness v1.5 (Sprint 26)
+
+Baseline v1.4 (Sprint 25) recebeu **+1 ponto percentual adicional** de
+materialidade (97% → 98%). Commits ahead cresceram 21 (S25) → 22 (S26). Novas entregas:
+
+| Frente | Sprint | Entrega | ADR / Documento |
+|---|---|---|---|
+| 🏗️ ADR-029 CI Pre-Merge 5 Gates FAIL-FAST Orquestrador | Sprint 26 | NOVO ADR-029 com flowchart LR Mermaid. 3 alternativas: A) Actions inline ❌ / B) script shell ❌ / C ORQUESTRADOR qa-gateway run-pre-merge-gates ✅. Ordem Q1-RBAC → Q2-CAP → Q3-ENF → Q4-ROPD → Q5-SECRETS sempre roda. DoD 029.1..029.8. Índice ADRs 28→29. | ADR-029 |
+| ⚖️ LGPD Art.15 RIPD Mestre + Template por Cliente B2B Opção C | Sprint 26 | `docs/compliance-ripd/RIPD-OTK-MASTER-v1.0.md` 16 campos obrigatórios ANPD (ID, Controladora, Responsável Legal, DPO, Natureza, Finalidade, Categorias titulares, dados, sensíveis, destinatários, transf internacional, base legal Art.7, medidas Art.32, retenção, destruição, 4 assinaturas DPO+CLO+CEO+Arquitetura 12 meses validade). `TEMPLATE-RIPD-POR-CLIENTE-B2B.md` seção 17 extra Específica Cliente: Setor, Volume, Biometria, Nível Risco, Fluxos Partilha, Data Revisão 12 meses. | (Estende ADR-021 RIPD Due Diligence) |
+| 🛡️ qa-gateway Q3-08 scan-secrets-trufflehog + Q3-09 run-pre-merge-gates | Sprint 26 | cli.py 2 NOVOS comandos: `scan-secrets-trufflehog` (Q3-08) helpers _find_bin / _parse_json_lines / _finish_trufflehog. 3 Issues TS-E001/E002/E003, 3 Warnings TS-W001/W002/W003, STRICT default True, --only-verified --fail-verified, --dry-run, timeout 2h. `run-pre-merge-gates` (Q3-09): 5 gates, dpo-email obrigatório, OTK_CI_PRE_MERGE_ENFORCE_ALL bloqueia skip flags, Q5 sempre roda, relatório consolidado JSON schema v1.0 `./qa-reports/pre-merge-${SHA}.json` (13 campos auditoria). | Q3-08 / Q3-09 (ADR-029) |
+| 🧪 qa-gateway pytest contrato Q3-08/Q3-09 12 casos | Sprint 26 | `packages/qa-gateway/tests/test_scan_secrets_trufflehog_and_premerge_q3_08_q3_09.py` NOVO. 8 casos Q3-08: dry-run bin ausente → warning 0 exit, dry-run achou bin 0 exit, bin not found não dry E001 1 exit, zero findings 0, timeout 2h E002, 2 findings strict TS-E exit1, warnings exceed strict 3>1 1 exit, --no-fail-verified 2 warnings exit 0. 4 casos Q3-09: dry-run exit0 JSON schema 1.0, ENFORCE_ALL true skip proibido 1 exit, Q1 fail failfast Q2/Q3/Q4 skipado mas Q5 sempre roda exit1, Q1-Q4 OK Q5 detecta 2 segredos overall exit=1 bloqueio merge. | (Q3-08 + Q3-09 contrato, ADR-029 DoD 029.6) |
+
+**Impacto baseline v1.5**: Materialidade regulatória **97% → 98%**. Agora o
+pipeline PRE-MERGE tem todos os 5 gates orquestrados, prontos para quando a
+condição 3A do M5 for preenchida (sign-off real), sem nenhum trabalho de
+infra/CI a mais. RIPD Art.15 deixou de ser "Sprint 20 compliance API due
+diligence estrutural" para ser **documento jurídico assinável por cliente B2B**,
+cumprimento 100% ANPD CD-004/2023 e BACEN Art.12 Due Diligence por Cliente.
+
+**GAP 98%→100% AGORA é 100% handoff humano NÃO código.** Próximos 2% exigem
+credenciais reais, NÃO novas linhas de código:
+
+| Passo | Handoff Responsável | Prazo estimado | Impacto Baseline |
+|---|---|---|---|
+| P0-01 | OIDC Keycloak v25 credenciais reais + MFA YubiKey ROLES OTK_* federação | 8–21 dias úteis (Handbook S24) | 98% → 99% |
+| P0-02 | AML/KYT live provider Chainalysis/TRM/Elliptic API key real + feed UE tokenizado | 7–14 dias úteis | 99% → 99.5% |
+| P0-03 | Sign-off M5 Governança real: Condição 3A + Procedimento 14 passos + Push 22 commits locais origin/main | 1–3 dias úteis (jurídico) | 99.5% → 100% |
+| P0-04 (opcional após) | Prova externa 2 auditorias smart contracts + PenTest anual | 30–45 dias úteis pós 100% | Selo maturidade SOC2 |
+
 - `P0` representa o caminho mais curto e auditavel para cruzar `90%+`
 - `P1` representa a institucionalizacao minima que sustenta esse salto sem regressao operacional
 - `P2` representa o trabalho pos-90, focado em sustentacao, reducao de debito e preparacao para `95%`
