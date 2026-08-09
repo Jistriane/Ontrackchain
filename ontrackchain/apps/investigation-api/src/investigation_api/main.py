@@ -22,6 +22,7 @@ from redis.asyncio import Redis
 
 from investigation_api.config.agent_concurrency import CONCURRENCY_LIMITS_MVP
 from investigation_api.rpc_provider import RpcProviderConfig, describe_rpc_readiness
+from investigation_api.billing_stripe import router as billing_stripe_router  # Sprint 22 T2-09
 from ontrackchain_agents.evidence_integration import emit_evidence_event_sync
 
 logger = logging.getLogger(__name__)
@@ -5763,3 +5764,7 @@ up{service="investigation-api"} 1.0
         now_unix = _fb_time.time()
         body = _FALLBACK_METRICS_BASE + f"# HELP metrics_scrape_timestamp_seconds Unix UTC scrape timestamp.\n# TYPE metrics_scrape_timestamp_seconds gauge\nmetrics_scrape_timestamp_seconds{{service=\"investigation-api\"}} {now_unix}\n"
         return body.rstrip() + "\n"
+
+# Sprint 22 T2-09: Billing Stripe Multi-tenant BRL/USD/EUR Customer Portal
+# SRP — módulo SEPARADO billing_stripe.py, 5 endpoints (pricing/checkout/portal/sub/webhook)
+app.include_router(billing_stripe_router)
