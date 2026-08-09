@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
+import hmac
 import importlib
 import importlib.util
 import sys
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -32,10 +36,42 @@ class _FakeRedis:
     async def expire(self, key: str, ttl_seconds: int) -> None:
         self.expire_calls.append((key, ttl_seconds))
 
+    async def aclose(self) -> None:  # pragma: no cover - compatibilidade
+        return None
+
 
 class _FakeResponse:
     def __init__(self) -> None:
         self.headers: dict[str, str] = {}
+
+
+def _make_valid_b2b_signature(
+    *,
+    method: str,
+    path: str,
+    body: bytes,
+    secret: str,
+    timestamp: str,
+) -> str:
+    body_b64 = base64.b64encode(body).decode("ascii")
+    payload = f"{method.upper()}|{path}|{body_b64}|{timestamp}"
+    return hmac.new(
+        secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256
+    ).hexdigest()
+
+
+def _fake_request(method: str, path: str, body: bytes = b"", headers=None, client_ip: str = "127.0.0.1"):
+    return main.Request(
+        {
+            "type": "http",
+            "method": method.upper(),
+            "path": path,
+            "headers": headers or [],
+            "client": (client_ip, 8000),
+            "query_string": b"",
+            "_body": body,
+        }
+    )
 
 
 @unittest.skipUnless(FASTAPI_AVAILABLE, "fastapi dependency not installed in current interpreter")
@@ -148,6 +184,188 @@ class PublicApiContractTests(unittest.TestCase):
         self.assertEqual(response.provider, "sanctions_lists_cache")
         self.assertEqual(response.provider_status, "live")
         self.assertFalse(response.hit)
+
+    # ======================================================================
+    # 12 novos testes T2-01 B2B v2.0.0 Public API Monetização
+    # ======================================================================
+    def test_b2b_authenticate_rejects_missing_headers(self) -> None:
+        req = _fake_request("GET", "/api/v1/b2b/case-status/CASE-DEMO-2026-00001")
+        with self.assertRaises(main.HTTPException) as ctx:
+            asyncio.run(
+                main.b2b_authenticate(
+                    request=req,
+                    x_ot_client_id=None,
+                    x_ot_timestamp=None,
+                    x_ot_signature=None,
+                )
+            )
+        self.assertEqual(ctx.exception.status_code, 401)
+        self.assertEqual(ctx.exception.detail["code"], "b2b_auth_missing_headers")
+
+    def test_b2b_authenticate_rejects_unknown_client_id(self) -> None:
+        ts = str(int(datetime.now(timezone.utc).timestamp()))
+        req = _fake_request("GET", "/api/v1/b2b/case-status/CASE-DEMO-2026-00001")
+        with self.assertRaises(main.HTTPException) as ctx:
+            asyncio.run(
+                main.b2b_authenticate(
+                    request=req,
+                    x_ot_client_id="b2b_client_hacker_999",
+                    x_ot_timestamp=ts,
+                    x_ot_signature="0" * 64,
+                )
+            )
+        self.assertEqual(ctx.exception.status_code, 401)
+        self.assertEqual(ctx.exception.detail["code"], "b2b_client_unknown_or_disabled")
+
+    def test_b2b_authenticate_rejects_timestamp_outside_skew(self) -> None:
+        old_ts = str(int(datetime.now(timezone.utc).timestamp()) - 3600)  # 1h atrás
+        req = _fake_request("GET", "/api/v1/b2b/case-status/CASE-DEMO-2026-00001")
+        with self.assertRaises(main.HTTPException) as ctx:
+            asyncio.run(
+                main.b2b_authenticate(
+                    request=req,
+                    x_ot_client_id="b2b_ontrack_demo_client_001",
+                    x_ot_timestamp=old_ts,
+                    x_ot_signature="0" * 64,
+                )
+            )
+        self.assertEqual(ctx.exception.status_code, 401)
+        self.assertEqual(ctx.exception.detail["code"], "b2b_timestamp_outside_skew")
+        self.assertGreater(ctx.exception.detail["observed_skew_seconds"], 2000)
+
+    def test_b2b_authenticate_rejects_signature_mismatch(self) -> None:
+        ts = str(int(datetime.now(timezone.utc).timestamp()))
+        req = _fake_request("GET", "/api/v1/b2b/case-status/CASE-DEMO-2026-00001")
+        with self.assertRaises(main.HTTPException) as ctx:
+            asyncio.run(
+                main.b2b_authenticate(
+                    request=req,
+                    x_ot_client_id="b2b_ontrack_demo_client_001",
+                    x_ot_timestamp=ts,
+                    x_ot_signature="0" * 64,  # assinatura falsa
+                )
+            )
+        self.assertEqual(ctx.exception.status_code, 401)
+        self.assertEqual(ctx.exception.detail["code"], "b2b_signature_mismatch")
+
+    def test_b2b_authenticate_passes_with_valid_signature(self) -> None:
+        ts = str(int(datetime.now(timezone.utc).timestamp()))
+        secret = main._B2B_API_KEYS_FAKE_DB["b2b_ontrack_demo_client_001"]["secret"]
+        path = "/api/v1/b2b/case-status/CASE-DEMO-2026-00001"
+        sig = _make_valid_b2b_signature(
+            method="GET", path=path, body=b"", secret=secret, timestamp=ts
+        )
+        req = _fake_request("GET", path)
+        result = asyncio.run(
+            main.b2b_authenticate(
+                request=req,
+                x_ot_client_id="b2b_ontrack_demo_client_001",
+                x_ot_timestamp=ts,
+                x_ot_signature=sig,
+            )
+        )
+        self.assertEqual(result["client_id"], "b2b_ontrack_demo_client_001")
+        self.assertEqual(result["tenant_slug"], "ontrackchain-demo")
+        self.assertEqual(result["plan"], "business")
+
+    def test_b2b_rate_limiter_uses_b2b_key(self) -> None:
+        client_ctx = {
+            "client_id": "b2b_ontrack_demo_client_001",
+            "tenant_slug": "ontrackchain-demo",
+            "plan": "business",
+        }
+        redis = _FakeRedis()
+        asyncio.run(main.b2b_rate_limiter(client_ctx=client_ctx, redis=redis))
+        self.assertTrue(redis.incr_calls[0].startswith("rl:b2b:"))
+        self.assertIn("b2b_ontrack_demo_client_001", redis.incr_calls[0])
+        self.assertEqual(redis.expire_calls[0][1], 3600)
+
+    def test_b2b_get_case_status_returns_demo_tenant_data(self) -> None:
+        client_ctx = {
+            "client_id": "b2b_ontrack_demo_client_001",
+            "tenant_slug": "ontrackchain-demo",
+            "plan": "business",
+        }
+        result = asyncio.run(
+            main.b2b_get_case_status(
+                correlation_id="CASE-DEMO-2026-00001",
+                client_ctx=client_ctx,
+                _=None,  # skip rate limiter no teste
+            )
+        )
+        self.assertEqual(result.status, "closed_sanctions_hit")
+        self.assertEqual(result.severity, "high")
+        self.assertEqual(result.risk_score_final, 91)
+        self.assertFalse(result.sla_breached)
+        self.assertIn("OFAC", result.tags)
+
+    def test_b2b_get_case_status_404_for_unknown_correlation(self) -> None:
+        client_ctx = {
+            "client_id": "b2b_ontrack_demo_client_001",
+            "tenant_slug": "ontrackchain-demo",
+            "plan": "business",
+        }
+        with self.assertRaises(main.HTTPException) as ctx:
+            asyncio.run(
+                main.b2b_get_case_status(
+                    correlation_id="CASE-NAO-EXISTE-999",
+                    client_ctx=client_ctx,
+                    _=None,
+                )
+            )
+        self.assertEqual(ctx.exception.status_code, 404)
+
+    def test_b2b_get_evidence_package_contains_sealing_hash(self) -> None:
+        client_ctx = {
+            "client_id": "b2b_ontrack_demo_client_001",
+            "tenant_slug": "ontrackchain-demo",
+            "plan": "business",
+        }
+        result = asyncio.run(
+            main.b2b_get_evidence_package(
+                correlation_id="CASE-DEMO-2026-00001",
+                client_ctx=client_ctx,
+                _=None,
+            )
+        )
+        self.assertEqual(len(result.sealing_hash), 64)  # SHA-256 hex
+        self.assertEqual(result.sealing_hash_algorithm, "SHA-256")
+        self.assertEqual(result.evidence_item_count, 7)
+        self.assertGreaterEqual(len(result.files), 2)
+        self.assertTrue(result.pdf_package_url.startswith("https://"))
+
+    def test_b2b_validate_webhook_events_rejects_missing_required(self) -> None:
+        with self.assertRaises(ValueError) as ctx:
+            main.B2BWebhookSubscriptionIn.validate_events(["evidence.package.created"])
+        self.assertIn("case.status.updated", str(ctx.exception))
+        self.assertIn("sanctions.alert.created", str(ctx.exception))
+
+    def test_b2b_validate_webhook_events_accepts_all_three_required(self) -> None:
+        good = ["case.status.updated", "evidence.package.created", "sanctions.alert.created", "extra.customer.custom"]
+        cleaned = main.B2BWebhookSubscriptionIn.validate_events(good)
+        self.assertIn("case.status.updated", cleaned)
+        self.assertIn("extra.customer.custom", cleaned)
+
+    def test_b2b_rotate_key_returns_7_day_grace_period(self) -> None:
+        client_ctx = {
+            "client_id": "b2b_ontrack_demo_client_001",
+            "tenant_slug": "ontrackchain-demo",
+            "plan": "business",
+        }
+        result = asyncio.run(
+            main.b2b_rotate_api_key(
+                client_ctx=client_ctx,
+                _=None,
+            )
+        )
+        self.assertTrue(result.new_secret.startswith("sk_b2b_"))
+        self.assertEqual(result.client_id, "b2b_ontrack_demo_client_001")
+        self.assertIn("T", result.old_secret_valid_until_utc)  # ISO8601
+        now = datetime.now(timezone.utc)
+        expiry = datetime.fromisoformat(result.old_secret_valid_until_utc.replace("Z", "+00:00"))
+        delta_days = (expiry - now).total_seconds() / 86400
+        self.assertGreaterEqual(delta_days, 6.5)  # 7 dias (tolerância 12h)
+        self.assertLessEqual(delta_days, 7.5)
 
 
 if __name__ == "__main__":

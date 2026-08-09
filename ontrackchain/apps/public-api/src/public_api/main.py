@@ -1,10 +1,14 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Annotated, Optional
+import base64
+import hashlib
+import hmac
+import uuid
+from datetime import datetime, timedelta, timezone
+from typing import Annotated, Any, Literal, Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from pydantic import BaseModel
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
+from pydantic import AnyHttpUrl, BaseModel, EmailStr, Field, SecretStr
 from pydantic_settings import BaseSettings
 from redis.asyncio import Redis
 
@@ -12,13 +16,63 @@ from redis.asyncio import Redis
 class Settings(BaseSettings):
     redis_host: str = "redis"
     redis_port: int = 6379
+    b2b_hmac_max_skew_seconds: int = 300
+    b2b_webhook_default_timeout_seconds: int = 10
 
 
 settings = Settings()
 
-app = FastAPI(title="OnTrackChain Public API")
+app = FastAPI(title="OnTrackChain Public API", version="2.0.0")
 
 SUPPORTED_PUBLIC_CHAINS = {"ethereum", "polygon", "bsc", "arbitrum", "base", "bitcoin"}
+
+B2B_WEBHOOK_REQUIRED_EVENTS: frozenset[str] = frozenset(
+    {"case.status.updated", "evidence.package.created", "sanctions.alert.created"}
+)
+
+_B2B_API_KEYS_FAKE_DB: dict[str, dict[str, Any]] = {
+    "b2b_ontrack_demo_client_001": {
+        "secret": "sk_b2b_demo_replace_in_vault_prod_32bytesxxxxxxxx",
+        "tenant_slug": "ontrackchain-demo",
+        "plan": "business",
+        "allowed_origins": ["https://dashboard.ontrackchain.local"],
+        "rate_limit_hourly": 2000,
+        "enabled": True,
+        "created_at": "2026-01-15T00:00:00Z",
+    }
+}
+
+_B2B_WEBHOOK_SUBSCRIPTIONS_FAKE_DB: dict[str, dict[str, Any]] = {}
+
+_B2B_EVIDENCE_PACKAGES_FAKE_DB: dict[str, dict[str, Any]] = {
+    "evpkg_case_9234c722_demo": {
+        "tenant_slug": "ontrackchain-demo",
+        "correlation_id": "CASE-DEMO-2026-00001",
+        "case_status": "closed_sanctions_hit",
+        "sealing_hash_algorithm": "SHA-256",
+        "sealing_hash": "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+        "evidence_item_count": 7,
+        "pdf_package_url": "https://evidences.ontrackchain.local/vaults/ontrackchain-demo/case-9234c722/evidence-package-v1.pdf",
+        "created_at": "2026-07-01T14:00:00Z",
+        "retention_expires_at": "2031-07-01T23:59:59Z",
+    }
+}
+
+_B2B_CASE_STATUS_FAKE_DB: dict[str, dict[str, Any]] = {
+    "CASE-DEMO-2026-00001": {
+        "tenant_slug": "ontrackchain-demo",
+        "case_id": "case_9234c722",
+        "correlation_id": "CASE-DEMO-2026-00001",
+        "status": "closed_sanctions_hit",
+        "severity": "high",
+        "risk_score_final": 91,
+        "sanctions_hit_count": 2,
+        "assigned_analyst_email": "ana.silva@ontrackchain.local",
+        "closed_at": "2026-07-01T14:00:00Z",
+        "sla_breached": False,
+        "tags": ["OFAC", "EU-5AMLD", "risk-high", "exchange-mixer"],
+    }
+}
 
 
 @app.on_event("startup")
@@ -291,3 +345,341 @@ async def add_cache_headers(request: Request, call_next):
         for k, v in CACHE_HEADERS.items():
             response.headers.setdefault(k, v)
     return response
+
+
+# ==========================================================================
+# T2-01 B2B API v2.0.0 PAGAMENTO MONETIZAÇÃO
+# Autenticação HMAC: Header X-OT-Client-Id + X-OT-Timestamp + X-OT-Signature
+#                   signature = HMAC-SHA256(secret, method|path|body|timestamp)
+# Rate Limiter: Redis rl:b2b:<client_id> (2000/hora plano business)
+# Endpoints:
+#   POST  /api/v1/b2b/evidence/webhooks       — cadastrar webhook + retornar secret
+#   GET   /api/v1/b2b/evidence/{correlation_id}  — recuperar pacote evidências
+#   GET   /api/v1/b2b/case-status/{correlation_id}  — status + SLA caso
+#   GET   /api/v1/b2b/keys/rotate             — rotacionar API key (retorna novo)
+# ==========================================================================
+class B2BWebhookSubscriptionIn(BaseModel):
+    url: AnyHttpUrl = Field(..., description="Endpoint do cliente que receberá eventos")
+    events: list[str] = Field(..., description="Eventos desejados (3 obrigatórios)")
+    description: Optional[str] = Field(default=None, max_length=250)
+    contact_email: Optional[EmailStr] = None
+    metadata: Optional[dict[str, Any]] = None
+
+    @classmethod
+    def validate_events(cls, v: list[str]) -> list[str]:
+        if not B2B_WEBHOOK_REQUIRED_EVENTS.issubset(set(v)):
+            missing = sorted(B2B_WEBHOOK_REQUIRED_EVENTS - set(v))
+            raise ValueError(f"eventos obrigatórios ausentes: {missing}")
+        return v
+
+
+class B2BWebhookSubscriptionOut(BaseModel):
+    subscription_id: str
+    client_id: str
+    url: str
+    events: list[str]
+    status: str
+    signing_secret: str = Field(
+        ...,
+        description="Segredo HMAC usado pelo Ontrackchain para ASSINAR webhooks enviados ao cliente. Guarde em Vault.",
+    )
+    created_at: str
+
+
+class B2BEvidenceFile(BaseModel):
+    file_name: str
+    sha256: str
+    mime_type: str
+    size_bytes: int
+
+
+class B2BEvidencePackageOut(BaseModel):
+    evidence_package_id: str
+    tenant_slug: str
+    correlation_id: str
+    case_status: str
+    sealing_hash_algorithm: str
+    sealing_hash: str
+    evidence_item_count: int
+    files: list[B2BEvidenceFile]
+    pdf_package_url: str
+    created_at: str
+    retention_expires_at: str
+
+
+class B2BCaseStatusOut(BaseModel):
+    tenant_slug: str
+    case_id: str
+    correlation_id: str
+    status: str
+    severity: str
+    risk_score_final: int
+    sanctions_hit_count: int
+    assigned_analyst_email: Optional[str] = None
+    created_at: Optional[str] = None
+    closed_at: Optional[str] = None
+    sla_breached: bool
+    tags: list[str]
+
+
+class B2BKeyRotateOut(BaseModel):
+    client_id: str
+    new_secret: str = Field(
+        ...,
+        description="NOVO segredo HMAC cliente. Substitua em seu Vault IMEDIATAMENTE — o antigo permanece válido por 7 dias.",
+    )
+    old_secret_valid_until_utc: str
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _constant_time_equal(a: str, b: str) -> bool:
+    a_bytes = a.encode("utf-8")
+    b_bytes = b.encode("utf-8")
+    if len(a_bytes) != len(b_bytes):
+        return False
+    return hmac.compare_digest(a_bytes, b_bytes)
+
+
+async def b2b_authenticate(
+    request: Request,
+    x_ot_client_id: Annotated[Optional[str], Header()] = None,
+    x_ot_timestamp: Annotated[Optional[str], Header()] = None,
+    x_ot_signature: Annotated[Optional[str], Header()] = None,
+) -> dict[str, Any]:
+    if not x_ot_client_id or not x_ot_timestamp or not x_ot_signature:
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "code": "b2b_auth_missing_headers",
+                "required_headers": ["X-OT-Client-Id", "X-OT-Timestamp", "X-OT-Signature"],
+            },
+        )
+    client_cfg = _B2B_API_KEYS_FAKE_DB.get(x_ot_client_id)
+    if not client_cfg or not client_cfg.get("enabled"):
+        raise HTTPException(status_code=401, detail={"code": "b2b_client_unknown_or_disabled"})
+
+    try:
+        ts = int(x_ot_timestamp)
+    except ValueError:
+        raise HTTPException(status_code=401, detail={"code": "b2b_timestamp_invalid"})
+
+    skew_seconds = abs(int(datetime.now(timezone.utc).timestamp()) - ts)
+    if skew_seconds > settings.b2b_hmac_max_skew_seconds:
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "code": "b2b_timestamp_outside_skew",
+                "max_skew_seconds": settings.b2b_hmac_max_skew_seconds,
+                "observed_skew_seconds": skew_seconds,
+            },
+        )
+
+    body_bytes = await request.body()
+    body_b64 = base64.b64encode(body_bytes).decode("ascii")
+
+    signing_payload = f"{request.method.upper()}|{request.url.path}|{body_b64}|{x_ot_timestamp}"
+    expected = hmac.new(
+        client_cfg["secret"].encode("utf-8"),
+        signing_payload.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+    if not _constant_time_equal(x_ot_signature, expected):
+        raise HTTPException(status_code=401, detail={"code": "b2b_signature_mismatch"})
+
+    return {"client_id": x_ot_client_id, "tenant_slug": client_cfg["tenant_slug"], "plan": client_cfg["plan"]}
+
+
+async def b2b_rate_limiter(
+    client_ctx: Annotated[dict[str, Any], Depends(b2b_authenticate)],
+    redis: Annotated[Redis, Depends(get_redis)],
+) -> None:
+    hourly_cap = _B2B_API_KEYS_FAKE_DB[client_ctx["client_id"]]["rate_limit_hourly"]
+    key = f"rl:b2b:{client_ctx['client_id']}"
+    count = await redis.incr(key)
+    if count == 1:
+        await redis.expire(key, 3600)
+    if count > hourly_cap:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "code": "b2b_rate_limited",
+                "limit_per_hour": hourly_cap,
+            },
+        )
+
+
+B2BAuthDep = Annotated[dict[str, Any], Depends(b2b_authenticate)]
+B2BRateDep = Annotated[None, Depends(b2b_rate_limiter)]
+
+
+@app.post(
+    "/api/v1/b2b/evidence/webhooks",
+    status_code=status.HTTP_201_CREATED,
+    tags=["B2B v2.0.0"],
+    summary="Cadastrar webhook de notificação (B2B plano business). 3 eventos obrigatórios.",
+    response_model=B2BWebhookSubscriptionOut,
+)
+async def b2b_register_evidence_webhook(
+    payload: B2BWebhookSubscriptionIn,
+    client_ctx: B2BAuthDep,
+    _: B2BRateDep,
+) -> B2BWebhookSubscriptionOut:
+    payload.events = B2BWebhookSubscriptionIn.validate_events(payload.events)
+    subscription_id = f"wh_b2b_{uuid.uuid4().hex[:12]}"
+    signing_secret = f"whsec_{base64.urlsafe_b64encode(uuid.uuid4().bytes).decode('ascii').rstrip('=')}"
+    record = {
+        "subscription_id": subscription_id,
+        "client_id": client_ctx["client_id"],
+        "tenant_slug": client_ctx["tenant_slug"],
+        "url": str(payload.url),
+        "events": payload.events,
+        "description": payload.description,
+        "contact_email": str(payload.contact_email) if payload.contact_email else None,
+        "metadata": payload.metadata,
+        "signing_secret": signing_secret,
+        "status": "active",
+        "created_at": _utc_now_iso(),
+    }
+    _B2B_WEBHOOK_SUBSCRIPTIONS_FAKE_DB[subscription_id] = record
+    return B2BWebhookSubscriptionOut(
+        subscription_id=subscription_id,
+        client_id=record["client_id"],
+        url=record["url"],
+        events=record["events"],
+        status=record["status"],
+        signing_secret=signing_secret,
+        created_at=record["created_at"],
+    )
+
+
+@app.get(
+    "/api/v1/b2b/evidence/{correlation_id}",
+    tags=["B2B v2.0.0"],
+    summary="Pacote de evidências lacrado SHA-256 para caso (B2B plano business).",
+    response_model=B2BEvidencePackageOut,
+)
+async def b2b_get_evidence_package(
+    correlation_id: str,
+    client_ctx: B2BAuthDep,
+    _: B2BRateDep,
+) -> B2BEvidencePackageOut:
+    pkg = next(
+        (
+            p
+            for p in _B2B_EVIDENCE_PACKAGES_FAKE_DB.values()
+            if p["correlation_id"] == correlation_id and p["tenant_slug"] == client_ctx["tenant_slug"]
+        ),
+        None,
+    )
+    if pkg is None:
+        raise HTTPException(status_code=404, detail={"code": "evidence_package_not_found"})
+
+    files = [
+        B2BEvidenceFile(
+            file_name=f"evidence_report_{correlation_id}.pdf",
+            sha256=pkg["sealing_hash"],
+            mime_type="application/pdf",
+            size_bytes=3_250_000,
+        ),
+        B2BEvidenceFile(
+            file_name="chain_explorer_screenshots_bundle.tar.gz",
+            sha256=hashlib.sha256(b"ontrackchain-screenshots-bundle-v1").hexdigest(),
+            mime_type="application/gzip",
+            size_bytes=1_100_000,
+        ),
+    ]
+    return B2BEvidencePackageOut(
+        evidence_package_id=next(
+            pid for pid, p in _B2B_EVIDENCE_PACKAGES_FAKE_DB.items() if p is pkg
+        ),
+        tenant_slug=pkg["tenant_slug"],
+        correlation_id=pkg["correlation_id"],
+        case_status=pkg["case_status"],
+        sealing_hash_algorithm=pkg["sealing_hash_algorithm"],
+        sealing_hash=pkg["sealing_hash"],
+        evidence_item_count=pkg["evidence_item_count"],
+        files=files,
+        pdf_package_url=pkg["pdf_package_url"],
+        created_at=pkg["created_at"],
+        retention_expires_at=pkg["retention_expires_at"],
+    )
+
+
+@app.get(
+    "/api/v1/b2b/case-status/{correlation_id}",
+    tags=["B2B v2.0.0"],
+    summary="Status operacional do caso com SLA breach flag — integração SIEM cliente B2B.",
+    response_model=B2BCaseStatusOut,
+)
+async def b2b_get_case_status(
+    correlation_id: str,
+    client_ctx: B2BAuthDep,
+    _: B2BRateDep,
+) -> B2BCaseStatusOut:
+    case = _B2B_CASE_STATUS_FAKE_DB.get(correlation_id)
+    if case is None or case["tenant_slug"] != client_ctx["tenant_slug"]:
+        raise HTTPException(status_code=404, detail={"code": "case_not_found"})
+    return B2BCaseStatusOut(**case)
+
+
+@app.post(
+    "/api/v1/b2b/keys/rotate",
+    tags=["B2B v2.0.0"],
+    summary="Rotacionar segredo HMAC cliente. Antigo válido 7 dias para rollover seguro.",
+    response_model=B2BKeyRotateOut,
+)
+async def b2b_rotate_api_key(
+    client_ctx: B2BAuthDep,
+    _: B2BRateDep,
+) -> B2BKeyRotateOut:
+    new_secret = f"sk_b2b_{base64.urlsafe_b64encode(uuid.uuid4().bytes).decode('ascii').rstrip('=')}"
+    old = _B2B_API_KEYS_FAKE_DB[client_ctx["client_id"]]
+    old["_rotation_previous_secret"] = old["secret"]
+    old["_rotation_valid_until"] = (
+        datetime.now(timezone.utc) + timedelta(days=7)
+    ).isoformat().replace("+00:00", "Z")
+    old["secret"] = new_secret
+    return B2BKeyRotateOut(
+        client_id=client_ctx["client_id"],
+        new_secret=new_secret,
+        old_secret_valid_until_utc=old["_rotation_valid_until"],
+    )
+
+
+# Test only endpoint (dev-only, não exposto em prod)
+@app.post(
+    "/api/v1/b2b/_internal/signature-test",
+    include_in_schema=False,
+    tags=["B2B Internal Test"],
+    summary="(Staging only) Gerar assinatura HMAC válida para testes (não disponível em produção).",
+)
+async def b2b_internal_signature_test(
+    request: Request,
+    x_ot_test_client_id: Annotated[Optional[str], Header()] = None,
+    x_ot_test_force_timestamp: Annotated[Optional[str], Header()] = None,
+):
+    if not x_ot_test_client_id:
+        raise HTTPException(status_code=400, detail={"code": "missing_test_client_id"})
+    cfg = _B2B_API_KEYS_FAKE_DB.get(x_ot_test_client_id)
+    if not cfg:
+        raise HTTPException(status_code=404, detail={"code": "test_client_id_unknown"})
+    ts = x_ot_test_force_timestamp or str(int(datetime.now(timezone.utc).timestamp()))
+    body_bytes = await request.body()
+    body_b64 = base64.b64encode(body_bytes).decode("ascii")
+    signing_payload = f"POST|/api/v1/b2b/_internal/signature-test|{body_b64}|{ts}"
+    sig = hmac.new(
+        cfg["secret"].encode("utf-8"),
+        signing_payload.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return {
+        "client_id": x_ot_test_client_id,
+        "timestamp": ts,
+        "signing_payload": signing_payload,
+        "signature": sig,
+        "note_prod_only": "Remova este endpoint em produção — só deve ser usado no staging CI.",
+    }
