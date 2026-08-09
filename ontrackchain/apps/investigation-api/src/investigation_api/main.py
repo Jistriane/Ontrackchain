@@ -25,6 +25,11 @@ from investigation_api.rpc_provider import RpcProviderConfig, describe_rpc_readi
 from investigation_api.billing_stripe import router as billing_stripe_router  # Sprint 22 T2-09
 from investigation_api.billing_capabilities import router as billing_capabilities_router  # Sprint 23 T2-10
 from investigation_api.billing_enforcement import add_billing_headers_middleware  # Sprint 24 T2-11 ADR-027
+from investigation_api.billing_enforcement import enforce_capability, BillingEnforcementResult  # Sprint 25 T2-12 integrado
+from investigation_api.ai_service import router as ai_service_router  # Sprint 25 T2-12 /ai/* + enforce AI credits
+from investigation_api.public_b2b_v2 import router as public_b2b_v2_router  # Sprint 25 T2-12 /public/b2b/v2 + enforce b2b hourly quota
+from investigation_api.users_org import router as users_org_router  # Sprint 25 T2-12 /users/invite + enforce max users
+from investigation_api.graph_intelligence import router as graph_intelligence_router  # Sprint 25 T2-12 /graph/layout allowed layouts
 from ontrackchain_agents.evidence_integration import emit_evidence_event_sync
 
 logger = logging.getLogger(__name__)
@@ -2909,6 +2914,10 @@ async def get_report_type_detail(
 
 @app.post("/api/v1/investigation/estimate", response_model=EstimateInvestigationResponse)
 async def estimate_investigation(
+    _enforce_ai: Annotated[  # Sprint 25 T2-12 billing enforcement ai credits estimate
+        BillingEnforcementResult,
+        Depends(lambda r: enforce_capability(r, "ai_credits", amount=2)),
+    ],
     body: EstimateInvestigationRequest,
     pool: ConnectionPool = Depends(get_pool),
     x_org_id: Annotated[Optional[str], Header(alias="X-Org-Id")] = None,
@@ -2988,6 +2997,10 @@ async def estimate_investigation(
 
 @app.post("/api/v1/investigation/start", response_model=StartInvestigationResponse)
 async def start_investigation(
+    _enforce_ai: Annotated[  # Sprint 25 T2-12 billing enforcement ai credits start (investigation = 5 credits
+        BillingEnforcementResult,
+        Depends(lambda r: enforce_capability(r, "ai_credits", amount=5)),
+    ],
     body: StartInvestigationRequest,
     pool: ConnectionPool = Depends(get_pool),
     redis: Redis = Depends(get_redis),
@@ -5774,6 +5787,13 @@ app.include_router(billing_stripe_router)
 # Sprint 23 T2-10: Billing Capabilities Matrix + Usage Meters por Tier
 # SRP — módulo SEPARADO billing_capabilities.py, fonte única OTK_PLAN_CAPABILITIES
 app.include_router(billing_capabilities_router)
+
+# Sprint 25 T2-12: Enforcement Billing integrado nas rotas reais (8 endpoints)
+# 4 routers novos SRP (feature-based structure)
+app.include_router(ai_service_router)
+app.include_router(public_b2b_v2_router)
+app.include_router(users_org_router)
+app.include_router(graph_intelligence_router)
 
 # Sprint 24 T2-11: Billing Enforcement Middleware Headers Globais
 # ADR-027 — 5 headers X-RateLimit / X-Billing SEMPRE presentes em todas as respostas

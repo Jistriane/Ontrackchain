@@ -107,6 +107,24 @@ materialidade regulatória (95% → 96%). Commits ahead cresceram de 19 (S23) �
 faturamento AGORA ativo, não só documentado; handbook OIDC com itens de
 segurança MFA/WebAuthn/Istio mTLS fecham controles de acesso BACEN Art. 12/16).
 
+### — Atualização Baseline Readiness v1.4 (Sprint 25)
+
+Baseline v1.3 (Sprint 24) recebeu **+1 ponto percentual adicional** de
+materialidade (96% → 97%). Commits ahead cresceram 20 (S24) → 21 (S25). Novas entregas:
+
+| Frente | Sprint | Entrega | ADR / Documento |
+|---|---|---|---|
+| ⚖️ LGPD Art.37 ROPD 7 Operações Estruturadas | Sprint 25 | `docs/compliance-ropd/` 7 arquivos individuais OTK-0001..OTK-0007 (Onboarding RIPD, B2B HMAC, AI LLM Análise, OIDC MFA WebAuthn, Billing Stripe, Feed PEP OFAC Interpol, AML KYT provider) com 12 campos obrigatórios ANPD cada. CSV consolidado separado ponto-vírgula 8×13. qa-gateway scan-lgpd-ropd Q3-07 valida estrutura. | ADR-028 |
+| 🔌 Enforcement Billing Integrado em 8 Rotas Reais | Sprint 25 | 4 routers novos SRP feature-based: `ai_service.py` (/analyze, /summarize-docs 2+3 AI credits), `public_b2b_v2.py` (POST screening + GET entity B2B 200/429), `users_org.py` (POST invite max_users startup=5), `graph_intelligence.py` (POST layout allowed 403). Investigation-api include_router dos 4. Endpoints já existentes POST /estimate (2 AI) + POST /start (5 AI) ganharam Depends(enforce_capability). Total 8 rotas enforcement ativas. | T2-12 (estende ADR-027) |
+| 🧪 qa-gateway scan-lgpd-ropd Q3-07 + pytest integrado T2-12 | Sprint 25 | NOVO subcomando `scan-lgpd-ropd` 5 warnings LR-001..005 + 3 issues E001/E002/E003 + STRICT default True max-warnings=0. 16 pytest `test_enforcement_integrated_t2_12.py` 8 rotas × (200 sucesso + 402/429 bloqueio). | Q3-07 / T2-12 |
+| 🔒 Governança Sign-off Template M5 Push Remoto | Sprint 25 | `docs/governance-sign-offs/TEMPLATE-M5-removal-sign-off.md` NOVO: 0. Regras, 1. Info básicas, 2. Condição 3A pré-requisitos (TODOS SIM), 3. Procedimento 14 passos checklist, 4. Assinaturas 4-olhos CTO/DSI/CEO/Arquiteto, 5. Engenheiro executor declaração responsabilidade. Válido 48h após sign off, após isso novo sign-off obrigatório. | ADR-026 atualizado complemento |
+
+**Impacto baseline v1.4**: Materialidade regulatória 96% → 97%. Fechamos LGPD Art.37
+ROPD (último item grande regulatório LGPD pendente de documento). Agora o
+caminho até 97%→100% é composto APENAS por handoff humano: P0-01 OIDC credenciais
+reais + P0-02 AML live provider + P0-03 sign-off M5 real para sincronizar 21
+commits locais remoto. Nada mais no código do repositório.
+
 - `P0` representa o caminho mais curto e auditavel para cruzar `90%+`
 - `P1` representa a institucionalizacao minima que sustenta esse salto sem regressao operacional
 - `P2` representa o trabalho pos-90, focado em sustentacao, reducao de debito e preparacao para `95%`

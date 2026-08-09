@@ -961,6 +961,154 @@ def cmd_scan_billing_enforcement(
 
 
 # ---------------------------------------------------------------------------
+# Sprint 25 Q3-07: cmd_scan_lgpd_ropd — validação ADR-028 Art.37 LGPD
+# Warnings LR-001..LR-005 + Issues E001..E003
+# ---------------------------------------------------------------------------
+
+@app.command("scan-lgpd-ropd")
+@click.option(
+    "--project-root",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="Raiz workspace ontrackchain. Default auto-detect.",
+)
+@click.option("--strict/--no-strict", "strict_mode", default=True, show_default=True)
+@click.option("--max-warnings", type=int, default=0, show_default=True)
+@click.option(
+    "--failures-json",
+    type=click.Path(dir_okay=False, writable=True),
+    default=None,
+    help="Opcional: caminho JSON persistir issues/warnings.",
+)
+def cmd_scan_lgpd_ropd(
+    project_root: Optional[Path],
+    strict_mode: bool,
+    max_warnings: int,
+    failures_json: Optional[str],
+) -> None:
+    """
+    SCAN-LGPD-ROPD Q3-07 Sprint 25 (ADR-028 LGPD Art.37):
+      Valida que ROPD (Registro Operações Tratamento Dados Pessoais) está
+      completo com os 12 campos obrigatórios ANPD e NÃO há campos vazios.
+    """
+    issues: List[str] = []
+    warnings: List[str] = []
+    if project_root is None:
+        project_root = Path(__file__).resolve().parents[5]
+    ropd_path = project_root / "docs" / "compliance-ropd"
+
+    click.echo("🪪  Q3-07 SCAN LGPD ROPD (Sprint 25 ADR-028 Art.37 LGPD ANPD):")
+
+    # --- LR-001: pasta compliance-ropd NÃO existe
+    if not ropd_path.is_dir():
+        warnings.append(
+            "[LR-001] Pasta docs/compliance-ropd NÃO existe. "
+            "Criar ROPD inicial ADR-028 DoD 028.1."
+        )
+        _finish_ropd(issues, warnings, failures_json, strict_mode, max_warnings)
+        return
+
+    files = sorted(ropd_path.glob("ROPD-OTK-*.md"))
+    csv_path = ropd_path / "ROPD-OTK-CONSOLIDADO.csv"
+
+    # --- LR-002: MENOS de 7 arquivos ROPD individuais
+    if len(files) < 7:
+        warnings.append(
+            f"[LR-002] Apenas {len(files)} arquivos ROPD encontrados. Mínimo 7 obrigatórios "
+            f"(Onboarding / B2B HMAC / AI LLM / OIDC MFA / Billing Stripe / Feed PEP / AML KYT)."
+        )
+
+    # --- LR-003: CSV consolidado NÃO existe
+    if not csv_path.is_file():
+        warnings.append(
+            "[LR-003] CSV consolidado ROPD-OTK-CONSOLIDADO.csv NÃO foi gerado. "
+            "Criar a partir dos arquivos Markdown (DoD 028.2)."
+        )
+
+    # --- LR-004: 12 campos obrigatórios em CADA arquivo markdown
+    CAMPOS_OBRIGATORIOS_ROPD: List[str] = [
+        "ID Operação",
+        "Nome Operação",
+        "Categoria Titulares",
+        "Categorias Dados Pessoais",
+        "Dados Sensíveis",
+        "Base Legal",
+        "Finalidade",
+        "Compartilhamento",
+        "Retenção",
+        "Destruição",
+        "Medidas Segurança",
+        "DPO Contato",
+    ]
+    for file in files:
+        try:
+            txt = file.read_text(encoding="utf-8", errors="ignore")
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(f"[LR-004] Impossível ler arquivo ROPD {file.name}: {exc}")
+            continue
+        for campo in CAMPOS_OBRIGATORIOS_ROPD:
+            if campo not in txt:
+                issues.append(
+                    f"[ROPD-E001] Campo obrigatório '{campo}' ausente no ROPD {file.name}. "
+                    "12 campos obrigatórios ANPD (LR-004)."
+                )
+                break
+        # --- E002: DPO email ausente ou placeholder dpo@ontrackchain.com.br NÃO preenchido
+        if "dpo@ontrackchain.com.br" not in txt:
+            warnings.append(
+                f"[LR-005] Contato DPO ausente ou padrão NÃO confirmado no ROPD {file.name}. "
+                "Campo 12 'DPO Contato' obrigatório LGPD Art.41."
+            )
+        # --- E003: base legal Art.7 vazia
+        if "Art.7" not in txt:
+            issues.append(
+                f"[ROPD-E003] ROPD {file.name} NÃO cita a base legal Art.7 LGPD. Obrigatoriedade ANPD."
+            )
+
+    # --- E002 CSV: Header tem 12 colunas?
+    if csv_path.is_file():
+        csv_txt = csv_path.read_text(encoding="utf-8", errors="ignore")
+        header = csv_txt.splitlines()[0] if csv_txt else ""
+        colunas = header.split(";") if ";" in header else header.split(",")
+        if len(colunas) < 12:
+            issues.append(
+                f"[ROPD-E002] CSV consolidado tem apenas {len(colunas)} colunas. Esperado >=12 colunas ANPD."
+            )
+
+    _finish_ropd(issues, warnings, failures_json, strict_mode, max_warnings)
+
+
+def _finish_ropd(
+    issues: List[str],
+    warnings: List[str],
+    failures_json: Optional[str],
+    strict_mode: bool,
+    max_warnings: int,
+) -> None:
+    if strict_mode and len(warnings) > max_warnings:
+        click.echo(
+            f"\n🚨 ROPD STRICT default: warnings={len(warnings)} > max_warnings={max_warnings}. "
+            "WARNINGS elevados a ISSUES exit=1."
+        )
+        issues.extend(warnings)
+    elif not strict_mode:
+        click.echo(f"\nℹ️  --no-strict: warnings={len(warnings)} informativos APENAS")
+
+    click.echo(
+        f"  resumo: {len(issues)} issue(s);  {len(warnings)} warning(s);  strict={strict_mode}"
+    )
+    if warnings:
+        click.echo("\n--- WARNINGS ---")
+        for w in warnings:
+            click.echo(f"  ⚠️  {w}")
+    if issues:
+        click.echo("\n--- ISSUES ---")
+        for i in issues:
+            click.echo(f"  ❌ {i}")
+    _exit_report(len(issues) == 0, issues, failures_json)
+
+
+# ---------------------------------------------------------------------------
 # Helpers para scan-rbac (static parse rotas FastAPI)
 # ---------------------------------------------------------------------------
 class _RbacRoute(NamedTuple):
