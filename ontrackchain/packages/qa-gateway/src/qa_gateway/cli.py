@@ -761,6 +761,206 @@ def cmd_scan_billing_capabilities(
 
 
 # ---------------------------------------------------------------------------
+# Sprint 24 Q3-06: cmd_scan_billing_enforcement — validação T2-11 ADR-027
+# Warning codes BE-001..BE-004
+# ---------------------------------------------------------------------------
+
+@app.command("scan-billing-enforcement")
+@click.option(
+    "--project-root",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="Raiz workspace ontrackchain. Default auto-detect.",
+)
+@click.option(
+    "--strict/--no-strict",
+    "strict_mode",
+    default=True,
+    show_default=True,
+    help="Sprint 24 Q3-06: warnings excedentes viram issues (exit=1).",
+)
+@click.option(
+    "--max-warnings",
+    type=int,
+    default=0,
+    show_default=True,
+    help="Máximo warnings permitidos antes de transformar em issues STRICT.",
+)
+@click.option(
+    "--failures-json",
+    type=click.Path(dir_okay=False, writable=True),
+    default=None,
+    help="Opcional: caminho JSON para persistir issues/warnings.",
+)
+@click.option(
+    "--check-prod-redis/--skip-prod-redis",
+    default=True,
+    show_default=True,
+    help="BE-004: validar se deployment/prod tem OTK_REDIS_URL (anti-DUAL MODE fallback em prod).",
+)
+def cmd_scan_billing_enforcement(
+    project_root: Optional[Path],
+    strict_mode: bool,
+    max_warnings: int,
+    failures_json: Optional[str],
+    check_prod_redis: bool,
+) -> None:
+    """
+    SCAN-BILLING-ENFORCEMENT Q3-06 (Sprint 24 T2-11):
+      Valida que ADR-027 está implementado em investigation-api:
+      módulo billing_enforcement.py, middleware global headers,
+      monotonicidade SSOT validada e Redis obrigatório em prod.
+    """
+    issues: List[str] = []
+    warnings: List[str] = []
+    if project_root is None:
+        project_root = Path(__file__).resolve().parents[5]
+    inv_src = project_root / "apps" / "investigation-api" / "src" / "investigation_api"
+    main_file = inv_src / "main.py"
+    enforce_file = inv_src / "billing_enforcement.py"
+    cap_file = inv_src / "billing_capabilities.py"
+
+    click.echo("🛡️  Q3-06 SCAN BILLING ENFORCEMENT (Sprint 24 ADR-027 T2-11):")
+
+    # --- BE-001: billing_enforcement.py NÃO existe
+    if not enforce_file.is_file():
+        warnings.append(
+            "[BE-001] billing_enforcement.py ausente em investigation-api. "
+            "ADR-027 DoD 027.1 NÃO cumprido. Nenhum enforcement de capabilities está ativo."
+        )
+    elif enforce_file.stat().st_size == 0:
+        warnings.append("[BE-001] billing_enforcement.py VAZIO.")
+
+    # --- BE-002: main.py NÃO registra add_billing_headers_middleware
+    if not main_file.is_file():
+        warnings.append("[BE-002] investigation-api main.py ausente.")
+    else:
+        main_txt = main_file.read_text(encoding="utf-8")
+        if "add_billing_headers_middleware" not in main_txt:
+            warnings.append(
+                "[BE-002] main.py NÃO tem chamada `add_billing_headers_middleware(app)`. "
+                "5 headers X-RateLimit/X-Billing NÃO serão injetados (ADR-027 DoD 027.3)."
+            )
+        if "from investigation_api.billing_enforcement import add_billing_headers_middleware" not in main_txt:
+            warnings.append(
+                "[BE-002] main.py NÃO importa `add_billing_headers_middleware` de billing_enforcement."
+            )
+
+    # --- BE-003: Dinamicamente importar billing_enforcement e validar SSOT
+    enforcement_importable = False
+    monotonic_enterprise_ok = False
+    fail_closed_function_exists = False
+    if enforce_file.is_file():
+        try:
+            import importlib.util
+            import sys
+            inv_src_str = str(inv_src.parent)
+            if inv_src_str not in sys.path:
+                sys.path.insert(0, inv_src_str)
+            spec = importlib.util.spec_from_file_location(
+                "investigation_api.billing_enforcement", str(enforce_file)
+            )
+            if spec and spec.loader:
+                mod_enf = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod_enf)  # type: ignore[union-attr]
+                enforcement_importable = True
+                fn = getattr(mod_enf, "enforce_capability", None)
+                fail_closed_function_exists = callable(fn)
+                # Importar SSOT de billing_capabilities e verificar monotonicidade enterprise > business > startup
+                spec2 = importlib.util.spec_from_file_location(
+                    "investigation_api.billing_capabilities", str(cap_file)
+                )
+                if spec2 and spec2.loader:
+                    mod_cap = importlib.util.module_from_spec(spec2)
+                    spec2.loader.exec_module(mod_cap)  # type: ignore[union-attr]
+                    OTK = getattr(mod_cap, "OTK_PLAN_CAPABILITIES", None)
+                    if OTK is not None:
+                        ai_ok = (
+                            OTK["startup"]["included_ai_credits_per_month"]
+                            < OTK["business"]["included_ai_credits_per_month"]
+                            < OTK["enterprise"]["included_ai_credits_per_month"]
+                        )
+                        b2b_ok = (
+                            OTK["startup"]["b2b_api_calls_per_hour_quota"]
+                            <= OTK["business"]["b2b_api_calls_per_hour_quota"]
+                            <= OTK["enterprise"]["b2b_api_calls_per_hour_quota"]
+                        )
+                        monotonic_enterprise_ok = ai_ok and b2b_ok
+                        if not ai_ok:
+                            issues.append(
+                                "[BILLING-ENF-E001] included_ai_credits_per_month NÃO monotônico crescente."
+                            )
+                        if not b2b_ok:
+                            issues.append(
+                                "[BILLING-ENF-E002] b2b_api_calls_per_hour_quota NÃO monotônico crescente."
+                            )
+                    else:
+                        warnings.append(
+                            "[BE-003] billing_capabilities.py NÃO tem constante OTK_PLAN_CAPABILITIES "
+                            "(pré-requisito enforcement = SSOT)."
+                        )
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(
+                f"[BE-003] Falha import billing_enforcement/billing_capabilities: {type(exc).__name__}: {str(exc)[:260]}"
+            )
+    if not fail_closed_function_exists and enforcement_importable:
+        warnings.append(
+            "[BE-003] billing_enforcement.py NÃO exporta função `enforce_capability` (Depends FastAPI)."
+        )
+
+    # --- BE-004: PROD obriga Redis (DUAL MODE fallback NÃO pode ser usado em prod)
+    if check_prod_redis:
+        helm_charts_path = project_root / "apps" / "investigation-api" / "helm"
+        kustomize_prod = project_root / "apps" / "investigation-api" / "deploy" / "overlays" / "prod"
+        prod_hint_found = False
+        hint_strings = ["OTK_REDIS_URL", "redis.enabled", "redisHost"]
+        checked_paths: List[Path] = []
+        for p in (helm_charts_path, kustomize_prod, project_root / "deploy"):
+            if p.exists():
+                checked_paths.append(p)
+                for f in list(p.rglob("*.yaml")) + list(p.rglob("*.yml")) + list(p.rglob("*.env")):
+                    try:
+                        txt = f.read_text(encoding="utf-8", errors="ignore")
+                    except Exception:
+                        continue
+                    if any(s in txt for s in hint_strings):
+                        prod_hint_found = True
+                        break
+        if checked_paths and not prod_hint_found:
+            warnings.append(
+                "[BE-004] Ambiente prod NÃO tem OTK_REDIS_URL / redis.enabled em helm/deploy overlays. "
+                "Risco: DUAL MODE cai em InMemory em 2+ pods → vazamento de cota enterprise."
+            )
+
+    # --- STRICT MODE
+    if strict_mode and len(warnings) > max_warnings:
+        click.echo(
+            f"\n🚨 ENFORCEMENT STRICT default: warnings={len(warnings)} > max_warnings={max_warnings}. "
+            "WARNINGS elevados a ISSUES."
+        )
+        issues.extend(warnings)
+    elif not strict_mode:
+        click.echo(
+            f"\nℹ️  --no-strict: warnings={len(warnings)} informativos APENAS. Recomendado só feature branches."
+        )
+
+    click.echo(
+        f"  resumo: {len(issues)} issue(s);  {len(warnings)} warning(s);  "
+        f"strict={strict_mode};  monotonic_SSOT_OK={monotonic_enterprise_ok};  "
+        f"enforce_fn_exists={fail_closed_function_exists}"
+    )
+    if warnings:
+        click.echo("\n--- WARNINGS ---")
+        for w in warnings:
+            click.echo(f"  ⚠️  {w}")
+    if issues:
+        click.echo("\n--- ISSUES ---")
+        for i in issues:
+            click.echo(f"  ❌ {i}")
+    _exit_report(len(issues) == 0, issues, failures_json)
+
+
+# ---------------------------------------------------------------------------
 # Helpers para scan-rbac (static parse rotas FastAPI)
 # ---------------------------------------------------------------------------
 class _RbacRoute(NamedTuple):

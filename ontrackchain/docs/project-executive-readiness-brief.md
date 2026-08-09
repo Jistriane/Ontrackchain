@@ -90,6 +90,23 @@ de release, SLA performance mensurável, regra de risco M5 escrita)**.
 A partir daqui, o caminho até 100% passa EXCLUSIVAMENTE por handoff humano
 (P0-01 OIDC real + P0-02/P0-03 AML live provider com credenciais reais).
 
+### — Atualização Baseline Readiness v1.3 (Sprint 24)
+
+A baseline v1.2 (Sprint 23) recebeu **+1 ponto percentual adicional** de
+materialidade regulatória (95% → 96%). Commits ahead cresceram de 19 (S23) →
+20 (S24). Adições abaixo:
+
+| Frente | Sprint | Entrega | ADR Associado |
+|---|---|---|---|
+| ⚖️ Billing Enforcement ativo em Investigation-API | Sprint 24 | `investigation-api billing_enforcement.py` NOVO SRP ADR-027: Depends `enforce_capability` 3 capabilities (`b2b_hourly_quota`, `ai_credits`, `max_users_per_org`). 2 counters DUAL MODE (Redis padrão + InMemory fallback CI). Ordem AUTH → HMAC → BILLING → BUSINESS. Fail-closed 402 se Redis indisponível. Middleware global `add_billing_headers_middleware` injeta 5 headers X-RateLimit + X-Billing SEMPRE. 15 pytest T2-11. `pyproject investigation v1.3.0→v1.4.0`. | ADR-027 |
+| 🧪 qa-gateway NOVO scan-billing-enforcement Q3-06 | Sprint 24 | `qa-gateway cli.py` subcomando `scan-billing-enforcement`. 4 warnings BE-001..BE-004: módulo ausente, middleware ausente, monotonicidade SSOT validada por import dinâmico, prod obriga OTK_REDIS_URL em helm overlays. STRICT padrão (warnings→issues exit=1). | (governança Q3-06) |
+| 🆔 Handbook P0-01 OIDC Keycloak v25 self-hosted Helm | Sprint 24 | `docs/handbooks/handbook-p0-01-oidc-keycloak-v25-helm-self-hosted.md` NOVO: 14 itens checklist 4-eyes (ADR contexto, helm values HA, realm otk-realm, roles OTK_* federação, MFA OTP/WebAuthn, SAML SSO enterprise IdP-initiated, auditoria logstash, backup Infinispan 3 dias, Istio mTLS, Roda da Morte DDoS protected, sign-off 4 níveis). Data previsão handoff = 8–21 dias úteis. | (ADR-028 futuro) |
+| ⚖️ Sign-off ADR-026 Formalização Jurídica | Sprint 24 | ADR-026 inclui explicitamente campos pendentes de sign-off CTO/DSI/CEO/Arquiteto. Regra NÃO é mais "decisão engenheiro" — sign-off em `docs/governance-sign-offs/M5-removal-YYYY-MM-DD.md` OBRIGATÓRIO. | ADR-026 atualizado |
+
+**Impacto baseline v1.3**: Materialidade regulatória **95% → 96%** (enforcement de
+faturamento AGORA ativo, não só documentado; handbook OIDC com itens de
+segurança MFA/WebAuthn/Istio mTLS fecham controles de acesso BACEN Art. 12/16).
+
 - `P0` representa o caminho mais curto e auditavel para cruzar `90%+`
 - `P1` representa a institucionalizacao minima que sustenta esse salto sem regressao operacional
 - `P2` representa o trabalho pos-90, focado em sustentacao, reducao de debito e preparacao para `95%`

@@ -4,6 +4,14 @@
 - **Decisores**: Arquiteto Chefe + Diretor de Segurança da Informação (DSI) + Conselho Executivo
 - **Data de formalização**: Sprint 22 (2026-08-09)
 - **Risco se violado**: **Risco P0 — Operacional + Reputacional + Jurídico (LGPD Art. 46, BACEN Circular 3949)**
+- **Sign-off ADR (Sprint 24)**: ⚠️ **PENDENTE JURÍDICO / CONSELHO EXECUTIVO**
+  - Este ADR 026 **requer sign-off formal por escrito** antes de qualquer discussão sobre remover o bloqueio M5.
+  - Pendentes de assinatura / data:
+    1. CTO: ____________________________ / data: ____/____/________
+    2. DSI (Diretor Segurança Informação): ___/____/________
+    3. CEO: ______________________________/____/____/________
+    4. Arquiteto Chefe: ___________________/____/____/________
+  - Colocar as assinaturas em `docs/governance-sign-offs/M5-removal-YYYY-MM-DD.md` (fora deste ADR).
 
 ---
 

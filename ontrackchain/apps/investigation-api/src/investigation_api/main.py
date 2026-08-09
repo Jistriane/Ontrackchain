@@ -24,6 +24,7 @@ from investigation_api.config.agent_concurrency import CONCURRENCY_LIMITS_MVP
 from investigation_api.rpc_provider import RpcProviderConfig, describe_rpc_readiness
 from investigation_api.billing_stripe import router as billing_stripe_router  # Sprint 22 T2-09
 from investigation_api.billing_capabilities import router as billing_capabilities_router  # Sprint 23 T2-10
+from investigation_api.billing_enforcement import add_billing_headers_middleware  # Sprint 24 T2-11 ADR-027
 from ontrackchain_agents.evidence_integration import emit_evidence_event_sync
 
 logger = logging.getLogger(__name__)
@@ -5773,3 +5774,8 @@ app.include_router(billing_stripe_router)
 # Sprint 23 T2-10: Billing Capabilities Matrix + Usage Meters por Tier
 # SRP — módulo SEPARADO billing_capabilities.py, fonte única OTK_PLAN_CAPABILITIES
 app.include_router(billing_capabilities_router)
+
+# Sprint 24 T2-11: Billing Enforcement Middleware Headers Globais
+# ADR-027 — 5 headers X-RateLimit / X-Billing SEMPRE presentes em todas as respostas
+# Fail-Closed 402 se Redis counter indisponível; DUAL MODE InMemory fallback CI/1 Pod
+add_billing_headers_middleware(app)
