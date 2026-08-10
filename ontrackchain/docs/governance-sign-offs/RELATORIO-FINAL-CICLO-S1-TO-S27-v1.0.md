@@ -10,25 +10,25 @@
 |---|---|
 | **ID do documento** | `RELATORIO-FINAL-CICLO-S1-TO-S27-v1.0` |
 | **Data de emissão** | `2026-08-10` |
-| **Head SHA atual (HEAD main)** | `e94ad32` (24 commits locais ahead origin/main após assinatura) |
-| **Commits locais ahead origin/main antes M5 sign-off** | 23 (este documento adiciona 1 → 24) |
-| **Baseline Executiva Oficial** | `v1.6` (2026-08-10, prontidão regulatória 99%) |
-| **Release oficial README** | `v5.11.0 Sprint 27` |
-| **Regras de alteração** | NÃO editável após assinatura 5 pessoas abaixo. Qualquer correção → nova versão + novo sign-off 4-Olhos. |
+| **Head SHA atual (HEAD main)** | `1a7590a` (24 commits locais ahead origin/main após emissão v1.0; antes do sign-off M5, este número atualizará para 25 após commit do documento M5 sign-off preenchido abaixo) |
+| **Commits locais ahead origin/main antes M5 sign-off** | 24 (documento M5-removal preenchido acrescenta +1 → 25 antes do push) |
+| **Baseline Executiva Oficial** | `v1.7` (2026-08-10, prontidão regulatória 99%) |
+| **Release oficial README** | `v5.12.0 Sprint 27 Ajustes Governança Final` |
+| **Regras de alteração** | NÃO editável após assinatura 6 pessoas abaixo. Qualquer correção → nova versão v1.1 + novo sign-off 4-Olhos mínimo (CLO+CTO+DPO+Arquiteto). |
 | **Arquivos imutáveis LGPD (0 alterados neste ciclo S1→S27)** | `docs/governance-weekly/*`, `docs/history/*`, `docs/assessments/*`, `github_main/*` |
-| **M5 Bloqueio Push Remoto** | 🔴 **AINDA VIGENTE** após este documento. NÃO ativa `git push` sem sign-off M5 em separado (TEMPLATE-M5-removal-sign-off.md). |
+| **M5 Bloqueio Push Remoto** | 🔴 **AINDA VIGENTE** após este documento. NÃO ativa `git push` sem sign-off M5 em separado (`M5-removal-2026-08-10-HEAD-24-COMMITS.md` preenchido com 6 assinaturas + Procedimento 14 passos executados). |
 
 ---
 
 ## 1. Resumo Executivo (1 página — para diretoria)
 
-Ontrackchain Soluções em RegTech LTDA concluiu o ciclo de implementação técnica **Sprint 1 (maio 2026) → Sprint 27 (agosto 2026)**, 27 sprints consecutivos, **24 commits locais ahead de origin/main**, **NENHUM push remoto realizado** (regra M5 Governança Risco ADR-026).
+Ontrackchain Soluções em RegTech LTDA concluiu o ciclo de implementação técnica **Sprint 1 (maio 2026) → Sprint 27 (agosto 2026)**, 27 sprints consecutivos, **24 commits locais ahead de origin/main**, **NENHUM push remoto realizado** (regra M5 Governança Risco ADR-026). Após commit do documento M5 preenchido, ahead count = 25.
 
 **Resultado agregado do ciclo:**
 
 | Indicador | Valor | Status |
 |---|---|---|
-| Commits locais no ciclo (S1→S27) | 24 (HEAD `e94ad32`) | ✅ |
+| Commits locais no ciclo (S1→S27) | 24 (HEAD `1a7590a`) → 25 após commit M5 sign-off preenchido | ✅ |
 | ADRs arquiteturais formais (Contexto/Alternativas/Decisão/Trade-offs/DoD) | 29 (001..029, ADR-016 RESERVADO) | ✅ 28 ativos, 1 reservado |
 | CHANGELOG hierárquico (Keep a Changelog 1.1.0 + SemVer 2.0.0) | 11 releases hierárquicos S18→S27 + resumo S1→S17 | ✅ ADR-023 CUMPRIDO |
 | Documentos LGPD jurídicos assináveis | 2 (ROPD Art.37 + RIPD Art.15 Mestre + Template Cliente B2B) | ✅ ANPD CD-004, CD-005 |
@@ -235,7 +235,7 @@ Arquivo YAML oficial: [pre-merge-gates.yml](file:///home/jistriane/Ontrackchain/
 |---|---|---|---|---|---|---|---|
 | 1 | **CLO (Chief Legal Officer) / Diretor Jurídico** — Assinou 29 ADRs + M5 Condição 3A jurídica | ___ | OAB/SP ___ | DD/MM/AAAA | `SHA256: 0x__________________________________` | `clo@ontrackchain.com.br` | ________________ |
 | 2 | **CTO (Chief Technology Officer)** — Assinou arquitetura, CI, ADRs técnicos, M5 método push | ___ | CREA-SP ___ (se aplicável) | DD/MM/AAAA | `SHA256: 0x__________________________________` | `cto@ontrackchain.com.br` | ________________ |
-| 3 | **DPO (Encarregado LGPD Art.41 ANPD)** — Assinou ROPD 7 ops + RIPD mestre + todos ADRs LGPD | Dr. Carlos Mendes | CRP/SP ___ + OAB/SP ___ | DD/MM/AAAA | `SHA256: 0x__________________________________` | `dpo@ontrackchain.com.br` | ________________ |
+| 3 | **DPO (Encarregado LGPD Art.41 ANPD)** — Assinou ROPD 7 ops + RIPD mestre + todos ADRs LGPD | **Dr. Carlos Mendes** (pré-preenchido conforme RIPD-OTK-MASTER-v1.0) | CRP/SP **___** + OAB/SP **___** (aguardando DPO confirmar) | **___ (aguardando data de assinatura)** | `SHA256: 0x__________________________________` | **dpo@ontrackchain.com.br** (pré-preenchido) | ________________ |
 | 4 | **CEO / Representante Legal Controladora (LGPD Art.5º II)** — Representa Ontrackchain juridicamente | ___ | — | DD/MM/AAAA | `SHA256: 0x__________________________________` | `ceo@ontrackchain.com.br` | ________________ |
 | 5 | **Arquiteto de Software Sênior** — Responsável técnico por todos os 29 ADRs e 24 commits | ___ | — | DD/MM/AAAA | `SHA256: 0x__________________________________` | `arquiteto@ontrackchain.com.br` | ________________ |
 | 6 | **Engenheiro(a) Executor(a) Push Remoto M5 Procedimento 14 passos** — Declaração Individual Responsabilidade LGPD Art.43 §4 | ___ | — | DD/MM/AAAA | `SHA256: 0x__________________________________` | `engenheiro@ontrackchain.com.br` | ________________ |

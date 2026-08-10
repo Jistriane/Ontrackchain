@@ -183,6 +183,30 @@ nenhuma linha de código de domínio ou infraestrutura YAML restante:
 - `P1` representa a institucionalizacao minima que sustenta esse salto sem regressao operacional
 - `P2` representa o trabalho pos-100%, focado em sustentacao SOC2, auditorias externas, evolucao
 
+---
+
+### — Atualização Baseline Readiness v1.7 (Sprint 27 Ajustes Governança Final)
+
+Baseline v1.6 (Sprint 27 primeira parte) recebeu **ajustes de governança final**
+(mesmo 99% baseline, nenhuma nova feature; materialidade do pacote jurídico
+entregue à diretoria aumenta em clareza para auditoria). Commits ahead crescem
+23 (S27 primeira parte) → 24 (Relatório Final) → 25 (M5 preenchido + este
+Baseline v1.7). Novas entregas de documentação:
+
+| Frente | Sprint | Entrega | ADR / Documento |
+|---|---|---|---|
+| 📋 **Relatório Final Consolidado S1→S27 pré-M5 anexo jurídico** | Sprint 27 Ajuste Final | `docs/governance-sign-offs/RELATORIO-FINAL-CICLO-S1-TO-S27-v1.0.md` 9 seções: 0 Metadados SHA 1a7590a / 1 Resumo Executivo 1 página / 2 Matriz 27 Sprints tabela / 3 Índice 29 ADRs ordem impacto / 4 Pacote LGPD ROPD+RIPD / 5 Pipeline CI ADR-029 5 Gates / 6 M5 Cond3A +14 Passos + Handoff P0-01..P0-04 / 7 Checklist Final 10 itens TODOS SIM / 8 Bloco Assinatura 6 PESSOAS 4-Olhos+CLO+CTO+DPO+CEO+Arquiteto+Engenheiro Executor com Declaração LGPD Art.43 §4 CLT individual / 9 Apêndices 9 links diretos para CHANGELOG, Baseline, README, ADRs índice, qa-gateway CLI+tests, Guias P0. | Relatório oficial pré-M5 (assinado por 6 → 100% materialidade jurídica) |
+| ✍️ **M5 sign-off preenchido 70% pronto para jurídico** | Sprint 27 Ajuste Final | `docs/governance-sign-offs/M5-removal-2026-08-10-HEAD-24-COMMITS.md` 6 seções: 0 Regras (Basic Auth proibido, responsabilidade solidária CLT, 48h validade, 4-olhos 6 assinaturas, auditoria zero-knowledge SIEM) / 1 Info Básicas preenchidas SHA 1a7590a ahead 24→25 data emissão 2026-08-10 válido até 2026-08-12 / 2 Condição 3A tabela 3 itens (TruffleHog 0 HIGH, método seguro NÃO basic, 6 assinaturas) / 3 Procedimento 14 PASSOS tabela com horário executor + evidência (snapshot cripto AES256 GCM Vault TTL180d → clean → fetch ahead → IMUTÁVEIS 0 → Q1 RBAC → Q2 Q3 billing → Q4 ROPD + **Q5 segredos P0 2h timeout** → auth teste → GIT PUSH MOMENTO → 0 ahead verif → notif Slack SIEM → salvar doc commit → ativar Workflow CI on:pull_request → cleanup PAT/SSH delete) / 4 Assinaturas 6 tabelas (CLO/CTO/DPO Dr.Carlos Mendes pré-preenchido/CEO/Arquiteto/Engenheiro) / 5 Declaração Individual Engenheiro 5 itens marcáveis letra por letra + data cidade. | ADR-026 M5 Governança Risco (Formulário preenchido estruturalmente; só faltam assinaturas reais e execução 14 passos) |
+
+**Impacto baseline v1.7**: **Ainda 99%** (nenhum código de domínio ou credencial real
+foi adicionado; portanto o salto técnico para 100% continua dependente
+exclusivamente de handoff externo real P0-01/P0-02/P0-03). *Valor agregado não
+mensurável em %:* reduz drasticamente tempo de trabalho jurídico de ~5 dias para
+~1 dia útil: Relatório é anexo único tudo-em-um para auditoria ANPD/BACEN;
+M5 está pré-preenchido, jurídico só precisa assinar.
+
+---
+
 ## O Que Ja Esta Forte
 
 - arquitetura modular com boundaries claros, gateway unico, RLS e servicos por dominio

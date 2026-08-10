@@ -6,7 +6,24 @@ Formato baseado em [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 com **hierarquia por Sprint (maior unidade semântica Ontrackchain)** — cada Sprint agrupa `[Added]`, `[Changed]`, `[Deprecated]`, `[Removed]`, `[Fixed]`, `[Security]`.
 Versionamento segue **[Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html)** no release (vX.Y.Z) por Sprint.
 
-*Último arquivo consolidado: Sprint 27, 2026-08-10. Compila Sprints 1→26 (26 releases).*
+*Último arquivo consolidado: Sprint 27 ajustes finais, 2026-08-10. Compila Sprints 1→27 (27 releases). HEAD SHA 1a7590a → 25 commits locais ahead origin/main após commit v5.12.0.*
+
+---
+
+## [v5.12.0] - 2026-08-10 — Sprint 27 Ajustes Governança Final: Relatório Final Consolidado S1→S27 9 Seções + M5-removal Sign-off Preenchido 70% Estrutural (Pronto para Jurídico Assinar)
+
+### Added
+- `docs/governance-sign-offs/RELATORIO-FINAL-CICLO-S1-TO-S27-v1.0.md NOVO Relatório Final Consolidado oficial 9 seções canônicas: (0) Metadados SHA 1a7590a baseline v1.7 release v5.12.0 ahead 24→25 M5 intacto; (1) Resumo Executivo 1 pág diretoria 27 sprints 29 ADRs 25 commits ahead; (2) Matriz 27 Sprints tabela inversa S27→S1 entregas/ADR/SemVer/%; (3) Índice 29 ADRs 001..029 ordem impacto regulatório decrescente LGPD primeiro (ADR-028 ROPD → 029 Gates → 026 M5 → 021 RIPD → HMAC → Billing → Misc, ADR-016 RESERVADO); (4) Pacote LGPD ANPD CD-004/005 campos obrigatórios retenção destruição dados sensíveis SCCs UE; (5) Pipeline ADR-029 CI Pre-Merge 5 Gates FAIL-FAST Q1-Q4 Q5 sempre executa + qa-gateway 9 subcomandos Q3-01..Q3-09; (6) M5 Cond3A + 14 Passos Procedimento + Handoff P0-01 8-21d OIDC / P0-02 7-14d AML / P0-03 M5 1-3d / P0-04 SOC2 30-45d; (7) Checklist Final 10 itens TODOS=SIM; (8) Bloco Assinatura 6 Pessoas 4-Olhos CLO+CTO+DPO Dr.Carlos Mendes PRÉ-PREENCHIDO+CEO+Arquiteto+Engenheiro Executor com Declaração Individual LGPD Art.43 §4 e CLT responsabilidade pessoal; (9) Apêndices 9 links diretos CHANGELOG Baseline README ADRs qa-gateway Guias P0.
+- `docs/governance-sign-offs/M5-removal-2026-08-10-HEAD-24-COMMITS.md NOVO Sign-off M5 Preenchido 70% (estrutural): 0 Regras 5 itens (BasicAuth crime 48h validade 6 assinaturas 4-olhos auditoria SIEM 180d; 1 Info Básicas preenchidas SHA 1a7590a data 2026-08-10 validade até 2026-08-12 motiva push 25 commits; 2 Cond3A 3 itens SIM/NÃO; 3 Procedimento 14 PASSOS tabela horário/executor/resultado (snapshot AES256-GCM Vault 180d → git clean → fetch ahead → IMUTÁVEIS 0 → Q1→Q2→Q3→Q4→Q5 TruffleHog2h → auth teste → PUSH MOMENTO → 0 ahead verif → Slack+SIEM notif → commit doc → ativar Workflow ADR029 → cleanup credenciais delete PAT/SSH); 4 Assinaturas 6 tabelas (CLO OAB, CTO CREA, DPO CRP+OAB, CEO, Arquiteto, Engenheiro); 5 Declaração Individual Engenheiro 5 itens marcáveis LGPD Art.43 §4 multa pessoal + CPF penal CLT Art.482 justa causa; 6 Histórico Alterações v1.0. Assinaturas todas vazias, campos estruturais todos preenchidos.
+- Baseline Executiva project-executive-readiness-brief.md v1.6 → v1.7: Nova seção Baseline v1.7 tabela 2 frentes (Rel Final + M5 preenchido). Materialidade 99% mantida (sem código novo). Ahead count 23→24→25.
+- README.md v5.11.0 → v5.12.0 + 2 linhas Tabela Consolidado S27-REL-FINAL / S27-M5-PREENCHIDO. Bloqueador M5 atualizado 23 → 25 ahead.
+
+### Changed
+- CHANGELOG header "Último arquivo consolidado" atualizado de S26 para S27 (27 releases, v5.12.0 HEAD 25 commits). Nenhum código de domínio alterado. Apenas governança e documentação jurídica.
+
+### Security
+- Declaração Individual Engenheiro(a) Executor(a) M5 agora é OBRIGATÓRIA com 5 itens de assinatura pessoal letra por letra. Reduz risco de "push acidental" ou pressão hierárquica indevida — responsabilidade CLT e LGPD solidificada para agente individual (todos respondem, NÃO só a PJ).
+- Auditoria zero-knowledge no SIEM Splunk correlation ID `OTK-M5PUSH-YYYYMMDD-HHMMSS-HASH8` é obrigatória no passo 11.
 
 ---
 
