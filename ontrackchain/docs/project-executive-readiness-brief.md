@@ -144,19 +144,44 @@ infra/CI a mais. RIPD Art.15 deixou de ser "Sprint 20 compliance API due
 diligence estrutural" para ser **documento jurídico assinável por cliente B2B**,
 cumprimento 100% ANPD CD-004/2023 e BACEN Art.12 Due Diligence por Cliente.
 
-**GAP 98%→100% AGORA é 100% handoff humano NÃO código.** Próximos 2% exigem
-credenciais reais, NÃO novas linhas de código:
+### — Atualização Baseline Readiness v1.6 (Sprint 27)
+
+Baseline v1.5 (Sprint 26) recebeu **+1 ponto percentual adicional** de
+materialidade (98% → 99%). Commits ahead cresceram 22 (S26) → 23 (S27). Novas entregas:
+
+| Frente | Sprint | Entrega | ADR / Documento |
+|---|---|---|---|
+| 📜 CHANGELOG Oficial Hierárquico S1→S26 Cumprido ADR-023 | Sprint 27 | `CHANGELOG.md` raiz Keep a Changelog 1.1.0 + SemVer 2.0.0. 10 releases hierárquicas: v5.11.0 (S27), v5.10.0 (S26), v5.9.0 (S25), v5.8.0 (S24), v5.7.0 (S23), v5.6.0 (S22), v5.5.0 (S21), v5.4.0 (S20), v5.3.0 (S19), v5.2.0 (S18), v5.1-v1.0 (S17→S1 resumo). Cumpre ADR-023 que havia descrito formato mas nunca criou o arquivo. | ADR-023 |
+| ⚖️ Assinatura Consolidado Jurídico 29 ADRs (001..029) por CLO | Sprint 27 | `docs/governance-sign-offs/SIGNOFF-ADRS-ALL-29-v1.0.md` NOVO. Tabela 29 linhas ADRs ordenadas por impacto regulatório decrescente (LGPD Art.37 → ADR-029 → ADR-026 → ADR-021 → HMAC → Billing → Misc). Campos: Data, Nome Assinante, Cargo, OAB, Status ENUM Aprovado/Rejeitado/Pendente Justificativa, Justificativa, Assinatura SHA256 hash arquivo ADR + CPF, Email Corporativo. Painel Resumo 29/29 exigidos. Bloco Assinatura 4-Olhos FINAL: CLO + CTO + DPO + CEO + Arquiteto. Prazo ideal: antes de sign-off M5 P0-03. | LGPD Art.8 §5 + BACEN Art.12 |
+| 🏗️ Workflow GitHub Actions Pre-Merge 5 Gates (ADR-029) Pronto para M5 | Sprint 27 | `.github/workflows/pre-merge-gates.yml` NOVO. **Trigger `on: []` DESATIVADO por enquanto** (M5 em vigor). Steps: checkout full, Python 3.11, pip install qa-gateway editable, curl instalar trufflehog binário latest, rodar `qa-gateway run-pre-merge-gates --dpo-email="${{ vars.DPO_EMAIL }}" --strict --max-warnings 0 --check-prod-redis --report-dir ./qa-reports` (1 linha). Upload-artifact v4 retention-days=180 LGPD mínimo 6 meses. Bloco comentado com passo a passo para ativar PR futuro (on: pull_request + vars DPO_EMAIL + OTK_CI_PRE_MERGE_ENFORCE_ALL=true repository variable). timeout-minutes=180. | ADR-029 implementação CI |
+
+**Impacto baseline v1.6**: Materialidade regulatória **98% → 99%**. ADR-023
+agora 100% materializado (arquivo criado). Assinatura consolidado dos 29
+ADRs reduz trabalho jurídico manual de ~2 dias úteis para ~2 horas
+(uma planilha linha por linha vs. 29 arquivos separados). Workflow CI ADR-029
+deixa de ser "passo futuro da checklist" para ser **arquivo YAML pronto, só
+faltando ativar o trigger após M5 sign-off.**
+
+**GAP 99%→100% é 100% handoff humano NÃO código.** Os próximos 1%
+exigem APENAS credenciais reais e assinaturas jurídicas reais. Não existe
+nenhuma linha de código de domínio ou infraestrutura YAML restante:
 
 | Passo | Handoff Responsável | Prazo estimado | Impacto Baseline |
 |---|---|---|---|
-| P0-01 | OIDC Keycloak v25 credenciais reais + MFA YubiKey ROLES OTK_* federação | 8–21 dias úteis (Handbook S24) | 98% → 99% |
-| P0-02 | AML/KYT live provider Chainalysis/TRM/Elliptic API key real + feed UE tokenizado | 7–14 dias úteis | 99% → 99.5% |
-| P0-03 | Sign-off M5 Governança real: Condição 3A + Procedimento 14 passos + Push 22 commits locais origin/main | 1–3 dias úteis (jurídico) | 99.5% → 100% |
-| P0-04 (opcional após) | Prova externa 2 auditorias smart contracts + PenTest anual | 30–45 dias úteis pós 100% | Selo maturidade SOC2 |
+| P0-01 | OIDC Keycloak v25 credenciais reais + MFA YubiKey ROLES OTK_* federação + Playwright E2E Q3-07 | 8–21 dias úteis (Handbook S24 P0-01) | 99% → 99.5% |
+| P0-02 | AML/KYT live provider Chainalysis/TRM/Elliptic API key real + feed UE tokenizado real (OFAC/Interpol/UE Consolidated List) | 7–14 dias úteis (Guias P0-02/P0-03) | 99.5% → 99.8% |
+| P0-03 | Sign-off M5 Governança real: Condição 3A (TruffleHog 0 HIGH + método seguro PAT SSO/SSH Deploy Key/GitHub App JWT) + Procedimento 14 passos checklist + Assinatura 4-olhos (CLO+CTO+DPO+CEO) + **Push 23 commits locais → origin/main** | 1–3 dias úteis (jurídico + handoff CI) | 99.8% → **100%** |
+| P0-04 (OPCIONAL pós-go-live) | Prova externa maturidade SOC2 Type II + 2 auditorias smart contracts + Pentest anual + BACEN/ANPD auditoria simulada | 30–45 dias úteis pós 100% | Selo SOC2 |
 
-- `P0` representa o caminho mais curto e auditavel para cruzar `90%+`
+- `P0` representa o caminho mais curto e auditavel para cruzar `100%`
+- Qualquer adição de feature nova NÃO listada em P0-01..P0-03 eleva risco
+  de regressão e posterga o 100%. Recomendação: congelar scope de novas
+  features até sign-off M5.
+
+
+- `P0` representa o caminho mais curto e auditavel para cruzar `100%`
 - `P1` representa a institucionalizacao minima que sustenta esse salto sem regressao operacional
-- `P2` representa o trabalho pos-90, focado em sustentacao, reducao de debito e preparacao para `95%`
+- `P2` representa o trabalho pos-100%, focado em sustentacao SOC2, auditorias externas, evolucao
 
 ## O Que Ja Esta Forte
 

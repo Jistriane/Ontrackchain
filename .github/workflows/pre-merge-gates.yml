@@ -1,0 +1,132 @@
+name: ADR-029 Pre-Merge 5 Gates (RBAC / BillingCap / BillingEnf / LGPD ROPD / Secrets TruffleHog)
+
+# ⚠️ GATILHO DESATIVADO POR ENQUANTO — M5 Ainda em vigor.
+# on: [] significa que ESTE WORKFLOW NUNCA EXECUTA AUTOMATICAMENTE.
+# Para ativar APÓS sign-off M5 (ADR-026 Condição 3A + Procedimento 14 passos):
+#   1. Remova a linha `on: []`
+#   2. Substitua por:
+#      on:
+#        pull_request:
+#          branches: [main]
+#          types: [opened, synchronize, reopened, ready_for_review]
+#      (Ou workflow_call se for usar com workflow reutilizável.)
+#   3. Garanta que a Organization GitHub Variable DPO_EMAIL esteja definida
+#      (Settings → Secrets and variables → Actions → Variables → New repository variable → DPO_EMAIL)
+#   4. Ative OTK_CI_PRE_MERGE_ENFORCE_ALL = true no nível do repositório
+#      (Settings → Secrets and variables → Actions → Variables → New repository variable → OTK_CI_PRE_MERGE_ENFORCE_ALL = true)
+#      Essa variável BLOQUEIA flags --skip-q1..--skip-q5 em CI (fail-safe).
+#
+# Referência técnica: ADR-029, qa-gateway cli.py Q3-09 run-pre-merge-gates
+# Última atualização: Sprint 27, 2026-08-10. Versão 1.0 do YAML.
+
+on: []
+# on:
+#   pull_request:
+#     branches: [main]
+#     types: [opened, synchronize, reopened, ready_for_review]
+#   workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pre-merge-5-gates-failfast:
+    name: ADR-029 Pre-Merge 5 Gates FAIL-FAST (Q1→Q2→Q3→Q4→Q5 sempre)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180  # 2h TruffleHog pode demorar se repositório grande; +40min buffers Python.
+    # Fail-fast: qualquer job filho falha, workflow todo cancela.
+    # Em cada job, usamos continue-on-error: false (padrão).
+    # Exceção conceitual tratada no qa-gateway: Q5 SEMPRE roda mesmo se Q1..Q4 já falharam
+    # (isso é implementado LÁ DENTRO do qa-gateway run-pre-merge-gates, não aqui no YAML.)
+
+    env:
+      # BLOQUEIA flags --skip-q1..--skip-q5. Ninguém pula gates em CI.
+      # Após M5 push, ativar isso como repository variable permanece.
+      OTK_CI_PRE_MERGE_ENFORCE_ALL: ${{ vars.OTK_CI_PRE_MERGE_ENFORCE_ALL || 'true' }}
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: 01 — Checkout repositório (full history para TruffleHog --since HEAD~1)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # TruffleHog precisa de histórico completo para escaneamento profundo
+          submodules: false
+
+      - name: 02 — Setup Python 3.11.x (stack obrigatória Ontrackchain)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: |
+            ontrackchain/packages/qa-gateway/pyproject.toml
+            ontrackchain/packages/qa-gateway/requirements*.txt
+
+      - name: 03 — Instalar qa-gateway local + dependências (maturidade S26)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd ontrackchain/packages/qa-gateway
+          python -m pip install --upgrade pip setuptools wheel
+          # Instalar em modo editável para usar CLI `qa-gateway` diretamente no PATH
+          python -m pip install -e ".[dev,tests]"
+          # Validar binário qa-gateway acessível
+          qa-gateway --help > /dev/null
+          echo "✅ qa-gateway instalado: $(qa-gateway --version 2>&1 || qa-gateway --help 2>&1 | head -2)"
+
+      - name: 04 — Instalar TruffleHog (verificação binário Q5; auto-detect qa-gateway)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # TruffleHog oficial GitHub release latest (Linux amd64) — pin SHA256 quando possível
+          # Para ambientes restritos, substitua por container gerenciado enterprise.
+          curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+          trufflehog --version
+          echo "✅ TruffleHog instalado: $(trufflehog --version 2>&1 | head -1)"
+
+      - name: 05 — Executar ADR-029 5 Gates Pre-Merge (ORQUESTRADOR qa-gateway FONTE ÚNICA)
+        id: gates
+        shell: bash
+        # exit 0 = todos gates passaram; exit !=0 = algum gate falhou (fail-closed).
+        # A ordenação FAIL-FAST + Q5 sempre executa é GARANTIDA dentro do qa-gateway.
+        run: |
+          set -euo pipefail
+          DPO_EMAIL="${{ vars.DPO_EMAIL }}"
+          if [ -z "$DPO_EMAIL" ]; then
+            echo "❌ ERRO: Repository Variable DPO_EMAIL não definida. Vá em Settings → Secrets and variables → Actions → Variables → New repository variable → DPO_EMAIL = dpo@empresa.com.br"
+            echo "   É obrigatório por LGPD Art.41 (DPO nomeado) e BACEN Circular X Art.12."
+            exit 3  # parâmetro inválido (QA-GATEWAY exit codes helpers)
+          fi
+          mkdir -p ./qa-reports
+          echo "🚀 Rodando ADR-029 5 Gates Pre-Merge — Fail-FAST Q1→Q2→Q3→Q4 + Q5 SEMPRE"
+          echo "   PR: ${{ github.event.number }} SHA: ${{ github.sha }}"
+          # Ordem e flags da FONTE ÚNICA (qa-gateway):
+          # --dpo-email                 obrigatório (LGPD BACEN)
+          # --strict                    default True (warnings > 0 → issues → exit 1)
+          # --max-warnings 0            default 0 (cumpre ADR-018 STRICT pattern herdado)
+          # --check-prod-redis          default True (valida billing enforcement prod counter)
+          # --report-dir                ./qa-reports (padrão ADR-029 schema 1.0 JSON)
+          qa-gateway run-pre-merge-gates \
+            --dpo-email "$DPO_EMAIL" \
+            --strict \
+            --max-warnings 0 \
+            --check-prod-redis \
+            --report-dir ./qa-reports \
+            --failures-json ./qa-reports/pre-merge-${{ github.sha }}-failures.json || {
+              EXIT=$?
+              echo "❌ Gates Pre-Merge finalizados com falhas (exit=$EXIT). Relatório JSON salvo em ./qa-reports/pre-merge-${{ github.sha }}.json"
+              echo "   Para detalhes, fazer download do artifact abaixo e/ou abrir Summary do Job."
+              exit $EXIT
+            }
+          echo "✅ TODOS 5 GATES PRE-MERGE APROVADOS (exit=0). PR liberado para merge após code review humano."
+
+      - name: 06 — Upload artifact relatórios QA (retention 180 dias LGPD 6 meses)
+        if: always()   # SEMPRE salva relatório, mesmo que gates falhem (evidência auditoria)
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-reports-pre-merge-${{ github.sha }}
+          path: |
+            ./qa-reports/pre-merge-*.json
+            ./qa-reports/pre-merge-*-failures.json
+            ./qa-reports/**/*.log
+          retention-days: 180  # LGPD Art.15 §3 prazo mínimo de guarda evidências
+          if-no-files-found: warn
