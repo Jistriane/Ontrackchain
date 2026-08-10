@@ -540,13 +540,22 @@ def cmd_scan_rbac(
             "POST /api/v1/investigation/{case_id}/internal/complete",
             "POST /api/v1/investigation/{case_id}/internal/fail",
         },
-        "compliance-api": _read_all_write_endpoints_as_exempt(apps_root, "compliance-api"),
-        "monitoring-api": _read_all_write_endpoints_as_exempt(apps_root, "monitoring-api"),
-        "report-api": _read_all_write_endpoints_as_exempt(apps_root, "report-api"),
-        "ai-service": _read_all_write_endpoints_as_exempt(apps_root, "ai-service"),
-        "mock-oidc": _read_all_write_endpoints_as_exempt(apps_root, "mock-oidc"),
+        "compliance-api": {
+            "POST /api/v1/b2b/screen",
+        },
+        "monitoring-api": {
+            "POST /internal/ops/alertmanager/webhook",
+        },
+        "mock-oidc": {
+            "POST /login",
+            "POST /oauth/token",
+            "POST /mock/token",
+        },
     }
-    # Isenta "NENHUM role-check no main.py" para serviços híbridos (auth pré-role em Depends(current_user) apenas)
+    # Isenta "NENHUM role-check no main.py" para serviços híbridos
+    # - auth-service: pré-auth federado Depends(current_user) autenticação de login sem helper role canônico
+    # - mock-oidc: identity provider OIDC; endpoints login/oauth são pré-auth
+    # - public-api: serviço read-only sem endpoints write
     _RBAC_EXEMPT_NO_GLOBAL_ROLECHECK: set = {"auth-service", "mock-oidc", "public-api"}
     _rbac_exempt_count = 0
     for svc in svc_list:
@@ -1196,6 +1205,26 @@ def _extract_rbac_routes(main_content: str) -> List[_RbacRoute]:
     results: List[_RbacRoute] = []
     lines = main_content.splitlines()
     WRITE_METHODS = ("post", "put", "patch", "delete")
+    # Sprint 28+2: tokens de role-check generalizados por convenção DRY do monorepo.
+    # REGEX: captura 40+ helpers de autorização com 1 ou 2+ underscores:
+    #   • 1 underscore: _require_role(, _require_auth(, _require_org_id(
+    #   • 2+ underscores: _require_compliance_estimate_role(, _require_team_user_create_role(
+    # TERMOS: role/roles/auth/2fa/review/submission/suggestion/search/write/read/link/unlink/
+    #         mutation/binding/create/disable/update/identity/directory/report/token/gate/
+    #         lookup/audit/capability/capabilities/permission/permissions/strong/weak/federated/
+    #         operational/trigger/block/counterparty/kyc/sanctions/due/diligence/sof/estimate/
+    #         start/privileged/legal/coaf/evidence/internal/manual/billing/platform/external/
+    #         package/signoff/worker/provider/core/risk/model/confidence/explain/insight/graph/
+    #         narrator/enforcement
+    ROLE_CHECK_PATTERN = re.compile(
+        r"_require(?:_[a-zA-Z0-9_]+)?_(?:role|roles|auth|2fa|review|submission|suggestion|search|write|read|link|unlink|mutation|binding|create|disable|update|identity|directory|report|token|gate|lookup|audit|capability|capabilities|permission|permissions|strong|weak|federated|operational|trigger|block|counterparty|kyc|sanctions|due|diligence|sof|estimate|start|privileged|legal|coaf|evidence|internal|manual|billing|platform|external|package|signoff|worker|provider|core|risk|model|confidence|explain|insight|graph|narrator|enforcement|org_id|actor)\("
+    )
+    LITERAL_FALLBACK_TOKENS = (
+        "requires(roles=[",
+        "security=[Depends(requires(",
+        "rbac_required(",
+        "_require_role(",
+    )
     for idx, ln in enumerate(lines, start=1):
         # busca padrão @app.post("...") / @router.put(...) etc
         m = re.match(r"\s*@(?:app|router)\.(post|put|patch|delete)\(\s*[\"']([^\"']+)[\"']", ln)
@@ -1205,22 +1234,10 @@ def _extract_rbac_routes(main_content: str) -> List[_RbacRoute]:
         path = m.group(2)
         if method not in WRITE_METHODS:
             continue
-        # olha 20 linhas seguintes no corpo da função por token de role check
-        body_fragment = "\n".join(lines[idx : min(idx + 20, len(lines))])
-        has_rc = any(
-            t in body_fragment
-            for t in [
-                "_require_role_with_audit(",
-                "requires(roles=[",
-                "security=[Depends(requires(",
-                "rbac_required(",
-                "_require_manual_package_admin_mutation_role(",
-                "_require_manual_package_signoff_role_binding(",
-                "_require_internal_worker_token_with_audit(",
-                "_require_manual_package_read_role(",
-                "_require_billing_admin_mutation_role(",
-                "_require_role(",
-            ]
+        # olha 25 linhas seguintes no corpo da função por token de role check (convenção + literais)
+        body_fragment = "\n".join(lines[idx : min(idx + 25, len(lines))])
+        has_rc = bool(ROLE_CHECK_PATTERN.search(body_fragment)) or any(
+            t in body_fragment for t in LITERAL_FALLBACK_TOKENS
         )
         results.append(_RbacRoute(method=method.upper(), path=path, line=idx, has_role_check=has_rc))
     return results

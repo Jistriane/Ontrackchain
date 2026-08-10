@@ -145,6 +145,84 @@ def _require_role(x_role: Optional[str], allowed_roles: set[str], detail: str) -
     return normalized
 
 
+def _record_authorization_denial(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    denied_role: Optional[str],
+    allowed_roles: set[str],
+    resource_type: str,
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+    detail: str,
+) -> None:
+    try:
+        with pool.connection() as conn:
+            with conn.cursor() as cur:
+                _record_audit_log(
+                    cur,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                    action="authorization_denied",
+                    resource_type=resource_type,
+                    resource_id=(str(resource_id) if resource_id is not None else None),
+                    metadata={
+                        "request_id": request_id,
+                        "external_user_id": external_user_id,
+                        "x_role_provided": denied_role,
+                        "canonical_role_provided": _canonicalize_role(denied_role) if denied_role else None,
+                        "allowed_roles": sorted({_canonicalize_role(r) for r in allowed_roles}),
+                        "endpoint": endpoint,
+                        "method": method,
+                        "detail": detail,
+                        "event_source": "ai-service_rbac",
+                    },
+                )
+            conn.commit()
+    except Exception:  # noqa: BLE001 - never mask 403 because of audit-log failure
+        pass
+
+
+def _require_role_with_audit(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: Optional[str],
+    x_role: Optional[str],
+    allowed_roles: set[str],
+    detail: str,
+    resource_type: str,
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    normalized = _canonicalize_role(x_role)
+    allowed_canonical = {_canonicalize_role(r) for r in allowed_roles}
+    if normalized not in allowed_canonical:
+        _record_authorization_denial(
+            pool,
+            organization_id=organization_id,
+            user_id=user_id,
+            external_user_id=external_user_id,
+            request_id=request_id or "",
+            denied_role=x_role,
+            allowed_roles=allowed_roles,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            endpoint=endpoint,
+            method=method,
+            detail=detail,
+        )
+        raise HTTPException(status_code=403, detail=detail)
+    return normalized
+
+
 def _resolve_persisted_user_id(cur, user_id: Optional[str]) -> Optional[str]:
     if not user_id:
         return None
@@ -810,15 +888,30 @@ async def approve_job(
     req: Request,
     x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
     x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+    x_linked_user_id: Optional[str] = Header(default=None, alias="X-Linked-User-Id"),
+    x_request_id: Optional[str] = Header(default=None, alias="X-Request-Id"),
     x_role: Optional[str] = Header(default=None, alias="X-Role"),
 ) -> JobResponse:
     if not x_org_id:
         raise HTTPException(status_code=400, detail="X-Org-Id required")
-    canonical_role = _canonical_role_for_approval(x_role)
-    if canonical_role not in ("ADMIN", "COMPLIANCE_OFFICER", "LEGAL_REVIEWER"):
-        raise HTTPException(status_code=403, detail="JOB_FORBIDDEN")
-
     pool = get_pool(req)
+    request_id = x_request_id or str(uuid.uuid4())
+    effective_user_id, external_actor_user_id = x_user_id, x_linked_user_id
+    canonical_role = _require_role_with_audit(
+        pool,
+        organization_id=x_org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=request_id,
+        x_role=x_role,
+        allowed_roles={"ADMIN", "OTK_ADMIN", "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER", "LEGAL_REVIEWER", "OTK_LEGAL_REVIEWER"},
+        detail="JOB_FORBIDDEN",
+        resource_type="ai_job",
+        resource_id=job_id,
+        endpoint="/api/v1/ai/jobs/{job_id}/approve",
+        method="POST",
+    )
+
     with pool.connection() as conn:
         _apply_rls_context(conn, x_org_id)
         with conn.cursor() as cur:
