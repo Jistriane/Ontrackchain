@@ -16,7 +16,7 @@
 - **MINOR** — Nenhuma breaking change. 5/5 gates ADR-029 STRICT mantidos exit=0. 0 alteração código domínio Python/FastAPI. 0 IMUTÁVEIS LGPD.
 
 ### Head Commits (ciclo Sprint28+5 = 1 commit release)
-- **Release pura documental S28+5 (HEAD canônico)**: `[SHA NOVO após commit]` (34 commits locais ahead origin/main. M5 Bloqueio Push Remoto INTACTO. ~38h restantes prazo 12/08 23:59 BRT.)
+- **Release pura documental S28+5 (HEAD canônico)**: `07ff17d` (34 commits locais ahead origin/main. M5 Bloqueio Push Remoto INTACTO. ~38h restantes prazo 12/08 23:59 BRT. Nota: próximos commits incrementam ahead sem necessidade atualizar esta linha — ver padrão indústria README linha43.)
 
 ### Added
 - **Baseline Integridade Técnica v1.9 Sprint28+4 (NOVO arquivo oficial)**: [BASELINE-v1.9-SPRINT-28-4-HEAD-501bf54.md](./ontrackchain/docs/governance-sign-offs/baselines/BASELINE-v1.9-SPRINT-28-4-HEAD-501bf54.md). Head release 501bf54 (31 ahead). Histórico 33 commits locais S1→Sprint28+4 (tabela acrescenta S28+3 ac60ec3 + S28+4 triplo 501bf54/aaaf7f5/0442936). Seção 3 Checklist Integridade 9 itens: 5 ✅ CUMPRIDO (IMUTÁVEIS=0, apps=9, packages=4, 29/29 ADRs 100%, TruffleHog HIGH=0, AST 784=0 SyntaxErrors), 3 ☐ VERIFICAR pós M5 (commits ahead, W005 remover 2 futuro, pytest regressão CI), 1 ☐ PENDENTE SHA256 M5 Step01.
