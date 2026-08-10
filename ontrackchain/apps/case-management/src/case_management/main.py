@@ -249,6 +249,82 @@ def _require_role(x_role: Optional[str], allowed_roles: set[str], detail: str) -
     return normalized
 
 
+def _record_authorization_denial(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    effective_role: str,
+    allowed_roles: set[str],
+    detail: str,
+    resource_type: str,
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> None:
+    try:
+        with pool.connection() as conn:
+            _apply_rls_context(conn, organization_id)
+            with conn.cursor() as cur:
+                _record_audit_log(
+                    cur,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                    action="authorization_denied",
+                    resource_type=resource_type,
+                    resource_id=str(resource_id) if resource_id is not None else None,
+                    metadata={
+                        "request_id": request_id,
+                        "auth_role": effective_role,
+                        "allowed_roles": sorted(allowed_roles),
+                        "detail": detail,
+                        "endpoint": endpoint,
+                        "method": method,
+                        "external_user_id": external_user_id,
+                    },
+                )
+            conn.commit()
+    except Exception:
+        logger.exception("failed_to_record_authorization_denial")
+
+
+def _require_role_with_audit(
+    pool: ConnectionPool,
+    *,
+    organization_id: str,
+    user_id: Optional[str],
+    external_user_id: Optional[str],
+    request_id: str,
+    x_role: Optional[str],
+    allowed_roles: set[str],
+    detail: str,
+    resource_type: str,
+    resource_id: Optional[str | UUID],
+    endpoint: str,
+    method: str,
+) -> str:
+    normalized = _canonicalize_role(x_role)
+    if normalized not in {_canonicalize_role(r) for r in allowed_roles}:
+        _record_authorization_denial(
+            pool,
+            organization_id=organization_id,
+            user_id=user_id,
+            external_user_id=external_user_id,
+            request_id=request_id,
+            effective_role=normalized,
+            allowed_roles=allowed_roles,
+            detail=detail,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            endpoint=endpoint,
+            method=method,
+        )
+        raise HTTPException(status_code=403, detail=detail)
+    return normalized
+
+
 def _resolve_persisted_user_id(cur, user_id: Optional[str]) -> Optional[str]:
     if not user_id:
         return None
@@ -458,9 +534,22 @@ async def create_case(
 ) -> CaseResponse:
     if not x_org_id:
         raise HTTPException(status_code=400, detail="X-Org-Id required")
-    canonical_role = _require_role(x_role, CASE_WRITE_ALLOWED_ROLES, "case_write_role_required")
-
     pool = get_pool(request)
+    _request_id = str(uuid.uuid4())
+    canonical_role = _require_role_with_audit(
+        pool,
+        organization_id=x_org_id,
+        user_id=x_user_id,
+        external_user_id=None,
+        request_id=_request_id,
+        x_role=x_role,
+        allowed_roles=CASE_WRITE_ALLOWED_ROLES,
+        detail="case_write_role_required",
+        resource_type="case_management_case",
+        resource_id=None,
+        endpoint="/api/v1/cases",
+        method="POST",
+    )
     case_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
     risk_score = _calculate_risk_score(request_body)
@@ -713,9 +802,23 @@ async def requeue_investigation_dlq(
 ) -> dict[str, Any]:
     if not x_org_id:
         raise HTTPException(status_code=400, detail="X-Org-Id required")
-    _require_role(x_role, CASE_DLQ_ADMIN_ALLOWED_ROLES, "dlq_admin_role_required")
-
     pool = get_pool(request)
+    _request_id = str(uuid.uuid4())
+    _require_role_with_audit(
+        pool,
+        organization_id=x_org_id,
+        user_id=x_user_id,
+        external_user_id=None,
+        request_id=_request_id,
+        x_role=x_role,
+        allowed_roles=CASE_DLQ_ADMIN_ALLOWED_ROLES,
+        detail="dlq_admin_role_required",
+        resource_type="investigation_case",
+        resource_id=case_id,
+        endpoint="/api/v1/cases/investigation-dlq/{case_id}/requeue",
+        method="POST",
+    )
+
     with pool.connection() as conn:
         _apply_rls_context(conn, x_org_id)
         with conn.cursor() as cur:
@@ -777,9 +880,23 @@ async def acknowledge_investigation_dlq(
 ) -> dict[str, Any]:
     if not x_org_id:
         raise HTTPException(status_code=400, detail="X-Org-Id required")
-    _require_role(x_role, CASE_DLQ_ADMIN_ALLOWED_ROLES, "dlq_admin_role_required")
-
     pool = get_pool(request)
+    _request_id = str(uuid.uuid4())
+    _require_role_with_audit(
+        pool,
+        organization_id=x_org_id,
+        user_id=x_user_id,
+        external_user_id=None,
+        request_id=_request_id,
+        x_role=x_role,
+        allowed_roles=CASE_DLQ_ADMIN_ALLOWED_ROLES,
+        detail="dlq_admin_role_required",
+        resource_type="investigation_case",
+        resource_id=case_id,
+        endpoint="/api/v1/cases/investigation-dlq/{case_id}/acknowledge",
+        method="POST",
+    )
+
     with pool.connection() as conn:
         _apply_rls_context(conn, x_org_id)
         with conn.cursor() as cur:
@@ -890,9 +1007,22 @@ async def update_case(
 ) -> CaseResponse:
     if not x_org_id:
         raise HTTPException(status_code=400, detail="X-Org-Id required")
-    _require_role(x_role, CASE_WRITE_ALLOWED_ROLES, "case_write_role_required")
-
     pool = get_pool(request)
+    _request_id = str(uuid.uuid4())
+    _require_role_with_audit(
+        pool,
+        organization_id=x_org_id,
+        user_id=x_user_id,
+        external_user_id=None,
+        request_id=_request_id,
+        x_role=x_role,
+        allowed_roles=CASE_WRITE_ALLOWED_ROLES,
+        detail="case_write_role_required",
+        resource_type="case_management_case",
+        resource_id=case_id,
+        endpoint="/api/v1/cases/{case_id}",
+        method="PUT",
+    )
     with pool.connection() as conn:
         _apply_rls_context(conn, x_org_id)
         with conn.cursor() as cur:

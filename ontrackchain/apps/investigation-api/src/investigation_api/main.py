@@ -4696,6 +4696,24 @@ async def create_manual_package_signoff_request(
         external_user_id=x_user_id,
         linked_user_id=x_linked_user_id,
     )
+    _require_role_with_audit(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=effective_request_id,
+        x_role=x_role,
+        allowed_roles={
+            "ADMIN", "OTK_ADMIN",
+            "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+            "ANALYST", "OTK_ANALYST",
+        },
+        detail="manual_package_admin_mutation_role_required",
+        resource_type=MANUAL_PACKAGE_SEAL_RESOURCE_TYPE,
+        resource_id=None,
+        endpoint="/api/v1/evidence/manual-package/signoff-requests",
+        method="POST",
+    )
     _require_manual_package_admin_mutation_role(
         pool,
         organization_id=org_id,
@@ -4812,6 +4830,26 @@ async def record_manual_package_signoff(
     effective_user_id, external_actor_user_id = _resolve_actor_ids(
         external_user_id=x_user_id,
         linked_user_id=x_linked_user_id,
+    )
+    _require_role_with_audit(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=effective_request_id,
+        x_role=x_role,
+        allowed_roles={
+            "ADMIN", "OTK_ADMIN",
+            "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+            "ANALYST", "OTK_ANALYST",
+            "LEGAL_REVIEWER", "OTK_LEGAL_REVIEWER",
+            "REVIEWER", "OTK_REVIEWER",
+        },
+        detail="manual_package_signoff_role_required",
+        resource_type=MANUAL_PACKAGE_SEAL_RESOURCE_TYPE,
+        resource_id=seal_id,
+        endpoint="/api/v1/evidence/manual-package/seals/{seal_id}/signoffs",
+        method="POST",
     )
     auth_role = _require_manual_package_signoff_role_binding(
         pool,
@@ -4976,6 +5014,24 @@ async def finalize_manual_package_seal(
         external_user_id=x_user_id,
         linked_user_id=x_linked_user_id,
     )
+    _require_role_with_audit(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=effective_request_id,
+        x_role=x_role,
+        allowed_roles={
+            "ADMIN", "OTK_ADMIN",
+            "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+            "ANALYST", "OTK_ANALYST",
+        },
+        detail="manual_package_admin_mutation_role_required",
+        resource_type=MANUAL_PACKAGE_SEAL_RESOURCE_TYPE,
+        resource_id=seal_id,
+        endpoint="/api/v1/evidence/manual-package/seals/{seal_id}/finalize",
+        method="POST",
+    )
     _require_manual_package_admin_mutation_role(
         pool,
         organization_id=org_id,
@@ -5092,6 +5148,24 @@ async def revoke_manual_package_seal(
         external_user_id=x_user_id,
         linked_user_id=x_linked_user_id,
     )
+    _require_role_with_audit(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=effective_request_id,
+        x_role=x_role,
+        allowed_roles={
+            "ADMIN", "OTK_ADMIN",
+            "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+            "ANALYST", "OTK_ANALYST",
+        },
+        detail="manual_package_admin_mutation_role_required",
+        resource_type=MANUAL_PACKAGE_SEAL_RESOURCE_TYPE,
+        resource_id=seal_id,
+        endpoint="/api/v1/evidence/manual-package/seals/{seal_id}/revoke",
+        method="POST",
+    )
     _require_manual_package_admin_mutation_role(
         pool,
         organization_id=org_id,
@@ -5170,6 +5244,24 @@ async def supersede_manual_package_seal(
     effective_user_id, external_actor_user_id = _resolve_actor_ids(
         external_user_id=x_user_id,
         linked_user_id=x_linked_user_id,
+    )
+    _require_role_with_audit(
+        pool,
+        organization_id=org_id,
+        user_id=effective_user_id,
+        external_user_id=external_actor_user_id,
+        request_id=effective_request_id,
+        x_role=x_role,
+        allowed_roles={
+            "ADMIN", "OTK_ADMIN",
+            "COMPLIANCE_OFFICER", "OTK_COMPLIANCE_OFFICER",
+            "ANALYST", "OTK_ANALYST",
+        },
+        detail="manual_package_admin_mutation_role_required",
+        resource_type=MANUAL_PACKAGE_SEAL_RESOURCE_TYPE,
+        resource_id=seal_id,
+        endpoint="/api/v1/evidence/manual-package/seals/{seal_id}/supersede",
+        method="POST",
     )
     _require_manual_package_admin_mutation_role(
         pool,
