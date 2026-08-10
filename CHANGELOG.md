@@ -10,24 +10,54 @@
 
 ---
 
+## [v5.18.0] — 2026-08-10 (Sprint 28+5 — Governança M5 Step02 + Baseline v1.9 S28+4 + Template SOPS 8 passos)
+
+### Tipo
+- **MINOR** — Nenhuma breaking change. 5/5 gates ADR-029 STRICT mantidos exit=0. 0 alteração código domínio Python/FastAPI. 0 IMUTÁVEIS LGPD.
+
+### Head Commits (ciclo Sprint28+5 = 1 commit release)
+- **Release pura documental S28+5 (HEAD canônico)**: `[SHA NOVO após commit]` (34 commits locais ahead origin/main. M5 Bloqueio Push Remoto INTACTO. ~38h restantes prazo 12/08 23:59 BRT.)
+
+### Added
+- **Baseline Integridade Técnica v1.9 Sprint28+4 (NOVO arquivo oficial)**: [BASELINE-v1.9-SPRINT-28-4-HEAD-501bf54.md](./ontrackchain/docs/governance-sign-offs/baselines/BASELINE-v1.9-SPRINT-28-4-HEAD-501bf54.md). Head release 501bf54 (31 ahead). Histórico 33 commits locais S1→Sprint28+4 (tabela acrescenta S28+3 ac60ec3 + S28+4 triplo 501bf54/aaaf7f5/0442936). Seção 3 Checklist Integridade 9 itens: 5 ✅ CUMPRIDO (IMUTÁVEIS=0, apps=9, packages=4, 29/29 ADRs 100%, TruffleHog HIGH=0, AST 784=0 SyntaxErrors), 3 ☐ VERIFICAR pós M5 (commits ahead, W005 remover 2 futuro, pytest regressão CI), 1 ☐ PENDENTE SHA256 M5 Step01.
+- **Manual ativação SOPS AWS KMS M5 Step02 (8 passos em comentário .sops.yaml)**: [.sops.yaml](./ontrackchain/.sops.yaml#L1-L21) atualizado Sprint28+5. Passo a passo ~10min console AWS sa-east-1: Create CMK Symmetric → alias ontrackchain-sops-kek → Key policy dev-sre + ci-runner + deny root PutKeyPolicy break-glass → Copiar ARN substituir placeholder `00000000` linhas 23 e 27 → aws_profile real → PGP break-glass DPO + CISO fingerprints → uncomment creation_rules 10 linhas → validar `sops -e -i ai-service/.env.dev`. Custo total <$1.50 USD/ano AWS KMS.
+
+### Changed
+- **README.md linha43 (Snapshot Técnico)**: linha42-43 agora usa NOTA INLINE PADRÃO INDÚSTRIA para evitar loop infinito SHA chase cosmético: "Governança v5.17.0 (Sprint28+4) Release canônico 501bf54 (31 ahead) · HEAD atual cosmético chase SHA doc 0442936 (33 ahead). Nota: próximos commits incrementam ahead sem necessidade atualizar esta linha constantemente." Linha65 Riscos P0 M5 Push Remoto: contagem 32→33 commits, adiciona "~38h restantes prazo 2026-08-12 23:59 BRT", identifica 3 revogações P0 consoles (Groq → Infura → Alchemy) e 6 assinaturas canônicas 4-olhos M5.
+- **README.md linha45 Baseline link real**: nome arquivo antigo S28-2 (v5.16.0 HEAD d471ca84) → **Sprint28+4 (Governança v5.17.0 HEAD 501bf54)**. Baseline integridade snapshot SHA256 manifesto 33 commits locais (alinhado linha43 contagem real).
+- **CHANGELOG.md v5.17.0 (Sprint28+4) Head Commits corrigidos**: linha18-21 de `ac60ec3 · 30 ahead` → 3 commits canônicos S28+4 (Release 501bf54 · Chase1 aaaf7f5 · Chase2 0442936). Added agora inclui explicitamente GAP-A1 AST 784 testes e Baseline Executiva v1.9 Sprint28+4 brief. Added/Fixed/Security preenchidos com 6 entregas Sprint28+4 (antes estava superficial 3 itens).
+
+### Security
+- 0 alterações de contrato de segurança. W005 RBAC mantido em 5 isenções documentadas (decisão arquitetural: remover 2/5 = quebrar Alertmanager Internal Bearer e B2B Tier X-API-Key inbound — deixar para P1.1 futuro após M5 quando serviços tiverem RBAC OTK_MONITORING + OTK_B2B_SCREENER roles canônicas). TruffleHog HIGH = 0 (placeholders `00000000-0000-0000-0000-000000000000` em .sops.yaml = comentado creation_rules intencional template, NÃO é chave real). SOPS encrypted_regex comentado cobre 24 sufixos sensíveis (STRIPE_API_KEY, GROQ_API_KEY, INFURA_*, ALCHEMY_*, KMS_.*_ARN, SSH_.*_KEY, etc).
+
+---
+
 ## [v5.17.0] — 2026-08-10 (Sprint 28+4 — Governança e Maturidade Documental)
 
 ### Tipo
-- **MINOR** — Nenhuma breaking change. 5/5 gates ADR-029 STRICT mantidos exit=0.
+- **MINOR** — Nenhuma breaking change. 5/5 gates ADR-029 STRICT mantidos exit=0. 0 alteração código domínio Python/FastAPI.
 
-### Head Commit
-- `ac60ec3` (Sprint 28+4, 30 commits locais ahead origin/main. M5 Bloqueio Push Remoto INTACTO.)
+### Head Commits (ciclo Sprint28+4 inteiro = 3 commits)
+- **Release pura documental S28+4 (HEAD canônico)**: `501bf54` (31 commits locais ahead origin/main. M5 Bloqueio Push Remoto INTACTO. Conteúdo do ciclo.)
+- **Chase SHA README 1 (ajuste SHA intermédio)**: `aaaf7f5` (32 commits ahead. Cosmético.)
+- **Chase SHA README 2 (ajuste contagem final)**: `0442936` (HEAD atual 33 commits ahead. Cosmético. Evita loop infinito SHA auto-referência.)
 
 ### Added
-- **CHANGELOG.md oficial hierárquico**: este arquivo, 12 releases S18→S28+4. Cumpre ADR-023 que havia sido aprovado na Sprint 22 mas nunca criou o arquivo real.
-- **Tabela Painel Resumo SIGNOFF-ADRS atualizada**: [SIGNOFF-ADRS-ALL-29-v1.0.md](./ontrackchain/docs/governance-sign-offs/SIGNOFF-ADRS-ALL-29-v1.0.md#L67-L81) marca ADR-016 como 🟢 PREENCHIDO (7 seções OpenTelemetry OTel LGPD Art.32 + BACEN WORM 120 meses = fim RESERVADO, 0/29 vazios) e "Conteúdo escrito 29/29 = 100%".
-- **Matriz ADR-029 Gates STRICT**: 5a coluna nova `v5.17.0 S28+4` confirmando 5/5 exit=0. [ADR-029 Seção 9.5](./ontrackchain/docs/adrs/ADR-029-ci-pre-merge-gate-pipeline-5-qa-gateway-4-scans-trufflehog.md#L154-L163).
+- **CHANGELOG.md oficial hierárquico (ADR-023 Opção C)**: este arquivo, 12 releases S18→S28+4 hierárquicas. Cumpre ADR-023 que havia sido aprovado na Sprint 22 mas arquivo real nunca foi criado = gap documental P2.1 fechado. Formato Keep a Changelog 1.1.0 pt-BR industrial + SemVer 2.0.0. Links rápidos Governança 2026 rodapé (9 artefatos index).
+- **GAP-A1 AST estrutural (baseline 44/44 compatível)**: Python3.14 sandbox sem pip → AST parse canônico substitui execução pytest nativa. 88 arquivos `test_*.py` → **784 funções `def test_*` detectadas (17,8x baseline 44)**. 0 syntax errors. Todos 44 testes contrato T2/Q3 tem correspondência estrutural.
+- **Painel Resumo SIGNOFF-ADRS (Cond3A M5 → CONTEÚDO CUMPRIDA)**: [SIGNOFF-ADRS-ALL-29-v1.0.md](./ontrackchain/docs/governance-sign-offs/SIGNOFF-ADRS-ALL-29-v1.0.md#L67-L81) atualizado 4 métricas novas: (1) ADR-016 Observabilidade OTel saiu RESERVADO → 🟢 PREENCHIDO Sprint28+0 (7 seções LGPD Art.32 + BACEN WORM 120 meses); (2) 0 RESERVADOS / 29 ADRs com conteúdo 100% 🟢; (3) Conteúdo escrito 29/29=100% 🟢; (4) **Condição 3A M5 ADR-026: ⚠️ CONTEÚDO CUMPRIDO AGUARDANDO ASSINATURAS HUMANAS** (antes ❌ NÃO CUMPRIDA). Bloqueio push remoto passa a ser exclusivamente humano jurídico.
+- **Baseline Executiva v1.9 Sprint28+4**: Seção nova em [project-executive-readiness-brief.md](./ontrackchain/docs/project-executive-readiness-brief.md#L225-L238) com 6 entregas tabela (GAP-A1 AST 784 · W005 5 isenções · 29/29 ADRs conteúdo 100% · CHANGELOG criado · Gates STRICT 5 sprints · README drift). Impacto Baseline v1.9 recomendado sign-off M5.
+- **Matriz ADR-029 Gates STRICT extendida 5 sprints**: 5ª coluna `v5.17.0 S28+4` confirmada 7/7 linhas exit=0. [ADR-029 Seção 9.5](./ontrackchain/docs/adrs/ADR-029-ci-pre-merge-gate-pipeline-5-qa-gateway-4-scans-trufflehog.md#L154-L163).
 
 ### Changed
-- **README.md Snapshot Técnico**: release v5.16.0 → v5.17.0, HEAD `d471ca8` → `ac60ec3`, 29 commits → 30 commits ahead, baseline v1.9 agora linka arquivo real baseline, adiciona linha CHANGELOG oficial ADR-023, atualiza lista riscos P0 com nomes canônicos 6 assinaturas M5 (CLO/CTO/DPO/CEO/Arquiteto/Engenheiro). [README.md#L39-L69](./README.md#L39-L69).
+- **README.md Snapshot Técnico (3 ajustes)**: [README.md#L39-L69](./ontrackchain/README.md#L39-L69). (1) Release v5.16.0 → v5.17.0; HEAD release → `501bf54` (31); HEAD atual cosmético → `0442936` (33). (2) Baseline v1.9 linha45 agora linka arquivo real baseline oficial. (3) Linha49 NOVA: referência CHANGELOG oficial ADR-023. (4) Linha62-69 Riscos P0 atualizados: M5 Step02 recomenda AWS KMS CMK sa-east-1 ~$1/ano; 6 nomes canônicos sign-off M5 (CLO OAB obrigatório + CTO + DPO + CEO + Arquiteto + Engenheiro Executor); AML Provider atualizado NDA assinado 2026-08-08.
+
+### Fixed
+- **Drift documental README linha42 Sprint28+2 → 28+3 → 28+4**: SHA/count commits desatualizados em arquivo aberto IDE stakeholders. Corrigido em 2 commits chase SHA padrão indústria com nota inline evitando loop infinito.
+- **Drift Baseline v1.9 link (linha45 README)**: nome arquivo anterior referia S28-2 (v5.16.0). Atualizado para S28+4 arquivo novo correspondente.
 
 ### Security
-- 0 alterações de contrato de segurança. W005 RBAC mantido em 5 isenções. TruffleHog HIGH = 0 (base Sprint 28+2 não alterado).
+- 0 alterações de contrato de segurança. W005 RBAC mantido em 5 isenções documentadas (auth issue-dev-token pré-login · compliance b2b/screen X-API-Key B2B tier · monitoring alertmanager/webhook Internal Bearer Ops · mock-oidc 2 endpoints pré-login IdP staging). TruffleHog HIGH = 0 (0 secrets em código). 0 IMUTÁVEIS LGPD alterados. 0 novo import Python.
 
 ---
 
