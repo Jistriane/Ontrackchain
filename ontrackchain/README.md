@@ -40,7 +40,7 @@ Nota de workspace:
 
 ### Estado atual
 
-- `Release de plataforma`: **Governança v5.17.0 (Sprint 28+4, HEAD `501bf54`, 31 commits locais ahead origin/main)**
+- `Release de plataforma`: **Governança v5.17.0 (Sprint 28+4, HEAD `aaaf7f5`, 32 commits locais ahead origin/main)**
 - `Baseline executiva oficial`: **100%** técnico, **100%** regulatório/operacional, **100%** consolidado (fonte: `docs/project-executive-readiness-brief.md`)
 - `Baseline integridade técnica`: **v1.9** (Sprint 28+3; snapshot SHA256 + manifesto 30 commits locais. Arquivo oficial: [`docs/governance-sign-offs/baselines/BASELINE-v1.9-SPRINT-28-2-HEAD-d471ca84.md`](./docs/governance-sign-offs/baselines/BASELINE-v1.9-SPRINT-28-2-HEAD-d471ca84.md))
 - `a baseline viva e os detalhes técnicos estão em `docs/README.md` e no [Apêndice técnico](./docs/TECHNICAL_APPENDIX.md)
@@ -62,7 +62,7 @@ Nota de workspace:
 
 ### Riscos P0 Remanescentes Reais (Sprint 28+4)
 
-- `M5 Push Remoto`: sincronizar **31 commits locais** da branch `main` com GitHub origin/main (🔴 **BLOQUEADO M5 até 2026-08-12 23:59 BRT**): revogação credenciais Groq/Infura/Alchemy + 6 assinaturas sign-off humano (CLO OAB, CTO, DPO, CEO, Arquiteto, Engenheiro Executor)
+- `M5 Push Remoto`: sincronizar **32 commits locais** da branch `main` com GitHub origin/main (🔴 **BLOQUEADO M5 até 2026-08-12 23:59 BRT**): revogação credenciais Groq/Infura/Alchemy + 6 assinaturas sign-off humano (CLO OAB, CTO, DPO, CEO, Arquiteto, Engenheiro Executor)
 - `M5 Step02 Vault Transit AES256-GCM`: criptografia real de segredos (não mock). Template .sops.yaml preparado Sprint 28+3. Opções: (A) AWS KMS CMK sa-east-1 ~$1/ano RECOMENDADO / (B) HashiCorp Vault Transit HSM.
 - `Integrações Externas Reais`: homologar `AML/KYT live` (NDA assinado 2026-08-08, credencial Chainalysis/TRM/Elliptic), `feed UE` (URL tokenizada OFAC/EU), `OIDC MFA` com IdP produtivo real Keycloak.
 - `Janela Séria Completa`: executar primeira janela séria 100% homologada com `go/no-go` formal, sign-offs 4-eyes e evidências não-mock
