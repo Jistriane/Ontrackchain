@@ -40,7 +40,7 @@ Nota de workspace:
 
 ### Estado atual
 
-- `Release de plataforma`: **Governança v5.17.0 (Sprint 28+4, HEAD `ac60ec3` (pré-commit, após commit = SHA novo), 31 commits locais ahead origin/main)**
+- `Release de plataforma`: **Governança v5.17.0 (Sprint 28+4, HEAD `501bf54`, 31 commits locais ahead origin/main)**
 - `Baseline executiva oficial`: **100%** técnico, **100%** regulatório/operacional, **100%** consolidado (fonte: `docs/project-executive-readiness-brief.md`)
 - `Baseline integridade técnica`: **v1.9** (Sprint 28+3; snapshot SHA256 + manifesto 30 commits locais. Arquivo oficial: [`docs/governance-sign-offs/baselines/BASELINE-v1.9-SPRINT-28-2-HEAD-d471ca84.md`](./docs/governance-sign-offs/baselines/BASELINE-v1.9-SPRINT-28-2-HEAD-d471ca84.md))
 - `a baseline viva e os detalhes técnicos estão em `docs/README.md` e no [Apêndice técnico](./docs/TECHNICAL_APPENDIX.md)
