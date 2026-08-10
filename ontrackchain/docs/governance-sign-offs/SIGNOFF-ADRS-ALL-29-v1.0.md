@@ -64,7 +64,7 @@ Ordem de classificação: impacto regulatório decrescente (LGPD → BACEN → C
 | 26 | _vazia_ | ADR-015 | Futuro do Módulo Team (Roadmap equipe colaboração) | | | | 🔴 PENDENTE | | | | |
 | 27 | _vazia_ | ADR-023 | CHANGELOG Hierárquico por Sprint Keep a Changelog 1.1.0 + SemVer 2.0.0 | | | | 🔴 PENDENTE | | | | |
 | 28 | _vazia_ | ADR-002 | Billing Quote Plan Lock (trava orçamento plano contratual) | | | | 🔴 PENDENTE | | | | |
-| 29 | _vazia_ | ADR-016 | (RESERVADO PARA FUTURO ADR) — vago. Descoberto gap índice 16→17. Manter linha reservada. | | | | 🟡 RESERVADO | | | | |
+| 29 | _vazia_ | ADR-016 | **Observabilidade OpenTelemetry OTLP v1.0.0** (Tracing distribuído + Métricas Prometheus + Logs estruturados OTLP LGPD). 7 seções preenchidas Sprint 28+0 GAP-B3: Arquitetura 3 camadas, Instrumentação apps, OTLP Schema 14 campos LGPD Art.32, Sampling Head/Tail, BACEN WORM 120 meses S3, Grafana Stack, Segurança e Custos. FIM do RESERVADO (gap índice 16→17 corrigido Sprint 27). | | | | 🟢 **PREENCHIDO Sprint 28+0** | | | | |
 
 ---
 
@@ -73,11 +73,12 @@ Ordem de classificação: impacto regulatório decrescente (LGPD → BACEN → C
 | Métrica | Valor | Status |
 |---|---|---|
 | Total ADRs | 29 | ✅ |
-| Aprovados | 0/29 | 🔴 **PENDENTE JURÍDICO** |
+| Aprovados | 0/29 | 🔴 **PENDENTE JURÍDICO** (aguardando assinaturas linha 85+) |
 | Rejeitados | 0 | 🟢 |
-| Pendentes | 28/29 | 🔴 |
-| Reservados (ADR-016 vago) | 1/29 | 🟡 (não bloqueia sign-off) |
-| **Condição 3A do M5 (ADR-026)** | 29/29 aprovados exceto reservado? | **❌ NÃO CUMPRIDA — bloqueia push remoto** |
+| Pendentes de assinatura (ativos) | 28/29 | 🔴 (conteúdo dos 28 ADRs está 100% escrito. Só falta assinatura humana.) |
+| Reservados / Vazios | **0/29** | 🟢 **✅ ZERO RESERVADOS** (ADR-016 preenchido Sprint 28+0 = 29/29 ADRs com conteúdo) |
+| Conteúdo escrito 29/29 | 29/29 = 100% | 🟢 **COMPLETO** |
+| **Condição 3A do M5 (ADR-026)** | Conteúdo dos 29 ADRs: 100% preenchido. Assinaturas humanas: 0/29. | **⚠️ CONTEÚDO CUMPRIDO. AGUARDANDO ASSINATURAS JURÍDICAS (bloqueia push remoto até assinatura).** |
 
 ---
 

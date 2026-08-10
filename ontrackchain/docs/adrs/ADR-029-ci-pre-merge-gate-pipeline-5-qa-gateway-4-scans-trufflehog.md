@@ -153,14 +153,14 @@ Quando o sign-off M5 for aprovado (template `docs/governance-sign-offs/M5-remova
 
 ### 9.5 Matriz Resultado Gates STRICT por Sprint (max-warnings=0 → 0 issues exit=0)
 
-| Gate (ID) | v5.13.0 S27 baseline | v5.14.0 S28+0 | v5.15.0 S28+1 | v5.16.0 S28+2 |
-|-----------|:--------------------:|:-------------:|:-------------:|:-------------:|
-| **Q1-RBAC** (scan-rbac) | exit 0 — 84 issues ⚠️ W002-W005 aceitos | exit 0 — 33 isenções W005 | exit 0 — 33 isenções W005 | ✅ **exit 0 — 5 isenções W005 (-85%)** |
-| **Q2-BILLING-CAP** (scan-billing-capabilities) | exit 0 | exit 0 (ignora BW-003 import sandbox) | exit 0 | exit 0 |
-| **Q3-BILLING-ENF** (scan-billing-enforcement) | exit 0 | exit 0 (ignora BE-003 import sandbox) | exit 0 | exit 0 |
-| **Q4-LGPD-ROPD** (scan-lgpd-ropd) | exit 0 (0 issues 0 warnings) | exit 0 | exit 0 (+ CSV consolidado) | exit 0 |
-| **Q5-SECRETS-TH** (scan-secrets-trufflehog) | exit 0 (0 HIGH) | exit 0 (~41s) | exit 0 | exit 0 |
-| **STRICT 5/5 PASS** | ✅ | ✅ | ✅ | ✅ |
+| Gate (ID) | v5.13.0 S27 baseline | v5.14.0 S28+0 | v5.15.0 S28+1 | v5.16.0 S28+2 | v5.17.0 S28+4 |
+|-----------|:--------------------:|:-------------:|:-------------:|:-------------:|:-------------:|
+| **Q1-RBAC** (scan-rbac) | exit 0 — 84 issues ⚠️ W002-W005 aceitos | exit 0 — 33 isenções W005 | exit 0 — 33 isenções W005 | ✅ **exit 0 — 5 isenções W005 (-85%)** | ✅ exit 0 — 5 isenções W005 mantido |
+| **Q2-BILLING-CAP** (scan-billing-capabilities) | exit 0 | exit 0 (ignora BW-003 import sandbox) | exit 0 | exit 0 | exit 0 |
+| **Q3-BILLING-ENF** (scan-billing-enforcement) | exit 0 | exit 0 (ignora BE-003 import sandbox) | exit 0 | exit 0 | exit 0 |
+| **Q4-LGPD-ROPD** (scan-lgpd-ropd) | exit 0 (0 issues 0 warnings) | exit 0 | exit 0 (+ CSV consolidado) | exit 0 | exit 0 |
+| **Q5-SECRETS-TH** (scan-secrets-trufflehog) | exit 0 (0 HIGH) | exit 0 (~41s) | exit 0 | exit 0 | exit 0 |
+| **STRICT 5/5 PASS** | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ---
 

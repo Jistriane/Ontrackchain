@@ -40,13 +40,14 @@ Nota de workspace:
 
 ### Estado atual
 
-- `Release de plataforma`: **Governança v5.16.0 (Sprint 28+2, HEAD `d471ca8`, 29 commits locais ahead origin/main)**
+- `Release de plataforma`: **Governança v5.17.0 (Sprint 28+4, HEAD `ac60ec3` (pré-commit, após commit = SHA novo), 31 commits locais ahead origin/main)**
 - `Baseline executiva oficial`: **100%** técnico, **100%** regulatório/operacional, **100%** consolidado (fonte: `docs/project-executive-readiness-brief.md`)
-- `Baseline integridade técnica`: **v1.9** (Sprint 28+2; snapshot SHA256 + manifesto 29 commits locais)
+- `Baseline integridade técnica`: **v1.9** (Sprint 28+3; snapshot SHA256 + manifesto 30 commits locais. Arquivo oficial: [`docs/governance-sign-offs/baselines/BASELINE-v1.9-SPRINT-28-2-HEAD-d471ca84.md`](./docs/governance-sign-offs/baselines/BASELINE-v1.9-SPRINT-28-2-HEAD-d471ca84.md))
 - `a baseline viva e os detalhes técnicos estão em `docs/README.md` e no [Apêndice técnico](./docs/TECHNICAL_APPENDIX.md)
 - `o blueprint padrão hospedado passou a ser `frontend standalone showcase` e serviços `FastAPI` em produção
 - `suporte a APIs B2B Institucionais (`/api/v1/b2b/screen`) e Monetização Stripe Billing SaaS (`StripeBillingManager`, `/api/stripe/webhook`)
 - `resiliência DR e Restore PostgreSQL automatizada e validada (`test_postgres_backup_restore.py`)
+- `CHANGELOG oficial hierárquico ADR-023`: criado Sprint 28+4 em [`CHANGELOG.md`](./CHANGELOG.md) (Keep a Changelog 1.1.0 + SemVer 2.0.0, 12 releases S18→S28+4)
 - `P1-01` consolidou metadata de `work-items` entre frontend, backend e contrato canônico
 - `P2-02` consolidou `timeline/comments` compartilhados nos cockpits operacionais
 - `P2-03` consolidou RCA cross-domain leve entre `alerts`, `/monitoring` e governança
@@ -59,11 +60,11 @@ Nota de workspace:
 - `LGPD Art.37 ROPD`: 7 ROPDs + 1 CSV consolidado `docs/compliance-ropd/ROPD-OTK-CONSOLIDADO.csv` (13 colunas, QUOTE_ALL). Contato DPO pré-preenchido (Dr.Carlos Mendes).
 - a taxonomia documental ja foi saneada para separar documento vivo, ciclo ativo, historico de apoio e historico arquivado
 
-### Riscos P0 Remanescentes Reais (Sprint 28+2)
+### Riscos P0 Remanescentes Reais (Sprint 28+4)
 
-- `M5 Push Remoto`: sincronizar **29 commits locais** da branch `main` com GitHub origin/main (🔴 **BLOQUEADO M5 até 2026-08-12 23:59 BRT**): revogação credenciais Groq/Infura/Alchemy + 6 assinaturas sign-off humano (Dev Lead, 2x Senior, Arquiteto, CISO, DPO, CTO/CEO)
-- `M5 Step02 Vault Transit AES256-GCM`: criptografia real de segredos (não mock). Opções: (A) HashiCorp Vault Transit HSM / (B) Alternativa barata `mozilla/sops` + AWS KMS CMK.
-- `Integrações Externas Reais`: homologar `AML/KYT live` (credencial TRM Labs/Chainalysis/Elliptic), `feed UE` (URL tokenizada OFAC/EU), `OIDC MFA` com IdP produtivo real Keycloak.
+- `M5 Push Remoto`: sincronizar **31 commits locais** da branch `main` com GitHub origin/main (🔴 **BLOQUEADO M5 até 2026-08-12 23:59 BRT**): revogação credenciais Groq/Infura/Alchemy + 6 assinaturas sign-off humano (CLO OAB, CTO, DPO, CEO, Arquiteto, Engenheiro Executor)
+- `M5 Step02 Vault Transit AES256-GCM`: criptografia real de segredos (não mock). Template .sops.yaml preparado Sprint 28+3. Opções: (A) AWS KMS CMK sa-east-1 ~$1/ano RECOMENDADO / (B) HashiCorp Vault Transit HSM.
+- `Integrações Externas Reais`: homologar `AML/KYT live` (NDA assinado 2026-08-08, credencial Chainalysis/TRM/Elliptic), `feed UE` (URL tokenizada OFAC/EU), `OIDC MFA` com IdP produtivo real Keycloak.
 - `Janela Séria Completa`: executar primeira janela séria 100% homologada com `go/no-go` formal, sign-offs 4-eyes e evidências não-mock
 - `Sign-off Institucional Retenção`: formalizar recorrência de Disaster Recovery (DR) e retention policy com sign-off jurídico/segurança compliance (LGPD Art.19)
 
