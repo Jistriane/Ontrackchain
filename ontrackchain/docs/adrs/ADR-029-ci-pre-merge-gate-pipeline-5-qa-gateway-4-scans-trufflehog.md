@@ -137,3 +137,39 @@ Quando o sign-off M5 for aprovado (template `docs/governance-sign-offs/M5-remova
 4. **1 linha apenas**: `qa-gateway run-pre-merge-gates --dpo-email "${{ vars.DPO_EMAIL }}" --report-dir ./qa-reports`.
 5. Optional actions/upload-artifact@v4 de `./qa-reports` retention-days=180 (6 meses LGPD).
 6. Não tem mais nada. Todo resto é no orquestrador qa-gateway. ✅
+
+---
+
+## 9. Histórico de Revisões e Refinamentos Sprint 28 (Governança v5.14.0 → v5.16.0)
+
+> ADR-029 é documento vivo. Refinamentos realizados em Sprints pós-aprovação:
+
+| # | Versão Governança | Sprint | Data | Mudança Principal | Trade-offs Documentados |
+|---|-------------------|--------|------|-------------------|--------------------------|
+| **9.1** | v5.14.0 | Sprint 28+0 | 2026-08-09 | **RBAC Opção B Moderada (W005) + STRICT ignore lists.** Introduz `_RBAC_EXEMPTIONS_BY_PATH` pontual (auth-service pré-auth + investigation estimate/start/internal). STRICT ignora W002 public-api read-only (0 endpoints write), W004 Fase B sem `--db-url`, W005 isenções documentadas. Introduz `_RBAC_EXEMPT_NO_GLOBAL_ROLECHECK = {"auth-service", "mock-oidc", "public-api"}` para não marcar flag "zero role-checks global" em serviços híbridos. | ✅ 51 isenções → 33 isenções W005. Nenhum endpoint anon write real. Risco aceito. |
+| **9.2** | v5.15.0 | Sprint 28+1 | 2026-08-10 | **Bug #6 Schema gates LIST → DICT + CSV ROPD consolidado.** Parser downstream do orquestrador esperava `gates["Q1-RBAC"]` keyed por `gate_id`, não lista ordenada. Impacto: relatório JSON estruturado quebrava no dashboard DRE. Fix: `output["gates"] = {g["gate_id"]: g for g in gates_list}`. Ajusta CSV `docs/compliance-ropd/ROPD-OTK-CONSOLIDADO.csv` para 13 colunas QUOTE_ALL + contato DPO preenchido. | ✅ 0 regressão. O(n) extra mínimo. |
+| **9.3** | v5.16.0 | Sprint 28+2 | 2026-08-10 | **Scanner Q1 Regex Generalizado DRY + Isenções W005 33→5 (-85%).** Scanner original só capturava 10 tokens literais (falso-negativos em 22 wrappers específicos de domínio: `_require_compliance_estimate_role`, `_require_monitoring_operational_role`, `_require_strong_auth_for_legal_report`, `_require_role(` ai-service 1 underscore, etc). Implementação nova: <ul><li>Regex `ROLE_CHECK_PATTERN` aceita 1 OU 2+ underscores: `_require(?:_[a-zA-Z0-9_]+)?_(?:role|auth|report|...|enforcement|explain|risk|model|confidence|org_id|actor)` (75 termos de sufixo).</li><li>Expandido body fragment lookup 20 → 25 linhas (pegar corpos endpoint maiores).</li><li>`LITERAL_FALLBACK_TOKENS`: `requires(roles=[`, `security=[Depends(requires(`, `rbac_required(`, `_require_role(` (catch-all 1 underscore ai-service).</li><li>Removidos auto-exempt bulk de compliance/monitoring/report/ai-service/mock-oidc (33→5): restam APENAS (a) auth-service `POST /auth/issue-dev-token` (pré-login), (b) compliance-api `POST /api/v1/b2b/screen` (B2B X-API-Key), (c) monitoring-api `POST /internal/ops/alertmanager/webhook` (Internal Bearer), (d) mock-oidc 3 endpoints pré-login IdP.</li><li>ai-service inline RBAC canônico Sprint 28+2: 2 novas funções `_record_authorization_denial(pool → audit_logs)` + `_require_role_with_audit` 100% assinatura idêntica shared inline fallback + endpoint `POST /api/v1/ai/jobs/{job_id}/approve` refatorado (adiciona headers `X-Linked-User-Id`/`X-Request-Id`, usa roles canônicos OTK_*, remove duplicata `pool = get_pool(req)`).</li></ul> | ✅ 28 isenções removidas sem tocar lógica de domínio. 9 serviços 100% cobertos. Q1 agora detecta 40+ wrappers. Custo: ~40 linhas regex. |
+| **9.4** | v5.16.0 Sprint 28+3 | Sprint 28+3 | 2026-08-10 | **Estrutura SOPS + Baseline v1.9 + Checklist M5.** Cria `.sops.yaml` raiz (template preparatório: Opção A AWS KMS CMK $1/ano + Opção B Vault Transit Engine HSM + Shamir 2-de-3). Baseline v1.9 em `docs/governance-sign-offs/baselines/BASELINE-v1.9-SPRINT-28-2-HEAD-d471ca84.md`: Merkle root, histórico 29 commits, checklist integridade 9 itens, revogação 3 credenciais. Checklist M5 Sign-off: 3 revogações + 3A 4 itens + 14 Passos + 6 Assinaturas + 9 Anexos. pytest baseline: 784 funções teste detectadas (AST parse 88 arquivos, 0 syntax errors). | ✅ 0 risco de quebra. Tudo documentação preparatória. |
+
+### 9.5 Matriz Resultado Gates STRICT por Sprint (max-warnings=0 → 0 issues exit=0)
+
+| Gate (ID) | v5.13.0 S27 baseline | v5.14.0 S28+0 | v5.15.0 S28+1 | v5.16.0 S28+2 |
+|-----------|:--------------------:|:-------------:|:-------------:|:-------------:|
+| **Q1-RBAC** (scan-rbac) | exit 0 — 84 issues ⚠️ W002-W005 aceitos | exit 0 — 33 isenções W005 | exit 0 — 33 isenções W005 | ✅ **exit 0 — 5 isenções W005 (-85%)** |
+| **Q2-BILLING-CAP** (scan-billing-capabilities) | exit 0 | exit 0 (ignora BW-003 import sandbox) | exit 0 | exit 0 |
+| **Q3-BILLING-ENF** (scan-billing-enforcement) | exit 0 | exit 0 (ignora BE-003 import sandbox) | exit 0 | exit 0 |
+| **Q4-LGPD-ROPD** (scan-lgpd-ropd) | exit 0 (0 issues 0 warnings) | exit 0 | exit 0 (+ CSV consolidado) | exit 0 |
+| **Q5-SECRETS-TH** (scan-secrets-trufflehog) | exit 0 (0 HIGH) | exit 0 (~41s) | exit 0 | exit 0 |
+| **STRICT 5/5 PASS** | ✅ | ✅ | ✅ | ✅ |
+
+---
+
+## 10. Próximos Passos Pendentes (Sprint 28+3 → v5.17.0)
+
+| Prioridade | Item | Dependência | Estimativa |
+|-----------:|------|-------------|-----------:|
+| 🔴 P0 | Sign-off M5 6 assinaturas + Revogação R1-R2-R3 | Humanos (38h restantes) | |
+| 🟠 P1 | Remover 5 W005 restantes: (1) B2B `/api/v1/b2b/screen` → integrar X-API-Key `otc_live_*` com RBAC org-bound (nova tabela `b2b_api_keys`), (2) Alertmanager `/internal/ops/alertmanager/webhook` → Internal Bearer Token auditado em audit_logs. | M5 válido | 1 Sprint |
+| 🟠 P1 | Step 02 M5 Vault Transit AES256-GCM HSM (KEK Shamir 2-de-3: DPO + CISO + CLO) / alternativa `mozilla/sops` + AWS KMS CMK. | Orçamento aprovado | 2 dias |
+| 🟡 P2 | Extrair `_require_role_with_audit` de 6 cópias inline para pacote PyPI `ontrackchain-shared==1.2.0` (reduzir débito técnico ~720 linhas duplicadas). | CI packaging pipeline | 0.5 Sprint |
+| 🟡 P2 | TruffleHog + Q1-RBAC rodar REAL no GitHub Actions (Step13 Checklist M5 ativação Workflow). | M5 válido | 1 dia |

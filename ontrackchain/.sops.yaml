@@ -1,0 +1,55 @@
+# .sops.yaml — Ontrackchain SOPS Configuration (ADR-026 M5 Step02)
+# Status: TEMPLATE PREPARATÓRIO Sprint 28+3. SEM chave real ativa.
+# Ative as chaves reais (KMS ARN / Vault Transit Path / PGP fingerprint) APÓS
+# sign-off humano M5 e remova o comentário `#` nas linhas creation_rules abaixo.
+# Referência: https://github.com/getsops/sops
+#
+# Objetivo: Criptografia envelope AES256-GCM de arquivos .env* (excluindo .env.sample)
+#           em todo monorepo com chave KEK em KMS gerenciado (AWS/Azure/GCP)
+#           ou HashiCorp Vault Transit Engine.
+
+---
+creation_rules:
+  # ============================================================
+  # OPÇÃO 1 (RECOMENDADA Sprint 28+4): AWS KMS CMK (menor TCO)
+  #   Custo anual aproximado: $1 CMK + $0.03/10k req + $0/KMS free tier
+  #   Rotacionar automaticamente (anual). Key policy RBAC:
+  #     - Allow: roles/ontrackchain-dev-sre (kms:Encrypt/Decrypt/GenerateDataKey)
+  #     - Allow: roles/ontrackchain-ci-runner (kms:Decrypt/GenerateDataKey)
+  #     - Deny: role:root (kms:PutKeyPolicy - exceto break-glass)
+  # ============================================================
+  # - path_regex: ^(.*/)?\.env(\.(dev|staging|prod))?(\.private)?$
+  #   encrypted_regex: '^(.*_SECRET|.*_KEY|.*_TOKEN|.*_PASSWORD|OTK_PG_PASSWORD|STRIPE_API_KEY|STRIPE_WEBHOOK_SECRET|GROQ_API_KEY|INFURA_.*|ALCHEMY_.*|VAULT_.*|KMS_.*_ARN|CLIENT_SECRET|PRIVATE_KEY|SSH_.*_KEY|HSM_.*)$'
+  #   kms: arn:aws:kms:sa-east-1:123456789012:key/00000000-0000-0000-0000-000000000000
+  #   aws_profile: ontrackchain-prod
+  #   key_groups:
+  #     - kms:
+  #         - arn:aws:kms:sa-east-1:123456789012:key/00000000-0000-0000-0000-000000000000
+  #     - pgp:
+  #         - AAAA0000BBBB1111CCCC2222DDDD3333EEEE4444  # DPO break-glass (LGPD Art.48)
+  #         - 5555AAAA6666BBBB7777CCCC8888DDDD9999EEEE  # CISO break-glass (SecOps)
+
+  # ============================================================
+  # OPÇÃO 2: HashiCorp Vault Transit Engine (HSM on-prem ou Cloud HSM)
+  #   - transit engine path: transit/
+  #   - key name: ontrackchain-sops-kek (AES256-GCM 96-bit nonce, rotacionável)
+  #   - Vault policy "sops-writer" = transit/encrypt/ontrackchain-sops-kek
+  #   - Vault policy "sops-reader" = transit/decrypt/ontrackchain-sops-kek
+  #   - Shamir KEK shard 2-de-3 (DPO + CISO + CLO custodiam 1 shard cada)
+  # ============================================================
+  # - path_regex: ^(.*/)?\.env(\.(dev|staging|prod))?(\.private)?$
+  #   encrypted_regex: '^(.*_SECRET|.*_KEY|.*_TOKEN|.*_PASSWORD|OTK_PG_PASSWORD|STRIPE_API_KEY|STRIPE_WEBHOOK_SECRET|GROQ_API_KEY|INFURA_.*|ALCHEMY_.*|VAULT_.*|KMS_.*_ARN|CLIENT_SECRET|PRIVATE_KEY|SSH_.*_KEY|HSM_.*)$'
+  #   hc_vault_transit:
+  #     - vault_address: https://vault.ontrackchain-internal.corp:8200
+  #       engine_path: transit
+  #       key_name: ontrackchain-sops-kek
+
+# Arquivos NÃO criptografar (lista branca LGPD — samples e documentação pública ok)
+unencrypted_suffix: _unencrypted
+
+# Desabilitar MAC exclusão parcial em regex (modo estrito)
+shamir_threshold: 2
+shamir_total_shards: 3
+
+# Output YAML com comments preservados (modo padrão)
+lastmodified_format: '2006-01-02T15:04:05Z07:00'

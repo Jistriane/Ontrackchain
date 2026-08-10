@@ -40,6 +40,13 @@ Nota de workspace:
 
 ### Estado atual
 
+- `Release de plataforma`: **Governança v5.16.0 (Sprint 28+2, HEAD `d471ca8`, 29 commits locais ahead origin/main)**
+- `Baseline executiva oficial`: **100%** técnico, **100%** regulatório/operacional, **100%** consolidado (fonte: `docs/project-executive-readiness-brief.md`)
+- `Baseline integridade técnica`: **v1.9** (Sprint 28+2; snapshot SHA256 + manifesto 29 commits locais)
+- `a baseline viva e os detalhes técnicos estão em `docs/README.md` e no [Apêndice técnico](./docs/TECHNICAL_APPENDIX.md)
+- `o blueprint padrão hospedado passou a ser `frontend standalone showcase` e serviços `FastAPI` em produção
+- `suporte a APIs B2B Institucionais (`/api/v1/b2b/screen`) e Monetização Stripe Billing SaaS (`StripeBillingManager`, `/api/stripe/webhook`)
+- `resiliência DR e Restore PostgreSQL automatizada e validada (`test_postgres_backup_restore.py`)
 - `P1-01` consolidou metadata de `work-items` entre frontend, backend e contrato canônico
 - `P2-02` consolidou `timeline/comments` compartilhados nos cockpits operacionais
 - `P2-03` consolidou RCA cross-domain leve entre `alerts`, `/monitoring` e governança
@@ -47,12 +54,16 @@ Nota de workspace:
 - `v3.0.0` (Helm Chart S14 M8): Plataforma empacotada para Kubernetes com single chart `ontrackchain-platform` v1.0.0 (9 FastAPI, PG16 pgvector StatefulSet, Prometheus/Grafana/Alertmanager, Keycloak v25, Traefik Ingress, HPA/PDB/NetworkPolicy PSP)
 - `AI Service v4.1.0`: opera `themis`, `law-enforcement-export` e 6 endpoints XAI/Graph via jobs assíncronos (`202 Accepted`) processados com PostgreSQL `FOR UPDATE SKIP LOCKED` + RLS via `AI_WORKER_ORG_ID`
 - `Roles OTK_*` (Federação): mapeamento canônico `OTK_ADMIN→ADMIN`, `OTK_ANALYST→ANALYST`, `OTK_COMPLIANCE_OFFICER→COMPLIANCE_OFFICER`, `OTK_AUDITOR→AUDITOR`, `OTK_VIEWER→VIEWER` em `ontrackchain_shared` + `authz.ts` frontend
+- `QA Gateway ADR-029 (5 gates STRICT)`: scan-rbac (Q1), scan-billing-capabilities (Q2), scan-billing-enforcement (Q3), scan-lgpd-ropd (Q4), scan-secrets-trufflehog (Q5). Todos exit=0 obrigatório na Governança v5.15.0+.
+- `RBAC Opção B Moderada (W005)`: 33→5 isenções documentadas em v5.16.0. 9 serviços scaneados por padrão (auth/case-management/investigation/ai/compliance/mock-oidc/monitoring/public/report). 40+ wrappers detectados por regex generalizada Sprint 28+2.
+- `LGPD Art.37 ROPD`: 7 ROPDs + 1 CSV consolidado `docs/compliance-ropd/ROPD-OTK-CONSOLIDADO.csv` (13 colunas, QUOTE_ALL). Contato DPO pré-preenchido (Dr.Carlos Mendes).
 - a taxonomia documental ja foi saneada para separar documento vivo, ciclo ativo, historico de apoio e historico arquivado
 
-### Riscos P0 Remanescentes Reais (Sprint 14)
+### Riscos P0 Remanescentes Reais (Sprint 28+2)
 
-- `M5 Push Remoto`: sincronizar 10 commits locais da branch `main` com GitHub origin/main (🔴 BLOQUEADO até autorização explícita + método definido: PAT SSO, SSH deploy key ou Render GitHub App)
-- `Integrações Externas Reais`: homologar `AML/KYT live` (credencial TRM Labs), `feed UE` (URL tokenizada OFAC/EU), `OIDC MFA` com IdP produtivo real
+- `M5 Push Remoto`: sincronizar **29 commits locais** da branch `main` com GitHub origin/main (🔴 **BLOQUEADO M5 até 2026-08-12 23:59 BRT**): revogação credenciais Groq/Infura/Alchemy + 6 assinaturas sign-off humano (Dev Lead, 2x Senior, Arquiteto, CISO, DPO, CTO/CEO)
+- `M5 Step02 Vault Transit AES256-GCM`: criptografia real de segredos (não mock). Opções: (A) HashiCorp Vault Transit HSM / (B) Alternativa barata `mozilla/sops` + AWS KMS CMK.
+- `Integrações Externas Reais`: homologar `AML/KYT live` (credencial TRM Labs/Chainalysis/Elliptic), `feed UE` (URL tokenizada OFAC/EU), `OIDC MFA` com IdP produtivo real Keycloak.
 - `Janela Séria Completa`: executar primeira janela séria 100% homologada com `go/no-go` formal, sign-offs 4-eyes e evidências não-mock
 - `Sign-off Institucional Retenção`: formalizar recorrência de Disaster Recovery (DR) e retention policy com sign-off jurídico/segurança compliance (LGPD Art.19)
 
