@@ -255,7 +255,7 @@ services:
       - key: INVESTIGATION_RPC_ENABLED
         value: "true"
       - key: INVESTIGATION_RPC_PRIMARY_URL
-        value: "https://mainnet.infura.io/v3/80e3d13ae0f14efbabc25eca4a4ec478"
+        value: "https://mainnet.infura.io/v3/OTK_INFURA_PROJECT_ID_PLACEHOLDER__VERIFY_IN_STAGING_OR_PROD_ENV_VAR__REVOGUE_ANTES_DE_PUSH_M5"
       - key: INVESTIGATION_RPC_FALLBACK_URL
         value: "https://ethereum-rpc.publicnode.com"
       - key: INVESTIGATION_RPC_TIMEOUT_MS
@@ -314,7 +314,7 @@ services:
       - key: INVESTIGATION_RPC_ENABLED
         value: "true"
       - key: INVESTIGATION_RPC_PRIMARY_URL
-        value: "https://mainnet.infura.io/v3/80e3d13ae0f14efbabc25eca4a4ec478"
+        value: "https://mainnet.infura.io/v3/OTK_INFURA_PROJECT_ID_PLACEHOLDER__VERIFY_IN_STAGING_OR_PROD_ENV_VAR__REVOGUE_ANTES_DE_PUSH_M5"
       - key: INVESTIGATION_RPC_FALLBACK_URL
         value: "https://ethereum-rpc.publicnode.com"
       - key: INVESTIGATION_RPC_TIMEOUT_MS

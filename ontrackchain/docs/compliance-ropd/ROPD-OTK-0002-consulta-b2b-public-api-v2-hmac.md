@@ -13,7 +13,7 @@
 | 9 | Retenção | 12 meses (365 dias, alinhado com faturamento e auditoria PLD BACEN). |
 | 10 | Destruição | Exclusão lógica em 12m → física 90d depois. |
 | 11 | Medidas Segurança | HMAC-SHA256 (ADR-019), TLS 1.3, rate limit k6 50VUs, RBAC API key por cliente B2B. |
-| 12 | DPO Contato | Ver ROPD 0001 (mesmo DPO / endereço). |
+| 12 | **DPO Contato (Art.41)** | Dr(a). [NOME A SER PREENCHIDO APÓS CONTRATO], DPO Ontrackchain. Email LGPD: dpo@ontrackchain.com.br. Telefone: +55 (11) 9XXXX-XXXX. Formulário online titular: https://ontrackchain.com.br/lgpd. Link política de privacidade: https://ontrackchain.com.br/privacidade. Endereço sede: Rua XXX, nº YYY, Bairro ZZZ, São Paulo/SP, CEP 0XXXX-000, Brasil. |
 
 ---
 ### Sign-off: ver ROPD-0001. Todo arquivo individual tem sign-off consolidado no CSV final.

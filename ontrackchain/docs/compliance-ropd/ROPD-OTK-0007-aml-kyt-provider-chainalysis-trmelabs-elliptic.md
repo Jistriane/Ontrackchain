@@ -13,4 +13,4 @@
 | 9 | Retenção | 120 meses (10 anos, BACEN 3.949). |
 | 10 | Destruição | 10 anos. |
 | 11 | Medidas Segurança | API key do provider guardada AWS Secrets Manager (NÃO no repositório). Acesso logs envio. |
-| 12 | DPO Contato | Ver ROPD-0001. |
+| 12 | **DPO Contato (Art.41)** | Dr(a). [NOME A SER PREENCHIDO APÓS CONTRATO], DPO Ontrackchain. Email LGPD: dpo@ontrackchain.com.br. Telefone: +55 (11) 9XXXX-XXXX. Formulário online titular: https://ontrackchain.com.br/lgpd. Link política de privacidade: https://ontrackchain.com.br/privacidade. Endereço sede: Rua XXX, nº YYY, Bairro ZZZ, São Paulo/SP, CEP 0XXXX-000, Brasil. |

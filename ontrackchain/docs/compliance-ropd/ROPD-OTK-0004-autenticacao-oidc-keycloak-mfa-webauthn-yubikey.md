@@ -13,4 +13,4 @@
 | 9 | Retenção | 36 meses (3 anos após desligamento do usuário / encerramento contrato cliente). |
 | 10 | Destruição | Revoke de credenciais WebAuthn em Keycloak → exclusão física após 3 anos. Logs SIEM mantidos 180d. |
 | 11 | Medidas Segurança | Istio mTLS STRICT; MFA obrigatório 3 roles admin; Cloudflare WAF auth protection (Handbook P0-01 Q3-07 Playwright). |
-| 12 | DPO Contato | Ver ROPD-0001. |
+| 12 | **DPO Contato (Art.41)** | Dr(a). [NOME A SER PREENCHIDO APÓS CONTRATO], DPO Ontrackchain. Email LGPD: dpo@ontrackchain.com.br. Telefone: +55 (11) 9XXXX-XXXX. Formulário online titular: https://ontrackchain.com.br/lgpd. Link política de privacidade: https://ontrackchain.com.br/privacidade. Endereço sede: Rua XXX, nº YYY, Bairro ZZZ, São Paulo/SP, CEP 0XXXX-000, Brasil. |

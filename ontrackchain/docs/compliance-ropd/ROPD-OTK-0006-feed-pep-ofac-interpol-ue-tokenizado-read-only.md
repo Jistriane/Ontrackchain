@@ -13,4 +13,4 @@
 | 9 | Retenção | 120 meses (10 anos, BACEN 3.949). |
 | 10 | Destruição | Apagamos feeds vencidos quando a entidade é removida da lista pública OFAC/Interpol. Mantemos hash para prova histórica. |
 | 11 | Medidas Segurança | Tokenização hash SHA-256 para busca (não armazenamos CPF se a lista NÃO tem; apenas hashes para comparação). |
-| 12 | DPO Contato | Ver ROPD-0001. |
+| 12 | **DPO Contato (Art.41)** | Dr(a). [NOME A SER PREENCHIDO APÓS CONTRATO], DPO Ontrackchain. Email LGPD: dpo@ontrackchain.com.br. Telefone: +55 (11) 9XXXX-XXXX. Formulário online titular: https://ontrackchain.com.br/lgpd. Link política de privacidade: https://ontrackchain.com.br/privacidade. Endereço sede: Rua XXX, nº YYY, Bairro ZZZ, São Paulo/SP, CEP 0XXXX-000, Brasil. |

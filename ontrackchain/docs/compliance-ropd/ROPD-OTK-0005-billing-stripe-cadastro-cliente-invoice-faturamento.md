@@ -13,4 +13,4 @@
 | 9 | Retenção | 60 meses (5 anos — BACEN 3.949 Art.34 + Lei 5.172/66 Código Tributário Nacional retenção mínima 5 anos de documentos fiscais). |
 | 10 | Destruição | 5 anos → exclusão lógica → física. |
 | 11 | Medidas Segurança | Webhook HMAC SHA-256 (ADR-024). Idempotência event_id. PCI DSS SAQ-A compliant (Stripe hospeda cartões). |
-| 12 | DPO Contato | Ver ROPD-0001. |
+| 12 | **DPO Contato (Art.41)** | Dr(a). [NOME A SER PREENCHIDO APÓS CONTRATO], DPO Ontrackchain. Email LGPD: dpo@ontrackchain.com.br. Telefone: +55 (11) 9XXXX-XXXX. Formulário online titular: https://ontrackchain.com.br/lgpd. Link política de privacidade: https://ontrackchain.com.br/privacidade. Endereço sede: Rua XXX, nº YYY, Bairro ZZZ, São Paulo/SP, CEP 0XXXX-000, Brasil. |

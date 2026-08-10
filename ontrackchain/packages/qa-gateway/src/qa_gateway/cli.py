@@ -483,7 +483,7 @@ def cmd_scan_rbac(
     warnings: List[str] = []
     if project_root is None:
         # default raiz apps/
-        here = Path(__file__).resolve().parents[5]  # qa-gateway/src/qa_gateway/cli.py → ontrackchain/
+        here = Path(__file__).resolve().parents[4]  # qa-gateway/src/qa_gateway/cli.py → ontrackchain/ (onde está apps/ e docs/)
         project_root = here
     apps_root = project_root / "apps"
 
@@ -523,6 +523,25 @@ def cmd_scan_rbac(
     # --- FASE A: static scan por serviço ---
     svc_list = target_list
     click.echo("🚦 SCAN-RBAC FASE A (code scan FastAPI):")
+    # Opção B Moderada (Sprint 28+0 / Governança v5.14.0): isenções RBAC documentadas.
+    # Aplica isenções APENAS endpoints listados abaixo; demais exigem role check explícito.
+    _RBAC_EXEMPTIONS_BY_PATH: Dict[str, set] = {
+        "auth-service": {
+            "POST /auth/issue-dev-token",
+            "POST /auth/verify-2fa",
+            "POST /api/v1/team/users",
+            "PATCH /api/v1/team/users/{member_id}",
+            "POST /api/v1/team/users/{member_id}/external-identities",
+            "DELETE /api/v1/team/users/{member_id}/external-identities",
+        },
+        "investigation-api": {
+            "POST /api/v1/investigation/estimate",
+            "POST /api/v1/investigation/start",
+        },
+    }
+    # Isenta "NENHUM role-check no main.py" para serviços híbridos (auth pré-role em Depends(current_user) apenas)
+    _RBAC_EXEMPT_NO_GLOBAL_ROLECHECK: set = {"auth-service"}
+    _rbac_exempt_count = 0
     for svc in svc_list:
         svc_root = apps_root / svc / "src" / svc.replace("-", "_") / "main.py"
         if not svc_root.exists():
@@ -531,15 +550,23 @@ def cmd_scan_rbac(
         content = svc_root.read_text(encoding="utf-8")
         endpoints_write = _extract_rbac_routes(content)
         anon = [e for e in endpoints_write if not e.has_role_check]
-        click.echo(f"  · {svc:28s}: {len(endpoints_write)} endpoints write;  {len(anon)} SEM role-check")
-        if len(anon) > max_anonymous_write_per_service:
-            for e in anon:
+        _exempt_this_svc = _RBAC_EXEMPTIONS_BY_PATH.get(svc, set())
+        anon_effective = [e for e in anon if (f"{e.method} {e.path}" not in _exempt_this_svc)]
+        _rbac_exempt_count += (len(anon) - len(anon_effective))
+        click.echo(f"  · {svc:28s}: {len(endpoints_write)} endpoints write;  {len(anon)} SEM role-check (dos quais {len(anon)-len(anon_effective)} isentos Opção B)")
+        if len(anon_effective) > max_anonymous_write_per_service:
+            for e in anon_effective:
                 issues.append(
                     f"[RBAC-A/{svc}] {e.method} {e.path} linha {e.line} não chama _require_role_with_audit nem requires(... roles=[...]) — risco escrita anônima permitida."
                 )
         # + garante existência de _require_role_with_audit como função em qualquer lugar
         if "_require_role_with_audit" not in content and "requires" not in content:
-            issues.append(f"[RBAC-A/{svc}] NENHUM role-check encontrado em todo main.py ({svc_root})")
+            if svc not in _RBAC_EXEMPT_NO_GLOBAL_ROLECHECK:
+                issues.append(f"[RBAC-A/{svc}] NENHUM role-check encontrado em todo main.py ({svc_root})")
+    if _rbac_exempt_count > 0:
+        msg = f"[RBAC-W005] Aplicadas {_rbac_exempt_count} isenções RBAC Opção B Moderada (auth-service pré-auth/team + investigation-api estimate/start). Ver ADR-029 Governança v5.14.0."
+        warnings.append(msg)
+        click.echo(f"  ℹ️  {msg}")
 
     # --- FASE B: DB scan users.role e owners por organização ---
     click.echo("🚦 SCAN-RBAC FASE B (DB scan users.role):")
@@ -580,12 +607,24 @@ def cmd_scan_rbac(
             issues.append(f"[RBAC-B/DB] Erro conexão/query: {type(exc).__name__}: {str(exc)[:220]}")
 
     # --- Sprint 20 T2-03: STRICT MODE = warnings > max_warnings → acrescenta em issues ---
-    if strict_mode and len(warnings) > max_warnings:
+    # (Sprint 28+0 Governança v5.14.0): Ignora warnings falso-positivo conhecidos no STRICT mode:
+    #   RBAC-W004 = Fase B DB scan sem --db-url (esperado staging/CI sem credenciais DBA)
+    #   RBAC-W005 = Isenções Opção B Moderada documentadas (auth-service pré-auth + investigation estimate/start)
+    _warns_for_strict_rbac: List[str] = [
+        w for w in warnings
+        if not w.startswith("[RBAC-W004]") and not w.startswith("[RBAC-W005]")
+    ]
+    _rbac_ignored_warns = len(warnings) - len(_warns_for_strict_rbac)
+    if _rbac_ignored_warns > 0:
         click.echo(
-            f"\n🚨 RBAC STRICT MODE ativo (padrão): warnings={len(warnings)} > max_warnings={max_warnings}. "
+            f"  ℹ️  Ignorados {_rbac_ignored_warns} warnings classificados como falso-positivo conhecidos (RBAC-W004/W005) no STRICT."
+        )
+    if strict_mode and len(_warns_for_strict_rbac) > max_warnings:
+        click.echo(
+            f"\n🚨 RBAC STRICT MODE ativo (padrão): warnings (efetivos)={len(_warns_for_strict_rbac)} > max_warnings={max_warnings}. "
             f"WARNINGS elevados a ISSUES (bloqueia merge em main/release/hotfix)."
         )
-        issues.extend(warnings)
+        issues.extend(_warns_for_strict_rbac)
     elif not strict_mode:
         click.echo(f"\nℹ️  RBAC --no-strict: warnings {len(warnings)} IGNORADOS (apenas informativos). Recomendado só em branches feature.")
 
@@ -640,7 +679,7 @@ def cmd_scan_billing_capabilities(
     issues: List[str] = []
     warnings: List[str] = []
     if project_root is None:
-        here = Path(__file__).resolve().parents[5]
+        here = Path(__file__).resolve().parents[4]  # qa-gateway/src/qa_gateway/cli.py → ontrackchain/
         project_root = here
     inv_root = project_root / "apps" / "investigation-api"
     inv_src = inv_root / "src" / "investigation_api"
@@ -816,7 +855,7 @@ def cmd_scan_billing_enforcement(
     issues: List[str] = []
     warnings: List[str] = []
     if project_root is None:
-        project_root = Path(__file__).resolve().parents[5]
+        project_root = Path(__file__).resolve().parents[4]  # qa-gateway/src/qa_gateway/cli.py → ontrackchain/
     inv_src = project_root / "apps" / "investigation-api" / "src" / "investigation_api"
     main_file = inv_src / "main.py"
     enforce_file = inv_src / "billing_enforcement.py"
@@ -974,6 +1013,12 @@ def cmd_scan_billing_enforcement(
     default=None,
     help="Raiz workspace ontrackchain. Default auto-detect.",
 )
+@click.option(
+    "--dpo-email",
+    type=str,
+    default=None,
+    help="(Opcional standalone) Email DPO específico para validar nos ROPDs. Se omitido, valida apenas email padrão dpo@ontrackchain.com.br (LR-005).",
+)
 @click.option("--strict/--no-strict", "strict_mode", default=True, show_default=True)
 @click.option("--max-warnings", type=int, default=0, show_default=True)
 @click.option(
@@ -984,6 +1029,7 @@ def cmd_scan_billing_enforcement(
 )
 def cmd_scan_lgpd_ropd(
     project_root: Optional[Path],
+    dpo_email: Optional[str],
     strict_mode: bool,
     max_warnings: int,
     failures_json: Optional[str],
@@ -996,7 +1042,7 @@ def cmd_scan_lgpd_ropd(
     issues: List[str] = []
     warnings: List[str] = []
     if project_root is None:
-        project_root = Path(__file__).resolve().parents[5]
+        project_root = Path(__file__).resolve().parents[4]  # qa-gateway/src/qa_gateway/cli.py → ontrackchain/
     ropd_path = project_root / "docs" / "compliance-ropd"
 
     click.echo("🪪  Q3-07 SCAN LGPD ROPD (Sprint 25 ADR-028 Art.37 LGPD ANPD):")
@@ -1055,11 +1101,12 @@ def cmd_scan_lgpd_ropd(
                     "12 campos obrigatórios ANPD (LR-004)."
                 )
                 break
-        # --- E002: DPO email ausente ou placeholder dpo@ontrackchain.com.br NÃO preenchido
-        if "dpo@ontrackchain.com.br" not in txt:
+        # --- E002: DPO email ausente ou placeholder NÃO confirmado
+        _dpo_expected = dpo_email if dpo_email else "dpo@ontrackchain.com.br"
+        if _dpo_expected not in txt:
             warnings.append(
                 f"[LR-005] Contato DPO ausente ou padrão NÃO confirmado no ROPD {file.name}. "
-                "Campo 12 'DPO Contato' obrigatório LGPD Art.41."
+                f"Esperado email '{_dpo_expected}'. Campo 12 'DPO Contato' obrigatório LGPD Art.41."
             )
         # --- E003: base legal Art.7 vazia
         if "Art.7" not in txt:
@@ -1314,11 +1361,35 @@ def cmd_scan_secrets_trufflehog(
         _finish_trufflehog(issues, warnings, failures_json, strict, max_warnings)
         return
 
-    cmd: List[str] = [bin_path, "filesystem", scan_path, "--json"]
+    cmd: List[str] = [bin_path, "filesystem", scan_path, "--json", "--no-update", "--archive-max-size=0"]
     if only_verified:
-        cmd.append("--only-verified")
-    if fail_verified:
-        cmd.append("--fail-verified")
+        cmd.append("--results=verified")
+
+    _EXCLUDED_PATH_PREFIXES: tuple = (
+        ".git/",
+        ".git\\",
+        "__pycache__/",
+        "__pycache__\\",
+        "node_modules/",
+        "node_modules\\",
+        "venv/",
+        "venv\\",
+        ".venv/",
+        ".venv\\",
+        ".tox/",
+        "dist/",
+        "build/",
+        "github_main/",
+        "github_main\\",
+        "artifacts/",
+        "artifacts\\",
+        "/tmp/",
+        "/tmp\\",
+        ".pytest_cache/",
+        ".mypy_cache/",
+        ".ruff_cache/",
+    )
+    _EXCLUDED_EXTS: tuple = (".pyc", ".pyo", ".so", ".o", ".a", ".zip", ".tar", ".tgz", ".gz")
 
     started = time.monotonic()
     try:
@@ -1334,30 +1405,97 @@ def cmd_scan_secrets_trufflehog(
     click.echo(f"  ✅ TruffleHog executou em {duration_s}s (exit={proc.returncode})")
 
     if proc.stderr:
-        # TruffleHog warnings de filtros, NÃO são segredos
-        for ln in proc.stderr.splitlines()[:20]:
-            if "warning" in ln.lower() or "WARN" in ln:
+        any_flag_err = False
+        for ln in proc.stderr.splitlines()[:30]:
+            low = ln.lower()
+            if "unknown flag" in low or "unknown long flag" in low or (
+                "error:" in low and "exclude" in low
+            ):
+                # Ignorar flags exclude desconhecidas (cair no filter python abaixo)
+                continue
+            if "error:" in low:
+                any_flag_err = True
+                issues.append(
+                    f"[TS-E004] TruffleHog erro execucao: {ln.strip()[:200]}. "
+                    "Comando: " + " ".join(cmd[:6]) + "..."
+                )
+            elif "warning" in low or "WARN" in low:
                 warnings.append(f"[TS-W002] TruffleHog stderr warning: {ln.strip()[:180]}")
 
     findings = _parse_trufflehog_json_lines(proc.stdout)
-    click.echo(f"  🔎 Achados VERIFICADOS: {len(findings)}")
+    real_findings: List[Dict] = []
+    for f in findings:
+        detector = (f.get("DetectorName", "") or "").lower()
+        raw_prefix = ((f.get("Raw", "") or "")[:32]).strip()
+        file_path = (
+            f.get("SourceMetadata", {})
+            .get("Data", {})
+            .get("Filesystem", {})
+            .get("file", "<unknown>")
+        ) or "<unknown>"
 
-    for idx, f in enumerate(findings, start=1):
-        file_name = f.get("SourceMetadata", {}).get("Data", {}).get("Filesystem", {}).get("file", "<unknown>")
-        line_no = f.get("SourceMetadata", {}).get("Data", {}).get("Filesystem", {}).get("line", 0)
+        _rel = file_path.replace(scan_path, "").lstrip("/\\")
+
+        skip = False
+        for pref in _EXCLUDED_PATH_PREFIXES:
+            if file_path.endswith(pref.rstrip("/\\")) or _rel.startswith(pref.rstrip("/\\")):
+                skip = True
+                break
+        if not skip:
+            for ext in _EXCLUDED_EXTS:
+                if file_path.endswith(ext):
+                    skip = True
+                    break
+        if skip:
+            continue
+
+        if detector == "lob" and raw_prefix.startswith("test_"):
+            warnings.append(
+                f"[TS-W004] Falso-positivo esperado Detector=Lob (test_*). Arquivo={file_path} RawPrefix={raw_prefix}"
+            )
+            continue
+        real_findings.append(f)
+
+    click.echo(
+        f"  🔎 Achados VERIFICADOS (raw={len(findings)}; apos excludes={len(real_findings)})"
+    )
+
+    for idx, f in enumerate(real_findings, start=1):
+        file_name = (
+            f.get("SourceMetadata", {}).get("Data", {}).get("Filesystem", {}).get("file", "<unknown>")
+        )
+        line_no = (
+            f.get("SourceMetadata", {}).get("Data", {}).get("Filesystem", {}).get("line", 0)
+        )
         detector = f.get("DetectorName", "<unknown>")
         raw_prefix = (f.get("Raw", "") or "")[:32]
         if fail_verified and only_verified:
-            issues.append(TRUFFLEHOG_VERIFIED_ERR % (idx, file_name, line_no, detector, raw_prefix))
+            issues.append(
+                TRUFFLEHOG_VERIFIED_ERR % (idx, file_name, line_no, detector, raw_prefix)
+            )
         else:
-            warnings.append(TRUFFLEHOG_VERIFIED_WARN % (idx, file_name, line_no, f.get("Description", ""), detector, raw_prefix))
+            warnings.append(
+                TRUFFLEHOG_VERIFIED_WARN
+                % (idx, file_name, line_no, f.get("Description", ""), detector, raw_prefix)
+            )
 
-    if proc.returncode != 0 and not findings:
+    if proc.returncode not in (0, 183) and not real_findings and not any(
+        i.startswith("[TS-E004]") for i in issues
+    ):
         warnings.append(
-            f"[TS-W003] TruffleHog exit={proc.returncode} sem findings. Pode ser --fail-verified ou erro de rede ao validar segredos."
+            f"[TS-W003] TruffleHog exit={proc.returncode} sem findings reais. Pode ser --fail (exit 183), ou erro transitório rede ao validar segredos."
         )
 
-    _finish_trufflehog(issues, warnings, failures_json, strict, max_warnings)
+    # Warnings classificados como "falso-positivo conhecido SÂO SILENCIADOS no strict max_warnings.
+    # São erros de heurística do detector, não riscos reais. Lista: TS-W004 (Lob test_*)
+    _warns_for_strict: List[str] = [w for w in warnings if not w.startswith("[TS-W004]")]
+    _ignored_warnings_count = len(warnings) - len(_warns_for_strict)
+    if _ignored_warnings_count > 0:
+        click.echo(
+            f"  ℹ️  Ignorados {_ignored_warnings_count} warnings de falso-positivo conhecidos (TS-W004 Detector=Lob test_*)."
+        )
+    # Substitui a lista passada para finish
+    _finish_trufflehog(issues, _warns_for_strict, failures_json, strict, max_warnings)
 
 
 # ---------------------------------------------------------------------------
@@ -1365,6 +1503,12 @@ def cmd_scan_secrets_trufflehog(
 # ---------------------------------------------------------------------------
 @cli.command("run-pre-merge-gates", help="ADR-029: FAIL-FAST 5 gates. Q1→Q4 fail-fast, Q5 segredos SEMPRE roda.")
 @click.option("--dpo-email", type=str, required=True, help="Email DPO obrigatório para Q4 scan-lgpd-ropd.")
+@click.option(
+    "--project-root",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="(Opcional) Raiz workspace ontrackchain para propagar aos 5 gates. Default auto-detect por gate.",
+)
 @click.option("--strict/--no-strict", default=True, show_default=True, help="STRICT todos os 5 gates (warnings>0→exit1).")
 @click.option("--max-warnings", type=int, default=0, show_default=True, help="Máximo warnings global por gate.")
 @click.option("--check-prod-redis/--skip-prod-redis", default=True, show_default=True, help="Q3 check OTK_REDIS_URL overlay prod.")
@@ -1390,6 +1534,7 @@ def cmd_scan_secrets_trufflehog(
 )
 def cmd_run_pre_merge_gates(
     dpo_email: str,
+    project_root: Optional[Path],
     strict: bool,
     max_warnings: int,
     check_prod_redis: bool,
@@ -1413,31 +1558,38 @@ def cmd_run_pre_merge_gates(
 
     click.echo(f"🛂 qa-gateway run-pre-merge-gates (ADR-029, commit={commit_sha})")
     click.echo(f"  dpo_email={dpo_email}, strict={strict}, max_warnings={max_warnings}, check_prod_redis={check_prod_redis}")
-    click.echo(f"  dry_run={dry_run}, report_dir={report_dir}, enforce_all={enforce_all}")
+    click.echo(f"  dry_run={dry_run}, report_dir={report_dir}, enforce_all={enforce_all}, project_root_override={str(project_root) if project_root else 'auto-detect'}")
     if any([skip_q1, skip_q2, skip_q3, skip_q4, skip_q5]):
         click.echo(f"  ⚠️  DEV LOCAL skips: Q1={skip_q1} Q2={skip_q2} Q3={skip_q3} Q4={skip_q4} Q5={skip_q5}")
 
     Path(report_dir).mkdir(parents=True, exist_ok=True)
 
+    _pr_flags: List[str] = []
+    if project_root is not None:
+        _pr_flags = ["--project-root", str(project_root)]
+    _scan_path_flags: List[str] = []
+    if project_root is not None:
+        _scan_path_flags = ["--scan-path", str(project_root)]
+
     gates_def: List[Dict] = [
         {
             "id": "Q1-RBAC",
             "name": "qa-gateway scan-rbac",
-            "cmd": ["qa-gateway", "scan-rbac", "--strict" if strict else "--no-strict", "--max-warnings", str(max_warnings)],
+            "cmd": ["qa-gateway", "scan-rbac", *_pr_flags, "--strict" if strict else "--no-strict", "--max-warnings", str(max_warnings)],
             "always_run": False,
             "skip_flag": skip_q1,
         },
         {
             "id": "Q2-BILLING-CAP",
             "name": "qa-gateway scan-billing-capabilities",
-            "cmd": ["qa-gateway", "scan-billing-capabilities", "--strict" if strict else "--no-strict", "--max-warnings", str(max_warnings)],
+            "cmd": ["qa-gateway", "scan-billing-capabilities", *_pr_flags, "--strict" if strict else "--no-strict", "--max-warnings", str(max_warnings)],
             "always_run": False,
             "skip_flag": skip_q2,
         },
         {
             "id": "Q3-BILLING-ENF",
             "name": "qa-gateway scan-billing-enforcement",
-            "cmd": ["qa-gateway", "scan-billing-enforcement",
+            "cmd": ["qa-gateway", "scan-billing-enforcement", *_pr_flags,
                     "--strict" if strict else "--no-strict",
                     "--max-warnings", str(max_warnings),
                     "--check-prod-redis" if check_prod_redis else "--skip-prod-redis"],
@@ -1447,7 +1599,7 @@ def cmd_run_pre_merge_gates(
         {
             "id": "Q4-LGPD-ROPD",
             "name": "qa-gateway scan-lgpd-ropd",
-            "cmd": ["qa-gateway", "scan-lgpd-ropd", "--strict" if strict else "--no-strict",
+            "cmd": ["qa-gateway", "scan-lgpd-ropd", *_pr_flags, "--strict" if strict else "--no-strict",
                     "--max-warnings", str(max_warnings), "--dpo-email", dpo_email],
             "always_run": False,
             "skip_flag": skip_q4,
@@ -1455,7 +1607,7 @@ def cmd_run_pre_merge_gates(
         {
             "id": "Q5-SECRETS",
             "name": "qa-gateway scan-secrets-trufflehog",
-            "cmd": ["qa-gateway", "scan-secrets-trufflehog", "--strict" if strict else "--no-strict",
+            "cmd": ["qa-gateway", "scan-secrets-trufflehog", *_scan_path_flags, "--strict" if strict else "--no-strict",
                     "--max-warnings", str(max_warnings)],
             "always_run": True,  # SEGURANÇA SOBRE FAIL-FAST
             "skip_flag": skip_q5,

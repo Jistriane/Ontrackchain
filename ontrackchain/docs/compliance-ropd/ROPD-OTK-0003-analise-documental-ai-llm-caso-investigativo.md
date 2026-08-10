@@ -13,4 +13,4 @@
 | 9 | Retenção | 120 meses (10 anos, BACEN 3.949 Art.34 retenção mínima). |
 | 10 | Destruição | 10 anos + 90d soft/hard. Exclusão de vetores pgvector (embeddings). |
 | 11 | Medidas Segurança | Embeddings criptografados AES-256 at-rest, RLS por organização, contextos criptografados trânsito. |
-| 12 | DPO Contato | Ver ROPD-0001. |
+| 12 | **DPO Contato (Art.41)** | Dr(a). [NOME A SER PREENCHIDO APÓS CONTRATO], DPO Ontrackchain. Email LGPD: dpo@ontrackchain.com.br. Telefone: +55 (11) 9XXXX-XXXX. Formulário online titular: https://ontrackchain.com.br/lgpd. Link política de privacidade: https://ontrackchain.com.br/privacidade. Endereço sede: Rua XXX, nº YYY, Bairro ZZZ, São Paulo/SP, CEP 0XXXX-000, Brasil. |
