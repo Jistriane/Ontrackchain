@@ -61,10 +61,13 @@ class TestAI01Analyze:
         with TestClient(app_full_enforcement) as cli:
             r = cli.post(
                 "/api/v1/ai/analyze",
-                json={"case_id": str(uuid.uuid4()), "include_documentos_ids": [str(uuid.uuid4())]},
+                json={
+                    "case_id": str(uuid.uuid4()),
+                    "include_documentos_ids": [str(uuid.uuid4())],
+                },
                 headers={"X-Org-Tier": "business"},
             )
-            assert r.status_code == 200, r.text
+            assert r.status_code == 200, f"Esperado 200, recebido {r.status_code}: {r.text}"
             data = r.json()
             assert data["billing_enforcement_debug"]["engine"] == "in_memory"
 
@@ -81,7 +84,10 @@ class TestAI01Analyze:
             with TestClient(app_full_enforcement) as cli:
                 r = cli.post(
                     "/api/v1/ai/analyze",
-                    json={"case_id": str(uuid.uuid4())},
+                    json={
+                        "case_id": str(uuid.uuid4()),
+                        "include_documentos_ids": [],
+                    },
                     headers={"X-Org-Tier": "startup"},
                 )
                 assert r.status_code == 402, f"Esperado 402, recebido {r.status_code}: {r.text}"
@@ -98,10 +104,13 @@ class TestAI02Summarize:
         with TestClient(app_full_enforcement) as cli:
             r = cli.post(
                 "/api/v1/ai/summarize-docs",
-                json={"document_ids": [str(uuid.uuid4()), str(uuid.uuid4())], "comprimento_maximo_palavras": 600},
+                json={
+                    "document_ids": [str(uuid.uuid4()), str(uuid.uuid4())],
+                    "comprimento_maximo_palavras": 600,
+                },
                 headers={"X-Org-Tier": "enterprise"},
             )
-            assert r.status_code == 200, r.text
+            assert r.status_code == 200, f"Esperado 200, recebido {r.status_code}: {r.text}"
 
     def test_402_ai_credits_esgotados(self, app_full_enforcement: FastAPI, monkeypatch) -> None:  # type: ignore[no-untyped-def]
         class _AlwaysFull(InMemoryBillingCounter):
@@ -114,10 +123,13 @@ class TestAI02Summarize:
             with TestClient(app_full_enforcement) as cli:
                 r = cli.post(
                     "/api/v1/ai/summarize-docs",
-                    json={"document_ids": [str(uuid.uuid4())]},
+                    json={
+                        "document_ids": [str(uuid.uuid4())],
+                        "comprimento_maximo_palavras": 500,
+                    },
                     headers={"X-Org-Tier": "enterprise"},
                 )
-                assert r.status_code == 402
+                assert r.status_code == 402, f"Esperado 402, recebido {r.status_code}: {r.text}"
                 detail = r.json()["detail"]
                 assert detail["code"] == "AI_CREDITS_EXHAUSTED"
         finally:

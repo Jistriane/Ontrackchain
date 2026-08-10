@@ -301,10 +301,11 @@ def test_duas_orgs_nao_compartilham_contadores_inmemory() -> None:
         org_b = uuid.UUID("22222222-2222-2222-2222-222222222222")
         req_a = _build_request_with_org(org_id=org_a, tier="startup")
         req_b = _build_request_with_org(org_id=org_b, tier="startup")
+        # Startup tier b2b_hourly_quota = 200. Org A: 199 + 1 = 200 (cheio, remaining 0). Org B: 1 (isolado).
         await enforce_capability(req_a, "b2b_hourly_quota", counter=c, amount=199)
         a = await enforce_capability(req_a, "b2b_hourly_quota", counter=c)
         b = await enforce_capability(req_b, "b2b_hourly_quota", counter=c)
-        assert a.remaining == 1  # startup 200 - 200 usados = 0? 199 + 1 = 200, remaining 0. Ajustar abaixo.
+        assert a.remaining == 0, f"Esperado 0 (200-200), recebeu {a.remaining}"
         assert a.used_after_incr == 200
-        assert b.used_after_incr == 1, "Org B contador começa em 1, NÃO em 201 (isolamento)"
+        assert b.used_after_incr == 1, "Org B contador começa em 1, NÃO em 201 (isolamento por org_id)."
     asyncio.run(_runner())

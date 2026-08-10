@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from investigation_api.billing_enforcement import BillingEnforcementResult, enforce_capability
@@ -17,6 +17,11 @@ router = APIRouter(
     prefix="/api/v2/public/b2b",
     tags=["Public API v2 B2B HMAC (ADR-019)"],
 )
+
+
+async def _enforce_b2b_hourly_quota(request: Request) -> BillingEnforcementResult:
+    """Helper sync wrapper Depends (evita lambda em Depends = bug em algumas versões FastAPI)."""
+    return await enforce_capability(request, "b2b_hourly_quota")
 
 
 class B2BScreeningRequest(BaseModel):
@@ -36,7 +41,7 @@ class B2BScreeningResponse(BaseModel):
 async def b2b_screening_post(
     _enforce: Annotated[
         BillingEnforcementResult,
-        Depends(lambda r: enforce_capability(r, "b2b_hourly_quota")),
+        Depends(_enforce_b2b_hourly_quota),
     ],
     payload: B2BScreeningRequest,
 ) -> B2BScreeningResponse:
@@ -54,7 +59,7 @@ async def b2b_screening_post(
 async def b2b_entity_get(
     _enforce: Annotated[
         BillingEnforcementResult,
-        Depends(lambda r: enforce_capability(r, "b2b_hourly_quota")),
+        Depends(_enforce_b2b_hourly_quota),
     ],
     entity_id: str,
 ) -> B2BScreeningResponse:

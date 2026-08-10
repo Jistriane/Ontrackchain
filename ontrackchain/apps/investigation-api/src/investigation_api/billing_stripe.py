@@ -272,6 +272,19 @@ def _ensure_org_sub_skeleton(org_id: uuid.UUID, plan: PlanTier, currency: Curren
     return _ORG_SUBSCRIPTIONS_DB[str(org_id)]
 
 
+def _ensure_org_skeleton_subscription(
+    org_id_str: str,
+    plan: PlanTier = "startup",
+    currency: Currency = "BRL",
+) -> dict[str, Any]:
+    """Alias de compatibilidade billing_capabilities.py (assina str org_id, default plan/currency)."""
+    try:
+        org_uuid = uuid.UUID(org_id_str)
+    except (ValueError, AttributeError):
+        org_uuid = uuid.uuid4()
+    return _ensure_org_sub_skeleton(org_uuid, plan, currency)
+
+
 # =========================================================================
 # 4. FastAPI APIRouter
 # =========================================================================

@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, List, Literal
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Request
 from pydantic import BaseModel, Field
 
 from investigation_api.billing_enforcement import BillingEnforcementResult, enforce_capability
@@ -51,11 +51,36 @@ class AISummarizeResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # 2. Rotas com enforcement de AI credits
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Helpers SRP: named functions para Depends (lambda em Depends = bug em versões FastAPI).
+# ---------------------------------------------------------------------------
+def _enforce_ai_credits_1(request: Request) -> BillingEnforcementResult:
+    import asyncio
+    from investigation_api.billing_enforcement import get_default_billing_counter
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop.run_until_complete(enforce_capability(request, "ai_credits", amount=1))
+
+
+def _enforce_ai_credits_3(request: Request) -> BillingEnforcementResult:
+    import asyncio
+    from investigation_api.billing_enforcement import get_default_billing_counter
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop.run_until_complete(enforce_capability(request, "ai_credits", amount=3))
+
+
 @router.post("/analyze", response_model=AIAnalyzeResponse)
 async def ai_analyze(
     _enforce: Annotated[
         BillingEnforcementResult,
-        Depends(lambda r: enforce_capability(r, "ai_credits", amount=1)),
+        Depends(_enforce_ai_credits_1),
     ],
     payload: AIAnalyzeRequest = Body(...),
 ) -> AIAnalyzeResponse:
@@ -75,7 +100,7 @@ async def ai_analyze(
 async def ai_summarize_docs(
     _enforce: Annotated[
         BillingEnforcementResult,
-        Depends(lambda r: enforce_capability(r, "ai_credits", amount=3)),
+        Depends(_enforce_ai_credits_3),
     ],
     payload: AISummarizeDocsRequest = Body(...),
 ) -> AISummarizeResponse:

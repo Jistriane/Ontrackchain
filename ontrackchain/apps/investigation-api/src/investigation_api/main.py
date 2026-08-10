@@ -406,6 +406,16 @@ QUOTE_TTL_MINUTES = 15
 MAX_VARIANCE_PCT = 0.10
 
 
+async def _enforce_ai_credits_2(request: Request) -> BillingEnforcementResult:
+    """Depends wrapper: 2 AI credits (estimate). Evita lambda Depends bug em versões FastAPI."""
+    return await enforce_capability(request, "ai_credits", amount=2)
+
+
+async def _enforce_ai_credits_5(request: Request) -> BillingEnforcementResult:
+    """Depends wrapper: 5 AI credits (start investigation). Evita lambda Depends bug."""
+    return await enforce_capability(request, "ai_credits", amount=5)
+
+
 def _dsn() -> str:
     return (
         f"host={settings.postgres_host} port={settings.postgres_port} "
@@ -2916,7 +2926,7 @@ async def get_report_type_detail(
 async def estimate_investigation(
     _enforce_ai: Annotated[  # Sprint 25 T2-12 billing enforcement ai credits estimate
         BillingEnforcementResult,
-        Depends(lambda r: enforce_capability(r, "ai_credits", amount=2)),
+        Depends(_enforce_ai_credits_2),
     ],
     body: EstimateInvestigationRequest,
     pool: ConnectionPool = Depends(get_pool),
@@ -2999,7 +3009,7 @@ async def estimate_investigation(
 async def start_investigation(
     _enforce_ai: Annotated[  # Sprint 25 T2-12 billing enforcement ai credits start (investigation = 5 credits
         BillingEnforcementResult,
-        Depends(lambda r: enforce_capability(r, "ai_credits", amount=5)),
+        Depends(_enforce_ai_credits_5),
     ],
     body: StartInvestigationRequest,
     pool: ConnectionPool = Depends(get_pool),

@@ -9,7 +9,7 @@ import re
 import uuid
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Request
 from pydantic import BaseModel, EmailStr, Field
 
 from investigation_api.billing_enforcement import BillingEnforcementResult, enforce_capability
@@ -18,6 +18,11 @@ router = APIRouter(
     prefix="/api/v1/users",
     tags=["Usuários por Organização + Onboarding"],
 )
+
+
+async def _enforce_max_users_per_org(request: Request) -> BillingEnforcementResult:
+    """Depends wrapper: max_users_per_org enforcement (evita lambda Depends bug FastAPI)."""
+    return await enforce_capability(request, "max_users_per_org")
 
 # Roles família OTK_* autorizados para invite (SSOT = T2-10 billing capabilities)
 ROLES_PERMITIDOS_INVITE = Literal[
@@ -50,7 +55,7 @@ _VALID_ROLE = re.compile(r"^OTK_(ADMIN|ANALYST|COMPLIANCE_OFFICER|AUDITOR|VIEWER
 async def users_org_invite(
     _enforce: Annotated[
         BillingEnforcementResult,
-        Depends(lambda r: enforce_capability(r, "max_users_per_org")),
+        Depends(_enforce_max_users_per_org),
     ],
     payload: UserInviteRequest = Body(...),
 ) -> UserInviteResponse:

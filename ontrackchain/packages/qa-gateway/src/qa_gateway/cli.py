@@ -598,7 +598,7 @@ def cmd_scan_rbac(
 # 4 códigos WARNING estruturais: BW-001..BW-004
 # ---------------------------------------------------------------------------
 
-@app.command("scan-billing-capabilities")
+@cli.command("scan-billing-capabilities")
 @click.option(
     "--project-root",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
@@ -767,7 +767,7 @@ def cmd_scan_billing_capabilities(
 # Warning codes BE-001..BE-004
 # ---------------------------------------------------------------------------
 
-@app.command("scan-billing-enforcement")
+@cli.command("scan-billing-enforcement")
 @click.option(
     "--project-root",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
@@ -967,7 +967,7 @@ def cmd_scan_billing_enforcement(
 # Warnings LR-001..LR-005 + Issues E001..E003
 # ---------------------------------------------------------------------------
 
-@app.command("scan-lgpd-ropd")
+@cli.command("scan-lgpd-ropd")
 @click.option(
     "--project-root",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
@@ -1279,8 +1279,32 @@ def cmd_scan_secrets_trufflehog(
         else:
             click.echo(f"  ✅ Binário detectado: {bin_path}")
             click.echo("  🟢 DRY-RUN: nada executou.")
-        _finish_trufflehog(issues, warnings, failures_json, strict, max_warnings)
-        return
+        click.echo(
+            f"  resumo dry-run: 0 issue(s);  {len(warnings)} warning(s);  dry-run NUNCA bloqueia (strict={strict} ignorado);  exit=0"
+        )
+        if warnings:
+            click.echo("\n--- WARNINGS (dry-run informativos) ---")
+            for w in warnings:
+                click.echo(f"  ⚠️  {w}")
+        if failures_json:
+            try:
+                Path(failures_json).write_text(
+                    json.dumps(
+                        {
+                            "ok": True,
+                            "issues": [],
+                            "warnings": warnings,
+                            "dry_run": True,
+                            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    ),
+                    encoding="utf-8",
+                )
+            except Exception:  # noqa: BLE001
+                pass
+        sys.exit(0)
 
     if not bin_path:
         issues.append(

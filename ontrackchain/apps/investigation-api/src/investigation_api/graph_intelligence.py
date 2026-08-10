@@ -41,25 +41,40 @@ class GraphLayoutResponse(BaseModel):
     capability_allowed: bool = True
 
 
-async def _require_allowed_graph_layout(request: Request, payload: GraphLayoutRequest) -> Tier:
+async def _require_allowed_graph_layout(request: Request) -> Tier:
     """Valida layout permitido conforme billing capabilities. Validação NÃO usa counter.
 
     Executado como Depends e também dentro da rota (dupla validação redundante = segurança em profundidade).
     """
+    try:
+        import json as _json
+        body_bytes = await request.body()
+        if not body_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"code": "GRAPH_LAYOUT_EMPTY_BODY", "message": "Body JSON obrigatório com layout_name."},
+            )
+        payload_dict = _json.loads(body_bytes)
+        layout_name = payload_dict.get("layout_name")
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "GRAPH_LAYOUT_BODY_INVALID", "message": "Body JSON malformado."},
+        )
     tier: Tier = getattr(request.state, "current_org_tier", "startup")
     permitidos = OTK_PLAN_CAPABILITIES[tier]["graph_intelligence_layouts_allowed"]
-    if payload.layout_name not in permitidos:
+    if layout_name not in permitidos:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
                 "code": "GRAPH_LAYOUT_NOT_ALLOWED_FOR_TIER",
                 "message": (
-                    f"Layout '{payload.layout_name}' NÃO é permitido no tier '{tier}'. "
+                    f"Layout '{layout_name}' NÃO é permitido no tier '{tier}'. "
                     f"Permitidos: {permitidos}. Upgrade para business/enterprise se precisar."
                 ),
                 "tier": tier,
                 "allowed": permitidos,
-                "requested": payload.layout_name,
+                "requested": layout_name,
             },
         )
     return tier
@@ -67,7 +82,7 @@ async def _require_allowed_graph_layout(request: Request, payload: GraphLayoutRe
 
 @router.post("/layout", response_model=GraphLayoutResponse)
 async def graph_compute_layout(
-    _tier_ok: Annotated[Tier, Depends(lambda r, p: _require_allowed_graph_layout(r, p))],
+    _tier_ok: Annotated[Tier, Depends(_require_allowed_graph_layout)],
     payload: GraphLayoutRequest = Body(...),
 ) -> GraphLayoutResponse:
     # Placeholder layout positions: dispersão randômica (integração real com Cytoscape.js S26)
