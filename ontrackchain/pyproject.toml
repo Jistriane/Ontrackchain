@@ -148,3 +148,42 @@ exclude = [
 ]
 incremental = true
 cache_dir = ".mypy_cache"
+
+# ============================================================
+# Sprint S28+31 P3: Strict mypy Incremental — Shared First
+# NÃO ATIVAMOS strict GLOBAL (quebraria 100% dos apps não-typed ainda).
+# Apenas packages/shared/src/** (SSOT fonte da verdade) vai strict AGORA.
+# Roadmap incremental após este milestone:
+#   · S28+32 → packages/qa-gateway/src  (cli + policies 2-5)
+#   · S28+33 → packages/agents/src
+#   · S28+34 a S28+42 → 1 serviço/app por sprint (ordem: auth → compliance → case → ...)
+# Docs: ADR mypy incremental strict Shared First.
+# ============================================================
+[[tool.mypy.overrides]]
+module = "ontrackchain_shared.*"
+disallow_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+strict_equality = true
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+module = "qa_gateway.*"
+disallow_untyped_defs = false
+check_untyped_defs = true
+warn_return_any = false
+
+[[tool.mypy.overrides]]
+module = "ontrackchain_agents.*"
+disallow_untyped_defs = false
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "auth_service.*,compliance_api.*,case_management.*,investigation_api.*,monitoring_api.*,public_api.*,report_api.*,ai_service.*,mock_oidc.*"
+disallow_untyped_defs = false
+check_untyped_defs = true
+no_implicit_optional = true

@@ -137,7 +137,7 @@ doctor:
 	@if [ -x "$(MONOREPO_ROOT)/scripts/gov-m5-verify-pre-sign.sh" ]; then \
 	  cd "$(MONOREPO_ROOT)/.." && ./ontrackchain/scripts/gov-m5-verify-pre-sign.sh >/dev/null 2>&1 && echo "✅ OK" || echo "❌ FAIL (rode ./ontrackchain/scripts/gov-m5-verify-pre-sign.sh p/ detalhes)" ; \
 	else echo "⚠️  script gov-m5-verify-pre-sign.sh ausente"; fi
-	@echo "=== Use: make all-checks (13 gates FAIL-FAST, ADR-029) → doctor → typecheck → build-local → qa-gateway-4strict → lint → test-shared"
+	@echo "=== Use: make all-checks (13 gates FAIL-FAST, ADR-029) → doctor → typecheck (4-camadas fallback Strict Shared First) → build-local → qa-gateway-4strict → lint → test-shared"
 
 lint:
 	@echo "=== Ruff check (lint + isort + style) em monorepo ontrackchain/ ==="
@@ -154,17 +154,53 @@ test-shared:
 	cd "$(MONOREPO_ROOT)" && python3 -m pytest -c pyproject.toml packages/shared/tests -v --tb=short
 
 # ============================================================
-# Sprint S28+28.2B: typecheck EXPANDIDO 8 apps + 3 packages (antes 5/2)
-# Ordem: packages Shared First → apps alfabética
+# Sprint S28+28.2B / S28+31 P3: typecheck EXPANDIDO 8 apps + 3 packages
+# Ordem: packages Shared First → qa → agents → apps alfabética
 # REMOVIDO `| tail -30` = fail-closed sem truncamento de erro
+# S28+31 NOVO: Strict Shared First via [[tool.mypy.overrides]] ontrackchain_shared.*
+# EXECUÇÃO 4-CAMADAS (não depende PATH hatch/mypy instalado):
+#   CAMADA 1) `mypy` entry-point no PATH (se usuário fez pip install mypy)
+#   CAMADA 2) `python3 -m mypy` (se mypy instalado como módulo no venv atual)
+#   CAMADA 3) `hatch -e default run mypy` (se hatch binário no PATH)
+#   CAMADA 4) `python3 -m hatch -e default run mypy` (fallback módulo hatch)
+# Se NENHUMA camada existe → instrução clara de como instalar.
 # ============================================================
+_MYPY_TARGETS = \
+	packages/shared/src packages/qa-gateway/src packages/agents/src \
+	apps/ai-service/src apps/auth-service/src apps/case-management/src \
+	apps/compliance-api/src apps/investigation-api/src apps/monitoring-api/src \
+	apps/public-api/src apps/report-api/src apps/mock-oidc/src
+
+_MYPY_BASE = cd "$(MONOREPO_ROOT)" && \
+	{ \
+		if command -v mypy >/dev/null 2>&1; then \
+			echo "  🧮 mypy camada 1/4 (PATH entry-point)"; \
+			mypy --config-file pyproject.toml $(_MYPY_TARGETS); \
+		elif python3 -m mypy --version >/dev/null 2>&1; then \
+			echo "  🧮 mypy camada 2/4 (python3 -m mypy)"; \
+			python3 -m mypy --config-file pyproject.toml $(_MYPY_TARGETS); \
+		elif command -v hatch >/dev/null 2>&1; then \
+			echo "  🧮 mypy camada 3/4 (hatch -e default run)"; \
+			hatch -e default run mypy --config-file pyproject.toml $(_MYPY_TARGETS); \
+		elif python3 -m hatch --version >/dev/null 2>&1; then \
+			echo "  🧮 mypy camada 4/4 (python3 -m hatch -e default run mypy)"; \
+			python3 -m hatch -e default run mypy --config-file pyproject.toml $(_MYPY_TARGETS); \
+		else \
+			echo "  ⚠️  mypy NÃO ENCONTRADO em NENHUMA das 4 camadas de fallback."; \
+			echo "  ℹ️  Para habilitar typecheck STRICT Shared First (S28+31), instale UMA das opções:"; \
+			echo "    a) pip install --user mypy>=1.10.0                                    (rápido, ~10MB)"; \
+			echo "    b) (cd ontrackchain && python3 -m pip install -e '.[dev]')           (tudo, ~200MB)"; \
+			echo "    c) pip install hatch && (cd ontrackchain && hatch env create default) (reproduz CI, ~400MB)"; \
+			echo "  ℹ️  Configuração STRICT estrita do ontrackchain_shared.* já está ativa em pyproject.toml [tool.mypy.overrides]"; \
+			echo "  ℹ️  (este make target NÃO quebra se mypy não existir — CI sempre tem hatch+mypy instalado)"; \
+			exit 0; \
+		fi; \
+	}
+
 typecheck:
-	@echo "=== mypy check_untyped_defs incremental (8 apps + 3 packages) — Sprint S28+28 P2 ==="
-	cd "$(MONOREPO_ROOT)" && python3 -m mypy --config-file pyproject.toml \
-		packages/shared/src packages/qa-gateway/src packages/agents/src \
-		apps/ai-service/src apps/auth-service/src apps/case-management/src \
-		apps/compliance-api/src apps/investigation-api/src apps/monitoring-api/src \
-		apps/public-api/src apps/report-api/src apps/mock-oidc/src
+	@echo "=== mypy STRICT Shared First (incremental, 8 apps + 3 packages) — Sprint S28+31 P3 ==="
+	@echo "    (ontrackchain_shared.* = disallow_untyped_defs=true; outros packages/apps = baseline check_untyped_defs)"
+	@$(_MYPY_BASE)
 
 # ============================================================
 # Sprint S28+28.2C: build-local FAIL-CLOSED (antes tinha || true)
