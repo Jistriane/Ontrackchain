@@ -24,6 +24,29 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+# Sprint S28+48 P4: Logging Estruturado JSON (zero deps novas).
+# setup_structured_logging é idempotente. fallback = logging stdlib padrão.
+import logging as _public_logging  # noqa: E402 - depois de settings ok
+try:
+    from ontrackchain_shared.logging_util import (  # noqa: E402 - imports tardios permitidos
+        RequestIdLogMiddleware as _PublicRequestIdLogMiddleware,
+        setup_structured_logging,
+    )
+    _PUBLIC_STRUCTURED_LOG_OK = True
+except Exception:  # noqa: BLE001
+    setup_structured_logging = None  # type: ignore[assignment]
+    _PublicRequestIdLogMiddleware = None  # type: ignore[assignment, misc]
+    _PUBLIC_STRUCTURED_LOG_OK = False
+
+if setup_structured_logging is not None:
+    import os as _public_os  # noqa: E402
+    setup_structured_logging(
+        "public-api",
+        level=_public_os.environ.get("LOG_LEVEL", "INFO"),
+    )
+    del _public_os
+del _public_logging
+
 # =============================================================================
 # ADR-018 RBAC Shared First — PUBLIC-API (P0)
 # App-level enforcement: 1 Depends() global para 6 endpoints B2B/admin;
@@ -161,6 +184,10 @@ app = FastAPI(
     version="2.0.0",
     dependencies=[Depends(_app_rbac_enforcer)],
 )
+
+# Sprint S28+48 P4: Request ID Middleware. Logs estruturados recebem request_id auto-injetado.
+if _PUBLIC_STRUCTURED_LOG_OK and _PublicRequestIdLogMiddleware is not None:
+    app.add_middleware(_PublicRequestIdLogMiddleware)
 
 SUPPORTED_PUBLIC_CHAINS = {"ethereum", "polygon", "bsc", "arbitrum", "base", "bitcoin"}
 

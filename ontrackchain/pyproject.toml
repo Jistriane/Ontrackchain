@@ -181,8 +181,9 @@ cache_dir = ".mypy_cache"
 #   · S28+45 ✅ apps/mock-oidc         (nono APP ÚLTIMO: 696 LOC main.py mock OIDC, 🏁 ROADMAP 10 MÓDULOS 10/10 ✅! 12 MÓDULOS STRICT: 3 shared + 9 apps)
 #   · S28+46 ✅ DEFAULT [tool.mypy]    (🏁 FECHAMENTO CICLO STRICT GLOBAL! 9 flags estritas no bloco default. Novos módulos nascem strict automaticamente. 12 overrides permanecem = defesa em profundidade)
 #   · S28+47 ✅ SonarCloud Quality     (Sincronia paths sonar-project.properties RAIZ ↔ ci.yml args + ROOTS coverage 7→13 serviços + CodeCov wildcard + Bandit SARIF → GH Code Scanning + arquivo subpasta marcado OBSOLETO)
+#   · S28+48 ✅ Logging Estruturado    (shared ontrackchain_shared/logging_util.py stdlib + json.dumps + contextvars, 0 deps novas. Habilitado em auth-service, public-api, case-management. X-Request-Id middleware + service field padrão + severity field)
 #   · S28+49 ✅ Makefile Extras        (make format = ruff format apps/packages/scripts; make audit = pip-audit 13 serviços resumido NB; make clean = tmp_* + __pycache__ + .pytest_cache + .mypy_cache)
-# Docs: ADR mypy incremental strict Shared → QA → Agents → 9 Apps 1×1 → Global Default Strict → SonarCloud QG Sync → Makefile Extras.
+# Docs: ADR mypy incremental strict Shared → QA → Agents → 9 Apps 1×1 → Global Default Strict → SonarCloud QG Sync → Structured Logging Stdlib → Makefile Extras.
 # ============================================================
 [[tool.mypy.overrides]]
 module = "ontrackchain_shared.*"

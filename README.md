@@ -114,6 +114,12 @@ make all-checks
 - 🔴 `make audit`  → pip-audit 13 serviços, resumo HIGH/CRITICAL, logs por serviço em `tmp_audit/` (não bloqueia local, CI bloqueia PR se HIGH>0)
 - 🟢 `make clean`  → remove apenas `tmp_*  **/__pycache__  .pytest_cache  .mypy_cache  **/*.pyc` (não toca em src/, git/ nem arquivos de governança)
 
+**Observabilidade — Logging Estruturado JSON (Sprint S28+48 P4, 0 dependências novas):**
+- 🟢 **Shared util**: `ontrackchain_shared/logging_util.py` — `json.dumps` + `logging.Formatter` + `contextvars` + middleware Starlette/FastAPI `RequestIdLogMiddleware`.
+- 🟢 **Habilitado em 3 serviços (P0)**: `auth-service`, `public-api`, `case-management` (restante dos 10 = habilitar via `setup_structured_logging("nome-service")` no main.py, 1 linha).
+- 🟢 **Schema JSON Lines (parsável por ELK/Loki/Datadog)**: `timestamp` (ISO UTC), `level`, `severity` (syslog-style 1..7), `logger`, `message`, `service`, `request_id` (header `X-Request-Id` ou auto-gerado uuid4), `exc_info` + `_meta` (lineno/funcName/thread/pid) + todos `extra=...` de `logger.info(..., extra={...})`.
+- 🟢 **100% retrocompatível**: fallback `logging` stdlib padrão se import `logging_util` falhar (ambiente sem shared pkg instalado). setup é **idempotente** (2ª+ chamada no mesmo service = ignora).
+
 **Uploads Code Scanning (jobs paralelos ci.yml — NÃO gating local, aparecem na aba Security):**
 - 🟣 **Ruff (S28+34)**: `codeql-action/upload-sarif@v3` — categoria `SonarCloud-ruff` — lint/security hotspots
 - 🔴 **Bandit (S28+47 NOVO)**: `codeql-action/upload-sarif@v3` — categoria `SAST-Bandit` — SAST Python MED/HIGH em 13 serviços (apps + packages)

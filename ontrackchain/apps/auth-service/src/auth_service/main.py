@@ -22,6 +22,27 @@ from pydantic_settings import BaseSettings
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
+# Sprint S28+48 P4: Logging Estruturado JSON (zero deps novas).
+# setup_structured_logging é idempotente. 1ª chamada configura root.
+# Demais serviços (public/case/etc) chamam com seu nome.
+try:
+    from ontrackchain_shared.logging_util import (
+        RequestIdLogMiddleware as _AuthRequestIdLogMiddleware,
+        setup_structured_logging,
+    )
+    _AUTH_STRUCTURED_LOG_OK = True
+except Exception:  # noqa: BLE001 - fallback para logging padrão caso pacote n instalado
+    setup_structured_logging = None  # type: ignore[assignment]
+    _AuthRequestIdLogMiddleware = None  # type: ignore[assignment, misc]
+    _AUTH_STRUCTURED_LOG_OK = False
+
+if setup_structured_logging is not None:
+    import os as _auth_os
+    setup_structured_logging(
+        "auth-service",
+        level=_auth_os.environ.get("LOG_LEVEL", "INFO"),
+    )
+    del _auth_os
 
 class Settings(BaseSettings):
     app_env: str = "local"
@@ -255,6 +276,10 @@ app = FastAPI(
     title="OnTrackChain Auth Service",
     dependencies=[Depends(_app_rbac_enforcer)],
 )
+
+# Sprint S28+48 P4: Request ID Middleware. Logs estruturados recebem request_id auto-injetado.
+if _AUTH_STRUCTURED_LOG_OK and _AuthRequestIdLogMiddleware is not None:
+    app.add_middleware(_AuthRequestIdLogMiddleware)
 
 
 # =============================================================================

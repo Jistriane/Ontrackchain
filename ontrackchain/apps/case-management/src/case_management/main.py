@@ -25,6 +25,28 @@ from psycopg_pool import ConnectionPool
 logger = logging.getLogger(__name__)
 
 
+# Sprint S28+48 P4: Logging Estruturado JSON (zero deps novas).
+# setup_structured_logging é idempotente. fallback para logging padrão stdlib.
+try:
+    from ontrackchain_shared.logging_util import (
+        RequestIdLogMiddleware as _CaseRequestIdLogMiddleware,
+        setup_structured_logging,
+    )
+    _CASE_STRUCTURED_LOG_OK = True
+except Exception:  # noqa: BLE001
+    setup_structured_logging = None  # type: ignore[assignment]
+    _CaseRequestIdLogMiddleware = None  # type: ignore[assignment, misc]
+    _CASE_STRUCTURED_LOG_OK = False
+
+if setup_structured_logging is not None:
+    import os as _case_os  # noqa: E402
+    setup_structured_logging(
+        "case-management",
+        level=_case_os.environ.get("LOG_LEVEL", "INFO"),
+    )
+    del _case_os
+
+
 # =============================================================================
 # ADR-018 RBAC Shared First — CASE-MANAGEMENT (P1)
 # App-level enforcement: 1 Depends() global para 9 endpoints.
@@ -176,6 +198,10 @@ app = FastAPI(
     lifespan=_lifespan,
     dependencies=[Depends(_app_rbac_enforcer)],
 )
+
+# Sprint S28+48 P4: Request ID Middleware. Logs estruturados recebem request_id auto-injetado.
+if _CASE_STRUCTURED_LOG_OK and _CaseRequestIdLogMiddleware is not None:
+    app.add_middleware(_CaseRequestIdLogMiddleware)
 
 
 # ==========================================================================
