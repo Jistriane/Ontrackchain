@@ -345,7 +345,12 @@ async def _auth_rate_limit_middleware(request: Request, call_next):
                     "retry_seconds": retry_after,
                 }),
                 media_type="application/json",
-                headers={"Retry-After": str(retry_after)},
+                headers={
+                    "Retry-After": str(retry_after),
+                    "X-RateLimit-Limit": str(limit),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": str(reset_at),
+                },
             )
         logger.warning("auth-service: rate-limit Redis err %s on %s (fail-open).", type(_rl_e).__name__, path)
     return await call_next(request)
