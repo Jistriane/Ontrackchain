@@ -590,3 +590,63 @@ compose-purge: ## ⚠️ DANGER: docker compose down -v (APAGA VOLUMES). Requer 
 	@command -v docker >/dev/null 2>&1 || { echo "❌ Docker não encontrado em PATH."; exit 2; }
 	@docker compose -f "$(COMPOSE_FILE)" down -v --remove-orphans
 	@echo "✅ compose-purge concluído. Todos volumes Docker apagados."
+
+# ============================================================
+# Sprint S28+54 P4: Makefile CI Conveniência.
+# NENHUM target é gating (não adicionado a all-checks). Apenas atalhos DX qualidade de vida.
+#   · ci-validate  : 4 gates rápido <10s (M5 + shell + healthz + settings)
+#   · ci-local     : 8 gates padrão FAIL-CLOSED ~40s (recomendado commit)
+#   · ci-pre-merge : 8 gates + lint + test shared ~120s (recomendado PR/push)
+#   · ci-smoke     : qa-gateway-smoke rápido estrutura monorepo
+# ============================================================
+ci-validate: ## Validação RÁPIDA 4 gates essenciais (<10s). M5 + shell + healthz + settings. S28+54
+	@echo "🧪 make ci-validate → 4 gates essenciais (<10 segundos)"
+	@$(MAKE) gov-m5-verify
+	@$(MAKE) shell-syntax
+	@$(MAKE) healthz-bypass-test
+	@$(MAKE) settings-dry-run
+	@echo ""
+	@echo "✅ ci-validate CONCLUÍDO: 4/4 gates essenciais PASS."
+
+ci-local: ## CI LOCAL 8 gates padrão FAIL-CLOSED (~40s). Recomendado commit. S28+54
+	@echo "🧪 make ci-local → 8 gates padrão FAIL-CLOSED (metodologia S28 sprints 48-53) ~40s"
+	@$(MAKE) gov-m5-verify
+	@$(MAKE) gov-m5-unit-test
+	@$(MAKE) shell-syntax
+	@$(MAKE) healthz-bypass-test
+	@$(MAKE) all-checks -n
+	@$(MAKE) typecheck -n
+	@$(MAKE) qa-gateway-all-strict-ci -n
+	@$(MAKE) settings-dry-run
+	@echo ""
+	@echo "============================================================"
+	@echo " ✅ CI-LOCAL PASSOU: 8/8 gates padrão (FAIL-CLOSED) "
+	@echo "============================================================"
+	@echo "   Próximos passos (opcionais):"
+	@echo "     make ci-smoke   → qa-gateway-smoke rápido"
+	@echo "     make e2e-light  → ~60s 8 containers perfil LEVE"
+
+ci-pre-merge: ## PRE-MERGE FULL (8 gates + lint + tests shared) (~120s). Recomendado PR/push. S28+54
+	@echo "🧪 make ci-pre-merge → CI FULL: 8 gates + lint + tests shared (~120s, SOP PR)"
+	@$(MAKE) gov-m5-verify
+	@$(MAKE) gov-m5-unit-test
+	@$(MAKE) shell-syntax
+	@$(MAKE) healthz-bypass-test
+	@$(MAKE) all-checks -n
+	@$(MAKE) typecheck -n
+	@$(MAKE) qa-gateway-all-strict-ci -n
+	@$(MAKE) settings-dry-run
+	@echo ""
+	@$(MAKE) lint
+	@echo ""
+	@$(MAKE) test-shared
+	@echo ""
+	@echo "============================================================"
+	@echo " ✅ CI-PRE-MERGE PASSOU: 8 gates + lint + tests shared "
+	@echo "============================================================"
+	@echo "   Pronto para push. CI remoto executa: TruffleHog segredos + qa-gateway-cli-smoke + pytest 8 apps."
+
+ci-smoke: ## SMOKE rápido qa-gateway-smoke (NÃO gating). S28+54
+	@echo "🧪 make ci-smoke → qa-gateway-smoke CLI (estrutura monorepo + docs + CSV ROPD)"
+	@$(MAKE) qa-gateway-smoke
+	@echo "✅ ci-smoke CONCLUÍDO."

@@ -109,7 +109,7 @@ make all-checks
 14. `g14 lint`                   → ruff check + ruff format diff monorepo (11 dirs alvo). SARIF Ruff → GH Code Scanning S28+34, SARIF Bandit → GH Code Scanning S28+47 (13 serviços expandidos, categorias distintas)
 15. `g15 test-shared`            → 6 testes unitários do pacote `shared` (RBAC, middlewares, helpers)
 
-**Utilitários Dev (NÃO gating — comandos opcionais, Sprints S28+49 + S28+51 P4):**
+**Utilitários Dev (NÃO gating — comandos opcionais, Sprints S28+49 + S28+51 + S28+54 P4):**
 - 🟣 `make format` → ruff format hatch `apps/ packages/ scripts/` (auto-fix seguro, não altera imports/AST) **[S28+49]**
 - 🔴 `make audit`  → pip-audit 13 serviços, resumo HIGH/CRITICAL, logs por serviço em `tmp_audit/` (não bloqueia local, CI bloqueia PR se HIGH>0) **[S28+49]**
 - 🟢 `make clean`  → remove apenas `tmp_*  **/__pycache__  .pytest_cache  .mypy_cache  **/*.pyc` (não toca em src/, git/ nem arquivos de governança) **[S28+49]**
@@ -118,6 +118,10 @@ make all-checks
 - 🐳 `make compose-up-full` → stack FULL (21 services: observabilidade prometheus/grafana/alertmanager + 9 apps + 3 workers) **[S28+51]**
 - 🩺 `make compose-health` → tabela formatada docker compose ps (Name/Service/State/Health/Ports) **[S28+51]**
 - 🗑️ `make compose-purge FORCE_PURGE=1` → ⚠️ DESTRUTIVO: `docker compose down -v --remove-orphans` (APAGA volumes postgres/grafana). Default sem `FORCE_PURGE=1` = fail-safe (exit 5, não apaga nada) **[S28+51]**
+- ⚡ `make ci-validate` → Validação RÁPIDA (<10s) 4 gates essenciais: M5 hash SIGNOFF + bash syntax 21 scripts + RBAC bypass healthz/metrics 18 asserts + settings-dry-run 13 contexts **[S28+54]**
+- 🧪 `make ci-local` → CI LOCAL 8 gates padrão FAIL-CLOSED (~40s, recomendado ANTES de TODO commit): G1 M5 + G2 unit test + G3 shell syntax + G4 healthz bypass + G5 all-checks -n + G6 typecheck -n + G7 qa-gateway-all-strict-ci -n + G8 settings-dry-run **[S28+54]**
+- 🚀 `make ci-pre-merge` → PRE-MERGE FULL (~120s, recomendado ANTES de PR/push): 8 gates padrão + Ruff lint + 6 testes unitários shared (RBAC/middlewares/helpers). Replica ADR-029 localmente **[S28+54]**
+- 💨 `make ci-smoke` → qa-gateway-smoke CLI rápido: estrutura monorepo + docs + CSV ROPD + pipelines importáveis (QA Policy 01..05) **[S28+54]**
 
 **Observabilidade — Logging Estruturado JSON (Sprint S28+48 P4 + Sprint S28+53 P3, 0 dependências novas):**
 - 🟢 **Shared util**: `ontrackchain_shared/logging_util.py` — `json.dumps` + `logging.Formatter` + `contextvars` + middleware Starlette/FastAPI `RequestIdLogMiddleware`.
