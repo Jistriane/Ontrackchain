@@ -154,12 +154,20 @@ cache_dir = ".mypy_cache"
 # NÃO ATIVAMOS strict GLOBAL (quebraria 100% dos apps não-typed ainda).
 # S28+32 P3: qa_gateway.* strict
 # S28+33 P3: ontrackchain_agents.* strict (2629 LOC, 19 arquivos: sanctions_engine + evidence_trail + etc)
+# S28+37 P3: auth_service.* strict (PRIMEIRO APP: 2737 LOC, main.py 2473L FastAPI auth)
 # Roadmap incremental após este milestone (fase de serviços 9 apps = 9 sprints):
 #   · S28+31 ✅ packages/shared/src       (SSOT fonte da verdade)
 #   · S28+32 ✅ packages/qa-gateway/src   (9 comandos CLI + policies + rls guard)
 #   · S28+33 ✅ packages/agents/src       (2629 LOC: sanctions/evidence/preventive_block/travel_rule)
-#   · S28+34 a S28+42 → 1 serviço/app por sprint (ordem: auth → compliance → case → investigation →
-#                                                       monitoring → public → report → ai → mock-oidc)
+#   · S28+37 ✅ apps/auth-service         (PRIMEIRO APP: OIDC, 2FA, B2B HMAC, secrets_loader)
+#   · S28+38    apps/compliance-api       (próximo: structural_screens + risk_provider 28 arquivos)
+#   · S28+39    apps/case-management
+#   · S28+40    apps/investigation-api
+#   · S28+41    apps/monitoring-api
+#   · S28+42    apps/public-api
+#   · S28+43    apps/report-api
+#   · S28+44    apps/ai-service
+#   · S28+45    apps/mock-oidc
 # Docs: ADR mypy incremental strict Shared → QA → Agents → 9 Apps 1×1.
 # ============================================================
 [[tool.mypy.overrides]]
@@ -199,7 +207,19 @@ disallow_untyped_decorators = true
 warn_redundant_casts = true
 
 [[tool.mypy.overrides]]
-module = "auth_service.*,compliance_api.*,case_management.*,investigation_api.*,monitoring_api.*,public_api.*,report_api.*,ai_service.*,mock_oidc.*"
+module = "auth_service.*"
+disallow_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+strict_equality = true
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+module = "compliance_api.*,case_management.*,investigation_api.*,monitoring_api.*,public_api.*,report_api.*,ai_service.*,mock_oidc.*"
 disallow_untyped_defs = false
 check_untyped_defs = true
 no_implicit_optional = true
