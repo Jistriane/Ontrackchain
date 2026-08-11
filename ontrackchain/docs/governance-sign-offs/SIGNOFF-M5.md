@@ -96,9 +96,9 @@
 | Risco | Probabilidade | Impacto | Mitigação | Ticket | Status Sprint |
 |---|---|---|---|---|---|
 | Signatários humanos faltando (0/6 assinado) | ALTA (100% hoje) | CRÍTICO (bloqueia push remoto) | Reunião M5 agendada; urgente 48h | GOV-M5-SIG | 🔴 **PENDENTE HUMANO** (jurídico, fora escopo sprint técnico) |
-| auth-service rate limit 429 usa aioredis singleton sem Redis real (fallback fail-open) | MÉDIA → BAIXO | MÉDIO → BAIXO | Sprint 28+15: Nova env `FAIL_CLOSED_RATE_LIMIT=true` (opt-in) + 2 paths 503 Service Unavailable Retry-After headers + logger.error para PagerDuty. Default continua fail-open para não quebrar ambientes staging-dev. Redis real deploy staging-serious antes prod | AUT-429-RED | 🟢 **MITIGADO S28+15** (env fail-closed + 2 codepaths 503) |
+| auth-service rate limit 429 usa aioredis singleton sem Redis real (fallback fail-open) | MÉDIA → BAIXO | MÉDIO → BAIXO | Sprint 28+15: Nova env FAIL_CLOSED_RATE_LIMIT=true (opt-in) + 2 paths 503 Service Unavailable Retry-After headers + logger.error para PagerDuty. Default continua fail-open para nao quebrar ambientes staging-dev. Sprint S28+16 Bugfix L348: path 2 503 except Redis err agora tem 3 x X-RateLimit headers consistentes. Sprint S28+17 Public-API: public_rate_limiter e b2b_rate_limiter 429 c/ Retry-After + 3 x XRateLimit via FastAPI headers param. Redis real deploy staging-serious antes prod | AUT-429-RED | 🟢 **MITIGADO S28+15 / +16 / +17** (env fail-closed + bugfix L348 headers + public b2b 429 headers) |
 | PyJWT JWKS lazy fetch sem retry + circuit breaker JWKS endpoint Keycloak indisponível | MÉDIA → BAIXO | MÉDIO → BAIXO | Sprint 28+15: `_retry_with_exponential_backoff(fn, tries=3, 0.25s→0.5s→1.0s, jitter 25%)` SSOT. `_get_jwks_client()` retry init. `_cached_signing_key()` 4 camadas: SHORT 1h → LONG 24h stale-while-revalidate → retry 3x both-expired → último-recurso key-expirada-warning. `_discover_jwks_from_issuer()` httpx.Client retry 3x + resp.raise_for_status(). | ADR18-JWKS-1 | 🟢 **MITIGADO S28+15** (3x retry + dual TTL 1h/24h stale cache) |
-| 7 serviços novos SEM testes unitários RBAC 80% coverage | ALTA → MÉDIO | ALTO → MÉDIO | Sprint 28+15: 7 arquivos `apps/*/tests/test_rbac.py` = 12 testes cada = 84 testes unit/integration pytest-style. Pattern: 6 pure-functions _SVC_normalize_role (empty/strip-4-prefixes/3-aliases/uppercase) + 6 TestClient(app) (bypass público /health /docs, rota exata ADMIN 403 sem header → passa com X-Role=ADMIN, viewer negado, endpoint específico, prefixo internal ADMIN). Validação AST 9/9 compile() ZERO SyntaxError. | ADR18-TEST-1 | 🟢 **MITIGADO S28+15** (84 testes pytest 7 arquivos) |
+| 7 serviços novos SEM testes unitários RBAC 80% coverage | ALTA → MÉDIA | ALTO → MÉDIO |  Sprint 28+15: 7 arquivos apps/*/tests/test_rbac.py = 12 testes cada = **84 testes NOVOS** pytest-style. Pattern: 6 pure-functions normalize_role + 6 TestClient(app). Inventário REAL Sprint S28+16 (não-suposição): LEGADO +61 testes = compliance-api (33), monitoring-api (7), report-api (12), investigation-api billing (3), auth-service canonicalization (6). **TOTAL GERAL = 145 testes RBAC**. Validação AST 9/9 compile() ZERO SyntaxError. | ADR18-TEST-1 | 🟢 **MITIGADO S28+15** (84 novos / 145 total 9 serviços) |
 
 ---
 
@@ -111,7 +111,9 @@
 - [x] .github/workflows CI ADR-029 5-gates
 - [x] JWKS Retry 3x exponential backoff + DUAL TTL cache 1h/24h stale-while-revalidate (S28+15.1)
 - [x] Auth Rate Limit env FAIL_CLOSED_RATE_LIMIT=true 503 Service Unavailable c/ Retry-After (S28+15.2)
-- [x] 84 testes RBAC pytest 7 serviços (12 testes/test_rbac.py: 6 unitários normalize_role + 6 integration TestClient) (S28+15.3/4)
+- [x] Public-API 2 rate limiters (public 10/hour IP e B2B 2000/hour client) 429 com Retry-After + 3 headers X-RateLimit (S28+17)
+- [x] Auth rate limit Bugfix L348 path 503 except Redis err: headers 3×X-RateLimit + Retry-After 4/4 consistentes (S28+16)
+- [x] 145 testes RBAC pytest total = 84 novos S28+15 (7 x 12 testes/test_rbac.py) + 61 legado S28+16 compliance/monitoring/report/investigation/auth
 - [ ] 06/06 Signatários ASSINADOS PGP Clearsign
 - [ ] 29/29 linhas da tabela = "Aprovado" (SIGNOFF-ADRS-ALL-29)
 - [ ] 5/5 Gates CI = PASS em staging-serious commit

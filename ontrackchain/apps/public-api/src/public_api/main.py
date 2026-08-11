@@ -3,6 +3,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import json
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, Literal, Optional
@@ -226,12 +228,28 @@ async def public_rate_limiter(
     x_forwarded_for: Annotated[Optional[str], Header()] = None,
 ) -> None:
     ip = (x_forwarded_for or request.client.host or "unknown").split(",")[0].strip()
+    _PUBLIC_RATE_LIMIT = 10
+    _PUBLIC_WINDOW_SECONDS = 3600
     key = f"rl:public:{ip}"
     count = await redis.incr(key)
     if count == 1:
-        await redis.expire(key, 3600)
-    if count > 10:
-        raise HTTPException(status_code=429, detail="rate_limited")
+        await redis.expire(key, _PUBLIC_WINDOW_SECONDS)
+    if count > _PUBLIC_RATE_LIMIT:
+        ttl = await redis.ttl(key)
+        reset_at = int(time.time()) + max(1, int(ttl))
+        retry_after = max(1, reset_at - int(time.time()))
+        remaining = max(0, _PUBLIC_RATE_LIMIT - count)
+        headers = {
+            "Retry-After": str(retry_after),
+            "X-RateLimit-Limit": str(_PUBLIC_RATE_LIMIT),
+            "X-RateLimit-Remaining": str(remaining),
+            "X-RateLimit-Reset": str(reset_at),
+        }
+        raise HTTPException(
+            status_code=429,
+            detail={"code": "rate_limited", "limit_per_hour": _PUBLIC_RATE_LIMIT},
+            headers=headers,
+        )
 
 
 CACHE_HEADERS = {
@@ -627,18 +645,27 @@ async def b2b_rate_limiter(
     client_ctx: Annotated[dict[str, Any], Depends(b2b_authenticate)],
     redis: Annotated[Redis, Depends(get_redis)],
 ) -> None:
+    _B2B_WINDOW_SECONDS = 3600
     hourly_cap = _B2B_API_KEYS_FAKE_DB[client_ctx["client_id"]]["rate_limit_hourly"]
     key = f"rl:b2b:{client_ctx['client_id']}"
     count = await redis.incr(key)
     if count == 1:
-        await redis.expire(key, 3600)
+        await redis.expire(key, _B2B_WINDOW_SECONDS)
     if count > hourly_cap:
+        ttl = await redis.ttl(key)
+        reset_at = int(time.time()) + max(1, int(ttl))
+        retry_after = max(1, reset_at - int(time.time()))
+        remaining = max(0, hourly_cap - count)
+        headers = {
+            "Retry-After": str(retry_after),
+            "X-RateLimit-Limit": str(hourly_cap),
+            "X-RateLimit-Remaining": str(remaining),
+            "X-RateLimit-Reset": str(reset_at),
+        }
         raise HTTPException(
             status_code=429,
-            detail={
-                "code": "b2b_rate_limited",
-                "limit_per_hour": hourly_cap,
-            },
+            detail={"code": "b2b_rate_limited", "limit_per_hour": hourly_cap},
+            headers=headers,
         )
 
 
