@@ -67,6 +67,161 @@ class Settings(BaseSettings):
 settings = Settings()
 logger = logging.getLogger(__name__)
 
+
+# =============================================================================
+# ADR-018 RBAC Shared First — AUTH-SERVICE (P0)
+# 3-pass: (1) Bearer JWT JWKS; (2) X-Role header fallback; (3) 403 c/ auditoria
+# App-level enforcement: 1 Depends() global → NÃO edita 13 endpoints individuais
+# =============================================================================
+_AUTH_RBAC_GUARD = None
+_PYJWT_AUTH_AVAILABLE = False
+try:
+    from ontrackchain_shared.rbac_guard import (
+        CanonicalRole,
+        RBACGuard,
+        default_guard_from_env,
+    )
+    try:
+        _AUTH_RBAC_GUARD = default_guard_from_env(audience_env="OTK_AUDIENCE")
+        _PYJWT_AUTH_AVAILABLE = True
+        logger.info(
+            "auth-service: RBACGuard Shared First ok. algo=%s aud=%s",
+            getattr(_AUTH_RBAC_GUARD, "jwt_algorithms", "RS256"),
+            getattr(_AUTH_RBAC_GUARD, "expected_audience", "ontrackchain"),
+        )
+    except Exception as _e:  # noqa: BLE001
+        logger.warning("auth-service: RBACGuard init failed (%s). inline fallback.", type(_e).__name__)
+except Exception as _e:  # noqa: BLE001
+    logger.warning("auth-service: shared package missing (%s). inline stub.", type(_e).__name__)
+    CanonicalRole = None
+    RBACGuard = None
+
+
+def _auth_get_rbac_guard():
+    return _AUTH_RBAC_GUARD
+
+
+_AUTH_ROLE_ALIASES = {
+    "COMPLIANCE_OFFICER": "COMPLIANCE",
+    "LEGAL_REVIEWER": "LEGAL",
+    "BILLING_ADMIN": "BILLING",
+    "REVIEWER": "VIEWER",
+    "ONTRACKCHAIN_ADMIN": "ADMIN",
+    "OTK_ADMIN": "ADMIN",
+}
+_AUTH_ROLE_STRIP_PREFIXES = ("OTK_", "ONTK_", "ONTRACKCHAIN_", "B2B_")
+
+
+def _auth_normalize_role(role_raw: str | None) -> str:
+    if not role_raw:
+        return ""
+    r = str(role_raw).strip().upper()
+    for pfx in _AUTH_ROLE_STRIP_PREFIXES:
+        if r.startswith(pfx):
+            r = r[len(pfx):]
+    return _AUTH_ROLE_ALIASES.get(r, r)
+
+
+async def _require_role_with_audit(
+    allowed_roles: set[str],
+    *,
+    authorization: Annotated[Optional[str], Header(alias="Authorization")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    endpoint: str = "",
+    method: str = "",
+    detail: str = "insufficient_role_permission",
+) -> str:
+    guard = _auth_get_rbac_guard()
+    normalized_candidate: str = ""
+    source: str = ""
+    valid_jwt_roles: set[str] = set()
+    if guard is not None and _PYJWT_AUTH_AVAILABLE and authorization:
+        try:
+            token = authorization.removeprefix("Bearer ").strip() if authorization.lower().startswith("bearer ") else authorization.strip()
+            claims = guard.extract_claims(token)
+            roles_claim = claims.get("roles") or claims.get("role") or claims.get("realm_access", {}).get("roles") or []
+            if isinstance(roles_claim, str):
+                roles_claim = [roles_claim]
+            valid_jwt_roles = {_auth_normalize_role(r) for r in roles_claim if r}
+        except Exception:  # noqa: BLE001
+            valid_jwt_roles = set()
+    if valid_jwt_roles:
+        overlap = valid_jwt_roles & set(allowed_roles)
+        if overlap:
+            normalized_candidate = next(iter(overlap))
+            source = "jwt"
+    if not normalized_candidate:
+        normalized_candidate = _auth_normalize_role(x_role)
+        source = "x-role"
+    allowed_normalized = {_auth_normalize_role(r) for r in allowed_roles}
+    if normalized_candidate not in allowed_normalized:
+        detail_msg = f"{detail}|required={sorted(allowed_normalized)}|received={normalized_candidate!r}|source={source}|endpoint={endpoint}|method={method}"
+        logger.warning(
+            "RBAC_DENIAL auth-service endpoint=%s method=%s required=%s received=%r source=%s",
+            endpoint, method, sorted(allowed_normalized), normalized_candidate, source,
+        )
+        raise HTTPException(status_code=403, detail=detail_msg)
+    return normalized_candidate
+
+
+# Mapeamento central: (path_template, method) → allowed_roles
+# Paths NÃO listados → público (bypass por design: /health, /docs, login, sso, etc.)
+_RBAC_ROUTE_POLICIES: dict[tuple[str, str], set[str]] = {
+    ("/auth/issue-dev-token", "POST"): {"ADMIN"},
+    ("/auth/dev-token", "POST"): {"ADMIN"},
+    ("/auth/whoami", "GET"): {"ADMIN", "COMPLIANCE", "AUDITOR", "INVESTIGATOR", "VIEWER", "ANALYST", "TESTER", "LEGAL", "BILLING", "REVIEWER"},
+    ("/auth/mfa/setup", "POST"): {"ADMIN"},
+    ("/auth/mfa/verify", "POST"): {"ADMIN"},
+    ("/auth/mfa/disable", "POST"): {"ADMIN"},
+    ("/auth/token/introspect", "POST"): {"ADMIN"},
+    ("/auth/token/revoke", "POST"): {"ADMIN"},
+    ("/auth/federated/sync", "POST"): {"ADMIN"},
+}
+# Path prefix allowlist — qualquer rota começando com estes prefixos + o método correspondente
+_RBAC_PREFIX_POLICIES: list[tuple[str, set[str], set[str] | None]] = [
+    # (prefixo, allowed_roles, method_filter=None→todos, ou set de métodos)
+    ("/auth/team/", {"ADMIN"}, {"GET", "POST", "PUT", "PATCH", "DELETE"}),
+    ("/auth/federated/", {"ADMIN"}, {"GET", "POST", "PUT", "PATCH", "DELETE"}),
+    ("/auth/oauth/admin/", {"ADMIN"}, None),
+    ("/auth/admin/", {"ADMIN"}, None),
+]
+
+ADMIN = {"ADMIN"}
+try:
+    _app_rbac_enforcer_Depends = Depends(lambda: None)  # placeholder a seguir
+except Exception:  # noqa: BLE001
+    _app_rbac_enforcer_Depends = None
+
+
+async def _app_rbac_enforcer(
+    request: Request,
+    authorization: Annotated[Optional[str], Header(alias="Authorization")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+) -> None:
+    """ADR-018 Enforcement global app-level (não precisa injetar em 13 endpoints)."""
+    scope_path = request.scope.get("path", "") or request.url.path or "/"
+    method = request.method
+    # 1) Verificar rota exata
+    key = (scope_path, method)
+    if key in _RBAC_ROUTE_POLICIES:
+        await _require_role_with_audit(
+            _RBAC_ROUTE_POLICIES[key],
+            authorization=authorization, x_role=x_role,
+            endpoint=scope_path, method=method,
+            detail=f"auth_{scope_path.strip('/').replace('/', '_')}_forbidden",
+        )
+        return
+    # 2) Verificar prefixos
+    for prefix, allowed, methods_filter in _RBAC_PREFIX_POLICIES:
+        if scope_path.startswith(prefix) and (methods_filter is None or method in methods_filter):
+            await _require_role_with_audit(
+                allowed, authorization=authorization, x_role=x_role,
+                endpoint=scope_path, method=method,
+                detail=f"auth_prefix_{prefix.strip('/').replace('/', '_')}_forbidden",
+            )
+            return
+
+
 TEAM_USER_ALLOWED_ROLES = {
     "ADMIN",
     "ANALYST",
@@ -90,7 +245,66 @@ TEAM_FEDERATED_IDENTITY_UNLINK_ALLOWED_ROLES = {"ADMIN"}
 TEAM_FEDERATED_DIRECTORY_SEARCH_ALLOWED_ROLES = {"ADMIN"}
 TEAM_FEDERATED_DIRECTORY_SUGGESTION_ALLOWED_ROLES = {"ADMIN"}
 
-app = FastAPI(title="OnTrackChain Auth Service")
+app = FastAPI(
+    title="OnTrackChain Auth Service",
+    dependencies=[Depends(_app_rbac_enforcer)],
+)
+
+
+# =============================================================================
+# RATE LIMIT MIDDLEWARE (P0) — Sprint S28+14
+# 429 em /auth/issue-dev-token, /auth/login, /auth/verify-2fa
+# Fail-open: qualquer erro de Redis → passa (denegar por erro de infra é P99 outage)
+# =============================================================================
+_RATE_LIMIT_WINDOW_SECONDS = 60
+_RATE_LIMIT_ISSUE_DEV_TOKEN = 5
+_RATE_LIMIT_LOGIN_OAUTH = 10
+_RATE_LIMIT_VERIFY_2FA = 20
+
+
+@app.middleware("http")
+async def _auth_rate_limit_middleware(request: Request, call_next):
+    path = request.url.path or request.scope.get("path", "/")
+    method = request.method
+    limit: int | None = None
+    if path.endswith("/auth/issue-dev-token") or path.endswith("/auth/dev-token"):
+        limit = _RATE_LIMIT_ISSUE_DEV_TOKEN
+    elif (path.endswith("/auth/login") or path.endswith("/auth/oauth/token")) and method == "POST":
+        limit = _RATE_LIMIT_LOGIN_OAUTH
+    elif (path.endswith("/auth/verify-2fa") or path.endswith("/auth/verify-mfa")) and method == "POST":
+        limit = _RATE_LIMIT_VERIFY_2FA
+    if limit is None:
+        return await call_next(request)
+    xff = request.headers.get("X-Forwarded-For", "") or request.headers.get("X-Real-IP", "")
+    client_ip = (xff.split(",")[0].strip() if xff else (request.client.host if request.client else "unknown"))
+    window_start = int(time.time()) // _RATE_LIMIT_WINDOW_SECONDS
+    full_key = f"rl:auth:{path}:{client_ip}:{window_start}"
+    redis_client = getattr(request.app.state, "redis", None)
+    if redis_client is None:
+        return await call_next(request)
+    try:
+        current = await redis_client.incr(full_key)
+        if current == 1:
+            await redis_client.expire(full_key, _RATE_LIMIT_WINDOW_SECONDS + 5)
+        if current > limit:
+            reset_at = (window_start + 1) * _RATE_LIMIT_WINDOW_SECONDS
+            retry_after = max(1, reset_at - int(time.time()))
+            remaining = max(0, limit - current)
+            content = json.dumps({"detail": "too_many_auth_attempts", "limit": limit, "path": path})
+            return Response(
+                status_code=429,
+                content=content,
+                media_type="application/json",
+                headers={
+                    "Retry-After": str(retry_after),
+                    "X-RateLimit-Limit": str(limit),
+                    "X-RateLimit-Remaining": str(remaining),
+                    "X-RateLimit-Reset": str(reset_at),
+                },
+            )
+    except Exception as _rl_e:  # noqa: BLE001
+        logger.warning("auth-service: rate-limit Redis err %s on %s (fail-open).", type(_rl_e).__name__, path)
+    return await call_next(request)
 
 
 # ==========================================================================

@@ -7,12 +7,122 @@ import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 
 import jwt
-from fastapi import FastAPI, Form, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+# =============================================================================
+# ADR-018 RBAC Shared First — MOCK-OIDC (P1)
+# App-level enforcement: 1 Depends() global só para /mock/token e /admin/*
+# Rotas IdP públicas: /.well-known/*, /jwks, /authorize, /oauth/token → bypass
+# =============================================================================
+_MOCK_RBAC_LOGGER = logging.getLogger("mock_oidc_rbac")
+_MOCK_RBAC_GUARD = None
+_MOCK_SHARED_OK = False
+try:
+    from ontrackchain_shared.rbac_guard import (
+        CanonicalRole,
+        RBACGuard,
+        default_guard_from_env,
+    )
+    try:
+        _MOCK_RBAC_GUARD = default_guard_from_env(audience_env="OTK_AUDIENCE")
+        _MOCK_SHARED_OK = True
+    except Exception:  # noqa: BLE001
+        pass
+except Exception:  # noqa: BLE001
+    CanonicalRole = None
+    RBACGuard = None
+
+
+def _mock_get_rbac_guard():
+    return _MOCK_RBAC_GUARD
+
+
+_MOCK_ROLE_ALIASES = {
+    "COMPLIANCE_OFFICER": "COMPLIANCE",
+    "LEGAL_REVIEWER": "LEGAL",
+    "BILLING_ADMIN": "BILLING",
+    "REVIEWER": "VIEWER",
+}
+_MOCK_ROLE_STRIP_PREFIXES = ("OTK_", "ONTK_", "ONTRACKCHAIN_", "B2B_")
+
+
+def _mock_normalize_role(role_raw: str | None) -> str:
+    if not role_raw:
+        return ""
+    r = str(role_raw).strip().upper()
+    for pfx in _MOCK_ROLE_STRIP_PREFIXES:
+        if r.startswith(pfx):
+            r = r[len(pfx):]
+    return _MOCK_ROLE_ALIASES.get(r, r)
+
+
+async def _require_role_with_audit(
+    allowed_roles: set[str],
+    *,
+    authorization: Annotated[Optional[str], Header(alias="Authorization")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    endpoint: str = "",
+    method: str = "",
+    detail: str = "insufficient_role_permission",
+) -> str:
+    """Aplicado só a /mock/token e /admin/*. well-known, jwks, authorize, token são públicos."""
+    guard = _mock_get_rbac_guard()
+    normalized_candidate: str = ""
+    source: str = ""
+    valid_jwt_roles: set[str] = set()
+    if guard is not None and _MOCK_SHARED_OK and authorization:
+        try:
+            token = authorization.removeprefix("Bearer ").strip() if authorization.lower().startswith("bearer ") else authorization.strip()
+            claims = guard.extract_claims(token)
+            roles_claim = claims.get("roles") or claims.get("role") or claims.get("realm_access", {}).get("roles") or []
+            if isinstance(roles_claim, str):
+                roles_claim = [roles_claim]
+            valid_jwt_roles = {_mock_normalize_role(r) for r in roles_claim if r}
+        except Exception:  # noqa: BLE001
+            valid_jwt_roles = set()
+    if valid_jwt_roles:
+        overlap = valid_jwt_roles & set(allowed_roles)
+        if overlap:
+            normalized_candidate = next(iter(overlap))
+            source = "jwt"
+    if not normalized_candidate:
+        normalized_candidate = _mock_normalize_role(x_role)
+        source = "x-role"
+    allowed_normalized = {_mock_normalize_role(r) for r in allowed_roles}
+    if normalized_candidate not in allowed_normalized:
+        detail_msg = f"{detail}|required={sorted(allowed_normalized)}|received={normalized_candidate!r}|source={source}|endpoint={endpoint}|method={method}"
+        _MOCK_RBAC_LOGGER.warning("RBAC_DENIAL mock-oidc ep=%s m=%s req=%s rcv=%r src=%s", endpoint, method, sorted(allowed_normalized), normalized_candidate, source)
+        raise HTTPException(status_code=403, detail=detail_msg)
+    return normalized_candidate
+
+
+_RBAC_PREFIX_POLICIES: list[tuple[str, set[str], set[str] | None]] = [
+    ("/mock/token", {"ADMIN"}, {"POST", "GET"}),
+    ("/admin/", {"ADMIN"}, None),
+]
+
+
+async def _app_rbac_enforcer(
+    request: Request,
+    authorization: Annotated[Optional[str], Header(alias="Authorization")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+) -> None:
+    scope_path = request.scope.get("path", "") or request.url.path or "/"
+    method = request.method
+    for prefix, allowed, methods_filter in _RBAC_PREFIX_POLICIES:
+        if scope_path.startswith(prefix) and (methods_filter is None or method in methods_filter):
+            await _require_role_with_audit(
+                allowed, authorization=authorization, x_role=x_role,
+                endpoint=scope_path, method=method,
+                detail=f"mock_{prefix.strip('/').replace('/', '_')}_forbidden",
+            )
+            return
 
 
 class Settings(BaseSettings):
@@ -181,7 +291,11 @@ class LoginCredentials(BaseModel):
     code_challenge_method: Optional[str] = None
 
 
-app = FastAPI(title="Ontrackchain Mock OIDC", version="0.1.0")
+app = FastAPI(
+    title="Ontrackchain Mock OIDC",
+    version="0.1.0",
+    dependencies=[Depends(_app_rbac_enforcer)],
+)
 
 _private_key, _public_key = _rsa_keypair()
 _kid = _b64url(os.urandom(12))

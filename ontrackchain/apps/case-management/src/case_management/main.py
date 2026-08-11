@@ -11,18 +11,133 @@ import logging
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 from uuid import UUID
 
 import httpx
 
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# ADR-018 RBAC Shared First — CASE-MANAGEMENT (P1)
+# App-level enforcement: 1 Depends() global para 9 endpoints.
+# =============================================================================
+_CASE_RBAC_GUARD = None
+_CASE_SHARED_OK = False
+try:
+    from ontrackchain_shared.rbac_guard import (
+        CanonicalRole,
+        RBACGuard,
+        default_guard_from_env,
+    )
+    try:
+        _CASE_RBAC_GUARD = default_guard_from_env(audience_env="OTK_AUDIENCE")
+        _CASE_SHARED_OK = True
+    except Exception:  # noqa: BLE001
+        pass
+except Exception:  # noqa: BLE001
+    CanonicalRole = None
+    RBACGuard = None
+
+
+def _case_get_rbac_guard():
+    return _CASE_RBAC_GUARD
+
+
+_CASE_ROLE_ALIASES = {
+    "COMPLIANCE_OFFICER": "COMPLIANCE",
+    "LEGAL_REVIEWER": "LEGAL",
+    "BILLING_ADMIN": "BILLING",
+    "REVIEWER": "VIEWER",
+}
+_CASE_ROLE_STRIP_PREFIXES = ("OTK_", "ONTK_", "ONTRACKCHAIN_", "B2B_")
+
+
+def _case_normalize_role(role_raw: str | None) -> str:
+    if not role_raw:
+        return ""
+    r = str(role_raw).strip().upper()
+    for pfx in _CASE_ROLE_STRIP_PREFIXES:
+        if r.startswith(pfx):
+            r = r[len(pfx):]
+    return _CASE_ROLE_ALIASES.get(r, r)
+
+
+async def _require_role_with_audit(
+    allowed_roles: set[str],
+    *,
+    authorization: Annotated[Optional[str], Header(alias="Authorization")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    endpoint: str = "",
+    method: str = "",
+    detail: str = "insufficient_role_permission",
+) -> str:
+    guard = _case_get_rbac_guard()
+    normalized_candidate: str = ""
+    source: str = ""
+    valid_jwt_roles: set[str] = set()
+    if guard is not None and _CASE_SHARED_OK and authorization:
+        try:
+            token = authorization.removeprefix("Bearer ").strip() if authorization.lower().startswith("bearer ") else authorization.strip()
+            claims = guard.extract_claims(token)
+            roles_claim = claims.get("roles") or claims.get("role") or claims.get("realm_access", {}).get("roles") or []
+            if isinstance(roles_claim, str):
+                roles_claim = [roles_claim]
+            valid_jwt_roles = {_case_normalize_role(r) for r in roles_claim if r}
+        except Exception:  # noqa: BLE001
+            valid_jwt_roles = set()
+    if valid_jwt_roles:
+        overlap = valid_jwt_roles & set(allowed_roles)
+        if overlap:
+            normalized_candidate = next(iter(overlap))
+            source = "jwt"
+    if not normalized_candidate:
+        normalized_candidate = _case_normalize_role(x_role)
+        source = "x-role"
+    allowed_normalized = {_case_normalize_role(r) for r in allowed_roles}
+    if normalized_candidate not in allowed_normalized:
+        detail_msg = f"{detail}|required={sorted(allowed_normalized)}|received={normalized_candidate!r}|source={source}|endpoint={endpoint}|method={method}"
+        logger.warning("RBAC_DENIAL case-management ep=%s m=%s req=%s rcv=%r src=%s", endpoint, method, sorted(allowed_normalized), normalized_candidate, source)
+        raise HTTPException(status_code=403, detail=detail_msg)
+    return normalized_candidate
+
+
+CASE_TEAM = {"ADMIN", "INVESTIGATOR", "COMPLIANCE", "AUDITOR", "ANALYST"}
+WRITE_CASE = {"ADMIN", "INVESTIGATOR", "COMPLIANCE", "ANALYST"}
+VIEWER_SET = {"ADMIN", "AUDITOR", "ANALYST", "VIEWER", "INVESTIGATOR", "COMPLIANCE"}
+
+_RBAC_PREFIX_POLICIES: list[tuple[str, set[str], set[str] | None]] = [
+    ("/api/v1/cases/", CASE_TEAM, None),
+    ("/api/v1/evidence/", CASE_TEAM, None),
+    ("/api/v1/investigations/", CASE_TEAM, None),
+    ("/api/v1/counterparties/", WRITE_CASE, None),
+    ("/api/v1/workflows/", WRITE_CASE | {"AUDITOR"}, None),
+    ("/api/v1/internal/", {"ADMIN"}, None),
+]
+
+
+async def _app_rbac_enforcer(
+    request: Request,
+    authorization: Annotated[Optional[str], Header(alias="Authorization")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+) -> None:
+    scope_path = request.scope.get("path", "") or request.url.path or "/"
+    method = request.method
+    for prefix, allowed, methods_filter in _RBAC_PREFIX_POLICIES:
+        if scope_path.startswith(prefix) and (methods_filter is None or method in methods_filter):
+            await _require_role_with_audit(
+                allowed, authorization=authorization, x_role=x_role,
+                endpoint=scope_path, method=method,
+                detail=f"case_{prefix.strip('/').replace('/', '_')}_forbidden",
+            )
+            return
 
 
 class Settings(BaseSettings):
@@ -59,6 +174,7 @@ app = FastAPI(
     description="Case Management with PostgreSQL persistence, RBAC, and Evidence Trail",
     version="2.0.0",
     lifespan=_lifespan,
+    dependencies=[Depends(_app_rbac_enforcer)],
 )
 
 

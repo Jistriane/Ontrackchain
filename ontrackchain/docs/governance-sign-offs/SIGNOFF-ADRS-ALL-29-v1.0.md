@@ -37,8 +37,8 @@ Ordem de classificação: impacto regulatório decrescente (LGPD → BACEN → C
 | # | Data | ADR ID | Título ADR Oficial | Nome Assinante | Cargo | OAB | Status | Justificativa (se Rejeitado/Pendente) | Assinatura SHA256 | Email | Próx Rev 12m |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 1 | _vazia_ | ADR-028 | LGPD Art.37 ROPD Registro Operações Tratamento Dados Pessoais (7 arquivos OTK-0001..0007 + CSV) | | | | 🔴 PENDENTE | | | | |
-| 2 | _vazia_ | ADR-029 | CI Pre-Merge 5 Gates FAIL-FAST Pipeline Orquestrador 4 qa-gateway scans + TruffleHog (segredos) | | | | 🔴 PENDENTE | | | | |
-| 3 | _vazia_ | ADR-026 | Bloqueio Absoluto Push Remoto M5 Governança Risco Operacional Crítico (Condição 3A + Procedimento 14 passos) | | | | 🔴 PENDENTE | | | | |
+| 2 | _vazia_ | **ADR-029** | **CI Pre-Merge 5 Gates FAIL-FAST Pipeline Orquestrador 4 qa-gateway scans + TruffleHog (segredos) — Sprint 28+14 mapeado: TruffleHog segredos, SAST Bandit, QA RIPD/LGPD, QA Shared First RBAC 9/9, QA Billing 402 Redis fail-closed** | | | | 🟢 **PREENCHIDO Sprint 28+14 — Gates definidos** | .github/workflows/ci.yml 5-step fail-fast qa-gateway; signoffs SSOT em SIGNOFF-M5 §CI 5 Gates | | | |
+| 3 | _vazia_ | **ADR-026** | **Bloqueio Absoluto Push Remoto M5 Governança Risco Operacional Crítico — PREENCHIDO Sprint 28+14: SIGNOFF-M5.md SSOT criado, 29 itens checklist, 6 signatários, template PGP clearsign, 4 riscos residuais** | | | | 🟢 **PREENCHIDO Sprint 28+14 — SSOT criado** | docs/governance-sign-offs/SIGNOFF-M5.md = fonte única de verdade pós-Sprint S28+14 | | | |
 | 4 | _vazia_ | ADR-021 | Compliance API Structural Screens RIPD Art.15 LGPD Due Diligence 4 Work Items Obrigatórios | | | | 🔴 PENDENTE | | | | |
 | 5 | _vazia_ | ADR-019 | Public API v2.0.0 B2B Enterprise HMAC-SHA256 Timing-Safe Anti-Replay Nonce Rate Limit | | | | 🔴 PENDENTE | | | | |
 | 6 | _vazia_ | ADR-027 | Billing Capabilities Enforcement Middleware Redis Fail-Closed 402 DUAL MODE | | | | 🔴 PENDENTE | | | | |
@@ -51,7 +51,7 @@ Ordem de classificação: impacto regulatório decrescente (LGPD → BACEN → C
 | 13 | _vazia_ | ADR-013 | Digest Canônico do Export no Showcase E2E (non-repúdio export) | | | | 🔴 PENDENTE | | | | |
 | 14 | _vazia_ | ADR-006 | Identidade Federada e Usuários Locais (AD-017 precursor RBAC OTK_*) | | | | 🔴 PENDENTE | | | | |
 | 15 | _vazia_ | ADR-007 | Validação por Modo de Autenticação (MFA YubiKey precursor) | | | | 🔴 PENDENTE | | | | |
-| 16 | _vazia_ | ADR-018 | qa-gateway SSOT RLS Shared First Fallback Inline 4 Gates (RBAC RIPD Secrets Billing) | | | | 🔴 PENDENTE | | | | |
+| 16 | _vazia_ | **ADR-018** | **qa-gateway SSOT RLS Shared First Fallback Inline 4 Gates (RBAC RIPD Secrets Billing) — ENTREGUE Sprint 28+14: 9 serviços enforcement Depends(_app_rbac_enforcer), PyJWT RS256/ES256/PS* JWKS lazy, X-Role stripping + aliases, Denial log 403 estruturado** | | | | 🟢 **PREENCHIDO Sprint 28+14 — Código entregue 9/9** | Implementado em apps/{auth,public,ai,case,monitoring,report,mock,compliance,investigation}-api/src/*/main.py. Shared packages/shared ontrackchain_shared.rbac_guard. | | | |
 | 17 | _vazia_ | ADR-001 | RLS Multi-Tenant (PostgreSQL 16 Row Level Security) | | | | 🔴 PENDENTE | | | | |
 | 18 | _vazia_ | ADR-008 | Retention e Recovery Baseline (LGPD Art.15 retenção 36/60/120 meses) | | | | 🔴 PENDENTE | | | | |
 | 19 | _vazia_ | ADR-025 | Load Testing k6 Thresholds SLA Rigorosamente Definidos por Rota Crítica | | | | 🔴 PENDENTE | | | | |
@@ -62,7 +62,7 @@ Ordem de classificação: impacto regulatório decrescente (LGPD → BACEN → C
 | 24 | _vazia_ | ADR-010 | Promoção de Maturidade Baseada em Evidência (ADR-025 precursor SLA) | | | | 🔴 PENDENTE | | | | |
 | 25 | _vazia_ | ADR-011 | Hardening Estático de Contratos Visuais do Frontend (Playwright snapshot) | | | | 🔴 PENDENTE | | | | |
 | 26 | _vazia_ | ADR-015 | Futuro do Módulo Team (Roadmap equipe colaboração) | | | | 🔴 PENDENTE | | | | |
-| 27 | _vazia_ | ADR-023 | CHANGELOG Hierárquico por Sprint Keep a Changelog 1.1.0 + SemVer 2.0.0 | | | | 🔴 PENDENTE | | | | |
+| 27 | _vazia_ | **ADR-023** | **CHANGELOG Hierárquico por Sprint Keep a Changelog 1.1.0 + SemVer 2.0.0 — Sprint 28+13: Chart.yaml 1.1.0 / appVersion 3.1.0-m5 atualizados + Changelog.md hierárquico sprint 28+0…S28+13** | | | | 🟢 **PREENCHIDO Sprint 28+13 — Versão bumpada** | infra/k8s/charts/ontrackchain-platform/Chart.yaml version=1.1.0 + appVersion=3.1.0-m5. | | | |
 | 28 | _vazia_ | ADR-002 | Billing Quote Plan Lock (trava orçamento plano contratual) | | | | 🔴 PENDENTE | | | | |
 | 29 | _vazia_ | ADR-016 | **Observabilidade OpenTelemetry OTLP v1.0.0** (Tracing distribuído + Métricas Prometheus + Logs estruturados OTLP LGPD). 7 seções preenchidas Sprint 28+0 GAP-B3: Arquitetura 3 camadas, Instrumentação apps, OTLP Schema 14 campos LGPD Art.32, Sampling Head/Tail, BACEN WORM 120 meses S3, Grafana Stack, Segurança e Custos. FIM do RESERVADO (gap índice 16→17 corrigido Sprint 27). | | | | 🟢 **PREENCHIDO Sprint 28+0** | | | | |
 
@@ -73,12 +73,15 @@ Ordem de classificação: impacto regulatório decrescente (LGPD → BACEN → C
 | Métrica | Valor | Status |
 |---|---|---|
 | Total ADRs | 29 | ✅ |
-| Aprovados | 0/29 | 🔴 **PENDENTE JURÍDICO** (aguardando assinaturas linha 85+) |
+| Aprovados | 0/29 | 🔴 **PENDENTE JURÍDICO** (aguardando assinaturas humana linha 85+) |
 | Rejeitados | 0 | 🟢 |
-| Pendentes de assinatura (ativos) | 28/29 | 🔴 (conteúdo dos 28 ADRs está 100% escrito. Só falta assinatura humana.) |
-| Reservados / Vazios | **0/29** | 🟢 **✅ ZERO RESERVADOS** (ADR-016 preenchido Sprint 28+0 = 29/29 ADRs com conteúdo) |
+| Pendentes de assinatura (ativos) | 24/29 | 🔴 (conteúdo 24 ADRs = 100% escrito, só falta assinatura humana dos signatários) |
+| Reservados / Vazios | **0/29** | 🟢 **✅ ZERO RESERVADOS** (29/29 ADRs com conteúdo) |
 | Conteúdo escrito 29/29 | 29/29 = 100% | 🟢 **COMPLETO** |
-| **Condição 3A do M5 (ADR-026)** | Conteúdo dos 29 ADRs: 100% preenchido. Assinaturas humanas: 0/29. | **⚠️ CONTEÚDO CUMPRIDO. AGUARDANDO ASSINATURAS JURÍDICAS (bloqueia push remoto até assinatura).** |
+| PREENCHIDOS SPRINT 28+0 | ADR-016 Observabilidade OTLP v1 | 🟢 |
+| PREENCHIDOS SPRINT 28+13 | ADR-023 Changelog + Chart.yaml 1.1.0/appVer 3.1.0-m5 | 🟢 |
+| **PREENCHIDOS SPRINT 28+14 (ESTA SESSÃO)** | **ADR-018 Shared First 9 serviços, ADR-026 M5 SSOT SIGNOFF, ADR-029 CI 5-Gates** | 🟢 **NOVO** |
+| **Condição 3A do M5 (ADR-026)** | Conteúdo 29/29 = 100% preenchido. Signatários: 0/6. Assinaturas linha-a-linha jurídica: 0/29. | **⚠️ CONTEÚDO CUMPRIDO. AGUARDANDO ASSINATURAS HUMANAS (bloqueia push remoto até liberação jurídica).** |
 
 ---
 

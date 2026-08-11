@@ -1,13 +1,18 @@
+"""
+Report API - PostgreSQL-backed with RBAC and Evidence Trail
+OnTrackChain - Graph Intelligence 4.0
+"""
+
 from __future__ import annotations
 
 import hashlib
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import Response
 from ontrackchain_agents.coaf_report_agent import CoafReportAgent
 from ontrackchain_agents.evidence_integration import emit_evidence_event_sync
@@ -17,8 +22,6 @@ from pydantic_settings import BaseSettings
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-
-app = FastAPI(title="OnTrackChain Report API")
 
 class Settings(BaseSettings):
     postgres_host: str = "postgres"
@@ -35,6 +38,123 @@ class Settings(BaseSettings):
 
 settings = Settings()
 logger = logging.getLogger("report_api")
+
+# =============================================================================
+# ADR-018 RBAC Shared First — REPORT-API (P1)
+# App-level enforcement: 1 Depends() global para 12 endpoints.
+# =============================================================================
+_REP_RBAC_GUARD = None
+_REP_SHARED_OK = False
+try:
+    from ontrackchain_shared.rbac_guard import (
+        CanonicalRole,
+        RBACGuard,
+        default_guard_from_env,
+    )
+    try:
+        _REP_RBAC_GUARD = default_guard_from_env(audience_env="OTK_AUDIENCE")
+        _REP_SHARED_OK = True
+    except Exception:  # noqa: BLE001
+        pass
+except Exception:  # noqa: BLE001
+    CanonicalRole = None
+    RBACGuard = None
+
+
+def _rep_get_rbac_guard():
+    return _REP_RBAC_GUARD
+
+
+_REP_ROLE_ALIASES = {
+    "COMPLIANCE_OFFICER": "COMPLIANCE",
+    "LEGAL_REVIEWER": "LEGAL",
+    "BILLING_ADMIN": "BILLING",
+    "REVIEWER": "VIEWER",
+}
+_REP_ROLE_STRIP_PREFIXES = ("OTK_", "ONTK_", "ONTRACKCHAIN_", "B2B_")
+
+
+def _rep_normalize_role(role_raw: str | None) -> str:
+    if not role_raw:
+        return ""
+    r = str(role_raw).strip().upper()
+    for pfx in _REP_ROLE_STRIP_PREFIXES:
+        if r.startswith(pfx):
+            r = r[len(pfx):]
+    return _REP_ROLE_ALIASES.get(r, r)
+
+
+async def _require_role_with_audit(
+    allowed_roles: set[str],
+    *,
+    authorization: Annotated[Optional[str], Header(alias="Authorization")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+    endpoint: str = "",
+    method: str = "",
+    detail: str = "insufficient_role_permission",
+) -> str:
+    guard = _rep_get_rbac_guard()
+    normalized_candidate: str = ""
+    source: str = ""
+    valid_jwt_roles: set[str] = set()
+    if guard is not None and _REP_SHARED_OK and authorization:
+        try:
+            token = authorization.removeprefix("Bearer ").strip() if authorization.lower().startswith("bearer ") else authorization.strip()
+            claims = guard.extract_claims(token)
+            roles_claim = claims.get("roles") or claims.get("role") or claims.get("realm_access", {}).get("roles") or []
+            if isinstance(roles_claim, str):
+                roles_claim = [roles_claim]
+            valid_jwt_roles = {_rep_normalize_role(r) for r in roles_claim if r}
+        except Exception:  # noqa: BLE001
+            valid_jwt_roles = set()
+    if valid_jwt_roles:
+        overlap = valid_jwt_roles & set(allowed_roles)
+        if overlap:
+            normalized_candidate = next(iter(overlap))
+            source = "jwt"
+    if not normalized_candidate:
+        normalized_candidate = _rep_normalize_role(x_role)
+        source = "x-role"
+    allowed_normalized = {_rep_normalize_role(r) for r in allowed_roles}
+    if normalized_candidate not in allowed_normalized:
+        detail_msg = f"{detail}|required={sorted(allowed_normalized)}|received={normalized_candidate!r}|source={source}|endpoint={endpoint}|method={method}"
+        logger.warning("RBAC_DENIAL report-api ep=%s m=%s req=%s rcv=%r src=%s", endpoint, method, sorted(allowed_normalized), normalized_candidate, source)
+        raise HTTPException(status_code=403, detail=detail_msg)
+    return normalized_candidate
+
+
+CASE_TEAM = {"ADMIN", "INVESTIGATOR", "COMPLIANCE", "AUDITOR", "ANALYST"}
+LEGAL_AUDIT = {"ADMIN", "LEGAL", "AUDITOR"}
+DOWNLOAD_VIEW = {"ADMIN", "AUDITOR", "ANALYST", "VIEWER"}
+
+_RBAC_PREFIX_POLICIES: list[tuple[str, set[str], set[str] | None]] = [
+    ("/reports/v1/ros-coaf/", LEGAL_AUDIT, {"GET", "POST", "PATCH", "PUT"}),
+    ("/reports/v1/coaf-ready/", LEGAL_AUDIT, {"GET", "POST"}),
+    ("/reports/v1/legal/", LEGAL_AUDIT, {"GET", "POST"}),
+    ("/reports/v1/generate/", CASE_TEAM, {"POST"}),
+    ("/reports/v1/create/", CASE_TEAM, {"POST"}),
+    ("/reports/v1/", CASE_TEAM, {"GET"}),
+    ("/reports/v1/", DOWNLOAD_VIEW, None),
+    ("/reports/internal/", {"ADMIN"}, None),
+]
+
+
+async def _app_rbac_enforcer(
+    request: Request,
+    authorization: Annotated[Optional[str], Header(alias="Authorization")] = None,
+    x_role: Annotated[Optional[str], Header(alias="X-Role")] = None,
+) -> None:
+    scope_path = request.scope.get("path", "") or request.url.path or "/"
+    method = request.method
+    for prefix, allowed, methods_filter in _RBAC_PREFIX_POLICIES:
+        if scope_path.startswith(prefix) and (methods_filter is None or method in methods_filter):
+            await _require_role_with_audit(
+                allowed, authorization=authorization, x_role=x_role,
+                endpoint=scope_path, method=method,
+                detail=f"rep_{prefix.strip('/').replace('/', '_')}_forbidden",
+            )
+            return
+
 
 REPORT_TYPE_ALIASES = {
     "technical": "technical_basic",
@@ -73,6 +193,11 @@ REPORT_READ_ALLOWED_ROLES = {"ADMIN", "AUDITOR", "ANALYST", "VIEWER"}
 REPORT_DETAIL_ALLOWED_ROLES = {"ADMIN", "AUDITOR", "ANALYST"}
 REPORT_DOWNLOAD_ALLOWED_ROLES = {"ADMIN", "AUDITOR", "ANALYST"}
 REPORT_WRITE_ALLOWED_ROLES = {"ADMIN", "ANALYST"}
+
+app = FastAPI(
+    title="OnTrackChain Report API",
+    dependencies=[Depends(_app_rbac_enforcer)],
+)
 
 
 def resolve_report_type(raw_input: str) -> tuple[str, Optional[str]]:
