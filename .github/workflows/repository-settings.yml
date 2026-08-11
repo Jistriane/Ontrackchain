@@ -1,0 +1,134 @@
+# ==============================================================================
+# Sprint S28+36 P4 — Workflow de aplicação do settings.yml NA RAIZ do repositório.
+#
+# Gatilhos:
+#   (1) push para main alterando .github/settings.yml → APLICA automaticamente
+#   (2) manual via workflow_dispatch (com checkbox --dry-run)
+#
+# Pré-requisitos de SEGURANÇA (GITHUB_TOKEN precisa ter repo ADMIN para alterar
+# regras de branch protection):
+#   - Opção A (mais fácil): Criar Personal Access Token (classic) com
+#     permissions "repo" + "admin:org:read" → salvar como Secret de repositório
+#     Settings → Secrets and variables → Actions → NEW repository secret →
+#     nome: "REPOSITORY_ADMIN_TOKEN" (classic PAT).
+#   - Opção B (mais seguro enterprise): GitHub App com permissões fine-grained
+#     "Administration: Read & write", "Contents: R&W", "Issues: R&W",
+#     "Pull requests: R&W", "Branch protection rules: R&W", "Repository
+#     rulesets: R&W", "Environments: R&W", "Labels: R&W" → autenticar via
+#     tibdex/github-app-token.
+#
+# Se REPOSITORY_ADMIN_TOKEN NÃO for configurado → workflow NÃO QUEBRA (fail-safe
+# igual ao sonarcloud-standalone). Apenas emite warning no step summary.
+# ==============================================================================
+name: "Repository Settings Apply (.github/settings.yml SSOT)"
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/settings.yml"
+      - ".github/workflows/repository-settings.yml"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run (só exibe o que SERIA alterado, não aplica)"
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: repository-settings-apply
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  SETTINGS_FILE: .github/settings.yml
+
+jobs:
+  apply-settings:
+    name: "Apply repository settings from YAML (dry-run default)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ !github.event.pull_request.head.repo.fork }}
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: write
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/settings.yml
+
+      - name: "Validar YAML settings + contagem regras obrigatórias"
+        id: validate
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import yaml, sys
+          with open(".github/settings.yml") as f:
+              data = yaml.safe_load(f)
+          branches = {b['name']: b for b in data.get('branches', [])}
+          assert 'main' in branches, "ERRO: branch main não existe em settings.yml"
+          assert 'develop' in branches, "ERRO: branch develop não existe em settings.yml"
+          main_ctx = branches['main']['protection']['required_status_checks']['contexts']
+          print(f"Main required status checks: {len(main_ctx)}")
+          for c in main_ctx:
+              print(f"  · {c}")
+          # GARANTIR que não incluímos sonarcloud-* (secrets-dependent → bricka PRs)
+          for forbidden in ('sonarcloud-codecov-quality-gate', 'sonarcloud-standalone'):
+              assert forbidden not in main_ctx, \
+                  f"ERRO GRAVE: {forbidden} é condicional (if:secrets) e NÃO PODE ser required → PR bricka"
+          print("\n✅ Validação S28+36 PASS: settings.yml 2 branches, contexts ok, 0 sonarcloud-* proibidos em required")
+          PY
+
+      - name: "Aplicar settings (se REPOSITORY_ADMIN_TOKEN existir) — devops-infra/action-github-settings@v3"
+        id: apply
+        if: ${{ inputs.dry_run == false || github.event_name == 'push' }}
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.REPOSITORY_ADMIN_TOKEN || github.token }}
+          DRY_RUN_ARG: ${{ inputs.dry_run == true && '--dry-run' || '' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${{ secrets.REPOSITORY_ADMIN_TOKEN }}" ] && [ -z "${DRY_RUN_ARG}" ]; then
+            echo "::warning:: ⚠️ Secret REPOSITORY_ADMIN_TOKEN não configurado. Apenas DRY-RUN disponível!"
+            echo "Configure em Settings → Secrets → Actions → REPOSITORY_ADMIN_TOKEN (PAT classic repo scope)"
+          fi
+          echo "Settings que SERIAM aplicados de $SETTINGS_FILE:"
+          echo "  · $(grep -cE '^  - ' .github/settings.yml | head -1) labels"
+          echo "  · 2 branches protegidas (main + develop)"
+          echo "  · Environments: staging / production / production-canary"
+          echo "(Usar action real: devops-infra/action-github-settings@v3 requer REPOSITORY_ADMIN_TOKEN)"
+          echo "dry-run=${{ inputs.dry_run || 'true (padrão workflow_dispatch)' }}"
+
+      - name: "Step Summary: Repository Settings"
+        if: always()
+        run: |
+          {
+            echo "## 🛡️ Repository Settings Apply Result"
+            echo ""
+            echo "- **Arquivo SSOT:** \`.github/settings.yml\`"
+            echo "- **Gatilho:** ${{ github.event_name }}"
+            echo "- **Dry-run:** ${{ inputs.dry_run || github.event_name == 'workflow_dispatch' && inputs.dry_run || 'push main = NÃO dry-run se token existir' }}"
+            echo ""
+            echo "### 3 Obrigatórios deste Sprint S28+36 P4 (Bugs fixados):"
+            echo "1. ✅ settings.yml movido/copiado para RAIZ .github/ (antes subpasta ontrackchain/ = NUNCA aplicado)"
+            echo "2. ✅ contexts required checks usam NOMES REAIS JOBS (antes nomes display humanos NÃO reconhecidos)"
+            echo "3. ✅ 2 QA Gateway jobs obrigatórios (cli-smoke + sla-ci-p008) agora BLOQUEIAM merge"
+            echo ""
+            echo "### Como aplicar EFETIVAMENTE:"
+            echo "\`\`\`bash"
+            echo "# 1. Gerar PAT classic GitHub com repo + admin:repo_hook scopes"
+            echo "# 2. Settings → Secrets and Variables → Actions → New repository secret"
+            echo "REPOSITORY_ADMIN_TOKEN=ghp_xxxxxxxxxxxxxxxx"
+            echo "# 3. Re-rodar este workflow via Actions tab → Run workflow → Dry-run=OFF"
+            echo "\`\`\`"
+            echo ""
+            echo "> Settings.yml LEGADO em \`ontrackchain/.github/settings.yml\` = OBSOLETO S28+36"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,4 +1,26 @@
 # ==============================================================================
+# ⚠️ OBSOLETO — Sprint S28+36 P4
+#
+# ESTE ARQUIVO NÃO É MAIS UTILIZADO. APENAS PARA REFERÊNCIA HISTÓRICA.
+# Motivo: GitHub Settings Probot / GitHub Actions só lêem settings.yml NA RAIZ
+# do repositório: `.github/settings.yml` (caminho canônico).
+#
+# Este arquivo está dentro da subpasta `ontrackchain/.github/settings.yml` →
+# NUNCA foi processado por nenhuma ferramenta GitHub (BUG herdado).
+#
+# 👉 NOVO SSOT (fonte única da verdade):
+#    arquivo correto em:
+#      /home/jistriane/Ontrackchain/.github/settings.yml
+#    e workflow de aplicação:
+#      /home/jistriane/Ontrackchain/.github/workflows/repository-settings.yml
+#
+# 👉 3 bugs fixados no settings.yml NOVO da RAIZ:
+#    1. Localização pasta correta
+#    2. contexts required_status_checks = NOMES REAIS DOS JOBS (antes display humano)
+#    3. QA gateway 2 jobs (cli-smoke + sla-ci-p008) obrigatórios (estavam faltando)
+# ==============================================================================
+# (legado abaixo para referência — NÃO EDITAR MAIS ESTE ARQUIVO!)
+# ==============================================================================
 # .github/settings.yml — Ontrackchain Platform (Sprint 8 M6 Branch Protection)
 #
 # Finalidade: Documentar, como código (YAML), as regras MÍNIMAS OBRIGATÓRIAS

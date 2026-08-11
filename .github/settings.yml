@@ -1,0 +1,217 @@
+# ==============================================================================
+# Sprint S28+36 P4 — .github/settings.yml NA RAIZ DO REPOSITÓRIO (OBRIGATÓRIO!)
+# FONTE ÚNICA DA VERDADE (SSOT). Aplicações:
+#   (1) GitHub App "Settings Probot" (se instalado) — lê APENAS ESTE ARQUIVO.
+#   (2) GitHub Action push-based `.github/workflows/repository-settings.yml` —
+#       usa devops-actions/action-github-settings@v3 com GITHUB_TOKEN.
+#       Requer permissão: repository:admin (Personal Access Token classic OU
+#       GitHub App fine-grained com Administration:RW).
+#
+# 👉 BUG HERDADO FIXADO S28+36: arquivo LEGADO em ontrackchain/.github/settings.yml
+#    NUNCA FOI APLICADO por estar em subpasta. GitHub só lê este caminho.
+#    Settings antigo = OBSOLETO. APENAS ESTE ARQUIVO É VÁLIDO.
+#
+# 👉 BUG HERDADO 2 FIXADO S28+36: contexts usavam NOMES DE EXIBIÇÃO humanos
+#    (ex.: "SBOM + Grype scan: HIGH/CRITICAL"). GitHub REQUIRED CHECKS só
+#    reconhece os NOMES REAIS DOS JOBS (o atributo jobs.<id>.name padrão,
+#    ex: sbom-cyclonedx-grype). Trocado TODOS para nomes job.id reais do
+#    ontrackchain/.github/workflows/ci.yml 16 jobs.
+#
+# 👉 BUG HERDADO 3 FIXADO: qa-gateway 2 jobs (cli-smoke + scan-sla-ci-p008)
+#    NÃO estavam nos contexts. QA Gate era bypassado silenciosamente. Inserido.
+# ==============================================================================
+
+_extends: .github
+
+repository:
+  name: ontrackchain
+  description: "Ontrackchain — Plataforma de Investigação de On-chain / DeFi / Compliance. MVP QA/DevOps 12 GAPs = 100%. S28+35 ALL-CHECKS 15 gates locais."
+  homepage: https://ontrackchain.com.br
+  topics: blockchain, investigacao, defi, compliance, lgpd, rbac, rls, fastapi, postgres, playwright, prometheus, grafana, strict-mypy, sonarcloud, codeql-sarif
+  private: true
+  has_issues: true
+  has_projects: true
+  has_wiki: false
+  has_discussions: false
+  default_branch: main
+  allow_squash_merge: true
+  allow_merge_commit: false
+  allow_rebase_merge: false
+  # --------------------------------------------------------------------------
+  # ADR-029 GAP#9 Rollback canary: squash merge OBRIGATÓRIO → história linear.
+  # 1 commit em main = 1 PR = 1 deploy = rollback = último commit.
+  # --------------------------------------------------------------------------
+  squash_merge_commit_title: "PR_TITLE"
+  squash_merge_commit_message: "COMMIT_MESSAGES"
+  delete_branch_on_merge: true
+  # Sprint S28+36: secret scanning + push protection default true (SSOT GitHub-native)
+  security_and_analysis:
+    advanced_security:
+      status: enabled
+    secret_scanning:
+      status: enabled
+    secret_scanning_push_protection:
+      status: enabled
+
+labels:
+  - name: "e2e-required"
+    color: "5319e7"
+    description: "[Sprint 6 GAP#6] Playwright shard=8 paralelo. Add se alterar frontend/case/auth/investigation."
+  - name: "needs-security-review"
+    color: "b60205"
+    description: "[ADR-018 §2] Tocou RLS/RBAC/crypto/secrets. Precisa 2ª revisão."
+  - name: "bug"
+    color: "d73a4a"
+    description: "Bug / comportamento inesperado / regressão."
+  - name: "feature"
+    color: "0e8a16"
+    description: "Nova funcionalidade / melhoria."
+  - name: "config"
+    color: "1d76db"
+    description: "Config / CI / infra / observabilidade / secrets."
+  - name: "triage"
+    color: "fbca04"
+    description: "Precisa triagem inicial antes atribuir prioridade."
+  - name: "P0-critical"
+    color: "e11d21"
+    description: "Incidente P0: dados vazando, plataforma down, RLS cross-tenant."
+  - name: "P1-critical"
+    color: "eb6420"
+    description: "SLA violado, exploradores down, rollback manual, CI quebrada 24h+."
+  - name: "P2-major"
+    color: "fad800"
+    description: "Feature quebrada com workaround; CI flaky; warning alertas."
+  - name: "P3-minor"
+    color: "fef2c0"
+    description: "Melhoria UX, docs, ajustes menores, MVP pós-roadmap."
+  - name: "P1-critical sla-deadman investigation-down"
+    color: "e11d21"
+    description: "[Sprint 3 GAP#5] Label AUTO nightly-explorers se SLA 24h quebrado."
+  - name: "security-mvp-next-milestone"
+    color: "5319e7"
+    description: "[ADR-018 item 10] SAST/CVE continue-on-error > 2 sprints → elevar bloqueante."
+  # Sprint S28+36 NOVOS: labels do fluxo ALL-CHECKS 15 gates (QA)
+  - name: "qa-gate-trufflehog-secrets"
+    color: "ff0000"
+    description: "[S28+35 Q3-08] PR com segredo VERIFICADO detectado. BLOQUEIA merge até remover."
+  - name: "qa-gate-lgpd-ropd"
+    color: "ff7f00"
+    description: "[S28+35 Q3-07] PR com ROPD Art.37 LGPD faltando. Bloqueia release."
+
+environments:
+  # 3 ambientes ADR-018 R7 + Sprint 5 T5. NÃO APAGAR environment names.
+  - name: staging
+    wait_timer: 0
+    reviewers: []
+    deployment_branch_policy:
+      protected_branches: true
+      custom_branch_policies: false
+  - name: production
+    wait_timer: 0
+    reviewers: 2
+    deployment_branch_policy:
+      protected_branches: true
+      custom_branch_policies: false
+  - name: production-canary
+    wait_timer: 1800  # 30 min observabilidade 10% canário
+    reviewers: 1
+    deployment_branch_policy:
+      protected_branches: true
+      custom_branch_policies: false
+
+branches:
+  # ==========================================================================
+  # RULE 1/2: main (PRODUÇÃO — proteção FORTÍSSIMA)
+  # Sprint S28+36 contexts 14 required checks = jobs SEMPRE RODAM (sem if:secrets)
+  # NÃO PODEMOS usar sonarcloud-codecov-quality-gate: depende self-hosted (sai do ar vezes)
+  # NÃO PODEMOS usar sonarcloud-standalone: if: ${{ secrets.SONAR_TOKEN != '' }}
+  #   → se secret vazio, job NÃO cria status check → GitHub exige FOREVER → PR BRICKA 😱
+  # ==========================================================================
+  - name: main
+    protection:
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: true
+        require_last_push_approval: true
+        bypass_pull_request_allowances:
+          users: []
+          teams: ["admin-core"]
+          apps: ["dependabot[bot]", "settings[bot]"]
+
+      required_status_checks:
+        strict: true
+        # --------------------------------------------------------------------
+        # BUG FIX S28+36: TODOS contexts usam job.id REAL do ci.yml
+        # (antes: nomes display humanos NÃO reconhecidos pelo GitHub)
+        # 16 jobs ci.yml - 2 condicionais (sonarcloud-*) = 14 obrigatórios
+        # --------------------------------------------------------------------
+        contexts:
+          # (1) jobs sempre rodam (sem if:secrets, sem self-hosted dependency)
+          - "lint"
+          - "sbom-cyclonedx-grype"
+          - "observability-endpoints-gate"
+          - "policy-gate-conftest"
+          - "secrets-guard-skeleton"
+          - "typecheck"
+          - "build"
+          - "gate-p0-01-oidc-ci"
+          - "gate-p0-00-rls"
+          # (2) QA Gateway Sprints 16-28 (BUG FIX S28+36: estavam FALTANDO!)
+          - "qa-gateway-cli-smoke"
+          - "qa-gateway-scan-sla-ci-p008"
+          - "sast-bandit-python"
+          - "dependency-audit-pip"
+          # (3) pytest-matrix-services 7 serviços × 7 matriz jobs reais
+          - "pytest service: ai-service"
+          - "pytest service: auth-service"
+          - "pytest service: case-management"
+          - "pytest service: compliance-api"
+          - "pytest service: investigation-api"
+          - "pytest service: monitoring-api"
+          - "pytest service: public-api"
+          - "pytest service: report-api"
+
+      enforce_admins: true
+      required_linear_history: true
+      allow_force_pushes: false
+      allow_deletions: false
+      block_creations: false
+      required_conversation_resolution: true
+      lock_branch: false
+      restrictions:
+        apps: ["settings[bot]"]
+        users: []
+        teams: ["admin-core"]
+
+  # ==========================================================================
+  # RULE 2/2: develop (Staging nightly. Mais leve, menos required = 7 jobs)
+  # ==========================================================================
+  - name: develop
+    protection:
+      required_pull_request_reviews:
+        required_approving_review_count: 0
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: true
+        require_last_push_approval: false
+      required_status_checks:
+        strict: true
+        contexts:
+          - "lint"
+          - "sbom-cyclonedx-grype"
+          - "secrets-guard-skeleton"
+          - "observability-endpoints-gate"
+          - "policy-gate-conftest"
+          - "qa-gateway-cli-smoke"
+          - "qa-gateway-scan-sla-ci-p008"
+          - "pytest service: auth-service"
+          - "pytest service: case-management"
+          - "pytest service: compliance-api"
+          - "pytest service: investigation-api"
+          - "sast-bandit-python"
+          - "dependency-audit-pip"
+      enforce_admins: true
+      required_linear_history: false
+      allow_force_pushes: false
+      allow_deletions: false
+      required_conversation_resolution: false

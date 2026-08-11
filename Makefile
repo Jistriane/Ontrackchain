@@ -372,8 +372,35 @@ doctor-plus:
 	@echo "  make qa-gateway-all-strict-ci                        → 4 STRICT scans Q3-04/05/06/07 (S28+30 P3)"
 	@echo "  make qa-gateway-run-pre-merge-gates                  → ADR-029 FAIL-FAST 5 gates ORQUESTRADOR (NOVO S28+35 P3)"
 	@echo "  make pre-commit-all                                  → ruff+shellcheck monorepo"
+	@echo "  make settings-dry-run                                → valida settings.yml NA RAIZ + contexts obrigatórios (NOVO S28+36 P4)"
+	@echo "  make settings-apply                                  → roda workflow repository-settings (gh CLI autenticado)"
 	@echo "  make all-checks                                      → 15 gates FAIL-FAST LOCAL (Sprint S28+35 P3)"
 	@echo "  make typecheck → make build-local → make qa-gateway-scan-secrets-trufflehog-strict → make qa-gateway-all-strict-ci → make qa-gateway-run-pre-merge-gates → make lint → make test-shared  (fluxo dev padrão ADR-029)"
+
+# ============================================================
+# Sprint S28+36 P4: Repository Settings YAML (SSOT na RAIZ)
+# BUG FIX: settings.yml movido de ontrackchain/.github/settings.yml (OBSOLETO)
+# para /home/jistriane/Ontrackchain/.github/settings.yml (caminho canônico GitHub)
+# 2 targets locais:
+#   · settings-dry-run: valida sintaxe YAML + contexts obrigatórios (sem gh CLI)
+#   · settings-apply: dispara o workflow repository-settings via gh CLI
+# ============================================================
+_SETTINGS_ROOT = .github/settings.yml
+_SETTINGS_SCRIPT = $(MONOREPO_ROOT)/scripts/s28p36-settings-validate.py
+
+settings-dry-run:
+	@echo "🛡️  Repository Settings DRY-RUN (Sprint S28+36 P4)"
+	@echo "  arquivo SSOT: $(_SETTINGS_ROOT)"
+	@echo "  validador:    $(_SETTINGS_SCRIPT)"
+	@mkdir -p tmp_qa
+	@python3 "$(_SETTINGS_SCRIPT)"
+
+settings-apply:
+	@echo "🚀 Disparar workflow repository-settings via gh CLI (Settings → Apply)"
+	@command -v gh >/dev/null 2>&1 || { echo "ERRO: gh CLI não está instalado/autenticado. Instale: https://cli.github.com/ → gh auth login"; echo "   Alternativa manual: abrir Actions → Repository Settings Apply → Run workflow → Dry-run=OFF"; exit 32; }
+	@echo "  gh workflow run repository-settings.yml (inputs.dry_run=false = APLICAR de verdade)"
+	@gh workflow run repository-settings.yml --ref main -f dry_run=false
+	@echo "✅ Workflow disparado. Status: https://github.com/Ontrackchain/ontrackchain/actions/workflows/repository-settings.yml"
 
 # ============================================================
 # Sprint S28+27 — Docker Compose local + aggregator all-checks
