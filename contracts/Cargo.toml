@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+members = [
+    "evidence-anchor-v1",
+    "access-control-multisig",
+    "eternal-storage",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Ontrackchain Governança <gov@ontrackchain.invalid>"]
+description = "Smart contracts Soroban (Stellar) do Ontrackchain - Camada 2 âncora pública evidência."
+license = "BUSL-1.1 OR MIT"
+rust-version = "1.78.0"
+
+[workspace.dependencies]
+soroban-sdk = { version = "22.0.0", default-features = false }
+soroban-sdk-macros = { version = "22.0.0" }
+sha2 = { version = "0.10", default-features = false, features = ["oid"] }
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true
