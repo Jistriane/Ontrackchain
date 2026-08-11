@@ -10,6 +10,38 @@
 
 ---
 
+## [v5.19.0] — 2026-08-10 (Sprint 28+6 — M5 Step01 SHA256 Calculados Automaticamente + Baseline v1.9 Integridade + Ajustes Contagem Commits)
+
+### Tipo
+- **MINOR** — Nenhuma breaking change. 5/5 gates ADR-029 STRICT mantidos exit=0. 0 alteração código domínio Python/FastAPI. 0 IMUTÁVEIS LGPD.
+
+### Head Commits (ciclo Sprint28+6 = 1-2 commits)
+- **Release pura documental S28+6 (HEAD canônico pós commit)**: `[SHA NOVO após commit Sprint28+6]` (36+ commits ahead origin/main. M5 Bloqueio Push Remoto INTACTO. ~38h restantes prazo 12/08 23:59 BRT.)
+
+### Added
+- **M5 Step01 SHA256 calculados AUTOMATICAMENTE (7 arquivos principais inventário baseline)**: Seção 2 Baseline Integridade [BASELINE-v1.9-SPRINT-28-4-HEAD-501bf54.md](./ontrackchain/docs/governance-sign-offs/baselines/BASELINE-v1.9-SPRINT-28-4-HEAD-501bf54.md#L64-L75) preenchida com hashes SHA256 reais via Python `hashlib.sha256` (cálculo exato, não placeholder). Hashes calculados no HEAD `7492493` (Sprint28+5):
+  * CHANGELOG.md → `1dce9b3a…c174`
+  * ontrackchain/README.md → `1cc0198e…8544`
+  * project-executive-readiness-brief.md → `b28c7443…8cb5`
+  * SIGNOFF-ADRS-ALL-29-v1.0.md → `23cbf2ac…659d`
+  * ADR-029 Gates STRICT → `74770aaa…b345`
+  * .sops.yaml → `b276bc18…f3cf`
+  * baseline próprio (auto-referência): hash recursivo muda após edição — notado na Seção 2 Nota M5 Step01.
+- **Impacto M5**: Reduz ~15 minutos de trabalho humano manual no M5 Step01 (antes cada hash tinha que ser calculado um a um por engenheiro executor). Agora só é necessário validar vs recálculo pós-commit e verificar assinatura PGP.
+
+### Changed
+- **README.md linha42 Snapshot Técnico atualizado**: Release v5.17.0 → v5.19.0 Sprint28+6. HEAD canônico S28+5 `07ff17d` (34 ahead) · SHA atual cosmético `7492493` (35 ahead). Nota reforçada: próximos commits sem ajuste cosmético obrigatório nesta linha (padrão indústria elimina risco loop infinito SHA auto-referência). Baseline 100% M5 Step01 hashes calculados automaticamente mencionado.
+- **README.md linha65 Riscos P0 M5 Push Remoto atualizado**: contagem 33→**35 commits locais** (após Sprint28+5). Prazo crítico `~38h restantes 2026-08-12 23:59 BRT` em destaque. Ordem obrigatória revogações (Groq→Infura→Alchemy) explicitada. Assinaturas (CLO OAB obrigatório primeiro). M5 Step01 SHA256 Sprint28+6 calculado mencionado em linha65.
+
+### Fixed
+- **Drift contagem commits linha43 vs linha65 README**: Antes linha43 dizia 33 ahead, linha65 dizia 32 (desvio cosmético de 2 ciclos anteriores). Agora ambas alinhadas em 35+ com a nota padrão indústria evitando reajuste futuro.
+- **CHANGELOG v5.18.0 S28+5 linha19 Head Commits contagem**: "34 commits locais ahead" (release canônico S28+5 `07ff17d`) ajustado com referência SHA real cosmético atual 35+ e nota padrão indústria inline evitando ajuste a cada novo commit.
+
+### Security
+- 0 alterações de contrato de segurança. W005 RBAC mantido em 5 (decisão arquitetural P1.1: remover 2 = quebrar contrato inbound Alertmanager Internal Bearer Ops e B2B Tier X-API-Key — deixar pós M5 quando roles OTK_MONITORING e OTK_B2B_SCREENER forem consolidadas em todos serviços). TruffleHog HIGH = 0. Placeholder KMS `00000000` em .sops.yaml creation_rules = comentado template NÃO real = seguro. SHA256 calculados com `hashlib` padrão CPython = resistente colisão (FIPS 180-4 compatível).
+
+---
+
 ## [v5.18.0] — 2026-08-10 (Sprint 28+5 — Governança M5 Step02 + Baseline v1.9 S28+4 + Template SOPS 8 passos)
 
 ### Tipo

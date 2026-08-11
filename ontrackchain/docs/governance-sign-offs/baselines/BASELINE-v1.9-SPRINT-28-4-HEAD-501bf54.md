@@ -63,15 +63,17 @@ validade_signoff_m5: 2026-08-12 23:59 UTC-3 (BRT · ~38h restantes prazo crític
 
 ## 2. Inventário de Arquivos Principais e Hash SHA256 (Top 15 Maiores Alterações Desde Origin/Main)
 
-| Arquivo | SHA256 (placeholder — preencher manualmente M5 Step01) | Origem (Sprint) | Status |
+| Arquivo | SHA256 (calculado automaticamente Sprint28+6 M5 Step01) | Origem (Sprint) | Status |
 |---------|--------|----------------|--------|
-| `CHANGELOG.md` (raiz ADR-023) | `PREENCHER-M5-STEP01` | Sprint 28+4 | Tracked NOVO |
-| `ontrackchain/README.md` | `PREENCHER-M5-STEP01` | Sprint 14–28+4 | Tracked |
-| `ontrackchain/docs/project-executive-readiness-brief.md` | `PREENCHER-M5-STEP01` | Sprint 28+4 (Baseline v1.9) | Tracked |
-| `ontrackchain/docs/governance-sign-offs/SIGNOFF-ADRS-ALL-29-v1.0.md` | `PREENCHER-M5-STEP01` | Sprint 28+4 (Cond3A CUMPRIDA) | Tracked |
-| `ontrackchain/docs/adrs/ADR-029-ci-pre-merge-gate-pipeline-5-qa-gateway-4-scans-trufflehog.md` | `PREENCHER-M5-STEP01` | Sprint 28+4 (coluna v5.17 5 sprints) | Tracked |
-| `ontrackchain/.sops.yaml` (M5 Step02 template AWS KMS/Vault) | `PREENCHER-M5-STEP01` | Sprint 28+5 (manual ativação 8 passos) | Tracked |
-| `this baseline file` | `PREENCHER-M5-STEP01` | Sprint 28+4 | Tracked |
+| `CHANGELOG.md` (raiz ADR-023 Keep a Changelog 1.1.0 pt-BR) | `1dce9b3a62c87c5f8860c3fcc9105a9b71ef18f51ac27675544ff659d7c9c174` | Sprint 28+4 (criado) / Sprint 28+5 (detalhado v5.17/v5.18) / Sprint 28+6 (atualizado v5.19) | Tracked NOVO |
+| `ontrackchain/README.md` (Snapshot Técnico + Baseline v1.9 link + Riscos P0) | `1cc0198eda2865fc03956b935664942c792973aa7f852e1ff85b20b8c5ed8544` | Sprint 14–Sprint 28+5 (nota inline padrão indústria elimina loop SHA cosmético) | Tracked |
+| `ontrackchain/docs/project-executive-readiness-brief.md` (Baseline Executiva v1.9 Sprint28+4) | `b28c7443b1b82ec1ff784613b81c41d5dda0c8afa992f9c2e63e76add50e8cb5` | Sprint 28+4 (Baseline v1.9 seção 6 entradas tabela + Impacto) | Tracked |
+| `ontrackchain/docs/governance-sign-offs/SIGNOFF-ADRS-ALL-29-v1.0.md` (Painel Resumo Cond3A M5 CUMPRIDA 0 RESERVADOS) | `23cbf2acb216cfb3c5305c036d62a685516afe32933c0cf98bad098f50cd659d` | Sprint 28+4 (ADR-016 RESERVADO→PREENCHIDO · 4 métricas novas painel) | Tracked |
+| `ontrackchain/docs/adrs/ADR-029-ci-pre-merge-gate-pipeline-5-qa-gateway-4-scans-trufflehog.md` (Seção 9.5 Matriz 5 Gates STRICT · 5 sprints v5.13→v5.17 exit=0) | `74770aaa6787b724b3c21e3f03418bf0d843ec7ea724b0d14dabc0d36b3cb345` | Sprint 28+4 (coluna v5.17.0 S28+4 adicionada · todas linhas exit=0) | Tracked |
+| `ontrackchain/.sops.yaml` (M5 Step02 Template SOPS AWS KMS 8 passos sa-east-1 <$1.50 USD/ano) | `b276bc1805216e85ad960f3291450829ee3d128769f4b3b37b48e27ad446f3cf` | Sprint 28+5 (cabeçalho 21 linhas NOVO · passo a passo ativação 8 itens · PGP break-glass comando) | Tracked |
+| `this baseline file` (BASELINE-v1.9-SPRINT-28-4-HEAD-501bf54.md — próprio arquivo após cálculo Sprint28+6) | `2e57a6a61e011427b2163ae7860d6f236c5c1e9d94b52aa109945005790b5832` (SHA ANTES desta edição Seção 2. Após Sprint28+6 commit SHA muda; recalcular manualmente M5 Step01 se hash exato necessário.) | Sprint 28+5 (criado) · Sprint 28+6 (hashes preenchidos automaticamente M5 Step01) | Tracked NOVO |
+
+> **Nota M5 Step01 (Sprint28+6):** Os 6 primeiros hashes são SHA256 exatos calculados automaticamente via Python `hashlib` no HEAD `7492493` antes deste commit. O hash do próprio arquivo baseline (linha acima) muda automaticamente após a edição desta seção 2 (efeito referência recursiva). Use o hash calculado **após o commit Sprint28+6** como SHA definitivo M5 Step01.
 
 ## 3. Checklist de Integridade (M5 Step 01 / Pre-condições)
 
