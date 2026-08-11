@@ -1,9 +1,13 @@
 # Sign-off SSOT — Milestone 5 (M5) — Bloqueio Absoluto Push Remoto
-**Document ID**: SIGNOFF-M5-SSOT-v3.1.0-SPRINT28-14
+**Document ID**: SIGNOFF-M5-SSOT-v3.1.0-SPRINT28-14-TO-20
 **Data referência**: 2026-08-11
-**Status inicial**: 🟡 PARCIALMENTE PREENCHIDO (código entregue, assinaturas humanas pendentes)
+**Status inicial**: 🟡 PARCIALMENTE PREENCHIDO (código entregue 100%, assinaturas humanas pendentes)
 **Regras de validação**: ADR-026 §2. Condição 3A (Aprovação 100% dos itens abaixo) + ADR-029 CI Pre-Merge 5 Gates.
 **Arquivo SSOT**: este arquivo é a ÚNICA fonte de verdade para liberação de push remoto pós M5. Qualquer documento em desacordo prevalece SIGNOFF-M5.
+**SHA256 pré-assinatura Sprint S28+20 (antes de qualquer PGP clearsign humano)**: `851910b3fb8fc08f020baa164663af9338b7ad41f964a5cfccad214ccd7b1a53`
+  — cálculo: `sha256sum ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md` executado 2026-08-11 antes inserção de qualquer assinatura PGP humana
+  — verificação: antes do primeiro signatário assinar, EXECUTAR sha256sum e confirmar bater EXATAMENTE o hash acima.
+  — se hash divergir = NÃO assinar. Parar e reportar imediatamente para o arquiteto responsável.
 
 ---
 
@@ -84,10 +88,44 @@
 | 5 | _vazia_ | CISO / Diretor Segurança da Informação | ciso@ontrackchain.com.br | `_vazia_` | _vazia_ | `_vazia_` | 🔴 PENDENTE |
 | 6 | _vazia_ | Arquiteto Sênior Responsável (este documento) | architecture@ontrackchain.com.br | `_vazia_` | _vazia_ | `_vazia_` | 🔴 PENDENTE |
 
-### Procedimento de Assinatura (2 passos)
-1. **Cálculo do documento hash**: `sha256sum ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md > /tmp/SHA256_SIGNOFF_M5.txt`
-2. **Clearsign PGP individual**: `gpg --armor --clearsign --local-user <email> --output SIGNOFF-M5.md.asc SIGNOFF-M5.md`
-3. **Resultado final**: 6 arquivos `SIGNOFF-M5.md.asc` concatenados em `SIGNOFF-M5.md.all_sigs.asc`; SHA256 do .all_sigs.asc na coluna "Assinatura SHA256"
+### Procedimento de Assinatura (4 passos OBRIGATÓRIOS por signatário)
+**PASSO 0 — Verificação obrigatória ANTES de TODAS as assinaturas** (todos devem repetir):
+```bash
+EXPECTED="851910b3fb8fc08f020baa164663af9338b7ad41f964a5cfccad214ccd7b1a53"
+ACTUAL=$(sha256sum ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md | awk '{print $1}')
+[ "$ACTUAL" = "$EXPECTED" ] \
+  && echo "✅ CHECKSUM OK - PODE ASSINAR (Sprint S28+20 pre-sign reference)" \
+  || echo "❌ CHECKSUM FAIL - NÃO ASSINE. Conteúdo foi alterado. Reportar Arquiteto."
+```
+Se resultado = `❌` → NÃO assinar. Interromper imediatamente.
+
+**PASSO 1 (individual) — Clearsign PGP por signatário**:
+```bash
+gpg --list-secret-keys --with-colons architecture@ontrackchain.com.br  # confirma chave
+gpg --armor --clearsign --local-user <EMAIL_DO_SIGNATARIO> \
+    --output SIGNOFF-M5.md.<SIGLA_POSICAO>.asc \
+    ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md
+# SIGLAS ACEITAS (ordem tabela signatários): CEO, CTO, CLO, DPO, CISO, ARQ
+```
+
+**PASSO 2 — Inserir na tabela acima**: Colunas "Assinou em" (YYYY-MM-DD), "Chave PGP" (fingerprint 40 hex), "PGP Clearsign Hash" (`sha256sum SIGNOFF-M5.md.<SIGLA>.asc | cut -d' ' -f1`).
+
+**PASSO 3 — Consolidação final (Após 6/6 assinados)**:
+```bash
+cat SIGNOFF-M5.md.CEO.asc SIGNOFF-M5.md.CTO.asc SIGNOFF-M5.md.CLO.asc \
+    SIGNOFF-M5.md.DPO.asc SIGNOFF-M5.md.CISO.asc SIGNOFF-M5.md.ARQ.asc \
+  > ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md.all_sigs.asc
+sha256sum ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md.all_sigs.asc \
+  > /tmp/SHA256_SIGNOFF_M5_ALL_SIGS.txt
+cat /tmp/SHA256_SIGNOFF_M5_ALL_SIGS.txt
+```
+Colar o hash final do `all_sigs.asc` na coluna "Assinatura SHA256" da tabela principal.
+
+**PASSO 4 (pós-consolidação) — OpenTimestamps (Bitcoin proof)**:
+```bash
+ots stamp ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md.all_sigs.asc
+# (aguarda confirmação Bitcoin; ~2h; re-verificar 1x/dia com: ots verify ...all_sigs.asc.ots)
+```
 
 ---
 
