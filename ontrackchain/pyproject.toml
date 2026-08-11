@@ -165,7 +165,7 @@ cache_dir = ".mypy_cache"
 #   · S28+40 ✅ apps/investigation-api    (quarto APP: 8485 LOC main 5968L + billing/stripe/worker/ai/graph intel 12 arquivos)
 #   · S28+41 ✅ apps/monitoring-api     (quinto APP: 2699 LOC main.py FastAPI SLO + healthz endpoints)
 #   · S28+42 ✅ apps/public-api         (sexto APP: 886 LOC main.py FastAPI endpoints público sem RBAC)
-#   · S28+43    apps/report-api
+#   · S28+43 ✅ apps/report-api         (sétimo APP: 2737 LOC main.py FastAPI relatórios PDF/dashboards)
 #   · S28+44    apps/ai-service
 #   · S28+45    apps/mock-oidc
 # Docs: ADR mypy incremental strict Shared → QA → Agents → 9 Apps 1×1.
@@ -279,7 +279,19 @@ disallow_untyped_decorators = true
 warn_redundant_casts = true
 
 [[tool.mypy.overrides]]
-module = "report_api.*,ai_service.*,mock_oidc.*"
+module = "report_api.*"
+disallow_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+strict_equality = true
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+module = "ai_service.*,mock_oidc.*"
 disallow_untyped_defs = false
 check_untyped_defs = true
 no_implicit_optional = true
