@@ -1,7 +1,7 @@
 # Contribuindo para o Ontrackchain — Metodologia FAIL-CLOSED (Sprints S28+XX)
 
 > **⚠️ Princípio fundamental**: Todo commit é FAIL-CLOSED. Qualquer regressão nos 8 gates padrão BLOQUEIA o merge, independentemente de "funcionar no meu ambiente".
-> 
+>
 > **Papel do colaborador**: Entregar UM sprint por vez com Working Tree LIMPA, 8/8 gates PASS e hard constraints 0 violações.
 
 ---
@@ -16,6 +16,7 @@ NENHUM desses itens pode ser violado — validação automática via gates G1 (M
 | HC-2 | 0 segredos hardcoded. TUDO via `${{ secrets.X }}` ou `.env.*.example` (SOMENTE placeholders, 0 valores reais). TruffleHog --only-verified bloqueia push. | `make scan-secrets-strict` (opcional local, obrigatório CI remoto) | G8 + TruffleHog |
 | HC-3 | `.github/settings.yml` NÃO PODE ter jobs `sonarcloud-*` adicionados aos 13 required contexts. QA Gate SEMPRE 2 jobs obrigatórios: `qa-gateway-cli-smoke` + `qa-gateway-scan-sla-ci-p008`. | `make settings-dry-run` | G8 |
 | HC-4 | NENHUMA alteração de código de negócio de apps/pacotes sem sprint associado e validação AST + gates. Sprints P2/P3 de governança NÃO tocam src/. | `grep` + revisão humana + `healthz-bypass-test` (G4 garante RBAC healthz intacto) | G4 + humano |
+| HC-5 | Dotfiles Governança + Trindade Docs: Plugin EditorConfig IDE ativo (antes de editar Makefile); Windows: `git config core.autocrlf=input` (antes de commit); Targets conveniência: `make changelog` + `make contributing` + `make readme` (3/3 docs principais). | `make contributing` (exibe HC) + `make readme` (exibe checklist) + G3 `bash -n` (valida LF sem `\r`) + G5 `all-checks -n` (parse Makefile garante targets docs existem) | G3 + G5 + humano |
 
 ---
 
@@ -128,6 +129,9 @@ Working Tree: LIMPA (N arquivos commitados).
 - [ ] `ontrackchain/pyproject.toml` L185+ linha roadmap sprint adicionada + Docs chain atualizada.
 - [ ] `README.md` seção relevante atualizada com bullets e tags `[S28+XX]`.
 - [ ] Hard constraints HC-1..HC-4 mentalmente verificadas.
+- [ ] Plugin EditorConfig instalado/ativo no IDE (VSCode/JetBrains) — evita converter TAB ASCII 0x09 → spaces no Makefile (gera `missing separator` GNU Make S28+49 legado) [.editorconfig S28+58]
+- [ ] Windows SOMENTE: `git config --global core.autocrlf=input` CONFIGURADO — evita CRLF `\r` quebrar G3 `bash -n` + missing separator make [.gitattributes S28+59]
+- [ ] (Opcional pré-commit) `make changelog` + `make contributing` + `make readme` executados (Trindade Docs 3/3 S28+60) para conferir docs alinhadas.
 
 **Se QUALQUER item for NÃO → NÃO commite. Resolva primeiro.**
 
