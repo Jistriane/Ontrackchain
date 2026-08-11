@@ -1,4 +1,4 @@
-.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle doctor lint test test-shared typecheck build-local pre-commit-install pre-commit-all gov-m5-verify gov-m5-unit-test shell-syntax healthz-bypass-test qa-gateway-smoke doctor-plus compose-config compose-up compose-down compose-ps compose-logs compose-logs-follow all-checks format audit clean scan-secrets-strict e2e-light compose-up-full compose-purge compose-health ci-validate ci-local ci-pre-merge ci-smoke changelog
+.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle doctor lint test test-shared typecheck build-local pre-commit-install pre-commit-all gov-m5-verify gov-m5-unit-test shell-syntax healthz-bypass-test qa-gateway-smoke doctor-plus compose-config compose-up compose-down compose-ps compose-logs compose-logs-follow all-checks format audit clean scan-secrets-strict e2e-light compose-up-full compose-purge compose-health ci-validate ci-local ci-pre-merge ci-smoke changelog contributing
 
 WINDOW_ID ?= stg-2026-07-06-a
 MODE ?= baseline
@@ -40,6 +40,7 @@ help:
 	@echo "  make ci-pre-merge  → FULL (~120s) 8 gates + lint + tests shared (recomendado PR/push)"
 	@echo "  make ci-smoke      → qa-gateway-smoke rápido (estrutura + docs + CSV ROPD)"
 	@echo "  make changelog     → Histórico 24 sprints (arquivo CHANGELOG-SPRINTS.md S28+29..S28+55)"
+	@echo "  make contributing  → Guia contribuição 6 seções (arquivo CONTRIBUTING.md S28+55)"
 
 help-serious-window:
 	$(MAKE) -C ontrackchain help-serious-window
@@ -668,3 +669,15 @@ changelog: ## Exibe histórico 24 sprints (S28+29..S28+55). S28+56
 	@echo "  Arquivo detalhado: CHANGELOG-SPRINTS.md"
 	@echo "============================================================"
 	@cat CHANGELOG-SPRINTS.md
+
+# Sprint S28+57 P3: Target contributing conveniência.
+contributing: ## Exibe guia contribuição completo (CONTRIBUTING.md). S28+57
+	@echo ""
+	@echo "============================================================"
+	@echo "  📒 GUIA CONTRIBUIÇÃO Ontrackchain — Metodologia FAIL-CLOSED"
+	@echo "============================================================"
+	@echo "  Hard constraints HC-1..HC-4 + ciclo sprint 5 passos"
+	@echo "  + 8 gates tabela + estrutura monorepo + padrão commit + checklist"
+	@echo "  Arquivo detalhado: CONTRIBUTING.md"
+	@echo "============================================================"
+	@cat CONTRIBUTING.md

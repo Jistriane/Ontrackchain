@@ -124,6 +124,7 @@ make all-checks
 - 💨 `make ci-smoke` → qa-gateway-smoke CLI rápido: estrutura monorepo + docs + CSV ROPD + pipelines importáveis (QA Policy 01..05) **[S28+54]**
 - 📋 **Guia Completo de Contribuição e Checklist Pré-Commit**: 4 hard constraints NÃO negociáveis, ciclo sprint 5 passos, 8 gates FAIL-CLOSED, padrão de mensagem de commit e **Checklist 6 itens ANTES de git commit** em [CONTRIBUTING.md](./CONTRIBUTING.md) **[S28+55]**
 - 📜 `make changelog` → Histórico de 24 sprints (S28+29 → S28+55) em arquivo [CHANGELOG-SPRINTS.md](./CHANGELOG-SPRINTS.md): tabela resumo geral + detalhe por sprint ordem recente primeiro (S28+55 → S28+29) + legenda prioridades P0–P4. Target conveniência NÃO-gating com header + cat. **[S28+56]**
+- 📒 `make contributing` → Guia completo de contribuição em [CONTRIBUTING.md](./CONTRIBUTING.md): 4 hard constraints NÃO negociáveis (HC-1..HC-4) + ciclo sprint 5 passos (INV→DESIGN→IMPL→DOCS→VAL→COMMIT) + tabela completa 8 Gates FAIL-CLOSED + estrutura monorepo resumida + padrão mensagem de commit 6 blocos + **Checklist Rápido 6 itens ANTES de `git commit`**. Header bonito + cat arquivo simétrico ao changelog S28+56. **[S28+57]**
 
 **Observabilidade — Logging Estruturado JSON (Sprint S28+48 P4 + Sprint S28+53 P3, 0 dependências novas):**
 - 🟢 **Shared util**: `ontrackchain_shared/logging_util.py` — `json.dumps` + `logging.Formatter` + `contextvars` + middleware Starlette/FastAPI `RequestIdLogMiddleware`.
