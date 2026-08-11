@@ -1080,6 +1080,7 @@ jobs:
       pull-requests: read
       checks: write
       contents: read
+      security-events: write   # Sprint S28+34: obrigatório GitHub Code Scanning API (upload SARIF)
     steps:
       - uses: actions/checkout@v4
         with:
@@ -1125,6 +1126,18 @@ jobs:
             -Dsonar.python.ruff.reportPaths=ontrackchain/tmp_lint/ruff-report.sarif.json
             -Dsonar.python.bandit.reportPaths=ontrackchain/tmp_sast/bandit.json
             -Dsonar.verbose=false
+
+      # Sprint S28+34 P3: Upload mesmo Ruff SARIF p/ GitHub Advanced Security Code Scanning.
+      # - Mesmo arquivo usado pelo SonarCloud (evita trabalho duplicado)
+      # - category=SonarCloud-ruff permite múltiplas fontes (CodeQL nativo + este)
+      # - if: always() = upa SARIF MESMO se Sonar QG falhou (ainda sim vale mostrar warnings no Code Scanning Alerts)
+      - name: "Code Scanning: Upload Ruff SARIF → GitHub Advanced Security"
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ github.workspace }}/ontrackchain/tmp_lint/ruff-report.sarif.json
+          category: SonarCloud-ruff
+          checkout_path: ${{ github.workspace }}
 
       - name: "SonarCloud Standalone Step Summary"
         if: always()

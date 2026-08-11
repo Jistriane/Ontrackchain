@@ -14,6 +14,7 @@
   <a href="https://sonarcloud.io/dashboard?id=ontrackchain_ontrackchain"><img alt="SonarCloud Vulnerabilities" src="https://sonarcloud.io/api/project_badges/measure?project=ontrackchain_ontrackchain&metric=vulnerabilities"></a>
   <a href="https://sonarcloud.io/dashboard?id=ontrackchain_ontrackchain"><img alt="SonarCloud Security Hotspots" src="https://sonarcloud.io/api/project_badges/measure?project=ontrackchain_ontrackchain&metric=security_hotspots"></a>
   <a href="https://github.com/Ontrackchain/ontrackchain/actions/workflows/ci.yml"><img alt="CI Lint &amp; Type Check" src="https://github.com/Ontrackchain/ontrackchain/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/Ontrackchain/ontrackchain/security/code-scanning"><img alt="Code Scanning Alerts" src="https://img.shields.io/badge/GitHub%20Code%20Scanning-SonarCloud%20Ruff%20SARIF-darkred"></a>
   <a href="./ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md"><img alt="Governança M5: PASSO 0 Hash Auto-Referencial" src="https://img.shields.io/badge/Governan%C3%A7a%20M5-PASSO%200%20V%C3%81LIDO%20(9dc53698)-darkgreen"></a>
 </p>
 <p align="left">
@@ -21,6 +22,7 @@
     Badges populam automaticamente após: (1) <code>Settings &rarr; Secrets &rarr; SONAR_TOKEN</code> configurado;
     (2) Primeiro push para <code>main</code> com CI <code>sonarcloud-standalone</code> executado;
     (3) Organização <code>ontrackchain</code> criada em <a href="https://sonarcloud.io">sonarcloud.io</a>.
+    (4) Code Scanning Alerts aparece automaticamente na aba <b>Security</b> após 1º upload SARIF do job standalone (Sprint S28+34 P3).
   </sub>
 </p>
 
@@ -161,6 +163,7 @@ O script **automagicamente**:
 | E2E falha em mock-oidc:9101 | Aumente `MAX_RETRIES=60` no cabeçalho do script ou rode 2× (primeira execução baixa imagens docker). |
 | SonarCloud badge cinza / não aparece | 1. Crie org `ontrackchain` em sonarcloud.io → new project key **`ontrackchain_ontrackchain`**. 2. `GitHub Repo → Settings → Secrets and variables → Actions → New repository secret: SONAR_TOKEN` (gerar token em sonarcloud.io/account/security). 3. Rode 1 vez o CI em main: badge popula automático. |
 | CI job `sonarcloud-standalone` pula com "SONAR_TOKEN empty" | NORMAL em fork/PR externo. O job NÃO quebra CI, apenas pula com `if: secrets.SONAR_TOKEN != ''`. |
+| Aba **Security → Code Scanning Alerts** vazia sem nada | 1. SONAR_TOKEN precisa estar configurado (job executa). 2. Esperar 1º push main rodar job `sonarcloud-standalone` step "Code Scanning: Upload Ruff SARIF → GitHub Advanced Security". 3. Avisos do Ruff aparecem como alertas (se não há warnings Ruff, Code Scanning Alerts também é 0 — NORMAL). |
 | G8-G11 qa-gateway 4 gates printam `⚠️  NÃO instalado` em vez de PASSAR | `(cd ontrackchain/packages/qa-gateway && python3 -m pip install -e .)` → instala CLI entry-point `qa-gateway`. Depois rode `make qa-gateway-all-strict-ci` isoladamente p/ confirmar. |
 | `qa-gateway scan-lgpd-ropd` detecta warnings LR-001/LR-002/LR-003 mas 0 issues de fato | NORMAL em sandbox sem docs ROPD completos. STRICT mode default=True eleva warnings a issues → bloquear. Se for branch feature temporária, rode manual com `qa-gateway scan-lgpd-ropd --no-strict` (NÃO em main/release). |
 
