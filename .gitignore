@@ -1,17 +1,46 @@
 .DS_Store
+
+# ======= Ambiente e Segredos (HARD CONSTRAINT: 0 segredos hardcoded) =======
 .env
 .env.*
+.env.*.bak
+.env.*.local
+.env.bak
+.env.local
+# Exceções: SOMENTE arquivos .env EXAMPLE OFICIAIS (0 segredos reais)
 !.env.example
 !ontrackchain/.env.staging.example
 !ontrackchain/.env.oidc-local.example
 
+# ======= Python / Ferramentas Dev =======
 __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+.hatch/
 
+# ======= Relatórios temporários de QUALIDADE (Sprints S28+47 P0 / S28+49 P4) =======
+tmp_qa/
+tmp_audit/
+ontrackchain/tmp_qa/
+ontrackchain/tmp_audit/
+*.log
+
+# ======= Virtualenvs locais de Dev =======
+.venv/
+venv/
+env/
+
+# ======= Docker Compose Override LOCAL (não versionar customizações dev) =======
+docker-compose.override.yml
+docker-compose.*.override.yml
+
+# ======= Node.js / Frontend build artifacts =======
 node_modules/
 .next/
 dist/
@@ -23,9 +52,11 @@ ontrackchain/apps/frontend/playwright-report/
 ontrackchain/apps/frontend/test-results/
 *.tsbuildinfo
 
+# ======= IDE / Editor =======
 .idea/
 .vscode/
 
+# ======= Arquivos pessoais de Workspace (NÃO versionar) =======
 MODO ARQUITETO - RULES CONSOLIDADAS.md
 Agentes Especializados.md
 Arquitetura Completa Ontrackchain.md

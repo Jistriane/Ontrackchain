@@ -122,6 +122,7 @@ make all-checks
 - 🧪 `make ci-local` → CI LOCAL 8 gates padrão FAIL-CLOSED (~40s, recomendado ANTES de TODO commit): G1 M5 + G2 unit test + G3 shell syntax + G4 healthz bypass + G5 all-checks -n + G6 typecheck -n + G7 qa-gateway-all-strict-ci -n + G8 settings-dry-run **[S28+54]**
 - 🚀 `make ci-pre-merge` → PRE-MERGE FULL (~120s, recomendado ANTES de PR/push): 8 gates padrão + Ruff lint + 6 testes unitários shared (RBAC/middlewares/helpers). Replica ADR-029 localmente **[S28+54]**
 - 💨 `make ci-smoke` → qa-gateway-smoke CLI rápido: estrutura monorepo + docs + CSV ROPD + pipelines importáveis (QA Policy 01..05) **[S28+54]**
+- 📋 **Guia Completo de Contribuição e Checklist Pré-Commit**: 4 hard constraints NÃO negociáveis, ciclo sprint 5 passos, 8 gates FAIL-CLOSED, padrão de mensagem de commit e **Checklist 6 itens ANTES de git commit** em [CONTRIBUTING.md](./CONTRIBUTING.md) **[S28+55]**
 
 **Observabilidade — Logging Estruturado JSON (Sprint S28+48 P4 + Sprint S28+53 P3, 0 dependências novas):**
 - 🟢 **Shared util**: `ontrackchain_shared/logging_util.py` — `json.dumps` + `logging.Formatter` + `contextvars` + middleware Starlette/FastAPI `RequestIdLogMiddleware`.
