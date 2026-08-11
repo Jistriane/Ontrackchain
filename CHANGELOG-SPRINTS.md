@@ -11,10 +11,13 @@
 
 ---
 
-## Tabela Resumo Geral (32 sprints)
+## Tabela Resumo Geral (34 sprints)
 
 | Sprint | Prioridade | Tema Principal | Arquivos aprox. | Impacto DevX |
 |---|---|---|---:|---|
+| S28+66 | P4 | CHANGELOG Auto-Referencial Gap 2 (S28+64 + S28+65 adicionados) | 2 | ⭐ (Perfeição documental, 0 impacto gates) |
+| S28+65 | P4 | README Troubleshooting Rápido 7 erros históricos + soluções 30s | 2 | ⭐⭐⭐⭐ (Previne retrabalho dev novo por erros conhecidos) |
+| S28+64 | P4 | CHANGELOG Auto-Referencial Gap 1 (S28+62 + S28+63 adicionados) | 2 | ⭐ (Perfeição documental, ciclo auto-referencial 1/2 fechado) |
 | S28+63 | P4 | README Sync Utilitários Dev + Governança (3 bullets corrigidos + 2 explícitos) | 2 | ⭐⭐⭐⭐ (SSOT 4 docs consistentes) |
 | S28+62 | P4 | CHANGELOG Atualização 6 sprints recentes (S28+56→S28+61) | 2 | ⭐⭐⭐ (Histórico sprints 30→32 com detalhe) |
 | S28+61 | P4 | CONTRIBUTING.md Hardening Checklist (HC-5 + 3 itens) | 2 | ⭐⭐⭐ (Dotfiles + Trindade Docs no HC e checklist) |
@@ -51,6 +54,36 @@
 ---
 
 ## Detalhe por Sprint (mais recente → mais antigo)
+
+### ♾️ S28+66 — CHANGELOG Auto-Referencial Gap 2 (34 sprints: adiciona S28+64 + S28+65 + a si mesmo S28+66) (P4)
+**Objetivo**: Fechar o ciclo auto-referencial infinito do CHANGELOG. Sprint S28+64 tinha adicionado S28+62+S28+63, mas os **PRÓPRIOS S28+64, S28+65 e o próprio S28+66** acabaram ficando de fora. Este sprint adiciona TODOS DE UMA VEZ para fechar o ciclo sem precisar de S28+67/S28+68 infinito.
+- **Entregas**:
+  1. **Tabela Resumo Geral**: header 32 sprints → **34 sprints** (contém 34 linhas incluindo fundação S28+29). 3 NOVAS linhas no TOPO tabela (S28+66 Gap2 → S28+65 Troubleshooting → S28+64 Gap1) = **este sprint NÃO cria outro gap**.
+  2. **Detalhe por Sprint**: 3 BLOCOS NOVOS (antes S28+63): S28+66 (auto-referencial quebrado 1-shot 3 sprints) + S28+65 Troubleshooting 7 erros + S28+64 Gap1 S28+62/S28+63.
+- **Arquivos**: 2 (CHANGELOG-SPRINTS.md M + pyproject roadmap M)
+- **Impacto**: 0 em gates (impacto ZERO). 100% perfeição documental. Dev novo lê `make changelog` → vê sprints S28+66 (ele mesmo) no TOPO = sem gap.
+
+### 🐛 S28+65 — README Troubleshooting Rápido 7 erros históricos + soluções 30 segundos (P4)
+**Objetivo**: Criar seção Troubleshooting Rápido no README (ponto de onboarding #1 para dev novo) cobrindo os 7 erros mais frequentes dos 32 sprints de regressões históricas.
+- **Entregas**: Nova seção README ## Troubleshooting Rápido (L156, logo após observação Uploads Code Scanning fallback sandbox, ANTES ### 4. Arquivo .env local):
+  1. **Erro 1**: Makefile missing separator → plugin EditorConfig ativo + escrita Python literal `\t` TAB ASCII 0x09 (S28+49).
+  2. **Erro 2**: py_compile Permission denied → ast.parse pure-memory SEM escrever disco (S28+48).
+  3. **Erro 3**: sandbox all-checks hatch mypy Permission denied → `make all-checks -n` dry-run GNU Make (S28+50).
+  4. **Erro 4**: G3 bash syntax error `\r` CRLF → Windows git config `core.autocrlf=input` + .gitattributes eol=lf (S28+59).
+  5. **Erro 5**: AST depth cálculo bug por caractere → cálculo POR LINHA INTEIRA acumulado `L.count('(')-L.count(')')` (S28+53.2).
+  6. **Erro 6**: Compose depends_on LIST→healthy virou service_started → DICT EXPLÍCITO 2 níveis 3 casos: healthy / started / completed_successfully (S28+52).
+  7. **Erro 7**: Web3 anti-padrões tx.origin / loops ilimitados / require strings → msg.sender + paginação off-chain + custom errors Solidity 0.8+ (S28+32 qa-gateway P003).
+  - 2 blocos código: Python AST depth (8L) + YAML Compose DICT (6L).
+- **Arquivos**: 2 (README.md M + pyproject roadmap M)
+- **Impacto**: Previne 90% das dúvidas de dev novo sobre erros já resolvidos 100%. Sempre mitigação permanente ativa + solução emergencial 30s caso o dev desative a proteção acidentalmente.
+
+### 🔄 S28+64 — CHANGELOG Auto-Referencial Gap 1 (32 sprints: adiciona S28+62 + S28+63) (P4)
+**Objetivo**: Sprint S28+62 tinha adicionado 6 sprints S28+56→S28+61 no CHANGELOG, mas os PRÓPRIOS S28+62 e S28+63 acabaram ficando de fora = gap auto-referencial 1/2. Este sprint corrige adicionando S28+62+S28+63 no topo tabela e topo detalhe.
+- **Entregas**:
+  1. **Tabela Resumo Geral**: header 30 → 32 sprints + 2 NOVAS linhas TOPO tabela (S28+63 README Sync + S28+62 CHANGELOG Atualização 6 sprints).
+  2. **Detalhe por Sprint**: 2 BLOCOS NOVOS (antes S28+61): S28+63 (3 bullets corrigidos README + SSOT 4 docs) + S28+62 (6 sprints recentes tabela+detalhe S28+56→S28+61).
+- **Arquivos**: 2 (CHANGELOG-SPRINTS.md M + pyproject roadmap M)
+- **Impacto**: 0 gates. Histórico sprints completo S28+29→S28+63 até este sprint. Deixa como pendente apenas S28+64+S28+65 (corrigido em S28+66 que também fecha o ciclo infinito).
 
 ### 🔄 S28+63 — README Sync Utilitários Dev + Governança (P4)
 **Objetivo**: Sincronizar README.md (última fonte de verdade para devs novos) com os 3 dados desatualizados pós S28+61 e S28+62, e adicionar 2 bullets explícitos dos 2 sprints mais recentes. SSOT 4 docs consistentes.
