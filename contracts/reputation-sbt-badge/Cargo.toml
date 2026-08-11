@@ -1,0 +1,20 @@
+[package]
+name = "reputation-sbt-badge"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "SBT non-transferível (Soulbound Token). 3 níveis: Bronze >= 50, Prata >= 75, Ouro >= 90. Idempotente 1 badge por case_id. LGPD: metadata contém APENAS hash/score/nível (0 PII on-chain)."
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+testutils = []
+
+[dependencies]
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }

@@ -1,0 +1,20 @@
+[package]
+name = "reputation-scoring-oracle"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "ROLE_SCORER whitelist off-chain. set_score(case_id, recipient, score 0..100) atualiza score e minta automaticamente SBT no ReputationSbtBadge via cross-contract."
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+testutils = []
+
+[dependencies]
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }

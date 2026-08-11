@@ -1,0 +1,20 @@
+[package]
+name = "payment-escrow-v1"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Escrow XLM NATIVO apenas (padrão G2=1). Payer deposita fee por case_id. ROLE_WRITER chama release_after_anchor após EvidenceAnchorV1 confirmar hash. Distribuição multisig para Treasury/Auditor/Operator."
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+testutils = []
+
+[dependencies]
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }

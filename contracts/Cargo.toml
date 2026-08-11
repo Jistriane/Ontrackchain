@@ -4,13 +4,21 @@ members = [
     "evidence-anchor-v1",
     "access-control-multisig",
     "eternal-storage",
+    "reputation-sbt-badge",
+    "reputation-scoring-oracle",
+    "payment-escrow-v1",
+    "fee-distribution-multisig",
+    "governance-governor-v1",
+    "governance-timelock-controller",
+    "governance-voting-weight-calculator",
+    "protocol-address-book",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
 authors = ["Ontrackchain Governança <gov@ontrackchain.invalid>"]
-description = "Smart contracts Soroban (Stellar) do Ontrackchain - Camada 2 âncora pública evidência."
+description = "Smart contracts Soroban (Stellar) do Ontrackchain - MVP COMPLETO: Evidence Anchor + Reputation SBT + Payment XLM Escrow + DAO Governance. 11 crates Single Responsibility + Shared EternalStorage Whitelist. LGPD 0 PII on-chain (SALT 16B off-chain)."
 license = "BUSL-1.1 OR MIT"
 rust-version = "1.78.0"
 

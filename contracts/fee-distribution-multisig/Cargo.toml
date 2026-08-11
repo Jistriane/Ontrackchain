@@ -1,0 +1,20 @@
+[package]
+name = "fee-distribution-multisig"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Distribuição de fee pós-release escrow. Endereços fixos recipients (Treasury/Auditor/Operator). Threshold padrão 2/3. Pausable + ROLE_DISTRIBUTOR."
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+testutils = []
+
+[dependencies]
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }

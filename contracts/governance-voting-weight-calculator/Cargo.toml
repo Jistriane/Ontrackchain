@@ -1,0 +1,20 @@
+[package]
+name = "governance-voting-weight-calculator"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Helper weight de voto DAO (G3=2). Cross-contract lê ReputationSbtBadge count_badges_by_user. CLAMP 0..10 (anti-Sybil whale). OWNER pode set sbt_contract_address."
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+testutils = []
+
+[dependencies]
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }

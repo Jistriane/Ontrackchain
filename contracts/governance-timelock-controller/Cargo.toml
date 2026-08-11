@@ -1,0 +1,20 @@
+[package]
+name = "governance-timelock-controller"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Timelock para propostas DAO. Delay padrão 48h (172800 segundos). Guardian Veto (cancel transação queueada em emergência). Queue / Cancel (só Guardian) / Execute após delay passou."
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+testutils = []
+
+[dependencies]
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }

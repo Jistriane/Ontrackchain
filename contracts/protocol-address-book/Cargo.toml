@@ -1,0 +1,20 @@
+[package]
+name = "protocol-address-book"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Address book global do protocolo. OWNER set_address(slot, addr) para EvidenceAnchor / ReputationSbt / PaymentEscrow / Governor / Timelock. QUALQUER contrato pode read_address(slot) sem auth."
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+testutils = []
+
+[dependencies]
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
