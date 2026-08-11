@@ -5904,15 +5904,24 @@ async def ensure_case_dlq_for_e2e_test(
 # Gate CI Obrigatório: observability-endpoints-gate bloqueia merge se ausente
 # Strategy: Try prometheus_fastapi_instrumentator primeiro, fallback inline
 # ==========================================================================
-@app.get("/healthz", tags=["Observabilidade"], summary="Liveness Probe Kubernetes / SRE")
+@app.get("/healthz", tags=["Observabilidade"], summary="Liveness Probe Kubernetes / SRE", response_class=Response)
 async def healthz_liveness_probe():
-    return {
-        "status": "ok",
+    import json as _hz_json
+    body = {
+        "status": "pass",
         "service": "investigation-api",
-        "version": "2.0.0",
+        "version": "3.1.0-m5",
+        "releaseId": "3.1.0-m5",
         "liveness": "healthy",
         "timestamp_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "service_id": f"ontrackchain/investigation-api",
     }
+    return Response(
+        status_code=200,
+        content=_hz_json.dumps(body, separators=(",", ":"), ensure_ascii=False),
+        media_type="application/health+json; charset=utf-8",
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"},
+    )
 
 try:
     from prometheus_fastapi_instrumentator import Instrumentator as _PromInstrumentator
@@ -5922,7 +5931,7 @@ except Exception:  # noqa: BLE001 - fallback inline sempre funciona, sem depende
 
     _FALLBACK_METRICS_BASE = """# HELP fastapi_info Info about the running FastAPI service.
 # TYPE fastapi_info gauge
-fastapi_info{service="investigation-api",version="2.0.0"} 1.0
+fastapi_info{service="investigation-api",version="3.1.0-m5"} 1.0
 # HELP http_requests_total Total HTTP requests (fallback inline).
 # TYPE http_requests_total counter
 http_requests_total{service="investigation-api",endpoint="/healthz",method="GET",status_code="200"} 0
