@@ -109,6 +109,11 @@ make all-checks
 14. `g14 lint`                   → ruff check + ruff format diff monorepo (11 dirs alvo). SARIF Ruff → GH Code Scanning S28+34, SARIF Bandit → GH Code Scanning S28+47 (13 serviços expandidos, categorias distintas)
 15. `g15 test-shared`            → 6 testes unitários do pacote `shared` (RBAC, middlewares, helpers)
 
+**Utilitários Dev (NÃO gating — comandos opcionais, Sprint S28+49 P4):**
+- 🟣 `make format` → ruff format hatch `apps/ packages/ scripts/` (auto-fix seguro, não altera imports/AST)
+- 🔴 `make audit`  → pip-audit 13 serviços, resumo HIGH/CRITICAL, logs por serviço em `tmp_audit/` (não bloqueia local, CI bloqueia PR se HIGH>0)
+- 🟢 `make clean`  → remove apenas `tmp_*  **/__pycache__  .pytest_cache  .mypy_cache  **/*.pyc` (não toca em src/, git/ nem arquivos de governança)
+
 **Uploads Code Scanning (jobs paralelos ci.yml — NÃO gating local, aparecem na aba Security):**
 - 🟣 **Ruff (S28+34)**: `codeql-action/upload-sarif@v3` — categoria `SonarCloud-ruff` — lint/security hotspots
 - 🔴 **Bandit (S28+47 NOVO)**: `codeql-action/upload-sarif@v3` — categoria `SAST-Bandit` — SAST Python MED/HIGH em 13 serviços (apps + packages)

@@ -1,4 +1,4 @@
-.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle doctor lint test test-shared typecheck build-local pre-commit-install pre-commit-all gov-m5-verify gov-m5-unit-test shell-syntax healthz-bypass-test qa-gateway-smoke doctor-plus compose-config compose-up compose-down compose-ps compose-logs compose-logs-follow all-checks
+.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle doctor lint test test-shared typecheck build-local pre-commit-install pre-commit-all gov-m5-verify gov-m5-unit-test shell-syntax healthz-bypass-test qa-gateway-smoke doctor-plus compose-config compose-up compose-down compose-ps compose-logs compose-logs-follow all-checks format audit clean
 
 WINDOW_ID ?= stg-2026-07-06-a
 MODE ?= baseline
@@ -28,6 +28,11 @@ help:
 	@echo "  make run-eu-sanctions-window-local [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...]"
 	@echo "  make check-compliance-provider-runtime [INTERNAL_BASE_URL=...] [PUBLIC_BASE_URL=...]"
 	@echo "  make run-regulatory-readiness-bundle [WINDOW_ID=...] [PRIVATE_ENV_FILE=...] [CHECKS_DIR=...] [INTERNAL_BASE_URL=...] [PUBLIC_BASE_URL=...]"
+	@echo ""
+	@echo "Utilidades Dev (Sprint S28+49 P4):"
+	@echo "  make format  → ruff format apps/ packages/ scripts/ (auto-formata Python, NÃO quebra código)"
+	@echo "  make audit   → pip-audit 13 serviços (CVE HIGH/CRITICAL resumido, NÃO bloqueia merge localmente)"
+	@echo "  make clean   → remove tmp_*/* + __pycache__ + .pytest_cache (NÃO toca em src/, git/ ou SIGNOFF-*.md)"
 
 help-serious-window:
 	$(MAKE) -C ontrackchain help-serious-window
@@ -487,3 +492,58 @@ all-checks:
 	@echo "  Próximos passos opcionais:"
 	@echo "    make qa-gateway-smoke compose-up"
 	@echo "    ./ontrackchain/scripts/s28p27-run-e2e-light.sh"
+
+# ============================================================
+# Sprint S28+49 P4: Makefile Extras (make format / make audit / make clean)
+# NENHUM target é gating (não adicionado a all-checks).
+# Todos preservam src/, .git/, SIGNOFF-M5.md, settings.yml e qualquer código de negócio.
+#  · format: ruff format hatch = auto-fix safe (não toca em imports nem AST)
+#  · audit:  pip-audit 13 serviços RESUMIDO. NÃO bloqueia localmente se HIGH>0.
+#  · clean:  remove apenas tmp_*, __pycache__, .pytest_cache, .mypy_cache, *.pyc
+# ============================================================
+format: ## Auto-formata Python (ruff format) em apps/, packages/, scripts/. S28+49
+	@echo "🟣 make format — ruff format hatch (auto-fix safe, NÃO altera imports)"
+	@echo "   Alvos: ontrackchain/{apps,packages,scripts}"
+	@cd ontrackchain && 		hatch run ruff format apps/ packages/ scripts/
+
+audit: ## pip-audit 13 serviços (CVE HIGH/CRITICAL resumido, NÃO bloqueia local). S28+49
+	@echo "🔴 make audit — pip-audit 13 serviços (CVE HIGH/CRITICAL resumido)"
+	@mkdir -p tmp_audit
+	@AUDIT_ROOTS="apps/case-management apps/auth-service apps/ai-service apps/investigation-api apps/monitoring-api apps/compliance apps/compliance-api apps/report-api apps/public-api apps/mock-oidc packages/qa-gateway packages/shared packages/agents"; \
+		TOTAL=0; HIGH_TOTAL=0; CRIT_TOTAL=0; \
+		for R in $$AUDIT_ROOTS; do \
+			BASE=$$(basename $$R); \
+			BASE_PATH=ontrackchain/$$R; \
+			if [ -d "$$BASE_PATH" ]; then \
+				echo "--- audit $$R ---"; \
+				(cd "$$BASE_PATH" && \
+					(python3 -m pip_audit --format columns 2>/dev/null) || \
+					(python3 -m pip install --quiet --no-cache-dir pip-audit pip-api 2>/dev/null && python3 -m pip_audit --format columns) \
+				) 2>&1 | tee tmp_audit/$${BASE}.txt | tail -25; \
+				H=$$(grep -cE "(HIGH|CRITICAL)" tmp_audit/$${BASE}.txt 2>/dev/null || echo 0); \
+				C=$$(grep -cE "CRITICAL" tmp_audit/$${BASE}.txt 2>/dev/null || echo 0); \
+				echo "   [$$R] HIGH=$$H  CRITICAL=$$C  (ver tmp_audit/$${BASE}.txt)"; \
+				HIGH_TOTAL=$$((HIGH_TOTAL + H)); CRIT_TOTAL=$$((CRIT_TOTAL + C)); TOTAL=$$((TOTAL + 1)); \
+			else \
+				echo "--- audit $$R (SKIP: diretório inexistente neste ambiente) ---"; \
+			fi; \
+		done; \
+		echo ""; \
+		echo "============================================================"; \
+		echo "📊 make audit RESUMO: $$TOTAL/13 serviços analisados"; \
+		echo "   HIGH=$$HIGH_TOTAL  CRITICAL=$$CRIT_TOTAL"; \
+		echo "   Logs completos em tmp_audit/ por serviço."; \
+		echo "   CI bloqueia PR se HIGH>0 ou CRITICAL>0."; \
+		echo "   Local NÃO bloqueia (comando informativo, use os logs)."; \
+		echo "============================================================"
+
+clean: ## Remove temporários (tmp_*/* + __pycache__ + .pytest_cache). S28+49
+	@echo "🟢 make clean — apaga temporários (NÃO toca em src, .git, SIGNOFF-M5.md, settings.yml)"
+	@echo "   Alvos: tmp_*  ontrackchain/tmp_*  apps/*/tmp_*  packages/*/tmp_*"
+	@echo "          **/__pycache__  .pytest_cache  .mypy_cache  **/*.pyc"
+	@find . -maxdepth 5 -name "__pycache__" -type d -not -path "./.git/*" -exec rm -rf {} + 2>/dev/null || true
+	@find . -maxdepth 5 -name ".pytest_cache" -type d -not -path "./.git/*" -exec rm -rf {} + 2>/dev/null || true
+	@find . -maxdepth 5 -name ".mypy_cache" -type d -not -path "./.git/*" -exec rm -rf {} + 2>/dev/null || true
+	@find . -maxdepth 5 -name "*.pyc" -type f -not -path "./.git/*" -delete 2>/dev/null || true
+	@rm -rf tmp_* ontrackchain/tmp_* ontrackchain/apps/*/tmp_* ontrackchain/packages/*/tmp_* 2>/dev/null || true
+	@echo "✅ make clean concluído"
