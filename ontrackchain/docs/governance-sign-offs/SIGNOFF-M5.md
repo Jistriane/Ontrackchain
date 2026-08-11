@@ -1,15 +1,25 @@
 # Sign-off SSOT — Milestone 5 (M5) — Bloqueio Absoluto Push Remoto
-**Document ID**: SIGNOFF-M5-SSOT-v3.1.0-SPRINT28-14-TO-20
-**Data referência**: 2026-08-11
+**Document ID**: SIGNOFF-M5-SSOT-v3.1.0-SPRINT28-14-TO-21
+**Data referência**: 2026-08-11 (atualizado Sprint S28+21 — hotfix metodologia hash auto-referencial PASSO 0)
 **Status inicial**: 🟡 PARCIALMENTE PREENCHIDO (código entregue 100%, assinaturas humanas pendentes)
 **Regras de validação**: ADR-026 §2. Condição 3A (Aprovação 100% dos itens abaixo) + ADR-029 CI Pre-Merge 5 Gates.
 **Arquivo SSOT**: este arquivo é a ÚNICA fonte de verdade para liberação de push remoto pós M5. Qualquer documento em desacordo prevalece SIGNOFF-M5.
-**SHA256 pré-assinatura Sprint S28+20 (antes de qualquer PGP clearsign humano)**: `851910b3fb8fc08f020baa164663af9338b7ad41f964a5cfccad214ccd7b1a53`
-  — cálculo: `sha256sum ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md` executado 2026-08-11 antes inserção de qualquer assinatura PGP humana
-  — verificação: antes do primeiro signatário assinar, EXECUTAR sha256sum e confirmar bater EXATAMENTE o hash acima.
-  — se hash divergir = NÃO assinar. Parar e reportar imediatamente para o arquiteto responsável.
+**SHA256 pré-assinatura Sprint S28+21 (hotfix metodologia — SEM as linhas 7..11 do bloco hash)**: `9dc536985265d3cc1c054eb4e2e47bc3697900899fef1b8c5ecfb2affc474cc6`
+  — cálculo: `awk 'NR<7 || NR>11' SIGNOFF-M5.md | sha256sum` (REMOVE temporariamente linhas 7 a 11 para quebrar recursividade do hash referenciando a si mesmo)
+  — verificação: **ANTES DO PRIMEIRO SIGNATÁRIO ASSINAR, EXECUTAR**: `./ontrackchain/scripts/gov-m5-verify-pre-sign.sh` (bash) e confirmar saída = `✅ PASSO 0 VÁLIDO`.
+  — NÃO USE `sha256sum SIGNOFF-M5.md` diretamente (hash inclui a linha 7 → divergência garantida por construção auto-referencial).
+  — se script retornar ❌ = NÃO assinar. Parar e reportar imediatamente para o arquiteto responsável.
 
 ---
+
+> 🟡 **NOTA METODOLÓGICA SPRINT S28+21 (HOTFIX)**.
+> O hash original Sprint S28+20 (`851910b3…7b1a53`) documentado em versões anteriores sofria do problema de "hash auto-referencial":
+> o valor do hash foi calculado no arquivo ANTES da linha 7 (contendo o próprio hash) ser adicionada; após inserir o hash na linha 7,
+> o hash do arquivo mudou por construção matemática (impossível resolver — "chicken-egg problem"). Em vez de obrigar os 6 signatários
+> humanos a entender essa nuance (e frustrar validação manual), foi criado o script `ontrackchain/scripts/gov-m5-verify-pre-sign.sh`
+> que remove temporariamente as linhas 7 a 10, calcula o hash da versão "limpa" e compara com o valor hardcoded atualizado nesta linha 7.
+> Resultado: reprodutibilidade 100%, sem quebrar nenhum conteúdo técnico ou item de checklist. Assinaturas PGP clearsign procedem normalmente
+> com este novo hash de referência; o momento de congelamento pré-PGP agora é oficialmente Sprint S28+21.
 
 ## PAINEL EXECUTIVO — SPRINT S28+8 ATÉ S28+14
 
