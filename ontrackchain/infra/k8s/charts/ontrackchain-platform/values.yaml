@@ -9,7 +9,8 @@ global:
   imagePullPolicy: IfNotPresent
   imageRegistry: ghcr.io                # Trocar por registry real (Render / ECR / Artifact Registry)
   imageTag: "3.0.0"                     # AppVersion — bater com Chart.yaml
-  storageClass: ""                      # SC padrão do cluster (EKS gp3, GKE pd-standard, etc)
+  storageClass: "gp3-encrypted"          # AES-256 EBS gp3 via AWS KMS CMK (S28+9 SC customizado, LGPD Art.49§6)
+  kmsKeyId: "REPLACE_WITH_SOPS_KMS_CMK_ARN_PROD"
   lgpd:
     max_sample_percent_non_prod: 5      # LGPD RIPD Art.52 — nunca 100% fora prod sem AES256 (M16 DR)
   serviceMesh:
@@ -237,6 +238,15 @@ observability:
   serviceMonitor:
     enabled: true
     interval: "15s"
+  clusterName: "ontrackchain-main"
+  splunk:
+    hec:
+      endpoint: "https://http-inputs-ontrackchain.splunkcloud.com:443/services/collector/event"
+      tokenRef: { secretName: splunk-hec-token, key: token }
+      logsIndex: "ontrackchain_lgpd_logs"
+      metricsIndex: "ontrackchain_metrics"
+      tracesIndex: "ontrackchain_apm_traces"
+    realm: "us1"
   prometheus:
     enabled: true
     image: "prom/prometheus:v2.53.0"
@@ -247,22 +257,54 @@ observability:
       enabled: true
       size: 20Gi
     resources: { requests: { cpu: "500m", memory: "1Gi" }, limits: { cpu: "2000m", memory: "4Gi" } }
+    remoteWrite:
+      url: "http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090/api/v1/write"
     rules:
       - "platform.rules.yml"
       - "investigation.rules.yml"
       - "compliance.rules.yml"
       - "monitoring.rules.yml"
       - "report.rules.yml"
+  otel:
+    enabled: true
+    image: "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.120.0"
+    piiHashAlg: "SHA-256"
+    tailSamplingHealthyPct: 20
+    retryMaxElapsedMinutes: 30
+  loki:
+    enabled: true
+    endpoint: "http://loki-gateway.observability.svc.cluster.local/loki/api/v1/push"
+  tempo:
+    enabled: true
+    endpoint: "tempo-distributor.observability.svc.cluster.local:4317"
+    queryEndpoint: "http://tempo-query-frontend.observability.svc.cluster.local:3200"
   grafana:
     enabled: true
-    image: "grafana/grafana:11.2.0"
+    image: "grafana/grafana:11.5.1-ubuntu"
     port: 3000
-    replicas: 1
+    replicas: 2
     adminUser: "admin"
+    rootUrl: "https://grafana.ontrackchain.app"
     persistence:
       enabled: true
-      size: 5Gi
-    resources: { requests: { cpu: "200m", memory: "512Mi" }, limits: { cpu: "800m", memory: "1536Mi" } }
+      size: 20Gi
+      storageClass: "gp3-encrypted"
+    resources: { requests: { cpu: "200m", memory: "512Mi" }, limits: { cpu: "1000m", memory: "1Gi" } }
+    oidc:
+      issuerUrl: "https://kc.ontrackchain.app/realms/ontrackchain"
+      clientId: "grafana-sso-oidc"
+      clientSecretRef: { secretName: grafana-oidc-secret, key: client_secret }
+    adminCredentialsRef:
+      passwordKey: password
+      secretKeyKey: secret_key
+      secretName: grafana-admin-credentials
+    datasources:
+      prometheus:
+        url: "http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090"
+      loki:
+        url: "http://loki-gateway.observability.svc.cluster.local"
+      tempo:
+        url: "http://tempo-query-frontend.observability.svc.cluster.local:3200"
     dashboards:
       - "ontrackchain-qa-overview.json"
       - "investigation-operations.json"
@@ -275,6 +317,7 @@ observability:
     image: "prom/alertmanager:v0.27.0"
     port: 9093
     replicas: 1
+    url: "http://alertmanager-operated.observability.svc.cluster.local:9093"
     resources: { requests: { cpu: "100m", memory: "256Mi" }, limits: { cpu: "400m", memory: "512Mi" } }
     deadMansSwitch:
       healthchecks_io_uuid_ref: "global.secrets.healthchecks_io_sla_uuid"
@@ -287,7 +330,7 @@ keycloak:
   image: "quay.io/keycloak/keycloak:25.0.2"
   port: 8080
   replicas: 2
-  realmImportJson: "infra/keycloak/realm-ontrackchain.json"
+  realmImportJson: "files/realm-ontrackchain.json"
   resources: { requests: { cpu: "500m", memory: "1Gi" }, limits: { cpu: "2000m", memory: "2Gi" } }
   pdb: { enabled: true, minAvailable: 1 }
 

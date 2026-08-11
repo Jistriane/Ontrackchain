@@ -14,7 +14,7 @@ metadata:
     ontrackchain.io/component: keycloak
 data:
   realm-ontrackchain.json: |
-    {{ tpl (.Files.Get "files/realm-ontrackchain.json" | default "{\"realm\":\"ontrackchain\",\"enabled\":true}") . | nindent 4 }}
+    {{ tpl (.Files.Get (.Values.keycloak.realmImportJson | default "files/realm-ontrackchain.json") | default "{\"realm\":\"ontrackchain\",\"enabled\":true}") . | nindent 4 }}
 ---
 apiVersion: v1
 kind: Service

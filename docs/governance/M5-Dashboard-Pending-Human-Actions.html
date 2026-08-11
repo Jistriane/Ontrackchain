@@ -1,0 +1,310 @@
+<!--
+========================================================================
+DASHBOARD M5 GOVERNANÇA - PENDING HUMAN ACTIONS (P0)
+Prazo Bloqueio Push: 12/08/2026 23:59:59 BRT
+Status CI Pre-Merge Gate M5: ⛔ BLOQUEADO (NENHUM push remoto permitido)
+Conferência 4-olhos obrigatória para TODAS ações abaixo.
+========================================================================
+-->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ontrackchain · M5 Dashboard · PENDING HUMAN ACTIONS</title>
+<style>
+ :root {
+   --bg: #0b1020; --bg-card: #131a33; --border: #2d3a6b; --accent: #6ee7f9;
+   --warn: #fbbf24; --err: #f87171; --ok: #34d399; --muted: #94a3b8; --text: #e2e8f0;
+ }
+ * { box-sizing: border-box; }
+ body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+   background: linear-gradient(180deg, #070b1a 0%, var(--bg) 100%); color: var(--text);
+   margin: 0; padding: 2rem 1.5rem; line-height: 1.5; }
+ .wrap { max-width: 1120px; margin: 0 auto; }
+ h1 { font-size: 1.8rem; margin: 0 0 0.25rem 0; }
+ h2 { font-size: 1.25rem; margin-top: 2.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+ .sub { color: var(--muted); margin-bottom: 1.5rem; font-size: 0.95rem; }
+ .pill { display: inline-flex; align-items: center; gap: 0.4rem;
+   padding: 0.35rem 0.75rem; border-radius: 999px; font-weight: 600; font-size: 0.8rem;
+   border: 1px solid }
+ .pill.BLOCK  { background: rgba(248,113,113,.10); border-color: var(--err); color: var(--err); }
+ .pill.ALERTA { background: rgba(251,191,36,.10); border-color: var(--warn); color: var(--warn); }
+ .pill.OK     { background: rgba(52,211,153,.10); border-color: var(--ok); color: var(--ok); }
+ .pill.INFO   { background: rgba(110,231,249,.10); border-color: var(--accent); color: var(--accent); }
+ .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem; margin: 1rem 0; box-shadow: 0 1px 0 rgba(255,255,255,.02) inset; }
+ .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+ .kv { display: flex; justify-content: space-between; padding: 0.35rem 0; border-bottom: 1px dashed var(--border); font-size: 0.92rem; }
+ .kv:last-child { border: none; }
+ .kv b { color: var(--accent); }
+ table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-top: 0.5rem; }
+ th, td { text-align: left; padding: 0.65rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+ th { color: var(--muted); font-weight: 500; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+ tr:hover td { background: rgba(110,231,249,.03); }
+ .p { font-weight: 700; border-radius: 4px; padding: 0.1rem 0.4rem; display: inline-block; font-size: 0.75rem; }
+ .P0 { background: var(--err); color: #1a0b0b; }
+ .P1 { background: var(--warn); color: #1d1700; }
+ .P2 { background: var(--accent); color: #042535; }
+ .P3 { background: #64748b; color: #f8fafc; }
+ .status-4olhos { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.75rem; }
+ .assinatura { border: 2px dashed var(--border); border-radius: 10px; padding: 0.75rem; min-height: 130px; }
+ .assinatura .nome { color: var(--accent); font-weight: 600; font-size: 0.95rem; margin-bottom: 0.2rem; }
+ .assinatura .slot { color: var(--muted); font-size: 0.8rem; }
+ .assinatura.feito { border-color: var(--ok); background: rgba(52,211,153,.05); }
+ .assinatura.feito .slot { color: var(--ok); font-weight: 600; }
+ details { border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem 1rem; margin-top: 1rem; background: rgba(110,231,249,.02); }
+ details summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.2rem 0; }
+ code, pre { font-family: ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace; font-size: 0.82rem; color: var(--accent); }
+ pre { background: #0a0f20; border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem; overflow-x: auto; }
+ hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+ .countdown { font-family: ui-monospace, monospace; color: var(--err); font-weight: 700; font-size: 1.05rem; }
+ .evidencia { background: #0c1530; border-left: 4px solid var(--accent); padding: 0.6rem 0.9rem; border-radius: 4px; margin: 0.4rem 0; font-size: 0.85rem; }
+ footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.78rem; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>🏛️ Ontrackchain · Milestone 5 Governança</h1>
+    <p class="sub">Dashboard de Ações Humanas Pendentes · Bloqueio Push Remoto Ativo até
+      <span id="deadline">12/08/2026 23:59:59 BRT</span> ·
+      <span class="pill BLOCK" id="gate">⛔ GATE M5 BLOQUEADO</span>
+    </p>
+    <p class="sub countdown" id="cd"></p>
+  </header>
+
+  <!-- SUMÁRIO -->
+  <section>
+    <h2>📊 Sumário GAPs P0-P3 vs Automatizado</h2>
+    <div class="grid2">
+      <div class="card">
+        <h3 style="margin-top:0; color:var(--err);">🚨 PENDING HUMAN (P0-P1)</h3>
+        <div class="kv"><span>Ações pendentes humanas P0</span><b id="h-p0">9</b></div>
+        <div class="kv"><span>Assinaturas PGP requeridas (≥ 6/6)</span><b id="h-pgp">0 / 6</b></div>
+        <div class="kv"><span>Anexos evidência obrigatórios (≥ 9/9)</span><b id="h-anexos">0 / 9</b></div>
+        <div class="kv"><span>Revogações credenciais stage (≥ 3/3)</span><b id="h-rev">0 / 3</b></div>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0; color:var(--ok);">✅ Automatizado (Sprint S28+8..12)</h3>
+        <div class="kv"><span>CI 5 Gates Pre-Merge (Q1-Q5)</span><b><span class="pill OK">✔ Concluído</span></b></div>
+        <div class="kv"><span>RBAC Guard Shared (9 roles × 7 caps)</span><b><span class="pill OK">✔ 45/45 testes</span></b></div>
+        <div class="kv"><span>StorageClass gp3-encrypted KMS</span><b><span class="pill OK">✔ Concluído</span></b></div>
+        <div class="kv"><span>Terraform SOPS KMS + WORM 120mo</span><b><span class="pill OK">✔ IaC Idempotente</span></b></div>
+        <div class="kv"><span>Realm Keycloak 5 Clients + MFA</span><b><span class="pill OK">✔ JSON Válido</span></b></div>
+        <div class="kv"><span>OTel DaemonSet + Splunk HEC</span><b><span class="pill OK">✔ Provisionado</span></b></div>
+        <div class="kv"><span>Grafana Prometheus/Loki/Tempo</span><b><span class="pill OK">✔ 5 Datasources</span></b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CRITÉRIO 4 PERGUNTAS DO ARQUITETO -->
+  <section>
+    <h2>🧭 As 4 Perguntas do Arquiteto — Checklist 4-Olhos</h2>
+    <table>
+      <thead><tr><th>#</th><th>Pergunta</th><th>Decisão</th><th>Evidência / Justificativa</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><b>(1) Atende aos objetivos de negócio?</b></td>
+          <td><span class="pill ALERTA">Condicional</span></td>
+          <td>Aprovado SE assinaturas ≥ 6 e evidências ≥ 9. Arquivo: <code>docs/adrs/ADR-026-M5-Governance.md</code></td></tr>
+        <tr><td>2</td><td><b>(2) Conformidade (técnica / regulatória / orçamento)?</b></td>
+          <td><span class="pill ALERTA">Condicional</span></td>
+          <td>LGPD Art.49§6, BACEN C3990, SOX §404. Falta: 3 revogações credenciais staging (Anexo 4)</td></tr>
+        <tr><td>3</td><td><b>(3) Atributos de qualidade (perf, sec, disp)?</b></td>
+          <td><span class="pill OK">Alcançado</span></td>
+          <td>Conf. RBAC Guard: 45/45 testes. Rate limit 300 req/min por client. TLS 1.3 mínimo.</td></tr>
+        <tr><td>4</td><td><b>(4) Opção MAIS BARATA / MENOS ARRISCADA?</b></td>
+          <td><span class="pill OK">Otimizada</span></td>
+          <td>OpenTelemetry + Grafana OSS evita Splunk APM seat-based; OTK_ADMIN step-up MFA reduz risco insider.</td></tr>
+        <tr><td>—</td><td><b>Quinta Pergunta Implícita: Há opção MELHOR?</b></td>
+          <td><span class="pill ALERTA">Pendente Humano</span></td>
+          <td>Decisão 4-olhos: validar se HSM AWS CloudHSM vale custo extra (R$ 2.880/mês) vs KMS managed FIPS 140-2 L2</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 9 AÇÕES HUMANAS P0 -->
+  <section>
+    <h2>🚨 9 Ações Humanas PENDENTES (Prioridade P0)</h2>
+    <p class="sub">Aprovação 4-olhos obrigatória (um operador executa + outro valida). NÃO é possível automatizar (governança M5).</p>
+    <table>
+      <thead>
+        <tr><th>#</th><th>P</th><th>Ação Humana Obrigatória</th><th>Documento / Evidência</th><th>4-olhos Assinatura</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>H-P0-01</td><td><span class="p P0">P0</span></td>
+          <td>Assinar commit SHA atual com PGP: <code>6 signatários M5</code></td>
+          <td>Anexo 1 · <code>.git/refs/heads/main</code> + <code>gpg --verify tag v5.0.0-m5-final</code></td>
+          <td>2 operadores assinam + contra-assinam</td>
+          <td><span class="pill BLOCK">PENDING</span></td>
+        </tr>
+        <tr><td>H-P0-02</td><td><span class="p P0">P0</span></td>
+          <td>Revogar credenciais STAGING (DB URL + JWT key + OIDC secret)</td>
+          <td>Anexo 2 · Ticket ITSM INC-XXXX evidência rotação e audit log Keycloak</td>
+          <td>Operador 1 revoga · Operador 2 valida em <code>infra/logs/</code></td>
+          <td><span class="pill BLOCK">PENDING</span></td>
+        </tr>
+        <tr><td>H-P0-03</td><td><span class="p P0">P0</span></td>
+          <td>Assinar contratos AML/KYC terceiros provedores (Splunk, AWS, Render)</td>
+          <td>Anexo 3 · Pastas legais <code>docs/legal/M5-AML-signatures/</code> (3 PDFs PDF-signed)</td>
+          <td>Legal Reviewer + Compliance Officer</td>
+          <td><span class="pill BLOCK">PENDING</span></td>
+        </tr>
+        <tr><td>H-P0-04</td><td><span class="p P0">P0</span></td>
+          <td>Publicar RIPD relatório impacto dados (LGPD Art.52 §4)</td>
+          <td>Anexo 4 · <code>docs/lgpd/RIPD-M5-ontrackchain-v1.pdf</code> DPO assinado</td>
+          <td>DPO + Legal revisor + Compliance</td>
+          <td><span class="pill BLOCK">PENDING</span></td>
+        </tr>
+        <tr><td>H-P0-05</td><td><span class="p P0">P0</span></td>
+          <td>Assinar plano DR 16-RTO (M16) e declaração RTO=4h / RPO=15min</td>
+          <td>Anexo 5 · Runbook DR <code>docs/runbooks/DR-M16.pdf</code> 2x assinatura CTO + SRE Lead</td>
+          <td>CTO + SRE + DPO (4-olhos + 1)</td>
+          <td><span class="pill BLOCK">PENDING</span></td>
+        </tr>
+        <tr><td>H-P0-06</td><td><span class="p P0">P0</span></td>
+          <td>Validar WORM S3 Object Lock (10 anos) em console AWS + enviar evidência auditoria</td>
+          <td>Anexo 6 · Screenshot AWS Console WORM retention COMPLIANCE + <code>aws s3api get-object-lock-configuration --bucket NOME</code></td>
+          <td>SRE + Auditor OTK_AUDITOR</td>
+          <td><span class="pill BLOCK">PENDING</span></td>
+        </tr>
+        <tr><td>H-P0-07</td><td><span class="p P0">P0</span></td>
+          <td>Auditoria Externa Smart Contracts (2 auditorias min. BACEN C3990 §32 VI)</td>
+          <td>Anexo 7 · 2 relatórios .PDF de auditoria (OpenZeppelin / TrailOfBits / Certora) data < 12/08/2026</td>
+          <td>CTO + Auditor independente + Legal</td>
+          <td><span class="pill BLOCK">PENDING</span></td>
+        </tr>
+        <tr><td>H-P0-08</td><td><span class="p P0">P0</span></td>
+          <td>Provisionar CMK SOPS KMS manualmente com Key Policy DUAL adm (2 gerentes)</td>
+          <td>Anexo 8 · <code>kms:CreateKey audit log CloudTrail</code> 2 usuários IAM diferentes (4-olhos)</td>
+          <td>SRE 1 cria · SRE 2 valida policy</td>
+          <td><span class="pill BLOCK">PENDING</span></td>
+        </tr>
+        <tr><td>H-P0-09</td><td><span class="p P0">P0</span></td>
+          <td>Liberar Gate M5 Push: Aprovar checklist final + 6 assinaturas PGP</td>
+          <td>Anexo 9 · <code>docs/governanca/M5-checklist-aprovado.md</code> + PR merge em main (protegido)</td>
+          <td>6 signatários M5 (mínimo): OTK_ADMIN(2) + COMPLIANCE + LEGAL + DPO + SRE</td>
+          <td><span class="pill BLOCK">PENDING</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 9 ANEXOS DE EVIDÊNCIA -->
+  <section>
+    <h2>📎 9 Anexos Evidência Obrigatórios (Checklist P0)</h2>
+    <details open>
+      <summary>Critério: Todos 9 arquivos existentes E assinados digitalmente = GATE M5 LIBERADO</summary>
+      <div class="evidencia">📁 Anexo 1 · <code>docs/governanca/M5-signatures-pgp/</code> — 6 arquivos .sig válidos (SHA256 pinado)</div>
+      <div class="evidencia">📁 Anexo 2 · <code>docs/lgpd/ROTACAO-STAGING-INC-XXXX.pdf</code> — evidência revogação 3 credenciais</div>
+      <div class="evidencia">📁 Anexo 3 · <code>docs/legal/M5-AML-signatures/Splunk.pdf</code> (×3 provedores) PDF-A digital signed</div>
+      <div class="evidencia">📁 Anexo 4 · <code>docs/lgpd/RIPD-M5-ontrackchain-v1.pdf</code> — DPO + Legal + Compliance</div>
+      <div class="evidencia">📁 Anexo 5 · <code>docs/runbooks/DR-M16.pdf</code> — RTO=4h RPO=15min. 2× assinatura CTO+SRE</div>
+      <div class="evidencia">📁 Anexo 6 · <code>docs/compliance/S3-WORM-Object-Lock-10anos-{timestamp}.json</code> — output AWS CLI + screenshot</div>
+      <div class="evidencia">📁 Anexo 7 · <code>docs/security/smartcontract-audit/{Auditor1,Auditor2}.pdf</code> — data < 12/08/2026</div>
+      <div class="evidencia">📁 Anexo 8 · <code>docs/compliance/KMS-CMK-SOPS-policy-4olhos.json</code> — cloudtrail EventID</div>
+      <div class="evidencia">📁 Anexo 9 · <code>docs/governanca/M5-checklist-aprovado.md</code> — GFM task list + 6 PGP clearsign</div>
+    </details>
+  </section>
+
+  <!-- 6 ASSINATURAS HUMANAS PGP / DIGITAL -->
+  <section>
+    <h2>🔏 6 Assinaturas Obrigatórias (Mínimo M5) — 4-Olhos</h2>
+    <p class="sub">Assinatura PGP clearsign em <code>docs/governanca/M5-checklist-aprovado.md</code> ou token e-SPF (ICP-Brasil).</p>
+    <div class="status-4olhos" id="assinaturas">
+      <div class="assinatura" data-role="OTK_ADMIN-1">
+        <div class="nome">Admin 1 — (OTK_ADMIN)</div>
+        <div class="slot">Pendente: data + PGP key ID 0x________</div>
+      </div>
+      <div class="assinatura" data-role="OTK_ADMIN-2">
+        <div class="nome">Admin 2 (Contra-assinatura) — (OTK_ADMIN)</div>
+        <div class="slot">Pendente</div>
+      </div>
+      <div class="assinatura" data-role="COMPLIANCE">
+        <div class="nome">Oficial de Compliance — (OTK_COMPLIANCE_OFFICER)</div>
+        <div class="slot">Pendente · validar AML + BACEN</div>
+      </div>
+      <div class="assinatura" data-role="DPO">
+        <div class="nome">Encarregado LGPD DPO — (OTK_AUDITOR / DPO)</div>
+        <div class="slot">Pendente · validar RIPD + ROPD</div>
+      </div>
+      <div class="assinatura" data-role="LEGAL">
+        <div class="nome">Legal Reviewer — (OTK_LEGAL_REVIEWER)</div>
+        <div class="slot">Pendente · validar AML contratos terceiros</div>
+      </div>
+      <div class="assinatura" data-role="SRE">
+        <div class="nome">SRE Lead — (OTK_ADMIN / SRE)</div>
+        <div class="slot">Pendente · validar DR M16 + KMS + WORM</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- REVOGAÇÕES 3 CREDENCIAIS STAGING -->
+  <section>
+    <h2>🔐 3 Revogações Credenciais Staging — INC-XXXX (ITSM)</h2>
+    <table>
+      <thead><tr><th>#</th><th>Credencial</th><th>Origem</th><th>Procedimento de Revogação</th><th>Aprovação</th></tr></thead>
+      <tbody>
+        <tr><td>Rev-01</td><td>Postgres URL staging: <code>postgresql://user_old@pg-staging:5432/...</code></td>
+          <td>values.yaml <code>REPLACE_WITH_DATABASE_URL</code> placeholder até então REAL</td>
+          <td>ALTER USER com PASSWORD EXPIRED; gerar novo URL, novo secret, atualizar staging 4-olhos</td>
+          <td><span class="pill BLOCK">PENDING</span></td></tr>
+        <tr><td>Rev-02</td><td>JWT Signing Key staging — ES256 antigo</td>
+          <td><code>REPLACE_WITH_SIGNING_KEY_JWT_ES256</code></td>
+          <td>Gerar novo ES256 com age 180 dias; keycloak rotate keys; old key revogada JWKS</td>
+          <td><span class="pill BLOCK">PENDING</span></td></tr>
+        <tr><td>Rev-03</td><td>OIDC Client Secret Keycloak staging</td>
+          <td><code>ontrackchain-webapp</code> secret staging</td>
+          <td>Keycloak Realm → Clients → Credentials → Regenerate; novo secret via Vault prod-only</td>
+          <td><span class="pill BLOCK">PENDING</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <hr>
+  <section>
+    <h2>🔄 GATE M5 Estado Atual</h2>
+    <pre><code id="gate-logic">
+Condições GATE ↓ (todas verdade → GATE LIBERADO)
+  1. 6 Assinaturas PGP / digitais CONCLUÍDAS  →  h-pgp ≥ 6
+  2. 9 anexos evidência presentes + hash SHA256 pinados  →  h-anexos ≥ 9
+  3. 3 Revogações credenciais STAGING INC-XXXX encerrado → h-rev ≥ 3
+  4. ADR-026 §7: checklist M5-checklist-aprovado.md task list 100% [x]
+  5. TruffleHog CI scan zero secrets encontrados (pipeline last-run exit=0)
+  6. pytest RBAC guard (45/45) exit 0
+  7. 2 relatórios auditoria smart contracts recebidos (Data ≤ 12/08/2026)
+=============================================================
+STATUS ATUAL GATE:  ⛔ BLOQUEADO  (0/7 atendidas)
+</code></pre>
+  </section>
+
+  <!-- NOTAS LEGAIS -->
+  <section>
+    <h2>🗒️ Notas de Registro LGPD §37 (Registros de Atividades)</h2>
+    <div class="evidencia">🔒 Todos dados desta página NÃO contêm PII. Referenciam APENAS ticket numbers, paths de docs e roles RBAC — em conformidade com LGPD Art.37 §2.</div>
+    <div class="evidencia">📜 Base legal do bloqueio push remoto M5: LGPD Art.49 §6 (medidas técnicas e administrativas), BACEN Circular 3990 Art.32 §3º (responsabilidade solidária).</div>
+  </section>
+
+  <footer>
+    Documento de governança M5 · Ontrackchain v5.0.0-m5-governance · Não é aceita alteração unilateral · Aprovação coletiva 4-olhos obrigatória · SHA: <code id="sha">REPLACE_WITH_COMMIT_SHA_M5_FINAL</code>
+  </footer>
+</div>
+
+<script>
+/* Countdown 12/08/2026 23:59:59 BRT = 2026-08-13T02:59:59Z */
+const deadline = new Date("2026-08-13T02:59:59Z").getTime();
+function tick(){
+  const diff = deadline - Date.now();
+  if (diff <= 0){ document.getElementById('cd').textContent='⏰ PRAZO EXPIRADO — ABRIR INCIDENTE P0'; return; }
+  const d=Math.floor(diff/864e5), h=Math.floor(diff%864e5/36e5), m=Math.floor(diff%36e5/6e4), s=Math.floor(diff%6e4/1e3);
+  document.getElementById('cd').textContent = `⏳ Tempo restante para concluir M5: ${d}d ${h}h ${m}m ${s}s`;
+}
+setInterval(tick, 1000); tick();
+/* Atualizar SHA commit final atual (se rodar em repo git via server side include) */
+try {
+  const sha = (document.currentScript && document.currentScript.getAttribute('sha')) || '';
+  if (sha) document.getElementById('sha').textContent = sha;
+} catch(e) {}
+</script>
+</body>
+</html>

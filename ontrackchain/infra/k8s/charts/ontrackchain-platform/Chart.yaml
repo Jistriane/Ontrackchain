@@ -1,33 +1,60 @@
 apiVersion: v2
 name: ontrackchain-platform
-description: Ontrackchain Helm Chart v1.0 (MVP) — 9 serviços FastAPI + PG16 PGVector + Observabilidade (Prometheus/Grafana/Alertmanager) + Keycloak + Traefik Ingress. Milestone Pós-MVP 8.
+description: |
+  Ontrackchain Helm Chart v1.1.0 (Milestone M5 Sprint28+13).
+  9 serviços FastAPI (Python 3.11) + PG16 PGVector + Observabilidade 4-stack
+  (Prometheus/Loki/Tempo/Grafana + OTel DaemonSet + Splunk HEC) +
+  Keycloak 25 (MFA WebAuthn Step-up + 5 OIDC clients) + Traefik Ingress 3.1.
+  Conformidade: LGPD Art.49 §6 (AES-256 gp3-encrypted + KMS CMK SOPS),
+  BACEN Circular 3990 Art.32 §3º IV (WORM S3 120 meses COMPLIANCE).
 type: application
-version: 1.0.0
-appVersion: "3.0.0"
+version: 1.1.0
+appVersion: "3.1.0-m5"
 home: https://ontrackchain.local
+icon: https://coresg-normal.trae.ai/api/ide/v1/text_to_image?prompt=ontrackchain%20blockchain%20compliance%20platform%20logo%20shield%20hexagonal%20dark%20theme%20blue%20accent&image_size=square_hd
 sources:
   - https://github.com/Ontrackchain/Ontrackchain
 maintainers:
-  - name: Ontrackchain Platform SRE
-    email: sre@ontrackchain.local
+  - name: Ontrackchain Platform SRE (4-olhos)
+    email: sre-4eyes@ontrackchain.local
+  - name: DPO LGPD (Instituição titular PII)
+    email: privacidade@ontrackchain.app
 annotations:
-  ontrackchain.io/sprint: "Sprint14 Milestone8 Helm"
+  ontrackchain.io/sprint: "Sprint28+13 Milestone M5 Release"
   ontrackchain.io/lgpd-dr-sample-max: "5%"
   ontrackchain.io/gate-observabilidade-m16b: "/healthz + /metrics obrigatorio em 9 servicos FastAPI"
+  ontrackchain.io/storageclass-aes256: "gp3-encrypted / gp3-encrypted-ret KMS CMK envelope SOPS"
+  ontrackchain.io/worm-retention-months: "120"
+  ontrackchain.io/compliance-bacen-c3990-art32: "true"
+  ontrackchain.io/release-date: "2026-08-11"
   artifacthub.io/changes: |
     - kind: added
-      description: Chart v1.0 (MVP) inicial — 9 FastAPI + PG16 + Observabilidade + Keycloak + Traefik + HPA + PDB + NetworkPolicy
-    - kind: security
-      description: NetworkPolicy default-deny cross-tenant RLS, service mesh ready
+      description: (S28+8) CI 5 Gates Pre-Merge Q1-Q5 com TruffleHog v3.96 SHA256 fail-closed + RBAC Guard Shared (9 roles × 7 caps)
+    - kind: added
+      description: (S28+9) StorageClass gp3-encrypted AES-256 KMS CMK + Terraform IaC idempotente (SOPS KMS + S3 WORM Object Lock COMPLIANCE 120 meses)
+    - kind: added
+      description: (S28+10) Realm Keycloak 5 OIDC Clients + MFA WebAuthn step-up (OTK_ADMIN/COMPLIANCE/BILLING/LEGAL) + Password Policy Argon2 14 chars + 10 roles canonicals
+    - kind: added
+      description: (S28+11) OTel Collector DaemonSet pipelines logs/metrics/traces + Splunk HEC exporter (retry 30m) + Grafana 5 Datasources provisionadas (Prom/Loki/Tempo/SplunkO11y/Alertmanager)
+    - kind: added
+      description: (S28+12) Dashboard HTML M5 Pending Human Actions (9 P0 + 6 assinaturas 4-olhos + 9 anexos + countdown 12/08/2026)
+    - kind: changed
+      description: (S28+13) values.yaml observability.* completo (otel/splunk/grafana OIDC/loki/tempo) + .sops.yaml creation_rules ativado placeholders + CI step Helm lint strict + compliance-api/investigation-api conectados Shared Guard RBAC
 keywords:
   - blockchain
   - compliance
   - investigation
+  - lgpd
+  - bacen-circular-3990
   - fastapi
   - pgvector
   - prometheus
   - grafana
-  - keycloak
+  - loki
+  - tempo
+  - opentelemetry
+  - splunk-hec
+  - keycloak-mfa-webauthn
   - traefik
-  - lgpd
+  - rbac-shared-first
 dependencies: []

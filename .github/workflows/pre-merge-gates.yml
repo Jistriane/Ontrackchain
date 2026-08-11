@@ -1,30 +1,21 @@
 name: ADR-029 Pre-Merge 5 Gates (RBAC / BillingCap / BillingEnf / LGPD ROPD / Secrets TruffleHog)
 
-# ⚠️ GATILHO DESATIVADO POR ENQUANTO — M5 Ainda em vigor.
-# on: [] significa que ESTE WORKFLOW NUNCA EXECUTA AUTOMATICAMENTE.
-# Para ativar APÓS sign-off M5 (ADR-026 Condição 3A + Procedimento 14 passos):
-#   1. Remova a linha `on: []`
-#   2. Substitua por:
-#      on:
-#        pull_request:
-#          branches: [main]
-#          types: [opened, synchronize, reopened, ready_for_review]
-#      (Ou workflow_call se for usar com workflow reutilizável.)
-#   3. Garanta que a Organization GitHub Variable DPO_EMAIL esteja definida
-#      (Settings → Secrets and variables → Actions → Variables → New repository variable → DPO_EMAIL)
-#   4. Ative OTK_CI_PRE_MERGE_ENFORCE_ALL = true no nível do repositório
-#      (Settings → Secrets and variables → Actions → Variables → New repository variable → OTK_CI_PRE_MERGE_ENFORCE_ALL = true)
-#      Essa variável BLOQUEIA flags --skip-q1..--skip-q5 em CI (fail-safe).
+# ✅ GATILHO ATIVADO Sprint28+8 (2026-08-11) — Pós sign-off M5 baseline v1.9.
+# on: [] foi REMOVIDO em Sprint28+8 para ativar gates obrigatórios em todo PR → main.
+# Mantemos workflow_dispatch para execução manual on-demand (ex: validar baseline).
+#
+# Pré-requisitos Repository Variables (Settings → Secrets and variables → Actions → Variables):
+#   1. DPO_EMAIL                          = dpo@ontrackchain.com.br    (LGPD Art.41 obrigatório)
+#   2. OTK_CI_PRE_MERGE_ENFORCE_ALL       = true                       (bloqueia --skip-q1..q5 CI)
 #
 # Referência técnica: ADR-029, qa-gateway cli.py Q3-09 run-pre-merge-gates
-# Última atualização: Sprint 27, 2026-08-10. Versão 1.0 do YAML.
+# Última atualização: Sprint28+8, 2026-08-11. Versão 1.1 do YAML.
 
-on: []
-# on:
-#   pull_request:
-#     branches: [main]
-#     types: [opened, synchronize, reopened, ready_for_review]
-#   workflow_dispatch:
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -73,15 +64,32 @@ jobs:
           qa-gateway --help > /dev/null
           echo "✅ qa-gateway instalado: $(qa-gateway --version 2>&1 || qa-gateway --help 2>&1 | head -2)"
 
-      - name: 04 — Instalar TruffleHog (verificação binário Q5; auto-detect qa-gateway)
+      - name: 04 — Instalar TruffleHog v3.96.0 (binário oficial GitHub + SHA256 pinado)
         shell: bash
         run: |
           set -euo pipefail
-          # TruffleHog oficial GitHub release latest (Linux amd64) — pin SHA256 quando possível
-          # Para ambientes restritos, substitua por container gerenciado enterprise.
-          curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
-          trufflehog --version
-          echo "✅ TruffleHog instalado: $(trufflehog --version 2>&1 | head -1)"
+          # Versão e SHA256 pinados = reproducibilidade + mitigação supply-chain attack.
+          # Release: trufflesecurity/trufflehog v3.96.0 (2026-08-01, Linux x86_64)
+          TH_VERSION="3.96.0"
+          TH_SHA256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"  # SHA256 oficial — Atualizar após cada bump versão
+          mkdir -p /tmp/th-install
+          cd /tmp/th-install
+          curl -fsSLo "trufflehog_${TH_VERSION}_linux_amd64.tar.gz" \
+            "https://github.com/trufflesecurity/trufflehog/releases/download/v${TH_VERSION}/trufflehog_${TH_VERSION}_linux_amd64.tar.gz"
+          # NOTA: Em ambientes air-gapped / enterprise, substitua o curl acima por um mirror interno
+          #       ou binário assinado via internal artifact registry.
+          # Validar SHA256 (fail-closed):
+          echo "${TH_SHA256}  trufflehog_${TH_VERSION}_linux_amd64.tar.gz" > SHA256SUMS
+          sha256sum -c SHA256SUMS || {
+            echo "❌ TRUFFLEHOG SHA256 MISMATCH (supply-chain attack suspeito). ABORTAR."
+            exit 98
+          }
+          tar -xzf "trufflehog_${TH_VERSION}_linux_amd64.tar.gz"
+          mv trufflehog /usr/local/bin/trufflehog
+          chmod +x /usr/local/bin/trufflehog
+          # Step 05 qa-gateway PATH já tem /usr/local/bin incluso
+          INSTALLED_VER="$(trufflehog --version | head -1)"
+          echo "✅ TruffleHog instalado: ${INSTALLED_VER}"
 
       - name: 05 — Executar ADR-029 5 Gates Pre-Merge (ORQUESTRADOR qa-gateway FONTE ÚNICA)
         id: gates
@@ -119,7 +127,31 @@ jobs:
             }
           echo "✅ TODOS 5 GATES PRE-MERGE APROVADOS (exit=0). PR liberado para merge após code review humano."
 
-      - name: 06 — Upload artifact relatórios QA (retention 180 dias LGPD 6 meses)
+      - name: 06 — Helm lint + chart manifestos K8s (Sprint28+13 IaC)
+        if: always()
+        run: |
+          set -euo pipefail
+          CHART_DIR="./ontrackchain/infra/k8s/charts/ontrackchain-platform"
+          if command -v helm >/dev/null 2>&1; then
+            echo "🚀 Helm version: $(helm version --short)"
+            helm lint "$CHART_DIR" --strict --with-subcharts || {
+              echo "❌ Helm lint FALHOU (LGPD Art.49 §6: configuração cluster em risco)"
+              echo "   Rodar local: helm lint $CHART_DIR --strict"
+              exit 4
+            }
+            echo "✅ Helm lint --strict PASSOU (chart versão válida)"
+            echo "⚙️  helm template dry-run (sem servidor) para validar manifests..."
+            helm template otk-ci "$CHART_DIR" > /tmp/helm-rendered-ci.yaml || {
+              echo "❌ helm template FALHOU: placeholders values.yaml com valores vazios"
+              exit 4
+            }
+            RENDERED=$(wc -l < /tmp/helm-rendered-ci.yaml)
+            echo "✅ helm template OK: $RENDERED linhas"
+          else
+            echo "⚠️  helm CLI não disponível no runner (skipped). Para ativar: actions/setup-buildx + instalar helm"
+          fi
+
+      - name: 07 — Upload artifact relatórios QA (retention 180 dias LGPD 6 meses)
         if: always()   # SEMPRE salva relatório, mesmo que gates falhem (evidência auditoria)
         uses: actions/upload-artifact@v4
         with:

@@ -32,6 +32,33 @@ from investigation_api.users_org import router as users_org_router  # Sprint 25 
 from investigation_api.graph_intelligence import router as graph_intelligence_router  # Sprint 25 T2-12 /graph/layout allowed layouts
 from ontrackchain_agents.evidence_integration import emit_evidence_event_sync
 
+# -----------------------------------------------------------------------------
+# ADR-018 Shared First: RBAC Guard Singleton (Sprint 28+8)
+# Fallback: header X-Role normalizado (ADR-018 §R12 inline fallback)
+# -----------------------------------------------------------------------------
+try:  # pragma: no cover
+    from ontrackchain_shared.rbac_guard import RBACGuard, CanonicalRole, _PYJWT_AVAILABLE
+    _INVESTIGATION_RBAC_GUARD: RBACGuard | None = None
+    def _investigation_get_rbac_guard() -> RBACGuard | None:
+        global _INVESTIGATION_RBAC_GUARD
+        if _INVESTIGATION_RBAC_GUARD is None and _PYJWT_AVAILABLE:
+            try:
+                from ontrackchain_shared.rbac_guard import default_guard_from_env
+                _INVESTIGATION_RBAC_GUARD = default_guard_from_env(audience_env="OTK_AUDIENCE")
+            except Exception:
+                logger.exception("investigation_rbac_shared_guard_init_failed_fallback_inline")
+                _INVESTIGATION_RBAC_GUARD = None
+        return _INVESTIGATION_RBAC_GUARD
+except Exception:  # noqa: BLE001
+    _INVESTIGATION_RBAC_GUARD = None
+    def _investigation_get_rbac_guard(): return None
+    _PYJWT_AVAILABLE = False
+    class CanonicalRole:  # type: ignore[no-redef]
+        OTK_ADMIN="ADMIN"; OTK_COMPLIANCE_OFFICER="COMPLIANCE"; OTK_AUDITOR="AUDITOR"
+        OTK_INVESTIGATOR="INVESTIGATOR"; OTK_VIEWER="VIEWER"; OTK_ANALYST="ANALYST"
+        OTK_TESTER="TESTER"; OTK_LEGAL_REVIEWER="LEGAL"; OTK_BILLING_ADMIN="BILLING"
+        OTK_REVIEWER="REVIEWER"
+
 logger = logging.getLogger(__name__)
 
 class Settings(BaseSettings):
@@ -1220,8 +1247,35 @@ def _require_role_with_audit(
     resource_id: Optional[str | UUID],
     endpoint: str,
     method: str,
+    authorization: Optional[str] = None,
 ) -> str:
-    role = _normalized_role(x_role)
+    """ADR-018 § Shared First: valida JWT JWKS compartilhado antes fallback inline x_role.
+
+    3 passes: (1) Shared Bearer → roles_normalized; (2) header X-Role normalizado;
+    (3) deny + audit denial log.
+    """
+    role = None
+    shared_source = False
+    if authorization:
+        guard = _investigation_get_rbac_guard()
+        if guard is not None:
+            try:
+                claims = guard.extract_and_validate_claims(
+                    authorization,
+                    context={"endpoint": endpoint, "method": method, "resource": resource_type},
+                )
+                shared_roles: list[str] = list(claims.get("roles_normalized") or [])
+                for r in shared_roles:
+                    if r in allowed_roles:
+                        role = r
+                        shared_source = True
+                        break
+            except Exception as exc:  # noqa: BLE001 — nunca negar por falha infra
+                logger.warning("investigation_shared_rbac_skipped_fallback_reason=%s", type(exc).__name__)
+
+    if role is None:
+        role = _normalized_role(x_role)
+
     if role not in allowed_roles:
         _record_authorization_denial(
             pool,
@@ -1238,6 +1292,8 @@ def _require_role_with_audit(
             method=method,
         )
         raise HTTPException(status_code=403, detail=detail)
+    if shared_source:
+        logger.info("shared_first_rbac_ok endpoint=%s resource=%s role=%s", endpoint, resource_type, role)
     return role
 
 

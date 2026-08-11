@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ontrackchain-investigation-api"
-version = "1.5.0"
+version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.111.0",
@@ -12,20 +12,12 @@ dependencies = [
   "pydantic-settings>=2.3.4",
   "psycopg[binary]>=3.2.1",
   "psycopg-pool>=3.2.2",
-  "redis>=5.0.7",
-]
-
-[project.optional-dependencies]
-dev = [
-  "pytest>=8.0.0",
+  "redis>=5.2.1",
+  "stripe>=10.2.0",
   "httpx>=0.27.0",
+  "PyJWT>=2.9.0",
+  "ontrackchain-shared @ file://../../packages/shared",
 ]
-stripe = [
-  "stripe>=9.0.0",
-]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/investigation_api"]

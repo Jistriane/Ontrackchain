@@ -1,4 +1,4 @@
-"""Shared RBAC Guard v1.0 Sprint28+7 (P1.5 helper consolidado 6→1 ponto único)
+"""Shared RBAC Guard v1.1 Sprint28+8 (P1.1 implementado JWKS PyJWT real)
 
 Motivação (ADR-018 Shared First / Fallback Inline):
    Antes Sprint28+7: 6 locais diferentes aplicavam RBAC inline (9 services FastAPI
@@ -7,14 +7,26 @@ Motivação (ADR-018 Shared First / Fallback Inline):
    B2B screen X-API-Key Tier, alertmanager webhook Internal Bearer Ops, mock-oidc
    2 endpoints staging IdP) documentadas em RBAC.md com data de reativação pós-M5.
 
+Sprint28+8 (2026-08-11) Changelog:
+   - (NEW) Adicionado método `RBACGuard.extract_and_validate_claims()` com PyJWKClient
+     assíncrono-safe, cache 1h de signing keys, discovery OIDC fallback para montar
+     JWKS_URL se fornecido issuer apenas.
+   - (NEW) Adicionado mapeamento ROLE → CAPABILITY (fonte única ADR-012 §4.2).
+   - (NEW) `default_guard_from_env()` factory para 9 apps FastAPI criarem guard
+     singleton a partir de variáveis de ambiente padrão OTK_* (sem duplicação de código).
+   - (FIX) Decoradores `require_role` / `require_any_role` / `require_capability` NÃO
+     são mais stubs NotImplementedError. Eles resolvem o guard singleton por
+     audience e validam JWT real usando Authorization: Bearer.
+   - (SEC) JWT aceita apenas algoritmos assimétricos (RS*/ES*) — HS256 proibido em
+     produção (falta de segredo distribuído entre 9 services = risco ADR-012 §3.5).
+
 Como usar em TODO os 9 apps FastAPI (9 services = 1 ponto):
 
    1. from ontrackchain_shared.rbac_guard import (
-       RBACGuard, require_role, require_any_role, require_capability,
-       CanonicalRole, CanonicalCapability
+       default_guard_from_env, require_role, require_any_role,
+       require_capability, CanonicalRole, CanonicalCapability
    )
-   2. guard = RBACGuard(jwks_url=settings.JWKS_URL, audience=settings.OTK_AUDIENCE,
-                       enforced=settings.OTK_RBAC_ENFORCED, mode="shared_first")
+   2. guard = default_guard_from_env()  # ← singleton por módulo / audience
    3. Decorar rotas com @require_role([CanonicalRole.OTK_ADMIN, ...])
 
 Modos operação ADR-018 (Shared First / Fallback Inline):
@@ -26,10 +38,34 @@ from __future__ import annotations
 
 import enum
 import logging
+import os
 import re
+import threading
+import time
+from functools import lru_cache
 from typing import Iterable, Optional, Sequence
 
 logger = logging.getLogger("ontrackchain.rbac_guard")
+
+# ============================================================
+# 0. DEPENDÊNCIAS OPCIONAIS (PyJWT) — fail-closed se não instalado
+# ============================================================
+try:  # pragma: no cover - import coberto por tests marker "needs_jwt"
+    import jwt  # PyJWT
+    from jwt import PyJWKClient, PyJWKClientError, PyJWTError  # noqa: F401
+    _PYJWT_AVAILABLE = True
+except Exception:  # pragma: no cover
+    jwt = None  # type: ignore[assignment]
+    PyJWKClient = None  # type: ignore[assignment,misc]
+    PyJWKClientError = Exception  # type: ignore[assignment,misc]
+    PyJWTError = Exception  # type: ignore[assignment,misc]
+    _PYJWT_AVAILABLE = False
+
+# Algoritmos assimétricos permitidos em produção (ADR-012 §3.5).
+# HS256/HS384/HS512 = PROIBIDOS (segredo simétrico distribuído = risco).
+_ALLOWED_JWT_ALGORITHMS: tuple[str, ...] = (
+    "RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS256", "PS384", "PS512",
+)
 
 # ============================================================
 # 1. ROLES CANÔNICAS OTK_* (Single Source of Truth ADR-012)
@@ -63,10 +99,10 @@ class CanonicalRole(str, enum.Enum):
 
 
 # ============================================================
-# 2. CAPABILIDADES (ADR-012 Sprint28+2 plano capabilities)
+# 2. CAPABILIDADES + MAPEAMENTO ROLE→CAPABILITY (ADR-012 Sprint28+8)
 # ============================================================
 class CanonicalCapability(str, enum.Enum):
-    """7 capacidades canônicas (ADR-012)."""
+    """7 capacidades canônicas (ADR-012 §4.2 Fonte Única)."""
     CAN_VIEW_PII_FULL = "can_view_pii_full"
     CAN_EXPORT_PII = "can_export_pii"
     CAN_ALTER_WATCHLIST = "can_alter_watchlist"
@@ -74,6 +110,60 @@ class CanonicalCapability(str, enum.Enum):
     CAN_MANAGE_USERS = "can_manage_users"
     CAN_RUN_BILLING = "can_run_billing"
     HAS_SSO_SAML_OIDC_FEDERATION = "has_sso_saml_oidc_federation"
+
+
+# FONTE ÚNICA (atualizado Sprint28+8 por CLO sign-off ADR-012 §4.2):
+# NÃO adicionar capabilities a roles abaixo sem atualizar ADR-012 matriz.
+ROLE_TO_CAPABILITIES: dict[str, set[str]] = {
+    CanonicalRole.OTK_ADMIN.value: {
+        CanonicalCapability.CAN_VIEW_PII_FULL.value,
+        CanonicalCapability.CAN_EXPORT_PII.value,
+        CanonicalCapability.CAN_ALTER_WATCHLIST.value,
+        CanonicalCapability.CAN_APPROVE_DISPATCH.value,
+        CanonicalCapability.CAN_MANAGE_USERS.value,
+        CanonicalCapability.CAN_RUN_BILLING.value,
+        CanonicalCapability.HAS_SSO_SAML_OIDC_FEDERATION.value,
+    },
+    CanonicalRole.OTK_COMPLIANCE_OFFICER.value: {
+        CanonicalCapability.CAN_VIEW_PII_FULL.value,
+        CanonicalCapability.CAN_EXPORT_PII.value,
+        CanonicalCapability.CAN_ALTER_WATCHLIST.value,
+        CanonicalCapability.CAN_APPROVE_DISPATCH.value,
+    },
+    CanonicalRole.OTK_LEGAL_REVIEWER.value: {
+        CanonicalCapability.CAN_VIEW_PII_FULL.value,
+        CanonicalCapability.CAN_EXPORT_PII.value,
+    },
+    CanonicalRole.OTK_ANALYST.value: {
+        CanonicalCapability.CAN_VIEW_PII_FULL.value,
+        CanonicalCapability.CAN_ALTER_WATCHLIST.value,
+    },
+    CanonicalRole.OTK_REVIEWER.value: {
+        CanonicalCapability.CAN_VIEW_PII_FULL.value,
+        CanonicalCapability.CAN_APPROVE_DISPATCH.value,
+    },
+    CanonicalRole.OTK_BILLING_ADMIN.value: {
+        CanonicalCapability.CAN_RUN_BILLING.value,
+    },
+    CanonicalRole.OTK_AUDITOR.value: {
+        # Auditor: view PII + export somente com ordem judicial (restringido em runtime via feature-flag)
+        CanonicalCapability.CAN_VIEW_PII_FULL.value,
+    },
+    CanonicalRole.OTK_VIEWER.value: set(),  # viewer = somente leitura NÃO-PII por padrão
+    CanonicalRole.OTK_TESTER.value: {
+        # Apenas staging; em prod OTK_TESTER é rejeitado em auth-service middleware.
+        CanonicalCapability.CAN_VIEW_PII_FULL.value,
+        CanonicalCapability.CAN_ALTER_WATCHLIST.value,
+    },
+}
+
+
+def _roles_to_capabilities(roles: Iterable[str]) -> set[str]:
+    """Expande conjunto de roles → conjunto de capabilities (ADR-012 §4.2)."""
+    caps: set[str] = set()
+    for r in roles:
+        caps.update(ROLE_TO_CAPABILITIES.get(str(r).strip().upper(), set()))
+    return caps
 
 
 # ============================================================
@@ -140,7 +230,158 @@ class RBACGuard:
             "decisions_deny": 0,
             "invalid_role_format_rejections": 0,
             "shared_first_fallback_inline_count": 0,
+            "jwt_validations_total": 0,
+            "jwt_validations_failed": 0,
         }
+
+        # Lazy init PyJWKClient + signing key cache TTL 1h (3600s)
+        self._lock = threading.RLock()
+        self._jwks_client: object = None  # PyJWKClient (lazy)
+        self._signing_keys: dict[str, tuple[object, float]] = {}  # kid → (jwk, expires_monotonic)
+        self._signing_keys_ttl_sec = 3600
+
+    # --- Internos JWKS -----------------------------------------------------
+
+    def _get_jwks_client(self):
+        """Inicializa PyJWKClient lazy. Fail-closed se PyJWT não disponível."""
+        if not _PYJWT_AVAILABLE:
+            raise RuntimeError(
+                "PyJWT não instalado em ontrackchain-shared[deps]. "
+                "Instale: pip install PyJWT>=2.9 httpx>=0.27"
+            )
+        if self._jwks_client is not None:
+            return self._jwks_client
+        with self._lock:
+            if self._jwks_client is None:
+                if not self.jwks_url or not self.jwks_url.strip():
+                    raise ValueError(
+                        f"RBACGuard jwks_url vazio para aud={self.audience!r}. "
+                        "Preencha OTK_JWKS_URL ou OTK_OIDC_ISSUER (discovery)."
+                    )
+                self._jwks_client = PyJWKClient(self.jwks_url.strip())
+        return self._jwks_client
+
+    def _cached_signing_key(self, token: str):
+        """Retorna signing key para o `kid` do token. Cache TTL 1h."""
+        if not _PYJWT_AVAILABLE:  # pragma: no cover
+            raise RuntimeError("PyJWT missing")
+        client = self._get_jwks_client()
+        # Extrai header SEM validar assinatura (fail-fast kid não existe → 401)
+        unverified_header = jwt.get_unverified_header(token)
+        kid = str(unverified_header.get("kid") or "").strip()
+        if not kid:
+            # Fallback: tentar get_signing_key_from_jwt (lenta, só 1 vez)
+            return client.get_signing_key_from_jwt(token)
+        now = time.monotonic()
+        cached = self._signing_keys.get(kid)
+        if cached is not None:
+            jwk, expires_at = cached
+            if expires_at > now:
+                return jwk
+        # Refresh key do JWKS
+        jwk = client.get_signing_key_from_jwt(token)
+        self._signing_keys[kid] = (jwk, now + self._signing_keys_ttl_sec)
+        return jwk
+
+    # --- Validação JWT -----------------------------------------------------
+
+    @staticmethod
+    def _extract_bearer_token(authorization: Optional[str]) -> str:
+        """Extrai token de `Authorization: Bearer <jwt>`. Levanta ValueError se malformado."""
+        if not authorization:
+            raise ValueError("missing Authorization header")
+        parts = str(authorization).strip().split(None, 1)
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            raise ValueError("Authorization header MUST be 'Bearer <token>'")
+        tok = parts[1].strip()
+        if not tok or tok.count(".") < 2:
+            raise ValueError("JWT malformado (não tem 3 segmentos)")
+        return tok
+
+    def extract_and_validate_claims(
+        self,
+        authorization: Optional[str] = None,
+        *,
+        issuer: Optional[str] = None,
+        algorithms: Optional[Sequence[str]] = None,
+        leeway_seconds: int = 30,
+        context: Optional[str] = None,
+    ) -> dict:
+        """Valida JWT com JWKS e retorna claims. Levanta PermissionError/ValueError.
+
+        Args:
+            authorization: header completo (ex: "Bearer eyJhbGciOi...")
+            issuer: OIDC issuer esperado (opcional; se None NÃO valida iss)
+            algorithms: overrides algoritmos permitidos (default RS*/ES*/PS* assimétricos)
+            leeway_seconds: tolerância exp/nbf clock skew (padrão 30s NTP)
+            context: nome rota/endpoint (logs auditoria)
+
+        Returns:
+            dict claims validados (inclui `roles_normalized` e `capabilities_expanded` injetados
+            pelo guard para uso dos decoradores sem recomputar).
+
+        Raises:
+            PermissionError: qualquer falha de validação (401/403 → FastAPI level)
+        """
+        if self.enforced is False:
+            # Staging-only bypass: devolve claims fake anônimos com viewer
+            self.log.info(
+                "[RBAC ENFORCEMENT=OFF] extract_and_validate_claims retornando claims STAGING FAKE (contexto=%s)",
+                context,
+            )
+            fake = {
+                "sub": "staging-fake-user",
+                "email_verified": True,
+                "preferred_username": "staging-fake",
+                "roles": ["OTK_VIEWER"],
+                "roles_normalized": ["OTK_VIEWER"],
+                "capabilities_expanded": sorted(_roles_to_capabilities(["OTK_VIEWER"])),
+            }
+            return fake
+
+        try:
+            token = self._extract_bearer_token(authorization)
+            signing_key = self._cached_signing_key(token)
+            decode_opts: dict = {"verify_signature": True, "require": ["exp"]}
+            if issuer:
+                decode_opts["require"] = sorted(set(list(decode_opts["require"]) + ["iss"]))  # type: ignore[assignment]
+            decoded = jwt.decode(
+                token,
+                signing_key.key,
+                algorithms=list(algorithms) if algorithms else list(_ALLOWED_JWT_ALGORITHMS),
+                audience=self.audience,
+                issuer=issuer.strip() if issuer else None,
+                leeway=leeway_seconds,
+                options=decode_opts,
+            )
+            # Roles normalizadas + capabilities expandidas (fonte única inline = evita recomputação)
+            roles_norm = self._normalize_roles_from_claims(decoded)
+            # Merge claims explícitas de capabilities com mapeamento roles→caps (união segura)
+            explicit_caps = set(decoded.get("capabilities") or [])
+            implicit_caps = _roles_to_capabilities(roles_norm)
+            decoded["roles_normalized"] = roles_norm
+            decoded["capabilities_expanded"] = sorted(explicit_caps | implicit_caps)
+            self._stats["jwt_validations_total"] += 1
+            self.log.debug(
+                "JWT válido sub=%s roles=%s caps=%s ctx=%s",
+                decoded.get("sub"), sorted(roles_norm), decoded["capabilities_expanded"], context,
+            )
+            return decoded
+        except PyJWTError as exc:
+            self._stats["jwt_validations_failed"] += 1
+            self.log.warning("JWT inválido ctx=%s err=%s", context, str(exc))
+            raise PermissionError(f"JWT 401: assinatura/claims inválidos ({type(exc).__name__})") from exc
+        except PyJWKClientError as exc:
+            self._stats["jwt_validations_failed"] += 1
+            self.log.warning("JWKS inacessível ctx=%s err=%s", context, str(exc))
+            raise PermissionError("JWT 401: JWKS IdP indisponível (retry em 30s)") from exc
+        except ValueError as exc:
+            self._stats["jwt_validations_failed"] += 1
+            raise PermissionError(f"JWT 400: {exc}") from exc
+        except Exception as exc:  # pragma: no cover
+            self._stats["jwt_validations_failed"] += 1
+            self.log.exception("erro inesperado validação JWT ctx=%s", context)
+            raise PermissionError(f"JWT 500: {type(exc).__name__}") from exc
 
     # --- Internos ----------------------------------------------------------
 
@@ -274,21 +515,35 @@ class RBACGuard:
         self.require_roles(claims, any_of, mode_all=False, context=context)
 
     def has_capability(self, claims: dict, capability: CanonicalCapability | str) -> bool:
-        """Verifica claims possuem capability (ADR-012).
+        """Verifica claims possuem capability (ADR-012 Sprint28+8).
 
-        Capacidades são geralmente claims aninhados `capabilities: list[str]`
-        (enriquecidas por qa-gateway shared enforcement). Se NÃO existir o claim
-        → retorna False (falha segura).
+        Ordem de resolução (fonte única, evita recomputação):
+          1. Usa `capabilities_expanded` (já injetado por extract_and_validate_claims)
+          2. Se ausente → lê claim `capabilities` (enriquecido por qa-gateway)
+          3. Se ainda ausente → calcula implicitamente via `roles_normalized` + ROLE_TO_CAPABILITIES
         """
+        if not claims:
+            return False
         cap = capability.value if isinstance(capability, CanonicalCapability) else str(capability)
-        return cap in set(claims.get("capabilities") or []) if claims else False
+        # 1. Caminho feliz (já expandido pelo guard)
+        expanded = claims.get("capabilities_expanded") or []
+        if expanded:
+            return cap in set(expanded)
+        # 2. Capabilities claim explícito (qa-gateway shared enrichment)
+        explicit = set(claims.get("capabilities") or [])
+        if cap in explicit:
+            return True
+        # 3. Fallback: expandir roles agora (pouco custo)
+        roles = claims.get("roles_normalized") or self._normalize_roles_from_claims(claims)
+        return cap in _roles_to_capabilities(roles)
 
     def require_capability(
         self, claims: dict, capability: CanonicalCapability | str, *, context: Optional[str] = None
     ) -> None:
         if not self.has_capability(claims, capability):
+            cap = capability.value if isinstance(capability, CanonicalCapability) else str(capability)
             raise PermissionError(
-                f"RBAC 403 endpoint={context or 'desconhecido'}: capability {capability!r} ausente"
+                f"RBAC 403 endpoint={context or 'desconhecido'}: capability {cap!r} ausente"
             )
 
     # --- Métricas -----------------------------------------------------------
@@ -298,59 +553,216 @@ class RBACGuard:
         return dict(self._stats)
 
 
+# ============================================================
+# 4.5 REGISTRY SINGLETON GUARDS (9 services FastAPI = 1 factory)
+# ============================================================
+_GUARD_REGISTRY_LOCK = threading.RLock()
+_GUARD_REGISTRY: dict[str, RBACGuard] = {}  # audience → singleton
+
+
+def _discover_jwks_from_issuer(issuer: str) -> str:
+    """Faz OIDC discovery para achar jwks_uri. Fallback padrão Keycloak/Okta se falhar."""
+    if not issuer:
+        return ""
+    iss = issuer.strip().rstrip("/")
+    # Tentativa padrão (Boa parte IdPs modernos segue RFC 8414):
+    well_known = f"{iss}/.well-known/openid-configuration"
+    try:
+        import httpx  # lazy import (dependência nova shared)
+        with httpx.Client(timeout=5.0, follow_redirects=True) as client:
+            resp = client.get(well_known)
+            if resp.status_code == 200:
+                doc = resp.json()
+                jwks_uri = str(doc.get("jwks_uri") or "").strip()
+                if jwks_uri:
+                    return jwks_uri
+    except Exception as exc:  # pragma: no cover
+        logger.warning("OIDC discovery falhou para %s: %s. Usando fallback URLs padrão.", iss, exc)
+    # Fallback padrão por convenção (Keycloak / Auth0 / Okta)
+    return f"{iss}/protocol/openid-connect/certs"
+
+
+def default_guard_from_env(*, audience_env: str = "OTK_AUDIENCE", prefix: str = "OTK_") -> RBACGuard:
+    """Factory singleton: retorna RBACGuard configurado por variáveis de ambiente.
+
+    Variáveis lidas (TODAS prefixadas OTK_ para colidir com .env.example 9 services):
+       OTK_AUDIENCE                 (obrigatório, ex: "ontrackchain-investigation-api")
+       OTK_JWKS_URL                 (preferencial — direto ao ponto)
+       OTK_OIDC_ISSUER              (fallback se JWKS_URL vazio → OIDC discovery)
+       OTK_RBAC_ENFORCED            (padrão "true"; setar "false" SOMENTE staging)
+       OTK_RBAC_MODE                (shared_first | enforcement_only | inline_only)
+       OTK_OIDC_ISSUER_EXPECTED     (opcional — valida claim 'iss' se preenchido)
+
+    Thread-safe (registry usa RLock). 9 services FastAPI chamam essa função uma vez
+    no startup; singleton por audience evita PyJWKClient duplicado.
+    """
+    aud = str(os.environ.get(audience_env) or "").strip()
+    if not aud:
+        raise ValueError(
+            f"Faltando env {audience_env} (ex: OTK_AUDIENCE=ontrackchain-investigation-api). "
+            "Sem audience não há RBAC configurável (falha segura)."
+        )
+    with _GUARD_REGISTRY_LOCK:
+        existing = _GUARD_REGISTRY.get(aud)
+        if existing is not None:
+            return existing
+        jwks = str(os.environ.get(f"{prefix}JWKS_URL") or "").strip()
+        issuer_env = str(os.environ.get(f"{prefix}OIDC_ISSUER") or "").strip()
+        if not jwks:
+            jwks = _discover_jwks_from_issuer(issuer_env)
+        if not jwks:
+            raise ValueError(
+                f"Falta JWKS_URL para aud={aud!r}. "
+                f"Preencha {prefix}JWKS_URL OU {prefix}OIDC_ISSUER (OIDC discovery)."
+            )
+        enforced_env = str(os.environ.get(f"{prefix}RBAC_ENFORCED", "true")).strip().lower()
+        enforced = enforced_env not in {"0", "false", "no", "off", "disabled"}
+        mode = str(os.environ.get(f"{prefix}RBAC_MODE", "shared_first")).strip() or "shared_first"
+        guard = RBACGuard(jwks_url=jwks, audience=aud, enforced=enforced, mode=mode)
+        _GUARD_REGISTRY[aud] = guard
+        return guard
+
+
+def _guard_for_current_service() -> RBACGuard:
+    """Resolve guard singleton usando default_guard_from_env (decoradores usam essa internamente)."""
+    return default_guard_from_env()
+
+
 __all__ = [
     "RBACGuard",
     "CanonicalRole",
     "CanonicalCapability",
+    "ROLE_TO_CAPABILITIES",
     "is_valid_role_format",
+    "default_guard_from_env",
     "require_role",
     "require_any_role",
     "require_capability",
 ]
 
-
 # ============================================================
-# 5. Decoradores FastAPI (helpers sintáticos compatíveis DI)
+# 5. Decoradores FastAPI (helpers sintáticos compatíveis Depends())
 # ============================================================
-def require_role(roles: Sequence[CanonicalRole | str]):
-    """Decorador FastAPI compatível Depends(..., use_cache=True).
+def _issuer_expected_from_env(prefix: str = "OTK_"):
+    val = str(os.environ.get(f"{prefix}OIDC_ISSUER_EXPECTED") or "").strip()
+    return val or None
 
-    Exemplo Sprint28+7:
+
+def require_role(roles):
+    """Decorador FastAPI compatível Depends() — modo ALL (todas roles necessárias).
+
+    Exemplo Sprint28+8:
     >>> from fastapi import APIRouter, Depends
     >>> from ontrackchain_shared.rbac_guard import require_role, CanonicalRole
     >>> router = APIRouter(prefix="/v1/admin")
     >>> @router.post("/users")
-    ... async def create_user(payload, _rbac=Depends(require_role([CanonicalRole.OTK_ADMIN]))):
+    ... async def create_user(payload, _claims=Depends(require_role([CanonicalRole.OTK_ADMIN]))):
+    ...     # _claims contém roles_normalizados + capabilities_expanded (uso opcional)
     ...     return {"status": "ok"}
+
+    Retorna claims validados dict (útil para logs sub / org_id / plan claim custom).
     """
     from fastapi import Header, HTTPException
 
-    def _verify(authorization: str = Header(default=None)):
-        # TODO Sprint28+7 PÓS M5 P1.1 (W005 remover 2 endpoints):
-        #   Aqui conectar `guard.extract_and_validate_claims(authorization)`
-        #   com JWKS PyJWT validado. A implementação JWS é feita em auth.py hoje
-        #   (shared auth middleware); este decorador SOLAMENTE encapsula
-        #   validação de roles claims — NÃO duplica validação JWS (Single Source).
-        _ = (roles, authorization)  # placeholder pós-M5 conectar auth JWS
-        raise NotImplementedError(
-            "require_role decorador stub Sprint28+7: conectar extract_and_validate_claims "
-            "de ontrackchain_shared.auth JWKS PyJWT após sign-off M5 push remoto CI."
-        )
+    expected_norm = tuple(
+        r.value if isinstance(r, CanonicalRole) else str(r).strip()
+        for r in roles or []
+    )
+    context_label = f"require_role({sorted(expected_norm)})"
+
+    def _verify(authorization = Header(default=None)):
+        try:
+            guard = _guard_for_current_service()
+            iss = _issuer_expected_from_env()
+            claims = guard.extract_and_validate_claims(
+                authorization, issuer=iss, context=context_label,
+            )
+            guard.require_roles(claims, list(expected_norm), mode_all=True, context=context_label)
+            return claims
+        except PermissionError as exc:
+            detail = str(exc)
+            if "403" in detail:
+                raise HTTPException(status_code=403, detail=detail) from exc
+            if "400" in detail:
+                raise HTTPException(status_code=400, detail=detail) from exc
+            raise HTTPException(status_code=401, detail=detail) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"RBAC config: {exc}") from exc
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("RBAC require_role inesperado ctx=%s", context_label)
+            raise HTTPException(status_code=500, detail=f"RBAC erro interno ({type(exc).__name__})") from exc
 
     return _verify
 
 
-def require_any_role(roles: Sequence[CanonicalRole | str]):
-    return require_role(roles)  # mode_all=False → mesmas assinaturas, trocar no futuro
-
-
-def require_capability(cap: CanonicalCapability | str):
+def require_any_role(roles):
+    """Decorador Depends() — modo ANY. Mesmo uso que require_role mas mode_all=False."""
     from fastapi import Header, HTTPException
 
-    def _verify(authorization: str = Header(default=None)):
-        _ = (cap, authorization)
-        raise NotImplementedError(
-            "require_capability stub Sprint28+7: idem require_role — conectar JWKS após M5."
-        )
+    expected_norm = tuple(
+        r.value if isinstance(r, CanonicalRole) else str(r).strip()
+        for r in roles or []
+    )
+    context_label = f"require_any_role({sorted(expected_norm)})"
+
+    def _verify(authorization = Header(default=None)):
+        try:
+            guard = _guard_for_current_service()
+            iss = _issuer_expected_from_env()
+            claims = guard.extract_and_validate_claims(
+                authorization, issuer=iss, context=context_label,
+            )
+            guard.require_roles(claims, list(expected_norm), mode_all=False, context=context_label)
+            return claims
+        except PermissionError as exc:
+            detail = str(exc)
+            if "403" in detail:
+                raise HTTPException(status_code=403, detail=detail) from exc
+            if "400" in detail:
+                raise HTTPException(status_code=400, detail=detail) from exc
+            raise HTTPException(status_code=401, detail=detail) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"RBAC config: {exc}") from exc
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("RBAC require_any_role inesperado")
+            raise HTTPException(status_code=500, detail=f"RBAC erro interno ({type(exc).__name__})") from exc
+
+    return _verify
+
+
+def require_capability(cap):
+    """Decorador Depends() — valida capability (ADR-012 Sprint28+8)."""
+    from fastapi import Header, HTTPException
+
+    cap_norm = cap.value if isinstance(cap, CanonicalCapability) else str(cap).strip()
+    context_label = f"require_capability({cap_norm!r})"
+
+    def _verify(authorization = Header(default=None)):
+        try:
+            guard = _guard_for_current_service()
+            iss = _issuer_expected_from_env()
+            claims = guard.extract_and_validate_claims(
+                authorization, issuer=iss, context=context_label,
+            )
+            guard.require_capability(claims, cap_norm, context=context_label)
+            return claims
+        except PermissionError as exc:
+            detail = str(exc)
+            if "403" in detail:
+                raise HTTPException(status_code=403, detail=detail) from exc
+            if "400" in detail:
+                raise HTTPException(status_code=400, detail=detail) from exc
+            raise HTTPException(status_code=401, detail=detail) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"RBAC config: {exc}") from exc
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("RBAC require_capability inesperado")
+            raise HTTPException(status_code=500, detail=f"RBAC erro interno ({type(exc).__name__})") from exc
 
     return _verify

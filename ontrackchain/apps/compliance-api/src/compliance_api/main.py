@@ -27,6 +27,40 @@ from ontrackchain_shared import (
     pricing_table_hash,
     resolve_canonical_identifier,
 )
+
+# -----------------------------------------------------------------------------
+# ADR-018 Shared First: RBAC Guard (Sprint28+8.3) — Singleton com fallback inline
+# Fallback mantido: x_role header normalizado (ADR-018 §R12)
+# -----------------------------------------------------------------------------
+try:  # pragma: no cover - fail-open import
+    from ontrackchain_shared.rbac_guard import (
+        RBACGuard,
+        CanonicalRole,
+        _PYJWT_AVAILABLE,
+        is_valid_role_format,
+    )
+    _COMPLIANCE_RBAC_GUARD: RBACGuard | None = None
+    def _compliance_get_rbac_guard() -> RBACGuard | None:
+        global _COMPLIANCE_RBAC_GUARD
+        if _COMPLIANCE_RBAC_GUARD is None and _PYJWT_AVAILABLE:
+            try:
+                from ontrackchain_shared.rbac_guard import default_guard_from_env
+                _COMPLIANCE_RBAC_GUARD = default_guard_from_env(audience_env="OTK_AUDIENCE")
+            except Exception:  # noqa: BLE001 — fallback inline sempre disponível
+                logger.exception("compliance_rbac_shared_guard_init_failed_fallback_inline")
+                _COMPLIANCE_RBAC_GUARD = None
+        return _COMPLIANCE_RBAC_GUARD
+except Exception:  # noqa: BLE001
+    _COMPLIANCE_RBAC_GUARD = None
+    def _compliance_get_rbac_guard(): return None
+    _PYJWT_AVAILABLE = False
+    def is_valid_role_format(r): return False  # type: ignore
+    class CanonicalRole:  # type: ignore[no-redef]
+        OTK_ADMIN="ADMIN"; OTK_COMPLIANCE_OFFICER="COMPLIANCE"; OTK_AUDITOR="AUDITOR"
+        OTK_INVESTIGATOR="INVESTIGATOR"; OTK_VIEWER="VIEWER"; OTK_ANALYST="ANALYST"
+        OTK_TESTER="TESTER"; OTK_LEGAL_REVIEWER="LEGAL"; OTK_BILLING_ADMIN="BILLING"
+        OTK_REVIEWER="REVIEWER"
+
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 from psycopg.rows import dict_row
@@ -306,8 +340,39 @@ def _require_role_with_audit(
     resource_id: Optional[str | UUID],
     endpoint: str,
     method: str,
+    authorization: Optional[str] = None,
 ) -> str:
-    role = _normalized_role(x_role)
+    """ADR-018 § Shared First: tenta validação RBAC JWT JWKS compartilhada antes fallback inline x_role.
+
+    Estratégia 3-pass (Shared First → Fallback → Deny):
+      1. Bearer Authorization presente + guard compartilhado disponível
+         → usa roles_normalized claims validados PyJWKClient JWKS Keycloak
+      2. Senão, usa header X-Role normalizado (fallback inline ADR-018 R12)
+      3. Nenhum role em allowed_roles → 403 audit denial logado em audit.authorization_log
+    """
+    role = None
+    shared_source = False
+    if authorization:
+        guard = _compliance_get_rbac_guard()
+        if guard is not None:
+            try:
+                claims = guard.extract_and_validate_claims(
+                    authorization,
+                    context={"endpoint": endpoint, "method": method, "resource": resource_type},
+                )
+                shared_roles_normalized: list[str] = list(claims.get("roles_normalized") or [])
+                for r in shared_roles_normalized:
+                    if r in allowed_roles:
+                        role = r
+                        shared_source = True
+                        break
+            except Exception as exc:  # noqa: BLE001 — nunca negar por erro de infra; sempre cair no fallback
+                logger.warning("compliance_shared_rbac_skipped_fallback_reason=%s", type(exc).__name__)
+
+    if role is None:
+        # Fallback inline (x_role header normalizado — caminho 2)
+        role = _normalized_role(x_role)
+
     if role not in allowed_roles:
         _record_authorization_denial(
             pool,
@@ -324,6 +389,11 @@ def _require_role_with_audit(
             method=method,
         )
         raise HTTPException(status_code=403, detail=detail)
+    if shared_source:
+        logger.info(
+            "shared_first_rbac_ok endpoint=%s resource=%s role=%s",
+            endpoint, resource_type, role,
+        )
     return role
 
 

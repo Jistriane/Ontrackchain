@@ -1,0 +1,26 @@
+bucket   = "REPLACE_WITH_BUCKET_TFSTATE_NAME_ONTTRACKCHAIN_MONOREPO"
+key      = "sops-kms-s3-worm/terraform.tfstate"
+region   = "us-east-1"
+
+encrypt                              = true
+kms_key_id                           = "arn:aws:kms:us-east-1:REPLACE_WITH_ACCOUNT_ID:key/REPLACE_WITH_STATE_CMK_ARN"
+dynamodb_table                       = "ontrackchain-terraform-state-locks"
+skip_region_validation               = false
+skip_metadata_api_check              = false
+skip_credentials_validation          = false
+skip_requesting_account_id           = false
+access_key                           = ""
+secret_key                           = ""
+token                                = ""
+sts_token                            = ""
+profile                              = "ontrackchain-prod"
+role_arn                             = "arn:aws:iam::REPLACE_WITH_ACCOUNT_ID:role/ontrackchain-terraform-runner-4eyes"
+session_name                         = "ontrackchain-sops-kms-worm-init"
+external_id                          = "ontrackchain-m5-4eyes"
+shared_credentials_files             = ["~/.aws/credentials"]
+workspace_key_prefix                 = "env:"
+force_path_style                     = false
+acl                                  = "private"
+endpoint                             = ""
+iam_endpoint                         = ""
+sts_endpoint                         = ""

@@ -4,17 +4,179 @@
   "displayName": "Ontrackchain Platform",
   "loginWithEmailAllowed": true,
   "registrationAllowed": false,
-  "sslRequired": "external",
+  "registrationEmailAsUsername": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "rememberMe": true,
+  "verifyEmail": true,
+  "sslRequired": "all",
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 10,
+  "otpPolicy": {
+    "type": "totp",
+    "algorithm": "HmacSHA1",
+    "digits": 6,
+    "initialCounter": 0,
+    "lookAheadWindow": 1,
+    "period": 30
+  },
+  "webAuthnPolicy": {
+    "avoidSameAuthenticatorRegister": true,
+    "acceptableAaguids": [],
+    "userVerificationRequirement": "preferred",
+    "createTimeout": 300000,
+    "signatureAlgorithm": ["ES256", "RS256", "EdDSA", "ES384", "RS384", "ES512", "RS512", "RS1"]
+  },
+  "webAuthnPolicyPasswordless": {
+    "avoidSameAuthenticatorRegister": true,
+    "acceptableAaguids": [],
+    "userVerificationRequirement": "required",
+    "createTimeout": 300000,
+    "signatureAlgorithm": ["ES256", "RS256", "EdDSA", "ES384", "RS384", "ES512", "RS512", "RS1"]
+  },
+  "passwordPolicy": {
+    "type": "digits,upper,lower,special",
+    "digits": 2,
+    "lowerCase": 2,
+    "upperCase": 2,
+    "specialChars": 2,
+    "length": 14,
+    "algorithm": "Argon2",
+    "argon2Iterations": 3,
+    "argon2Memory": 65536,
+    "argon2Parallelism": 1,
+    "history": 12,
+    "daysToExpire": 90,
+    "notRecentlyUsed": 5
+  },
   "clients": [
     {
+      "id": "ontrackchain-webapp-public",
       "clientId": "ontrackchain-webapp",
+      "name": "Ontrackchain SPA Web (Public PKCE + MFA Obrigatório Tier 2+)",
+      "description": "Frontend SPA SSO PKCE; roles OTK_ADMIN/COMPLIANCE obrigam WebAuthn",
       "enabled": true,
       "publicClient": true,
-      "redirectUris": ["/*"],
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "deviceAuthorizationGrantEnabled": false,
+      "clientAuthenticatorType": "client-secret",
+      "pkceCodeChallengeMethod": "S256",
+      "redirectUris": ["https://staging.ontrackchain.app/*", "https://app.ontrackchain.app/*", "http://localhost:3000/*"],
       "webOrigins": ["+"],
       "baseUrl": "/",
+      "rootUrl": "",
+      "adminUrl": "",
+      "frontchannelLogout": true,
+      "defaultClientScopes": ["openid", "profile", "email", "roles", "web-origins", "acr", "microprofile-jwt"],
+      "optionalClientScopes": ["address", "phone", "offline_access", "roles_list"],
+      "fullScopeAllowed": false,
+      "notBefore": 0,
+      "bearerOnly": false,
+      "consentRequired": false,
+      "authenticationFlowBindingOverrides": {
+        "browser": "browser_mfa_stepup_webauthn",
+        "direct_grant": "direct_grant"
+      }
+    },
+    {
+      "id": "ontrackchain-admin-console-pkce",
+      "clientId": "ontrackchain-admin-console",
+      "name": "Painel Administrativo Confidencial (PKCE + MFA WebAuthn REQUIRED 4-olhos)",
+      "description": "RBAC OTK_ADMIN, OTK_BILLING_ADMIN, OTK_LEGAL_REVIEWER; MFA WebAuthn obrigatória (LGPD Art.49 §6)",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "pkceCodeChallengeMethod": "S256",
+      "redirectUris": ["https://admin.ontrackchain.app/*", "http://localhost:3001/*"],
+      "webOrigins": ["+"],
+      "defaultClientScopes": ["openid", "profile", "email", "roles", "acr"],
+      "optionalClientScopes": ["offline_access"],
+      "fullScopeAllowed": false,
+      "authenticationFlowBindingOverrides": {
+        "browser": "browser_mfa_webauthn_required"
+      }
+    },
+    {
+      "id": "ontrackchain-backend-api-bearer-only",
+      "clientId": "ontrackchain-backend-api",
+      "name": "Backend 9 FastAPI Services (bearer-only)",
+      "description": "9 serviços FastAPI (auth, case, billing, compliance, etc). Apenas validação Bearer. NÃO emite tokens.",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "bearerOnly": true,
+      "clientAuthenticatorType": "client-jwt",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "useTemplateConfig": true,
+      "useTemplateMappers": true,
+      "defaultClientScopes": ["openid", "roles"],
+      "fullScopeAllowed": false
+    },
+    {
+      "id": "ontrackchain-b2b-partner-hmac",
+      "clientId": "ontrackchain-b2b-partner",
+      "name": "Client Confidencial B2B (HMAC Signed Request + MFA Service Account)",
+      "description": "Client credencial + service account role OTK_COMPLIANCE_OFFICER. HMAC request signing (RFC 9421 HTTP Message Signatures) opcional via scope hmac_signed_requests.",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "clientAuthenticatorType": "client-secret-jwt",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": true,
+      "oauth2DeviceAuthorizationGrantEnabled": false,
+      "redirectUris": [],
+      "webOrigins": [],
       "defaultClientScopes": ["openid", "profile", "email", "roles"],
-      "optionalClientScopes": ["address", "phone", "offline_access"]
+      "optionalClientScopes": ["offline_access", "hmac_signed_requests"],
+      "fullScopeAllowed": false,
+      "consentRequired": false,
+      "attributes": {
+        "post.logout.redirect.uris": "+",
+        "client.session.idle.timeout": 300,
+        "client.session.max.lifespan": 3600,
+        "client.offline.session.idle.timeout": 2592000,
+        "client.offline.session.max.lifespan": 31536000,
+        "access.token.lifespan": 300
+      }
+    },
+    {
+      "id": "ontrackchain-public-readonly-noauth",
+      "clientId": "ontrackchain-public-readonly",
+      "name": "Cliente Público Somente Leitura (sem autenticação PII)",
+      "description": "APIs públicas: catálogo de documentação, status operacional, termos de uso. NÃO entrega PII.",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "bearerOnly": false,
+      "defaultClientScopes": ["openid"],
+      "optionalClientScopes": [],
+      "fullScopeAllowed": false,
+      "redirectUris": [],
+      "webOrigins": ["*"]
     }
   ],
   "roles": {
@@ -23,7 +185,79 @@
       {"name": "OTK_COMPLIANCE_OFFICER", "description": "Oficial de compliance (federação COMPLIANCE_OFFICER)"},
       {"name": "OTK_INVESTIGATOR", "description": "Investigador de casos (federação INVESTIGATOR)"},
       {"name": "OTK_AUDITOR", "description": "Auditor interno LGPD (federação AUDITOR)"},
-      {"name": "OTK_VIEWER", "description": "Visualizador somente leitura (federação VIEWER)"}
+      {"name": "OTK_VIEWER", "description": "Visualizador somente leitura (federação VIEWER)"},
+      {"name": "OTK_ANALYST", "description": "Analista de dados / KPIs"},
+      {"name": "OTK_TESTER", "description": "QA / Homologação (acesso staging)"},
+      {"name": "OTK_LEGAL_REVIEWER", "description": "Revisor jurídico (termos, cláusulas LGPD Art.7)"},
+      {"name": "OTK_BILLING_ADMIN", "description": "Administrador billing — role exclusiva p/ CAN_RUN_BILLING"},
+      {"name": "OTK_REVIEWER", "description": "Revisor técnico de PRs e auditorias 4-olhos"}
     ]
+  },
+  "requiredActions": [
+    {"alias": "CONFIGURE_TOTP", "name": "Configurar TOTP", "enabled": true, "defaultAction": false, "priority": 10},
+    {"alias": "terms_and_conditions", "name": "Termos e Condições (LGPD Art.7)", "enabled": true, "defaultAction": true, "priority": 20},
+    {"alias": "UPDATE_PASSWORD", "name": "Atualizar senha primeiro login", "enabled": true, "defaultAction": true, "priority": 30},
+    {"alias": "VERIFY_EMAIL", "name": "Verificar e-mail", "enabled": true, "defaultAction": true, "priority": 40},
+    {"alias": "delete_account", "name": "Solicitar exclusão (LGPD Art.17 - Direito ao Esquecimento)", "enabled": true, "defaultAction": false, "priority": 100},
+    {"alias": "webauthn-register", "name": "Registrar chave WebAuthn (MFA Tier 2+ obrigatório)", "enabled": true, "defaultAction": false, "priority": 50}
+  ],
+  "authenticationFlows": [
+    {
+      "alias": "browser_mfa_stepup_webauthn",
+      "description": "Browser padrão MFA step-up: pwd -> TOTP opcional -> Step Up WebAuthn p/ roles admin/compliance/billing",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {"authenticator": "auth-cookie", "requirement": "ALTERNATIVE", "priority": 0},
+        {"authenticator": "auth-spnego", "requirement": "DISABLED", "priority": 1},
+        {"authenticator": "identity-provider-redirector", "requirement": "ALTERNATIVE", "priority": 2},
+        {"authenticator": "basic-auth-form", "requirement": "REQUIRED", "priority": 3, "authenticatorFlow": true, "requirementChoices": ["REQUIRED"]},
+        {"authenticator": "auth-otp-form", "requirement": "OPTIONAL", "priority": 4},
+        {"authenticator": "conditional-user-configured", "requirement": "REQUIRED", "priority": 5},
+        {"authenticator": "webauthn-authenticator", "requirement": "REQUIRED", "priority": 6,
+         "authenticatorConfig": "webauthn-stepup-roles-admin-compliance-billing"}
+      ]
+    },
+    {
+      "alias": "browser_mfa_webauthn_required",
+      "description": "Admin Console: MFA WebAuthn obrigatória PARA TODOS os usuários (LGPD §49 4-olhos)",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {"authenticator": "auth-cookie", "requirement": "ALTERNATIVE", "priority": 0},
+        {"authenticator": "identity-provider-redirector", "requirement": "ALTERNATIVE", "priority": 1},
+        {"authenticator": "basic-auth-form", "requirement": "REQUIRED", "priority": 2},
+        {"authenticator": "webauthn-authenticator", "requirement": "REQUIRED", "priority": 3}
+      ]
+    }
+  ],
+  "authenticatorConfig": [
+    {
+      "alias": "webauthn-stepup-roles-admin-compliance-billing",
+      "config": {
+        "step-up-roles": "OTK_ADMIN,OTK_COMPLIANCE_OFFICER,OTK_BILLING_ADMIN,OTK_LEGAL_REVIEWER",
+        "remember-me": "false"
+      }
+    }
+  ],
+  "clientScopes": [
+    {"name": "hmac_signed_requests", "description": "B2B: scope que obriga HMAC HTTP Message Signature (RFC9421) nas requisições; roles limitados",
+     "protocol": "openid-connect", "attributes": {"include.in.token.scope": "true"}}
+  ],
+  "smtpServer": {
+    "host": "REPLACE_WITH_SMTP_HOST",
+    "port": "587",
+    "ssl": false,
+    "starttls": true,
+    "auth": true,
+    "user": "REPLACE_WITH_SMTP_USER",
+    "password": "REPLACE_WITH_SMTP_PASSWORD",
+    "from": "no-reply@ontrackchain.app",
+    "fromDisplayName": "Ontrackchain - LGPD & BACEN",
+    "envelopeFrom": "no-reply@ontrackchain.app",
+    "replyTo": "privacidade@ontrackchain.app",
+    "replyToDisplayName": "Encarregado DPO / LGPD"
   }
 }
