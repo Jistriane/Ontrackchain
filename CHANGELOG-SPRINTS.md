@@ -11,10 +11,12 @@
 
 ---
 
-## Tabela Resumo Geral (30 sprints)
+## Tabela Resumo Geral (32 sprints)
 
 | Sprint | Prioridade | Tema Principal | Arquivos aprox. | Impacto DevX |
 |---|---|---|---:|---|
+| S28+63 | P4 | README Sync Utilitários Dev + Governança (3 bullets corrigidos + 2 explícitos) | 2 | ⭐⭐⭐⭐ (SSOT 4 docs consistentes) |
+| S28+62 | P4 | CHANGELOG Atualização 6 sprints recentes (S28+56→S28+61) | 2 | ⭐⭐⭐ (Histórico sprints 30→32 com detalhe) |
 | S28+61 | P4 | CONTRIBUTING.md Hardening Checklist (HC-5 + 3 itens) | 2 | ⭐⭐⭐ (Dotfiles + Trindade Docs no HC e checklist) |
 | S28+60 | P4 | Target make readme conveniência (Trindade 3/3) | 3 | ⭐⭐⭐⭐ (Changelog+Contributing+Readme 1-comando) |
 | S28+59 | P4 | .gitattributes LF EOL Force Cross-OS | 3 | ⭐⭐⭐⭐⭐ (Previne CRLF \r quebrar G3 bash + make) |
@@ -49,6 +51,23 @@
 ---
 
 ## Detalhe por Sprint (mais recente → mais antigo)
+
+### 🔄 S28+63 — README Sync Utilitários Dev + Governança (P4)
+**Objetivo**: Sincronizar README.md (última fonte de verdade para devs novos) com os 3 dados desatualizados pós S28+61 e S28+62, e adicionar 2 bullets explícitos dos 2 sprints mais recentes. SSOT 4 docs consistentes.
+- **Entregas**:
+  1. **Header Utilitários Dev**: sprints listados de 10→13 (+S28+60 P4, +S28+61 P4, +S28+62 P4).
+  2. **3 bullets desatualizados CORRIGIDOS**: (a) CONTRIBUTING.md link: 4 hard constraints → **5 hard constraints** (HC-5 NOVO S28+61) / 6 itens checklist → **9 itens checklist**; (b) make changelog: 24 sprints → **30 sprints** S28+29→S28+61; (c) make contributing: 4→5 HC-1 HC / 6→9 checklist + info 3 itens novos.
+  3. **2 bullets EXPLÍCITOS NOVOS no final Utilitários Dev**: 1) 🛡️ S28+61 P4 Hardening CONTRIBUTING HC-5 NOVO + 3 itens checklist (G3 bash + G5 all-checks validação); 2) 📊 S28+62 P4 CHANGELOG-SPRINTS 30 sprints atualizado.
+- **Arquivos**: 2 (README.md M + pyproject roadmap M)
+- **Impacto**: Elimina 3 dados desatualizados README. SSOT 4 documentos 100% consistente entre `pyproject roadmap`, `CONTRIBUTING`, `CHANGELOG-SPRINTS`, `README`.
+
+### 📊 S28+62 — CHANGELOG-SPRINTS.md Atualização 6 sprints recentes S28+56→S28+61 (P4)
+**Objetivo**: CHANGELOG-SPRINTS.md criado em S28+56 com tabela + detalhe só cobria até S28+55. Atualizar com 6 sprints recentes S28+56→S28+61 em ordem recente-primeiro (tabela + detalhe). Fecha lacuna auto-referencial do changelog não ter os sprints dele mesmo.
+- **Entregas**:
+  1. **Tabela Resumo Geral**: header 24 sprints → **30 sprints** + 6 NOVAS linhas no TOPO tabela ordem recente-primeiro: S28+61 (HC-5) → S28+60 (readme) → S28+59 (gitattributes) → S28+58 (editorconfig) → S28+57 (contributing) → S28+56 (changelog init).
+  2. **Detalhe por Sprint**: 6 BLOCOS NOVOS (antes S28+55) com Objetivo + Entregas bullets numerados + Arquivos + Impacto/Validação por sprint.
+- **Arquivos**: 2 (CHANGELOG-SPRINTS.md M + pyproject roadmap M)
+- **Impacto**: Histórico sprints 100% completo até S28+61. Acesso via `make changelog` 1-comando.
 
 ### ✅ S28+61 — CONTRIBUTING.md Hardening Checklist HC-5 + 3 itens (P4)
 **Objetivo**: Fechar lacuna de governança: dotfiles S28+58+59 e Trindade Docs S28+60 não eram referenciados em hard constraints e checklist pré-commit.
