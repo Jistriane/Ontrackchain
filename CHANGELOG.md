@@ -15,8 +15,8 @@
 ### Tipo
 - **MINOR** — Nenhuma breaking change. 5/5 gates ADR-029 STRICT mantidos exit=0. 0 alteração código domínio Python/FastAPI. 0 IMUTÁVEIS LGPD.
 
-### Head Commits (ciclo Sprint28+6 = 1-2 commits)
-- **Release pura documental S28+6 (HEAD canônico pós commit)**: `[SHA NOVO após commit Sprint28+6]` (36+ commits ahead origin/main. M5 Bloqueio Push Remoto INTACTO. ~38h restantes prazo 12/08 23:59 BRT.)
+### Head Commits (ciclo Sprint28+6 = 1 commit release)
+- **Release pura documental S28+6 (HEAD canônico pós commit)**: `fc58b82` (36 commits locais ahead origin/main. M5 Bloqueio Push Remoto INTACTO. ~38h restantes prazo 12/08 23:59 BRT. Nota padrão indústria: próximos commits sem ajuste cosmético obrigatório linha19 — ver README linha43.)
 
 ### Added
 - **M5 Step01 SHA256 calculados AUTOMATICAMENTE (7 arquivos principais inventário baseline)**: Seção 2 Baseline Integridade [BASELINE-v1.9-SPRINT-28-4-HEAD-501bf54.md](./ontrackchain/docs/governance-sign-offs/baselines/BASELINE-v1.9-SPRINT-28-4-HEAD-501bf54.md#L64-L75) preenchida com hashes SHA256 reais via Python `hashlib.sha256` (cálculo exato, não placeholder). Hashes calculados no HEAD `7492493` (Sprint28+5):
