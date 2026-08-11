@@ -106,8 +106,12 @@ make all-checks
 11. `g11 qa-gateway Q3-07 LR`    → `scan-lgpd-ropd` --strict 0 warnings (LR-001..005 + ROPD E001..E003 Art.37 LGPD)
 12. `g12 qa-gateway Q3-04 RBAC`  → `scan-rbac` --strict, 9 serviços, max-anonymous-write=0 (RBAC-A code scan)
 13. `g13 qa-gateway Q3-09 PRE-MERGE` → `run-pre-merge-gates` ORQUESTRADOR ADR-029 FAIL-FAST 5 gates consolidado + relatório JSON
-14. `g14 lint`                   → ruff check + ruff format diff monorepo (11 dirs alvo)
+14. `g14 lint`                   → ruff check + ruff format diff monorepo (11 dirs alvo). SARIF Ruff → GH Code Scanning S28+34, SARIF Bandit → GH Code Scanning S28+47 (13 serviços expandidos, categorias distintas)
 15. `g15 test-shared`            → 6 testes unitários do pacote `shared` (RBAC, middlewares, helpers)
+
+**Uploads Code Scanning (jobs paralelos ci.yml — NÃO gating local, aparecem na aba Security):**
+- 🟣 **Ruff (S28+34)**: `codeql-action/upload-sarif@v3` — categoria `SonarCloud-ruff` — lint/security hotspots
+- 🔴 **Bandit (S28+47 NOVO)**: `codeql-action/upload-sarif@v3` — categoria `SAST-Bandit` — SAST Python MED/HIGH em 13 serviços (apps + packages)
 
 ✅ Esperado: `✅ ALL-CHECKS PASSOU: 15 gates locais concluídos`. Em sandbox sem pip install qa-gateway CLI, G8-G13 printam `⚠️  fallback PYTHONPATH` — **rode `(cd ontrackchain/packages/qa-gateway && pip install -e .)`** para habilitar entry-point `qa-gateway` nativo. Se `trufflehog` binário NÃO estiver PATH, G8 executa em `--dry-run` automático (TS-W001) — instale via GitHub releases ou pipx.
 

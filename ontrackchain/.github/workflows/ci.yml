@@ -677,7 +677,7 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - name: "Agregar coverage.xml de 4× serviços pytest (se existirem)"
+      - name: "Agregar coverage.xml de 12× serviços pytest (S28+47: 7 originais + monitoring/compliance/report/public/mock) — skip se src não existir"
         run: |
           set -euo pipefail
           mkdir -p tmp_coverage tmp_tests/reports
@@ -685,7 +685,14 @@ jobs:
           import os, shutil, pathlib
           DST = pathlib.Path('tmp_coverage')
           DST.mkdir(exist_ok=True)
-          ROOTS = ['apps/case-management','apps/auth-service','apps/ai-service','apps/investigation-api','packages/qa-gateway','packages/shared','packages/agents']
+          # S28+47 P4: expandido 7 → 12 serviços (monitoring/compliance/report/public-api/mock-oidc adicionados)
+          # Resiliência: apps/compliance e apps/compliance-api ambos tentados (matrix L604 usa apps/compliance)
+          ROOTS = [
+              'apps/case-management','apps/auth-service','apps/ai-service','apps/investigation-api',
+              'packages/qa-gateway','packages/shared','packages/agents',
+              'apps/monitoring-api','apps/compliance','apps/compliance-api','apps/report-api',
+              'apps/public-api','apps/mock-oidc',
+          ]
           for R in ROOTS:
               src = pathlib.Path(R)/'tmp_coverage'/'coverage.xml'
               if src.exists():
@@ -699,7 +706,7 @@ jobs:
                   for j in sd.glob('*.xml'):
                       d2 = junit_dst / f'{R.replace(\"/\",\"-\")}-{j.name}'
                       shutil.copy(j, d2); print(f'copied junit {d2}')
-          print('agregacao concluida')
+          print(f'agregacao concluida — {len(list(DST.glob(\"*.xml\")))} coverage XMLs encontrados')
           "
 
       - name: "Download coverage artifacts (se matrix subiu separado; fallback local acima)"
@@ -710,12 +717,13 @@ jobs:
           merge-multiple: true
           path: tmp_coverage_artifacts/
 
-      - name: "CodeCov upload (3 flags: python-core, frontend, ai-service) — M8"
+      - name: "CodeCov upload (S28+47: wildcard pattern tmp_coverage/coverage-*.xml — auto-inclui 12 serviços sem editar todo sprint) — M8"
         uses: codecov/codecov-action@v5
         continue-on-error: false
         with:
           token: ${{ secrets.CODECOV_TOKEN }}   # repo-level; se não setado CodeCov tenta OIDC public repos
-          files: tmp_coverage/coverage-case-management-apps.xml,tmp_coverage/coverage-auth-service-apps.xml,tmp_coverage/coverage-investigation-api-apps.xml,tmp_coverage/coverage-ai-service-apps.xml,tmp_coverage/coverage-qa-gateway-packages.xml,tmp_coverage/coverage-shared-packages.xml,tmp_coverage/coverage-agents-packages.xml
+          # S28+47 P4: wildcard = qualquer coverage-*.xml é enviado (evita manter lista hardcoded desatualizada)
+          files: tmp_coverage/coverage-*.xml
           flags: python-core
           fail_ci_if_error: true
           verbose: true
@@ -931,6 +939,8 @@ jobs:
   # GAP #12 (SAST) — Static Application Security Testing: Bandit em Python apps
   # Documento 341L §4.1 item 8: WAF / Rate limit / SAST / Dependabot
   # Sprint 7 M1 (upgrade warning → bloqueio): continue-on-error = FALSE
+  # Sprint S28+47 P4: (1) EXPAND targets 7→13 serviços, (2) GERAR SARIF paralelo ao JSON,
+  #   (3) UPLOAD Bandit SARIF → GitHub Advanced Security Code Scanning (igual Ruff standalone)
   # ============================================================================
   sast-bandit-python:
     name: "SAST: bandit scan Python MEDIUM/HIGH (BLOQUEIA MERGE Sprint 7 M1)"
@@ -938,6 +948,10 @@ jobs:
     needs: [lint]
     timeout-minutes: 15
     continue-on-error: false  # Sprint 7 M1: OBRIGATÓRIO agora (era true até Sprint 6)
+    permissions:
+      security-events: write  # S28+47: obrigatório Code Scanning API (upload SARIF Bandit)
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v4
 
@@ -946,21 +960,27 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - name: "Install bandit"
+      - name: "Install bandit[toml,sarif]"
         run: |
-          python -m pip install --no-cache-dir bandit[toml]
+          # S28+47: sarif extra garantido (bandit 1.7.6+ tem sarif nativo; pip garante)
+          python -m pip install --no-cache-dir bandit[toml] sarif-om
           bandit --version
 
-      - name: "Run bandit (severity >= MEDIUM, confidence >= MEDIUM) — bloqueia se findings > 0 (M1 Sprint 7)"
+      - name: "Run bandit (severity >= MEDIUM, confidence >= MEDIUM) — bloqueia se findings > 0 (M1 Sprint 7). S28+47: 2 outputs: JSON (SonarCloud) + SARIF (GitHub Security)"
         run: |
           set -euo pipefail
           mkdir -p tmp_sast
-          TARGETS="apps/case-management/src apps/auth-service/src apps/investigation-api/src apps/ai-service/src packages/qa-gateway/src packages/shared/src packages/agents/src"
+          # S28+47 P4: TARGETS expandido 7→13 (monitoring/compliance×2/report/public/mock adicionados)
+          TARGETS="apps/case-management/src apps/auth-service/src apps/investigation-api/src apps/ai-service/src apps/monitoring-api/src apps/compliance/src apps/compliance-api/src apps/report-api/src apps/public-api/src apps/mock-oidc/src packages/qa-gateway/src packages/shared/src packages/agents/src"
           TARGETS_EXIST=""
           for T in $TARGETS; do [ -d "$T" ] && TARGETS_EXIST="$TARGETS_EXIST $T"; done
-          echo "Alvos SAST existentes: [$TARGETS_EXIST]"
+          echo "Alvos SAST existentes (S28+47 expandido): [$TARGETS_EXIST]"
           # NOTA: -lll = severity MEDIUM/HIGH. -iii = confidence MEDIUM/HIGH.
-          bandit -r $TARGETS_EXIST -f json -o tmp_sast/bandit.json -lll -iii || EXIT=$?
+          # OUTPUT 1: JSON formato para SonarCloud (path esperado ci.yml L741 = ontrackchain/tmp_sast/bandit.json)
+          bandit -r $TARGETS_EXIST -f json -o tmp_sast/bandit.json -lll -iii || EXIT_JSON=$?
+          # OUTPUT 2: SARIF formato para GitHub Code Scanning (S28+47 NOVO)
+          (bandit -r $TARGETS_EXIST -f sarif -o tmp_sast/bandit.sarif.json -lll -iii 2>&1) || EXIT_SARIF=$?
+          ls -la tmp_sast/
           echo "--- summary ---"
           python3 -c "
           import json, sys
@@ -978,11 +998,22 @@ jobs:
               sys.exit(7)
           print('✅ ZERO findings SAST. Passou no gate M1.')
           "
+      # S28+47: Upload Bandit SARIF → GitHub Advanced Security (igual Ruff standalone L1134)
+      #   category = SAST-Bandit para distinguir de CodeQL/Ruff/Outros scanners
+      - name: "Code Scanning: Upload Bandit SARIF → GitHub Advanced Security (S28+47)"
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ github.workspace }}/tmp_sast/bandit.sarif.json
+          category: SAST-Bandit
+          checkout_path: ${{ github.workspace }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: sast-bandit-${{ github.sha }}
-          path: tmp_sast/bandit.json
+          path: |
+            tmp_sast/bandit.json
+            tmp_sast/bandit.sarif.json
           retention-days: 60
           if-no-files-found: ignore
 
