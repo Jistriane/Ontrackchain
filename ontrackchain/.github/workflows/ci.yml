@@ -38,7 +38,7 @@ jobs:
             hatch-venv-${{ runner.os }}-
           fail-on-cache-miss: false
 
-      - name: Install ruff + hatch (Sprint S28+25: hatch disponivel)
+      - name: "Install ruff + hatch (Sprint S28+25 - hatch disponivel)"
         run: pip install ruff hatch
 
       - name: Lint with ruff

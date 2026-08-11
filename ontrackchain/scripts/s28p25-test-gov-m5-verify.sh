@@ -6,7 +6,7 @@
 #     1) Cenário A: hash limpo bate (PASSO 0 VÁLIDO → exit 0)
 #     2) Cenário B: hash limpo NÃO bate (PASSO 0 INVÁLIDO → exit 1)
 #   Usa TMPDIR, copia script, injeta M5.md mock temporário com parâmetro controlado.
-set -euo pipefail
+set -uo pipefail   # sem "-e" — pois precisamos capturar exit codes != 0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GOV_SCRIPT="$SCRIPT_DIR/gov-m5-verify-pre-sign.sh"
@@ -18,56 +18,63 @@ if [ ! -x "$GOV_SCRIPT" ]; then
   exit 2
 fi
 
-# Constrói diretório mock idêntico à estrutura relativa: ontrackchain/docs/governance-sign-offs/
 mkdir -p "$TMPDIR_WORK/ontrackchain/docs/governance-sign-offs"
 mkdir -p "$TMPDIR_WORK/ontrackchain/scripts"
 cp "$GOV_SCRIPT" "$TMPDIR_WORK/ontrackchain/scripts/gov-m5-verify-pre-sign.sh"
 chmod +x "$TMPDIR_WORK/ontrackchain/scripts/gov-m5-verify-pre-sign.sh"
 
-# =====================================================================
-# Cenário A: M5 válido → deve retornar exit 0 ✅
-# =====================================================================
-# Cria conteúdo base "fake" M5 + bloco 5 linhas hash auto-ref (awk NR<7 || NR>11)
-MOCK_BODY_A="$(cat <<'EOF'
+################################################################################
+# Helper: monta mock M5.md com hash hardcoded opcional
+################################################################################
+monta_m5_mock() {
+  # $1 = hash hardcoded (64 hex)
+  HARD="$1"
+  # Ordem das linhas é IMPORTANTE — linha 7 é a do hash hardcoded.
+  cat <<EOF
 # Sign-off SSOT Mock A
 **Document ID**: MOCK-A-v1
 **Data referência**: 2026-08-11
 **Status inicial**: MOCK_OK
 **Regras de validação**: Mock
 **Arquivo SSOT**: Mock
-EOF
-)"
-# Primeiro calcula hash do body A limpo (linhas 1..6 → hash correto)
-HASH_A=$(printf "%s\n" "$MOCK_BODY_A" | sha256sum | awk '{print $1}')
-# Monta M5 final completo com hash HARDCODED correto em L7
-{
-  printf "%s\n" "$MOCK_BODY_A"
-  echo "**SHA256 pré-assinatura Sprint S28+21**: \`${HASH_A}\`"
-  echo "  — calculo awk NR<7 || NR>11"
-  echo "  — verificacao script gov-m5-verify-pre-sign.sh"
-  echo "  — NAO use sha256sum direto."
-  echo "  — se retornar ❌ nao assine."
-  echo ""
-  echo "---"
-  echo ""
-  echo "## Check items"
-  echo "Conteúdo após separador (preservado no hash limpo também? Sim, pq removidas apenas L7..L11)."
-} > "$TMPDIR_WORK/ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md"
+**SHA256 pré-assinatura Sprint S28+21**: \`${HARD}\`
+  — calculo awk NR<7 || NR>11
+  — verificacao script gov-m5-verify-pre-sign.sh
+  — NAO use sha256sum direto.
+  — se retornar ❌ nao assine.
 
-# Roda script mock A
-(
-  cd "$TMPDIR_WORK"
-  ./ontrackchain/scripts/gov-m5-verify-pre-sign.sh >cenario_a.log 2>&1
-)
-EXIT_A=$?
+---
+
+## Check items
+Linha 12 em diante permanece na versão limpa, então CONTA no hash limpo.
+Isso é CRÍTICO para o cenário A passar (hash deve bater exatamente).
+EOF
+}
+
+# =====================================================================
+# Cenário A: M5 válido → deve retornar exit 0 ✅
+# =====================================================================
+# PASSO 1: monta M5 com HASH temporário (placeholder), limpa L7..L11,
+#          calcula hash do arquivo limpo.
+monta_m5_mock "deadbeef00000000000000000000000000000000000000000000000000000000" \
+  > "$TMPDIR_WORK/ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md"
+# Limpa (awk NR<7 || NR>11) → gera o arquivo "limpo" → calcula SHA256 do limpo.
+HASH_A=$(awk 'NR<7 || NR>11' "$TMPDIR_WORK/ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md" | sha256sum | awk '{print $1}')
+# PASSO 2: reescreve M5 com HASH_A correto (agora sim = baterá ao rodar gov-m5)
+monta_m5_mock "$HASH_A" \
+  > "$TMPDIR_WORK/ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md"
+# Roda script gov
+( cd "$TMPDIR_WORK" && ./ontrackchain/scripts/gov-m5-verify-pre-sign.sh >cenario_a.log 2>&1; echo $? >cenario_a.exit )
+EXIT_A=$(cat "$TMPDIR_WORK/cenario_a.exit")
 echo
 echo "=== CENÁRIO A (deve PASSAR, exit=0) ==="
-cat "$TMPDIR_WORK/cenario_a.log" | tail -3
+tail -5 "$TMPDIR_WORK/cenario_a.log"
+echo "exit=$EXIT_A"
 if [ "$EXIT_A" -eq 0 ]; then
   echo "✅ CENÁRIO A: PASS (exit 0 esperado)"
   OK_A=1
 else
-  echo "❌ CENÁRIO A: FAIL (exit 0 esperado, recebeu $EXIT_A)"
+  echo "❌ CENÁRIO A: FAIL (esperava exit 0, recebeu $EXIT_A)"
   OK_A=0
 fi
 
@@ -75,29 +82,16 @@ fi
 # Cenário B: M5 inválido (hash hardcoded = 64 zeros → NÃO BATE) → exit 1 ❌
 # =====================================================================
 HASH_BAD="0000000000000000000000000000000000000000000000000000000000000000"
-{
-  printf "%s\n" "$MOCK_BODY_A"
-  echo "**SHA256 pré-assinatura Sprint S28+21**: \`${HASH_BAD}\`"
-  echo "  — calculo awk NR<7 || NR>11"
-  echo "  — verificacao script gov-m5-verify-pre-sign.sh"
-  echo "  — NAO use sha256sum direto."
-  echo "  — se retornar ❌ nao assine."
-  echo ""
-  echo "---"
-  echo ""
-  echo "## Check items — body idêntico ao cenário A, mas hash L7 é inválido."
-} > "$TMPDIR_WORK/ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md"
-
-(
-  cd "$TMPDIR_WORK"
-  ./ontrackchain/scripts/gov-m5-verify-pre-sign.sh >cenario_b.log 2>&1 || true
-)
-EXIT_B=$?
+monta_m5_mock "$HASH_BAD" \
+  > "$TMPDIR_WORK/ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md"
+( cd "$TMPDIR_WORK" && ./ontrackchain/scripts/gov-m5-verify-pre-sign.sh >cenario_b.log 2>&1; echo $? >cenario_b.exit )
+EXIT_B=$(cat "$TMPDIR_WORK/cenario_b.exit")
 echo
 echo "=== CENÁRIO B (deve FALHAR, exit=1) ==="
-cat "$TMPDIR_WORK/cenario_b.log" | tail -3
+tail -5 "$TMPDIR_WORK/cenario_b.log"
+echo "exit=$EXIT_B"
 if [ "$EXIT_B" -ne 0 ]; then
-  echo "✅ CENÁRIO B: PASS (exit !=0 esperado, recebeu $EXIT_B = comportamento fail-closed correto)"
+  echo "✅ CENÁRIO B: PASS (exit !=0 esperado, recebeu $EXIT_B = fail-closed correto)"
   OK_B=1
 else
   echo "❌ CENÁRIO B: FAIL (esperava exit 1, recebeu $EXIT_B = false negative!)"
