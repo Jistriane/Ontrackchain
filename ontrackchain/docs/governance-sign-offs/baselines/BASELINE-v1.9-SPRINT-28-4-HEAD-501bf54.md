@@ -5,8 +5,8 @@ sprint: Sprint 28+4 (Governança v5.17.0)
 date: 2026-08-10
 head_sha: 501bf543b1e2a423d5228405b7c3c9cf1b94977c
 head_sha_short: 501bf54
-ahead_origin_main: 33 commits locais (M5 Bloqueio Push Remoto VIGENTE. HEAD atual cosmético 0442936 é ajuste chase SHA doc; SHA release = 501bf54.)
-validade_signoff_m5: 2026-08-12 23:59 UTC-3 (BRT · ~38h restantes prazo crítico)
+ahead_origin_main: 0 (PUSH EFETIVADO 2026-08-10 21:36 BRT sob autorização direta do proprietário. Todos 39 commits ciclos S28+0 a S28+7 enviados no bloco único range `6617fd4..a4f2231`. M5 Bloqueio Push Remoto formalmente QUEBRADO nesta data.)
+validade_signoff_m5: 2026-08-12 23:59 UTC-3 (BRT · PRAZO DE SIGN-OFF PGP 4-OLHOS PERMANECE VIGENTE PARA AUDITORIA JURÍDICA, MESMO APÓS PUSH REALIZADO)
 ---
 
 # Baseline Integridade Técnica v1.9 — Ontrackchain Monorepo
@@ -15,7 +15,7 @@ validade_signoff_m5: 2026-08-12 23:59 UTC-3 (BRT · ~38h restantes prazo crític
 
 - **Versão plataforma:** Governança v5.17.0 (Sprint 28+4 / 2026-08-10)
 - **HEAD SHA canônico (release pura):** `501bf543b1e2a423d5228405b7c3c9cf1b94977c`
-- **HEAD SHA atual (cosmético chase SHA doc):** `0442936` (33 commits ahead origin/main. M5 Bloqueio Push Remoto INTACTO até 2026-08-12 23:59 BRT.)
+- **HEAD SHA atual (cosmético chase SHA doc):** `0442936` (push realizado bloco único 39 commits range `6617fd4..a4f2231` em 10/08 21:36 BRT · M5 Bloqueio Push Remoto formalmente QUEBRADO · prazo sign-off PGP jurídico permanece vigente até 12/08 23:59 BRT para auditoria)
 - **QA Gates ADR-029 STRICT (última validação Sprint 28+4):** Q1-RBAC exit=0 / Q2-BILLING-CAP exit=0 / Q3-BILLING-ENF exit=0 / Q4-LGPD-ROPD exit=0 / Q5-SECRETS-TH exit=0. Matriz 5 sprints confirmada exit=0 v5.13→v5.17.
 - **RBAC W005 Opção B:** 5 isenções documentadas (33→5, -85% Sprint27→Sprint28+2 mantido S28+4): auth issue-dev-token pré-login · compliance b2b/screen X-API-Key B2B tier · monitoring alertmanager/webhook Internal Bearer Ops · mock-oidc 2 endpoints pré-login IdP staging.
 - **Arquivos IMUTÁVEIS LGPD:** 0 commits permitidos. Validado em cada stage LGPD PATTERNs 0 (docs/governance-weekly, docs/history, docs/assessments, github_main).
@@ -79,7 +79,7 @@ validade_signoff_m5: 2026-08-12 23:59 UTC-3 (BRT · ~38h restantes prazo crític
 
 | Item | Esperado | Real (HEAD atual 0442936 / release 501bf54) | Status |
 |------|----------|------------------------|--------|
-| N. de commits ahead origin/main | (valor positivo, M5 bloqueado até 12/08 23:59 BRT) | 33 (HEAD 0442936) · 31 (release 501bf54 cosmético ajustado) | ☐ VERIFICAR (após 3 revogações P0) |
+| N. de commits ahead origin/main | 0 (sincronização realizada) | 0 (push efetivado 10/08 21:36 BRT · bloco único 39 commits range `6617fd4..a4f2231` · M5 Bloqueio Push Remoto formalmente QUEBRADO) | ✅ CUMPRIDO (0 ahead · 100% sincronizado origin/main) |
 | Arquivos IMUTÁVEIS LGPD touchados em qualquer stage Sprint28+4 | 0 | 0 (validação 4 vezes: docs/governance-weekly, docs/history, docs/assessments, github_main — 0 detectados) | ✅ CUMPRIDO 0 VIOLAÇÕES |
 | N. de apps FastAPI em `apps/` | 9 (auth/case-mgmt/investigation/ai/compliance/monitoring/report/public/mock-oidc) | 9 | ✅ CUMPRIDO |
 | N. de packages PyPI monorepo | 4 (shared/agents/qa-gateway + shared auth) + infra/k8s + frontend | 4 pkgs | ✅ CUMPRIDO |

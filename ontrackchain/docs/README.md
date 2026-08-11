@@ -22,7 +22,7 @@ Centralizar a documentação viva do Ontrackchain em um unico indice, reduzindo 
 - RBAC fino consolidado (`P2-05` concluído) e RCA cross-domain leve institucionalizado (`P2-03`)
 - Federação OTK_*: mapeamento canônico em `ontrackchain_shared` (Python) + `authz.ts` (Next.js): OTK_ADMIN→ADMIN, OTK_ANALYST→ANALYST, OTK_COMPLIANCE_OFFICER→COMPLIANCE_OFFICER, OTK_AUDITOR→AUDITOR, OTK_VIEWER→VIEWER
 - AI Service e Case Management consolidados com persistência PostgreSQL, RBAC e trilha regulatória (`evidence_trail`)
-- gap principal deixou de ser ausência de código; hoje é **M5 Push Remoto** (10 commits locais ahead origin/main) + homologação externa real + prova operacional revisável e aceite institucional
+- gap principal deixou de ser ausência de código; hoje é **M5 Push Remoto ✅ EFETIVADO 10/08 21:36 BRT (0 commits ahead origin/main, bloco 39 commits `6617fd4..a4f2231`, M5 Bloqueio Push Remoto formalmente QUEBRADO)** + **handoff humano 4-olhos (sign-off PGP 6 assinaturas CLO OAB primeiro, prazo 12/08 23:59 BRT)** + **homologação externa real AML/KYT + Feed UE tokenizado + OIDC MFA IdP produtivo + prova operacional revisável e aceite institucional**
 
 ## Precedencia Documental
 

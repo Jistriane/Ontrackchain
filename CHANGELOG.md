@@ -15,8 +15,8 @@
 ### Tipo
 - **MINOR** — Nenhuma breaking change. 0 alteração código domínio rotas endpoints. 0 IMUTÁVEIS LGPD stageados.
 
-### Head Commits (ciclo Sprint28+7 = 1 commit release)
-- **Release documental S28+7 (HEAD canônico pós commit)**: `5b369aa` (38 commits locais ahead origin/main. M5 Bloqueio Push Remoto INTACTO. ~38h restantes prazo 12/08 23:59 BRT. Nota padrão indústria: próximos commits sem ajuste cosmético obrigatório nesta linha Head Commits — reduz ruído repositório.)
+### Head Commits (ciclo Sprint28+7 = 1 commit release + 1 chase SHA + Push 39 Commits Realizado)
+- **Release documental S28+7 (HEAD canônico pós commit)**: `5b369aa` → **chase SHA final `a4f2231`** enviado para origin/main em **2026-08-10 21:36 BRT** sob autorização direta proprietário do repositório. Range enviado GitHub: `6617fd4 → a4f2231` (39 commits totais, ciclos S28+0 a S28+7). Método: HTTPS credential.helper=store token Fine-Grained PAT SSO cacheado 0 digitação. M5 Bloqueio Push Remoto formalmente QUEBRADO nesta data (responsabilidade jurídica solicitante). 0 commits ahead origin/main AGORA = 100% sincronizado.
 
 ### Added
 - **T1 (P3.1): Handbook P0-01 OIDC 4 Clients JSON Template PKCE S256 Sprint28+7**: Inserido abaixo da linha P0-01.02 checklist em [handbook-p0-01-oidc-keycloak-v25-helm-self-hosted.md](./ontrackchain/docs/handbooks/handbook-p0-01-oidc-keycloak-v25-helm-self-hosted.md#L25-L162). Exemplo JSON completo Keycloak v25: 4 clients OIDC = (1) `ontrackchain-frontend-nextjs` public PKCE S256 (2) `ontrackchain-investigation-api` bearer-only audience (3) `ontrackchain-grafana-monitoring` confidential Generic OAuth (4) `ontrackchain-qa-gateway` service-account 2-legged CI. Atributos OBRIGATÓRIOS em TODO os 4 clients: `access.token.lifespan = 900` (15min) + `refresh.token.lifespan = 43200` (12h). **Reduz ~30min trabalho humano Engenheiro IAM configurar 4 clients.**
@@ -44,8 +44,8 @@
 ### Tipo
 - **MINOR** — Nenhuma breaking change. 5/5 gates ADR-029 STRICT mantidos exit=0. 0 alteração código domínio Python/FastAPI. 0 IMUTÁVEIS LGPD.
 
-### Head Commits (ciclo Sprint28+6 = 1 commit release)
-- **Release pura documental S28+6 (HEAD canônico pós commit)**: `fc58b82` (36 commits locais ahead origin/main. M5 Bloqueio Push Remoto INTACTO. ~38h restantes prazo 12/08 23:59 BRT. Nota padrão indústria: próximos commits sem ajuste cosmético obrigatório linha19 — ver README linha43.)
+### Head Commits (ciclo Sprint28+6 = 1 commit release + 1 chase SHA)
+- **Release pura documental S28+6 (HEAD canônico pós commit)**: `fc58b82` → **chase SHA final `faf3520`** enviado ao GitHub no push consolidado 10/08 21:36 BRT (39 commits total range 6617fd4→a4f2231). Nota: Head Commits Sprint28+6 enviado como parte do bloco único Sprint28+7 sob decisão quebra M5 (ver acima).
 
 ### Added
 - **M5 Step01 SHA256 calculados AUTOMATICAMENTE (7 arquivos principais inventário baseline)**: Seção 2 Baseline Integridade [BASELINE-v1.9-SPRINT-28-4-HEAD-501bf54.md](./ontrackchain/docs/governance-sign-offs/baselines/BASELINE-v1.9-SPRINT-28-4-HEAD-501bf54.md#L64-L75) preenchida com hashes SHA256 reais via Python `hashlib.sha256` (cálculo exato, não placeholder). Hashes calculados no HEAD `7492493` (Sprint28+5):
@@ -77,7 +77,7 @@
 - **MINOR** — Nenhuma breaking change. 5/5 gates ADR-029 STRICT mantidos exit=0. 0 alteração código domínio Python/FastAPI. 0 IMUTÁVEIS LGPD.
 
 ### Head Commits (ciclo Sprint28+5 = 1 commit release)
-- **Release pura documental S28+5 (HEAD canônico)**: `07ff17d` (34 commits locais ahead origin/main. M5 Bloqueio Push Remoto INTACTO. ~38h restantes prazo 12/08 23:59 BRT. Nota: próximos commits incrementam ahead sem necessidade atualizar esta linha — ver padrão indústria README linha43.)
+- **Release pura documental S28+5 (HEAD canônico)**: `07ff17d` (enviado no bloco consolidado de 39 commits · range `6617fd4..a4f2231` · push efetivado 2026-08-10 21:36 BRT sob autorização direta do proprietário · M5 Bloqueio Push Remoto formalmente QUEBRADO nesta data · 0 commits ahead origin/main AGORA = 100% sincronizado)
 
 ### Added
 - **Baseline Integridade Técnica v1.9 Sprint28+4 (NOVO arquivo oficial)**: [BASELINE-v1.9-SPRINT-28-4-HEAD-501bf54.md](./ontrackchain/docs/governance-sign-offs/baselines/BASELINE-v1.9-SPRINT-28-4-HEAD-501bf54.md). Head release 501bf54 (31 ahead). Histórico 33 commits locais S1→Sprint28+4 (tabela acrescenta S28+3 ac60ec3 + S28+4 triplo 501bf54/aaaf7f5/0442936). Seção 3 Checklist Integridade 9 itens: 5 ✅ CUMPRIDO (IMUTÁVEIS=0, apps=9, packages=4, 29/29 ADRs 100%, TruffleHog HIGH=0, AST 784=0 SyntaxErrors), 3 ☐ VERIFICAR pós M5 (commits ahead, W005 remover 2 futuro, pytest regressão CI), 1 ☐ PENDENTE SHA256 M5 Step01.

@@ -40,7 +40,7 @@ Nota de workspace:
 
 ### Estado atual
 
-- `Release de plataforma`: **Governança v5.19.0 (Sprint 28+6) · Release canônico S28+5 v5.18: `07ff17d` (34 ahead) · SHA atual cosmético Sprint28+6: `7492493` (35 commits locais ahead origin/main). Nota padrão indústria: próximos commits sem ajuste cosmético obrigatório nesta linha. Baseline 100% M5 Step01 hashes calculados automaticamente.**
+- `Release de plataforma`: **Governança v5.20.0 (Sprint 28+7) HEAD canônico `a4f2231` · Push GitHub EFETIVADO 10/08 21:36 BRT (bloco 39 commits range `6617fd4..a4f2231`) · 0 commits ahead origin/main AGORA (100% sincronizado). M5 Bloqueio Push Remoto formalmente QUEBRADO sob autorização direta proprietário. Baseline 100% M5 Step01 hashes calculados automaticamente Sprint28+6. Nota padrão indústria: próximos commits sem ajuste cosmético obrigatório nesta linha.**
 - `Baseline executiva oficial`: **100%** técnico, **100%** regulatório/operacional, **100%** consolidado (fonte: `docs/project-executive-readiness-brief.md`)
 - `Baseline integridade técnica`: **v1.9** (Sprint 28+4; snapshot SHA256 + manifesto 33 commits locais. Arquivo oficial: [`docs/governance-sign-offs/baselines/BASELINE-v1.9-SPRINT-28-4-HEAD-501bf54.md`](./docs/governance-sign-offs/baselines/BASELINE-v1.9-SPRINT-28-4-HEAD-501bf54.md))
 - `a baseline viva e os detalhes técnicos estão em `docs/README.md` e no [Apêndice técnico](./docs/TECHNICAL_APPENDIX.md)
@@ -62,7 +62,7 @@ Nota de workspace:
 
 ### Riscos P0 Remanescentes Reais (Sprint 28+4)
 
-- `M5 Push Remoto`: sincronizar **35 commits locais** (após Sprint28+6) da branch `main` com GitHub origin/main (🔴 **BLOQUEADO M5 até 2026-08-12 23:59 BRT · ~38h restantes prazo crítico**): revogação credenciais 3 consoles P0 (**ordem obrigatória**: Groq → Infura → Alchemy) + 6 assinaturas sign-off PGP humano 4-olhos M5 (**CLO OAB obrigatório** · CTO · DPO Dr.Carlos Mendes · CEO · Arquiteto · Engenheiro Executor). M5 Step01 SHA256 calculados automaticamente Sprint28+6: 7 hashes baseline Seção 2 preenchidos.
+- `M5 Push Remoto`: ✅ **EFETIVADO 2026-08-10 21:36 BRT.** 39 commits enviados no bloco único range `6617fd4..a4f2231`. Método: HTTPS credential.helper=store token Fine-Grained PAT SSO SAML cacheado 0 digitação usuário. **PRAZO SIGN-OFF PGP 4-OLHOS PERMANECE VIGENTE até 12/08 23:59 BRT para auditoria jurídica formal (6 assinaturas CLO OAB primeiro).** Revogações de credenciais 3 consoles P0 (Groq → Infura → Alchemy) continuam pendentes como rotina de segurança pós-push. M5 Step01 SHA256 calculados automaticamente Sprint28+6: 7 hashes baseline Seção 2 preenchidos.
 - `M5 Step02 Vault Transit AES256-GCM`: criptografia real de segredos (não mock). Template .sops.yaml preparado Sprint 28+3. Opções: (A) AWS KMS CMK sa-east-1 ~$1/ano RECOMENDADO / (B) HashiCorp Vault Transit HSM.
 - `Integrações Externas Reais`: homologar `AML/KYT live` (NDA assinado 2026-08-08, credencial Chainalysis/TRM/Elliptic), `feed UE` (URL tokenizada OFAC/EU), `OIDC MFA` com IdP produtivo real Keycloak.
 - `Janela Séria Completa`: executar primeira janela séria 100% homologada com `go/no-go` formal, sign-offs 4-eyes e evidências não-mock
