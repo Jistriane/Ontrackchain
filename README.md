@@ -109,10 +109,15 @@ make all-checks
 14. `g14 lint`                   → ruff check + ruff format diff monorepo (11 dirs alvo). SARIF Ruff → GH Code Scanning S28+34, SARIF Bandit → GH Code Scanning S28+47 (13 serviços expandidos, categorias distintas)
 15. `g15 test-shared`            → 6 testes unitários do pacote `shared` (RBAC, middlewares, helpers)
 
-**Utilitários Dev (NÃO gating — comandos opcionais, Sprint S28+49 P4):**
-- 🟣 `make format` → ruff format hatch `apps/ packages/ scripts/` (auto-fix seguro, não altera imports/AST)
-- 🔴 `make audit`  → pip-audit 13 serviços, resumo HIGH/CRITICAL, logs por serviço em `tmp_audit/` (não bloqueia local, CI bloqueia PR se HIGH>0)
-- 🟢 `make clean`  → remove apenas `tmp_*  **/__pycache__  .pytest_cache  .mypy_cache  **/*.pyc` (não toca em src/, git/ nem arquivos de governança)
+**Utilitários Dev (NÃO gating — comandos opcionais, Sprints S28+49 + S28+51 P4):**
+- 🟣 `make format` → ruff format hatch `apps/ packages/ scripts/` (auto-fix seguro, não altera imports/AST) **[S28+49]**
+- 🔴 `make audit`  → pip-audit 13 serviços, resumo HIGH/CRITICAL, logs por serviço em `tmp_audit/` (não bloqueia local, CI bloqueia PR se HIGH>0) **[S28+49]**
+- 🟢 `make clean`  → remove apenas `tmp_*  **/__pycache__  .pytest_cache  .mypy_cache  **/*.pyc` (não toca em src/, git/ nem arquivos de governança) **[S28+49]**
+- 🛡️ `make scan-secrets-strict` → alias curto para `qa-gateway-scan-secrets-trufflehog-strict` (P0 segredos verificados TruffleHog --only-verified --strict) **[S28+51]**
+- 🛟 `make e2e-light` → wrapper do `./ontrackchain/scripts/s28p27-run-e2e-light.sh` (perfil LEVE 8 containers: traefik/pg/redis/bootstrap/auth/public/ai/mock-oidc, ~60 seg) **[S28+51]**
+- 🐳 `make compose-up-full` → stack FULL (21 services: observabilidade prometheus/grafana/alertmanager + 9 apps + 3 workers) **[S28+51]**
+- 🩺 `make compose-health` → tabela formatada docker compose ps (Name/Service/State/Health/Ports) **[S28+51]**
+- 🗑️ `make compose-purge FORCE_PURGE=1` → ⚠️ DESTRUTIVO: `docker compose down -v --remove-orphans` (APAGA volumes postgres/grafana). Default sem `FORCE_PURGE=1` = fail-safe (exit 5, não apaga nada) **[S28+51]**
 
 **Observabilidade — Logging Estruturado JSON (Sprint S28+48 P4, 0 dependências novas):**
 - 🟢 **Shared util**: `ontrackchain_shared/logging_util.py` — `json.dumps` + `logging.Formatter` + `contextvars` + middleware Starlette/FastAPI `RequestIdLogMiddleware`.

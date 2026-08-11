@@ -1,4 +1,4 @@
-.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle doctor lint test test-shared typecheck build-local pre-commit-install pre-commit-all gov-m5-verify gov-m5-unit-test shell-syntax healthz-bypass-test qa-gateway-smoke doctor-plus compose-config compose-up compose-down compose-ps compose-logs compose-logs-follow all-checks format audit clean
+.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle doctor lint test test-shared typecheck build-local pre-commit-install pre-commit-all gov-m5-verify gov-m5-unit-test shell-syntax healthz-bypass-test qa-gateway-smoke doctor-plus compose-config compose-up compose-down compose-ps compose-logs compose-logs-follow all-checks format audit clean scan-secrets-strict e2e-light compose-up-full compose-purge compose-health
 
 WINDOW_ID ?= stg-2026-07-06-a
 MODE ?= baseline
@@ -373,6 +373,12 @@ doctor-plus:
 	@echo "  make shell-syntax                                    → bash -n 21 scripts (S28+25)"
 	@echo "  make healthz-bypass-test                             → 18 bypass RBAC × 9 serviços (S28+24)"
 	@echo "  make qa-gateway-smoke                                → 6 comandos qa-gateway --help (M16b)"
+	@echo
+	@echo "  make scan-secrets-strict                              → P0 segredos verificados (alias qa-gateway-scan-secrets-trufflehog-strict, S28+51)"
+	@echo "  make e2e-light                                        → E2E smoke LEVE (8 containers, ~60 seg) = ./ontrackchain/scripts/s28p27-run-e2e-light.sh (S28+51)"
+	@echo "  make compose-up-full                                  → Docker Compose FULL (observabilidade + 9 apps + workers, ~30 containers) (S28+51)"
+	@echo "  make compose-health                                   → Resumo HEALTH status de todos containers (tabela formatada) (S28+51)"
+	@echo "  make compose-purge                                    → ⚠️ APAGA VOLUMES (postgres_data, grafana, etc). Use FORCE_PURGE=1 para confirmar. (S28+51)"
 	@echo "  make qa-gateway-scan-secrets-trufflehog-strict       → P0 segredos verificados (NOVO S28+35 P3)"
 	@echo "  make qa-gateway-all-strict-ci                        → 4 STRICT scans Q3-04/05/06/07 (S28+30 P3)"
 	@echo "  make qa-gateway-run-pre-merge-gates                  → ADR-029 FAIL-FAST 5 gates ORQUESTRADOR (NOVO S28+35 P3)"
@@ -547,3 +553,40 @@ clean: ## Remove temporários (tmp_*/* + __pycache__ + .pytest_cache). S28+49
 	@find . -maxdepth 5 -name "*.pyc" -type f -not -path "./.git/*" -delete 2>/dev/null || true
 	@rm -rf tmp_* ontrackchain/tmp_* ontrackchain/apps/*/tmp_* ontrackchain/packages/*/tmp_* 2>/dev/null || true
 	@echo "✅ make clean concluído"
+
+# ============================================================
+# Sprint S28+51 P4: Makefile Compose Conveniência + Shortcuts
+# NENHUM target é gating (não adicionado a all-checks).
+# Todos preservam SIGNOFF-M5.md, settings.yml, .git/ e código de negócio.
+#   · scan-secrets-strict : alias curto para qa-gateway-scan-secrets-trufflehog-strict
+#   · e2e-light          : wrapper ./ontrackchain/scripts/s28p27-run-e2e-light.sh (perfil LEVE)
+#   · compose-up-full    : stack FULL (observabilidade + 9 apps + workers)
+#   · compose-health     : tabela HEALTH docker compose ps
+#   · compose-purge      : ⚠️ down -v (apaga volumes). Requer FORCE_PURGE=1 explícito.
+# ============================================================
+scan-secrets-strict: ## Alias curto P0 segredos verificados (qa-gateway trufflehog --only-verified --strict). S28+51
+	@echo "🔐 make scan-secrets-strict → qa-gateway-scan-secrets-trufflehog-strict (P0 segredos, --only-verified --strict)"
+	@$(MAKE) qa-gateway-scan-secrets-trufflehog-strict
+
+e2e-light: ## E2E smoke LEVE (8 containers: traefik, pg, redis, bootstrap, auth, public, ai, mock-oidc). S28+51
+	@echo "🛟 make e2e-light → scripts/s28p27-run-e2e-light.sh (~60 segundos, perfil LEVE)"
+	@command -v docker >/dev/null 2>&1 || { echo "❌ Docker não encontrado em PATH (obrigatório para E2E)."; exit 2; }
+	@cd "$(MONOREPO_ROOT)/.." && ./ontrackchain/scripts/s28p27-run-e2e-light.sh
+
+compose-up-full: ## Docker Compose FULL (observabilidade + 9 apps + 3 workers). S28+51
+	@echo "🐳 make compose-up-full → 21 services (observabilidade + 9 apps + workers + traefik/pg/redis)"
+	@command -v docker >/dev/null 2>&1 || { echo "❌ Docker não encontrado em PATH."; exit 2; }
+	@docker compose -f "$(COMPOSE_FILE)" up -d
+	@echo "Containeres ativos:"
+	@docker compose -f "$(COMPOSE_FILE)" ps --format 'table {{.Name}}	{{.Service}}	{{.State}}	{{.Health}}' 2>/dev/null | head -35 || true
+
+compose-health: ## Resumo docker compose ps: Name / Service / State / Health / Ports. S28+51
+	@command -v docker >/dev/null 2>&1 || { echo "❌ Docker não encontrado em PATH."; exit 2; }
+	@docker compose -f "$(COMPOSE_FILE)" ps --format 'table {{.Name}}	{{.Service}}	{{.State}}	{{.Health}}	{{.Ports}}'
+
+compose-purge: ## ⚠️ DANGER: docker compose down -v (APAGA VOLUMES). Requer FORCE_PURGE=1. S28+51
+	@if [ "$(FORCE_PURGE)" != "1" ]; then 		echo "❌ compose-purge é destrutivo (APAGA VOLUMES postgres_data / grafana)."; 		echo "   → Reexecute com: make compose-purge FORCE_PURGE=1"; 		exit 5; 	fi
+	@echo "⚠️  make compose-purge FORCE_PURGE=1 → docker compose down -v --remove-orphans (VOLUMES APAGADOS!)"
+	@command -v docker >/dev/null 2>&1 || { echo "❌ Docker não encontrado em PATH."; exit 2; }
+	@docker compose -f "$(COMPOSE_FILE)" down -v --remove-orphans
+	@echo "✅ compose-purge concluído. Todos volumes Docker apagados."
