@@ -15,8 +15,8 @@
 ### Tipo
 - **MINOR** — Nenhuma breaking change. 0 alteração código domínio rotas endpoints. 0 IMUTÁVEIS LGPD stageados.
 
-### Head Commits (ciclo Sprint28+7 = 1-2 commits)
-- **Release documental S28+7 (HEAD canônico pós commit)**: `[SHA NOVO após commit Sprint28+7]` (38+ commits ahead origin/main. M5 Bloqueio Push Remoto INTACTO. ~38h restantes prazo 12/08 23:59 BRT.)
+### Head Commits (ciclo Sprint28+7 = 1 commit release)
+- **Release documental S28+7 (HEAD canônico pós commit)**: `5b369aa` (38 commits locais ahead origin/main. M5 Bloqueio Push Remoto INTACTO. ~38h restantes prazo 12/08 23:59 BRT. Nota padrão indústria: próximos commits sem ajuste cosmético obrigatório nesta linha Head Commits — reduz ruído repositório.)
 
 ### Added
 - **T1 (P3.1): Handbook P0-01 OIDC 4 Clients JSON Template PKCE S256 Sprint28+7**: Inserido abaixo da linha P0-01.02 checklist em [handbook-p0-01-oidc-keycloak-v25-helm-self-hosted.md](./ontrackchain/docs/handbooks/handbook-p0-01-oidc-keycloak-v25-helm-self-hosted.md#L25-L162). Exemplo JSON completo Keycloak v25: 4 clients OIDC = (1) `ontrackchain-frontend-nextjs` public PKCE S256 (2) `ontrackchain-investigation-api` bearer-only audience (3) `ontrackchain-grafana-monitoring` confidential Generic OAuth (4) `ontrackchain-qa-gateway` service-account 2-legged CI. Atributos OBRIGATÓRIOS em TODO os 4 clients: `access.token.lifespan = 900` (15min) + `refresh.token.lifespan = 43200` (12h). **Reduz ~30min trabalho humano Engenheiro IAM configurar 4 clients.**
