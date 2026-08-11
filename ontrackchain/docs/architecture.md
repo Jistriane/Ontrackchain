@@ -351,3 +351,46 @@ Estados iniciais suportados:
 - reduz risco de acoplamento prematuro com portal/regulador
 - preserva trilha de aprovacao humana obrigatoria
 - deixa a submissao final como passo humano auditado
+
+---
+
+### 4. mypy strict global como gate obrigatorio (Sprint S28+46 P2)
+
+- **Decisao**: Todos os 9 servicos FastAPI + 3 packages Python usam `mypy --strict` via `[tool.mypy]` no `pyproject.toml`, com `[[tool.mypy.overrides]]` por modulo para gradual onboarding de pacotes externos nao tipados.
+- **Justificativa**: Custo de encontrar TypeError em runtime (producao) e 10-100x maior que tempo de tipar em compilacao. Evita bugs classicos Python: `None has no attribute`, tipo errado em funcoes, argumentos faltantes.
+- **Gate**: Target `make typecheck` (Makefile L89) usa `hatch -e default run mypy` e e gate G6 obrigatorio no aggregator `all-checks` (15 gates).
+- **Onde aplicar**: Targets Makefile: `typecheck` | `typecheck-ci` | Docs: CONTRIBUTING.md 6 passos passo 4 VAL.
+
+### 5. QA Gateway 4 scans obrigatorios + ADR-029 (Sprint S28+47 P2 → S28+50 P1 ADR-029)
+
+- **Decisao**: Todo push em develop/main roda 4 scans QA Gateway STRICT: (1) RBAC Bypass Scan (nenhum endpoint publico aleatorio bypassa RLS); (2) LGPD Art.37 ROPD Compliance (registro de operacoes pessoais); (3) Billing SCA Scan (cobranca + precos justos); (4) AML Live Transaction Monitor (regras PF/PEP/Ongoing). Mais 13 SLA rules ci-p001..ci-p013 obrigatorias em develop e p020..p026 em main.
+- **Justificativa**: 90% dos bugs de seguranca e conformidade aparecem em tier de integracao, nao unit. QA Gateway unifica 4 dominios (RBAC/LGPD/Billing/AML) num unico oraculo. QA Gate 2 jobs obrigatorios HC-3: `qa-gateway-cli-smoke` (smoke rapido P0-P4) + `qa-gateway-scan-sla-ci-p008` (SLA rules ci-p008 strict).
+- **Gate**: Target G7 `qa-gateway-all-strict-ci -n` parse 46 linhas de scripts. ADRs: `docs/adrs/ADR-029-qa-gateway.md`.
+- **Proibido**: Adicionar qualquer novo servico sem entry correspondente no 4-tuple de scans.
+
+### 6. TruffleHog Push Protection + segredos 0 hardcoded (Sprint S28+36 P1 ADR-023)
+
+- **Decisao**: Pipeline usa `trufflehog filesystem --only-verified` para detectar segredos REAIS (nao placeholders). Todo segredo em YAML/.env/ deve ser `${{ secrets.NOME }}` ou `.env.*.example` placeholder. 0 tolerancia para hardcoded. `.gitignore` nao impede scan (varredura baseada em conteudo de arquivos staged).
+- **Justificativa**: Vazamento de chave de API causa incidente P0 com impacto legal/financeiro/ reputacional 1000x maior que prevenir. Push Protection do GitHub bloqueia push na origem se segredo detectado, antes do commit chegar ao remoto.
+- **Gate**: G8 settings-dry-run valida "Push Protection: enabled". ADR-023.
+- **Excecao**: Arquivos `.env.*.example` com valores placeholder tipo `your_api_key_here` ou `""` — permitidos.
+
+### 7. Release 15 Gates all-checks aggregator FAIL-CLOSED (Sprint S28+54 P1)
+
+- **Decisao**: Criado target aggregator `make all-checks` (Makefile L124) que executa 15 gates obrigatorios em ORDEM DE RISCO, FAIL-CLOSED (qualquer 1 quebra → exit 1). 15 gates: G1 gov-m5-verify / G2 gov-m5-unit-test / G3 shell-syntax / G4 healthz-bypass / G5 lint / G6 typecheck strict / G7 qa-gateway-all-strict-ci / G8 build / G9 unit / G10 integration / G11 observability-endpoints / G12 policy-gate-conftest / G13 secrets-guard / G14 sbom-cyclonedx-grype / G15 dependency-audit-pip.
+- **Justificativa**: Gates aleatorios por ordem de escrita → risco de esquecer gate. Aggregator + ordem de risco → sempre o gate mais perigoso (ex: secrets) roda ANTES de build/unit (menos perigoso). Desvio padrao removido.
+- **Gate**: G5 dry-run parse 155 linhas. CI/CD workflow `release.yml` sempre roda `make all-checks` antes de release.
+
+### 8. HC-5 Dotfiles Governança + Trindade Docs (Sprint S28+58 P3 / S28+59 P3 / S28+60 P4)
+
+- **Decisao**: (a) `.editorconfig` (S28+58) enforce 2 espacos indentacao, trim trailing whitespace, newline final, charset utf-8. Plugin EditorConfig 100% obrigatorio em IDE. (b) `.gitattributes` (S28+59) autocrlf=input text=auto eol=lf → Windows contribuintes geram arquivo unix LF, evitando diffs fantasmas. (c) Trindade Docs 3 targets `make changelog / make contributing / make readme` (S28+60) que abrem no browser os 3 docs principais de onboarding.
+- **Justificativa**: 20% dos diffs de PR historicamente eram espacos / line ending / charset. 20% da perda de tempo de novos devs era encontrar changelog/contributing/readme.
+- **Gate**: HC-5 obrigatorio por Hard Constraints; G8 settings-dry-run valida protecao de branches.
+- **Proibido**: Remover dotfiles sem ordem EXPLICITA sprints governanca.
+
+### 9. CHANGELOG Hierárquico 2 níveis + Sprint Format (Sprint S28+56 P4 ADR-023 pt2)
+
+- **Decisao**: Nivel 1 (SSOT): `CHANGELOG-SPRINTS.md` na raiz, formato `| Sprint | Data | Prioridade P | Título | Categoria | 8 Gates | Status | Resumo | Hash Commit |` 34+ sprints atualizados a cada sprint, recentes-primeiro. Nivel 2 (Legado): `CHANGELOG.md` formato Keep a Changelog padrao, DESATUALIZADO desde v5.20.0 S28+7 (marcado DEPRECATED S28+67). Nivel 3 (por release): `project-release-gates.md` com gates por release milestone.
+- **Justificativa**: Formato tabular por sprint + 8 Gates + Status = 10x mais acionavel para engenheiros do que paragrafos Keep a Changelog. Evita ciclo auto-referencial (sprint descreve ela mesma dentro do CHANGELOG que ela atualiza — gaps S28+64/S28+66 corrigidos).
+- **Gate**: Convencao sprint passo 6 (COMMIT) obrigado a atualizar CHANGELOG-SPRINTS.md.
+- **SSOT Acesso conveniência**: `make changelog` (abre no browser).
