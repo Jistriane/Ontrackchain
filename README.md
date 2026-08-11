@@ -2,6 +2,28 @@
 
 ![Ontrackchain](./ontrackchain/docs/assets/logo.jpeg)
 
+<!-- ============================================================
+     Sprint S28+29 P2: Badges de Qualidade + CI/Governança
+     Badges SÃO placeholders canônicos (URLs universais SonarCloud/GitHub Actions)
+     — populam automaticamente quando Secrets e SONAR_TOKEN são ativados.
+     ============================================================ -->
+<p align="left">
+  <a href="https://sonarcloud.io/dashboard?id=ontrackchain_ontrackchain"><img alt="SonarCloud Quality Gate" src="https://sonarcloud.io/api/project_badges/measure?project=ontrackchain_ontrackchain&metric=alert_status"></a>
+  <a href="https://sonarcloud.io/dashboard?id=ontrackchain_ontrackchain"><img alt="SonarCloud Coverage" src="https://sonarcloud.io/api/project_badges/measure?project=ontrackchain_ontrackchain&metric=coverage"></a>
+  <a href="https://sonarcloud.io/dashboard?id=ontrackchain_ontrackchain"><img alt="SonarCloud Bugs" src="https://sonarcloud.io/api/project_badges/measure?project=ontrackchain_ontrackchain&metric=bugs"></a>
+  <a href="https://sonarcloud.io/dashboard?id=ontrackchain_ontrackchain"><img alt="SonarCloud Vulnerabilities" src="https://sonarcloud.io/api/project_badges/measure?project=ontrackchain_ontrackchain&metric=vulnerabilities"></a>
+  <a href="https://sonarcloud.io/dashboard?id=ontrackchain_ontrackchain"><img alt="SonarCloud Security Hotspots" src="https://sonarcloud.io/api/project_badges/measure?project=ontrackchain_ontrackchain&metric=security_hotspots"></a>
+  <a href="https://github.com/Ontrackchain/ontrackchain/actions/workflows/ci.yml"><img alt="CI Lint &amp; Type Check" src="https://github.com/Ontrackchain/ontrackchain/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="./ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md"><img alt="Governança M5: PASSO 0 Hash Auto-Referencial" src="https://img.shields.io/badge/Governan%C3%A7a%20M5-PASSO%200%20V%C3%81LIDO%20(9dc53698)-darkgreen"></a>
+</p>
+<p align="left">
+  <sub>
+    Badges populam automaticamente após: (1) <code>Settings &rarr; Secrets &rarr; SONAR_TOKEN</code> configurado;
+    (2) Primeiro push para <code>main</code> com CI <code>sonarcloud-standalone</code> executado;
+    (3) Organização <code>ontrackchain</code> criada em <a href="https://sonarcloud.io">sonarcloud.io</a>.
+  </sub>
+</p>
+
 Workspace agregador do projeto Ontrackchain. Esta raiz existe para onboarding, navegacao, leitura executiva, descoberta dos fluxos principais e orientacao inequívoca sobre qual arvore tecnica deve ser tratada como fonte ativa.
 
 ## Leitura Rapida
@@ -129,6 +151,8 @@ O script **automagicamente**:
 | Postgres não fica healthy | `sudo lsof -i :5432` — provavelmente já tem PG local rodando. Pare com `sudo systemctl stop postgresql`. |
 | `make gov-m5-verify` falha | Verifique se editou `SIGNOFF-M5.md` **PROIBIDO**. Restore via `git checkout -- ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md`. |
 | E2E falha em mock-oidc:9101 | Aumente `MAX_RETRIES=60` no cabeçalho do script ou rode 2× (primeira execução baixa imagens docker). |
+| SonarCloud badge cinza / não aparece | 1. Crie org `ontrackchain` em sonarcloud.io → new project key **`ontrackchain_ontrackchain`**. 2. `GitHub Repo → Settings → Secrets and variables → Actions → New repository secret: SONAR_TOKEN` (gerar token em sonarcloud.io/account/security). 3. Rode 1 vez o CI em main: badge popula automático. |
+| CI job `sonarcloud-standalone` pula com "SONAR_TOKEN empty" | NORMAL em fork/PR externo. O job NÃO quebra CI, apenas pula com `if: secrets.SONAR_TOKEN != ''`. |
 
 ## Snapshot Executivo
 

@@ -724,25 +724,29 @@ jobs:
         uses: SonarSource/sonarcloud-github-action@master
         continue-on-error: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # comentários PR
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}     # OBRIGATÓRIO: repo-level SonarCloud (Settings → Secrets)
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
+          # Sprint S28+29: projectDir FORÇADO ao workspace RAIZ onde está sonar-project.properties
+          # MONOREPO hierarquia real = <root>/sonar-project.properties; <root>/ontrackchain/.github/workflows/ci.yml
+          projectBaseDir: ${{ github.workspace }}
           args: >
             -Dsonar.organization=ontrackchain
-            -Dsonar.projectKey=Ontrackchain_ontrackchain
+            -Dsonar.projectKey=ontrackchain_ontrackchain
             -Dsonar.qualitygate.wait=true
             -Dsonar.qualitygate.timeout=600
             -Dsonar.python.version=3.11
-            -Dsonar.python.coverage.reportPaths=tmp_coverage/*.xml
-            -Dsonar.python.xunit.reportPath=tmp_tests/reports/*.xml
-            -Dsonar.python.bandit.reportPaths=tmp_sast/bandit.json
+            -Dsonar.python.coverage.reportPaths=ontrackchain/tmp_coverage/*.xml,ontrackchain/apps/*/tmp_coverage/coverage.xml
+            -Dsonar.python.xunit.reportPath=ontrackchain/tmp_tests/reports/*.xml
+            -Dsonar.python.bandit.reportPaths=ontrackchain/tmp_sast/bandit.json
+            -Dsonar.python.ruff.reportPaths=ontrackchain/tmp_lint/ruff-report.sarif.json
             -Dsonar.verbose=true
 
       - name: "Sonar summary artifact + link"
         run: |
-          echo "SonarCloud quality gate passou. Ver relatório em: https://sonarcloud.io/dashboard?id=Ontrackchain_ontrackchain" | tee tmp_coverage/sonar_summary.txt
+          echo "SonarCloud quality gate passou. Ver relatório em: https://sonarcloud.io/dashboard?id=ontrackchain_ontrackchain" | tee tmp_coverage/sonar_summary.txt
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-             echo "PR #${{ github.event.pull_request.number }}: https://sonarcloud.io/project/issues?id=Ontrackchain_ontrackchain&pullRequest=${{ github.event.pull_request.number }}" >> tmp_coverage/sonar_summary.txt
+             echo "PR #${{ github.event.pull_request.number }}: https://sonarcloud.io/project/issues?id=ontrackchain_ontrackchain&pullRequest=${{ github.event.pull_request.number }}" >> tmp_coverage/sonar_summary.txt
           fi
       - uses: actions/upload-artifact@v4
         if: always()
@@ -1054,4 +1058,85 @@ jobs:
           path: tmp_audit/
           retention-days: 60
           if-no-files-found: ignore
+
+  # ============================================================================
+  # Sprint S28+29 P2: sonarcloud-standalone (HOSPEDADO ubuntu, SEM self-hosted)
+  # FALLBACK: se runners self-hosted (pytest-matrix, gate-p0-00-rls) estiverem OFFLINE
+  #           ainda assim SonarCloud receberá scan + comentários PR (QUALIDADE MÍNIMA).
+  # Diferença vs sonarcloud-codecov-quality-gate (M8 legado):
+  #   · NÃO precisa de pytest coverage XML (pode ser 0% se self-hosted não rodou)
+  #   · NÃO precisa de SAST bandit (pode ser empty)
+  #   · SEMPRE roda em ubuntu-latest GitHub hospedado (100% uptime)
+  # ============================================================================
+  sonarcloud-standalone:
+    name: "SonarCloud Standalone (fallback ubuntu hospedado)"
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck]
+    timeout-minutes: 15
+    continue-on-error: false
+    # NÃO executar se SONAR_TOKEN não existir (forks públicos, PRs externos)
+    if: ${{ secrets.SONAR_TOKEN != '' }}
+    permissions:
+      pull-requests: read
+      checks: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # SonarCloud requer histórico completo para blame annotations
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      # Gera SARIF Ruff local no job (independe de outros jobs)
+      - name: "Gerar Ruff SARIF + Bandit JSON (leve, ~1min)"
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          pip install --no-cache-dir ruff bandit[toml] >/dev/null 2>&1 || true
+          mkdir -p ontrackchain/tmp_lint ontrackchain/tmp_sast
+          # ruff check SARIF
+          (cd ontrackchain && ruff check --config pyproject.toml \
+            apps/*/src packages/shared/src packages/qa-gateway/src packages/agents/src . \
+            --output-format sarif --output-file tmp_lint/ruff-report.sarif.json 2>&1) || true
+          # bandit JSON ( -lll-iii = medium/high + confidence medium/high)
+          (cd ontrackchain && bandit -r apps/*/src packages/shared/src packages/qa-gateway/src packages/agents/src \
+            -f json -o tmp_sast/bandit.json -lll -iii 2>&1) || true
+          ls -la ontrackchain/tmp_lint ontrackchain/tmp_sast 2>&1 || true
+
+      # Scan SonarCloud. Usa SONAR_TOKEN secreto OBRIGATÓRIO em Settings → Secrets.
+      - name: "SonarCloud Scan Standalone (aguarda Quality Gate)"
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: ${{ github.workspace }}
+          args: >
+            -Dsonar.organization=ontrackchain
+            -Dsonar.projectKey=ontrackchain_ontrackchain
+            -Dsonar.projectName=Ontrackchain+Monorepo+Standalone
+            -Dsonar.projectVersion=3.1.0-m5
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=420
+            -Dsonar.python.version=3.11
+            -Dsonar.python.ruff.reportPaths=ontrackchain/tmp_lint/ruff-report.sarif.json
+            -Dsonar.python.bandit.reportPaths=ontrackchain/tmp_sast/bandit.json
+            -Dsonar.verbose=false
+
+      - name: "SonarCloud Standalone Step Summary"
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## SonarCloud Standalone (Sprint S28+29 P2)"
+            echo "- Modo: **ubuntu hospedado GitHub (fallback self-hosted offline)**"
+            echo "- Quality Gate (overall 80%, 0 Blocker/Critical): https://sonarcloud.io/dashboard?id=ontrackchain_ontrackchain"
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+               echo "- PR #${{ github.event.pull_request.number }}: https://sonarcloud.io/project/issues?id=ontrackchain_ontrackchain&pullRequest=${{ github.event.pull_request.number }}"
+            fi
+            echo "- Observação: Coverage/pytest virá do job **sonarcloud-codecov-quality-gate** (M8) se runners self-hosted estiverem UP."
+          } >> $GITHUB_STEP_SUMMARY
 
