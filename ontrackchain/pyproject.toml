@@ -161,7 +161,7 @@ cache_dir = ".mypy_cache"
 #   · S28+33 ✅ packages/agents/src       (2629 LOC: sanctions/evidence/preventive_block/travel_rule)
 #   · S28+37 ✅ apps/auth-service         (PRIMEIRO APP: OIDC, 2FA, B2B HMAC, secrets_loader)
 #   · S28+38 ✅ apps/compliance-api       (segundo APP: 6420 LOC, structural_screens + risk_provider 28 arquivos)
-#   · S28+39    apps/case-management
+#   · S28+39 ✅ apps/case-management      (terceiro APP: 1353 LOC FastAPI CRUD casos)
 #   · S28+40    apps/investigation-api
 #   · S28+41    apps/monitoring-api
 #   · S28+42    apps/public-api
@@ -231,7 +231,19 @@ disallow_untyped_decorators = true
 warn_redundant_casts = true
 
 [[tool.mypy.overrides]]
-module = "case_management.*,investigation_api.*,monitoring_api.*,public_api.*,report_api.*,ai_service.*,mock_oidc.*"
+module = "case_management.*"
+disallow_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+strict_equality = true
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+module = "investigation_api.*,monitoring_api.*,public_api.*,report_api.*,ai_service.*,mock_oidc.*"
 disallow_untyped_defs = false
 check_untyped_defs = true
 no_implicit_optional = true
