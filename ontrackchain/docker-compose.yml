@@ -195,7 +195,7 @@ services:
       postgres-bootstrap:
         condition: service_completed_successfully
       redis:
-        condition: service_started
+        condition: service_healthy
     networks:
       - ontrackchain
     labels:
@@ -234,9 +234,9 @@ services:
       postgres-bootstrap:
         condition: service_completed_successfully
       redis:
-        condition: service_started
+        condition: service_healthy
       investigation-api:
-        condition: service_started
+        condition: service_healthy
     networks:
       - ontrackchain
 
@@ -303,7 +303,7 @@ services:
       postgres-bootstrap:
         condition: service_completed_successfully
       compliance-api:
-        condition: service_started
+        condition: service_healthy
     networks:
       - ontrackchain
 
@@ -329,7 +329,7 @@ services:
       postgres-bootstrap:
         condition: service_completed_successfully
       redis:
-        condition: service_started
+        condition: service_healthy
     networks:
       - ontrackchain
     labels:
@@ -356,11 +356,16 @@ services:
     ports:
       - "${PROMETHEUS_PORT:-9091}:9090"
     depends_on:
-      - investigation-api
-      - monitoring-api
-      - compliance-api
-      - report-api
-      - alertmanager
+      investigation-api:
+        condition: service_healthy
+      monitoring-api:
+        condition: service_healthy
+      compliance-api:
+        condition: service_healthy
+      report-api:
+        condition: service_healthy
+      alertmanager:
+        condition: service_started
     networks:
       - ontrackchain
 
@@ -373,7 +378,8 @@ services:
     ports:
       - "${ALERTMANAGER_PORT:-9093}:9093"
     depends_on:
-      - monitoring-api
+      monitoring-api:
+        condition: service_healthy
     networks:
       - ontrackchain
 
@@ -390,7 +396,8 @@ services:
     ports:
       - "${GRAFANA_PORT:-3002}:3000"
     depends_on:
-      - prometheus
+      prometheus:
+        condition: service_started
     networks:
       - ontrackchain
 
@@ -469,7 +476,7 @@ services:
       postgres-bootstrap:
         condition: service_completed_successfully
       redis:
-        condition: service_started
+        condition: service_healthy
     networks:
       - ontrackchain
     labels:
@@ -529,7 +536,7 @@ services:
       postgres-bootstrap:
         condition: service_completed_successfully
       redis:
-        condition: service_started
+        condition: service_healthy
     networks:
       - ontrackchain
 
@@ -548,7 +555,7 @@ services:
       postgres-bootstrap:
         condition: service_completed_successfully
       ai-service:
-        condition: service_started
+        condition: service_healthy
     networks:
       - ontrackchain
     labels:
