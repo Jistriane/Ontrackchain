@@ -107,3 +107,44 @@ lint.isort.known-first-party = [
   "ai_service",
   "mock_oidc",
 ]
+
+# ============================================================
+# Sprint S28+28: [tool.mypy] SSOT workspace (8 apps + 3 packages)
+# NÃO usamos strict global (disallow_untyped_defs=true) nesta fase:
+# baseline = check_untyped_defs + warn_return_any para incrementalismo
+# Strict = milestone S28+31 P3 após 100% dos 4 serviços restantes typed
+# ============================================================
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+ignore_missing_imports = true
+no_implicit_optional = true
+show_error_codes = true
+show_error_context = true
+pretty = true
+mypy_path = [
+    "packages/shared/src",
+    "packages/qa-gateway/src",
+    "packages/agents/src",
+    "apps/ai-service/src",
+    "apps/auth-service/src",
+    "apps/case-management/src",
+    "apps/compliance-api/src",
+    "apps/investigation-api/src",
+    "apps/monitoring-api/src",
+    "apps/public-api/src",
+    "apps/report-api/src",
+    "apps/mock-oidc/src",
+]
+exclude = [
+    "apps/frontend",
+    "packages/.*/tests",
+    "apps/.*/tests",
+    "tests",
+    "__pycache__",
+]
+incremental = true
+cache_dir = ".mypy_cache"

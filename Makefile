@@ -137,7 +137,7 @@ doctor:
 	@if [ -x "$(MONOREPO_ROOT)/scripts/gov-m5-verify-pre-sign.sh" ]; then \
 	  cd "$(MONOREPO_ROOT)/.." && ./ontrackchain/scripts/gov-m5-verify-pre-sign.sh >/dev/null 2>&1 && echo "✅ OK" || echo "❌ FAIL (rode ./ontrackchain/scripts/gov-m5-verify-pre-sign.sh p/ detalhes)" ; \
 	else echo "⚠️  script gov-m5-verify-pre-sign.sh ausente"; fi
-	@echo "=== Use: make lint → make test → make typecheck ==="
+	@echo "=== Use: make all-checks (9 gates) → doctor → typecheck → build-local → qa-gateway-smoke"
 
 lint:
 	@echo "=== Ruff check (lint + isort + style) em monorepo ontrackchain/ ==="
@@ -153,17 +153,32 @@ test-shared:
 	@echo "=== pytest APENAS packages/shared/tests (Sprint S28+22 3 novos testes catalog/middleware_rls/regulatory) ==="
 	cd "$(MONOREPO_ROOT)" && python3 -m pytest -c pyproject.toml packages/shared/tests -v --tb=short
 
+# ============================================================
+# Sprint S28+28.2B: typecheck EXPANDIDO 8 apps + 3 packages (antes 5/2)
+# Ordem: packages Shared First → apps alfabética
+# REMOVIDO `| tail -30` = fail-closed sem truncamento de erro
+# ============================================================
 typecheck:
-	@echo "=== mypy strict incremental em apps e packages (SharedFirst) ==="
+	@echo "=== mypy check_untyped_defs incremental (8 apps + 3 packages) — Sprint S28+28 P2 ==="
 	cd "$(MONOREPO_ROOT)" && python3 -m mypy --config-file pyproject.toml \
-		packages/shared/src packages/qa-gateway/src \
-		apps/auth-service/src apps/public-api/src apps/compliance-api/src apps/investigation-api/src \
-		2>&1 | tail -30
+		packages/shared/src packages/qa-gateway/src packages/agents/src \
+		apps/ai-service/src apps/auth-service/src apps/case-management/src \
+		apps/compliance-api/src apps/investigation-api/src apps/monitoring-api/src \
+		apps/public-api/src apps/report-api/src apps/mock-oidc/src
 
+# ============================================================
+# Sprint S28+28.2C: build-local FAIL-CLOSED (antes tinha || true)
+# Apenas 3 packages buildáveis (não 9 apps FastAPI = Docker deploy)
+# ============================================================
 build-local:
-	@echo "=== Build local Hatch: shared + qa-gateway + agents (sem push registry) ==="
-	cd "$(MONOREPO_ROOT)" && hatch build packages/shared && hatch build packages/qa-gateway && hatch build packages/agents || true
+	@echo "=== Hatch build: shared + qa-gateway + agents (FAIL-CLOSED sem || true) ==="
+	cd "$(MONOREPO_ROOT)" && \
+		(set -e; \
+		hatch build packages/shared; \
+		hatch build packages/qa-gateway; \
+		hatch build packages/agents)
 	@echo "Builds concluídos. Dist artifacts: $(MONOREPO_ROOT)/packages/*/dist/"
+	@echo "  (não há build hatch para 9 apps FastAPI — deploy via Dockerfile diretamente)"
 
 # ============================================================
 # Sprint S28+26 — Targets P2 Dev + Governança (sem PGP clearsign)
@@ -226,7 +241,8 @@ doctor-plus:
 	@echo "  make healthz-bypass-test     → 18 bypass RBAC × 9 serviços (S28+24)"
 	@echo "  make qa-gateway-smoke        → 6 comandos qa-gateway --help (M16b)"
 	@echo "  make pre-commit-all          → ruff+shellcheck monorepo"
-	@echo "  make lint → make test-shared → make typecheck → make build-local (fluxo dev padrão)"
+	@echo "  make all-checks              → 9 gates FAIL-FAST (Sprint S28+28)"
+	@echo "  make typecheck → make build-local → make lint → make test-shared (fluxo dev padrão)"
 
 # ============================================================
 # Sprint S28+27 — Docker Compose local + aggregator all-checks
@@ -268,12 +284,13 @@ compose-logs-follow:
 		traefik postgres redis auth-service public-api ai-service mock-oidc
 
 # ============================================================
-# Aggregator ALL-CHECKS (Sprint S28+27 P3): 7 gates locais rápidos
+# Aggregator ALL-CHECKS (Sprint S28+28 P2): 9 gates locais FAIL-FAST
 # Ordem: baratos → caros → falha se um falhar (set -e implícito via make)
+# UPDATED 28+28: +typecheck (g8), +build-local (g9) ANTES de lint/test
 # ============================================================
 all-checks:
 	@echo "============================================================"
-	@echo " Sprint S28+27 ALL-CHECKS (7 gates locais, ~3 min) "
+	@echo " Sprint S28+28 ALL-CHECKS (9 gates locais, ~5 min) "
 	@echo "============================================================"
 	@echo ""
 	@$(MAKE) doctor
@@ -286,12 +303,17 @@ all-checks:
 	@echo ""
 	@$(MAKE) healthz-bypass-test
 	@echo ""
+	@$(MAKE) typecheck
+	@echo ""
+	@$(MAKE) build-local
+	@echo ""
 	@$(MAKE) lint
 	@echo ""
 	@$(MAKE) test-shared
 	@echo ""
 	@echo "============================================================"
-	@echo " ✅ ALL-CHECKS PASSOU: 7 gates locais concluídos "
+	@echo " ✅ ALL-CHECKS PASSOU: 9 gates locais concluídos "
 	@echo "============================================================"
 	@echo "  Próximos passos opcionais:"
-	@echo "    make typecheck build-local qa-gateway-smoke compose-up"
+	@echo "    make qa-gateway-smoke compose-up"
+	@echo "    ./ontrackchain/scripts/s28p27-run-e2e-light.sh"

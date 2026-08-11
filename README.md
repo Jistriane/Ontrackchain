@@ -54,7 +54,7 @@ make pre-commit-install   # ruff + bandit + shellcheck + detect-secrets (4 hooks
 make pre-commit-all       # primeira passada dry-run monorepo (~45 seg)
 ```
 
-### 3. ALL-CHECKS local (7 gates, ~3 min, FAIL-FAST)
+### 3. ALL-CHECKS local (9 gates, ~5 min, FAIL-FAST)
 
 > Executa na ordem: baratos → caros. **Qualquer falha aborta imediatamente**.
 > `set -e` implícito do Make + ordem ADR-029 (governança primeiro, lint/test por último).
@@ -63,16 +63,18 @@ make pre-commit-all       # primeira passada dry-run monorepo (~45 seg)
 make all-checks
 ```
 
-7 gates executados:
+9 gates executados (atualizado Sprint S28+28):
 1.  `doctor`                  → ambiental 12 items
 2.  `gov-m5-verify`           → PASSO 0 hash M5 L7 = `9dc53698…` (awk ignora bloco auto-ref L7-11)
 3.  `gov-m5-unit-test`        → 2 cenários mock (exit 0 esperado + exit 1 esperado = hash diferente)
 4.  `shell-syntax`            → `bash -n` em 20/21 scripts shell do monorepo
 5.  `healthz-bypass-test`     → 18 assertions (9 serviços × `/healthz` + `/metrics`) bypassam RBAC middleware
-6.  `lint`                    → ruff check + ruff format diff
-7.  `test-shared`             → 6 testes unitários do pacote `shared` (RBAC, middlewares, helpers)
+6.  `typecheck`               → mypy check_untyped_defs incremental em **8 apps + 3 packages** (Shared First)
+7.  `build-local`             → Hatch build FAIL-CLOSED em 3 pacotes compartilháveis (shared/qa-gateway/agents)
+8.  `lint`                    → ruff check + ruff format diff
+9.  `test-shared`             → 6 testes unitários do pacote `shared` (RBAC, middlewares, helpers)
 
-✅ Esperado: `✅ ALL-CHECKS PASSOU: 7 gates locais concluídos`.
+✅ Esperado: `✅ ALL-CHECKS PASSOU: 9 gates locais concluídos`.
 
 ### 4. Arquivo .env local (30 seg)
 
