@@ -153,6 +153,52 @@ make all-checks
 
 ✅ Esperado: `✅ ALL-CHECKS PASSOU: 15 gates locais concluídos`. Em sandbox sem pip install qa-gateway CLI, G8-G13 printam `⚠️  fallback PYTHONPATH` — **rode `(cd ontrackchain/packages/qa-gateway && pip install -e .)`** para habilitar entry-point `qa-gateway` nativo. Se `trufflehog` binário NÃO estiver PATH, G8 executa em `--dry-run` automático (TS-W001) — instale via GitHub releases ou pipx.
 
+## Troubleshooting Rápido · Erros Históricos e Soluções 30 Segundos (Sprint S28+65 P4)
+
+Baseado em 32 sprints de regressões/correções padronizadas (S28+29 → S28+64). Todos erros abaixo já tem mitigação permanente ativa; bullets são solução emergencial 30 segundos caso o dev desative acidentalmente a proteção (ex.: desinstalar plugin EditorConfig).
+
+- ❌ **Erro 1**: `Makefile: XX: *** missing separator.  Stop.` na linha de comando GNU Make (TAB ASCII 0x09 obrigatório).
+  ✅ **Solução em 10s**: 1) Confirme **plugin EditorConfig ATIVO** no VSCode/JetBrains (extensão oficial "EditorConfig for VS Code" / JetBrains built-in). 2) Para editar blocos comando/help make SEMPRE use script Python literal `\t` (padrão S28+49/51/54/56/57/60) — NÃO use heredoc ou editor manual. 3) Validação pós-escrita obrigatória: `with open("Makefile","rb") as f: lines=f.readlines(); [print(f"ERROR L{i+1}: not tab-start") for i,l in enumerate(lines) if l.startswith(b"@") or l.startswith(b"\t@") and not l.startswith(b"\t")]`
+  🔍 Causa raiz: VSCode/JetBrains converte TAB ASCII 0x09 → spaces acidentalmente ao salvar. **Mitigação permanente**: [.editorconfig](./.editorconfig) seção `[Makefile] indent_style = tab` HARD REQUIREMENT. Sprint Histórico: S28+49 (Makefile Extras heredoc space → missing separator).
+
+- ❌ **Erro 2**: `Permission denied: '/.../__pycache__/X.cpython-312.pyc'` ao rodar `python -m py_compile` em sandbox/CI.
+  ✅ **Solução em 5s**: **NÃO USE `py_compile` EM NENHUM sprint novo**. Substitua TODO validador de sintaxe Python por **`ast.parse` pure-memory SEM escrever disco**: `python3 -c "import ast,sys; [ast.parse(open(f).read()) for f in sys.argv[1:]]; print('AST OK')" apps/*/src/main.py` (0 escrita, 0 permissão necessária, 0 __pycache__ criado).
+  🔍 Causa raiz: Sandbox CI/Hatch tem `site-packages` e `.venv/lib` read-only. **Mitigação permanente**: TODO código validador no monorepo usa `ast.parse` (padrão S28+48 → S28+53). Sprint Histórico: S28+48.
+
+- ❌ **Erro 3**: `make all-checks` / `make typecheck` / `make qa-gateway-all-strict-ci` trava ou retorna `Permission denied` __pycache__ em sandbox local.
+  ✅ **Solução padrão FAIL-CLOSED em sandbox**: SEMPRE rode **dry-run parse GNU Make** primeiro (valida sintaxe targets/dependências SEM executar hatch/mypy): `make all-checks -n` (G5) + `make typecheck -n` (G6) + `make qa-gateway-all-strict-ci -n` (G7). Para rodar gates REAIS localmente: instale CLI `qa-gateway` e shared/agents em modo editable: `(cd ontrackchain/packages/qa-gateway && pip install -e .)`.
+  🔍 Causa raiz: Hatch/mypy tentam criar `__pycache__` em diretórios read-only sandbox. **Mitigação permanente**: 8 gates padrão VALIDAÇÃO LOCAL sempre rodam com -n (fail-fast). CI remoto roda 15 gates reais (ambiente tem permissão). Sprint Histórico: S28+50.
+
+- ❌ **Erro 4**: G3 shell-syntax FAIL em script: `syntax error near unexpected token $'{\r''` ou `$'\r': command not found` no fim de linhas bash.
+  ✅ **Solução em 20s**: 1) **Windows OBRIGATÓRIO**: `git config --global core.autocrlf=input` (nunca `true`). 2) Renormalize working tree: `git add --renormalize .` + `git status`: `git add --renormalize .` (re-normaliza line endings LF forçado por .gitattributes). 3) Confirme `.gitattributes` ativo em [.gitattributes](./.gitattributes) BLOCO1+2 força eol=lf.
+  🔍 Causa raiz: Windows checkout CRLF → `\r` appended fim de linha → bash interpreta como caractere literal. **Mitigação permanente**: [.gitattributes](./.gitattributes) BLOCO1+2 força `eol=lf`. Sprint Histórico: S28+59.
+
+- ❌ **Erro 5**: AST depth cálculo FAIL ao inserir middleware FastAPI (logging estruturado S28+53). Ex.: fecha parêntese `)` no meio de kwargs multi-linha `FastAPI(debug=X, docs_url=Y, ...)`.
+  ✅ **Solução padrão cálculo depth — NUNCA calcule por caractere**. SEMPRE use cálculo **POR LINHA INTEIRA acumulado linha-a-linha**:
+    ```python
+    depth = 0; insert_line = None
+    for lineno, L in enumerate(open(main_py_path).readlines(), 1):
+        depth += L.count('(') - L.count(')')
+        if depth == 0 and ')' in L.strip():  # zero depth = linha fecha FECHAMENTO REAL do app = FastAPI(...)
+            insert_line = lineno + 1; break
+    # app.add_middleware(_PrefixoRequestIdLogMiddleware) DEVE ser INSERT em insert_line
+    ```
+  🔍 Causa raiz: bug depth cálculo caractere vs linha multi-kwargs fecha parciais. **Padrão correto**: Linha-inteira `(` vs `)` acumulado. Sprint Histórico: S28+53.2.
+
+- ❌ **Erro 6**: Docker Compose depends_on LIST syntax (antigo `- service_name: condition: service_healthy` ou LISTA simples `- postgres`) → **TODOS** viram `condition: service_started` (healthy ignorado → race conditions e2e-light S28+52).
+  ✅ **Solução NÃO NEGOCIÁVEL padrão Compose depends_on**: SEMPRE use **DICT EXPLÍCITO de 2 níveis** (NÃO USE LISTA — YAML lista defaults implícitos destroem healthy):
+    ```yaml
+    depends_on:
+      postgres: {condition: service_healthy}                 # se service_name TEM HEALTHCHECK Dockerfile/compose
+      alertmanager: {condition: service_started}              # 3rd-party SEM HC (grafana/alertmanager/traefik/keycloak) fail-safe
+      db-bootstrap: {condition: service_completed_successfully}  # container bootstrap one-shot (init-db/import-env)
+    ```
+  🔍 Causa raiz: Compose v2 LIST syntax antigo tem defaults implícitos service_started. **Mitigação permanente**: 13 relações depends_on healthy atualizadas S28+52. Sprint Histórico: S28+52.
+
+- ❌ **Erro 7 (Anti-Padrões Web3 — não ocorreu ainda mas está no CONTRIBUTING Seção Anti-Padrões)**: `tx.origin == owner` (phishing vulnerável) / loops sobre arrays de tamanho ilimitado (out-of-gas) / `require(cond, "erro longo em string")` (gas desperdiçado vs custom errors Solidity 0.8+).
+  ✅ **Solução padrão Web3 Ontrackchain**: 1) `msg.sender` SEMPRE (nunca `tx.origin` — phishing). 2) Arrays tamanho fixo on-chain + paginação off-chain indexer (The Graph). 3) `error ErrAuthUnauthorized(uint256 code); revert ErrAuthUnauthorized(1001);` em vez de `require(msg.sender == owner, "unauthorized: owner only")`.
+  🔍 Causa raiz: Anti-padrões Web3 padrão indústria. **Mitigação permanente**: CONTRIBUTING Seção Anti-Padrões + regras QA-gateway-scan-sla-ci P003 (Web3 anti-padrões scan). Sprint: S28+32 qa-gateway CLI.
+
 ### 4. Arquivo .env local (30 seg)
 
 ```bash
