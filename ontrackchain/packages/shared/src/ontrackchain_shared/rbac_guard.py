@@ -908,3 +908,53 @@ def require_capability(cap):
             raise HTTPException(status_code=500, detail=f"RBAC erro interno ({type(exc).__name__})") from exc
 
     return _verify
+
+
+# ============================================================================
+# 4.6 SSOT RATE LIMIT HELPERS (compartilhados auth/public/9 services)
+#     Evita duplicação: 4 blocos idênticos em auth-service + 2 em public-api
+#     Saída: FastAPI Response c/ 4 headers (Retry-After + 3×X-RateLimit-*)
+# ============================================================================
+def build_rate_limit_headers(
+    *,
+    limit: int,
+    remaining: int,
+    reset_at_epoch: int,
+    retry_after_seconds: int | None = None,
+) -> dict[str, str]:
+    """Retorna dict de 4 headers rate-limit (RFC 7231 Retry-After + draft-polli-ratelimit-headers)."""
+    ra = retry_after_seconds if retry_after_seconds is not None else max(1, reset_at_epoch - int(time.time()))
+    return {
+        "Retry-After": str(max(1, int(ra))),
+        "X-RateLimit-Limit": str(int(limit)),
+        "X-RateLimit-Remaining": str(max(0, int(remaining))),
+        "X-RateLimit-Reset": str(int(reset_at_epoch)),
+    }
+
+
+def rate_limit_response(
+    *,
+    status_code: int,
+    detail: dict | str,
+    limit: int,
+    remaining: int,
+    reset_at_epoch: int,
+    retry_after_seconds: int | None = None,
+) -> "Response":
+    """Cria FastAPI Response c/ body JSON + 4 headers rate-limit padrão (evita duplicação 4 blocos auth/public)."""
+    import json as _json  # lazy import (já está available em Python 3)
+    from fastapi import Response as _Response  # lazy
+    headers = build_rate_limit_headers(
+        limit=limit,
+        remaining=remaining,
+        reset_at_epoch=reset_at_epoch,
+        retry_after_seconds=retry_after_seconds,
+    )
+    body = detail if isinstance(detail, str) else _json.dumps(detail, separators=(",", ":"), ensure_ascii=False)
+    return _Response(
+        status_code=int(status_code),
+        content=body,
+        media_type="application/json; charset=utf-8",
+        headers=headers,
+    )
+

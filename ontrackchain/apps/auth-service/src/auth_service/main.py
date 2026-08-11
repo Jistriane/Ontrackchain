@@ -75,12 +75,17 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 _AUTH_RBAC_GUARD = None
 _PYJWT_AUTH_AVAILABLE = False
+_RATE_SHARED_OK = False
+_RATE_LIMIT_RESPONSE_FN = None
 try:
     from ontrackchain_shared.rbac_guard import (
         CanonicalRole,
         RBACGuard,
         default_guard_from_env,
+        rate_limit_response,
     )
+    _RATE_LIMIT_RESPONSE_FN = rate_limit_response
+    _RATE_SHARED_OK = True
     try:
         _AUTH_RBAC_GUARD = default_guard_from_env(audience_env="OTK_AUDIENCE")
         _PYJWT_AUTH_AVAILABLE = True
@@ -95,6 +100,7 @@ except Exception as _e:  # noqa: BLE001
     logger.warning("auth-service: shared package missing (%s). inline stub.", type(_e).__name__)
     CanonicalRole = None
     RBACGuard = None
+    rate_limit_response = None
 
 
 def _auth_get_rbac_guard():
@@ -292,15 +298,24 @@ async def _auth_rate_limit_middleware(request: Request, call_next):
             )
             reset_at = (window_start + 1) * _RATE_LIMIT_WINDOW_SECONDS
             retry_after = max(10, reset_at - int(time.time()))
-            content = json.dumps({
+            detail = {
                 "detail": "rate_limit_redis_unavailable_fail_closed",
                 "path": path,
                 "retry_seconds": retry_after,
-            })
+            }
+            if _RATE_SHARED_OK and _RATE_LIMIT_RESPONSE_FN is not None:
+                return _RATE_LIMIT_RESPONSE_FN(
+                    status_code=503,
+                    detail=detail,
+                    limit=limit,
+                    remaining=0,
+                    reset_at_epoch=reset_at,
+                    retry_after_seconds=retry_after,
+                )
             return Response(
                 status_code=503,
-                content=content,
-                media_type="application/json",
+                content=json.dumps(detail, separators=(",", ":"), ensure_ascii=False),
+                media_type="application/json; charset=utf-8",
                 headers={
                     "Retry-After": str(retry_after),
                     "X-RateLimit-Limit": str(limit),
@@ -317,11 +332,20 @@ async def _auth_rate_limit_middleware(request: Request, call_next):
             reset_at = (window_start + 1) * _RATE_LIMIT_WINDOW_SECONDS
             retry_after = max(1, reset_at - int(time.time()))
             remaining = max(0, limit - current)
-            content = json.dumps({"detail": "too_many_auth_attempts", "limit": limit, "path": path})
+            detail = {"detail": "too_many_auth_attempts", "limit": limit, "path": path}
+            if _RATE_SHARED_OK and _RATE_LIMIT_RESPONSE_FN is not None:
+                return _RATE_LIMIT_RESPONSE_FN(
+                    status_code=429,
+                    detail=detail,
+                    limit=limit,
+                    remaining=remaining,
+                    reset_at_epoch=reset_at,
+                    retry_after_seconds=retry_after,
+                )
             return Response(
                 status_code=429,
-                content=content,
-                media_type="application/json",
+                content=json.dumps(detail, separators=(",", ":"), ensure_ascii=False),
+                media_type="application/json; charset=utf-8",
                 headers={
                     "Retry-After": str(retry_after),
                     "X-RateLimit-Limit": str(limit),
@@ -337,14 +361,24 @@ async def _auth_rate_limit_middleware(request: Request, call_next):
             )
             reset_at = (window_start + 1) * _RATE_LIMIT_WINDOW_SECONDS
             retry_after = max(10, reset_at - int(time.time()))
+            detail = {
+                "detail": f"rate_limit_redis_error_{type(_rl_e).__name__.lower()}",
+                "path": path,
+                "retry_seconds": retry_after,
+            }
+            if _RATE_SHARED_OK and _RATE_LIMIT_RESPONSE_FN is not None:
+                return _RATE_LIMIT_RESPONSE_FN(
+                    status_code=503,
+                    detail=detail,
+                    limit=limit,
+                    remaining=0,
+                    reset_at_epoch=reset_at,
+                    retry_after_seconds=retry_after,
+                )
             return Response(
                 status_code=503,
-                content=json.dumps({
-                    "detail": f"rate_limit_redis_error_{type(_rl_e).__name__.lower()}",
-                    "path": path,
-                    "retry_seconds": retry_after,
-                }),
-                media_type="application/json",
+                content=json.dumps(detail, separators=(",", ":"), ensure_ascii=False),
+                media_type="application/json; charset=utf-8",
                 headers={
                     "Retry-After": str(retry_after),
                     "X-RateLimit-Limit": str(limit),
