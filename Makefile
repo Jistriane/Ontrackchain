@@ -1,4 +1,4 @@
-.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle doctor lint test test-shared typecheck build-local pre-commit-install pre-commit-all gov-m5-verify gov-m5-unit-test shell-syntax healthz-bypass-test qa-gateway-smoke doctor-plus compose-config compose-up compose-down compose-ps compose-logs compose-logs-follow all-checks format audit clean scan-secrets-strict e2e-light compose-up-full compose-purge compose-health
+.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle doctor lint test test-shared typecheck build-local pre-commit-install pre-commit-all gov-m5-verify gov-m5-unit-test shell-syntax healthz-bypass-test qa-gateway-smoke doctor-plus compose-config compose-up compose-down compose-ps compose-logs compose-logs-follow all-checks format audit clean scan-secrets-strict e2e-light compose-up-full compose-purge compose-health ci-validate ci-local ci-pre-merge ci-smoke changelog
 
 WINDOW_ID ?= stg-2026-07-06-a
 MODE ?= baseline
@@ -33,6 +33,13 @@ help:
 	@echo "  make format  → ruff format apps/ packages/ scripts/ (auto-formata Python, NÃO quebra código)"
 	@echo "  make audit   → pip-audit 13 serviços (CVE HIGH/CRITICAL resumido, NÃO bloqueia merge localmente)"
 	@echo "  make clean   → remove tmp_*/* + __pycache__ + .pytest_cache (NÃO toca em src/, git/ ou SIGNOFF-*.md)"
+	@echo ""
+	@echo "CI Conveniência (Sprints S28+54 + S28+56 P4):"
+	@echo "  make ci-validate   → 4 gates rápido (<10s) M5 + shell + healthz + settings"
+	@echo "  make ci-local      → 8 gates FAIL-CLOSED (~40s, recomendado ANTES commit)"
+	@echo "  make ci-pre-merge  → FULL (~120s) 8 gates + lint + tests shared (recomendado PR/push)"
+	@echo "  make ci-smoke      → qa-gateway-smoke rápido (estrutura + docs + CSV ROPD)"
+	@echo "  make changelog     → Histórico 24 sprints (arquivo CHANGELOG-SPRINTS.md S28+29..S28+55)"
 
 help-serious-window:
 	$(MAKE) -C ontrackchain help-serious-window
@@ -650,3 +657,14 @@ ci-smoke: ## SMOKE rápido qa-gateway-smoke (NÃO gating). S28+54
 	@echo "🧪 make ci-smoke → qa-gateway-smoke CLI (estrutura monorepo + docs + CSV ROPD)"
 	@$(MAKE) qa-gateway-smoke
 	@echo "✅ ci-smoke CONCLUÍDO."
+
+# Sprint S28+56 P4: Changelog Histórico Sprints.
+changelog: ## Exibe histórico 24 sprints (S28+29..S28+55). S28+56
+	@echo ""
+	@echo "============================================================"
+	@echo "  📋 CHANGELOG Sprints Ontrackchain — Metodologia FAIL-CLOSED"
+	@echo "============================================================"
+	@echo "  Fonte SSOT: ontrackchain/pyproject.toml L170+ roadmap"
+	@echo "  Arquivo detalhado: CHANGELOG-SPRINTS.md"
+	@echo "============================================================"
+	@cat CHANGELOG-SPRINTS.md
