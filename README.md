@@ -109,7 +109,7 @@ make all-checks
 14. `g14 lint`                   → ruff check + ruff format diff monorepo (11 dirs alvo). SARIF Ruff → GH Code Scanning S28+34, SARIF Bandit → GH Code Scanning S28+47 (13 serviços expandidos, categorias distintas)
 15. `g15 test-shared`            → 6 testes unitários do pacote `shared` (RBAC, middlewares, helpers)
 
-**Utilitários Dev (NÃO gating — comandos opcionais, Sprints S28+49 + S28+51 + S28+54 + S28+55 + S28+56 P4):**
+**Utilitários Dev (NÃO gating — comandos opcionais, Sprints S28+49 + S28+51 + S28+54 + S28+55 + S28+56 P4 + S28+58 P4):**
 - 🟣 `make format` → ruff format hatch `apps/ packages/ scripts/` (auto-fix seguro, não altera imports/AST) **[S28+49]**
 - 🔴 `make audit`  → pip-audit 13 serviços, resumo HIGH/CRITICAL, logs por serviço em `tmp_audit/` (não bloqueia local, CI bloqueia PR se HIGH>0) **[S28+49]**
 - 🟢 `make clean`  → remove apenas `tmp_*  **/__pycache__  .pytest_cache  .mypy_cache  **/*.pyc` (não toca em src/, git/ nem arquivos de governança) **[S28+49]**
@@ -125,6 +125,7 @@ make all-checks
 - 📋 **Guia Completo de Contribuição e Checklist Pré-Commit**: 4 hard constraints NÃO negociáveis, ciclo sprint 5 passos, 8 gates FAIL-CLOSED, padrão de mensagem de commit e **Checklist 6 itens ANTES de git commit** em [CONTRIBUTING.md](./CONTRIBUTING.md) **[S28+55]**
 - 📜 `make changelog` → Histórico de 24 sprints (S28+29 → S28+55) em arquivo [CHANGELOG-SPRINTS.md](./CHANGELOG-SPRINTS.md): tabela resumo geral + detalhe por sprint ordem recente primeiro (S28+55 → S28+29) + legenda prioridades P0–P4. Target conveniência NÃO-gating com header + cat. **[S28+56]**
 - 📒 `make contributing` → Guia completo de contribuição em [CONTRIBUTING.md](./CONTRIBUTING.md): 4 hard constraints NÃO negociáveis (HC-1..HC-4) + ciclo sprint 5 passos (INV→DESIGN→IMPL→DOCS→VAL→COMMIT) + tabela completa 8 Gates FAIL-CLOSED + estrutura monorepo resumida + padrão mensagem de commit 6 blocos + **Checklist Rápido 6 itens ANTES de `git commit`**. Header bonito + cat arquivo simétrico ao changelog S28+56. **[S28+57]**
+- ⚙️ **`.editorconfig` (SSOT convenções IDE)** → Arquivo [.editorconfig](./.editorconfig) raiz: 6 seções (root + defaults + Python + TOML/YAML/MD + Makefile + Shell/JSON). HARD REQUIREMENT `[Makefile] indent_style = tab` evita VSCode/JetBrains converter TAB ASCII 0x09 → spaces (previne `missing separator` GNU Make, causa raiz erro histórico S28+49). Outras regras: UTF-8 obrigatório, newline final, trim trailing whitespace, indent_size 2 para TOML/YAML/MD/Shell/JSON e 4 para Python. **[S28+58]**
 
 **Observabilidade — Logging Estruturado JSON (Sprint S28+48 P4 + Sprint S28+53 P3, 0 dependências novas):**
 - 🟢 **Shared util**: `ontrackchain_shared/logging_util.py` — `json.dumps` + `logging.Formatter` + `contextvars` + middleware Starlette/FastAPI `RequestIdLogMiddleware`.
