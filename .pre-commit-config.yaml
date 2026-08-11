@@ -1,0 +1,82 @@
+repos:
+  # ============================================================
+  # Hooks básicos de qualidade (universais, sem dependências)
+  # Sprint S28+24.1 P1: adiciona estrutura de hooks pré-commit
+  # Como ativar (opcional, dev opt-in):
+  #   python3 -m pip install pre-commit
+  #   pre-commit install
+  #   pre-commit run --all-files   (primeira execução = baixa os hooks)
+  # ============================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        name: Remover trailing whitespace (preserva EOF final)
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+        name: Garantir arquivo termina com uma única linha vazia
+        types_or: [python, shell, yaml, toml, json, markdown]
+      - id: check-yaml
+        name: Validar sintaxe YAML (ci.yml, helm values, etc.)
+        args: [--allow-multiple-documents]
+      - id: check-json
+        name: Validar sintaxe JSON
+      - id: check-toml
+        name: Validar sintaxe pyproject.toml / packages/*/pyproject.toml
+      - id: check-merge-conflict
+        name: Bloquear push se arquivo tiver marcadores de merge conflict (<<<<<, =====, >>>>>)
+      - id: check-added-large-files
+        name: Bloquear arquivos > 500KB (prevenir imagens/DB dump no git)
+        args: [--maxkb=500]
+      - id: detect-private-key
+        name: Detectar chaves privadas RSA/EC/PEM acidentais
+        stages: [pre-commit]
+
+  # ============================================================
+  # Python: ruff (lint + format, substitui flake8, isort, black)
+  # ============================================================
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        name: "Ruff: lint rules E/F/W/N/B/UP/SIM/PL/PYI + ADR-018 Shared First"
+        args: [--fix, --exit-non-zero-on-fix]
+        files: ^ontrackchain/(apps|packages|scripts)/.+\.py$
+        types_or: [python]
+      - id: ruff-format
+        name: "Ruff Format: code style (Black-compatível)"
+        files: ^ontrackchain/(apps|packages|scripts)/.+\.py$
+        types_or: [python]
+
+  # ============================================================
+  # Segurança: bandit (SAST Python — execução leve)
+  # ============================================================
+  - repo: https://github.com/pycqa/bandit
+    rev: 1.7.9
+    hooks:
+      - id: bandit
+        name: "Bandit: SAST B101 assert, B102 exec, B106 hardcoded, B301 pickle, B324 hashlib md5"
+        args:
+          - --severity-level=medium
+          - --confidence-level=high
+          - --skip=B101  # B101 = uso de assert; aceito em testes unitários
+          - -r
+          - ontrackchain/apps
+          - ontrackchain/packages
+          - ontrackchain/scripts
+        # Bandit é lento se rodar em cada arquivo → rodar no push, não em todo commit:
+        stages: [pre-push]
+        pass_filenames: false
+        additional_dependencies: [PyYAML>=6.0]
+
+  # ============================================================
+  # Shell: bash -n syntax check + shellcheck básico
+  # ============================================================
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        name: "ShellCheck: gov-m5-verify-pre-sign.sh + 82 scripts/"
+        args: [--severity=warning, --exclude=SC1090,SC2002,SC2086]
+        files: ^ontrackchain/scripts/.+\.(ba)?sh$
+        types_or: [shell]

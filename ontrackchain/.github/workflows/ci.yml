@@ -20,8 +20,26 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install ruff
-        run: pip install ruff
+      # ============================================================
+      # Sprint S28+25.1 Hatch venv cache (~/.local/share/hatch, ~/.cache/hatch)
+      # Economiza ~2-3 min por build ao não reinstalar pacotes do monorepo inteiro.
+      # Cache key = hash de TODOS pyproject.toml + python version (hardcoded 3.11 neste job).
+      # ============================================================
+      - name: Cache Hatch environments + pip packages (Sprint S28+25)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/hatch
+            ~/.cache/hatch
+            ~/.cache/pip
+          key: hatch-venv-${{ runner.os }}-py3.11-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            hatch-venv-${{ runner.os }}-py3.11-
+            hatch-venv-${{ runner.os }}-
+          fail-on-cache-miss: false
+
+      - name: Install ruff + hatch (Sprint S28+25: hatch disponivel)
+        run: pip install ruff hatch
 
       - name: Lint with ruff
         run: |
