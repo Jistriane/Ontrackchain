@@ -137,7 +137,7 @@ doctor:
 	@if [ -x "$(MONOREPO_ROOT)/scripts/gov-m5-verify-pre-sign.sh" ]; then \
 	  cd "$(MONOREPO_ROOT)/.." && ./ontrackchain/scripts/gov-m5-verify-pre-sign.sh >/dev/null 2>&1 && echo "✅ OK" || echo "❌ FAIL (rode ./ontrackchain/scripts/gov-m5-verify-pre-sign.sh p/ detalhes)" ; \
 	else echo "⚠️  script gov-m5-verify-pre-sign.sh ausente"; fi
-	@echo "=== Use: make all-checks (13 gates FAIL-FAST, ADR-029) → doctor → typecheck (4-camadas fallback Strict Shared First) → build-local → qa-gateway-4strict → lint → test-shared"
+	@echo "=== Use: make all-checks (15 gates FAIL-FAST, ADR-029) → doctor → typecheck (4-camadas fallback Strict Shared First + qa + agents) → build-local → qa-gateway-5strict+segredos+premerge → lint → test-shared"
 
 lint:
 	@echo "=== Ruff check (lint + isort + style) em monorepo ontrackchain/ ==="
@@ -263,17 +263,29 @@ qa-gateway-smoke:
 
 # ============================================================
 # Sprint S28+30 P3: QA Gateway 4 STRICT scans OFFLINE / SEM banco
+# Sprint S28+35 P3: +2 gates NOVOS = 6 total QA no all-checks
 # Todos são --strict default=True, max_warnings=0 (fail-closed).
 # Nenhum precisa de PG/Redis/Portas (todos code-scan AST ou files).
-# Ordem FAIL-FAST: BW (billing-caps) → BE (billing-enf) → LR (lgpd ropd) → RBAC (maior)
-#
-# EXECUÇÃO 2-CAMADAS (independentemente de PATH / pip install -e):
+# Ordem FAIL-FAST ADR-029 (barato → custoso):
+#   · P0 SEGREDOS: scan-secrets-trufflehog (10-60s, mais barato, BLOQUEIA merge em segredo vazado)
+#   · P1 ESTRUTURAL 4 gates: BW (billing-caps) → BE (billing-enf) → LR (lgpd ropd) → RBAC (maior)
+#   · P1 AGRUPADOR: qa-gateway-all-strict-ci (4 gates acima duplicado? NÃO — aggregator dev isolado)
+#   · P1 ORQUESTRADOR: run-pre-merge-gates (consolidado report JSON ADR-029, FAIL-FAST 5 gates internamente)
+# EXECUÇÃO 2-CAMADAS (mesmo helper _QA_RUN S28+30):
 #   CAMADA 1) se `qa-gateway` entry-point existe em PATH → usa direto
 #   CAMADA 2) senão → PYTHONPATH=packages/qa-gateway/src python3 -m qa_gateway.cli
-#              (não precisa de pip install; só precisa do pacote src/ existir no monorepo)
 # ============================================================
 _QA_GW_PY_ROOT = $(MONOREPO_ROOT)/packages/qa-gateway
 _QA_RUN = if command -v qa-gateway >/dev/null 2>&1; then qa-gateway; else cd $(MONOREPO_ROOT) && PYTHONPATH=$(_QA_GW_PY_ROOT)/src:$$PYTHONPATH python3 -m qa_gateway.cli; fi
+
+# Sprint S28+35 P3 NOVO: P0 segredos verificados. Roda MAIS BARATO PRIMEIRO FAIL-FAST.
+qa-gateway-scan-secrets-trufflehog-strict:
+	@echo "🔐 QA-GATE Q3-08: scan-secrets-trufflehog --strict --max-warnings 0 (only-verified default, P0 segredos)"
+	@mkdir -p $(MONOREPO_ROOT)/tmp_qa
+	@$(_QA_RUN) scan-secrets-trufflehog \
+		--project-root $(MONOREPO_ROOT) \
+		--strict --max-warnings 0 --only-verified \
+		--failures-json $(MONOREPO_ROOT)/tmp_qa/secrets-trufflehog.failures.json
 
 qa-gateway-scan-billing-capabilities-strict:
 	@echo "🧾 QA-GATE Q3-05: scan-billing-capabilities --strict --max-warnings 0 (BW-001..004 fail-closed)"
@@ -324,27 +336,44 @@ qa-gateway-all-strict-ci:
 	@echo "✅ QA-Gateway STRICT CI (4/4) concluído. Relatórios JSON:"
 	@echo "  - $(MONOREPO_ROOT)/tmp_qa/*.failures.json"
 
+# Sprint S28+35 P3 NOVO: Orquestrador ADR-029 consolidado (5 gates internos, report JSON pre-merge).
+# Roda DEPOIS dos 4+1 individuais = verificação duplicada intencional? NÃO.
+#   · individuais = FAIL-FAST granular 1 a 1 (usuário vê logo qual gate quebrou)
+#   · orquestrador = relatório consolidado JSON único (para CI logs, histórico, arquivamento RIPD Art.30 LGPD)
+qa-gateway-run-pre-merge-gates:
+	@mkdir -p "$(MONOREPO_ROOT)/tmp_qa" "$(MONOREPO_ROOT)/tmp_qa/pre-merge-reports"
+	@echo "🛂 QA-GATE Q3-09: run-pre-merge-gates --strict ADR-029 FAIL-FAST (report JSON consolidado)"
+	@$(_QA_RUN) run-pre-merge-gates \
+		--project-root $(MONOREPO_ROOT) \
+		--strict --max-warnings 0 \
+		--report-dir $(MONOREPO_ROOT)/tmp_qa/pre-merge-reports \
+		--failures-json $(MONOREPO_ROOT)/tmp_qa/pre-merge-gates.failures.json
+
 doctor-plus:
 	@$(MAKE) doctor
 	@echo
-	@echo "=== Doctor Plus (P2 S28+26 → P3 S28+30) — gates locais rápidos ==="
+	@echo "=== Doctor Plus (P2 S28+26 → P3 S28+35) — gates locais rápidos ==="
 	@echo -n "Pre-commit framework: "
 	@command -v pre-commit >/dev/null 2>&1 && echo "✅ $(pre-commit --version 2>&1)" || echo "⚠️  NÃO instalado → rode: make pre-commit-install"
 	@echo -n "QA Gateway import: "
 	@cd "$(MONOREPO_ROOT)" && python3 -c "import ontrackchain_qa_gateway; print('✅', ontrackchain_qa_gateway.__name__)" 2>/dev/null || echo "⚠️  Não importável (pip install -e packages/qa-gateway[dev])"
 	@echo -n "qa-gateway CLI PATH: "
-	@command -v qa-gateway >/dev/null 2>&1 && echo "✅ $(command -v qa-gateway)" || echo "⚠️  NÃO em PATH (pip install -e packages/qa-gateway)"
+	@command -v qa-gateway >/dev/null 2>&1 && echo "✅ $(command -v qa-gateway)" || echo "⚠️  NÃO em PATH (fallback PYTHONPATH automático nos targets make)"
+	@echo -n "trufflehog binário (P0 segredos): "
+	@command -v trufflehog >/dev/null 2>&1 && echo "✅ $(trufflehog --version 2>&1 | head -1)" || echo "⚠️  NÃO em PATH (instale: https://github.com/trufflesecurity/trufflehog - fallback dry-run Q3-08)"
 	@echo
-	@echo "Atalhos:"
-	@echo "  make gov-m5-verify                     → PASSO 0 M5 hash auto-ref (S28+21)"
-	@echo "  make gov-m5-unit-test                  → 2 cenários mock do gov-m5 (S28+25)"
-	@echo "  make shell-syntax                      → bash -n 21 scripts (S28+25)"
-	@echo "  make healthz-bypass-test               → 18 bypass RBAC × 9 serviços (S28+24)"
-	@echo "  make qa-gateway-smoke                  → 6 comandos qa-gateway --help (M16b)"
-	@echo "  make qa-gateway-all-strict-ci          → 4 STRICT scans Q3-04/05/06/07 (NOVO S28+30 P3)"
-	@echo "  make pre-commit-all                    → ruff+shellcheck monorepo"
-	@echo "  make all-checks                        → 13 gates FAIL-FAST (Sprint S28+30)"
-	@echo "  make typecheck → make build-local → make qa-gateway-all-strict-ci → make lint → make test-shared (fluxo dev padrão)"
+	@echo "Atalhos QA (S28+30 P3 → S28+35 P3):"
+	@echo "  make gov-m5-verify                                   → PASSO 0 M5 hash auto-ref (S28+21)"
+	@echo "  make gov-m5-unit-test                                → 2 cenários mock do gov-m5 (S28+25)"
+	@echo "  make shell-syntax                                    → bash -n 21 scripts (S28+25)"
+	@echo "  make healthz-bypass-test                             → 18 bypass RBAC × 9 serviços (S28+24)"
+	@echo "  make qa-gateway-smoke                                → 6 comandos qa-gateway --help (M16b)"
+	@echo "  make qa-gateway-scan-secrets-trufflehog-strict       → P0 segredos verificados (NOVO S28+35 P3)"
+	@echo "  make qa-gateway-all-strict-ci                        → 4 STRICT scans Q3-04/05/06/07 (S28+30 P3)"
+	@echo "  make qa-gateway-run-pre-merge-gates                  → ADR-029 FAIL-FAST 5 gates ORQUESTRADOR (NOVO S28+35 P3)"
+	@echo "  make pre-commit-all                                  → ruff+shellcheck monorepo"
+	@echo "  make all-checks                                      → 15 gates FAIL-FAST LOCAL (Sprint S28+35 P3)"
+	@echo "  make typecheck → make build-local → make qa-gateway-scan-secrets-trufflehog-strict → make qa-gateway-all-strict-ci → make qa-gateway-run-pre-merge-gates → make lint → make test-shared  (fluxo dev padrão ADR-029)"
 
 # ============================================================
 # Sprint S28+27 — Docker Compose local + aggregator all-checks
@@ -386,16 +415,16 @@ compose-logs-follow:
 		traefik postgres redis auth-service public-api ai-service mock-oidc
 
 # ============================================================
-# Aggregator ALL-CHECKS (Sprint S28+30 P3): 13 gates FAIL-FAST
+# Aggregator ALL-CHECKS (Sprint S28+35 P3): 15 gates FAIL-FAST
 # Ordem ADR-029: baratos → médios → caros. FAIL em 1 aborta restante.
 # GATES 1-7  (baratos, 0-2 min): doctor / M5 / shell / healthz / typecheck / build-local
-# GATES 8-11 (médios,   1-3 min): qa-gateway 4 STRICT scans offline
-# GATES 12-13 (caros,   2-5 min): ruff lint / test-shared pytest
-# UPDATED S28+30: qa-gateway-4scans NOVOS entre build-local e lint (fail early estrutura)
+# GATES 8-14 (médios,   1-4 min): qa-gateway P0 segredos + 4 STRICT estrutural + aggregator + orquestrador
+# GATES 15-16 (caros,   2-5 min): ruff lint / test-shared pytest
+# UPDATED S28+35: scan-secrets-trufflehog-strict P0 + run-pre-merge-gates ADR-029 ORQUESTRADOR
 # ============================================================
 all-checks:
 	@echo "============================================================"
-	@echo " Sprint S28+30 ALL-CHECKS (13 gates locais, ~7 min total) "
+	@echo " Sprint S28+35 ALL-CHECKS (15 gates locais, ~8 min total) "
 	@echo "============================================================"
 	@echo ""
 	@$(MAKE) doctor
@@ -412,14 +441,21 @@ all-checks:
 	@echo ""
 	@$(MAKE) build-local
 	@echo ""
+	@echo ""
+	@echo "--- QA SESSION: P0 SEGREDOS primeiro (FAIL-FAST mais barato) ---"
+	@$(MAKE) qa-gateway-scan-secrets-trufflehog-strict
+	@echo ""
 	@$(MAKE) qa-gateway-all-strict-ci
 	@echo ""
+	@$(MAKE) qa-gateway-run-pre-merge-gates
+	@echo ""
+	@echo "--- QUALITY SESSION FINAL (mais caros, lint + unit tests) ---"
 	@$(MAKE) lint
 	@echo ""
 	@$(MAKE) test-shared
 	@echo ""
 	@echo "============================================================"
-	@echo " ✅ ALL-CHECKS PASSOU: 13 gates locais concluídos "
+	@echo " ✅ ALL-CHECKS PASSOU: 15 gates locais concluídos "
 	@echo "============================================================"
 	@echo "  Próximos passos opcionais:"
 	@echo "    make qa-gateway-smoke compose-up"

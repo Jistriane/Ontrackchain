@@ -79,34 +79,37 @@ make pre-commit-install   # ruff + bandit + shellcheck + detect-secrets (4 hooks
 make pre-commit-all       # primeira passada dry-run monorepo (~45 seg)
 ```
 
-### 3. ALL-CHECKS local (13 gates, ~7 min, FAIL-FAST ADR-029)
+### 3. ALL-CHECKS local (15 gates, ~8 min, FAIL-FAST ADR-029)
 
 > Executa na ordem: baratos → médios → caros. **Qualquer falha aborta imediatamente**.
-> Ordem canônica 13 gates S28+30:
-> · G1-G7   (0-2 min): ambiental + governança M5 + typecheck + build-local hatch
-> · G8-G11  (1-3 min): qa-gateway 4 STRICT scans OFFLINE (SEM --db-url, SEM PG, SEM portas)
-> · G12-G13 (2-5 min): ruff lint + test-shared pytest
+> Ordem canônica 15 gates S28+35:
+> · G1-G7    (0-2 min): ambiental + governança M5 + typecheck + build-local hatch
+> · G8       (10-60s):  QA P0 SEGREDOS (scan-secrets-trufflehog VERIFICADOS, fail-closed)
+> · G9-G12   (1-3 min): qa-gateway 4 STRICT scans OFFLINE (BW→BE→LR→RBAC) + ORQUESTRADOR ADR-029
+> · G13-G15  (2-5 min): ruff lint + test-shared pytest
 
 ```bash
 make all-checks
 ```
 
-13 gates executados (atualizado Sprint S28+30 P3):
-1.  `g1 doctor`                  → ambiental 15 items hatch/python/git/docker/M5/qa-gateway
+15 gates executados (atualizado Sprint S28+35 P3 — +2 NOVOS: segredos P0 + orquestrador ADR-029):
+1.  `g1 doctor`                  → ambiental 15 items hatch/python/git/docker/M5/qa-gateway/trufflehog
 2.  `g2 gov-m5-verify`           → PASSO 0 hash M5 L7 = `9dc53698…` (awk ignora bloco auto-ref L7-11)
 3.  `g3 gov-m5-unit-test`        → 2 cenários mock (exit 0 esperado + exit 1 esperado = hash diferente)
 4.  `g4 shell-syntax`            → `bash -n` em 21/21 scripts shell do monorepo
 5.  `g5 healthz-bypass-test`     → 18 assertions (9 serviços × `/healthz` + `/metrics`) bypassam RBAC middleware (AST, não inicia apps)
 6.  `g6 typecheck`               → mypy **STRICT 3 PACOTES (Shared + QA + Agents)** S31/S32/S33 P3: `ontrackchain_shared.*` + `qa_gateway.*` + `ontrackchain_agents.*` = disallow_untyped_defs=true; 9 apps = baseline. 4 camadas fallback (mypy/PYmod/hatch/hatch PYmod)
 7.  `g7 build-local`             → Hatch build FAIL-CLOSED em 3 pacotes compartilháveis (shared/qa-gateway/agents)
-8.  `g8 qa-gateway Q3-05 BW`     → `scan-billing-capabilities` --strict 0 warnings (BW-001..004 + monotonicidade tiers)
-9.  `g9 qa-gateway Q3-06 BE`     → `scan-billing-enforcement` --strict 0 warnings (BE-001..004 + Redis prod, skip-prod-redis local)
-10. `g10 qa-gateway Q3-07 LR`    → `scan-lgpd-ropd` --strict 0 warnings (LR-001..005 + ROPD E001..E003 Art.37 LGPD)
-11. `g11 qa-gateway Q3-04 RBAC`  → `scan-rbac` --strict, 9 serviços, max-anonymous-write=0 (RBAC-A code scan)
-12. `g12 lint`                   → ruff check + ruff format diff monorepo (11 dirs alvo)
-13. `g13 test-shared`            → 6 testes unitários do pacote `shared` (RBAC, middlewares, helpers)
+8.  `g8 qa-gateway Q3-08 SECRET` → `scan-secrets-trufflehog` --strict --only-verified, 0 warnings (segredos VERIFICADOS, P0)
+9.  `g9 qa-gateway Q3-05 BW`     → `scan-billing-capabilities` --strict 0 warnings (BW-001..004 + monotonicidade tiers)
+10. `g10 qa-gateway Q3-06 BE`    → `scan-billing-enforcement` --strict 0 warnings (BE-001..004 + Redis prod, skip-prod-redis local)
+11. `g11 qa-gateway Q3-07 LR`    → `scan-lgpd-ropd` --strict 0 warnings (LR-001..005 + ROPD E001..E003 Art.37 LGPD)
+12. `g12 qa-gateway Q3-04 RBAC`  → `scan-rbac` --strict, 9 serviços, max-anonymous-write=0 (RBAC-A code scan)
+13. `g13 qa-gateway Q3-09 PRE-MERGE` → `run-pre-merge-gates` ORQUESTRADOR ADR-029 FAIL-FAST 5 gates consolidado + relatório JSON
+14. `g14 lint`                   → ruff check + ruff format diff monorepo (11 dirs alvo)
+15. `g15 test-shared`            → 6 testes unitários do pacote `shared` (RBAC, middlewares, helpers)
 
-✅ Esperado: `✅ ALL-CHECKS PASSOU: 13 gates locais concluídos`. Em sandbox sem pip install qa-gateway CLI, G8-G11 printam `⚠️  qa-gateway NÃO instalado` — **rode `(cd ontrackchain/packages/qa-gateway && pip install -e .)`** para habilitar os 4 gates STRICT.
+✅ Esperado: `✅ ALL-CHECKS PASSOU: 15 gates locais concluídos`. Em sandbox sem pip install qa-gateway CLI, G8-G13 printam `⚠️  fallback PYTHONPATH` — **rode `(cd ontrackchain/packages/qa-gateway && pip install -e .)`** para habilitar entry-point `qa-gateway` nativo. Se `trufflehog` binário NÃO estiver PATH, G8 executa em `--dry-run` automático (TS-W001) — instale via GitHub releases ou pipx.
 
 ### 4. Arquivo .env local (30 seg)
 
@@ -166,6 +169,7 @@ O script **automagicamente**:
 | Aba **Security → Code Scanning Alerts** vazia sem nada | 1. SONAR_TOKEN precisa estar configurado (job executa). 2. Esperar 1º push main rodar job `sonarcloud-standalone` step "Code Scanning: Upload Ruff SARIF → GitHub Advanced Security". 3. Avisos do Ruff aparecem como alertas (se não há warnings Ruff, Code Scanning Alerts também é 0 — NORMAL). |
 | G8-G11 qa-gateway 4 gates printam `⚠️  NÃO instalado` em vez de PASSAR | `(cd ontrackchain/packages/qa-gateway && python3 -m pip install -e .)` → instala CLI entry-point `qa-gateway`. Depois rode `make qa-gateway-all-strict-ci` isoladamente p/ confirmar. |
 | `qa-gateway scan-lgpd-ropd` detecta warnings LR-001/LR-002/LR-003 mas 0 issues de fato | NORMAL em sandbox sem docs ROPD completos. STRICT mode default=True eleva warnings a issues → bloquear. Se for branch feature temporária, rode manual com `qa-gateway scan-lgpd-ropd --no-strict` (NÃO em main/release). |
+| `g8 scan-secrets-trufflehog` printa TS-W001 dry-run / TS-E001 binário ausente | NORMAL sem trufflehog instalado. 3 opções de instalação: (a) `pipx install trufflehog` (recomendado); (b) Docker: `docker run --rm -v "$PWD:/pwd" trufflesecurity/trufflehog:latest filesystem /pwd --json --only-verified`; (c) binário release GitHub. STRICT mode default=True = falha se 0 binário e não dry-run explicitado. |
 
 ## Snapshot Executivo
 
