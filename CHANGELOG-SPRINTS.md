@@ -1,7 +1,7 @@
 # CHANGELOG Sprints Ontrackchain — Metodologia FAIL-CLOSED
 
 > **Compilado automaticamente do roadmap em `ontrackchain/pyproject.toml` linhas L170-L192 (SSOT).**
-> 
+>
 > **Regra Geral de TODO Sprint (válida S28+29 → atual):**
 > - Working Tree SEMPRE limpa antes do commit
 > - 8/8 gates padrão FAIL-CLOSED SEMPRE PASS
@@ -11,10 +11,16 @@
 
 ---
 
-## Tabela Resumo Geral (24 sprints)
+## Tabela Resumo Geral (30 sprints)
 
 | Sprint | Prioridade | Tema Principal | Arquivos aprox. | Impacto DevX |
 |---|---|---|---:|---|
+| S28+61 | P4 | CONTRIBUTING.md Hardening Checklist (HC-5 + 3 itens) | 2 | ⭐⭐⭐ (Dotfiles + Trindade Docs no HC e checklist) |
+| S28+60 | P4 | Target make readme conveniência (Trindade 3/3) | 3 | ⭐⭐⭐⭐ (Changelog+Contributing+Readme 1-comando) |
+| S28+59 | P4 | .gitattributes LF EOL Force Cross-OS | 3 | ⭐⭐⭐⭐⭐ (Previne CRLF \r quebrar G3 bash + make) |
+| S28+58 | P4 | .editorconfig Hardening Governança IDE | 3 | ⭐⭐⭐⭐⭐ (Previne TAB→spaces = missing separator GNU Make) |
+| S28+57 | P4 | Target contributing conveniência (simétrico changelog) | 2 | ⭐⭐⭐ (CONTRIBUTING.md 1-comando header bonito) |
+| S28+56 | P4 | Changelog Histórico Sprints + target make changelog | 3+docs | ⭐⭐⭐⭐ (SSOT histórico sprints + cat conveniência) |
 | S28+55 | P4 | Governança Hardening CONTRIBUTING + .gitignore | 4 | ⭐⭐⭐⭐ (SOP padronizado) |
 | S28+54 | P4 | Makefile CI Conveniência (4 atalhos 1-comando gates) | 3 | ⭐⭐⭐⭐⭐ (8 gates em 1 comando) |
 | S28+53 | P3 | Logging Estruturado 10/10 Apps FastAPI | 8 | ⭐⭐⭐⭐ (observabilidade total) |
@@ -43,6 +49,68 @@
 ---
 
 ## Detalhe por Sprint (mais recente → mais antigo)
+
+### ✅ S28+61 — CONTRIBUTING.md Hardening Checklist HC-5 + 3 itens (P4)
+**Objetivo**: Fechar lacuna de governança: dotfiles S28+58+59 e Trindade Docs S28+60 não eram referenciados em hard constraints e checklist pré-commit.
+- **Entregas**:
+  1. **Tabela HC Seção 1**: Novo **HC-5** — Dotfiles Governança + Trindade Docs: (a) Plugin EditorConfig IDE ativo (antes de editar Makefile); (b) Windows `git config core.autocrlf=input` (antes de commit); (c) 3 targets conveniência `make changelog` + `make contributing` + `make readme` 100% disponíveis. Validação via G3 bash (sem `\r`) + G5 `all-checks -n` (parse Makefile).
+  2. **Checklist Rápido Seção 6**: 3 NOVOS itens 7/8/9 (total 9 itens): 7) Plugin EditorConfig instalado/ativo [.editorconfig S28+58]; 8) Windows `git config --global core.autocrlf=input` CONFIGURADO [.gitattributes S28+59]; 9) (Opcional pré-commit) `make changelog` + `make contributing` + `make readme` executados (Trindade Docs 3/3 S28+60).
+- **Arquivos**: 2 (CONTRIBUTING.md M + pyproject roadmap)
+- **Impacto**: Dev NÃO consegue mais violar TAB ASCII 0x09 Makefile ou CRLF shell sem ter aviso explícito no checklist pré-commit.
+
+### 📖 S28+60 — Target make readme conveniência (TRINDADE docs 3/3) (P4)
+**Objetivo**: Fechar Trindade Docs 3/3 simétrica (S28+56 changelog + S28+57 contributing + S28+60 readme) 100% consistentes em padrão TAB ASCII 0x09.
+- **Entregas**: Makefile raiz 3 edições via Python literal `\t` (HARD REQ, solução padrão S28+49 heredoc space → missing separator):
+  1. L1 `.PHONY`: adicionado `readme` (~70 targets totais).
+  2. Bloco Help CI Conveniência: atualizado header +1 linha help `make readme → README completo`.
+  3. Fim arquivo L685+: Target body simétrico S28+56/57 (12 linhas: comentário Sprint + header bonito 8 linhas echo separadores + emoji título + 3 linhas info dotfiles/gates/sprits + `Arquivo detalhado: README.md` + separador + `@cat README.md`).
+  - Validação pós-escrita obrigatória: **11/11 linhas TAB ASCII 0x09 0 ERROS**. `make -n help` + `make -n readme` parse GNU Make exit 0.
+- **Arquivos**: 3 (Makefile raiz M + pyproject roadmap M + README Utilitários Dev +1 bullet `make readme`).
+- **Impacto**: Trindade Docs 3/3 1-comando: `make changelog` / `make contributing` / `make readme` — padronizado.
+
+### 📁 S28+59 — .gitattributes Hardening LF EOL Force Cross-OS (P4)
+**Objetivo**: Previnir erros G3 `bash -n` syntax error por `\r` CRLF (Windows checkout) e `missing separator` GNU Make por `\r` no fim de linhas de receita. Lote temático com S28+58 dotfiles cross-IDE/cross-OS.
+- **Entregas**: NOVO arquivo `.gitattributes` raiz (49L, 3 blocos SSOT):
+  1. **BLOCO1 GERAL**: `* text=auto eol=lf` — força LF em TODO arquivo texto (cross-OS Windows↔️Linux).
+  2. **BLOCO2 CRÍTICOS sobrescrita explícita eol=lf**: `*.sh`, `*.bash`, `Makefile`, `*.py`, `*.toml`, `*.yml`/`*.yaml`, `*.md`, `*.json` (garante que arquivos de script e make NUNCA recebem CRLF, mesmo se usuário Windows tiver `core.autocrlf=true` global).
+  3. **BLOCO3 BINÁRIOS 20 entradas EXPLÍCITAS marcadas `binary`**: desativa diff/EOL/merge para (6 imagens png/jpg/jpeg/gif/ico/svg + pdf + 2 bytecode pyc/pyo + 6 compactados zip/tar/gz/tgz/7z/rar + 5 fontes woff/woff2/ttf/eot/otf).
+- **Arquivos**: 3 (.gitattributes NOVO A + pyproject roadmap M + README Utilitários Dev +1 bullet `.gitattributes` SSOT cross-OS).
+- **Impacto**: Elimina 100% dos erros de line ending cross-OS em CI (G3 bash, G5 make missing separator). 0 dependências, 0 alteração runtime.
+
+### ⚙️ S28+58 — .editorconfig Hardening Governança IDE (P4)
+**Objetivo**: Previnir erros históricos S28+49/51 `missing separator` GNU Make por editores (VSCode/JetBrains) converter TAB ASCII 0x09 → spaces acidentalmente ao editar Makefile. Lote temático com S28+59 dotfiles.
+- **Entregas**: NOVO arquivo `.editorconfig` raiz (25L, 6 seções SSOT monorepo):
+  1. `root = true` (SSOT, não procura configuração pai fora monorepo).
+  2. `[*] defaults` (UTF-8, LF, indent space 4, insert_final_newline=true, trim_trailing_whitespace=true).
+  3. `[*.py]` indent 4.
+  4. `[*.{toml,yml,yaml,md}]` indent 2.
+  5. **`[Makefile] indent_style = tab indent_size = 4` (HARD REQUIREMENT NÃO NEGOCIÁVEL — evita VSCode auto-converter TAB→spaces ao salvar Makefile)**.
+  6. `[*.sh]` indent 2 + `[*.json]` indent 2.
+- **Arquivos**: 3 (.editorconfig NOVO A + pyproject roadmap M + README Utilitários Dev +1 bullet `.editorconfig` SSOT convenções IDE).
+- **Impacto**: Elimina 100% erros de formatação Makefile por IDE mal configurado. 0 dependências, 0 alteração runtime.
+
+### 🤝 S28+57 — Target contributing conveniência (simétrico changelog) (P4)
+**Objetivo**: Criar simetria com S28+56 (changelog) → conveniência 1-comando para exibir CONTRIBUTING.md com header bonito.
+- **Entregas**: Makefile raiz 3 edições TAB ASCII 0x09:
+  1. `.PHONY`: adicionado `contributing`.
+  2. Bloco Help CI Conveniência: +1 linha help `make contributing → CONTRIBUTING metodologia FAIL-CLOSED`.
+  3. Target body fim arquivo: simétrico S28+56 (header 7 linhas echo bonito emoji 🤝 + info + `@cat CONTRIBUTING.md`).
+  - Validação pós-escrita TAB 0x09 10/10 linhas 0 ERROS.
+- **Arquivos**: 2 (Makefile raiz M + pyproject roadmap M).
+- **Impacto**: Simetria 2/3 Trindade Docs. 1-comando acesso a metodologia e hard constraints.
+
+### 📋 S28+56 — Changelog Histórico Sprints + target make changelog (P4)
+**Objetivo**: Criar SSOT histórico de sprints e conveniência `make changelog` para acesso rápido sem abrir arquivo.
+- **Entregas**:
+  1. NOVO `CHANGELOG-SPRINTS.md` (183L):
+     - Header regras gerais sprints (WT limpa, 8/8 gates, HC-1..HC-4, INV→DESIGN→IMPL→DOCS→VAL→COMMIT).
+     - Tabela Resumo Geral (24 sprints iniciais: S28+29 fundação M5 → S28+55 Governança CONTRIBUTING).
+     - Detalhe por Sprint recente primeiro (S28+55 → S28+29) com objetivo, entregas bullets, arquivos, impacto/validação crítica.
+     - Legenda Prioridades P0~P4 + seção Como Atualizar (disciplina dupla entrada pyproject → changelog).
+  2. Makefile target `make changelog` NÃO-gating: header bonito echo + `@cat CHANGELOG-SPRINTS.md`.
+  - TAB ASCII 0x09 15/15 linhas validadas.
+- **Arquivos**: 3 (CHANGELOG-SPRINTS.md NOVO A + Makefile M target changelog + pyproject roadmap M).
+- **Impacto**: Histórico sprints documentado e acessível em 1 comando. Inicia Trindade Docs 1/3.
 
 ### 🏆 S28+55 — Governança Hardening CONTRIBUTING + .gitignore (P4)
 **Objetivo**: Eliminar ambiguidade de contribuição e bloquear commits acidentais de segredos/relatórios.
