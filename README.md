@@ -45,10 +45,11 @@ Resumo em 30 segundos:
 - o scaffold de `.env.staging.private` ja existe; o bloqueio dominante hoje e handoff pendente de `Compliance/AML` e variaveis reais obrigatorias (AML/KYT live + feed UE tokenizado)
 - staging full-stack continua isolado em `render.full-stack.yaml`; o blueprint padrao de vitrine segue `render.yaml` (frontend standalone showcase)
 
-## Quick Start 10 Min · Onboarding 101 (Sprint S28+27)
+## Quick Start 12 Min · Onboarding 101 (Sprint S28+30)
 
-> Objetivo: novo colaborador consegue rodar **7 gates locais + stack LEVE 8 containers + 4 healthz em <10 minutos**, sem credenciais externas reais nem OIDC real.
+> Objetivo: novo colaborador consegue rodar **13 gates locais (FAIL-FAST, ADR-029) + stack LEVE 8 containers + 4 healthz em <12 minutos**, sem credenciais externas reais nem OIDC real.
 > Perfis OIDC pesados (Keycloak v25 real) são **OPCIONAIS** (`profiles: [keycloak]`) e NÃO sobem no fluxo padrão.
+> **Nenhum dos 13 gates precisa de PostgreSQL, Redis ou Docker ligado** (gates 1-11 = 100% offline / AST / static analysis).
 
 ### 0. Pré-requisitos mínimos
 
@@ -64,10 +65,10 @@ Resumo em 30 segundos:
 ```bash
 git clone <este-repo> ontrackchain-workspace
 cd ontrackchain-workspace
-make doctor-plus          # verifica 12 dependencias + paths hatch/python/git/docker/M5 hash
+make doctor-plus          # verifica 15 dependencias + paths hatch/python/git/docker/M5 hash/qa-gateway CLI
 ```
 
-✅ Esperado: **NENHUM item em VERMELHO**. Docker com daemon **rodando** (`systemctl start docker` se necessário).
+✅ Esperado: **NENHUM item em VERMELHO**. Docker com daemon **rodando** (`systemctl start docker` se necessário). `qa-gateway CLI PATH = ✅`.
 
 ### 2. Instala hooks de qualidade (30 seg)
 
@@ -76,27 +77,34 @@ make pre-commit-install   # ruff + bandit + shellcheck + detect-secrets (4 hooks
 make pre-commit-all       # primeira passada dry-run monorepo (~45 seg)
 ```
 
-### 3. ALL-CHECKS local (9 gates, ~5 min, FAIL-FAST)
+### 3. ALL-CHECKS local (13 gates, ~7 min, FAIL-FAST ADR-029)
 
-> Executa na ordem: baratos → caros. **Qualquer falha aborta imediatamente**.
-> `set -e` implícito do Make + ordem ADR-029 (governança primeiro, lint/test por último).
+> Executa na ordem: baratos → médios → caros. **Qualquer falha aborta imediatamente**.
+> Ordem canônica 13 gates S28+30:
+> · G1-G7   (0-2 min): ambiental + governança M5 + typecheck + build-local hatch
+> · G8-G11  (1-3 min): qa-gateway 4 STRICT scans OFFLINE (SEM --db-url, SEM PG, SEM portas)
+> · G12-G13 (2-5 min): ruff lint + test-shared pytest
 
 ```bash
 make all-checks
 ```
 
-9 gates executados (atualizado Sprint S28+28):
-1.  `doctor`                  → ambiental 12 items
-2.  `gov-m5-verify`           → PASSO 0 hash M5 L7 = `9dc53698…` (awk ignora bloco auto-ref L7-11)
-3.  `gov-m5-unit-test`        → 2 cenários mock (exit 0 esperado + exit 1 esperado = hash diferente)
-4.  `shell-syntax`            → `bash -n` em 20/21 scripts shell do monorepo
-5.  `healthz-bypass-test`     → 18 assertions (9 serviços × `/healthz` + `/metrics`) bypassam RBAC middleware
-6.  `typecheck`               → mypy check_untyped_defs incremental em **8 apps + 3 packages** (Shared First)
-7.  `build-local`             → Hatch build FAIL-CLOSED em 3 pacotes compartilháveis (shared/qa-gateway/agents)
-8.  `lint`                    → ruff check + ruff format diff
-9.  `test-shared`             → 6 testes unitários do pacote `shared` (RBAC, middlewares, helpers)
+13 gates executados (atualizado Sprint S28+30 P3):
+1.  `g1 doctor`                  → ambiental 15 items hatch/python/git/docker/M5/qa-gateway
+2.  `g2 gov-m5-verify`           → PASSO 0 hash M5 L7 = `9dc53698…` (awk ignora bloco auto-ref L7-11)
+3.  `g3 gov-m5-unit-test`        → 2 cenários mock (exit 0 esperado + exit 1 esperado = hash diferente)
+4.  `g4 shell-syntax`            → `bash -n` em 21/21 scripts shell do monorepo
+5.  `g5 healthz-bypass-test`     → 18 assertions (9 serviços × `/healthz` + `/metrics`) bypassam RBAC middleware (AST, não inicia apps)
+6.  `g6 typecheck`               → mypy check_untyped_defs incremental em **8 apps + 3 packages** (Shared First)
+7.  `g7 build-local`             → Hatch build FAIL-CLOSED em 3 pacotes compartilháveis (shared/qa-gateway/agents)
+8.  `g8 qa-gateway Q3-05 BW`     → `scan-billing-capabilities` --strict 0 warnings (BW-001..004 + monotonicidade tiers)
+9.  `g9 qa-gateway Q3-06 BE`     → `scan-billing-enforcement` --strict 0 warnings (BE-001..004 + Redis prod, skip-prod-redis local)
+10. `g10 qa-gateway Q3-07 LR`    → `scan-lgpd-ropd` --strict 0 warnings (LR-001..005 + ROPD E001..E003 Art.37 LGPD)
+11. `g11 qa-gateway Q3-04 RBAC`  → `scan-rbac` --strict, 9 serviços, max-anonymous-write=0 (RBAC-A code scan)
+12. `g12 lint`                   → ruff check + ruff format diff monorepo (11 dirs alvo)
+13. `g13 test-shared`            → 6 testes unitários do pacote `shared` (RBAC, middlewares, helpers)
 
-✅ Esperado: `✅ ALL-CHECKS PASSOU: 9 gates locais concluídos`.
+✅ Esperado: `✅ ALL-CHECKS PASSOU: 13 gates locais concluídos`. Em sandbox sem pip install qa-gateway CLI, G8-G11 printam `⚠️  qa-gateway NÃO instalado` — **rode `(cd ontrackchain/packages/qa-gateway && pip install -e .)`** para habilitar os 4 gates STRICT.
 
 ### 4. Arquivo .env local (30 seg)
 
@@ -153,6 +161,8 @@ O script **automagicamente**:
 | E2E falha em mock-oidc:9101 | Aumente `MAX_RETRIES=60` no cabeçalho do script ou rode 2× (primeira execução baixa imagens docker). |
 | SonarCloud badge cinza / não aparece | 1. Crie org `ontrackchain` em sonarcloud.io → new project key **`ontrackchain_ontrackchain`**. 2. `GitHub Repo → Settings → Secrets and variables → Actions → New repository secret: SONAR_TOKEN` (gerar token em sonarcloud.io/account/security). 3. Rode 1 vez o CI em main: badge popula automático. |
 | CI job `sonarcloud-standalone` pula com "SONAR_TOKEN empty" | NORMAL em fork/PR externo. O job NÃO quebra CI, apenas pula com `if: secrets.SONAR_TOKEN != ''`. |
+| G8-G11 qa-gateway 4 gates printam `⚠️  NÃO instalado` em vez de PASSAR | `(cd ontrackchain/packages/qa-gateway && python3 -m pip install -e .)` → instala CLI entry-point `qa-gateway`. Depois rode `make qa-gateway-all-strict-ci` isoladamente p/ confirmar. |
+| `qa-gateway scan-lgpd-ropd` detecta warnings LR-001/LR-002/LR-003 mas 0 issues de fato | NORMAL em sandbox sem docs ROPD completos. STRICT mode default=True eleva warnings a issues → bloquear. Se for branch feature temporária, rode manual com `qa-gateway scan-lgpd-ropd --no-strict` (NÃO em main/release). |
 
 ## Snapshot Executivo
 

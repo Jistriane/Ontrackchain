@@ -137,7 +137,7 @@ doctor:
 	@if [ -x "$(MONOREPO_ROOT)/scripts/gov-m5-verify-pre-sign.sh" ]; then \
 	  cd "$(MONOREPO_ROOT)/.." && ./ontrackchain/scripts/gov-m5-verify-pre-sign.sh >/dev/null 2>&1 && echo "✅ OK" || echo "❌ FAIL (rode ./ontrackchain/scripts/gov-m5-verify-pre-sign.sh p/ detalhes)" ; \
 	else echo "⚠️  script gov-m5-verify-pre-sign.sh ausente"; fi
-	@echo "=== Use: make all-checks (9 gates) → doctor → typecheck → build-local → qa-gateway-smoke"
+	@echo "=== Use: make all-checks (13 gates FAIL-FAST, ADR-029) → doctor → typecheck → build-local → qa-gateway-4strict → lint → test-shared"
 
 lint:
 	@echo "=== Ruff check (lint + isort + style) em monorepo ontrackchain/ ==="
@@ -225,24 +225,90 @@ qa-gateway-smoke:
 			eval $$cmd >/dev/null 2>&1 && echo "  ✅ OK" || echo "  ⚠️  N/A (ignorado — pode precisar pip install -e packages/qa-gateway[dev])"; \
 		done
 
+# ============================================================
+# Sprint S28+30 P3: QA Gateway 4 STRICT scans OFFLINE / SEM banco
+# Todos são --strict default=True, max_warnings=0 (fail-closed).
+# Nenhum precisa de PG/Redis/Portas (todos code-scan AST ou files).
+# Ordem FAIL-FAST: BW (billing-caps) → BE (billing-enf) → LR (lgpd ropd) → RBAC (maior)
+#
+# EXECUÇÃO 2-CAMADAS (independentemente de PATH / pip install -e):
+#   CAMADA 1) se `qa-gateway` entry-point existe em PATH → usa direto
+#   CAMADA 2) senão → PYTHONPATH=packages/qa-gateway/src python3 -m qa_gateway.cli
+#              (não precisa de pip install; só precisa do pacote src/ existir no monorepo)
+# ============================================================
+_QA_GW_PY_ROOT = $(MONOREPO_ROOT)/packages/qa-gateway
+_QA_RUN = if command -v qa-gateway >/dev/null 2>&1; then qa-gateway; else cd $(MONOREPO_ROOT) && PYTHONPATH=$(_QA_GW_PY_ROOT)/src:$$PYTHONPATH python3 -m qa_gateway.cli; fi
+
+qa-gateway-scan-billing-capabilities-strict:
+	@echo "🧾 QA-GATE Q3-05: scan-billing-capabilities --strict --max-warnings 0 (BW-001..004 fail-closed)"
+	@mkdir -p $(MONOREPO_ROOT)/tmp_qa
+	@$(_QA_RUN) scan-billing-capabilities \
+		--project-root $(MONOREPO_ROOT) \
+		--strict --max-warnings 0 \
+		--failures-json $(MONOREPO_ROOT)/tmp_qa/billing-capabilities.failures.json
+
+qa-gateway-scan-billing-enforcement-strict:
+	@echo "🛡️  QA-GATE Q3-06: scan-billing-enforcement --strict --max-warnings 0 (BE-001..004 fail-closed)"
+	@mkdir -p $(MONOREPO_ROOT)/tmp_qa
+	@$(_QA_RUN) scan-billing-enforcement \
+		--project-root $(MONOREPO_ROOT) \
+		--strict --max-warnings 0 --skip-prod-redis \
+		--failures-json $(MONOREPO_ROOT)/tmp_qa/billing-enforcement.failures.json
+
+qa-gateway-scan-lgpd-ropd-strict:
+	@echo "🪪  QA-GATE Q3-07: scan-lgpd-ropd --strict --max-warnings 0 (LR-001..005 + ROPD E001..E003)"
+	@mkdir -p $(MONOREPO_ROOT)/tmp_qa
+	@$(_QA_RUN) scan-lgpd-ropd \
+		--project-root $(MONOREPO_ROOT) \
+		--strict --max-warnings 0 \
+		--failures-json $(MONOREPO_ROOT)/tmp_qa/lgpd-ropd.failures.json
+
+qa-gateway-scan-rbac-strict:
+	@echo "🚦 QA-GATE Q3-04: scan-rbac --strict (9 serviços, max-anonymous-write=0) — SEM --db-url (RBAC-W004 ignorado)"
+	@mkdir -p $(MONOREPO_ROOT)/tmp_qa
+	@$(_QA_RUN) scan-rbac \
+		--project-root $(MONOREPO_ROOT) \
+		--strict --max-warnings 0 --max-anonymous-write-per-service 0 \
+		--failures-json $(MONOREPO_ROOT)/tmp_qa/rbac.failures.json
+
+# Agregador dos 4 scans strict (usado pelo all-checks e manual)
+qa-gateway-all-strict-ci:
+	@mkdir -p "$(MONOREPO_ROOT)/tmp_qa"
+	@echo "============================================================"
+	@echo " Sprint S28+30 QA-Gateway ALL STRICT (4 gates offline) "
+	@echo "============================================================"
+	@$(MAKE) qa-gateway-scan-billing-capabilities-strict
+	@echo ""
+	@$(MAKE) qa-gateway-scan-billing-enforcement-strict
+	@echo ""
+	@$(MAKE) qa-gateway-scan-lgpd-ropd-strict
+	@echo ""
+	@$(MAKE) qa-gateway-scan-rbac-strict
+	@echo ""
+	@echo "✅ QA-Gateway STRICT CI (4/4) concluído. Relatórios JSON:"
+	@echo "  - $(MONOREPO_ROOT)/tmp_qa/*.failures.json"
+
 doctor-plus:
 	@$(MAKE) doctor
 	@echo
-	@echo "=== Doctor Plus (P2 S28+26) — gates locais rápidos ==="
+	@echo "=== Doctor Plus (P2 S28+26 → P3 S28+30) — gates locais rápidos ==="
 	@echo -n "Pre-commit framework: "
 	@command -v pre-commit >/dev/null 2>&1 && echo "✅ $(pre-commit --version 2>&1)" || echo "⚠️  NÃO instalado → rode: make pre-commit-install"
 	@echo -n "QA Gateway import: "
 	@cd "$(MONOREPO_ROOT)" && python3 -c "import ontrackchain_qa_gateway; print('✅', ontrackchain_qa_gateway.__name__)" 2>/dev/null || echo "⚠️  Não importável (pip install -e packages/qa-gateway[dev])"
+	@echo -n "qa-gateway CLI PATH: "
+	@command -v qa-gateway >/dev/null 2>&1 && echo "✅ $(command -v qa-gateway)" || echo "⚠️  NÃO em PATH (pip install -e packages/qa-gateway)"
 	@echo
 	@echo "Atalhos:"
-	@echo "  make gov-m5-verify           → PASSO 0 M5 hash auto-ref (S28+21)"
-	@echo "  make gov-m5-unit-test        → 2 cenários mock do gov-m5 (S28+25)"
-	@echo "  make shell-syntax            → bash -n 20 scripts (S28+25)"
-	@echo "  make healthz-bypass-test     → 18 bypass RBAC × 9 serviços (S28+24)"
-	@echo "  make qa-gateway-smoke        → 6 comandos qa-gateway --help (M16b)"
-	@echo "  make pre-commit-all          → ruff+shellcheck monorepo"
-	@echo "  make all-checks              → 9 gates FAIL-FAST (Sprint S28+28)"
-	@echo "  make typecheck → make build-local → make lint → make test-shared (fluxo dev padrão)"
+	@echo "  make gov-m5-verify                     → PASSO 0 M5 hash auto-ref (S28+21)"
+	@echo "  make gov-m5-unit-test                  → 2 cenários mock do gov-m5 (S28+25)"
+	@echo "  make shell-syntax                      → bash -n 21 scripts (S28+25)"
+	@echo "  make healthz-bypass-test               → 18 bypass RBAC × 9 serviços (S28+24)"
+	@echo "  make qa-gateway-smoke                  → 6 comandos qa-gateway --help (M16b)"
+	@echo "  make qa-gateway-all-strict-ci          → 4 STRICT scans Q3-04/05/06/07 (NOVO S28+30 P3)"
+	@echo "  make pre-commit-all                    → ruff+shellcheck monorepo"
+	@echo "  make all-checks                        → 13 gates FAIL-FAST (Sprint S28+30)"
+	@echo "  make typecheck → make build-local → make qa-gateway-all-strict-ci → make lint → make test-shared (fluxo dev padrão)"
 
 # ============================================================
 # Sprint S28+27 — Docker Compose local + aggregator all-checks
@@ -284,13 +350,16 @@ compose-logs-follow:
 		traefik postgres redis auth-service public-api ai-service mock-oidc
 
 # ============================================================
-# Aggregator ALL-CHECKS (Sprint S28+28 P2): 9 gates locais FAIL-FAST
-# Ordem: baratos → caros → falha se um falhar (set -e implícito via make)
-# UPDATED 28+28: +typecheck (g8), +build-local (g9) ANTES de lint/test
+# Aggregator ALL-CHECKS (Sprint S28+30 P3): 13 gates FAIL-FAST
+# Ordem ADR-029: baratos → médios → caros. FAIL em 1 aborta restante.
+# GATES 1-7  (baratos, 0-2 min): doctor / M5 / shell / healthz / typecheck / build-local
+# GATES 8-11 (médios,   1-3 min): qa-gateway 4 STRICT scans offline
+# GATES 12-13 (caros,   2-5 min): ruff lint / test-shared pytest
+# UPDATED S28+30: qa-gateway-4scans NOVOS entre build-local e lint (fail early estrutura)
 # ============================================================
 all-checks:
 	@echo "============================================================"
-	@echo " Sprint S28+28 ALL-CHECKS (9 gates locais, ~5 min) "
+	@echo " Sprint S28+30 ALL-CHECKS (13 gates locais, ~7 min total) "
 	@echo "============================================================"
 	@echo ""
 	@$(MAKE) doctor
@@ -307,12 +376,14 @@ all-checks:
 	@echo ""
 	@$(MAKE) build-local
 	@echo ""
+	@$(MAKE) qa-gateway-all-strict-ci
+	@echo ""
 	@$(MAKE) lint
 	@echo ""
 	@$(MAKE) test-shared
 	@echo ""
 	@echo "============================================================"
-	@echo " ✅ ALL-CHECKS PASSOU: 9 gates locais concluídos "
+	@echo " ✅ ALL-CHECKS PASSOU: 13 gates locais concluídos "
 	@echo "============================================================"
 	@echo "  Próximos passos opcionais:"
 	@echo "    make qa-gateway-smoke compose-up"
