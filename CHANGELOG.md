@@ -1,3 +1,15 @@
+> ⚠️ **DEPRECATED · NÃO USE ESTE ARQUIVO COMO SSOT**
+> 
+> Este CHANGELOG de formato Keep a Changelog está **desatualizado desde a versão v5.20.0 (Sprint S28+7)**.
+> O **Single Source of Truth (SSOT) OFICIAL** para histórico de sprints e releases do projeto Ontrackchain é:
+> ✅ **[CHANGELOG-SPRINTS.md](./CHANGELOG-SPRINTS.md)** (formato por sprints recentes-primeiro, mantido automaticamente a cada sprint, 34+ sprints 100% sincronizados com roadmap pyproject).
+> 
+> Use este arquivo legado apenas para referência histórica de releases **anteriores a 2026-08-10**. Nenhuma atualização será feita aqui.
+> 
+> 📖 Regra de governança: ver ADR-023 CHANGELOG Hierárquico + Sprint S28+56 (inicialização target make changelog conveniência).
+
+---
+
 # Changelog — Ontrackchain Plataforma
 
 *Formato industrial baseado em [Keep a Changelog 1.1.0 pt-BR](https://keepachangelog.com/pt-BR/1.1.0/) + versionamento [SemVer 2.0.0](https://semver.org/lang/pt-BR/). Regras:

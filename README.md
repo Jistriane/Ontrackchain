@@ -47,6 +47,28 @@ Resumo em 30 segundos:
 - o scaffold de `.env.staging.private` ja existe; o bloqueio dominante hoje e handoff pendente de `Compliance/AML` e variaveis reais obrigatorias (AML/KYT live + feed UE tokenizado)
 - staging full-stack continua isolado em `render.full-stack.yaml`; o blueprint padrao de vitrine segue `render.yaml` (frontend standalone showcase)
 
+---
+
+## Mapa Completo da Documentação · 7 Tiers Hierárquicos (Sprint S28+67 P4)
+
+> **SSOT de navegação**: use esta seção para encontrar rapidamente a documentação por categoria. Tudo que não estiver listado abaixo = Tier 7 Histórico (snapshots imutáveis de eventos passados, não atualizar).
+
+| Tier | Categoria | Onde encontrar | Atualização |
+|---|---|---|---|
+| **T0 · Onboarding DEV (Raiz)** | Início rápido, contribuição, changelog | `./README.md` (este) · `./CONTRIBUTING.md` · `./CHANGELOG-SPRINTS.md` (SSOT atualizado 34 sprints) · `./CHANGELOG.md` = **DEPRECADO legado** | ✅ Mantido a **cada sprint** |
+| **T1 · Core Arquitetura + ADRs** | Decisões arquiteturais históricas (imutáveis), blueprint técnico, apêndice | `./ontrackchain/docs/architecture.md` · `./ontrackchain/docs/TECHNICAL_APPENDIX.md` · `./ontrackchain/docs/EXECUTION_CHECKLIST_TO_95_PERCENT.md` · `./ontrackchain/docs/adrs/` ADR-001→ADR-029 (29 decisões canônicas + README índice + 1 LEGADO Vault) | ✅ Atualizado em sprints de arquitetura |
+| **T2 · Governança & Projeto** | Release gates, maturidade, riscos, compliance regulatório | `./ontrackchain/docs/project-release-gates.md` · `./ontrackchain/docs/project-maturity-assessment.md` · `./ontrackchain/docs/project-risk-register.md` · `./ontrackchain/docs/regulatory-readiness.md` | ✅ Atualizado em milestone releases |
+| **T3 · Operações Técnicas** | CI/CD, deploy staging, variáveis ambiente, RBAC, runbooks | `./ontrackchain/docs/ci-cd-and-release.md` · `./ontrackchain/docs/deploy-and-staging.md` · `./ontrackchain/docs/environment-variables.md` · `./ontrackchain/docs/rbac-and-permissions.md` · `./ontrackchain/docs/runbooks.md` + compliance LGPD/ROPD em `./ontrackchain/docs/compliance/` | ✅ Mantido em sprints de ops/infra |
+| **T4 · Evidência & Qualidade** | Matriz de auditoria, catálogo de eventos, RCA incidentes, checklist pré-produção | `./ontrackchain/docs/evidence-and-audit-matrix.md` · `./ontrackchain/docs/evidence-event-catalog.md` · `./ontrackchain/docs/cross-domain-incident-rca-playbook.md` · `./ontrackchain/docs/pre-production-checklist.md` | ✅ Mantido por auditoria + QA |
+| **T5 · Configuração GitHub Actions** | Workflows CI/CD, Issues, CODEOWNERS, settings | **.github/ (RAIZ) = SSOT ATIVO CI/CD + Push Protection + 13 Required Contexts HC-3** · `./ontrackchain/.github/` = mirror ISSUE_TEMPLATE + CODEOWNERS + dependabot (configurações colaboração) · `./github_main/.github/` = LEGADO ARQUIVADO referência (não usar) · Validador: `make settings-dry-run` (G8) | ⚠️ Alterar com **ordem EXPLÍCITA do proprietário** (HC-3 bloqueia alterações em settings.yml) |
+| **T6 · READMEs por App / Package** | Stack e setup de cada serviço individual | `./apps/*/README.md` ×9 (ai/auth/case/compliance/frontend/investigation/mock-oidc/monitoring/public/report) · `./packages/*/README.md` ×3 (shared/qa-gateway/agents) | ✅ Atualizado em sprints de app individual |
+| **T7 · Histórico Imutável (NÃO ATUALIZAR)** | Snapshots semanais, ciclos de governança, baselines, signoffs | `./ontrackchain/docs/governance-weekly/` (cycles/generated/archive) · `./ontrackchain/docs/history/` · `./ontrackchain/docs/baselines/` · `./ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md` (INTACTO HC-1, NÃO ALTERAR) | 🚫 **NÃO EDITAR** — snapshots de eventos passados. SIGNOFF-M5.md = hash L7 fixo. |
+
+> 💡 **Acesso conveniência 3 docs principais**: `make readme` + `make contributing` + `make changelog` (Trindade Docs S28+60, 3/3 headers padronizados).
+> 🛡️ **Primeiro contato com erro?** → [Troubleshooting Rápido (7 erros históricos + solução 30s)](#troubleshooting-rápido--erros-históricos-e-soluções-30-segundos-sprint-s2865-p4)
+
+---
+
 ## Quick Start 12 Min · Onboarding 101 (Sprint S28+30)
 
 > Objetivo: novo colaborador consegue rodar **13 gates locais (FAIL-FAST, ADR-029) + stack LEVE 8 containers + 4 healthz em <12 minutos**, sem credenciais externas reais nem OIDC real.
@@ -109,7 +131,7 @@ make all-checks
 14. `g14 lint`                   → ruff check + ruff format diff monorepo (11 dirs alvo). SARIF Ruff → GH Code Scanning S28+34, SARIF Bandit → GH Code Scanning S28+47 (13 serviços expandidos, categorias distintas)
 15. `g15 test-shared`            → 6 testes unitários do pacote `shared` (RBAC, middlewares, helpers)
 
-**Utilitários Dev (NÃO gating — comandos opcionais, Sprints S28+49 + S28+51 + S28+54 + S28+55 + S28+56 P4 + S28+58 P4 + S28+59 P4 + S28+60 P4 + S28+61 P4 + S28+62 P4):**
+**Utilitários Dev (NÃO gating — comandos opcionais, Sprints S28+49 + S28+51 + S28+54 + S28+55 + S28+56 P4 + S28+58 P4 + S28+59 P4 + S28+60 P4 + S28+61 P4 + S28+62 P4 + S28+63 P4 + S28+64 P4 + S28+65 P4 + S28+66 P4):**
 - 🟣 `make format` → ruff format hatch `apps/ packages/ scripts/` (auto-fix seguro, não altera imports/AST) **[S28+49]**
 - 🔴 `make audit`  → pip-audit 13 serviços, resumo HIGH/CRITICAL, logs por serviço em `tmp_audit/` (não bloqueia local, CI bloqueia PR se HIGH>0) **[S28+49]**
 - 🟢 `make clean`  → remove apenas `tmp_*  **/__pycache__  .pytest_cache  .mypy_cache  **/*.pyc` (não toca em src/, git/ nem arquivos de governança) **[S28+49]**
@@ -130,6 +152,10 @@ make all-checks
 - 📖 `make readme` → Exibe README completo raiz com header bonito: referência dotfiles SSOT S28+58+59, 15 gates all-checks, 8 gates padrão, 30 sprints fechados + `@cat README.md` 130+ seções. **Trindade docs simétrica 3/3**: `make changelog` (S28+56) + `make contributing` (S28+57) + `make readme` (S28+60) 100% padrão TAB ASCII 0x09 + header + cat. NÃO gating P4. **[S28+60]**
 - 🛡️ **S28+61 P4 Hardening CONTRIBUTING HC-5 NOVO + 3 itens checklist**: [CONTRIBUTING.md](./CONTRIBUTING.md) Seção 1 recebeu **HC-5 NOVO** (Dotfiles Governança + Trindade Docs: Plugin EditorConfig ativo + Windows `git config core.autocrlf=input` + 3 targets `make changelog/contributing/readme`). Seção 6 Checklist recebeu 3 NOVOS itens 7/8/9 (total 9 itens): 7) Plugin EditorConfig instalado/ativo IDE [S28+58]; 8) Windows `autocrlf=input` [S28+59]; 9) (Opcional) Trindade Docs 3/3 executados [S28+60]. Validação via G3 bash (sem CRLF `\r`) + G5 `all-checks -n` (parse Makefile garante 3 targets docs existem). **[S28+61]**
 - 📊 **S28+62 P4 CHANGELOG-SPRINTS 30 sprints atualizado**: [CHANGELOG-SPRINTS.md](./CHANGELOG-SPRINTS.md) recebeu **6 sprints recentes S28+56→S28+61** no topo da Tabela Resumo Geral (24→30 sprints) + 6 blocos NOVOS em Detalhe por Sprint (recente-primeiro): S28+61 HC-5, S28+60 readme, S28+59 gitattributes, S28+58 editorconfig, S28+57 contributing, S28+56 changelog init. Acesso conveniência via `make changelog`. **[S28+62]**
+- 🔄 **S28+63 P4 README Sync Utilitários Dev + Governança**: [README.md](./README.md) header Utilitários Dev atualizado 10→13 sprints (+S28+60/61/62). 3 bullets desatualizados corrigidos: (a) CONTRIBUTING.md 4→5 HC / 6→9 checklist; (b) `make changelog` 24→30 sprints; (c) `make contributing` 4→5 HC / 6→9 checklist + info 3 itens novos. 2 bullets EXPLÍCITOS NOVOS no final Utilitários Dev: (1) S28+61 P4 HC-5 NOVO + 3 itens checklist; (2) S28+62 P4 CHANGELOG 30 sprints atualizado. **[S28+63]**
+- ♻️ **S28+64 P4 CHANGELOG Auto-Referencial Gap 1**: [CHANGELOG-SPRINTS.md](./CHANGELOG-SPRINTS.md) recebeu correção de ciclo auto-referencial: sprints **S28+62 + S28+63** (que não estavam no CHANGELOG após o próprio sprint S28+62 ter atualizado S28+56→S28+61) foram adicionados no topo. Tabela 30→32 sprints. Acesso via `make changelog`. **[S28+64]**
+- 🐛 **S28+65 P4 README Troubleshooting Rápido 7 erros históricos**: [README.md](./README.md) recebeu seção **## Troubleshooting Rápido (abaixo Observabilidade)** com 7 erros históricos padronizados (Makefile missing separator TAB 0x09 / py_compile perm denied / all-checks sandbox dry-run / G3 CRLF Windows / AST depth Fechamento multi-linha / Compose depends_on LIST→DICT / Anti-Padrões Web3). Cada erro = ❌ sintaxe exata → ✅ solução ≤30s passo-a-passo → 🔍 causa raiz + mitigação permanente + sprint histórico de origem. **[S28+65]**
+- ♾️ **S28+66 P4 CHANGELOG Auto-Referencial Gap 2 (ciclo infinito quebrado 1-shot)**: [CHANGELOG-SPRINTS.md](./CHANGELOG-SPRINTS.md) recebeu **3 sprints adicionados de uma vez (S28+66 + S28+65 + S28+64)** no topo tabela + topo detalhe. Ciclo auto-referencial infinito quebrado (sprint de atualização NÃO cria nova lacuna incluindo a SI MESMO). Tabela 32→**34 sprints**. 0 impacto em gates. Acesso via `make changelog`. **[S28+66]**
 
 **Observabilidade — Logging Estruturado JSON (Sprint S28+48 P4 + Sprint S28+53 P3, 0 dependências novas):**
 - 🟢 **Shared util**: `ontrackchain_shared/logging_util.py` — `json.dumps` + `logging.Formatter` + `contextvars` + middleware Starlette/FastAPI `RequestIdLogMiddleware`.

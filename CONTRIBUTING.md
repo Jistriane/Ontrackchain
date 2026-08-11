@@ -20,7 +20,7 @@ NENHUM desses itens pode ser violado — validação automática via gates G1 (M
 
 ---
 
-## 2. Ciclo de Sprint Padrão (5 passos + COMMIT)
+## 2. Ciclo de Sprint Padrão (6 passos canônicos)
 
 Todo sprint segue metodologia INV → DESIGN → IMPL → DOCS → VAL → COMMIT:
 
