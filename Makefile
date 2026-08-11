@@ -1,4 +1,4 @@
-.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle doctor lint test test-shared typecheck build-local pre-commit-install pre-commit-all gov-m5-verify qa-gateway-smoke doctor-plus
+.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle doctor lint test test-shared typecheck build-local pre-commit-install pre-commit-all gov-m5-verify gov-m5-unit-test shell-syntax healthz-bypass-test qa-gateway-smoke doctor-plus compose-config compose-up compose-down compose-ps compose-logs compose-logs-follow all-checks
 
 WINDOW_ID ?= stg-2026-07-06-a
 MODE ?= baseline
@@ -227,3 +227,71 @@ doctor-plus:
 	@echo "  make qa-gateway-smoke        → 6 comandos qa-gateway --help (M16b)"
 	@echo "  make pre-commit-all          → ruff+shellcheck monorepo"
 	@echo "  make lint → make test-shared → make typecheck → make build-local (fluxo dev padrão)"
+
+# ============================================================
+# Sprint S28+27 — Docker Compose local + aggregator all-checks
+# Arquivo: ontrackchain/docker-compose.yml (32 services + profiles keycloak)
+# ============================================================
+COMPOSE_FILE ?= $(MONOREPO_ROOT)/docker-compose.yml
+COMPOSE_OVERLAY_OIDC ?= $(MONOREPO_ROOT)/docker-compose.oidc-local.yml
+E2E_LIGHT_PROFILES ?= --profile mock-oidc
+
+compose-config:
+	@echo "=== Docker Compose: validar sintaxe (config -q) ==="
+	docker compose -f "$(COMPOSE_FILE)" config -q >/dev/null 2>&1 && echo "✅ docker-compose.yml sintaxe OK (32 services declarados)" || (echo "❌ docker-compose.yml FALHOU sintaxe"; docker compose -f "$(COMPOSE_FILE)" config; exit 10)
+	@echo "  Overlay OIDC local: $(COMPOSE_OVERLAY_OIDC)"
+	@command -v docker >/dev/null 2>&1 && echo "  Docker client: OK ($(docker --version 2>&1))" || echo "  ⚠️ Docker não disponível"
+
+compose-up:
+	@echo "=== Docker Compose UP: perfil LEVE (traefik + pg + redis + bootstrap + auth + public + ai + mock-oidc) ==="
+	docker compose -f "$(COMPOSE_FILE)" $(E2E_LIGHT_PROFILES) up -d \
+		traefik postgres redis postgres-bootstrap auth-service public-api ai-service mock-oidc
+	@echo "Containeres ativos:"
+	@docker compose -f "$(COMPOSE_FILE)" ps --format '{{.Service}} → {{.State}}  {{.Health}}' 2>/dev/null | head -25 || true
+
+compose-down:
+	@echo "=== Docker Compose DOWN (mantém volumes. Use compose-purge para apagar volumes!) ==="
+	docker compose -f "$(COMPOSE_FILE)" down --remove-orphans
+
+compose-ps:
+	@echo "=== Docker Compose PS (status containeres) ==="
+	docker compose -f "$(COMPOSE_FILE)" ps --format 'table {{.Name}}\t{{.Service}}\t{{.State}}\t{{.Health}}\t{{.Ports}}'
+
+compose-logs:
+	@echo "=== Docker Compose logs (últimas 50 linhas por service LEVE) ==="
+	docker compose -f "$(COMPOSE_FILE)" logs --tail=50 \
+		traefik postgres redis auth-service public-api ai-service mock-oidc 2>&1 | tail -200
+
+compose-logs-follow:
+	@echo "=== Docker Compose logs -f (follow). Ctrl-C para parar. ==="
+	docker compose -f "$(COMPOSE_FILE)" logs -f --tail=20 \
+		traefik postgres redis auth-service public-api ai-service mock-oidc
+
+# ============================================================
+# Aggregator ALL-CHECKS (Sprint S28+27 P3): 7 gates locais rápidos
+# Ordem: baratos → caros → falha se um falhar (set -e implícito via make)
+# ============================================================
+all-checks:
+	@echo "============================================================"
+	@echo " Sprint S28+27 ALL-CHECKS (7 gates locais, ~3 min) "
+	@echo "============================================================"
+	@echo ""
+	@$(MAKE) doctor
+	@echo ""
+	@$(MAKE) gov-m5-verify
+	@echo ""
+	@$(MAKE) gov-m5-unit-test
+	@echo ""
+	@$(MAKE) shell-syntax
+	@echo ""
+	@$(MAKE) healthz-bypass-test
+	@echo ""
+	@$(MAKE) lint
+	@echo ""
+	@$(MAKE) test-shared
+	@echo ""
+	@echo "============================================================"
+	@echo " ✅ ALL-CHECKS PASSOU: 7 gates locais concluídos "
+	@echo "============================================================"
+	@echo "  Próximos passos opcionais:"
+	@echo "    make typecheck build-local qa-gateway-smoke compose-up"

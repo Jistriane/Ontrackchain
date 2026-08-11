@@ -23,6 +23,111 @@ Resumo em 30 segundos:
 - o scaffold de `.env.staging.private` ja existe; o bloqueio dominante hoje e handoff pendente de `Compliance/AML` e variaveis reais obrigatorias (AML/KYT live + feed UE tokenizado)
 - staging full-stack continua isolado em `render.full-stack.yaml`; o blueprint padrao de vitrine segue `render.yaml` (frontend standalone showcase)
 
+## Quick Start 10 Min · Onboarding 101 (Sprint S28+27)
+
+> Objetivo: novo colaborador consegue rodar **7 gates locais + stack LEVE 8 containers + 4 healthz em <10 minutos**, sem credenciais externas reais nem OIDC real.
+> Perfis OIDC pesados (Keycloak v25 real) são **OPCIONAIS** (`profiles: [keycloak]`) e NÃO sobem no fluxo padrão.
+
+### 0. Pré-requisitos mínimos
+
+| Componente | Versão mínima | Como checar |
+|---|---|---|
+| Python | 3.11.x | `python3 --version` |
+| Git | 2.40+ | `git --version` |
+| Docker Engine | 25+ (compose v2 integrado) | `docker version && docker compose version` |
+| Hatch | 1.12+ | `hatch --version` |
+
+### 1. Clone + Diagnóstico ambiental (1 min)
+
+```bash
+git clone <este-repo> ontrackchain-workspace
+cd ontrackchain-workspace
+make doctor-plus          # verifica 12 dependencias + paths hatch/python/git/docker/M5 hash
+```
+
+✅ Esperado: **NENHUM item em VERMELHO**. Docker com daemon **rodando** (`systemctl start docker` se necessário).
+
+### 2. Instala hooks de qualidade (30 seg)
+
+```bash
+make pre-commit-install   # ruff + bandit + shellcheck + detect-secrets (4 hooks)
+make pre-commit-all       # primeira passada dry-run monorepo (~45 seg)
+```
+
+### 3. ALL-CHECKS local (7 gates, ~3 min, FAIL-FAST)
+
+> Executa na ordem: baratos → caros. **Qualquer falha aborta imediatamente**.
+> `set -e` implícito do Make + ordem ADR-029 (governança primeiro, lint/test por último).
+
+```bash
+make all-checks
+```
+
+7 gates executados:
+1.  `doctor`                  → ambiental 12 items
+2.  `gov-m5-verify`           → PASSO 0 hash M5 L7 = `9dc53698…` (awk ignora bloco auto-ref L7-11)
+3.  `gov-m5-unit-test`        → 2 cenários mock (exit 0 esperado + exit 1 esperado = hash diferente)
+4.  `shell-syntax`            → `bash -n` em 20/21 scripts shell do monorepo
+5.  `healthz-bypass-test`     → 18 assertions (9 serviços × `/healthz` + `/metrics`) bypassam RBAC middleware
+6.  `lint`                    → ruff check + ruff format diff
+7.  `test-shared`             → 6 testes unitários do pacote `shared` (RBAC, middlewares, helpers)
+
+✅ Esperado: `✅ ALL-CHECKS PASSOU: 7 gates locais concluídos`.
+
+### 4. Arquivo .env local (30 seg)
+
+```bash
+cp ontrackchain/.env.example ontrackchain/.env
+# edite APENAS se quiser OIDC real / AML provider real. LEAVE-AS-IS funciona para perfil LEVE.
+```
+
+### 5. Sobe stack LEVE (8 containers, ~90 seg)
+
+> Perfil `--profile mock-oidc` sobe **mock-oidc:9101** em vez de Keycloak real. Nenhum container Keycloak/observabilidade pesada sobe.
+
+```bash
+make compose-up        # 8 containers: traefik, postgres (pg16 pgvector), redis, postgres-bootstrap, auth-service, public-api, ai-service, mock-oidc
+```
+
+### 6. E2E Light Script (verifica 4 healthz, ~60 seg)
+
+```bash
+./ontrackchain/scripts/s28p27-run-e2e-light.sh
+```
+
+O script **automagicamente**:
+- Faz `docker compose down` limpo ANTES (evita órfãos de execuções antigas)
+- Sobe 8 containers perfil LEVE
+- Aguarda `postgres healthy` + `redis healthy` via `docker compose ps --format json`
+- Faz **40 retries × 1s** HTTP GET em 4 endpoints `/healthz` (RFC 9292 `application/health+json`)
+- `trap EXIT INT TERM` garante `docker compose down` MESMO com Ctrl-C
+
+| Container | Healthz URL | Esperado HTTP |
+|---|---|---|
+| auth-service | http://127.0.0.1:9000/healthz | 200 `{"status":"pass"}` |
+| public-api | http://127.0.0.1:8000/healthz | 200 `{"status":"pass"}` |
+| ai-service | http://127.0.0.1:8005/healthz | 200 `{"status":"pass"}` |
+| mock-oidc | http://127.0.0.1:9101/healthz | 200 `{"status":"pass"}` |
+
+✅ Esperado: `🎉 E2E LIGHT PASS: 4/4 healthz RFC 9292 retornaram status=pass`.
+
+### 7. URLs principais (stack rodando)
+
+| Painel | URL | Credenciais padrão |
+|---|---|---|
+| Traefik Dashboard (ingress) | http://localhost:8081 | sem auth (dev only) |
+| Cockpit / Ingress HTTP | http://localhost:8080 | — |
+| Grafana Observabilidade (**NÃO sobe no LEVE**) | http://localhost:3000 | admin / admin (use `--profile observability` no compose-up) |
+
+### 8. Troubleshooting comum
+
+| Sintoma | Fix |
+|---|---|
+| `docker compose` não encontrado | Instale docker engine v25+ (compose v2 integrado). Não use o `docker-compose` binário legado v1. |
+| Postgres não fica healthy | `sudo lsof -i :5432` — provavelmente já tem PG local rodando. Pare com `sudo systemctl stop postgresql`. |
+| `make gov-m5-verify` falha | Verifique se editou `SIGNOFF-M5.md` **PROIBIDO**. Restore via `git checkout -- ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md`. |
+| E2E falha em mock-oidc:9101 | Aumente `MAX_RETRIES=60` no cabeçalho do script ou rode 2× (primeira execução baixa imagens docker). |
+
 ## Snapshot Executivo
 
 ### Estado atual
