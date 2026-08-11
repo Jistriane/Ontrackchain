@@ -157,6 +157,28 @@ async def _app_rbac_enforcer(
             return
 
 
+
+
+# Sprint S28+53 P3: Logging Estruturado JSON (zero deps novas, fallback logging stdlib padrão).
+# Padrão idêntico S28+48 P0 (auth-service / public-api / case-management). setup_structured_logging é idempotente.
+try:
+    from ontrackchain_shared.logging_util import (
+        RequestIdLogMiddleware as _MonitoringRequestIdLogMiddleware,
+        setup_structured_logging,
+    )
+    _MONITORING_STRUCTURED_LOG_OK = True
+except Exception:  # noqa: BLE001 - fallback para logging padrão se shared pkg indisponível em runtime
+    setup_structured_logging = None  # type: ignore[assignment]
+    _MonitoringRequestIdLogMiddleware = None  # type: ignore[assignment, misc]
+    _MONITORING_STRUCTURED_LOG_OK = False
+
+if setup_structured_logging is not None:
+    import os as _monitoring_os
+    setup_structured_logging(
+        "monitoring-api",
+        level=_monitoring_os.environ.get("LOG_LEVEL", "INFO"),
+    )
+    del _monitoring_os
 class Settings(BaseSettings):
     postgres_host: str = "postgres"
     postgres_port: int = 5432
@@ -178,6 +200,11 @@ app = FastAPI(
     title="OnTrackChain Monitoring API",
     dependencies=[Depends(_app_rbac_enforcer)],
 )
+
+
+# Sprint S28+53 P3: Request ID Middleware. Injeta request_id nos logs estruturados.
+if _MONITORING_STRUCTURED_LOG_OK and _MonitoringRequestIdLogMiddleware is not None:
+    app.add_middleware(_MonitoringRequestIdLogMiddleware)
 QUOTE_TTL_MINUTES = 15
 CALCULATION_VERSION = "v1.0"
 SUPPORTED_CHAINS = {"ethereum", "polygon", "bsc", "arbitrum", "base", "bitcoin"}

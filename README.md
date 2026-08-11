@@ -119,9 +119,9 @@ make all-checks
 - 🩺 `make compose-health` → tabela formatada docker compose ps (Name/Service/State/Health/Ports) **[S28+51]**
 - 🗑️ `make compose-purge FORCE_PURGE=1` → ⚠️ DESTRUTIVO: `docker compose down -v --remove-orphans` (APAGA volumes postgres/grafana). Default sem `FORCE_PURGE=1` = fail-safe (exit 5, não apaga nada) **[S28+51]**
 
-**Observabilidade — Logging Estruturado JSON (Sprint S28+48 P4, 0 dependências novas):**
+**Observabilidade — Logging Estruturado JSON (Sprint S28+48 P4 + Sprint S28+53 P3, 0 dependências novas):**
 - 🟢 **Shared util**: `ontrackchain_shared/logging_util.py` — `json.dumps` + `logging.Formatter` + `contextvars` + middleware Starlette/FastAPI `RequestIdLogMiddleware`.
-- 🟢 **Habilitado em 3 serviços (P0)**: `auth-service`, `public-api`, `case-management` (restante dos 10 = habilitar via `setup_structured_logging("nome-service")` no main.py, 1 linha).
+- 🟢 **Habilitado em 10/10 serviços FastAPI TOTAIS**: P0 `auth-service`, `public-api`, `case-management` (S28+48) + P3 `compliance-api`, `investigation-api`, `monitoring-api`, `report-api`, `ai-service`, `mock-oidc` (S28+53, bloco padrão idêntico S28+48: `setup_structured_logging("nome-service")` ANTES de `class Settings` + `app.add_middleware(RequestIdLogMiddleware)` IMEDIATAMENTE após `app = FastAPI(...)`).
 - 🟢 **Schema JSON Lines (parsável por ELK/Loki/Datadog)**: `timestamp` (ISO UTC), `level`, `severity` (syslog-style 1..7), `logger`, `message`, `service`, `request_id` (header `X-Request-Id` ou auto-gerado uuid4), `exc_info` + `_meta` (lineno/funcName/thread/pid) + todos `extra=...` de `logger.info(..., extra={...})`.
 - 🟢 **100% retrocompatível**: fallback `logging` stdlib padrão se import `logging_util` falhar (ambiente sem shared pkg instalado). setup é **idempotente** (2ª+ chamada no mesmo service = ignora).
 

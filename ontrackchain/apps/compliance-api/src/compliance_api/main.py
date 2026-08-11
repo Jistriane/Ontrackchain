@@ -71,6 +71,28 @@ from compliance_api.risk_provider import TrmRiskProviderConfig, describe_provide
 from compliance_api.structural_screens import router as structural_screens_router  # S20 T2-04
 
 
+
+
+# Sprint S28+53 P3: Logging Estruturado JSON (zero deps novas, fallback logging stdlib padrão).
+# Padrão idêntico S28+48 P0 (auth-service / public-api / case-management). setup_structured_logging é idempotente.
+try:
+    from ontrackchain_shared.logging_util import (
+        RequestIdLogMiddleware as _ComplianceRequestIdLogMiddleware,
+        setup_structured_logging,
+    )
+    _COMPLIANCE_STRUCTURED_LOG_OK = True
+except Exception:  # noqa: BLE001 - fallback para logging padrão se shared pkg indisponível em runtime
+    setup_structured_logging = None  # type: ignore[assignment]
+    _ComplianceRequestIdLogMiddleware = None  # type: ignore[assignment, misc]
+    _COMPLIANCE_STRUCTURED_LOG_OK = False
+
+if setup_structured_logging is not None:
+    import os as _compliance_os
+    setup_structured_logging(
+        "compliance-api",
+        level=_compliance_os.environ.get("LOG_LEVEL", "INFO"),
+    )
+    del _compliance_os
 class Settings(BaseSettings):
     postgres_host: str = "postgres"
     postgres_port: int = 5432
@@ -99,6 +121,11 @@ class Settings(BaseSettings):
 settings = Settings()
 
 app = FastAPI(title="OnTrackChain Compliance API")
+
+
+# Sprint S28+53 P3: Request ID Middleware. Injeta request_id nos logs estruturados.
+if _COMPLIANCE_STRUCTURED_LOG_OK and _ComplianceRequestIdLogMiddleware is not None:
+    app.add_middleware(_ComplianceRequestIdLogMiddleware)
 app.include_router(operations_router)
 app.include_router(structural_screens_router)  # S20 T2-04 Due Diligence/Screenings estruturados
 logger = logging.getLogger("compliance_api")
