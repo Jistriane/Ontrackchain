@@ -110,16 +110,24 @@ lint.isort.known-first-party = [
 
 # ============================================================
 # Sprint S28+28: [tool.mypy] SSOT workspace (8 apps + 3 packages)
-# NÃO usamos strict global (disallow_untyped_defs=true) nesta fase:
-# baseline = check_untyped_defs + warn_return_any para incrementalismo
-# Strict = milestone S28+31 P3 após 100% dos 4 serviços restantes typed
+# S28+31→S28+45: Roadmap incremental strict 1 app/sprint (10 milestones 10/10 ✅)
+# S28+46 P4: ATIVAÇÃO STRICT GLOBAL DEFAULT — fecha o ciclo do incrementalismo.
+#   · Qualquer NOVO módulo criado a partir de hoje JÁ NASCE em strict automaticamente (fail-fast).
+#   · Os 12 overrides [[tool.mypy.overrides]] individuais PERMANECEM (redundância segura = defesa em profundidade).
+#   · 9 flags idênticas em todos os níveis (default + overrides) garantem comportamento determinístico.
 # ============================================================
 [tool.mypy]
 python_version = "3.11"
 warn_return_any = true
+warn_unused_ignores = true
+strict_equality = true
 warn_unused_configs = true
-disallow_untyped_defs = false
+disallow_untyped_defs = true
 check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+warn_redundant_casts = true
 ignore_missing_imports = true
 no_implicit_optional = true
 show_error_codes = true
@@ -151,11 +159,14 @@ cache_dir = ".mypy_cache"
 
 # ============================================================
 # Sprint S28+31 P3: Strict mypy Incremental — Shared First
-# NÃO ATIVAMOS strict GLOBAL (quebraria 100% dos apps não-typed ainda).
+# S28+31→S28+45: 10 milestones 1 app/sprint (overrides individuais)
+# S28+46 P4: ATIVAÇÃO STRICT GLOBAL DEFAULT [tool.mypy] (9 flags estritas)
+#   · default agora = 9 flags strict; overrides individuais permanecem (redundância)
+#   · NOVOS módulos sem override específico JÁ NASÇEM strict (fail-fast positivo)
 # S28+32 P3: qa_gateway.* strict
 # S28+33 P3: ontrackchain_agents.* strict (2629 LOC, 19 arquivos: sanctions_engine + evidence_trail + etc)
 # S28+37 P3: auth_service.* strict (PRIMEIRO APP: 2737 LOC, main.py 2473L FastAPI auth)
-# Roadmap incremental após este milestone (fase de serviços 9 apps = 9 sprints):
+# Roadmap ADR mypy incremental strict Shared → QA → Agents → 9 Apps 1×1 → Global Default:
 #   · S28+31 ✅ packages/shared/src       (SSOT fonte da verdade)
 #   · S28+32 ✅ packages/qa-gateway/src   (9 comandos CLI + policies + rls guard)
 #   · S28+33 ✅ packages/agents/src       (2629 LOC: sanctions/evidence/preventive_block/travel_rule)
@@ -167,8 +178,9 @@ cache_dir = ".mypy_cache"
 #   · S28+42 ✅ apps/public-api         (sexto APP: 886 LOC main.py FastAPI endpoints público sem RBAC)
 #   · S28+43 ✅ apps/report-api         (sétimo APP: 2737 LOC main.py FastAPI relatórios PDF/dashboards)
 #   · S28+44 ✅ apps/ai-service         (oitavo APP: 3710 LOC main 2590L + agent_framework LLM 854L + worker 265L, ÚLTIMO APP REAL)
-#   · S28+45 ✅ apps/mock-oidc         (nono APP ÚLTIMO: 696 LOC main.py mock OIDC, 🏁 FECHAMENTO ROADMAP MYPY INCREMENTAL 10/10 ✅! 12 MÓDULOS STRICT: 3 shared + 9 apps)
-# Docs: ADR mypy incremental strict Shared → QA → Agents → 9 Apps 1×1.
+#   · S28+45 ✅ apps/mock-oidc         (nono APP ÚLTIMO: 696 LOC main.py mock OIDC, 🏁 ROADMAP 10 MÓDULOS 10/10 ✅! 12 MÓDULOS STRICT: 3 shared + 9 apps)
+#   · S28+46 ✅ DEFAULT [tool.mypy]    (🏁 FECHAMENTO CICLO STRICT GLOBAL! 9 flags estritas no bloco default. Novos módulos nascem strict automaticamente. 12 overrides permanecem = defesa em profundidade)
+# Docs: ADR mypy incremental strict Shared → QA → Agents → 9 Apps 1×1 → Global Default Strict.
 # ============================================================
 [[tool.mypy.overrides]]
 module = "ontrackchain_shared.*"
