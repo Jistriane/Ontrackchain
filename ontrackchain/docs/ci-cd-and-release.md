@@ -67,7 +67,95 @@ Local: `ontrackchain/policies/01_..04_.rego`. Job: `conftest-policy-gate`.
 |---|---|---|---|
 | 01 | `deny_continue_on_error_p0_gate` | Nega | Qualquer gate P0/P1/P2/P3 com `continue-on-error = true` |
 | 02 | `deny_ubuntu_latest_on_heavy_jobs` | Nega | Jobs pesados (pytest-matrix-services, "pytest service:", e2e-playwright, run-explorers-live) com `runs-on: ubuntu-latest` → exige array self-hosted labels |
-| 03 | `deny_missing_timeout_minutes` | Nega | TODO job CI/nightly sem `timeout-minutes` explícito (evita 6h GHA hard desperdício) |
+| 03 | `deny_missing_timeout_minutes` | Nega | **Código Rego Sprint28+7 (política 03 implementada)** — Nega TODO job CI/nightly sem `timeout-minutes` explícito (evita 6h GHA hard desperdício minutos). Inclui exceções whitelist para jobs de trigger tipo `workflow_dispatch` sem timeout explícito opcional (desativado por padrão). |
+
+**Código Rego Política 03 Sprint28+7 (salvar como `ontrackchain/policies/03_deny_missing_timeout_minutes.rego`):**
+
+```rego
+package ontrackchain.policies.deny_missing_timeout_minutes
+
+import future.keywords.if
+import future.keywords.in
+import future.keywords.contains
+
+# 5 jobs GHA conhecidos onde timeout-minutes é SEMPRE obrigatório (lista pode ser extendida)
+heavy_job_keywords := [
+  "pytest", "playwright", "e2e", "nightly", "load", "explorers",
+  "dr-restore", "sonarcloud", "codecov", "trufflehog", "scan", "build", "deploy"
+]
+
+# Whitelist global EXCEÇÃO: jobs exatos que NÃO exigem timeout (ex: trigger-only, 2min)
+whitelist_jobs := [
+  "label-gate-check",
+  "auto-merge-security-only"
+]
+
+deny contains msg if {
+  some job_id, job_spec in input.jobs
+  not job_spec["timeout-minutes"]
+  not job_id in whitelist_jobs
+
+  # Match por nome job contendo palavra-chave pesada
+  some kw in heavy_job_keywords
+  contains(lower(job_id), kw)
+
+  msg := sprintf(
+    "❌ CI GATE P0-08 (deny_missing_timeout_minutes): job '%s' SEM campo 'timeout-minutes' obrigatório. Adicione `timeout-minutes: N` onde N∈[5..120]. Exemplo abaixo no snippet. (Palavra-chave pesada detectada: '%s')",
+    [job_id, kw]
+  )
+}
+
+# Deny também TODO NIGHTLY independentemente de keyword (cron = SEMPRE timeout)
+deny contains msg if {
+  some workflow_name in ["nightly-dr-backup-restore", "nightly-explorers-live", "nightly-load-test"]
+  true
+
+  some job_id, job_spec in input.jobs
+  not job_spec["timeout-minutes"]
+  not job_id in whitelist_jobs
+
+  # Workflow name contém "nightly"
+  contains(lower(object.get(input, "name", "")), "nightly")
+
+  msg := sprintf(
+    "❌ CI GATE P0-08 NIGHTLY SEM TIMEOUT: workflow name='%s' job '%s' é nightly/cron mas não tem `timeout-minutes`. Obrigatorio por Dead Man Switch ADR-018. Exemplo: timeout-minutes: 60",
+    [object.get(input, "name", "desconhecido"), job_id]
+  )
+}
+```
+
+**Exemplo YAML Job CI Sprint28+7 SEMPRE com timeout-minutes (colar em workflows GHA):**
+
+```yaml
+name: pytest-matrix-ontrackchain-9-services
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+jobs:
+  pytest-matrix-ai-service:
+    name: "AI Service Unit Tests (44 contrato baseline)"
+    runs-on: [self-hosted, ontrackchain, sa-east-1]
+    timeout-minutes: 25          # <-- OBRIGATÓRIO por política 03 ADR-018 Sprint28+7
+    continue-on-error: false      # <-- OBRIGATÓRIO por política 01 deny_continue_on_error_p0_gate
+    env:
+      OTK_ENV: staging-ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python 3.11 setup (pgvector 0.7.4 psycopg3 FastAPI 0.115)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: pytest (44 contrato T2/Q3)
+        run: |
+          set -euo pipefail
+          python -m venv /tmp/otk-venv
+          source /tmp/otk-venv/bin/activate
+          pip install --quiet -r requirements-cicd.txt
+          pytest apps/ai-service -x -q --cov=. --cov-report=xml:coverage.xml --cov-fail-under=80
+```
+
+> **Notas Sprint28+7:** (a) timeout-minutes em jobs cron nightly SEMPRE ≤60min. (b) Jobs deploy staging ≤30. (c) Jobs pesados (Playwright e2e shard=8) ≤40 por shard. (d) Limite GHA ubuntu-latest por job hard = 360min = 6h → política 03 evita chegar perto disto.
 | 04 | `deny_missing_observability_endpoints_fastapi` | Nega (NOVO M16b) | Arquivos `apps/*/src/*/main.py` usando `FastAPI(` sem rota `/healthz` E/OU `/metrics` definida |
 
 ## 6 Nightly Workflows (Cron + Dead Man Switch Duplo)

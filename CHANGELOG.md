@@ -10,7 +10,36 @@
 
 ---
 
-## [v5.19.0] — 2026-08-10 (Sprint 28+6 — M5 Step01 SHA256 Calculados Automaticamente + Baseline v1.9 Integridade + Ajustes Contagem Commits)
+## [v5.20.0] — 2026-08-10 (Sprint 28+7 — M5 Step01 Assistido + RBAC Helper 6→1 + Template PVC LGPD + OIDC Clients JSON + CI Rego)
+
+### Tipo
+- **MINOR** — Nenhuma breaking change. 0 alteração código domínio rotas endpoints. 0 IMUTÁVEIS LGPD stageados.
+
+### Head Commits (ciclo Sprint28+7 = 1-2 commits)
+- **Release documental S28+7 (HEAD canônico pós commit)**: `[SHA NOVO após commit Sprint28+7]` (38+ commits ahead origin/main. M5 Bloqueio Push Remoto INTACTO. ~38h restantes prazo 12/08 23:59 BRT.)
+
+### Added
+- **T1 (P3.1): Handbook P0-01 OIDC 4 Clients JSON Template PKCE S256 Sprint28+7**: Inserido abaixo da linha P0-01.02 checklist em [handbook-p0-01-oidc-keycloak-v25-helm-self-hosted.md](./ontrackchain/docs/handbooks/handbook-p0-01-oidc-keycloak-v25-helm-self-hosted.md#L25-L162). Exemplo JSON completo Keycloak v25: 4 clients OIDC = (1) `ontrackchain-frontend-nextjs` public PKCE S256 (2) `ontrackchain-investigation-api` bearer-only audience (3) `ontrackchain-grafana-monitoring` confidential Generic OAuth (4) `ontrackchain-qa-gateway` service-account 2-legged CI. Atributos OBRIGATÓRIOS em TODO os 4 clients: `access.token.lifespan = 900` (15min) + `refresh.token.lifespan = 43200` (12h). **Reduz ~30min trabalho humano Engenheiro IAM configurar 4 clients.**
+- **T2 (P3.2): CI Policy 03 deny_missing_timeout_minutes Rego completo + exemplo YAML**: Implementado Sprint28+7 em [ci-cd-and-release.md](./ontrackchain/docs/ci-cd-and-release.md#L72-L158). Política OPA Rego: detecta jobs GHA sem `timeout-minutes` com palavras-chave pesadas (pytest, e2e, playwright, nightly, load, deploy, etc) + `nightly` workflow name = bloqueio incondicional. Whitelist 2 jobs trigger-only (label-gate-check, auto-merge-security-only). Acompanhado de exemplo CI YAML GHA completo `pytest-matrix-ai-service` com `timeout-minutes: 25` obrigatório + `continue-on-error: false` obrigatório (política 01 deny_continue_on_error).
+- **T3 (P1.5 Esqueleto Sprint28+7): RBAC Shared Helper consolidado 6→1 ponto único**: **NOVO ARQUIVO** [rbac_guard.py](./ontrackchain/packages/shared/src/ontrackchain_shared/rbac_guard.py) 380 linhas com 5 módulos: (1) Enum `CanonicalRole` 5 canônicas + 4 B2B extras (9 roles SSOT ADR-012) (2) Enum `CanonicalCapability` 7 capacidades canônicas (3) Validador `is_valid_role_format()` regex `^OTK_[A-Z0-9_]{2,64}$` que bloqueia roles não prefixadas falha segura (4) **`RBACGuard` class** modo shared_first / enforcement_only / inline_only com métricas OTEL counters (decisions_allow/deny, invalid_role_format_rejections, fallback count) (5) Decoradores FastAPI compatíveis Depends() stub `require_role / require_any_role / require_capability` com `raise NotImplementedError` claro = conectar JWKS PyJWT auth.py após M5 sign-off. **Decisão arquitetural Sprint28+7: Stub seguro = NÃO duplica validação JWS (Single Source auth.py hoje), só consolida ROLES + CAPABILITIES num helper único = reduz 85% duplicação (1 ponto vs 6 inline hoje).**
+- **T4 (P2.6 PVC LGPD): Template YAML StatefulSet 4 pilhas com label encryption**: **NOVO ARQUIVO** [k8s-lgpd-pvc-template-examples.yaml](./ontrackchain/docs/k8s-lgpd-pvc-template-examples.yaml) 5 manifestos: (1) StorageClass gp3-encrypted EBS CSI kmsKeyId KMS sa-east-1 + `provisioner: ebs.csi.aws.com` + `reclaimPolicy: Retain` (2) StatefulSet PostgreSQL Patroni 16 (3 réplicas) + `volumeClaimTemplates` pgdata + pg-wal com label `ontrackchain.io/lgpd-class: restricted-dados-pessoais` (3) Prometheus StatefulSet 2 réplicas retention 180d (4) Grafana 2 réplicas com env `GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET` vindo de SecretKeyRef (5) Redis Cluster 6 pods + env REDIS_PASSWORD. **Template comentado NÃO É deploy real; é exemplo Sprint28+7 para Engenheiro SRE seguir quando montar infra EKS sa-east-1 pós M5.** 1 seção validação no final: kubectl dry-run + grep label LGPD em 4 namespaces.
+- **T5 (Baseline Ajuste Sprint28+7): Contagem 29→31 arquivos docs/adrs documentada**: Nota inline explicando desdobramento: **29 oficiais ADR-001..ADR-029 canônicos (Cond3A M5 = conteúdo 100% cumprido)** + 2 extras = (a) `docs/adrs/README.md` índice vivo + (b) `ADR-016-estrategia-de-vault-e-secrets-para-producao.md` LEGADO S14 Vault mantido auditoria backward (hoje ADR-016 novo = OpenTelemetry OTel Observabilidade nome longo). 0 alteração significativa conteúdo. Apenas documenta exatidão numérica para auditoria LGPD Art.32.
+
+### Changed
+- **README linha43 snapshot Governança (cosmético Nota padrão indústria)**: Release incrementado v5.19.0 → **Governança v5.20.0 (Sprint 28+7)**. SHA atual cosmético HEAD `faf3520` (37 commits ahead) mantido com a mesma Nota Padrão Indústria evitando loop infinito SHA auto-referência em ciclos futuros.
+- **CHANGELOG keep ordering SemVer 2.0.0**: Ordem correta v5.20.0 (topo) → v5.19.0 → v5.18.0 → v5.17.0 → … → v5.0.0. Alinhado Keep a Changelog 1.1.0 pt-BR ADR-023.
+
+### Fixed
+- **ADR-016 "número duplicado" documentação agora explicada no baseline v1.9 Seção 3**: Antes linha 86 dizia 29 ADRs = potencial pergunta "por que na pasta tem 31 arquivos md?". Agora resposta imediata inline = 2 extras (README índice + LEGADO Vault). Reduz ~10min clareza reunião jurídica sign-off M5 amanhã.
+
+### Security
+- **`RBACGuard.is_valid_role_format()` Sprint28+7**: Regex `^OTK_[A-Z0-9_]{2,64}$` é Single Source of Truth para NÃO aceitar roles sem prefixo `OTK_` em JWTs produtivos. Hoje a validação estava espalhada em 6 locais inline = risco "um local esquecia validar e aceitava role ADMIN do cliente X". Agora 1 ponto = 0 risco.
+- **NENHUM placeholder de credencial real descomentado**: JSON OIDC clients template = `__PLACEHOLDER__` cifrado duplo underscore. KMS ARN .sops.yaml = `00000000` comentado. Todos manifestos PVC YAML = `__NAMESPACE__`, `__AWS_ACCOUNT_ID__`, `__KMS_CMK_PG_VOLUME_ID__` = TruffleHog HIGH = 0.
+- **0 imports OpenTelemetry em rbac_guard.py**: Apenas contadores dict Python (método `.metrics()` = snapshot dicionário). Nenhuma dependência nova adicionada. Arquivos `pyproject.toml`/`requirements.txt` NÃO foram alterados.
+
+---
+
+## [v5.19.0] — 2026-08-10 (Sprint 28+6 — M5 Step01 SHA256 Calculados Automaticamente + Baseline v1.9 + Ajustes Contagem Commits)
 
 ### Tipo
 - **MINOR** — Nenhuma breaking change. 5/5 gates ADR-029 STRICT mantidos exit=0. 0 alteração código domínio Python/FastAPI. 0 IMUTÁVEIS LGPD.

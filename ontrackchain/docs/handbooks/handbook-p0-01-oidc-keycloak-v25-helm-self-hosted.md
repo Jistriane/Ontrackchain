@@ -20,7 +20,146 @@ Stack alvo: Keycloak v25 nightly (Quarkus JVM 21 LTS) + Helm chart `codecentric/
 | # | Item | Categoria | Responsável | Status | Evidência de Conclusão |
 |---|---|---|---|---|---|
 | P0-01.01 | **Reino criado `otk-realm`**; display name = "Ontrackchain Regulatory Platform". Login theme corporativo + banner LGPD DPO contato dpo@ontrackchain.com.br visível em todas as telas de auth. | Configuração IdP | Engenheiro IAM | ❌ | JSON export realm `otk-realm-2026MMDD.json` + screenshot tela login |
-| P0-01.02 | **Clients OIDC criados** (confidential com PKCE S256 obrigatório): (A) `ontrackchain-frontend-nextjs` callback URLs whitelist (sem wildcard `*`); (B) `ontrackchain-investigation-api` audience `investigation-api`; (C) `ontrackchain-grafana-monitoring`; (D) `ontrackchain-qa-gateway`. TODOS clients com lifespan token access 15min, refresh 12h. | Configuração OIDC | Engenheiro IAM + Arquiteto | ❌ | JSON clients com `tokenLifespan` 900s (15min) |
+| P0-01.02 | **Clients OIDC criados** (confidential com PKCE S256 obrigatório): (A) `ontrackchain-frontend-nextjs` callback URLs whitelist (sem wildcard `*`); (B) `ontrackchain-investigation-api` audience `investigation-api`; (C) `ontrackchain-grafana-monitoring`; (D) `ontrackchain-qa-gateway`. TODOS clients com lifespan token access 15min, refresh 12h. | Configuração OIDC | Engenheiro IAM + Arquiteto | ❌ | JSON clients com `tokenLifespan` 900s (15min) — template exemplo abaixo (copiar JSON para Keycloak import partial import, substituir placeholders `__REALM_HOST__`, `__CALLBACK_*_URL__`) |
+
+**Template JSON Sprint28+7 (exemplo 4 clients OIDC importar no Keycloak v25):**
+
+```json
+{
+  "clients": [
+    {
+      "clientId": "ontrackchain-frontend-nextjs",
+      "name": "Ontrackchain Frontend Next.js (Public SPA com PKCE S256)",
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "pkceCodeChallengeMethod": "S256",
+      "rootUrl": "https://__FRONTEND_PUBLIC_HOST__/",
+      "baseUrl": "https://__FRONTEND_PUBLIC_HOST__/",
+      "redirectUris": [
+        "https://__CALLBACK_FRONTEND_URL_1__",
+        "https://__CALLBACK_FRONTEND_URL_2__"
+      ],
+      "webOrigins": [
+        "https://__FRONTEND_PUBLIC_HOST__"
+      ],
+      "attributes": {
+        "access.token.lifespan": 900,
+        "sso.session.idle.timeout": 3600,
+        "sso.session.max.lifespan": 43200,
+        "client.session.idle.timeout": 1800,
+        "client.session.max.lifespan": 43200,
+        "refresh.token.max.reuse": 0,
+        "refresh.token.lifespan": 43200,
+        "require.pushed.authorization.requests": true,
+        "tls.client.certificate.bound.access.tokens": "",
+        "post.logout.redirect.uris": "+"
+      }
+    },
+    {
+      "clientId": "ontrackchain-investigation-api",
+      "name": "Ontrackchain Investigation API (Confidential Bearer-only audience)",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "__INVESTIGATION_API_CLIENT_SECRET__ROTACIONAR_A_CADA_90DIAS__",
+      "defaultClientScopes": [
+        "investigation-api"
+      ],
+      "attributes": {
+        "access.token.lifespan": 900,
+        "refresh.token.lifespan": 43200
+      }
+    },
+    {
+      "clientId": "ontrackchain-grafana-monitoring",
+      "name": "Ontrackchain Grafana Monitoring (Generic OAuth Confidential)",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "__GRAFANA_CLIENT_SECRET__ROTACIONAR_A_CADA_90DIAS__",
+      "rootUrl": "https://__GRAFANA_PUBLIC_HOST__/",
+      "baseUrl": "https://__GRAFANA_PUBLIC_HOST__/grafana/",
+      "redirectUris": [
+        "https://__GRAFANA_PUBLIC_HOST__/grafana/login/generic_oauth"
+      ],
+      "webOrigins": [
+        "https://__GRAFANA_PUBLIC_HOST__"
+      ],
+      "attributes": {
+        "access.token.lifespan": 900,
+        "refresh.token.lifespan": 43200
+      },
+      "protocolMappers": [
+        {
+          "name": "Client Role User Attribute Mapper (OTK_*)",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "usermodel.clientRoleMapping.clientId": "ontrackchain-investigation-api"
+          }
+        },
+        {
+          "name": "Group Membership LDAP Mapper OTK_*",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "claim.name": "groups"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "ontrackchain-qa-gateway",
+      "name": "Ontrackchain QA Gateway Service Account (Client Credentials 2-legged CI)",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "__QA_GATEWAY_CLIENT_SECRET__ROTACIONAR_A_CADA_30DIAS_CI_BREVE__",
+      "attributes": {
+        "access.token.lifespan": 300,
+        "refresh.token.lifespan": 0,
+        "client.credentials.token.lifespan": 300
+      },
+      "serviceAccountClientRoles": {
+        "ontrackchain-investigation-api": [
+          "OTK_CI_PRE_MERGE_ENFORCE_ALL"
+        ]
+      }
+    }
+  ]
+}
+```
+
+> **Como usar Sprint28+7:** Keycloak → Realm `otk-realm` → Clients → Import → Selecionar JSON → Partial Import ON "Clients" e "Client Scopes" → Substituir `__PLACEHOLDERS__` acima antes de salvar. Valide: `access.token.lifespan=900` (15min) em TODO os 4 clients; `refresh.token.lifespan=43200` (12h); PKCE S256 obrigatório `ontrackchain-frontend-nextjs` sem client secret (publicClient=true).
 | P0-01.03 | **MFA OBRIGATÓRIO para roles OTK_ADMIN, OTK_COMPLIANCE_OFFICER, OTK_AUDITOR (BACEN Circular 3.978 Art. 12)**. Métodos permitidos: WebAuthn Roaming Authenticator (YubiKey/Nitrokey) + TOTP (autenticador app). Métodos PROIBIDOS: SMS OTP, Email OTP. | Segurança MFA | DSI + CISO | ❌ | Policy "Required Action" MFA mapeada roles 3 famílias |
 | P0-01.04 | **Roles OTK_* Federação mapeadas como Client Roles investigation-api**: 5 roles canônicas = `OTK_ADMIN`, `OTK_ANALYST`, `OTK_COMPLIANCE_OFFICER`, `OTK_AUDITOR`, `OTK_VIEWER`. NÃO criar nenhuma role extra. NÃO usar realm-level roles. | RBAC Federação | Arquiteto + Engenheiro IAM | ❌ | Screenshot Client Roles aba investigation-api 5 roles mapeadas |
 | P0-01.05 | **Protocolo mappers SAML 2.0 IdP-Initiated** para clientes Enterprise Tier: Single Sign-On Service URL `https://<keycloak>/auth/realms/otk-realm/protocol/saml`, NameID format = `urn:oasis:names:tc:SAML:2.0:nameid-format:persistent`. Assinatura SHA-256 RSA-4096 (NÃO SHA-1). Certificate auto-rotacionado a cada 90 dias. | SAML Enterprise | Engenheiro IAM + Cliente Enterprise Contato | ❌ | Metadata XML enterprise + sucesso login em 2 contas de teste |

@@ -20,7 +20,7 @@ validade_signoff_m5: 2026-08-12 23:59 UTC-3 (BRT · ~38h restantes prazo crític
 - **RBAC W005 Opção B:** 5 isenções documentadas (33→5, -85% Sprint27→Sprint28+2 mantido S28+4): auth issue-dev-token pré-login · compliance b2b/screen X-API-Key B2B tier · monitoring alertmanager/webhook Internal Bearer Ops · mock-oidc 2 endpoints pré-login IdP staging.
 - **Arquivos IMUTÁVEIS LGPD:** 0 commits permitidos. Validado em cada stage LGPD PATTERNs 0 (docs/governance-weekly, docs/history, docs/assessments, github_main).
 - **GAP-A1 AST estrutural (baseline 44/44 contrato):** Python3.14 sandbox sem pip → AST parse canônico. 88 arquivos test_*.py → 784 funções def test_* (17,8x baseline 44). 0 syntax errors. Todos 44 testes contrato T2/Q3 tem correspondência estrutural.
-- **GAP documental 29/29 ADRs conteúdo 100%:** 0 RESERVADOS. ADR-016 Observabilidade OTel preenchido Sprint28+0. Cond3A M5 ADR-026 = ⚠️ CONTEÚDO CUMPRIDA AGUARDANDO ASSINATURAS HUMANAS.
+- **GAP documental 29/29 ADRs OFICIAIS conteúdo 100%:** 0 RESERVADOS em ADR-001..ADR-029 (29 oficiais canônicos). Total arquivos em `docs/adrs/` = **31 (29 oficiais + 2 extras: README.md índice ADRs + ADR-016 LEGADO Vault estratégia de segredos, mantido auditoria backward S14)**. ADR-016 Observabilidade OTel preenchido Sprint28+0. Cond3A M5 ADR-026 = ⚠️ CONTEÚDO CUMPRIDA AGUARDANDO ASSINATURAS HUMANAS.
 - **CHANGELOG.md ADR-023 Opção C criado Sprint28+4:** arquivo raiz Keep a Changelog 1.1.0 pt-BR + SemVer 2.0.0. 12 releases S18→S28+4 hierárquicas. MAJOR v5.0.0 S14-16 roles OTK_*.
 
 ## 1. Histórico de Commits Locais (33 Commits - S1→Sprint28+4)
@@ -83,7 +83,7 @@ validade_signoff_m5: 2026-08-12 23:59 UTC-3 (BRT · ~38h restantes prazo crític
 | Arquivos IMUTÁVEIS LGPD touchados em qualquer stage Sprint28+4 | 0 | 0 (validação 4 vezes: docs/governance-weekly, docs/history, docs/assessments, github_main — 0 detectados) | ✅ CUMPRIDO 0 VIOLAÇÕES |
 | N. de apps FastAPI em `apps/` | 9 (auth/case-mgmt/investigation/ai/compliance/monitoring/report/public/mock-oidc) | 9 | ✅ CUMPRIDO |
 | N. de packages PyPI monorepo | 4 (shared/agents/qa-gateway + shared auth) + infra/k8s + frontend | 4 pkgs | ✅ CUMPRIDO |
-| 29 ADRs conteúdo 100% escrito (0 RESERVADOS) | 29 preenchidos · 0 vazios | 29 preenchidos · ADR-016 preenchido S28+0 · 0 RESERVADOS | ✅ CUMPRIDO (Cond3A M5 conteúdo OK) |
+| 29/29 ADRs OFICIAIS (ADR-001..029) conteúdo 100% escrito (0 RESERVADOS); total docs/adrs = 31 arquivos (29 oficiais + README índice + ADR-016 LEGADO Vault) | 29 oficiais preenchidos · 0 vazios · 2 extras históricos mantidos | 29 oficiais preenchidos · ADR-016 OTel preenchido S28+0 · 0 RESERVADOS oficiais | ✅ CUMPRIDO (Cond3A M5 conteúdo OK, 2 extras = intenção explícita auditoria) |
 | TruffleHog HIGH scan findings = 0 | 0 (STRICT Q3-08 ADR-029) | 0 (base Sprint 28+2 scanner regex novo + AST 784 0 tokens) | ✅ CUMPRIDO |
 | W005 RBAC isenções (Q1-RBAC Opção B) | 5 justificadas (pré-login, B2B tier, Ops Internal Bearer, mock-oidc 2) | 5 mantidas S28+4 · 0 regressão scanner | ☐ VERIFICAR (após W005 P1.1 remover 2 futuro) |
 | AST parse estrutural testes (Python3.14 sandbox sem pip) | 0 SyntaxErrors · 44 testes contrato correspondência | 88 arquivos test_*.py · 784 funções def test_* · 0 SyntaxErrors · 17,8x baseline 44 | ✅ CUMPRIDO |
