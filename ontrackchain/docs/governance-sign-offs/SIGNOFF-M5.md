@@ -93,12 +93,12 @@
 
 ## DÉBITO TÉCNICO E RISCOS RESIDUAIS (TRANSPARÊNCIA)
 
-| Risco | Probabilidade | Impacto | Mitigação | Ticket |
-|---|---|---|---|---|
-| Signatários humanos faltando (0/6 assinado) | ALTA (100% hoje) | CRÍTICO (bloqueia push remoto) | Reunião M5 agendada; urgente 48h | GOV-M5-SIG |
-| auth-service rate limit 429 usa aioredis singleton sem Redis real (fallback fail-open) | MÉDIA (50%) | MÉDIO (pode permitir ataque de força-bruta sem limitação) | Deploy real Redis antes de staging-serious; `FAIL_CLOSED_RATE_LIMIT=true` em prod via env | AUT-429-RED |
-| PyJWT JWKS lazy fetch sem retry + circuit breaker JWKS endpoint Keycloak indisponível | MÉDIA | MÉDIO (ADR-018 Pass 1 cai para Pass 2 X-Role inline; degradado mas seguro) | Adicionar `PyJWKClient` retry 3 + cache 24h S3; sprint S28+15 | ADR18-JWKS-1 |
-| 7 serviços novos SEM testes unitários RBAC 80% coverage | ALTA | ALTO | Sprint S28+15: 7x test_rbac.py; fuzzing Echidna-like para inputs X-Role maliciosos | ADR18-TEST-1 |
+| Risco | Probabilidade | Impacto | Mitigação | Ticket | Status Sprint |
+|---|---|---|---|---|---|
+| Signatários humanos faltando (0/6 assinado) | ALTA (100% hoje) | CRÍTICO (bloqueia push remoto) | Reunião M5 agendada; urgente 48h | GOV-M5-SIG | 🔴 **PENDENTE HUMANO** (jurídico, fora escopo sprint técnico) |
+| auth-service rate limit 429 usa aioredis singleton sem Redis real (fallback fail-open) | MÉDIA → BAIXO | MÉDIO → BAIXO | Sprint 28+15: Nova env `FAIL_CLOSED_RATE_LIMIT=true` (opt-in) + 2 paths 503 Service Unavailable Retry-After headers + logger.error para PagerDuty. Default continua fail-open para não quebrar ambientes staging-dev. Redis real deploy staging-serious antes prod | AUT-429-RED | 🟢 **MITIGADO S28+15** (env fail-closed + 2 codepaths 503) |
+| PyJWT JWKS lazy fetch sem retry + circuit breaker JWKS endpoint Keycloak indisponível | MÉDIA → BAIXO | MÉDIO → BAIXO | Sprint 28+15: `_retry_with_exponential_backoff(fn, tries=3, 0.25s→0.5s→1.0s, jitter 25%)` SSOT. `_get_jwks_client()` retry init. `_cached_signing_key()` 4 camadas: SHORT 1h → LONG 24h stale-while-revalidate → retry 3x both-expired → último-recurso key-expirada-warning. `_discover_jwks_from_issuer()` httpx.Client retry 3x + resp.raise_for_status(). | ADR18-JWKS-1 | 🟢 **MITIGADO S28+15** (3x retry + dual TTL 1h/24h stale cache) |
+| 7 serviços novos SEM testes unitários RBAC 80% coverage | ALTA → MÉDIO | ALTO → MÉDIO | Sprint 28+15: 7 arquivos `apps/*/tests/test_rbac.py` = 12 testes cada = 84 testes unit/integration pytest-style. Pattern: 6 pure-functions _SVC_normalize_role (empty/strip-4-prefixes/3-aliases/uppercase) + 6 TestClient(app) (bypass público /health /docs, rota exata ADMIN 403 sem header → passa com X-Role=ADMIN, viewer negado, endpoint específico, prefixo internal ADMIN). Validação AST 9/9 compile() ZERO SyntaxError. | ADR18-TEST-1 | 🟢 **MITIGADO S28+15** (84 testes pytest 7 arquivos) |
 
 ---
 
@@ -109,6 +109,9 @@
 - [x] Helm Chart 1.1.0 / appVersion 3.1.0-m5 (S28+13)
 - [x] Terraform S3 backend + .sops.yaml ativo creation_rules
 - [x] .github/workflows CI ADR-029 5-gates
+- [x] JWKS Retry 3x exponential backoff + DUAL TTL cache 1h/24h stale-while-revalidate (S28+15.1)
+- [x] Auth Rate Limit env FAIL_CLOSED_RATE_LIMIT=true 503 Service Unavailable c/ Retry-After (S28+15.2)
+- [x] 84 testes RBAC pytest 7 serviços (12 testes/test_rbac.py: 6 unitários normalize_role + 6 integration TestClient) (S28+15.3/4)
 - [ ] 06/06 Signatários ASSINADOS PGP Clearsign
 - [ ] 29/29 linhas da tabela = "Aprovado" (SIGNOFF-ADRS-ALL-29)
 - [ ] 5/5 Gates CI = PASS em staging-serious commit
