@@ -39,13 +39,70 @@ from __future__ import annotations
 import enum
 import logging
 import os
+import random
 import re
 import threading
 import time
 from functools import lru_cache
-from typing import Iterable, Optional, Sequence
+from typing import Callable, Iterable, Optional, Sequence, TypeVar
 
 logger = logging.getLogger("ontrackchain.rbac_guard")
+
+T = TypeVar("T")
+
+_JWKS_RETRY_DEFAULT_TRIES = 3
+_JWKS_RETRY_INITIAL_BACKOFF_SEC = 0.25
+_JWKS_RETRY_BACKOFF_FACTOR = 2.0
+_JWKS_RETRY_JITTER_RATIO = 0.25
+
+_JWKS_SHORT_TTL_SEC = 3600          # 1h = padrão de cache quente (refresh do kid)
+_JWKS_LONG_TTL_SEC = 86400          # 24h = stale-while-revalidate (se JWKS IdP cair usar keys antigas)
+
+
+def _retry_with_exponential_backoff(
+    fn: Callable[[], T],
+    *,
+    tries: int = _JWKS_RETRY_DEFAULT_TRIES,
+    initial_backoff: float = _JWKS_RETRY_INITIAL_BACKOFF_SEC,
+    factor: float = _JWKS_RETRY_BACKOFF_FACTOR,
+    jitter_ratio: float = _JWKS_RETRY_JITTER_RATIO,
+    retryable_exceptions: tuple[type[BaseException], ...] = (Exception,),
+    log_ctx: str = "",
+) -> T:
+    """Retry genérico com exponential backoff + jitter.
+
+    Args:
+        fn: função zero-argumentos a ser executada com retry.
+        tries: número MAXIMO de tentativas (padrão 3).
+        initial_backoff: espera após 1ª falha (padrão 250ms).
+        factor: multiplicador backoff entre tentativas (2.0 = 250ms → 500ms → 1000ms).
+        jitter_ratio: fração de ruído uniforme adicionado ao backoff.
+        retryable_exceptions: tupla de exceções que disparam retry.
+        log_ctx: contexto opcional para logs de aviso.
+
+    Raises:
+        Re-raises a última exceção após exaurir todas as tentativas.
+    """
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            return fn()
+        except retryable_exceptions as exc:
+            if attempt >= tries:
+                logger.warning(
+                    "retry FAILED after %d/%d tries ctx=%s err=%s(%s)",
+                    attempt, tries, log_ctx or "-", type(exc).__name__, str(exc),
+                )
+                raise
+            sleep_base = initial_backoff * (factor ** (attempt - 1))
+            jitter = random.uniform(-jitter_ratio * sleep_base, jitter_ratio * sleep_base)
+            sleep_sec = max(0.0, sleep_base + jitter)
+            logger.info(
+                "retry attempt %d/%d sleeping %.3fs ctx=%s err=%s",
+                attempt, tries, sleep_sec, log_ctx or "-", type(exc).__name__,
+            )
+            time.sleep(sleep_sec)
 
 # ============================================================
 # 0. DEPENDÊNCIAS OPCIONAIS (PyJWT) — fail-closed se não instalado
@@ -234,16 +291,20 @@ class RBACGuard:
             "jwt_validations_failed": 0,
         }
 
-        # Lazy init PyJWKClient + signing key cache TTL 1h (3600s)
+        # Lazy init PyJWKClient + signing key cache DUAL TTL (1h quente + 24h stale-while-revalidate)
         self._lock = threading.RLock()
         self._jwks_client: object = None  # PyJWKClient (lazy)
-        self._signing_keys: dict[str, tuple[object, float]] = {}  # kid → (jwk, expires_monotonic)
-        self._signing_keys_ttl_sec = 3600
+        # kid → (jwk, expires_monotonic_SHORT_1h, expires_monotonic_LONG_24h)
+        self._signing_keys: dict[str, tuple[object, float, float]] = {}
+        self._signing_keys_ttl_short = _JWKS_SHORT_TTL_SEC
+        self._signing_keys_ttl_long = _JWKS_LONG_TTL_SEC
+        self._stats["jwks_retry_count"] = 0
+        self._stats["jwks_stale_cache_fallback_count"] = 0
 
     # --- Internos JWKS -----------------------------------------------------
 
     def _get_jwks_client(self):
-        """Inicializa PyJWKClient lazy. Fail-closed se PyJWT não disponível."""
+        """Inicializa PyJWKClient lazy COM retry. Fail-closed se PyJWT não disponível."""
         if not _PYJWT_AVAILABLE:
             raise RuntimeError(
                 "PyJWT não instalado em ontrackchain-shared[deps]. "
@@ -258,30 +319,101 @@ class RBACGuard:
                         f"RBACGuard jwks_url vazio para aud={self.audience!r}. "
                         "Preencha OTK_JWKS_URL ou OTK_OIDC_ISSUER (discovery)."
                     )
-                self._jwks_client = PyJWKClient(self.jwks_url.strip())
+                ctx = f"jwks_client_init aud={self.audience!r}"
+                def _factory():
+                    return PyJWKClient(self.jwks_url.strip())
+                try:
+                    self._jwks_client = _retry_with_exponential_backoff(
+                        _factory,
+                        tries=_JWKS_RETRY_DEFAULT_TRIES,
+                        retryable_exceptions=(Exception,),
+                        log_ctx=ctx,
+                    )
+                except Exception:
+                    self._stats["jwks_retry_count"] += _JWKS_RETRY_DEFAULT_TRIES
+                    raise
         return self._jwks_client
 
     def _cached_signing_key(self, token: str):
-        """Retorna signing key para o `kid` do token. Cache TTL 1h."""
+        """Retorna signing key para o `kid` do token. Cache DUAL TTL (1h / 24h stale) COM retry.
+
+        Política (stale-while-revalidate, LGPD não se aplica aqui — keys são públicas):
+          - Se SHORT TTL (1h) válido → retorna imediatamente (caminho feliz 99%).
+          - Se SHORT expirou mas LONG TTL (24h) válido → retorna stale + dispara fetch refresh background via
+            retry (bloqueante mas com retry).
+          - Se ambos expiraram → fetch do JWKS via retry 3x.
+          - Se fetch JWKS falhou, mas ainda existe cache LONG expirado fora do TTL → retorna como último recurso
+            e conta stat `jwks_stale_cache_fallback_count`.
+        """
         if not _PYJWT_AVAILABLE:  # pragma: no cover
             raise RuntimeError("PyJWT missing")
         client = self._get_jwks_client()
         # Extrai header SEM validar assinatura (fail-fast kid não existe → 401)
         unverified_header = jwt.get_unverified_header(token)
         kid = str(unverified_header.get("kid") or "").strip()
-        if not kid:
-            # Fallback: tentar get_signing_key_from_jwt (lenta, só 1 vez)
-            return client.get_signing_key_from_jwt(token)
         now = time.monotonic()
-        cached = self._signing_keys.get(kid)
-        if cached is not None:
-            jwk, expires_at = cached
-            if expires_at > now:
-                return jwk
-        # Refresh key do JWKS
-        jwk = client.get_signing_key_from_jwt(token)
-        self._signing_keys[kid] = (jwk, now + self._signing_keys_ttl_sec)
-        return jwk
+        if kid:
+            cached = self._signing_keys.get(kid)
+            if cached is not None:
+                jwk, expires_short, expires_long = cached
+                if expires_short > now:
+                    return jwk
+                if expires_long > now:
+                    # Stale válido ainda — refresh assíncrono via retry
+                    ctx = f"signing_key_refresh aud={self.audience!r} kid={kid!r} (stale 1h OK, 24h válido)"
+                    def _fetch():
+                        return client.get_signing_key_from_jwt(token)
+                    try:
+                        new_jwk = _retry_with_exponential_backoff(
+                            _fetch,
+                            tries=_JWKS_RETRY_DEFAULT_TRIES,
+                            retryable_exceptions=(PyJWKClientError,),
+                            log_ctx=ctx,
+                        )
+                        self._stats["jwks_retry_count"] += _JWKS_RETRY_DEFAULT_TRIES - 1
+                        self._signing_keys[kid] = (new_jwk, now + self._signing_keys_ttl_short, now + self._signing_keys_ttl_long)
+                        return new_jwk
+                    except Exception:
+                        # Retry falhou, mas stale ainda dentro do longo TTL → retornar cache
+                        self._stats["jwks_stale_cache_fallback_count"] += 1
+                        self.log.warning(
+                            "JWKS refresh falhou após retry. Usando stale cache kid=%s aud=%s (TTL longo ainda válido por %.0fs).",
+                            kid, self.audience, max(0.0, expires_long - now),
+                        )
+                        return jwk
+                # Ambos TTL expiraram, mas vamos tentar usar key expirada COMO ÚLTIMO RECURSO
+                # caso JWKS fique indisponível por + de 24h.
+                if expires_long <= now:
+                    ctx = f"signing_key_both_expired_retry aud={self.audience!r} kid={kid!r}"
+                    def _fetch2():
+                        return client.get_signing_key_from_jwt(token)
+                    try:
+                        new_jwk = _retry_with_exponential_backoff(
+                            _fetch2,
+                            tries=_JWKS_RETRY_DEFAULT_TRIES,
+                            retryable_exceptions=(PyJWKClientError, Exception),
+                            log_ctx=ctx,
+                        )
+                        self._stats["jwks_retry_count"] += _JWKS_RETRY_DEFAULT_TRIES - 1
+                        self._signing_keys[kid] = (new_jwk, now + self._signing_keys_ttl_short, now + self._signing_keys_ttl_long)
+                        return new_jwk
+                    except Exception as _last_exc:
+                        self._stats["jwks_stale_cache_fallback_count"] += 1
+                        self.log.warning(
+                            "JWKS unavailable + cache 24h expirou kid=%s aud=%s. Último recurso: retornando key expirada (não valida assinatura nova). err=%s",
+                            kid, self.audience, type(_last_exc).__name__,
+                        )
+                        return jwk
+        # Fallback: sem kid (chave sem identificador) → retry direto
+        ctx = f"signing_key_no_kid_fallback aud={self.audience!r}"
+        def _fetch3():
+            return client.get_signing_key_from_jwt(token)
+        return _retry_with_exponential_backoff(
+            _fetch3,
+            tries=_JWKS_RETRY_DEFAULT_TRIES,
+            retryable_exceptions=(PyJWKClientError, Exception),
+            log_ctx=ctx,
+        )
 
     # --- Validação JWT -----------------------------------------------------
 
@@ -561,23 +693,33 @@ _GUARD_REGISTRY: dict[str, RBACGuard] = {}  # audience → singleton
 
 
 def _discover_jwks_from_issuer(issuer: str) -> str:
-    """Faz OIDC discovery para achar jwks_uri. Fallback padrão Keycloak/Okta se falhar."""
+    """Faz OIDC discovery PARA achar jwks_uri. COM retry 3x httpx. Fallback padrão Keycloak/Okta se falhar."""
     if not issuer:
         return ""
     iss = issuer.strip().rstrip("/")
-    # Tentativa padrão (Boa parte IdPs modernos segue RFC 8414):
     well_known = f"{iss}/.well-known/openid-configuration"
     try:
         import httpx  # lazy import (dependência nova shared)
-        with httpx.Client(timeout=5.0, follow_redirects=True) as client:
-            resp = client.get(well_known)
-            if resp.status_code == 200:
-                doc = resp.json()
-                jwks_uri = str(doc.get("jwks_uri") or "").strip()
-                if jwks_uri:
-                    return jwks_uri
+        ctx = f"oidc_discovery iss={iss!r}"
+        def _http_fetch():
+            with httpx.Client(timeout=5.0, follow_redirects=True) as client:
+                resp = client.get(well_known)
+                resp.raise_for_status()
+                return resp.json()
+        try:
+            doc = _retry_with_exponential_backoff(
+                _http_fetch,
+                tries=_JWKS_RETRY_DEFAULT_TRIES,
+                retryable_exceptions=(httpx.HTTPError, Exception),
+                log_ctx=ctx,
+            )
+            jwks_uri = str(doc.get("jwks_uri") or "").strip()
+            if jwks_uri:
+                return jwks_uri
+        except Exception as exc:  # pragma: no cover
+            logger.warning("OIDC discovery falhou após retry para %s: %s. Usando fallback URLs padrão.", iss, exc)
     except Exception as exc:  # pragma: no cover
-        logger.warning("OIDC discovery falhou para %s: %s. Usando fallback URLs padrão.", iss, exc)
+        logger.warning("OIDC discovery sem httpx disponível para %s: %s. Usando fallback Keycloak padrão.", iss, exc)
     # Fallback padrão por convenção (Keycloak / Auth0 / Okta)
     return f"{iss}/protocol/openid-connect/certs"
 

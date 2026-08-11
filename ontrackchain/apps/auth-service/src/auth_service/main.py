@@ -254,12 +254,16 @@ app = FastAPI(
 # =============================================================================
 # RATE LIMIT MIDDLEWARE (P0) — Sprint S28+14
 # 429 em /auth/issue-dev-token, /auth/login, /auth/verify-2fa
-# Fail-open: qualquer erro de Redis → passa (denegar por erro de infra é P99 outage)
+# Fail-open default: qualquer erro de Redis → passa (denegar por erro de infra é P99 outage)
+# FAIL_CLOSED_RATE_LIMIT=true: Redis INDISPONÍVEL = 503 Service Unavailable (ATIVAR em produção)
 # =============================================================================
 _RATE_LIMIT_WINDOW_SECONDS = 60
 _RATE_LIMIT_ISSUE_DEV_TOKEN = 5
 _RATE_LIMIT_LOGIN_OAUTH = 10
 _RATE_LIMIT_VERIFY_2FA = 20
+_FAIL_CLOSED_RATE_LIMIT_ENV = str(
+    __import__("os").environ.get("FAIL_CLOSED_RATE_LIMIT", "false")
+).strip().lower() in {"1", "true", "yes", "on", "enabled"}
 
 
 @app.middleware("http")
@@ -281,6 +285,29 @@ async def _auth_rate_limit_middleware(request: Request, call_next):
     full_key = f"rl:auth:{path}:{client_ip}:{window_start}"
     redis_client = getattr(request.app.state, "redis", None)
     if redis_client is None:
+        if _FAIL_CLOSED_RATE_LIMIT_ENV:
+            logger.error(
+                "auth-service: FAIL_CLOSED_RATE_LIMIT=true e Redis INDISPONIVEL path=%s ip=%s → 503 Service Unavailable",
+                path, client_ip,
+            )
+            reset_at = (window_start + 1) * _RATE_LIMIT_WINDOW_SECONDS
+            retry_after = max(10, reset_at - int(time.time()))
+            content = json.dumps({
+                "detail": "rate_limit_redis_unavailable_fail_closed",
+                "path": path,
+                "retry_seconds": retry_after,
+            })
+            return Response(
+                status_code=503,
+                content=content,
+                media_type="application/json",
+                headers={
+                    "Retry-After": str(retry_after),
+                    "X-RateLimit-Limit": str(limit),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": str(reset_at),
+                },
+            )
         return await call_next(request)
     try:
         current = await redis_client.incr(full_key)
@@ -303,6 +330,23 @@ async def _auth_rate_limit_middleware(request: Request, call_next):
                 },
             )
     except Exception as _rl_e:  # noqa: BLE001
+        if _FAIL_CLOSED_RATE_LIMIT_ENV:
+            logger.error(
+                "auth-service: FAIL_CLOSED_RATE_LIMIT=true Redis erro %s path=%s ip=%s → 503",
+                type(_rl_e).__name__, path, client_ip,
+            )
+            reset_at = (window_start + 1) * _RATE_LIMIT_WINDOW_SECONDS
+            retry_after = max(10, reset_at - int(time.time()))
+            return Response(
+                status_code=503,
+                content=json.dumps({
+                    "detail": f"rate_limit_redis_error_{type(_rl_e).__name__.lower()}",
+                    "path": path,
+                    "retry_seconds": retry_after,
+                }),
+                media_type="application/json",
+                headers={"Retry-After": str(retry_after)},
+            )
         logger.warning("auth-service: rate-limit Redis err %s on %s (fail-open).", type(_rl_e).__name__, path)
     return await call_next(request)
 
