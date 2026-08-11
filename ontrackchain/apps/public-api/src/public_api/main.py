@@ -31,12 +31,17 @@ settings = Settings()
 # =============================================================================
 _PUBLIC_RBAC_GUARD = None
 _PUBLIC_SHARED_OK = False
+_PUBLIC_RATE_SHARED_OK = False
+_PUBLIC_RATE_LIMIT_RESPONSE_FN = None
 try:
     from ontrackchain_shared.rbac_guard import (
         CanonicalRole,
         RBACGuard,
         default_guard_from_env,
+        rate_limit_response,
     )
+    _PUBLIC_RATE_LIMIT_RESPONSE_FN = rate_limit_response
+    _PUBLIC_RATE_SHARED_OK = True
     try:
         _PUBLIC_RBAC_GUARD = default_guard_from_env(audience_env="OTK_AUDIENCE")
         _PUBLIC_SHARED_OK = True
@@ -45,6 +50,7 @@ try:
 except Exception:  # noqa: BLE001
     CanonicalRole = None
     RBACGuard = None
+    rate_limit_response = None
 
 
 def _public_get_rbac_guard():
@@ -226,7 +232,7 @@ async def public_rate_limiter(
     request: Request,
     redis: Redis = Depends(get_redis),
     x_forwarded_for: Annotated[Optional[str], Header()] = None,
-) -> None:
+) -> Optional[Response]:
     ip = (x_forwarded_for or request.client.host or "unknown").split(",")[0].strip()
     _PUBLIC_RATE_LIMIT = 10
     _PUBLIC_WINDOW_SECONDS = 3600
@@ -239,6 +245,19 @@ async def public_rate_limiter(
         reset_at = int(time.time()) + max(1, int(ttl))
         retry_after = max(1, reset_at - int(time.time()))
         remaining = max(0, _PUBLIC_RATE_LIMIT - count)
+        detail = {"code": "rate_limited", "limit_per_hour": _PUBLIC_RATE_LIMIT}
+        if (
+            _PUBLIC_RATE_SHARED_OK
+            and _PUBLIC_RATE_LIMIT_RESPONSE_FN is not None
+        ):
+            return _PUBLIC_RATE_LIMIT_RESPONSE_FN(
+                status_code=429,
+                detail=detail,
+                limit=_PUBLIC_RATE_LIMIT,
+                remaining=remaining,
+                reset_at_epoch=reset_at,
+                retry_after_seconds=retry_after,
+            )
         headers = {
             "Retry-After": str(retry_after),
             "X-RateLimit-Limit": str(_PUBLIC_RATE_LIMIT),
@@ -247,9 +266,10 @@ async def public_rate_limiter(
         }
         raise HTTPException(
             status_code=429,
-            detail={"code": "rate_limited", "limit_per_hour": _PUBLIC_RATE_LIMIT},
+            detail=detail,
             headers=headers,
         )
+    return None
 
 
 CACHE_HEADERS = {
@@ -644,7 +664,7 @@ async def b2b_authenticate(
 async def b2b_rate_limiter(
     client_ctx: Annotated[dict[str, Any], Depends(b2b_authenticate)],
     redis: Annotated[Redis, Depends(get_redis)],
-) -> None:
+) -> Optional[Response]:
     _B2B_WINDOW_SECONDS = 3600
     hourly_cap = _B2B_API_KEYS_FAKE_DB[client_ctx["client_id"]]["rate_limit_hourly"]
     key = f"rl:b2b:{client_ctx['client_id']}"
@@ -656,6 +676,19 @@ async def b2b_rate_limiter(
         reset_at = int(time.time()) + max(1, int(ttl))
         retry_after = max(1, reset_at - int(time.time()))
         remaining = max(0, hourly_cap - count)
+        detail = {"code": "b2b_rate_limited", "limit_per_hour": hourly_cap}
+        if (
+            _PUBLIC_RATE_SHARED_OK
+            and _PUBLIC_RATE_LIMIT_RESPONSE_FN is not None
+        ):
+            return _PUBLIC_RATE_LIMIT_RESPONSE_FN(
+                status_code=429,
+                detail=detail,
+                limit=hourly_cap,
+                remaining=remaining,
+                reset_at_epoch=reset_at,
+                retry_after_seconds=retry_after,
+            )
         headers = {
             "Retry-After": str(retry_after),
             "X-RateLimit-Limit": str(hourly_cap),
@@ -664,9 +697,10 @@ async def b2b_rate_limiter(
         }
         raise HTTPException(
             status_code=429,
-            detail={"code": "b2b_rate_limited", "limit_per_hour": hourly_cap},
+            detail=detail,
             headers=headers,
         )
+    return None
 
 
 B2BAuthDep = Annotated[dict[str, Any], Depends(b2b_authenticate)]
