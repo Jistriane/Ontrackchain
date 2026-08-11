@@ -120,6 +120,14 @@ make all-checks
 - 🟢 **Schema JSON Lines (parsável por ELK/Loki/Datadog)**: `timestamp` (ISO UTC), `level`, `severity` (syslog-style 1..7), `logger`, `message`, `service`, `request_id` (header `X-Request-Id` ou auto-gerado uuid4), `exc_info` + `_meta` (lineno/funcName/thread/pid) + todos `extra=...` de `logger.info(..., extra={...})`.
 - 🟢 **100% retrocompatível**: fallback `logging` stdlib padrão se import `logging_util` falhar (ambiente sem shared pkg instalado). setup é **idempotente** (2ª+ chamada no mesmo service = ignora).
 
+**Containerização — Docker Otimizado (Sprint S28+50 P4):**
+- 🔒 **Segurança**: 11 Dockerfiles Python rodam como `USER appuser` (UID/GID estável 10001, non-root, sem shell de login). `apt-get clean && rm -rf /var/lib/apt/lists/*` em todos.
+- ⚡ **Performance build-cache**: Ordem camadas COPY otimizada → `packages/shared` → `packages/agents` → `apps/X/pyproject.toml` → `pip install` → `apps/X/src` (último, mais mutável). Mudanças em código de app NÃO invalidam cache do pip.
+- 🏥 **Saúde**: HEALTHCHECK via `urllib.request` stdlib (zero deps novas, sem curl) batendo no endpoint `/healthz` (RFC 9292). `start-period=15s` tolera boot lento.
+- 💾 **Tamanho imagem reduzido**: Extras `.[dev]` (pytest, ruff, mypy, fuzzers) REMOVIDOS de 4 imagens runtime: `auth-service`, `case-management`, `investigation-api`, `ai-service` (ai mantém `.[llm]`, investigation sai de `.[dev]` → `.`). `rm -rf /tmp/ontrackchain-*` após pip install remove fontes dos pacotes shared/agents. ~150-300 MB por imagem economia.
+- 🩸 **Graceful shutdown**: CMD usa `["sh","-c","exec uvicorn ..."]` → python roda como PID 1 (recebe SIGTERM/SIGINT diretamente), sh é substituído imediatamente via exec.
+- 🐛 **4 BUGS compose corrigidos**: services `auth-service`, `mock-oidc`, `public-api`, `case-management` tinham `build.context: ./apps/X` (inválido porque Dockerfile usa paths `COPY apps/X/...` e `COPY packages/shared`). Corrigido para o padrão investigation/compliance: `context: .` + `dockerfile: apps/X/Dockerfile`. Build compose 100% consistente.
+
 **Uploads Code Scanning (jobs paralelos ci.yml — NÃO gating local, aparecem na aba Security):**
 - 🟣 **Ruff (S28+34)**: `codeql-action/upload-sarif@v3` — categoria `SonarCloud-ruff` — lint/security hotspots
 - 🔴 **Bandit (S28+47 NOVO)**: `codeql-action/upload-sarif@v3` — categoria `SAST-Bandit` — SAST Python MED/HIGH em 13 serviços (apps + packages)

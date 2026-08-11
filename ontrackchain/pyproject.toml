@@ -183,7 +183,8 @@ cache_dir = ".mypy_cache"
 #   · S28+47 ✅ SonarCloud Quality     (Sincronia paths sonar-project.properties RAIZ ↔ ci.yml args + ROOTS coverage 7→13 serviços + CodeCov wildcard + Bandit SARIF → GH Code Scanning + arquivo subpasta marcado OBSOLETO)
 #   · S28+48 ✅ Logging Estruturado    (shared ontrackchain_shared/logging_util.py stdlib + json.dumps + contextvars, 0 deps novas. Habilitado em auth-service, public-api, case-management. X-Request-Id middleware + service field padrão + severity field)
 #   · S28+49 ✅ Makefile Extras        (make format = ruff format apps/packages/scripts; make audit = pip-audit 13 serviços resumido NB; make clean = tmp_* + __pycache__ + .pytest_cache + .mypy_cache)
-# Docs: ADR mypy incremental strict Shared → QA → Agents → 9 Apps 1×1 → Global Default Strict → SonarCloud QG Sync → Structured Logging Stdlib → Makefile Extras.
+#   · S28+50 ✅ Docker Otimizado       (11 Dockerfiles Python: non-root UID/GID 10001 appuser + PYTHONDONTWRITEBYTECODE=PYTHONUNBUFFERED=1 + HEALTHCHECK urllib /healthz zero deps + camadas COPY ordenadas (shared → agents → pyproject → src) + remoção extras [dev] runtime em auth/case/investigation/ai + rm /tmp/ontrackchain-* após pip + PID 1 python via CMD sh exec + docker-compose.yml corrige 4/4 build.context (context: . + dockerfile: apps/X) em auth/public/case/mock)
+# Docs: ADR mypy incremental strict Shared → QA → Agents → 9 Apps 1×1 → Global Default Strict → SonarCloud QG Sync → Structured Logging Stdlib → Makefile Extras → Docker Otimizado.
 # ============================================================
 [[tool.mypy.overrides]]
 module = "ontrackchain_shared.*"
