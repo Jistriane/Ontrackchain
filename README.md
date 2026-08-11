@@ -98,7 +98,7 @@ make all-checks
 3.  `g3 gov-m5-unit-test`        → 2 cenários mock (exit 0 esperado + exit 1 esperado = hash diferente)
 4.  `g4 shell-syntax`            → `bash -n` em 21/21 scripts shell do monorepo
 5.  `g5 healthz-bypass-test`     → 18 assertions (9 serviços × `/healthz` + `/metrics`) bypassam RBAC middleware (AST, não inicia apps)
-6.  `g6 typecheck`               → mypy **STRICT 11 MÓDULOS (3 shared + 8 apps: auth/compliance/case/investigation/monitoring/public/report/ai)** S31/S32/S33/S37-S44 P3: total 11 módulos = disallow_untyped_defs=true; 1 mock app restante baseline (mock-oidc S28+45). 4 camadas fallback (mypy/PYmod/hatch/hatch PYmod)
+6.  `g6 typecheck`               → mypy **🏁 12 MÓDULOS STRICT 100% (3 shared: Shared/QA/Agents + 9 apps: auth/compliance/case/investigation/monitoring/public/report/ai/mock-oidc)** S31/S32/S33/S37-S45 P3: roadmap mypy incremental 10/10 milestones FECHADO ✅! todos 12 módulos = `disallow_untyped_defs=true` + 9 flags strict idênticas. 4 camadas fallback (mypy/PYmod/hatch/hatch PYmod)
 7.  `g7 build-local`             → Hatch build FAIL-CLOSED em 3 pacotes compartilháveis (shared/qa-gateway/agents)
 8.  `g8 qa-gateway Q3-08 SECRET` → `scan-secrets-trufflehog` --strict --only-verified, 0 warnings (segredos VERIFICADOS, P0)
 9.  `g9 qa-gateway Q3-05 BW`     → `scan-billing-capabilities` --strict 0 warnings (BW-001..004 + monotonicidade tiers)
