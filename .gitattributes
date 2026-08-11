@@ -1,0 +1,49 @@
+# ============================================================================
+# Ontrackchain v3.1.0-m5 — SSOT Line Endings + Binários (Cross-OS LF Force)
+# Sprint S28+59 P4: Previne diffs spurious CRLF/LF Windows ↔ Linux.
+# HARD CONSTRAINT: Nenhum script shell / Makefile pode ter CRLF.
+# ============================================================================
+
+# --- BLOCO 1: GERAL — força LF em TODO arquivo detectado como TEXTO ----
+* text=auto eol=lf
+
+# --- BLOCO 2: CRÍTICOS (sobrescrita explícita + eol=lf POR SEGURANÇA) ---
+# G3 bash -n QUEBRA com \r no final (syntax error).
+*.sh text eol=lf
+*.bash text eol=lf
+# GNU make QUEBRA com \r no final de receitas (missing separator).
+Makefile text eol=lf
+# Código + docs Python/YAML/TOML/Markdown/JSON
+*.py text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+
+# --- BLOCO 3: BINÁRIOS EXPLÍCITOS (desativa diff/EOL/merge) ------------
+# Imagens
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+# Docs binários
+*.pdf binary
+# Python bytecode (nunca versiona mas garante corrupção 0)
+*.pyc binary
+*.pyo binary
+# Arquivos compactados
+*.zip binary
+*.tar binary
+*.gz binary
+*.tgz binary
+*.7z binary
+*.rar binary
+# Fontes
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.otf binary
