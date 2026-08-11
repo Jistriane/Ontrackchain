@@ -1,4 +1,4 @@
-.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle doctor lint test test-shared typecheck build-local pre-commit-install pre-commit-all gov-m5-verify gov-m5-unit-test shell-syntax healthz-bypass-test qa-gateway-smoke doctor-plus compose-config compose-up compose-down compose-ps compose-logs compose-logs-follow all-checks format audit clean scan-secrets-strict e2e-light compose-up-full compose-purge compose-health ci-validate ci-local ci-pre-merge ci-smoke changelog contributing
+.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle doctor lint test test-shared typecheck build-local pre-commit-install pre-commit-all gov-m5-verify gov-m5-unit-test shell-syntax healthz-bypass-test qa-gateway-smoke doctor-plus compose-config compose-up compose-down compose-ps compose-logs compose-logs-follow all-checks format audit clean scan-secrets-strict e2e-light compose-up-full compose-purge compose-health ci-validate ci-local ci-pre-merge ci-smoke changelog contributing readme
 
 WINDOW_ID ?= stg-2026-07-06-a
 MODE ?= baseline
@@ -34,13 +34,14 @@ help:
 	@echo "  make audit   → pip-audit 13 serviços (CVE HIGH/CRITICAL resumido, NÃO bloqueia merge localmente)"
 	@echo "  make clean   → remove tmp_*/* + __pycache__ + .pytest_cache (NÃO toca em src/, git/ ou SIGNOFF-*.md)"
 	@echo ""
-	@echo "CI Conveniência (Sprints S28+54 + S28+56 P4):"
+	@echo "CI Conveniência (Sprints S28+54 + S28+56 P4 + S28+57 P3 + S28+60 P4):"
 	@echo "  make ci-validate   → 4 gates rápido (<10s) M5 + shell + healthz + settings"
 	@echo "  make ci-local      → 8 gates FAIL-CLOSED (~40s, recomendado ANTES commit)"
 	@echo "  make ci-pre-merge  → FULL (~120s) 8 gates + lint + tests shared (recomendado PR/push)"
 	@echo "  make ci-smoke      → qa-gateway-smoke rápido (estrutura + docs + CSV ROPD)"
 	@echo "  make changelog     → Histórico 24 sprints (arquivo CHANGELOG-SPRINTS.md S28+29..S28+55)"
 	@echo "  make contributing  → Guia contribuição 6 seções (arquivo CONTRIBUTING.md S28+55)"
+	@echo "  make readme        → README completo 130+ seções (arquivo README.md raiz S28+60)"
 
 help-serious-window:
 	$(MAKE) -C ontrackchain help-serious-window
@@ -681,3 +682,15 @@ contributing: ## Exibe guia contribuição completo (CONTRIBUTING.md). S28+57
 	@echo "  Arquivo detalhado: CONTRIBUTING.md"
 	@echo "============================================================"
 	@cat CONTRIBUTING.md
+
+# Sprint S28+60 P4: Target readme conveniência.
+readme: ## Exibe README completo raiz (README.md). S28+60
+	@echo ""
+	@echo "============================================================"
+	@echo "  📖 README Ontrackchain v3.1.0-m5 — Metodologia FAIL-CLOSED"
+	@echo "============================================================"
+	@echo "  Dotfiles SSOT: .editorconfig S28+58 + .gitattributes S28+59"
+	@echo "  15 gates all-checks + 8 gates padrão + 30 sprints fechados"
+	@echo "  Arquivo detalhado: README.md (raiz monorepo)"
+	@echo "============================================================"
+	@cat README.md
