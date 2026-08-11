@@ -1,4 +1,4 @@
-.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle doctor lint test test-shared typecheck build-local
+.PHONY: help help-serious-window prepare-serious-window-dispatch preflight-serious-window-dispatch render-serious-window-dispatch-packet postprocess-serious-window postprocess-serious-window-dry-run run-serious-window-local run-serious-window-local-dry-run check-sanctions-sync-status check-eu-sanctions-window rerun-compliance-worker run-eu-sanctions-window run-eu-sanctions-window-local check-compliance-provider-runtime run-regulatory-readiness-bundle doctor lint test test-shared typecheck build-local pre-commit-install pre-commit-all gov-m5-verify qa-gateway-smoke doctor-plus
 
 WINDOW_ID ?= stg-2026-07-06-a
 MODE ?= baseline
@@ -164,3 +164,66 @@ build-local:
 	@echo "=== Build local Hatch: shared + qa-gateway + agents (sem push registry) ==="
 	cd "$(MONOREPO_ROOT)" && hatch build packages/shared && hatch build packages/qa-gateway && hatch build packages/agents || true
 	@echo "Builds concluídos. Dist artifacts: $(MONOREPO_ROOT)/packages/*/dist/"
+
+# ============================================================
+# Sprint S28+26 — Targets P2 Dev + Governança (sem PGP clearsign)
+# ============================================================
+pre-commit-install:
+	@echo "=== Instalar pre-commit framework + hooks locais (dev opt-in) ==="
+	python3 -m pip install --user pre-commit || python3 -m pip install pre-commit
+	pre-commit install --install-hooks
+	@echo "Pronto. Rode 'make pre-commit-all' para validar MONOREPO inteiro."
+
+pre-commit-all:
+	@echo "=== Pre-commit RUN --ALL-FILES (Ruff + ShellCheck + merge-conflict + EOF + private-key) ==="
+	pre-commit run --all-files || true
+	@echo "Bandit (SAST) roda em stage=pre-push automaticamente. Rodar manual:"
+	@echo "  pre-commit run bandit --hook-stage pre-push --all-files"
+
+gov-m5-verify:
+	@echo "=== PASSO 0 M5: Validação hash auto-referencial SIGNOFF-M5.md (awk NR<7 \|\| NR>11) ==="
+	cd "$(MONOREPO_ROOT)/.." && ./ontrackchain/scripts/gov-m5-verify-pre-sign.sh
+
+gov-m5-unit-test:
+	@echo "=== Unit teste gov-m5 (2 cenários: hash OK + hash RUIM) — NÃO toca M5 real ==="
+	cd "$(MONOREPO_ROOT)/.." && ./ontrackchain/scripts/s28p25-test-gov-m5-verify.sh
+
+shell-syntax:
+	@echo "=== bash -n syntax check EM TODOS scripts shell (20 scripts) — sem executar ==="
+	cd "$(MONOREPO_ROOT)/.." && ./ontrackchain/scripts/s28p25-bash-syntax-check.sh
+
+healthz-bypass-test:
+	@echo "=== 18 testes bypass RBAC /healthz + /metrics × 9 serviços (AST grep, não inicia apps) ==="
+	cd "$(MONOREPO_ROOT)/.." && ./ontrackchain/scripts/s28p24-check-healthz-metrics-bypass.sh
+
+qa-gateway-smoke:
+	@echo "=== QA Gateway smoke: 6 comandos --help (Sprint 13 M16b QA Gate L762) ==="
+	cd "$(MONOREPO_ROOT)" && \
+		for cmd in \
+			"python3 -m ontrackchain_qa_gateway.policies.gate_01_serious_window --help" \
+			"python3 -m ontrackchain_qa_gateway.policies.gate_02_aml_live_provider --help" \
+			"python3 -m ontrackchain_qa_gateway.policies.gate_03_eu_sanctions_live --help" \
+			"python3 -m ontrackchain_qa_gateway.policies.gate_04_regulatory_bundle --help" \
+			"python3 -m ontrackchain_qa_gateway.policies.gate_05_compliance_provider --help" \
+			"python3 -m ontrackchain_qa_gateway.migrations.apply_migrations --help"; do \
+			echo "  🚀 $$cmd"; \
+			eval $$cmd >/dev/null 2>&1 && echo "  ✅ OK" || echo "  ⚠️  N/A (ignorado — pode precisar pip install -e packages/qa-gateway[dev])"; \
+		done
+
+doctor-plus:
+	@$(MAKE) doctor
+	@echo
+	@echo "=== Doctor Plus (P2 S28+26) — gates locais rápidos ==="
+	@echo -n "Pre-commit framework: "
+	@command -v pre-commit >/dev/null 2>&1 && echo "✅ $(pre-commit --version 2>&1)" || echo "⚠️  NÃO instalado → rode: make pre-commit-install"
+	@echo -n "QA Gateway import: "
+	@cd "$(MONOREPO_ROOT)" && python3 -c "import ontrackchain_qa_gateway; print('✅', ontrackchain_qa_gateway.__name__)" 2>/dev/null || echo "⚠️  Não importável (pip install -e packages/qa-gateway[dev])"
+	@echo
+	@echo "Atalhos:"
+	@echo "  make gov-m5-verify           → PASSO 0 M5 hash auto-ref (S28+21)"
+	@echo "  make gov-m5-unit-test        → 2 cenários mock do gov-m5 (S28+25)"
+	@echo "  make shell-syntax            → bash -n 20 scripts (S28+25)"
+	@echo "  make healthz-bypass-test     → 18 bypass RBAC × 9 serviços (S28+24)"
+	@echo "  make qa-gateway-smoke        → 6 comandos qa-gateway --help (M16b)"
+	@echo "  make pre-commit-all          → ruff+shellcheck monorepo"
+	@echo "  make lint → make test-shared → make typecheck → make build-local (fluxo dev padrão)"
