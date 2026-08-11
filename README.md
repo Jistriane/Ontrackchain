@@ -95,7 +95,7 @@ make all-checks
 3.  `g3 gov-m5-unit-test`        → 2 cenários mock (exit 0 esperado + exit 1 esperado = hash diferente)
 4.  `g4 shell-syntax`            → `bash -n` em 21/21 scripts shell do monorepo
 5.  `g5 healthz-bypass-test`     → 18 assertions (9 serviços × `/healthz` + `/metrics`) bypassam RBAC middleware (AST, não inicia apps)
-6.  `g6 typecheck`               → mypy **STRICT Shared First** (Sprint 31 P3): `ontrackchain_shared.* = disallow_untyped_defs=true`; resto = baseline. 4 camadas fallback (mypy/PYmod/hatch/hatch PYmod)
+6.  `g6 typecheck`               → mypy **STRICT 2 pacotes (Shared + QA Gateway)** S31/S32 P3: `ontrackchain_shared.*` + `qa_gateway.*` = disallow_untyped_defs=true; resto = baseline. 4 camadas fallback (mypy/PYmod/hatch/hatch PYmod)
 7.  `g7 build-local`             → Hatch build FAIL-CLOSED em 3 pacotes compartilháveis (shared/qa-gateway/agents)
 8.  `g8 qa-gateway Q3-05 BW`     → `scan-billing-capabilities` --strict 0 warnings (BW-001..004 + monotonicidade tiers)
 9.  `g9 qa-gateway Q3-06 BE`     → `scan-billing-enforcement` --strict 0 warnings (BE-001..004 + Redis prod, skip-prod-redis local)

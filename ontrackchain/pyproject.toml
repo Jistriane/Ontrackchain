@@ -153,11 +153,12 @@ cache_dir = ".mypy_cache"
 # Sprint S28+31 P3: Strict mypy Incremental — Shared First
 # NÃO ATIVAMOS strict GLOBAL (quebraria 100% dos apps não-typed ainda).
 # Apenas packages/shared/src/** (SSOT fonte da verdade) vai strict AGORA.
+# S28+32 P3: qa_gateway.* (cli.py 1788L + rls.py 160L) strict AGORA (2ª fase incremental).
 # Roadmap incremental após este milestone:
-#   · S28+32 → packages/qa-gateway/src  (cli + policies 2-5)
-#   · S28+33 → packages/agents/src
+#   · S28+32 ✅ packages/qa-gateway/src  (cli 9 comandos + policies 5 + rls guard)
+#   · S28+33    packages/agents/src
 #   · S28+34 a S28+42 → 1 serviço/app por sprint (ordem: auth → compliance → case → ...)
-# Docs: ADR mypy incremental strict Shared First.
+# Docs: ADR mypy incremental strict Shared First → qa → agents → apps.
 # ============================================================
 [[tool.mypy.overrides]]
 module = "ontrackchain_shared.*"
@@ -173,9 +174,15 @@ warn_redundant_casts = true
 
 [[tool.mypy.overrides]]
 module = "qa_gateway.*"
-disallow_untyped_defs = false
+disallow_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+strict_equality = true
 check_untyped_defs = true
-warn_return_any = false
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+warn_redundant_casts = true
 
 [[tool.mypy.overrides]]
 module = "ontrackchain_agents.*"
