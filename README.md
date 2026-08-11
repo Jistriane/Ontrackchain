@@ -258,71 +258,110 @@ Use quando a meta for validar a arquitetura real do produto com `OIDC`, banco, w
 
 ## Diagramas de Fluxo
 
-### 1. Fluxo macro da plataforma
+### Índice Geral de Diagramas (17 diagramas completos do monorepo)
+
+| # | Diagrama | Domínio | Origem canônica |
+|--:|----------|---------|-----------------|
+| 0 | Fluxo de leitura canônica do workspace | Onboarding / Documentação | README raiz |
+| **1** | **Fluxo macro da plataforma (com 4 NetworkPolicies LGPD explícitas)** | Topologia / Kubernetes | `ontrackchain/README.md` + `docs/architecture.md` consolidados |
+| 2 | Fluxo de Autenticação e Autorização | IdP / RBAC / RLS | README raiz |
+| **2b** | **Sequência detalhada OIDC (fallback mock-oidc + Keycloak PKCE S256)** | Autenticação federada / MFA | `docs/keycloak-oidc-template.md` |
+| 3 | Fluxo Regulatório / Compliance / Sanções / ROS-COAF | LGPD / BACEN / ANPD | README raiz |
+| **3b** | **Arquitetura de Strong Sealing (Selagem Forte) de Pacote de Evidências KMS/HSM** | Evidência / Auditoria / Força Probatória | `docs/evidence-manual-package-strong-sealing-architecture.md` |
+| 4 | Fluxo de Validação Local (docker compose → smoke → qa-gateway) | Developer Experience / CI Local | README raiz |
+| 5 | Fluxo de Readiness Regulatório Real (P0-02 / P0-03 / P0-04) | Staging / Homologação | README raiz |
+| 6 | Fluxo da Janela Séria (go/no-go 4-olhos MFA) | Operação / Regulatório | README raiz |
+| 7 | Fluxo de Governança Semanal / Board Executivo | Governança Executiva | README raiz |
+| **7b** | **RCA Cross-Domain Incidente (Alertmanager → work_item → Governança)** | Observabilidade / Resposta a Incidentes / LGPD Art.19 | `docs/cross-domain-incident-rca-playbook.md` |
+| 8 | Fluxo de CI/CD e Promoção (macro) | CI/CD / Branch Protection | README raiz |
+| 9 | Fluxo de Validação Helm Chart Sprint 16 (63 manifests) | Kubernetes / Helm / LGPD PVC | README raiz |
+| 10 | Detalhamento CI 16 Jobs Bloqueantes | QA Gateway / Gates de Segurança | README raiz |
+| **10b** | **ADR-029: Orquestrador 5 Gates FAIL-FAST (Q1→Q4; Q5 SEMPRE roda segredos)** | Pre-Merge / ADR-029 STRICT | `docs/adrs/ADR-029-ci-pre-merge-gate-pipeline-5-qa-gateway-4-scans-trufflehog.md` |
+| 11 | Mapeamento Federação Roles OTK_* (OTK_ADMIN → ADMIN, etc) | RBAC Canônico / SSOT | README raiz |
+| **12** | **Ordem de Ativação OIDC Keycloak v25 P0-01 (14 passos P0-01.01 → P0-01.14)** | Handoff P0-01 / Keycloak Helm | `docs/handbooks/handbook-p0-01-oidc-keycloak-v25-helm-self-hosted.md` |
+
+---
+
+### 0. Fluxo de leitura canônica (repetido para navegabilidade pelo índice)
+
+```mermaid
+flowchart TD
+    A[README raiz] --> B[ontrackchain/README.md]
+    A --> C[ontrackchain/docs/README.md]
+    C --> D[Arquitetura, contratos e operacao]
+    C --> E[governance-weekly/cycles]
+    C --> F[docs/history]
+    C --> G[governance-weekly/archive]
+
+    classDef primary fill:#0f172a,stroke:#0f172a,color:#fff;
+    classDef live fill:#dbeafe,stroke:#2563eb,color:#111827;
+    classDef evidence fill:#dcfce7,stroke:#16a34a,color:#111827;
+    classDef history fill:#f3f4f6,stroke:#6b7280,color:#111827;
+
+    class A,C primary;
+    class B,D live;
+    class E evidence;
+    class F,G history;
+```
+
+### 1. Fluxo macro da plataforma (CONSOLIDADO: 4 NetworkPolicies LGPD + PVC Grafana standalone + JWKS verify OIDC)
 
 ```mermaid
 flowchart LR
-    U[Operador + Sys Externos B2B] --> TF[Traefik IngressClass 3 réplicas<br/>PDB minAvailable=2]
-    subgraph K8s_NS[Namespace ontrackchain-platform — NetPol default-deny LGPD]
+    U[Operadores e sistemas externos B2B] --> TF[Traefik IngressClass<br/>3 réplicas PDB minAvailable=2<br/>Service LoadBalancer]
+    subgraph K8s_NS[ontrackchain Namespace — 4 NetworkPolicies LGPD RLS PSP restricted 100%]
       direction TB
+      subgraph NetPols[NetPolicies LGPD enforcement]
+        direction TB
+        NP1[01 default-deny-lgpd ALL Block]
+        NP2[02 deny-ec2-imds-169-254]
+        NP3[03 allow-intra-namespace-same-ns]
+        NP4[04 allow-from-traefik-ingress-ns]
+      end
       TF --> A[auth-service v3.0.0 :8001<br/>OTK_* MFA 2FA]
-      TF --> MO[mock-oidc v1.5.0 :8009<br/>fallback dev/staging]
-      TF --> F[frontend Next.js 14<br/>cockpit tri-locale]
-      TF --> PA[public-api v2.0.0 :8008<br/>B2B /api/v1/b2b/screen]
-      F --> I[investigation-api v2.0.0 :8003<br/>estimate start status billing ledger]
-      F --> C[compliance-api v2.0.0 :8002<br/>sanctions counterparties blocks work-items]
-      F --> MO2[monitoring-api v2.0.0 :8004<br/>Alertmanager webhook RCA export]
-      F --> R[report-api v2.0.0 :8007<br/>ROS/COAF reports download]
-      F --> AI[ai-service v4.1.0 :8005<br/>XAI THEMIS LEO Graph 202 Accepted]
-      F --> CM[case-management v2.0.0 :8006<br/>hub casos scoring IA timeline]
-      I --> X[(Redis queue/DLQ)]
-      C --> X
-      MO2 --> X
-      R --> X
+      TF --> MO[mock-oidc v1.5.0 :8009<br/>fallback dev claims org opcionais]
+      TF --> F[frontend Next.js 14 cockpit tri-locale]
+      TF --> PA[public-api v2.0.0 :8008<br/>B2B otc_live_* rate limit]
+      F --> I[investigation-api v2.0.0 :8003]
+      F --> C[compliance-api v2.0.0 :8002]
+      F --> MO2[monitoring-api v2.0.0 :8004]
+      F --> R[report-api v2.0.0 :8007]
+      F --> AI[ai-service v4.1.0 :8005<br/>202 Accepted jobs]
+      F --> CM[case-management v2.0.0 :8006<br/>hub casos scoring IA]
+      I --> X[(Redis queue DLQ)]
+      C --> X; MO2 --> X; R --> X
       C --> CW[compliance-worker readiness]
-      subgraph SS[StatefulSets PVC LGPD restricted-dados-pessoais]
+      subgraph SS[StatefulSets PVC — LGPD restricted-dados-pessoais]
         direction TB
         P[(PG16 pgvector 10Gi RLS multi-tenant]
-        PR[(Prometheus v2.53 20Gi<br/>scrape /metrics ServiceMonitor)]
+        PR[(Prometheus v2.53 20Gi ServiceMonitor]
       end
-      G[Grafana 11.2 Dashboard Único QA]
+      G[Grafana 11.2 Dashboard Único QA PVC 5Gi standalone]
       AM[Alertmanager v0.27 webhook routes P0-P2]
       KC[Keycloak v25 realm-ontrackchain import]
-      I --> P
-      C --> P
-      MO2 --> P
-      R --> P
-      AI --> P
-      CM --> P
-      PA --> P
-      A --> P
-      AM -->|webhook| MO2
-      PR -->|/metrics scrape| A
-      PR -->|/metrics scrape| PA
-      PR -->|/metrics scrape| I
-      PR -->|/metrics scrape| C
-      PR -->|/metrics scrape| MO2
-      PR -->|/metrics scrape| R
-      PR -->|/metrics scrape| AI
-      PR -->|/metrics scrape| CM
-      PR -->|/metrics scrape| MO
-      G --> PR
-      G --> AM
-      CM -->|async jobs| AI
-      MO2 --> GW[governanca e dossier]
+      I --> P; C --> P; MO2 --> P; R --> P; AI --> P; CM --> P; PA --> P; A --> P
+      AM -->|POST /api/v1/monitoring/alertmanager-webhook| MO2
+      PR -->|/metrics scrape annotations 9 FastAPI| A; PR -->|/metrics| MO; PR -->|/metrics| PA
+      PR -->|/metrics| I; PR -->|/metrics| C; PR -->|/metrics| MO2; PR -->|/metrics| R
+      PR -->|/metrics| AI; PR -->|/metrics| CM
+      G --> PR; G --> AM
+      CM -->|async jobs FOR UPDATE SKIP LOCKED| AI
+      MO2 --> GW[governanca + dossier + RCA]
       R --> GW
-      AI --> GE[Graph Intelligence 4.0]
+      AI --> GE[Graph Intelligence 4.0 THEMIS LEO]
       TF --> KC
-      A -->|OIDC token verify| KC
+      A -->|OIDC token verify JWKS| KC
     end
 
     classDef svc fill:#dbeafe,stroke:#2563eb,color:#111827;
     classDef infra fill:#dcfce7,stroke:#16a34a,color:#111827;
     classDef stateful fill:#fef3c7,stroke:#d97706,color:#111827;
+    classDef netpol fill:#f1f5f9,stroke:#475569,color:#111827,stroke-dasharray:5 5;
     classDef gateway fill:#fce7f3,stroke:#db2777,color:#111827;
     class A,MO,PA,I,C,MO2,R,AI,CM,F svc;
     class TF,X,CW,GW,GE,KC infra;
-    class P,PR,AM stateful;
+    class P,PR,AM,G stateful;
+    class NP1,NP2,NP3,NP4 netpol;
 ```
 
 ### 2. Fluxo de autenticação e autorização
@@ -359,6 +398,49 @@ flowchart TD
     AUD --> UX[UX permitida, negada\ndegradada 401/403]
 ```
 
+### 2b. Sequência Detalhada OIDC (fallback mock-oidc + Keycloak PKCE S256 + RLS+RBAC enforcement fim-a-fim)
+
+```mermaid
+sequenceDiagram
+    participant U as Usuario
+    participant F as Frontend Next.js
+    participant MO as mock-oidc v1.5.0<br/>(fallback dev/staging)
+    participant K as Keycloak v25
+    participant A as auth-service v3.0.0
+    participant OTK as canonicalize_role OTK_*<br/>(ontrackchain_shared)
+    participant APIs as APIs internas 9 domínios
+
+    U->>F: acessa login
+    F->>A: GET /auth/config
+    A-->>F: effective_auth_mode = AUTH_MODE_env
+    alt AUTH_MODE=dev (fallback leve)
+      F->>MO: redirect /auth/ (mock-oidc :8009)
+      MO-->>MO: claims org opcionais (default OTK_ADMIN)
+      MO-->>F: callback token + linked_user_id provider=mock
+    else AUTH_MODE=oidc (serio real)
+      F->>K: redirect authorization_endpoint (Keycloak :8080)
+      K-->>K: realm ontrackchain realm roles OTK_*
+      K-->>F: callback codigo PKCE S256 + scope openid+org+plan+otk_role
+    end
+    F->>A: POST /api/session/start (callback + token)
+    A->>A: valida issuer, audience (ontrackchain-api), assinatura, JWKS
+    Note over A: fallback Sessao Desativado Sprint13<br/>Nao cai em sysadmin se OIDC falha
+    A->>A: resolve org, plan, linked_user_id, provider (keycloak|mock)
+    A->>OTK: canonicalize_role(claim_role)
+    alt claim comeca com OTK_
+      OTK-->>A: role canônica (ADMIN, ANALYST, COMPLIANCE_OFFICER, AUDITOR, VIEWER)
+    else claim literal
+      OTK-->>A: role literal + warn log (ex: VIEWER permanece VIEWER)
+    end
+    A->>A: emite headers X-* (X-Org-Id, X-Roles, X-Linked-User-Id, X-Correlation-Id)
+    A-->>F: contexto autenticado session_id + signature
+    F->>APIs: chamadas com X-* headers internos
+    APIs->>APIs: RLS Cross-Tenant set_config(app.current_org_id)
+    APIs->>APIs: RBAC enforce_roles dependency
+    APIs->>APIs: Audit Log correlation_id LGPD Art.19
+    APIs-->>F: enforcement final por role (200/401/403)
+```
+
 ### 3. Fluxo regulatório e de compliance
 
 ```mermaid
@@ -377,6 +459,29 @@ flowchart TD
     Seal --> Audit[audit_logs estruturados + reports\nmonitoring-api export]
     Audit --> RCA[RCA Cross-Domain\nAlertmanager webhook]
     RCA --> Gov[Governanca semanal / dossier\n4-eyes sign-off go/no-go]
+```
+
+### 3b. Arquitetura de Strong Sealing (Selagem Forte) de Pacote de Evidências KMS/HSM + Verificação Offline
+
+```mermaid
+flowchart LR
+    E[/evidence cockpit] --> AR[App Router]
+    AR --> I[investigation-api]
+    I --> PK[Pacote canonico e package_sha256]
+    I --> SO[signoff requests e sign-offs]
+    I --> V[Validacao de role, signer_role e integridade]
+    V --> SR[seal request]
+    SR --> SS[institutional seal service]
+    SS --> K[KMS e HSM]
+    SS --> ENV[Envelope assinado]
+    ENV --> I
+    I --> AU[audit_logs]
+    I --> ET[evidence_trail sintetico]
+    I --> ST[estado sealed, revoked ou superseded]
+    ST --> AC[/audit cockpit]
+    ST --> E
+    E --> OFF[verificacao offline]
+    AC --> OFF
 ```
 
 ### 4. Fluxo de validação local
@@ -460,6 +565,33 @@ flowchart TD
     H --> I[Decision Packet datado\nstg-YYYY-MM-DD-x dossier]
     I --> J[Snapshot executivo + maturidade\nproject-executive-readiness-brief]
     J --> K[Ciclo datado em governance-weekly/cycles/YYYY-MM-DD\n+ archive histórico LGPD Art.19]
+```
+
+### 7b. RCA Cross-Domain Incidente (Alertmanager → monitoring-api → work_item → RCA → Governança)
+
+```mermaid
+flowchart LR
+    subgraph StackObserv[Stack Observabilidade — Prometheus/Grafana/Alertmanager]
+      direction TB
+      PRO[Prometheus v2.53 StatefulSet<br/>scrape /metrics 9 FastAPI ServiceMonitor]
+      GRA[Grafana 11.2 Dashboard Único QA]
+      AM[Alertmanager v0.27 webhook receiver routes<br/>P0/P1/P2/P3 severidade]
+      PRO --> GRA; PRO --> AM
+    end
+    AM -->|POST /api/v1/monitoring/alertmanager-webhook<br/>severaidade + labels + fingerprint| M[monitoring-api v2.0.0 :8004]
+    M --> O[operational_alert_events PG16<br/>ack + correlation_id LGPD]
+    O --> MON[cockpit /monitoring<br/>saúde da plataforma]
+    MON --> AL[cockpit /alerts<br/>triagem global canônica]
+    AL <--> IR[cockpit /incident-response<br/>resposta operacional]
+    AL -->|module=alerts work_item criado| W[regulatory_work_item<br/>fila compartilhada multiusuario timeline persistida]
+    W --> T[timeline + comentarios estruturados<br/>regulatory_work_events + regulatory_work_comments]
+    W --> AU[audit_logs append-only<br/>trilha auditoria Art.19 LGPD]
+    W --> RCA[RCA leve cross-domain<br/>suspected/confirmed_root_cause blast_radius]
+    RCA --> CY[governance-weekly/cycles datados<br/>sign-off 4-eyes + war room]
+    RCA --> WR[War Room leve ou matriz severidade L3/L4]
+    RCA --> RS[Resumo executivo operacional<br/>Board Operacional + Scorecard]
+    DO[Domain Owners + Incident Commander<br/>Ownership Definido] --> W
+    DEF[Definitions of Done Encerramento] --> W
 ```
 
 ### 8. Fluxo de CI/CD e promoção (macro)
@@ -556,6 +688,25 @@ flowchart TD
     H --> I[Branch Protection: enforce_admins=true\nmain exige 16/16 checks verde\ndevelop exige 10/16]
 ```
 
+### 10b. ADR-029 Orquestrador 5 Gates FAIL-FAST (Q1→Q4 scans de risco; Q5 SEGREDOS SEMPRE roda)
+
+```mermaid
+flowchart LR
+    PR[PR recebe push] --> Q1[Q1 qa-gateway-cli scan-rbac — roles sensiveis bypass check]
+    Q1 -->|exit 0| Q2[Q2 qa-gateway-cli scan-billing-capabilities — heavy-jobs capabilities billing]
+    Q2 -->|exit 0| Q3[Q3 qa-gateway-cli scan-billing-enforcement — enforce_admins continue-on-error]
+    Q3 -->|exit 0| Q4[Q4 qa-gateway-cli scan-lgpd-ropd — IMUTAVEIS LGPD governance-weekly history assessments github_main]
+    Q1 -->|exit 1| Q5[Q5 scan-secrets-trufflehog → sempre executa FAIL-FAST]
+    Q2 -->|exit 1| Q5
+    Q3 -->|exit 1| Q5
+    Q4 -->|exit 1| Q5_ALWAYS[Q5_ALWAYS = Q5 scan-secrets-trufflehog SEMPRE roda ↓]
+    Q4 -->|exit 0| Q5
+    Q5 -->|exit 1| RED_BLOCK[🛑 BLOQUEIO FAIL-FAST — QA Gatekeeper bloqueia merge]
+    Q5_ALWAYS -->|exit 1| RED_BLOCK
+    Q5 -->|exit 0| GREEN_MERGE[✅ Aprovado — merge permitido develop/main]
+    Q5_ALWAYS -->|exit 0| GREEN_MERGE
+```
+
 ### 11. Mapeamento Federação Roles OTK_* (NOVO)
 
 ```mermaid
@@ -578,6 +729,25 @@ flowchart TD
     D --> D1[RBAC endpoints críticos:\nPOST /api/v1/cases requer ≥ ANALYST\nDELETE /api/v1/reports requer = ADMIN\nPUT /api/v1/compliance/blocks requer = COMPLIANCE_OFFICER]
     E --> E1[Audit Log + Correlation ID\nLGPD Art.19 trilha imutável]
     F --> F1[Permissões UX:\nrenderizar botão Excluir só = ADMIN\nrenderizar aba Compliance só = COMPLIANCE_OFFICER\nrenderizar botão Auditoria só = ADMIN ou AUDITOR]
+```
+
+### 12. Ordem de Ativação OIDC Keycloak v25 P0-01 (14 passos P0-01.01 → P0-01.14)
+
+```mermaid
+flowchart LR
+    P0101["P0-01.01 Realm LGPD banner + privacy policy URL"] --> P0107["P0-01.07 Helm HA 3 réplicas + PG Patroni StatefulSet"]
+    P0107 --> P0108["P0-01.08 Istio mTLS STRICT PeerAuth Keycloak ns"]
+    P0108 --> P0102["P0-01.02 Clients PKCE 15min access / 7d refresh"]
+    P0102 --> P0104["P0-01.04 Roles OTK_* federados realm/client scope + mappers"]
+    P0104 --> P0103["P0-01.03 MFA Required TOTP + WebAuthn realm-wide"]
+    P0103 --> P0106["P0-01.06 LDAP Sync User Federation MSAD + grupos OTK_*"]
+    P0106 --> P0105["P0-01.05 SAML 2.0 IdP Corporate AzureAD ADFS First Login Broker"]
+    P0105 --> P0109["P0-01.09 Cloudflare WAF + Bot Fight Mode + Rate Limit login"]
+    P0109 --> P0110["P0-01.10 SIEM Splunk events 180d retenção + alertas P0"]
+    P0110 --> P0111["P0-01.11 Backup PG 6h wal-g S3 + Export Realm JSON"]
+    P0111 --> P0112["P0-01.12 Prometheus Alertas P0 email/Slack/MS Teams webhook"]
+    P0112 --> P0113["P0-01.13 Playwright E2E Q3-07 passagem crítica MFA + token PKCE"]
+    P0113 --> P0114["P0-01.14 Sign-off 4-Olhos CTO/DSI/DPO/Arquiteto"]
 ```
 
 ## Portas canônicas
