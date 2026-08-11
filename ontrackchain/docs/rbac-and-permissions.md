@@ -438,3 +438,60 @@ Definir uma matriz de permissoes por dominio:
 ## Criterio de Evolucao
 
 A RBAC atual e suficiente para o scaffold e para os fluxos mais sensiveis ja protegidos, mas nao deve ser considerada completa para ambiente regulado mais maduro.
+
+---
+
+## Bypass Documentado Healthz + Metrics (Sprint S28+30 P1 · G4 healthz-bypass 18/18)
+
+> **Validador G4 obrigatório TODO sprint**: `bash ontrackchain/scripts/s28p24-check-healthz-metrics-bypass.sh` → `✅ 18/18 TESTES PASSARAM — /healthz e /metrics bypass RBAC garantido 9 serviços.`
+
+### Por que existe bypass?
+
+| Motivo | Detalhe |
+|---|---|
+| **Kubernetes / Docker Health Probes** | `kubelet` ou `docker compose healthcheck` faz GET sem autenticação em `<service>:80xx/healthz`. NÃO pode exigir JWT/RBAC (probes falham → container marcado Unhealthy → restart loop). |
+| **Prometheus / Grafana Scrape** | Scraper federado Prometheus faz `GET /metrics` sem Bearer em deploy on-prem multi-tenant. Endpoint expõe apenas counters/gauges (nenhum dado pessoal / business payload). |
+| **Risco baixo** | `/healthz` retorna apenas `{"status":"ok","version":"x.y.z"}`. `/metrics` retorna counters padrão Prometheus (requests, latência, erros). NENHUM dado de usuário/organização é exposto. |
+
+### Lista 9 Serviços × 2 Endpoints = 18 Bypasses Obrigatórios
+
+| Serviço FastAPI | Porta padrão | `/healthz` bypass | `/metrics` bypass | Middleware aplicado? |
+|---|---|---|---|---|
+| `ai-service` | 8000 | ✅ Sim | ✅ Sim | ⚪ Bypass |
+| `auth-service` | 8001 | ✅ Sim | ✅ Sim | ⚪ Bypass |
+| `case-management` | 8002 | ✅ Sim | ✅ Sim | ⚪ Bypass |
+| `compliance-api` | 8003 | ✅ Sim | ✅ Sim | ⚪ Bypass |
+| `investigation-api` | 8004 | ✅ Sim | ✅ Sim | ⚪ Bypass |
+| `monitoring-api` | 8005 | ✅ Sim | ✅ Sim | ⚪ Bypass |
+| `public-api` | 8006 | ✅ Sim | ✅ Sim | ⚪ Bypass |
+| `report-api` | 8007 | ✅ Sim | ✅ Sim | ⚪ Bypass |
+| `workflow-service` | 8008 | ✅ Sim | ✅ Sim | ⚪ Bypass |
+| **TOTAL Bypasses validados G4** | | 9/9 | 9/9 | **18/18 ✅** |
+
+### Padrão Middleware Bypass (9 serviços FastAPI)
+
+Cada serviço FastAPI tem middleware assim (NÃO ALTERAR sem sprint dedicada + G4 re-validação):
+
+```python
+# FastAPI Middleware Bypass /healthz + /metrics (RBAC NÃO aplicado)
+@app.middleware("http")
+async def rbac_middleware_bypass_healthz(request: Request, call_next):
+    path = request.url.path
+    if path in {"/healthz", "/metrics"}:
+        return await call_next(request)  # bypass: sem auth, sem org, sem RLS
+    # ... demais paths: full RBAC check JWT + org_id + roles
+```
+
+### Proibido
+
+- ❌ **NÃO** remover bypass de `/healthz` ou `/metrics` de QUALQUER serviço (quebra health probes + Prometheus scrape).
+- ❌ **NÃO** adicionar autenticação a estes 2 endpoints (probes NÃO tem como incluir JWT).
+- ❌ **NÃO** expor dados pessoais em `/metrics` (apenas counters/gauges genéricos).
+
+### Como validar em CI
+
+```bash
+# Sprint step G4 obrigatório (antes de COMMIT)
+bash ontrackchain/scripts/s28p24-check-healthz-metrics-bypass.sh
+# Saída esperada: ✅ 18/18 TESTES PASSARAM
+```

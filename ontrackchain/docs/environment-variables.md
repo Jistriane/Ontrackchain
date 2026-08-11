@@ -460,3 +460,56 @@ Presets atuais:
   - atualizar `Settings`
   - atualizar `docker-compose.yml` se necessario
   - atualizar este documento
+
+---
+
+## Billing Stripe + Integrações Financeiras (Sprint S28+50 P1)
+
+> **HC-2 Proibido**: Valores de segredo NÃO PODEM ser hardcoded. Sempre use `${{ secrets.NOME }}` em GHA ou `.env.*.example` placeholders em dev.
+> **Validador**: TruffleHog `--only-verified` + Push Protection GHA (HC-2 + HC-3 bloqueio push).
+
+### Variáveis Billing / Stripe Obrigatórias
+
+| Variável | Tipo | Exemplo placeholder | Obrigatório | Observação |
+|---|---|---|---|---|
+| `STRIPE_SECRET_KEY` | secret string | `sk_test_your_stripe_secret_key_here` | ✅ Sim | `sk_live_` em prod (4-eyes deploy, vault) |
+| `STRIPE_PUBLISHABLE_KEY` | public string | `pk_test_your_publishable_key_here` | ✅ Sim | `pk_live_` pode estar em frontend |
+| `STRIPE_WEBHOOK_SECRET` | secret string | `whsec_your_webhook_signing_secret_here` | ✅ Sim | Valida assinatura `Stripe-Signature` header |
+| `STRIPE_TAX_BEHAVIOR` | enum `inclusive/exclusive` | `exclusive` | Não | Default: exclusive |
+| `BILLING_FAIL_CLOSED` | boolean `true/false` | `true` | ✅ Sim | Se `true` e Stripe unreachable, `503 Service Unavailable` em vez de debito pendente |
+| `BILLING_PDF_RECEIPT_BUCKET` | s3/gs bucket | `your-s3-bucket-receipts-prod` | Não | Se vazio, receipts in-memory apenas |
+
+### Redis Fail-Closed (Sprint S28+52 P2 Anti-Padrão)
+
+> **Motivo**: Antes de S28+52, Redis connection timeout retornava `200 OK` com cache vazio → dados estaveis vazios = risco regulatório.
+
+| Variável | Default | Comportamento quando Redis DOWN |
+|---|---|---|
+| `REDIS_HOST` | `redis` | (host de conexão) |
+| `REDIS_PORT` | `6379` | |
+| `REDIS_DB` | `0` | |
+| `REDIS_PASSWORD` | empty string | vazio = sem senha (dev só) |
+| `REDIS_FAIL_CLOSED` | **`true`** | ✅ **true (OBRIGATÓRIO prod/homolog)**: Retorna `503 Service Unavailable` se Redis down, NÃO executa operação sem cache. <br> ❌ false (SÓ dev local): Continua sem cache (NÃO USAR fora dev). |
+| `REDIS_TIMEOUT_SEC` | `3` | Timeout conexão Redis em segundos |
+
+### Exemplo `.env-staging.example` Billing + Redis Trecho
+
+```bash
+# ===== BILLING STRIPE =====
+# HC-2 PROIBIDO: valores reais aqui! Use apenas placeholders, segredos via Vault/GH Secrets.
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
+STRIPE_PUBLISHABLE_KEY=pk_test_your_publishable_key_here
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_signing_secret_here
+BILLING_FAIL_CLOSED=true
+
+# ===== REDIS FAIL-CLOSED =====
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_FAIL_CLOSED=true
+REDIS_TIMEOUT_SEC=3
+```
+
+### Como validar
+
+- TruffleHog: `trufflehog filesystem --only-verified ontrackchain/docs/environment-variables.md` (deve retornar 0 segredos reais pois só temos placeholders).
+- Push Protection: GHA valida no push antes de merge.

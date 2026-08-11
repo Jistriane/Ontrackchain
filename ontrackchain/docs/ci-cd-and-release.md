@@ -677,6 +677,55 @@ Sempre que houver mudanca em pricing/quote:
 - validar `plan lock`
 - validar ledger
 
+---
+
+## HC-3 Branch Protection + Required Contexts (Sprints S28+36 P1 · G8 settings-dry-run)
+
+> **SSOT**: `[.github/settings.yml (raiz repo)](../../.github/settings.yml)` protegido por G8 settings-dry-run validado em TODO sprint antes de COMMIT.
+> **Validador**: `make settings-dry-run` (Python script s28p36-settings-validate.py, 8 itens obrigatórios PASS/FAIL).
+
+### Branches Protegidas
+
+| Branch | Tipo | Required Status Checks Contexts (gating) |
+|---|---|---|
+| `main` | Protegida strict · 21 contexts (ver G8) | `lint, sbom-cyclonedx-grype, observability-endpoints-gate, policy-gate-conftest, secrets-guard-skeleton, typecheck, build, gate-p0-01-oidc-ci, gate-p0-00-rls, **qa-gateway-cli-smoke**, **qa-gateway-scan-sla-ci-p008**, sast-bandit-python, dependency-audit-pip, pytest service: ai-service, pytest service: auth-service, pytest service: case-management, pytest service: compliance-api, pytest service: investigation-api, pytest service: monitoring-api, pytest service: public-api, pytest service: report-api` |
+| `develop` | Protegida strict · 13 contexts (subset main) | mesmos 13 primeiros de main (QA Gate 2 jobs SEMPRE inclusos) |
+
+### QA Gate 2 Jobs Obrigatórios (HC-3 BLOQUEANTE)
+
+1. `qa-gateway-cli-smoke` — smoke rápido P0-P4 em 4 domínios (RBAC / LGPD ROPD / Billing / AML Live). 2min.
+2. `qa-gateway-scan-sla-ci-p008` — SLA rules ci-p001..ci-p013 (develop) + ci-p020..ci-p026 (main) STRICT. 5-10min.
+
+**NÃO PODE**:
+- remover QA Gate dos 2 jobs de required contexts (HC-3 bloqueia por G8)
+- adicionar `sonarcloud-*` em required contexts (0 tolerância, G8 valida explicitamente)
+
+### 3 Environments Protegidos
+
+| Environment | Propósito | Approvers |
+|---|---|---|
+| `staging` | Homologação antes de prod | time QA + 1 dev Sênior |
+| `prod` | Produção (protegido 4-eyes) | 2 approvers + release manager |
+| `canary` | Canary 1% tráfego antes prod full | time DevOps on-call |
+
+### Labels Obrigatórios (14)
+
+QA quality-gate (5), ADR arquitetura (4), Priority urgente/baixo (5) = 14 labels SSOT settings.yml, validado G8.
+
+### Como validar (TODO sprint antes de COMMIT)
+
+```bash
+# G8 settings-dry-run (Python s28p36-settings-validate.py)
+make settings-dry-run
+# Saída esperada: 🎉 Repository Settings DRY-RUN PASS: 8 itens obrigatórios, 0 falhas bloqueantes
+```
+
+### Push Protection + GHAS Habilitado (HC-2 + HC-3)
+
+- **GitHub Advanced Security (GHAS)**: `enabled` → valida G8.
+- **Secret Scanning Push Protection**: `enabled` → bloqueia push na origem se segredo real detectado (TruffleHog --only-verified também roda em CI para double-check).
+- **Proibido**: desabilitar Push Protection ou GHAS (G8 fail-closed bloqueia merge).
+
 ## Backlog Recomendado para CI/CD
 
 ### Alta prioridade
