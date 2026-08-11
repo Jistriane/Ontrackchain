@@ -308,7 +308,9 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    U[Operadores e sistemas externos B2B] --> TF[Traefik IngressClass<br/>3 réplicas PDB minAvailable=2<br/>Service LoadBalancer]
+    U[Operadores e sistemas externos B2B] --> TF[Traefik IngressClass
+3 réplicas PDB minAvailable=2
+Service LoadBalancer]
     subgraph K8s_NS[ontrackchain Namespace  -  4 NetworkPolicies LGPD RLS PSP restricted 100%]
       direction TB
       subgraph NetPols[NetPolicies LGPD enforcement]
@@ -318,18 +320,25 @@ flowchart LR
         NP3[03 allow-intra-namespace-same-ns]
         NP4[04 allow-from-traefik-ingress-ns]
       end
-      TF --> A[auth-service v3.0.0 :8001<br/>OTK_* MFA 2FA]
-      TF --> MO[mock-oidc v1.5.0 :8009<br/>fallback dev claims org opcionais]
+      TF --> A[auth-service v3.0.0 :8001
+OTK_* MFA 2FA]
+      TF --> MO[mock-oidc v1.5.0 :8009
+fallback dev claims org opcionais]
       TF --> F[frontend Next.js 14 cockpit tri-locale]
-      TF --> PA[public-api v2.0.0 :8008<br/>B2B otc_live_* rate limit]
+      TF --> PA[public-api v2.0.0 :8008
+B2B otc_live_* rate limit]
       F --> I[investigation-api v2.0.0 :8003]
       F --> C[compliance-api v2.0.0 :8002]
       F --> MO2[monitoring-api v2.0.0 :8004]
       F --> R[report-api v2.0.0 :8007]
-      F --> AI[ai-service v4.1.0 :8005<br/>202 Accepted jobs]
-      F --> CM[case-management v2.0.0 :8006<br/>hub casos scoring IA]
+      F --> AI[ai-service v4.1.0 :8005
+202 Accepted jobs]
+      F --> CM[case-management v2.0.0 :8006
+hub casos scoring IA]
       I --> X[(Redis queue DLQ)]
-      C --> X; MO2 --> X; R --> X
+      C --> X
+      MO2 --> X
+      R --> X
       C --> CW[compliance-worker readiness]
       subgraph SS[StatefulSets PVC  -  LGPD restricted-dados-pessoais]
         direction TB
@@ -339,12 +348,26 @@ flowchart LR
       G[Grafana 11.2 Dashboard Único QA PVC 5Gi standalone]
       AM[Alertmanager v0.27 webhook routes P0-P2]
       KC[Keycloak v25 realm-ontrackchain import]
-      I --> P; C --> P; MO2 --> P; R --> P; AI --> P; CM --> P; PA --> P; A --> P
+      I --> P
+      C --> P
+      MO2 --> P
+      R --> P
+      AI --> P
+      CM --> P
+      PA --> P
+      A --> P
       AM -->|POST /api/v1/monitoring/alertmanager-webhook| MO2
-      PR -->|/metrics scrape annotations 9 FastAPI| A; PR -->|/metrics| MO; PR -->|/metrics| PA
-      PR -->|/metrics| I; PR -->|/metrics| C; PR -->|/metrics| MO2; PR -->|/metrics| R
-      PR -->|/metrics| AI; PR -->|/metrics| CM
-      G --> PR; G --> AM
+      PR -->|/metrics scrape annotations 9 FastAPI| A
+      PR -->|/metrics| MO
+      PR -->|/metrics| PA
+      PR -->|/metrics| I
+      PR -->|/metrics| C
+      PR -->|/metrics| MO2
+      PR -->|/metrics| R
+      PR -->|/metrics| AI
+      PR -->|/metrics| CM
+      G --> PR
+      G --> AM
       CM -->|async jobs FOR UPDATE SKIP LOCKED| AI
       MO2 --> GW[governanca + dossier + RCA]
       R --> GW
@@ -356,7 +379,7 @@ flowchart LR
     classDef svc fill:#dbeafe,stroke:#2563eb,color:#111827;
     classDef infra fill:#dcfce7,stroke:#16a34a,color:#111827;
     classDef stateful fill:#fef3c7,stroke:#d97706,color:#111827;
-    classDef netpol fill:#f1f5f9,stroke:#475569,color:#111827,stroke-dasharray:5 5;
+    classDef netpol fill:#f1f5f9,stroke:#475569,color:#111827,stroke-dasharray:5,5;
     classDef gateway fill:#fce7f3,stroke:#db2777,color:#111827;
     class A,MO,PA,I,C,MO2,R,AI,CM,F svc;
     class TF,X,CW,GW,GE,KC infra;
@@ -404,10 +427,10 @@ flowchart TD
 sequenceDiagram
     participant U as Usuario
     participant F as Frontend Next.js
-    participant MO as mock-oidc v1.5.0<br/>(fallback dev/staging)
+    participant MO as mock-oidc v1.5.0 (fallback dev/staging)
     participant K as Keycloak v25
     participant A as auth-service v3.0.0
-    participant OTK as canonicalize_role OTK_*<br/>(ontrackchain_shared)
+    participant OTK as canonicalize_role OTK_* (ontrackchain_shared)
     participant APIs as APIs internas 9 domínios
 
     U->>F: acessa login
@@ -424,7 +447,7 @@ sequenceDiagram
     end
     F->>A: POST /api/session/start (callback + token)
     A->>A: valida issuer, audience (ontrackchain-api), assinatura, JWKS
-    Note over A: fallback Sessao Desativado Sprint13<br/>Nao cai em sysadmin se OIDC falha
+    Note over A: fallback Sessao Desativado Sprint13. Nao cai em sysadmin se OIDC falha.
     A->>A: resolve org, plan, linked_user_id, provider (keycloak|mock)
     A->>OTK: canonicalize_role(claim_role)
     alt claim comeca com OTK_
@@ -445,9 +468,12 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Input[Carteira / contraparte / evento B2B] --> Screening[compliance-api v2.0.0<br/>Sanctions OFAC/EU + AML/KYT TRM/Chainalysis]
-    Screening --> CM[case-management v2.0.0<br/>hub caso + scoring IA automático]
-    CM --> AI[ai-service v4.1.0<br/>Risk Model + THEMIS scoring XAI]
+    Input[Carteira / contraparte / evento B2B] --> Screening[compliance-api v2.0.0
+Sanctions OFAC/EU + AML/KYT TRM/Chainalysis]
+    Screening --> CM[case-management v2.0.0
+hub caso + scoring IA automático]
+    CM --> AI[ai-service v4.1.0
+Risk Model + THEMIS scoring XAI]
     AI --> Decision{Risco Apurado\nAI Score + Regras Estatísticas}
     Decision -->|baixo risco < 0.3| Counterparty[Counterparties / onboarding\nwork-item ownership]
     Decision -->|alerta 0.3-0.7| Block[Preventive Blocks\npreventive_blocks LGPD Art.19]
@@ -455,7 +481,8 @@ flowchart TD
     Counterparty --> Evidence[evidence_trail\nLGPD label restricted-dados-pessoais]
     Block --> Evidence
     ROS --> Evidence
-    Evidence --> Seal[Strong Sealing Evidence<br/>hash SHA-256 + chainlink provável]
+    Evidence --> Seal[Strong Sealing Evidence
+hash SHA-256 + chainlink provável]
     Seal --> Audit[audit_logs estruturados + reports\nmonitoring-api export]
     Audit --> RCA[RCA Cross-Domain\nAlertmanager webhook]
     RCA --> Gov[Governanca semanal / dossier\n4-eyes sign-off go/no-go]
@@ -573,25 +600,40 @@ flowchart TD
 flowchart LR
     subgraph StackObserv[Stack Observabilidade  -  Prometheus/Grafana/Alertmanager]
       direction TB
-      PRO[Prometheus v2.53 StatefulSet<br/>scrape /metrics 9 FastAPI ServiceMonitor]
+      PRO[Prometheus v2.53 StatefulSet
+scrape /metrics 9 FastAPI ServiceMonitor]
       GRA[Grafana 11.2 Dashboard Único QA]
-      AM[Alertmanager v0.27 webhook receiver routes<br/>P0/P1/P2/P3 severidade]
-      PRO --> GRA; PRO --> AM
+      AM[Alertmanager v0.27 webhook receiver routes
+P0/P1/P2/P3 severidade]
+      PRO --> GRA
+      PRO --> AM
     end
-    AM -->|POST /api/v1/monitoring/alertmanager-webhook<br/>severaidade + labels + fingerprint| M[monitoring-api v2.0.0 :8004]
-    M --> O[operational_alert_events PG16<br/>ack + correlation_id LGPD]
-    O --> MON[cockpit /monitoring<br/>saúde da plataforma]
-    MON --> AL[cockpit /alerts<br/>triagem global canônica]
-    AL --> IR[cockpit /incident-response<br/>resposta operacional]
+    AM -->|POST /api/v1/monitoring/alertmanager-webhook
+severaidade + labels + fingerprint| M[monitoring-api v2.0.0 :8004]
+    M --> O[operational_alert_events PG16
+ack + correlation_id LGPD]
+    O --> MON[cockpit /monitoring
+saúde da plataforma]
+    MON --> AL[cockpit /alerts
+triagem global canônica]
+    AL --> IR[cockpit /incident-response
+resposta operacional]
     IR --> AL
-    AL -->|module=alerts work_item criado| W[regulatory_work_item<br/>fila compartilhada multiusuario timeline persistida]
-    W --> T[timeline + comentarios estruturados<br/>regulatory_work_events + regulatory_work_comments]
-    W --> AU[audit_logs append-only<br/>trilha auditoria Art.19 LGPD]
-    W --> RCA[RCA leve cross-domain<br/>suspected/confirmed_root_cause blast_radius]
-    RCA --> CY[governance-weekly/cycles datados<br/>sign-off 4-eyes + war room]
+    AL -->|module=alerts work_item criado| W[regulatory_work_item
+fila compartilhada multiusuario timeline persistida]
+    W --> T[timeline + comentarios estruturados
+regulatory_work_events + regulatory_work_comments]
+    W --> AU[audit_logs append-only
+trilha auditoria Art.19 LGPD]
+    W --> RCA[RCA leve cross-domain
+suspected/confirmed_root_cause blast_radius]
+    RCA --> CY[governance-weekly/cycles datados
+sign-off 4-eyes + war room]
     RCA --> WR[War Room leve ou matriz severidade L3/L4]
-    RCA --> RS[Resumo executivo operacional<br/>Board Operacional + Scorecard]
-    DO[Domain Owners + Incident Commander<br/>Ownership Definido] --> W
+    RCA --> RS[Resumo executivo operacional
+Board Operacional + Scorecard]
+    DO[Domain Owners + Incident Commander
+Ownership Definido] --> W
     DEF[Definitions of Done Encerramento] --> W
 ```
 
