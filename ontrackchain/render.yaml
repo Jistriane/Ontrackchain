@@ -1,4 +1,4 @@
-version: '1'
+version: "1"
 previews:
   generation: false
 services:
@@ -11,8 +11,8 @@ services:
   name: ontrackchain-psql-pgvector-staging
   plan: free
   runtime: docker
-  dockerContext: ./ontrackchain
-  dockerfilePath: ./infra/render/postgres-pgvector/Dockerfile
+  dockerContext: ontrackchain
+  dockerfilePath: infra/render/postgres-pgvector/Dockerfile
   memoryLimitMB: 512
   cpuLimitMhz: 2000
   autoDeploy: false
@@ -151,8 +151,8 @@ services:
   cpuLimitMhz: 2000
   memoryLimitMB: 512
   runtime: docker
-  dockerContext: ./ontrackchain
-  dockerfilePath: ./infra/render/traefik/Dockerfile
+  dockerContext: ontrackchain
+  dockerfilePath: infra/render/traefik/Dockerfile
   healthCheckPath: /login
   envVars:
   - key: AUTH_SERVICE_HOSTPORT
@@ -206,8 +206,8 @@ services:
   cpuLimitMhz: 2000
   memoryLimitMB: 512
   runtime: docker
-  dockerContext: ./ontrackchain
-  dockerfilePath: ./infra/render/keycloak/Dockerfile
+  dockerContext: ontrackchain
+  dockerfilePath: infra/render/keycloak/Dockerfile
   healthCheckPath: /realms/ontrackchain
   envVars:
   - key: KEYCLOAK_PUBLIC_URL
@@ -265,8 +265,8 @@ services:
   cpuLimitMhz: 2000
   memoryLimitMB: 512
   runtime: docker
-  dockerContext: ./ontrackchain
-  dockerfilePath: ./infra/render/auth-service/Dockerfile
+  dockerContext: ontrackchain
+  dockerfilePath: infra/render/auth-service/Dockerfile
   dockerCommand: /app/infra/render/scripts/start-auth-service.sh
   healthCheckPath: /health
   envVars:
@@ -275,7 +275,7 @@ services:
   - key: AUTH_MODE
     value: oidc
   - key: DEV_AUTH_ENABLED
-    value: 'false'
+    value: "false"
   - key: OIDC_PROVIDER
     value: keycloak
   - key: JWT_ISSUER
@@ -291,11 +291,11 @@ services:
   - key: MFA_TOTP_ACCOUNT_NAME
     value: staging-admin@ontrackchain
   - key: MFA_TOTP_PERIOD_SECONDS
-    value: '30'
+    value: "30"
   - key: MFA_TOTP_DIGITS
-    value: '6'
+    value: "6"
   - key: MFA_TOTP_WINDOW
-    value: '1'
+    value: "1"
   - key: OIDC_ISSUER_URL
     value: https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain
   - key: OIDC_AUDIENCE
@@ -321,19 +321,19 @@ services:
   - key: KEYCLOAK_ADMIN_CLIENT_SECRET
     sync: false
   - key: KEYCLOAK_ADMIN_TIMEOUT_SECONDS
-    value: '5'
+    value: "5"
   - key: KEYCLOAK_ADMIN_SEARCH_LIMIT
-    value: '20'
+    value: "20"
   - key: KEYCLOAK_ADMIN_ORG_ATTRIBUTE
     value: organization_id
   - key: KEYCLOAK_ADMIN_ROLE_ATTRIBUTE
     value: otk_role
   - key: MFA_EXTERNAL_PROVIDER_HOMOLOGATED
-    value: 'false'
+    value: "false"
   - key: ONTRACKCHAIN_ALLOW_INSECURE_OIDC_URLS
-    value: 'false'
+    value: "false"
   - key: ONTRACKCHAIN_ALLOW_LOCALHOST_OIDC_URLS
-    value: 'false'
+    value: "false"
   - key: POSTGRES_HOST
     fromService:
       type: pserv
@@ -359,8 +359,8 @@ services:
   cpuLimitMhz: 2000
   memoryLimitMB: 512
   runtime: docker
-  dockerContext: ./ontrackchain/apps/public-api
-  dockerfilePath: ./Dockerfile
+  dockerContext: ontrackchain/apps/public-api
+  dockerfilePath: Dockerfile
   envVars:
   - key: REDIS_HOST
     fromService:
@@ -378,8 +378,8 @@ services:
   cpuLimitMhz: 2000
   memoryLimitMB: 512
   runtime: docker
-  dockerContext: ./ontrackchain
-  dockerfilePath: ./apps/investigation-api/Dockerfile
+  dockerContext: ontrackchain
+  dockerfilePath: apps/investigation-api/Dockerfile
   envVars:
   - key: POSTGRES_HOST
     fromService:
@@ -411,29 +411,29 @@ services:
       name: ontrackchain-redis-staging
       property: port
   - key: INVESTIGATION_INTERNAL_METRICS_ENABLED
-    value: 'true'
+    value: "true"
   - key: INVESTIGATION_RPC_PROVIDER
     value: evm_rpc
   - key: INVESTIGATION_RPC_ENABLED
-    value: 'true'
+    value: "true"
   - key: INVESTIGATION_RPC_PRIMARY_URL
     sync: false
   - key: INVESTIGATION_RPC_FALLBACK_URL
     value: https://ethereum-rpc.publicnode.com
   - key: INVESTIGATION_RPC_TIMEOUT_MS
-    value: '1500'
+    value: "1500"
   - key: INVESTIGATION_RPC_MAX_RETRIES
-    value: '1'
+    value: "1"
   - key: CREDIT_VALUE_BRL
-    value: '1.0'
+    value: "1.0"
 - type: worker
   name: ontrackchain-investigation-worker-staging
   plan: free
   cpuLimitMhz: 2000
   memoryLimitMB: 512
   runtime: docker
-  dockerContext: ./ontrackchain
-  dockerfilePath: ./apps/investigation-api/Dockerfile
+  dockerContext: ontrackchain
+  dockerfilePath: apps/investigation-api/Dockerfile
   dockerCommand: python -m investigation_api.worker
   envVars:
   - key: POSTGRES_HOST
@@ -466,25 +466,25 @@ services:
       name: ontrackchain-redis-staging
       property: port
   - key: INVESTIGATION_WORKER_PROCESSING_SECONDS
-    value: '2'
+    value: "2"
   - key: INVESTIGATION_WORKER_LOCAL_CONCURRENCY
-    value: '8'
+    value: "8"
   - key: INVESTIGATION_WORKER_BASE_BACKOFF_SECONDS
-    value: '5'
+    value: "5"
   - key: INVESTIGATION_RPC_PROVIDER
     value: evm_rpc
   - key: INVESTIGATION_RPC_ENABLED
-    value: 'true'
+    value: "true"
   - key: INVESTIGATION_RPC_PRIMARY_URL
     sync: false
   - key: INVESTIGATION_RPC_FALLBACK_URL
     value: https://ethereum-rpc.publicnode.com
   - key: INVESTIGATION_RPC_TIMEOUT_MS
-    value: '1500'
+    value: "1500"
   - key: INVESTIGATION_RPC_MAX_RETRIES
-    value: '1'
+    value: "1"
   - key: CREDIT_VALUE_BRL
-    value: '1.0'
+    value: "1.0"
   - key: INVESTIGATION_INTERNAL_BASE_URL
     fromService:
       type: pserv
@@ -498,8 +498,8 @@ services:
   cpuLimitMhz: 2000
   memoryLimitMB: 512
   runtime: docker
-  dockerContext: ./ontrackchain
-  dockerfilePath: ./apps/compliance-api/Dockerfile
+  dockerContext: ontrackchain
+  dockerfilePath: apps/compliance-api/Dockerfile
   envVars:
   - key: POSTGRES_HOST
     fromService:
@@ -521,21 +521,21 @@ services:
   - key: POSTGRES_DB
     value: compliance_service
   - key: COMPLIANCE_INTERNAL_METRICS_ENABLED
-    value: 'true'
+    value: "true"
   - key: COMPLIANCE_QUEUED_CASES_WARN_THRESHOLD
-    value: '5'
+    value: "5"
   - key: COMPLIANCE_FAILED_LAST_24H_CRITICAL_THRESHOLD
-    value: '1'
+    value: "1"
   - key: COMPLIANCE_EXPIRED_QUOTES_WARN_THRESHOLD
-    value: '10'
+    value: "10"
   - key: COMPLIANCE_COMPLETED_WITHOUT_REPORT_WARN_THRESHOLD
-    value: '3'
+    value: "3"
   - key: COMPLIANCE_PROVIDER_DEGRADED_WARN_THRESHOLD
-    value: '1'
+    value: "1"
   - key: COMPLIANCE_RISK_PROVIDER
     value: trm_labs
   - key: COMPLIANCE_TRM_ENABLED
-    value: 'true'
+    value: "true"
   - key: COMPLIANCE_TRM_SCREENING_URL
     value: https://api.trmlabs.com/public/v2/screening/addresses
   - key: COMPLIANCE_TRM_API_KEY
@@ -545,19 +545,19 @@ services:
   - key: COMPLIANCE_TRM_API_KEY_PREFIX
     value: Bearer
   - key: COMPLIANCE_TRM_TIMEOUT_MS
-    value: '1500'
+    value: "1500"
   - key: COMPLIANCE_TRM_MAX_RETRIES
-    value: '1'
+    value: "1"
   - key: CREDIT_VALUE_BRL
-    value: '1.0'
+    value: "1.0"
 - type: worker
   name: ontrackchain-compliance-worker-staging
   plan: free
   cpuLimitMhz: 2000
   memoryLimitMB: 512
   runtime: docker
-  dockerContext: ./ontrackchain
-  dockerfilePath: ./apps/compliance-api/Dockerfile
+  dockerContext: ontrackchain
+  dockerfilePath: apps/compliance-api/Dockerfile
   dockerCommand: python -m compliance_api.worker
   envVars:
   - key: POSTGRES_HOST
@@ -582,29 +582,29 @@ services:
   - key: OPENSANCTIONS_API_KEY
     sync: false
   - key: COMPLIANCE_OFAC_SDN_SOURCE_URL
-    value: ''
+    sync: false
   - key: COMPLIANCE_EU_SANCTIONS_SOURCE_URL
     value: https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList_1_1/content?token=dG9rZW5fZGVtb19zdGFnaW5nXzIwMjY
   - key: COMPLIANCE_WORKER_IDLE_WAIT_SECONDS
-    value: '60'
+    value: "60"
   - key: COMPLIANCE_WORKER_OFAC_SYNC_SECONDS
-    value: '21600'
+    value: "21600"
   - key: COMPLIANCE_WORKER_UN_SYNC_SECONDS
-    value: '86400'
+    value: "86400"
   - key: COMPLIANCE_WORKER_EU_SYNC_SECONDS
-    value: '86400'
+    value: "86400"
   - key: COMPLIANCE_WORKER_OPENSANCTIONS_SYNC_SECONDS
-    value: '86400'
+    value: "86400"
   - key: COMPLIANCE_WORKER_ROS_DEADLINE_SCAN_SECONDS
-    value: '3600'
+    value: "3600"
 - type: pserv
   name: ontrackchain-monitoring-api-staging
   plan: free
   cpuLimitMhz: 2000
   memoryLimitMB: 512
   runtime: docker
-  dockerContext: ./ontrackchain
-  dockerfilePath: ./apps/monitoring-api/Dockerfile
+  dockerContext: ontrackchain
+  dockerfilePath: apps/monitoring-api/Dockerfile
   envVars:
   - key: POSTGRES_HOST
     fromService:
@@ -636,15 +636,15 @@ services:
       name: ontrackchain-redis-staging
       property: port
   - key: MONITORING_INTERNAL_METRICS_ENABLED
-    value: 'true'
+    value: "true"
   - key: MONITORING_ALERTS_LAST_HOUR_WARN_THRESHOLD
-    value: '5'
+    value: "5"
   - key: MONITORING_CRITICAL_ALERTS_LAST_24H_CRITICAL_THRESHOLD
-    value: '1'
+    value: "1"
   - key: MONITORING_EXPIRED_QUOTES_WARN_THRESHOLD
-    value: '10'
+    value: "10"
   - key: MONITORING_OPEN_QUOTES_WARN_THRESHOLD
-    value: '25'
+    value: "25"
   - key: ALERTMANAGER_WEBHOOK_BEARER_TOKEN
     sync: false
 - type: pserv
@@ -653,8 +653,8 @@ services:
   cpuLimitMhz: 2000
   memoryLimitMB: 512
   runtime: docker
-  dockerContext: ./ontrackchain
-  dockerfilePath: ./infra/render/alertmanager/Dockerfile
+  dockerContext: ontrackchain
+  dockerfilePath: infra/render/alertmanager/Dockerfile
   envVars:
   - key: MONITORING_API_HOSTPORT
     fromService:
@@ -672,8 +672,8 @@ services:
   cpuLimitMhz: 2000
   memoryLimitMB: 512
   runtime: docker
-  dockerContext: ./ontrackchain
-  dockerfilePath: ./infra/render/prometheus/Dockerfile
+  dockerContext: ontrackchain
+  dockerfilePath: infra/render/prometheus/Dockerfile
   envVars:
   - key: ALERTMANAGER_HOSTPORT
     fromService:
@@ -706,8 +706,8 @@ services:
   cpuLimitMhz: 2000
   memoryLimitMB: 512
   runtime: docker
-  dockerContext: ./ontrackchain
-  dockerfilePath: ./infra/render/grafana/Dockerfile
+  dockerContext: ontrackchain
+  dockerfilePath: infra/render/grafana/Dockerfile
   healthCheckPath: /api/health
   envVars:
   - key: PROMETHEUS_HOSTPORT
@@ -720,17 +720,17 @@ services:
   - key: GRAFANA_ADMIN_PASSWORD
     sync: false
   - key: GRAFANA_ANONYMOUS_ENABLED
-    value: 'false'
+    value: "false"
   - key: GRAFANA_DISABLE_LOGIN_FORM
-    value: 'false'
+    value: "false"
 - type: pserv
   name: ontrackchain-report-api-staging
   plan: free
   cpuLimitMhz: 2000
   memoryLimitMB: 512
   runtime: docker
-  dockerContext: ./ontrackchain
-  dockerfilePath: ./apps/report-api/Dockerfile
+  dockerContext: ontrackchain
+  dockerfilePath: apps/report-api/Dockerfile
   envVars:
   - key: POSTGRES_HOST
     fromService:
@@ -752,23 +752,23 @@ services:
   - key: POSTGRES_DB
     value: reporting_service
   - key: REPORT_INTERNAL_METRICS_ENABLED
-    value: 'true'
+    value: "true"
   - key: REPORT_DOWNLOADS_LAST_24H_WARN_THRESHOLD
-    value: '10'
+    value: "10"
   - key: REPORT_PENDING_ONCHAIN_WARN_THRESHOLD
-    value: '3'
+    value: "3"
   - key: REPORT_LEGAL_DOWNLOAD_SECURITY_VIOLATION_THRESHOLD
-    value: '1'
+    value: "1"
   - key: REPORT_PERSISTED_WITHOUT_DOWNLOAD_WARN_THRESHOLD
-    value: '3'
+    value: "3"
 - type: pserv
   name: ontrackchain-ai-service-staging
   plan: free
   cpuLimitMhz: 2000
   memoryLimitMB: 512
   runtime: docker
-  dockerContext: ./ontrackchain
-  dockerfilePath: ./apps/ai-service/Dockerfile
+  dockerContext: ontrackchain
+  dockerfilePath: apps/ai-service/Dockerfile
   envVars:
   - key: POSTGRES_HOST
     fromService:
@@ -808,67 +808,67 @@ services:
   - key: ANTHROPIC_HAIKU_MODEL
     value: claude-haiku-4-5
   - key: ANTHROPIC_TIMEOUT_MS
-    value: '3500'
+    value: "3500"
   - key: GROQ_API_KEY
     sync: false
   - key: GROQ_DEFAULT_MODEL
     value: llama-3.3-70b-versatile
   - key: GROQ_TIMEOUT_MS
-    value: '3500'
+    value: "3500"
   - key: LLM_FALLBACK_ENABLED
-    value: 'true'
+    value: "true"
   - key: LLM_FALLBACK_LATENCY_THRESHOLD_MS
-    value: '3500'
+    value: "3500"
   - key: LLM_CACHE_ENABLED
-    value: 'true'
+    value: "true"
   - key: LLM_CACHE_TTL_SECONDS
-    value: '3600'
+    value: "3600"
   - key: LLM_ZERO_RETENTION
-    value: 'true'
+    value: "true"
   - key: LLM_ANONYMIZE_INPUTS
-    value: 'true'
+    value: "true"
   - key: LLM_MAX_INPUT_LENGTH
-    value: '8192'
+    value: "8192"
   - key: LLM_LOG_PROMPTS
-    value: 'false'
+    value: "false"
   - key: LLM_LOG_RESPONSES
-    value: 'false'
+    value: "false"
   - key: RAG_VECTOR_STORE
     value: pgvector
   - key: RAG_EMBEDDING_MODEL
     value: voyage-3
   - key: RAG_EMBEDDING_DIMENSIONS
-    value: '1024'
+    value: "1024"
   - key: RAG_TOP_K
-    value: '10'
+    value: "10"
   - key: RAG_SIMILARITY_THRESHOLD
-    value: '0.7'
+    value: "0.7"
   - key: RAG_RERANK_ENABLED
-    value: 'true'
+    value: "true"
   - key: RAG_CORPUS_VERSION
-    value: 1.0.0
+    value: "1.0.0"
   - key: VOYAGE_API_KEY
     sync: false
   - key: EVAL_SAMPLING_RATE
-    value: '0.05'
+    value: "0.05"
   - key: EVAL_GOLDEN_DATASET_SIZE
-    value: '100'
+    value: "100"
   - key: EVAL_REGRESSION_BLOCKING
-    value: 'true'
+    value: "true"
   - key: EVAL_TARGET_PRECISION
-    value: '0.90'
+    value: "0.90"
   - key: EVAL_TARGET_RECALL
-    value: '0.85'
+    value: "0.85"
   - key: EVAL_REVIEW_REQUIRED
-    value: 'true'
+    value: "true"
 - type: worker
   name: ontrackchain-ai-worker-staging
   plan: free
   cpuLimitMhz: 2000
   memoryLimitMB: 512
   runtime: docker
-  dockerContext: ./ontrackchain
-  dockerfilePath: ./apps/ai-service/Dockerfile
+  dockerContext: ontrackchain
+  dockerfilePath: apps/ai-service/Dockerfile
   dockerCommand: python -m ai_service.worker
   envVars:
   - key: APP_ENV
@@ -916,17 +916,17 @@ services:
   - key: INVESTIGATION_INTERNAL_WORKER_TOKEN
     sync: false
   - key: AI_WORKER_POLL_INTERVAL_SECONDS
-    value: '5'
+    value: "5"
   - key: AI_WORKER_MAX_CONCURRENT_JOBS
-    value: '2'
+    value: "2"
 - type: pserv
   name: ontrackchain-case-management-staging
   plan: free
   cpuLimitMhz: 2000
   memoryLimitMB: 512
   runtime: docker
-  dockerContext: ./ontrackchain
-  dockerfilePath: ./apps/case-management/Dockerfile
+  dockerContext: ontrackchain
+  dockerfilePath: apps/case-management/Dockerfile
   envVars:
   - key: POSTGRES_HOST
     fromService:
@@ -958,21 +958,20 @@ services:
   cpuLimitMhz: 2000
   memoryLimitMB: 512
   runtime: docker
-  dockerContext: ./ontrackchain
-  dockerfilePath: ./packages/qa-gateway/Dockerfile
-  dockerCommand: while true; do qa-gateway health --endpoints "https://ontrackchain-gateway-staging.onrender.com/api/v1/auth/health,https://ontrackchain-gateway-staging.onrender.com/api/v1/cases/health,https://ontrackchain-investigation-api-staging.onrender.com/health,https://ontrackchain-compliance-api-staging.onrender.com/health,https://ontrackchain-monitoring-api-staging.onrender.com/health,https://ontrackchain-report-api-staging.onrender.com/health,https://ontrackchain-ai-service-staging.onrender.com/health"
-    ; sleep 300 ; done
+  dockerContext: ontrackchain
+  dockerfilePath: packages/qa-gateway/Dockerfile
+  dockerCommand: while true; do qa-gateway health --endpoints "https://ontrackchain-gateway-staging.onrender.com/api/v1/auth/health,https://ontrackchain-gateway-staging.onrender.com/api/v1/cases/health,https://ontrackchain-investigation-api-staging.onrender.com/health,https://ontrackchain-compliance-api-staging.onrender.com/health,https://ontrackchain-monitoring-api-staging.onrender.com/health,https://ontrackchain-report-api-staging.onrender.com/health,https://ontrackchain-ai-service-staging.onrender.com/health"; sleep 300; done
   envVars:
   - key: OTK_QA_INTERVAL_SECONDS
-    value: '300'
+    value: "300"
 - type: web
   name: ontrackchain-frontend-staging
   plan: free
   cpuLimitMhz: 2000
   memoryLimitMB: 512
   runtime: docker
-  dockerContext: ./ontrackchain/apps/frontend
-  dockerfilePath: ./Dockerfile
+  dockerContext: ontrackchain/apps/frontend
+  dockerfilePath: Dockerfile
   dockerBuildTarget: runtime
   healthCheckPath: /api/healthz
   buildFilter:
@@ -987,7 +986,7 @@ services:
   - key: NEXT_PUBLIC_AUTH_MODE
     value: oidc
   - key: NEXT_PUBLIC_DEV_AUTH_ENABLED
-    value: 'false'
+    value: "false"
   - key: NEXT_PUBLIC_APP_URL
     value: https://ontrackchain-gateway-staging.onrender.com
   - key: NEXT_PUBLIC_FRONTEND_URL
@@ -995,22 +994,22 @@ services:
   - key: NEXT_PUBLIC_API_BASE_URL
     value: https://ontrackchain-gateway-staging.onrender.com
   - key: NEXT_TELEMETRY_DISABLED
-    value: '1'
+    value: "1"
   - key: NEXT_DISABLE_SOURCE_MAPS
-    value: 'true'
+    value: "true"
   envVars:
   - key: APP_ENV
     value: staging
   - key: AUTH_MODE
     value: oidc
   - key: DEV_AUTH_ENABLED
-    value: 'false'
+    value: "false"
   - key: NEXT_PUBLIC_APP_ENV
     value: staging
   - key: NEXT_PUBLIC_AUTH_MODE
     value: oidc
   - key: NEXT_PUBLIC_DEV_AUTH_ENABLED
-    value: 'false'
+    value: "false"
   - key: NEXT_PUBLIC_APP_URL
     value: https://ontrackchain-gateway-staging.onrender.com
   - key: NEXT_PUBLIC_FRONTEND_URL
@@ -1018,7 +1017,7 @@ services:
   - key: ONTRACKCHAIN_EXPECT_FRONTEND_DEPLOYMENT_MODEL
     value: render-full-stack-staging
   - key: ONTRACKCHAIN_ALLOW_FRONTEND_SHOWCASE_FALLBACK
-    value: 'false'
+    value: "false"
   - key: INTERNAL_API_BASE_URL
     value: https://ontrackchain-gateway-staging.onrender.com
   - key: INTERNAL_AUTH_BASE_URL
@@ -1040,6 +1039,7 @@ services:
   - key: OIDC_JWKS_URL
     value: https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/certs
   - key: ONTRACKCHAIN_ALLOW_INSECURE_OIDC_URLS
-    value: 'false'
+    value: "false"
   - key: ONTRACKCHAIN_ALLOW_LOCALHOST_OIDC_URLS
-    value: 'false'
+    value: "false"
+
