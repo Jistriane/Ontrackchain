@@ -1,4 +1,5 @@
 version: "1"
+# Auto-gen hash-forced update - backtick 0 removed
 previews:
   generation: false
 services:
