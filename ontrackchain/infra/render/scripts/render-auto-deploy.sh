@@ -139,7 +139,9 @@ echo ""
 echo "▶️  PASSO 3/4 — Ordem de deploy (prioridade correta)..."
 
 ORDER_REGEX=(
+  "pgvector"
   "postgres"
+  "psql"
   "redis"
   "keycloak"
   "auth-idp"

@@ -5,12 +5,10 @@ services:
 - type: keyvalue
   name: ontrackchain-redis-staging
   plan: free
-  cpuLimitMhz: 2000
-  memoryLimitMB: 512
   maxmemoryPolicy: allkeys-lru
   ipAllowList: []
 - type: pserv
-  name: ontrackchain-postgres-staging
+  name: ontrackchain-psql-pgvector-staging
   plan: free
   runtime: docker
   dockerContext: ./ontrackchain
@@ -243,12 +241,12 @@ services:
   - key: DB_ADDR
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: host
   - key: DB_PORT
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: port
   - key: DB_DATABASE
     value: keycloak
@@ -259,7 +257,7 @@ services:
   - key: DB_PASSWORD
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       envVarKey: KEYCLOAK_DB_PASSWORD
 - type: web
   name: ontrackchain-auth-service-staging
@@ -339,19 +337,19 @@ services:
   - key: POSTGRES_HOST
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: host
   - key: POSTGRES_PORT
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: port
   - key: POSTGRES_USER
     value: auth_service
   - key: POSTGRES_PASSWORD
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       envVarKey: AUTH_DB_PASSWORD
   - key: POSTGRES_DB
     value: auth_service
@@ -386,19 +384,19 @@ services:
   - key: POSTGRES_HOST
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: host
   - key: POSTGRES_PORT
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: port
   - key: POSTGRES_USER
     value: investigation_service
   - key: POSTGRES_PASSWORD
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       envVarKey: INV_DB_PASSWORD
   - key: POSTGRES_DB
     value: investigation_service
@@ -441,19 +439,19 @@ services:
   - key: POSTGRES_HOST
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: host
   - key: POSTGRES_PORT
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: port
   - key: POSTGRES_USER
     value: investigation_service
   - key: POSTGRES_PASSWORD
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       envVarKey: INV_DB_PASSWORD
   - key: POSTGRES_DB
     value: investigation_service
@@ -506,19 +504,19 @@ services:
   - key: POSTGRES_HOST
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: host
   - key: POSTGRES_PORT
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: port
   - key: POSTGRES_USER
     value: compliance_service
   - key: POSTGRES_PASSWORD
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       envVarKey: COMPLIANCE_DB_PASSWORD
   - key: POSTGRES_DB
     value: compliance_service
@@ -545,7 +543,7 @@ services:
   - key: COMPLIANCE_TRM_API_KEY_HEADER
     value: Authorization
   - key: COMPLIANCE_TRM_API_KEY_PREFIX
-    value: 'Bearer '
+    value: Bearer
   - key: COMPLIANCE_TRM_TIMEOUT_MS
     value: '1500'
   - key: COMPLIANCE_TRM_MAX_RETRIES
@@ -565,19 +563,19 @@ services:
   - key: POSTGRES_HOST
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: host
   - key: POSTGRES_PORT
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: port
   - key: POSTGRES_USER
     value: compliance_service
   - key: POSTGRES_PASSWORD
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       envVarKey: COMPLIANCE_DB_PASSWORD
   - key: POSTGRES_DB
     value: compliance_service
@@ -611,19 +609,19 @@ services:
   - key: POSTGRES_HOST
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: host
   - key: POSTGRES_PORT
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: port
   - key: POSTGRES_USER
     value: monitoring_service
   - key: POSTGRES_PASSWORD
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       envVarKey: MONITORING_DB_PASSWORD
   - key: POSTGRES_DB
     value: monitoring_service
@@ -737,19 +735,19 @@ services:
   - key: POSTGRES_HOST
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: host
   - key: POSTGRES_PORT
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: port
   - key: POSTGRES_USER
     value: reporting_service
   - key: POSTGRES_PASSWORD
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       envVarKey: REPORTING_DB_PASSWORD
   - key: POSTGRES_DB
     value: reporting_service
@@ -775,19 +773,19 @@ services:
   - key: POSTGRES_HOST
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: host
   - key: POSTGRES_PORT
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: port
   - key: POSTGRES_USER
     value: ai_service
   - key: POSTGRES_PASSWORD
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       envVarKey: AI_DB_PASSWORD
   - key: POSTGRES_DB
     value: ai_service
@@ -878,19 +876,19 @@ services:
   - key: POSTGRES_HOST
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: host
   - key: POSTGRES_PORT
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: port
   - key: POSTGRES_USER
     value: ai_service
   - key: POSTGRES_PASSWORD
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       envVarKey: AI_DB_PASSWORD
   - key: POSTGRES_DB
     value: ai_service
@@ -933,19 +931,19 @@ services:
   - key: POSTGRES_HOST
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: host
   - key: POSTGRES_PORT
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       property: port
   - key: POSTGRES_USER
     value: case_management
   - key: POSTGRES_PASSWORD
     fromService:
       type: pserv
-      name: ontrackchain-postgres-staging
+      name: ontrackchain-psql-pgvector-staging
       envVarKey: CASE_DB_PASSWORD
   - key: POSTGRES_DB
     value: case_management
