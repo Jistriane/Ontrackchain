@@ -20,15 +20,51 @@
 
 set -euo pipefail
 
-cd "$(dirname "$0")/../../.."
-ROOTDIR=$(pwd)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPTS_PARENT_RELPATH="ontrackchain/infra/render/scripts"
+
+GIT_TOPLEVEL="$(git -C "${SCRIPT_DIR}" rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "${GIT_TOPLEVEL}" || ! -d "${GIT_TOPLEVEL}/.git" ]]; then
+  CANDIDATE_A="$(cd "${SCRIPT_DIR}/../../../../../.." && pwd 2>/dev/null || true)"
+  CANDIDATE_B="$(cd "${SCRIPT_DIR}/../../../../.." && pwd 2>/dev/null || true)"
+  for c in "$CANDIDATE_A" "$CANDIDATE_B" "$(pwd)"; do
+    if [[ -n "$c" && -d "${c}/.git" ]]; then
+      GIT_TOPLEVEL="$c"
+      break
+    fi
+  done
+fi
+if [[ -z "${GIT_TOPLEVEL}" ]]; then
+  echo "🚨 Não foi possível localizar o toplevel do repositório git (diretório com .git)."
+  echo "   Rode este script a partir do diretório onde foi clonado o Ontrackchain."
+  exit 2
+fi
+ROOTDIR="${GIT_TOPLEVEL}"
+REPO_ROOT_INFIX="${ROOTDIR}/${SCRIPTS_PARENT_RELPATH}"
+SCRIPT_DIR_ACTUAL="${REPO_ROOT_INFIX}"
+if [[ ! -f "${SCRIPT_DIR_ACTUAL}/render-auto-deploy.sh" ]]; then
+  CAND2="${ROOTDIR}/infra/render/scripts"
+  if [[ -f "${CAND2}/render-auto-deploy.sh" ]]; then
+    SCRIPT_DIR_ACTUAL="$CAND2"
+  else
+    CAND3="${ROOTDIR}/ontrackchain/infra/render/scripts"
+    if [[ -f "${CAND3}/render-auto-deploy.sh" ]]; then
+      SCRIPT_DIR_ACTUAL="$CAND3"
+    else
+      echo "🚨 Erro de layout: não encontrado render-auto-deploy.sh nem em ${SCRIPT_DIR_ACTUAL}, ${CAND2}, ${CAND3}."
+      exit 2
+    fi
+  fi
+fi
+cd "${ROOTDIR}" || exit 2
+START_CWD="$(pwd)"
+
 echo "================================================================================"
 echo " OnTrackChain — Push GitHub + Deploy Automático"
-echo " Working directory: ${ROOTDIR}"
+echo " Working directory (git toplevel): ${START_CWD}"
+echo " Scripts dir auto-detectado:      ${SCRIPT_DIR_ACTUAL}"
 echo "================================================================================"
 echo ""
-
-cd ontrackchain || exit 2
 
 START_HASH=$(git rev-parse --short HEAD)
 echo "▶️  PASSO 1/5 — Verificar dirty tree (arquivos modificados ou untracked)..."
@@ -122,7 +158,7 @@ if [[ -z "${RENDER_API_KEY:-}" || -z "${RENDER_BLUEPRINT_ID:-}" ]]; then
   echo "      e rode este script novamente."
 else
   echo "   🚀 Chamando render-auto-deploy.sh (API deploy 20 serviços em ordem correta)..."
-  bash "${ROOTDIR}/ontrackchain/infra/render/scripts/render-auto-deploy.sh"
+  bash "${SCRIPT_DIR_ACTUAL}/render-auto-deploy.sh"
 fi
 echo ""
 echo "▶️  PASSO 5/5 — Resumo"
