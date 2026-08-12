@@ -1,1067 +1,1045 @@
-version: "1"
-
+version: '1'
 previews:
-  generation: off
-
+  generation: false
 services:
-  - type: keyvalue
-    name: ontrackchain-redis-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    maxmemoryPolicy: allkeys-lru
-    ipAllowList: []
-
-  - type: pserv
-    name: ontrackchain-postgres-staging
-    plan: free
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: ./infra/render/postgres-pgvector/Dockerfile
-    memoryLimitMB: 512
-    cpuLimitMhz: 2000
-    autoDeploy: no
-    disk:
-      name: pgvector-data
-      mountPath: /var/lib/postgresql/data
-      sizeGB: 15
-    envVars:
-      - key: POSTGRES_USER
-        value: postgres
-      - key: POSTGRES_PASSWORD
-        sync: false
-      - key: POSTGRES_DB
-        value: ontrackchain
-      - key: PGDATA
-        value: /var/lib/postgresql/data/pgdata
-      - key: POSTGRES_HOST_AUTH_METHOD
-        value: md5
-      - key: KEYCLOAK_DB_NAME
-        value: keycloak
-      - key: KEYCLOAK_DB_USER
-        value: keycloak
-      - key: KEYCLOAK_DB_PASSWORD
-        sync: false
-      - key: AUTH_DB_NAME
-        value: auth_service
-      - key: AUTH_DB_USER
-        value: auth_service
-      - key: AUTH_DB_PASSWORD
-        sync: false
-      - key: CASE_DB_NAME
-        value: case_management
-      - key: CASE_DB_USER
-        value: case_management
-      - key: CASE_DB_PASSWORD
-        sync: false
-      - key: INV_DB_NAME
-        value: investigation_service
-      - key: INV_DB_USER
-        value: investigation_service
-      - key: INV_DB_PASSWORD
-        sync: false
-      - key: BILLING_DB_NAME
-        value: billing_service
-      - key: BILLING_DB_USER
-        value: billing_service
-      - key: BILLING_DB_PASSWORD
-        sync: false
-      - key: COMPLIANCE_DB_NAME
-        value: compliance_service
-      - key: COMPLIANCE_DB_USER
-        value: compliance_service
-      - key: COMPLIANCE_DB_PASSWORD
-        sync: false
-      - key: COUNTERPARTY_DB_NAME
-        value: counterparty_service
-      - key: COUNTERPARTY_DB_USER
-        value: counterparty_service
-      - key: COUNTERPARTY_DB_PASSWORD
-        sync: false
-      - key: NOTIFICATION_DB_NAME
-        value: notification_service
-      - key: NOTIFICATION_DB_USER
-        value: notification_service
-      - key: NOTIFICATION_DB_PASSWORD
-        sync: false
-      - key: AUDIT_DB_NAME
-        value: audit_service
-      - key: AUDIT_DB_USER
-        value: audit_service
-      - key: AUDIT_DB_PASSWORD
-        sync: false
-      - key: ENTERPRISE_DB_NAME
-        value: enterprise_service
-      - key: ENTERPRISE_DB_USER
-        value: enterprise_service
-      - key: ENTERPRISE_DB_PASSWORD
-        sync: false
-      - key: SANCTIONS_DB_NAME
-        value: sanctions_service
-      - key: SANCTIONS_DB_USER
-        value: sanctions_service
-      - key: SANCTIONS_DB_PASSWORD
-        sync: false
-      - key: RISK_DB_NAME
-        value: risk_service
-      - key: RISK_DB_USER
-        value: risk_service
-      - key: RISK_DB_PASSWORD
-        sync: false
-      - key: MONITORING_DB_NAME
-        value: monitoring_service
-      - key: MONITORING_DB_USER
-        value: monitoring_service
-      - key: MONITORING_DB_PASSWORD
-        sync: false
-      - key: AI_DB_NAME
-        value: ai_service
-      - key: AI_DB_USER
-        value: ai_service
-      - key: AI_DB_PASSWORD
-        sync: false
-      - key: REPORTING_DB_NAME
-        value: reporting_service
-      - key: REPORTING_DB_USER
-        value: reporting_service
-      - key: REPORTING_DB_PASSWORD
-        sync: false
-      - key: EVENT_DB_NAME
-        value: event_service
-      - key: EVENT_DB_USER
-        value: event_service
-      - key: EVENT_DB_PASSWORD
-        sync: false
-      - key: TEAM_DB_NAME
-        value: team_service
-      - key: TEAM_DB_USER
-        value: team_service
-      - key: TEAM_DB_PASSWORD
-        sync: false
-      - key: EVIDENCE_DB_NAME
-        value: evidence_service
-      - key: EVIDENCE_DB_USER
-        value: evidence_service
-      - key: EVIDENCE_DB_PASSWORD
-        sync: false
-      - key: BLOCKCHAIN_DB_NAME
-        value: blockchain_service
-      - key: BLOCKCHAIN_DB_USER
-        value: blockchain_service
-      - key: BLOCKCHAIN_DB_PASSWORD
-        sync: false
-
-  - type: web
-    name: ontrackchain-gateway-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: ./infra/render/traefik/Dockerfile
-    healthCheckPath: /login
-    envVars:
-      - key: AUTH_SERVICE_HOSTPORT
-        fromService:
-          type: web
-          name: ontrackchain-auth-service-staging
-          property: hostport
-      - key: PUBLIC_API_HOSTPORT
-        fromService:
-          type: pserv
-          name: ontrackchain-public-api-staging
-          property: hostport
-      - key: INVESTIGATION_API_HOSTPORT
-        fromService:
-          type: pserv
-          name: ontrackchain-investigation-api-staging
-          property: hostport
-      - key: COMPLIANCE_API_HOSTPORT
-        fromService:
-          type: pserv
-          name: ontrackchain-compliance-api-staging
-          property: hostport
-      - key: MONITORING_API_HOSTPORT
-        fromService:
-          type: pserv
-          name: ontrackchain-monitoring-api-staging
-          property: hostport
-      - key: REPORT_API_HOSTPORT
-        fromService:
-          type: pserv
-          name: ontrackchain-report-api-staging
-          property: hostport
-      - key: AI_SERVICE_HOSTPORT
-        fromService:
-          type: pserv
-          name: ontrackchain-ai-service-staging
-          property: hostport
-      - key: CASE_MANAGEMENT_HOSTPORT
-        fromService:
-          type: pserv
-          name: ontrackchain-case-management-staging
-          property: hostport
-      - key: FRONTEND_HOSTPORT
-        fromService:
-          type: web
-          name: ontrackchain-frontend-staging
-          property: hostport
-
-  - type: web
-    name: ontrackchain-keycloak-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: ./infra/render/keycloak/Dockerfile
-    healthCheckPath: /realms/ontrackchain
-    envVars:
-      - key: KEYCLOAK_PUBLIC_URL
-        value: "https://ontrackchain-keycloak-staging.onrender.com"
-      - key: ONTRACKCHAIN_PUBLIC_BASE_URL
-        value: "https://ontrackchain-gateway-staging.onrender.com"
-      - key: KEYCLOAK_ADMIN
-        value: admin
-      - key: KEYCLOAK_ADMIN_PASSWORD
-        sync: false
-      - key: KEYCLOAK_REALM
-        value: ontrackchain
-      - key: KEYCLOAK_B2B_CLIENT_SECRET
-        sync: false
-      - key: KEYCLOAK_SYSTEM_USER_PASSWORD
-        sync: false
-      - key: KEYCLOAK_KMD_TESTER_PASSWORD
-        sync: false
-      - key: KEYCLOAK_JIBSO_ADMIN_PASSWORD
-        sync: false
-      - key: KEYCLOAK_AUDITOR_PASSWORD
-        sync: false
-      - key: KEYCLOAK_ANALYST_PASSWORD
-        sync: false
-      - key: KEYCLOAK_VIEWER_PASSWORD
-        sync: false
-      - key: KEYCLOAK_SEM_ORG_PASSWORD
-        sync: false
-      - key: DB_VENDOR
-        value: postgres
-      - key: DB_ADDR
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: host
-      - key: DB_PORT
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: port
-      - key: DB_DATABASE
-        value: keycloak
-      - key: DB_USER
-        value: keycloak
-      - key: DB_SCHEMA
-        value: public
-      - key: DB_PASSWORD
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          envVarKey: KEYCLOAK_DB_PASSWORD
-
-  - type: web
-    name: ontrackchain-auth-service-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: ./infra/render/auth-service/Dockerfile
-    dockerCommand: /app/infra/render/scripts/start-auth-service.sh
-    healthCheckPath: /health
-    envVars:
-      - key: APP_ENV
-        value: staging
-      - key: AUTH_MODE
-        value: oidc
-      - key: DEV_AUTH_ENABLED
-        value: "false"
-      - key: OIDC_PROVIDER
-        value: keycloak
-      - key: JWT_ISSUER
-        value: ontrackchain
-      - key: JWT_AUDIENCE
-        value: ontrackchain-api
-      - key: JWT_HS256_SECRET
-        sync: false
-      - key: MFA_TOTP_SECRET
-        sync: false
-      - key: MFA_TOTP_ISSUER
-        value: OnTrackChain
-      - key: MFA_TOTP_ACCOUNT_NAME
-        value: staging-admin@ontrackchain
-      - key: MFA_TOTP_PERIOD_SECONDS
-        value: "30"
-      - key: MFA_TOTP_DIGITS
-        value: "6"
-      - key: MFA_TOTP_WINDOW
-        value: "1"
-      - key: OIDC_ISSUER_URL
-        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain"
-      - key: OIDC_AUDIENCE
-        value: ontrackchain-api
-      - key: OIDC_CLIENT_ID
-        value: ontrackchain-web
-      - key: OIDC_JWKS_URL
-        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/certs"
-      - key: OIDC_AUTHORIZATION_URL
-        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/auth"
-      - key: OIDC_ORG_CLAIM
-        value: org
-      - key: OIDC_PLAN_CLAIM
-        value: plan
-      - key: OIDC_ROLE_CLAIM
-        value: otk_role
-      - key: KEYCLOAK_ADMIN_BASE_URL
-        value: "https://ontrackchain-keycloak-staging.onrender.com"
-      - key: KEYCLOAK_ADMIN_REALM
-        value: ontrackchain
-      - key: KEYCLOAK_ADMIN_CLIENT_ID
-        value: ontrackchain-b2b
-      - key: KEYCLOAK_ADMIN_CLIENT_SECRET
-        sync: false
-      - key: KEYCLOAK_ADMIN_TIMEOUT_SECONDS
-        value: "5"
-      - key: KEYCLOAK_ADMIN_SEARCH_LIMIT
-        value: "20"
-      - key: KEYCLOAK_ADMIN_ORG_ATTRIBUTE
-        value: organization_id
-      - key: KEYCLOAK_ADMIN_ROLE_ATTRIBUTE
-        value: otk_role
-      - key: MFA_EXTERNAL_PROVIDER_HOMOLOGATED
-        value: "false"
-      - key: ONTRACKCHAIN_ALLOW_INSECURE_OIDC_URLS
-        value: "false"
-      - key: ONTRACKCHAIN_ALLOW_LOCALHOST_OIDC_URLS
-        value: "false"
-      - key: POSTGRES_HOST
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: host
-      - key: POSTGRES_PORT
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: port
-      - key: POSTGRES_USER
-        value: auth_service
-      - key: POSTGRES_PASSWORD
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          envVarKey: AUTH_DB_PASSWORD
-      - key: POSTGRES_DB
-        value: auth_service
-
-  - type: pserv
-    name: ontrackchain-public-api-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    runtime: docker
-    dockerContext: ./apps/public-api
-    dockerfilePath: ./apps/public-api/Dockerfile
-    envVars:
-      - key: REDIS_HOST
-        fromService:
-          type: keyvalue
-          name: ontrackchain-redis-staging
-          property: host
-      - key: REDIS_PORT
-        fromService:
-          type: keyvalue
-          name: ontrackchain-redis-staging
-          property: port
-
-  - type: pserv
-    name: ontrackchain-investigation-api-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: ./apps/investigation-api/Dockerfile
-    envVars:
-      - key: POSTGRES_HOST
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: host
-      - key: POSTGRES_PORT
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: port
-      - key: POSTGRES_USER
-        value: investigation_service
-      - key: POSTGRES_PASSWORD
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          envVarKey: INV_DB_PASSWORD
-      - key: POSTGRES_DB
-        value: investigation_service
-      - key: REDIS_HOST
-        fromService:
-          type: keyvalue
-          name: ontrackchain-redis-staging
-          property: host
-      - key: REDIS_PORT
-        fromService:
-          type: keyvalue
-          name: ontrackchain-redis-staging
-          property: port
-      - key: INVESTIGATION_INTERNAL_METRICS_ENABLED
-        value: "true"
-      - key: INVESTIGATION_RPC_PROVIDER
-        value: evm_rpc
-      - key: INVESTIGATION_RPC_ENABLED
-        value: "true"
-      - key: INVESTIGATION_RPC_PRIMARY_URL
-        sync: false
-      - key: INVESTIGATION_RPC_FALLBACK_URL
-        value: "https://ethereum-rpc.publicnode.com"
-      - key: INVESTIGATION_RPC_TIMEOUT_MS
-        value: "1500"
-      - key: INVESTIGATION_RPC_MAX_RETRIES
-        value: "1"
-      - key: CREDIT_VALUE_BRL
-        value: "1.0"
-
-  - type: worker
-    name: ontrackchain-investigation-worker-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: ./apps/investigation-api/Dockerfile
-    dockerCommand: python -m investigation_api.worker
-    envVars:
-      - key: POSTGRES_HOST
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: host
-      - key: POSTGRES_PORT
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: port
-      - key: POSTGRES_USER
-        value: investigation_service
-      - key: POSTGRES_PASSWORD
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          envVarKey: INV_DB_PASSWORD
-      - key: POSTGRES_DB
-        value: investigation_service
-      - key: REDIS_HOST
-        fromService:
-          type: keyvalue
-          name: ontrackchain-redis-staging
-          property: host
-      - key: REDIS_PORT
-        fromService:
-          type: keyvalue
-          name: ontrackchain-redis-staging
-          property: port
-      - key: INVESTIGATION_WORKER_PROCESSING_SECONDS
-        value: "2"
-      - key: INVESTIGATION_WORKER_LOCAL_CONCURRENCY
-        value: "8"
-      - key: INVESTIGATION_WORKER_BASE_BACKOFF_SECONDS
-        value: "5"
-      - key: INVESTIGATION_RPC_PROVIDER
-        value: evm_rpc
-      - key: INVESTIGATION_RPC_ENABLED
-        value: "true"
-      - key: INVESTIGATION_RPC_PRIMARY_URL
-        sync: false
-      - key: INVESTIGATION_RPC_FALLBACK_URL
-        value: "https://ethereum-rpc.publicnode.com"
-      - key: INVESTIGATION_RPC_TIMEOUT_MS
-        value: "1500"
-      - key: INVESTIGATION_RPC_MAX_RETRIES
-        value: "1"
-      - key: CREDIT_VALUE_BRL
-        value: "1.0"
-      - key: INVESTIGATION_INTERNAL_BASE_URL
-        fromService:
-          type: pserv
-          name: ontrackchain-investigation-api-staging
-          property: hostport
-      - key: INVESTIGATION_INTERNAL_WORKER_TOKEN
-        sync: false
-
-  - type: pserv
-    name: ontrackchain-compliance-api-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: ./apps/compliance-api/Dockerfile
-    envVars:
-      - key: POSTGRES_HOST
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: host
-      - key: POSTGRES_PORT
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: port
-      - key: POSTGRES_USER
-        value: compliance_service
-      - key: POSTGRES_PASSWORD
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          envVarKey: COMPLIANCE_DB_PASSWORD
-      - key: POSTGRES_DB
-        value: compliance_service
-      - key: COMPLIANCE_INTERNAL_METRICS_ENABLED
-        value: "true"
-      - key: COMPLIANCE_QUEUED_CASES_WARN_THRESHOLD
-        value: "5"
-      - key: COMPLIANCE_FAILED_LAST_24H_CRITICAL_THRESHOLD
-        value: "1"
-      - key: COMPLIANCE_EXPIRED_QUOTES_WARN_THRESHOLD
-        value: "10"
-      - key: COMPLIANCE_COMPLETED_WITHOUT_REPORT_WARN_THRESHOLD
-        value: "3"
-      - key: COMPLIANCE_PROVIDER_DEGRADED_WARN_THRESHOLD
-        value: "1"
-      - key: COMPLIANCE_RISK_PROVIDER
-        value: trm_labs
-      - key: COMPLIANCE_TRM_ENABLED
-        value: "true"
-      - key: COMPLIANCE_TRM_SCREENING_URL
-        value: "https://api.trmlabs.com/public/v2/screening/addresses"
-      - key: COMPLIANCE_TRM_API_KEY
-        sync: false
-      - key: COMPLIANCE_TRM_API_KEY_HEADER
-        value: Authorization
-      - key: COMPLIANCE_TRM_API_KEY_PREFIX
-        value: "Bearer "
-      - key: COMPLIANCE_TRM_TIMEOUT_MS
-        value: "1500"
-      - key: COMPLIANCE_TRM_MAX_RETRIES
-        value: "1"
-      - key: CREDIT_VALUE_BRL
-        value: "1.0"
-
-  - type: worker
-    name: ontrackchain-compliance-worker-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: ./apps/compliance-api/Dockerfile
-    dockerCommand: python -m compliance_api.worker
-    envVars:
-      - key: POSTGRES_HOST
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: host
-      - key: POSTGRES_PORT
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: port
-      - key: POSTGRES_USER
-        value: compliance_service
-      - key: POSTGRES_PASSWORD
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          envVarKey: COMPLIANCE_DB_PASSWORD
-      - key: POSTGRES_DB
-        value: compliance_service
-      - key: OPENSANCTIONS_API_KEY
-        sync: false
-      - key: COMPLIANCE_OFAC_SDN_SOURCE_URL
-        value: ""
-      - key: COMPLIANCE_EU_SANCTIONS_SOURCE_URL
-        value: "https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList_1_1/content?token=dG9rZW5fZGVtb19zdGFnaW5nXzIwMjY"
-      - key: COMPLIANCE_WORKER_IDLE_WAIT_SECONDS
-        value: "60"
-      - key: COMPLIANCE_WORKER_OFAC_SYNC_SECONDS
-        value: "21600"
-      - key: COMPLIANCE_WORKER_UN_SYNC_SECONDS
-        value: "86400"
-      - key: COMPLIANCE_WORKER_EU_SYNC_SECONDS
-        value: "86400"
-      - key: COMPLIANCE_WORKER_OPENSANCTIONS_SYNC_SECONDS
-        value: "86400"
-      - key: COMPLIANCE_WORKER_ROS_DEADLINE_SCAN_SECONDS
-        value: "3600"
-
-  - type: pserv
-    name: ontrackchain-monitoring-api-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: ./apps/monitoring-api/Dockerfile
-    envVars:
-      - key: POSTGRES_HOST
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: host
-      - key: POSTGRES_PORT
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: port
-      - key: POSTGRES_USER
-        value: monitoring_service
-      - key: POSTGRES_PASSWORD
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          envVarKey: MONITORING_DB_PASSWORD
-      - key: POSTGRES_DB
-        value: monitoring_service
-      - key: REDIS_HOST
-        fromService:
-          type: keyvalue
-          name: ontrackchain-redis-staging
-          property: host
-      - key: REDIS_PORT
-        fromService:
-          type: keyvalue
-          name: ontrackchain-redis-staging
-          property: port
-      - key: MONITORING_INTERNAL_METRICS_ENABLED
-        value: "true"
-      - key: MONITORING_ALERTS_LAST_HOUR_WARN_THRESHOLD
-        value: "5"
-      - key: MONITORING_CRITICAL_ALERTS_LAST_24H_CRITICAL_THRESHOLD
-        value: "1"
-      - key: MONITORING_EXPIRED_QUOTES_WARN_THRESHOLD
-        value: "10"
-      - key: MONITORING_OPEN_QUOTES_WARN_THRESHOLD
-        value: "25"
-      - key: ALERTMANAGER_WEBHOOK_BEARER_TOKEN
-        sync: false
-
-  - type: pserv
-    name: ontrackchain-alertmanager-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: ./infra/render/alertmanager/Dockerfile
-    envVars:
-      - key: MONITORING_API_HOSTPORT
-        fromService:
-          type: pserv
-          name: ontrackchain-monitoring-api-staging
-          property: hostport
-      - key: ALERTMANAGER_WEBHOOK_BEARER_TOKEN
-        fromService:
-          type: pserv
-          name: ontrackchain-monitoring-api-staging
-          envVarKey: ALERTMANAGER_WEBHOOK_BEARER_TOKEN
-
-  - type: pserv
-    name: ontrackchain-prometheus-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: ./infra/render/prometheus/Dockerfile
-    envVars:
-      - key: ALERTMANAGER_HOSTPORT
-        fromService:
-          type: pserv
-          name: ontrackchain-alertmanager-staging
-          property: hostport
-      - key: INVESTIGATION_API_HOSTPORT
-        fromService:
-          type: pserv
-          name: ontrackchain-investigation-api-staging
-          property: hostport
-      - key: MONITORING_API_HOSTPORT
-        fromService:
-          type: pserv
-          name: ontrackchain-monitoring-api-staging
-          property: hostport
-      - key: COMPLIANCE_API_HOSTPORT
-        fromService:
-          type: pserv
-          name: ontrackchain-compliance-api-staging
-          property: hostport
-      - key: REPORT_API_HOSTPORT
-        fromService:
-          type: pserv
-          name: ontrackchain-report-api-staging
-          property: hostport
-
-  - type: web
-    name: ontrackchain-grafana-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: ./infra/render/grafana/Dockerfile
-    healthCheckPath: /api/health
-    envVars:
-      - key: PROMETHEUS_HOSTPORT
-        fromService:
-          type: pserv
-          name: ontrackchain-prometheus-staging
-          property: hostport
-      - key: GRAFANA_ADMIN_USER
-        value: admin
-      - key: GRAFANA_ADMIN_PASSWORD
-        sync: false
-      - key: GRAFANA_ANONYMOUS_ENABLED
-        value: "false"
-      - key: GRAFANA_DISABLE_LOGIN_FORM
-        value: "false"
-
-  - type: pserv
-    name: ontrackchain-report-api-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: ./apps/report-api/Dockerfile
-    envVars:
-      - key: POSTGRES_HOST
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: host
-      - key: POSTGRES_PORT
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: port
-      - key: POSTGRES_USER
-        value: reporting_service
-      - key: POSTGRES_PASSWORD
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          envVarKey: REPORTING_DB_PASSWORD
-      - key: POSTGRES_DB
-        value: reporting_service
-      - key: REPORT_INTERNAL_METRICS_ENABLED
-        value: "true"
-      - key: REPORT_DOWNLOADS_LAST_24H_WARN_THRESHOLD
-        value: "10"
-      - key: REPORT_PENDING_ONCHAIN_WARN_THRESHOLD
-        value: "3"
-      - key: REPORT_LEGAL_DOWNLOAD_SECURITY_VIOLATION_THRESHOLD
-        value: "1"
-      - key: REPORT_PERSISTED_WITHOUT_DOWNLOAD_WARN_THRESHOLD
-        value: "3"
-
-  - type: pserv
-    name: ontrackchain-ai-service-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: ./apps/ai-service/Dockerfile
-    envVars:
-      - key: POSTGRES_HOST
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: host
-      - key: POSTGRES_PORT
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: port
-      - key: POSTGRES_USER
-        value: ai_service
-      - key: POSTGRES_PASSWORD
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          envVarKey: AI_DB_PASSWORD
-      - key: POSTGRES_DB
-        value: ai_service
-      - key: REDIS_HOST
-        fromService:
-          type: keyvalue
-          name: ontrackchain-redis-staging
-          property: host
-      - key: REDIS_PORT
-        fromService:
-          type: keyvalue
-          name: ontrackchain-redis-staging
-          property: port
-      - key: ANTHROPIC_API_KEY
-        sync: false
-      - key: ANTHROPIC_BASE_URL
-        value: "https://api.anthropic.com"
-      - key: ANTHROPIC_DEFAULT_MODEL
-        value: claude-sonnet-4-5
-      - key: ANTHROPIC_HAIKU_MODEL
-        value: claude-haiku-4-5
-      - key: ANTHROPIC_TIMEOUT_MS
-        value: "3500"
-      - key: GROQ_API_KEY
-        sync: false
-      - key: GROQ_DEFAULT_MODEL
-        value: llama-3.3-70b-versatile
-      - key: GROQ_TIMEOUT_MS
-        value: "3500"
-      - key: LLM_FALLBACK_ENABLED
-        value: "true"
-      - key: LLM_FALLBACK_LATENCY_THRESHOLD_MS
-        value: "3500"
-      - key: LLM_CACHE_ENABLED
-        value: "true"
-      - key: LLM_CACHE_TTL_SECONDS
-        value: "3600"
-      - key: LLM_ZERO_RETENTION
-        value: "true"
-      - key: LLM_ANONYMIZE_INPUTS
-        value: "true"
-      - key: LLM_MAX_INPUT_LENGTH
-        value: "8192"
-      - key: LLM_LOG_PROMPTS
-        value: "false"
-      - key: LLM_LOG_RESPONSES
-        value: "false"
-      - key: RAG_VECTOR_STORE
-        value: pgvector
-      - key: RAG_EMBEDDING_MODEL
-        value: voyage-3
-      - key: RAG_EMBEDDING_DIMENSIONS
-        value: "1024"
-      - key: RAG_TOP_K
-        value: "10"
-      - key: RAG_SIMILARITY_THRESHOLD
-        value: "0.7"
-      - key: RAG_RERANK_ENABLED
-        value: "true"
-      - key: RAG_CORPUS_VERSION
-        value: "1.0.0"
-      - key: VOYAGE_API_KEY
-        sync: false
-      - key: EVAL_SAMPLING_RATE
-        value: "0.05"
-      - key: EVAL_GOLDEN_DATASET_SIZE
-        value: "100"
-      - key: EVAL_REGRESSION_BLOCKING
-        value: "true"
-      - key: EVAL_TARGET_PRECISION
-        value: "0.90"
-      - key: EVAL_TARGET_RECALL
-        value: "0.85"
-      - key: EVAL_REVIEW_REQUIRED
-        value: "true"
-
-  - type: worker
-    name: ontrackchain-ai-worker-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: ./apps/ai-service/Dockerfile
-    dockerCommand: python -m ai_service.worker
-    envVars:
-      - key: APP_ENV
-        value: staging
-      - key: POSTGRES_HOST
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: host
-      - key: POSTGRES_PORT
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: port
-      - key: POSTGRES_USER
-        value: ai_service
-      - key: POSTGRES_PASSWORD
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          envVarKey: AI_DB_PASSWORD
-      - key: POSTGRES_DB
-        value: ai_service
-      - key: REDIS_HOST
-        fromService:
-          type: keyvalue
-          name: ontrackchain-redis-staging
-          property: host
-      - key: REDIS_PORT
-        fromService:
-          type: keyvalue
-          name: ontrackchain-redis-staging
-          property: port
-      - key: ANTHROPIC_API_KEY
-        sync: false
-      - key: GROQ_API_KEY
-        sync: false
-      - key: VOYAGE_API_KEY
-        sync: false
-      - key: INVESTIGATION_INTERNAL_BASE_URL
-        fromService:
-          type: pserv
-          name: ontrackchain-investigation-api-staging
-          property: hostport
-      - key: INVESTIGATION_INTERNAL_WORKER_TOKEN
-        sync: false
-      - key: AI_WORKER_POLL_INTERVAL_SECONDS
-        value: "5"
-      - key: AI_WORKER_MAX_CONCURRENT_JOBS
-        value: "2"
-
-  - type: pserv
-    name: ontrackchain-case-management-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: ./apps/case-management/Dockerfile
-    envVars:
-      - key: POSTGRES_HOST
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: host
-      - key: POSTGRES_PORT
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          property: port
-      - key: POSTGRES_USER
-        value: case_management
-      - key: POSTGRES_PASSWORD
-        fromService:
-          type: pserv
-          name: ontrackchain-postgres-staging
-          envVarKey: CASE_DB_PASSWORD
-      - key: POSTGRES_DB
-        value: case_management
-      - key: AI_SERVICE_BASE_URL
-        fromService:
-          type: pserv
-          name: ontrackchain-ai-service-staging
-          property: hostport
-
-  - type: pserv
-    name: ontrackchain-qa-gateway-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: ./packages/qa-gateway/Dockerfile
-    dockerCommand: "while true; do qa-gateway health --endpoints \"https://ontrackchain-gateway-staging.onrender.com/api/v1/auth/health,https://ontrackchain-gateway-staging.onrender.com/api/v1/cases/health,https://ontrackchain-investigation-api-staging.onrender.com/health,https://ontrackchain-compliance-api-staging.onrender.com/health,https://ontrackchain-monitoring-api-staging.onrender.com/health,https://ontrackchain-report-api-staging.onrender.com/health,https://ontrackchain-ai-service-staging.onrender.com/health\" ; sleep 300 ; done"
-    envVars:
-      - key: OTK_QA_INTERVAL_SECONDS
-        value: "300"
-
-  - type: web
-    name: ontrackchain-frontend-staging
-    plan: free
-    cpuLimitMhz: 2000
-    memoryLimitMB: 512
-    runtime: docker
-    dockerContext: ./apps/frontend
-    dockerfilePath: ./apps/frontend/Dockerfile
-    dockerBuildTarget: runtime
-    healthCheckPath: /api/healthz
-    buildFilter:
-      paths:
-        - apps/frontend/**
-        - components/**
-        - packages/**/*.ts
-        - packages/**/*.tsx
-    buildEnvVars:
-      - key: NEXT_PUBLIC_APP_ENV
-        value: staging
-      - key: NEXT_PUBLIC_AUTH_MODE
-        value: oidc
-      - key: NEXT_PUBLIC_DEV_AUTH_ENABLED
-        value: "false"
-      - key: NEXT_PUBLIC_APP_URL
-        value: "https://ontrackchain-gateway-staging.onrender.com"
-      - key: NEXT_PUBLIC_FRONTEND_URL
-        value: "https://ontrackchain-frontend-staging.onrender.com"
-      - key: NEXT_PUBLIC_API_BASE_URL
-        value: "https://ontrackchain-gateway-staging.onrender.com"
-      - key: NEXT_TELEMETRY_DISABLED
-        value: "1"
-      - key: NEXT_DISABLE_SOURCE_MAPS
-        value: "true"
-    envVars:
-      - key: APP_ENV
-        value: staging
-      - key: AUTH_MODE
-        value: oidc
-      - key: DEV_AUTH_ENABLED
-        value: "false"
-      - key: NEXT_PUBLIC_APP_ENV
-        value: staging
-      - key: NEXT_PUBLIC_AUTH_MODE
-        value: oidc
-      - key: NEXT_PUBLIC_DEV_AUTH_ENABLED
-        value: "false"
-      - key: NEXT_PUBLIC_APP_URL
-        value: "https://ontrackchain-gateway-staging.onrender.com"
-      - key: NEXT_PUBLIC_FRONTEND_URL
-        value: "https://ontrackchain-frontend-staging.onrender.com"
-      - key: ONTRACKCHAIN_EXPECT_FRONTEND_DEPLOYMENT_MODEL
-        value: render-full-stack-staging
-      - key: ONTRACKCHAIN_ALLOW_FRONTEND_SHOWCASE_FALLBACK
-        value: "false"
-      - key: INTERNAL_API_BASE_URL
-        value: "https://ontrackchain-gateway-staging.onrender.com"
-      - key: INTERNAL_AUTH_BASE_URL
-        value: "https://ontrackchain-auth-service-staging.onrender.com"
-      - key: INTERNAL_KEYCLOAK_BASE_URL
-        value: "https://ontrackchain-keycloak-staging.onrender.com"
-      - key: NEXT_PUBLIC_API_BASE_URL
-        value: "https://ontrackchain-gateway-staging.onrender.com"
-      - key: OIDC_PROVIDER
-        value: keycloak
-      - key: OIDC_CLIENT_ID
-        value: ontrackchain-web
-      - key: OIDC_AUDIENCE
-        value: ontrackchain-api
-      - key: OIDC_ISSUER_URL
-        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain"
-      - key: OIDC_AUTHORIZATION_URL
-        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/auth"
-      - key: OIDC_JWKS_URL
-        value: "https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/certs"
-      - key: ONTRACKCHAIN_ALLOW_INSECURE_OIDC_URLS
-        value: "false"
-      - key: ONTRACKCHAIN_ALLOW_LOCALHOST_OIDC_URLS
-        value: "false"
+- type: keyvalue
+  name: ontrackchain-redis-staging
+  plan: free
+  maxmemoryPolicy: allkeys-lru
+  ipAllowList: []
+- type: pserv
+  name: ontrackchain-psql-pgvector-staging
+  plan: free
+  runtime: docker
+  dockerContext: ./ontrackchain
+  dockerfilePath: ./infra/render/postgres-pgvector/Dockerfile
+  memoryLimitMB: 512
+  cpuLimitMhz: 2000
+  autoDeploy: false
+  disk:
+    name: pgvector-data
+    mountPath: /var/lib/postgresql/data
+    sizeGB: 15
+  envVars:
+  - key: POSTGRES_USER
+    value: postgres
+  - key: POSTGRES_PASSWORD
+    sync: false
+  - key: POSTGRES_DB
+    value: ontrackchain
+  - key: PGDATA
+    value: /var/lib/postgresql/data/pgdata
+  - key: POSTGRES_HOST_AUTH_METHOD
+    value: md5
+  - key: KEYCLOAK_DB_NAME
+    value: keycloak
+  - key: KEYCLOAK_DB_USER
+    value: keycloak
+  - key: KEYCLOAK_DB_PASSWORD
+    sync: false
+  - key: AUTH_DB_NAME
+    value: auth_service
+  - key: AUTH_DB_USER
+    value: auth_service
+  - key: AUTH_DB_PASSWORD
+    sync: false
+  - key: CASE_DB_NAME
+    value: case_management
+  - key: CASE_DB_USER
+    value: case_management
+  - key: CASE_DB_PASSWORD
+    sync: false
+  - key: INV_DB_NAME
+    value: investigation_service
+  - key: INV_DB_USER
+    value: investigation_service
+  - key: INV_DB_PASSWORD
+    sync: false
+  - key: BILLING_DB_NAME
+    value: billing_service
+  - key: BILLING_DB_USER
+    value: billing_service
+  - key: BILLING_DB_PASSWORD
+    sync: false
+  - key: COMPLIANCE_DB_NAME
+    value: compliance_service
+  - key: COMPLIANCE_DB_USER
+    value: compliance_service
+  - key: COMPLIANCE_DB_PASSWORD
+    sync: false
+  - key: COUNTERPARTY_DB_NAME
+    value: counterparty_service
+  - key: COUNTERPARTY_DB_USER
+    value: counterparty_service
+  - key: COUNTERPARTY_DB_PASSWORD
+    sync: false
+  - key: NOTIFICATION_DB_NAME
+    value: notification_service
+  - key: NOTIFICATION_DB_USER
+    value: notification_service
+  - key: NOTIFICATION_DB_PASSWORD
+    sync: false
+  - key: AUDIT_DB_NAME
+    value: audit_service
+  - key: AUDIT_DB_USER
+    value: audit_service
+  - key: AUDIT_DB_PASSWORD
+    sync: false
+  - key: ENTERPRISE_DB_NAME
+    value: enterprise_service
+  - key: ENTERPRISE_DB_USER
+    value: enterprise_service
+  - key: ENTERPRISE_DB_PASSWORD
+    sync: false
+  - key: SANCTIONS_DB_NAME
+    value: sanctions_service
+  - key: SANCTIONS_DB_USER
+    value: sanctions_service
+  - key: SANCTIONS_DB_PASSWORD
+    sync: false
+  - key: RISK_DB_NAME
+    value: risk_service
+  - key: RISK_DB_USER
+    value: risk_service
+  - key: RISK_DB_PASSWORD
+    sync: false
+  - key: MONITORING_DB_NAME
+    value: monitoring_service
+  - key: MONITORING_DB_USER
+    value: monitoring_service
+  - key: MONITORING_DB_PASSWORD
+    sync: false
+  - key: AI_DB_NAME
+    value: ai_service
+  - key: AI_DB_USER
+    value: ai_service
+  - key: AI_DB_PASSWORD
+    sync: false
+  - key: REPORTING_DB_NAME
+    value: reporting_service
+  - key: REPORTING_DB_USER
+    value: reporting_service
+  - key: REPORTING_DB_PASSWORD
+    sync: false
+  - key: EVENT_DB_NAME
+    value: event_service
+  - key: EVENT_DB_USER
+    value: event_service
+  - key: EVENT_DB_PASSWORD
+    sync: false
+  - key: TEAM_DB_NAME
+    value: team_service
+  - key: TEAM_DB_USER
+    value: team_service
+  - key: TEAM_DB_PASSWORD
+    sync: false
+  - key: EVIDENCE_DB_NAME
+    value: evidence_service
+  - key: EVIDENCE_DB_USER
+    value: evidence_service
+  - key: EVIDENCE_DB_PASSWORD
+    sync: false
+  - key: BLOCKCHAIN_DB_NAME
+    value: blockchain_service
+  - key: BLOCKCHAIN_DB_USER
+    value: blockchain_service
+  - key: BLOCKCHAIN_DB_PASSWORD
+    sync: false
+- type: web
+  name: ontrackchain-gateway-staging
+  plan: free
+  cpuLimitMhz: 2000
+  memoryLimitMB: 512
+  runtime: docker
+  dockerContext: ./ontrackchain
+  dockerfilePath: ./infra/render/traefik/Dockerfile
+  healthCheckPath: /login
+  envVars:
+  - key: AUTH_SERVICE_HOSTPORT
+    fromService:
+      type: web
+      name: ontrackchain-auth-service-staging
+      property: hostport
+  - key: PUBLIC_API_HOSTPORT
+    fromService:
+      type: pserv
+      name: ontrackchain-public-api-staging
+      property: hostport
+  - key: INVESTIGATION_API_HOSTPORT
+    fromService:
+      type: pserv
+      name: ontrackchain-investigation-api-staging
+      property: hostport
+  - key: COMPLIANCE_API_HOSTPORT
+    fromService:
+      type: pserv
+      name: ontrackchain-compliance-api-staging
+      property: hostport
+  - key: MONITORING_API_HOSTPORT
+    fromService:
+      type: pserv
+      name: ontrackchain-monitoring-api-staging
+      property: hostport
+  - key: REPORT_API_HOSTPORT
+    fromService:
+      type: pserv
+      name: ontrackchain-report-api-staging
+      property: hostport
+  - key: AI_SERVICE_HOSTPORT
+    fromService:
+      type: pserv
+      name: ontrackchain-ai-service-staging
+      property: hostport
+  - key: CASE_MANAGEMENT_HOSTPORT
+    fromService:
+      type: pserv
+      name: ontrackchain-case-management-staging
+      property: hostport
+  - key: FRONTEND_HOSTPORT
+    fromService:
+      type: web
+      name: ontrackchain-frontend-staging
+      property: hostport
+- type: web
+  name: ontrackchain-keycloak-staging
+  plan: free
+  cpuLimitMhz: 2000
+  memoryLimitMB: 512
+  runtime: docker
+  dockerContext: ./ontrackchain
+  dockerfilePath: ./infra/render/keycloak/Dockerfile
+  healthCheckPath: /realms/ontrackchain
+  envVars:
+  - key: KEYCLOAK_PUBLIC_URL
+    value: https://ontrackchain-keycloak-staging.onrender.com
+  - key: ONTRACKCHAIN_PUBLIC_BASE_URL
+    value: https://ontrackchain-gateway-staging.onrender.com
+  - key: KEYCLOAK_ADMIN
+    value: admin
+  - key: KEYCLOAK_ADMIN_PASSWORD
+    sync: false
+  - key: KEYCLOAK_REALM
+    value: ontrackchain
+  - key: KEYCLOAK_B2B_CLIENT_SECRET
+    sync: false
+  - key: KEYCLOAK_SYSTEM_USER_PASSWORD
+    sync: false
+  - key: KEYCLOAK_KMD_TESTER_PASSWORD
+    sync: false
+  - key: KEYCLOAK_JIBSO_ADMIN_PASSWORD
+    sync: false
+  - key: KEYCLOAK_AUDITOR_PASSWORD
+    sync: false
+  - key: KEYCLOAK_ANALYST_PASSWORD
+    sync: false
+  - key: KEYCLOAK_VIEWER_PASSWORD
+    sync: false
+  - key: KEYCLOAK_SEM_ORG_PASSWORD
+    sync: false
+  - key: DB_VENDOR
+    value: postgres
+  - key: DB_ADDR
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: host
+  - key: DB_PORT
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: port
+  - key: DB_DATABASE
+    value: keycloak
+  - key: DB_USER
+    value: keycloak
+  - key: DB_SCHEMA
+    value: public
+  - key: DB_PASSWORD
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      envVarKey: KEYCLOAK_DB_PASSWORD
+- type: web
+  name: ontrackchain-auth-service-staging
+  plan: free
+  cpuLimitMhz: 2000
+  memoryLimitMB: 512
+  runtime: docker
+  dockerContext: ./ontrackchain
+  dockerfilePath: ./infra/render/auth-service/Dockerfile
+  dockerCommand: /app/infra/render/scripts/start-auth-service.sh
+  healthCheckPath: /health
+  envVars:
+  - key: APP_ENV
+    value: staging
+  - key: AUTH_MODE
+    value: oidc
+  - key: DEV_AUTH_ENABLED
+    value: 'false'
+  - key: OIDC_PROVIDER
+    value: keycloak
+  - key: JWT_ISSUER
+    value: ontrackchain
+  - key: JWT_AUDIENCE
+    value: ontrackchain-api
+  - key: JWT_HS256_SECRET
+    sync: false
+  - key: MFA_TOTP_SECRET
+    sync: false
+  - key: MFA_TOTP_ISSUER
+    value: OnTrackChain
+  - key: MFA_TOTP_ACCOUNT_NAME
+    value: staging-admin@ontrackchain
+  - key: MFA_TOTP_PERIOD_SECONDS
+    value: '30'
+  - key: MFA_TOTP_DIGITS
+    value: '6'
+  - key: MFA_TOTP_WINDOW
+    value: '1'
+  - key: OIDC_ISSUER_URL
+    value: https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain
+  - key: OIDC_AUDIENCE
+    value: ontrackchain-api
+  - key: OIDC_CLIENT_ID
+    value: ontrackchain-web
+  - key: OIDC_JWKS_URL
+    value: https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/certs
+  - key: OIDC_AUTHORIZATION_URL
+    value: https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/auth
+  - key: OIDC_ORG_CLAIM
+    value: org
+  - key: OIDC_PLAN_CLAIM
+    value: plan
+  - key: OIDC_ROLE_CLAIM
+    value: otk_role
+  - key: KEYCLOAK_ADMIN_BASE_URL
+    value: https://ontrackchain-keycloak-staging.onrender.com
+  - key: KEYCLOAK_ADMIN_REALM
+    value: ontrackchain
+  - key: KEYCLOAK_ADMIN_CLIENT_ID
+    value: ontrackchain-b2b
+  - key: KEYCLOAK_ADMIN_CLIENT_SECRET
+    sync: false
+  - key: KEYCLOAK_ADMIN_TIMEOUT_SECONDS
+    value: '5'
+  - key: KEYCLOAK_ADMIN_SEARCH_LIMIT
+    value: '20'
+  - key: KEYCLOAK_ADMIN_ORG_ATTRIBUTE
+    value: organization_id
+  - key: KEYCLOAK_ADMIN_ROLE_ATTRIBUTE
+    value: otk_role
+  - key: MFA_EXTERNAL_PROVIDER_HOMOLOGATED
+    value: 'false'
+  - key: ONTRACKCHAIN_ALLOW_INSECURE_OIDC_URLS
+    value: 'false'
+  - key: ONTRACKCHAIN_ALLOW_LOCALHOST_OIDC_URLS
+    value: 'false'
+  - key: POSTGRES_HOST
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: host
+  - key: POSTGRES_PORT
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: port
+  - key: POSTGRES_USER
+    value: auth_service
+  - key: POSTGRES_PASSWORD
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      envVarKey: AUTH_DB_PASSWORD
+  - key: POSTGRES_DB
+    value: auth_service
+- type: pserv
+  name: ontrackchain-public-api-staging
+  plan: free
+  cpuLimitMhz: 2000
+  memoryLimitMB: 512
+  runtime: docker
+  dockerContext: ./ontrackchain/apps/public-api
+  dockerfilePath: ./Dockerfile
+  envVars:
+  - key: REDIS_HOST
+    fromService:
+      type: keyvalue
+      name: ontrackchain-redis-staging
+      property: host
+  - key: REDIS_PORT
+    fromService:
+      type: keyvalue
+      name: ontrackchain-redis-staging
+      property: port
+- type: pserv
+  name: ontrackchain-investigation-api-staging
+  plan: free
+  cpuLimitMhz: 2000
+  memoryLimitMB: 512
+  runtime: docker
+  dockerContext: ./ontrackchain
+  dockerfilePath: ./apps/investigation-api/Dockerfile
+  envVars:
+  - key: POSTGRES_HOST
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: host
+  - key: POSTGRES_PORT
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: port
+  - key: POSTGRES_USER
+    value: investigation_service
+  - key: POSTGRES_PASSWORD
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      envVarKey: INV_DB_PASSWORD
+  - key: POSTGRES_DB
+    value: investigation_service
+  - key: REDIS_HOST
+    fromService:
+      type: keyvalue
+      name: ontrackchain-redis-staging
+      property: host
+  - key: REDIS_PORT
+    fromService:
+      type: keyvalue
+      name: ontrackchain-redis-staging
+      property: port
+  - key: INVESTIGATION_INTERNAL_METRICS_ENABLED
+    value: 'true'
+  - key: INVESTIGATION_RPC_PROVIDER
+    value: evm_rpc
+  - key: INVESTIGATION_RPC_ENABLED
+    value: 'true'
+  - key: INVESTIGATION_RPC_PRIMARY_URL
+    sync: false
+  - key: INVESTIGATION_RPC_FALLBACK_URL
+    value: https://ethereum-rpc.publicnode.com
+  - key: INVESTIGATION_RPC_TIMEOUT_MS
+    value: '1500'
+  - key: INVESTIGATION_RPC_MAX_RETRIES
+    value: '1'
+  - key: CREDIT_VALUE_BRL
+    value: '1.0'
+- type: worker
+  name: ontrackchain-investigation-worker-staging
+  plan: free
+  cpuLimitMhz: 2000
+  memoryLimitMB: 512
+  runtime: docker
+  dockerContext: ./ontrackchain
+  dockerfilePath: ./apps/investigation-api/Dockerfile
+  dockerCommand: python -m investigation_api.worker
+  envVars:
+  - key: POSTGRES_HOST
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: host
+  - key: POSTGRES_PORT
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: port
+  - key: POSTGRES_USER
+    value: investigation_service
+  - key: POSTGRES_PASSWORD
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      envVarKey: INV_DB_PASSWORD
+  - key: POSTGRES_DB
+    value: investigation_service
+  - key: REDIS_HOST
+    fromService:
+      type: keyvalue
+      name: ontrackchain-redis-staging
+      property: host
+  - key: REDIS_PORT
+    fromService:
+      type: keyvalue
+      name: ontrackchain-redis-staging
+      property: port
+  - key: INVESTIGATION_WORKER_PROCESSING_SECONDS
+    value: '2'
+  - key: INVESTIGATION_WORKER_LOCAL_CONCURRENCY
+    value: '8'
+  - key: INVESTIGATION_WORKER_BASE_BACKOFF_SECONDS
+    value: '5'
+  - key: INVESTIGATION_RPC_PROVIDER
+    value: evm_rpc
+  - key: INVESTIGATION_RPC_ENABLED
+    value: 'true'
+  - key: INVESTIGATION_RPC_PRIMARY_URL
+    sync: false
+  - key: INVESTIGATION_RPC_FALLBACK_URL
+    value: https://ethereum-rpc.publicnode.com
+  - key: INVESTIGATION_RPC_TIMEOUT_MS
+    value: '1500'
+  - key: INVESTIGATION_RPC_MAX_RETRIES
+    value: '1'
+  - key: CREDIT_VALUE_BRL
+    value: '1.0'
+  - key: INVESTIGATION_INTERNAL_BASE_URL
+    fromService:
+      type: pserv
+      name: ontrackchain-investigation-api-staging
+      property: hostport
+  - key: INVESTIGATION_INTERNAL_WORKER_TOKEN
+    sync: false
+- type: pserv
+  name: ontrackchain-compliance-api-staging
+  plan: free
+  cpuLimitMhz: 2000
+  memoryLimitMB: 512
+  runtime: docker
+  dockerContext: ./ontrackchain
+  dockerfilePath: ./apps/compliance-api/Dockerfile
+  envVars:
+  - key: POSTGRES_HOST
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: host
+  - key: POSTGRES_PORT
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: port
+  - key: POSTGRES_USER
+    value: compliance_service
+  - key: POSTGRES_PASSWORD
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      envVarKey: COMPLIANCE_DB_PASSWORD
+  - key: POSTGRES_DB
+    value: compliance_service
+  - key: COMPLIANCE_INTERNAL_METRICS_ENABLED
+    value: 'true'
+  - key: COMPLIANCE_QUEUED_CASES_WARN_THRESHOLD
+    value: '5'
+  - key: COMPLIANCE_FAILED_LAST_24H_CRITICAL_THRESHOLD
+    value: '1'
+  - key: COMPLIANCE_EXPIRED_QUOTES_WARN_THRESHOLD
+    value: '10'
+  - key: COMPLIANCE_COMPLETED_WITHOUT_REPORT_WARN_THRESHOLD
+    value: '3'
+  - key: COMPLIANCE_PROVIDER_DEGRADED_WARN_THRESHOLD
+    value: '1'
+  - key: COMPLIANCE_RISK_PROVIDER
+    value: trm_labs
+  - key: COMPLIANCE_TRM_ENABLED
+    value: 'true'
+  - key: COMPLIANCE_TRM_SCREENING_URL
+    value: https://api.trmlabs.com/public/v2/screening/addresses
+  - key: COMPLIANCE_TRM_API_KEY
+    sync: false
+  - key: COMPLIANCE_TRM_API_KEY_HEADER
+    value: Authorization
+  - key: COMPLIANCE_TRM_API_KEY_PREFIX
+    value: Bearer
+  - key: COMPLIANCE_TRM_TIMEOUT_MS
+    value: '1500'
+  - key: COMPLIANCE_TRM_MAX_RETRIES
+    value: '1'
+  - key: CREDIT_VALUE_BRL
+    value: '1.0'
+- type: worker
+  name: ontrackchain-compliance-worker-staging
+  plan: free
+  cpuLimitMhz: 2000
+  memoryLimitMB: 512
+  runtime: docker
+  dockerContext: ./ontrackchain
+  dockerfilePath: ./apps/compliance-api/Dockerfile
+  dockerCommand: python -m compliance_api.worker
+  envVars:
+  - key: POSTGRES_HOST
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: host
+  - key: POSTGRES_PORT
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: port
+  - key: POSTGRES_USER
+    value: compliance_service
+  - key: POSTGRES_PASSWORD
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      envVarKey: COMPLIANCE_DB_PASSWORD
+  - key: POSTGRES_DB
+    value: compliance_service
+  - key: OPENSANCTIONS_API_KEY
+    sync: false
+  - key: COMPLIANCE_OFAC_SDN_SOURCE_URL
+    value: ''
+  - key: COMPLIANCE_EU_SANCTIONS_SOURCE_URL
+    value: https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList_1_1/content?token=dG9rZW5fZGVtb19zdGFnaW5nXzIwMjY
+  - key: COMPLIANCE_WORKER_IDLE_WAIT_SECONDS
+    value: '60'
+  - key: COMPLIANCE_WORKER_OFAC_SYNC_SECONDS
+    value: '21600'
+  - key: COMPLIANCE_WORKER_UN_SYNC_SECONDS
+    value: '86400'
+  - key: COMPLIANCE_WORKER_EU_SYNC_SECONDS
+    value: '86400'
+  - key: COMPLIANCE_WORKER_OPENSANCTIONS_SYNC_SECONDS
+    value: '86400'
+  - key: COMPLIANCE_WORKER_ROS_DEADLINE_SCAN_SECONDS
+    value: '3600'
+- type: pserv
+  name: ontrackchain-monitoring-api-staging
+  plan: free
+  cpuLimitMhz: 2000
+  memoryLimitMB: 512
+  runtime: docker
+  dockerContext: ./ontrackchain
+  dockerfilePath: ./apps/monitoring-api/Dockerfile
+  envVars:
+  - key: POSTGRES_HOST
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: host
+  - key: POSTGRES_PORT
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: port
+  - key: POSTGRES_USER
+    value: monitoring_service
+  - key: POSTGRES_PASSWORD
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      envVarKey: MONITORING_DB_PASSWORD
+  - key: POSTGRES_DB
+    value: monitoring_service
+  - key: REDIS_HOST
+    fromService:
+      type: keyvalue
+      name: ontrackchain-redis-staging
+      property: host
+  - key: REDIS_PORT
+    fromService:
+      type: keyvalue
+      name: ontrackchain-redis-staging
+      property: port
+  - key: MONITORING_INTERNAL_METRICS_ENABLED
+    value: 'true'
+  - key: MONITORING_ALERTS_LAST_HOUR_WARN_THRESHOLD
+    value: '5'
+  - key: MONITORING_CRITICAL_ALERTS_LAST_24H_CRITICAL_THRESHOLD
+    value: '1'
+  - key: MONITORING_EXPIRED_QUOTES_WARN_THRESHOLD
+    value: '10'
+  - key: MONITORING_OPEN_QUOTES_WARN_THRESHOLD
+    value: '25'
+  - key: ALERTMANAGER_WEBHOOK_BEARER_TOKEN
+    sync: false
+- type: pserv
+  name: ontrackchain-alertmanager-staging
+  plan: free
+  cpuLimitMhz: 2000
+  memoryLimitMB: 512
+  runtime: docker
+  dockerContext: ./ontrackchain
+  dockerfilePath: ./infra/render/alertmanager/Dockerfile
+  envVars:
+  - key: MONITORING_API_HOSTPORT
+    fromService:
+      type: pserv
+      name: ontrackchain-monitoring-api-staging
+      property: hostport
+  - key: ALERTMANAGER_WEBHOOK_BEARER_TOKEN
+    fromService:
+      type: pserv
+      name: ontrackchain-monitoring-api-staging
+      envVarKey: ALERTMANAGER_WEBHOOK_BEARER_TOKEN
+- type: pserv
+  name: ontrackchain-prometheus-staging
+  plan: free
+  cpuLimitMhz: 2000
+  memoryLimitMB: 512
+  runtime: docker
+  dockerContext: ./ontrackchain
+  dockerfilePath: ./infra/render/prometheus/Dockerfile
+  envVars:
+  - key: ALERTMANAGER_HOSTPORT
+    fromService:
+      type: pserv
+      name: ontrackchain-alertmanager-staging
+      property: hostport
+  - key: INVESTIGATION_API_HOSTPORT
+    fromService:
+      type: pserv
+      name: ontrackchain-investigation-api-staging
+      property: hostport
+  - key: MONITORING_API_HOSTPORT
+    fromService:
+      type: pserv
+      name: ontrackchain-monitoring-api-staging
+      property: hostport
+  - key: COMPLIANCE_API_HOSTPORT
+    fromService:
+      type: pserv
+      name: ontrackchain-compliance-api-staging
+      property: hostport
+  - key: REPORT_API_HOSTPORT
+    fromService:
+      type: pserv
+      name: ontrackchain-report-api-staging
+      property: hostport
+- type: web
+  name: ontrackchain-grafana-staging
+  plan: free
+  cpuLimitMhz: 2000
+  memoryLimitMB: 512
+  runtime: docker
+  dockerContext: ./ontrackchain
+  dockerfilePath: ./infra/render/grafana/Dockerfile
+  healthCheckPath: /api/health
+  envVars:
+  - key: PROMETHEUS_HOSTPORT
+    fromService:
+      type: pserv
+      name: ontrackchain-prometheus-staging
+      property: hostport
+  - key: GRAFANA_ADMIN_USER
+    value: admin
+  - key: GRAFANA_ADMIN_PASSWORD
+    sync: false
+  - key: GRAFANA_ANONYMOUS_ENABLED
+    value: 'false'
+  - key: GRAFANA_DISABLE_LOGIN_FORM
+    value: 'false'
+- type: pserv
+  name: ontrackchain-report-api-staging
+  plan: free
+  cpuLimitMhz: 2000
+  memoryLimitMB: 512
+  runtime: docker
+  dockerContext: ./ontrackchain
+  dockerfilePath: ./apps/report-api/Dockerfile
+  envVars:
+  - key: POSTGRES_HOST
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: host
+  - key: POSTGRES_PORT
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: port
+  - key: POSTGRES_USER
+    value: reporting_service
+  - key: POSTGRES_PASSWORD
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      envVarKey: REPORTING_DB_PASSWORD
+  - key: POSTGRES_DB
+    value: reporting_service
+  - key: REPORT_INTERNAL_METRICS_ENABLED
+    value: 'true'
+  - key: REPORT_DOWNLOADS_LAST_24H_WARN_THRESHOLD
+    value: '10'
+  - key: REPORT_PENDING_ONCHAIN_WARN_THRESHOLD
+    value: '3'
+  - key: REPORT_LEGAL_DOWNLOAD_SECURITY_VIOLATION_THRESHOLD
+    value: '1'
+  - key: REPORT_PERSISTED_WITHOUT_DOWNLOAD_WARN_THRESHOLD
+    value: '3'
+- type: pserv
+  name: ontrackchain-ai-service-staging
+  plan: free
+  cpuLimitMhz: 2000
+  memoryLimitMB: 512
+  runtime: docker
+  dockerContext: ./ontrackchain
+  dockerfilePath: ./apps/ai-service/Dockerfile
+  envVars:
+  - key: POSTGRES_HOST
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: host
+  - key: POSTGRES_PORT
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: port
+  - key: POSTGRES_USER
+    value: ai_service
+  - key: POSTGRES_PASSWORD
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      envVarKey: AI_DB_PASSWORD
+  - key: POSTGRES_DB
+    value: ai_service
+  - key: REDIS_HOST
+    fromService:
+      type: keyvalue
+      name: ontrackchain-redis-staging
+      property: host
+  - key: REDIS_PORT
+    fromService:
+      type: keyvalue
+      name: ontrackchain-redis-staging
+      property: port
+  - key: ANTHROPIC_API_KEY
+    sync: false
+  - key: ANTHROPIC_BASE_URL
+    value: https://api.anthropic.com
+  - key: ANTHROPIC_DEFAULT_MODEL
+    value: claude-sonnet-4-5
+  - key: ANTHROPIC_HAIKU_MODEL
+    value: claude-haiku-4-5
+  - key: ANTHROPIC_TIMEOUT_MS
+    value: '3500'
+  - key: GROQ_API_KEY
+    sync: false
+  - key: GROQ_DEFAULT_MODEL
+    value: llama-3.3-70b-versatile
+  - key: GROQ_TIMEOUT_MS
+    value: '3500'
+  - key: LLM_FALLBACK_ENABLED
+    value: 'true'
+  - key: LLM_FALLBACK_LATENCY_THRESHOLD_MS
+    value: '3500'
+  - key: LLM_CACHE_ENABLED
+    value: 'true'
+  - key: LLM_CACHE_TTL_SECONDS
+    value: '3600'
+  - key: LLM_ZERO_RETENTION
+    value: 'true'
+  - key: LLM_ANONYMIZE_INPUTS
+    value: 'true'
+  - key: LLM_MAX_INPUT_LENGTH
+    value: '8192'
+  - key: LLM_LOG_PROMPTS
+    value: 'false'
+  - key: LLM_LOG_RESPONSES
+    value: 'false'
+  - key: RAG_VECTOR_STORE
+    value: pgvector
+  - key: RAG_EMBEDDING_MODEL
+    value: voyage-3
+  - key: RAG_EMBEDDING_DIMENSIONS
+    value: '1024'
+  - key: RAG_TOP_K
+    value: '10'
+  - key: RAG_SIMILARITY_THRESHOLD
+    value: '0.7'
+  - key: RAG_RERANK_ENABLED
+    value: 'true'
+  - key: RAG_CORPUS_VERSION
+    value: 1.0.0
+  - key: VOYAGE_API_KEY
+    sync: false
+  - key: EVAL_SAMPLING_RATE
+    value: '0.05'
+  - key: EVAL_GOLDEN_DATASET_SIZE
+    value: '100'
+  - key: EVAL_REGRESSION_BLOCKING
+    value: 'true'
+  - key: EVAL_TARGET_PRECISION
+    value: '0.90'
+  - key: EVAL_TARGET_RECALL
+    value: '0.85'
+  - key: EVAL_REVIEW_REQUIRED
+    value: 'true'
+- type: worker
+  name: ontrackchain-ai-worker-staging
+  plan: free
+  cpuLimitMhz: 2000
+  memoryLimitMB: 512
+  runtime: docker
+  dockerContext: ./ontrackchain
+  dockerfilePath: ./apps/ai-service/Dockerfile
+  dockerCommand: python -m ai_service.worker
+  envVars:
+  - key: APP_ENV
+    value: staging
+  - key: POSTGRES_HOST
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: host
+  - key: POSTGRES_PORT
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: port
+  - key: POSTGRES_USER
+    value: ai_service
+  - key: POSTGRES_PASSWORD
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      envVarKey: AI_DB_PASSWORD
+  - key: POSTGRES_DB
+    value: ai_service
+  - key: REDIS_HOST
+    fromService:
+      type: keyvalue
+      name: ontrackchain-redis-staging
+      property: host
+  - key: REDIS_PORT
+    fromService:
+      type: keyvalue
+      name: ontrackchain-redis-staging
+      property: port
+  - key: ANTHROPIC_API_KEY
+    sync: false
+  - key: GROQ_API_KEY
+    sync: false
+  - key: VOYAGE_API_KEY
+    sync: false
+  - key: INVESTIGATION_INTERNAL_BASE_URL
+    fromService:
+      type: pserv
+      name: ontrackchain-investigation-api-staging
+      property: hostport
+  - key: INVESTIGATION_INTERNAL_WORKER_TOKEN
+    sync: false
+  - key: AI_WORKER_POLL_INTERVAL_SECONDS
+    value: '5'
+  - key: AI_WORKER_MAX_CONCURRENT_JOBS
+    value: '2'
+- type: pserv
+  name: ontrackchain-case-management-staging
+  plan: free
+  cpuLimitMhz: 2000
+  memoryLimitMB: 512
+  runtime: docker
+  dockerContext: ./ontrackchain
+  dockerfilePath: ./apps/case-management/Dockerfile
+  envVars:
+  - key: POSTGRES_HOST
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: host
+  - key: POSTGRES_PORT
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      property: port
+  - key: POSTGRES_USER
+    value: case_management
+  - key: POSTGRES_PASSWORD
+    fromService:
+      type: pserv
+      name: ontrackchain-psql-pgvector-staging
+      envVarKey: CASE_DB_PASSWORD
+  - key: POSTGRES_DB
+    value: case_management
+  - key: AI_SERVICE_BASE_URL
+    fromService:
+      type: pserv
+      name: ontrackchain-ai-service-staging
+      property: hostport
+- type: pserv
+  name: ontrackchain-qa-gateway-staging
+  plan: free
+  cpuLimitMhz: 2000
+  memoryLimitMB: 512
+  runtime: docker
+  dockerContext: ./ontrackchain
+  dockerfilePath: ./packages/qa-gateway/Dockerfile
+  dockerCommand: while true; do qa-gateway health --endpoints "https://ontrackchain-gateway-staging.onrender.com/api/v1/auth/health,https://ontrackchain-gateway-staging.onrender.com/api/v1/cases/health,https://ontrackchain-investigation-api-staging.onrender.com/health,https://ontrackchain-compliance-api-staging.onrender.com/health,https://ontrackchain-monitoring-api-staging.onrender.com/health,https://ontrackchain-report-api-staging.onrender.com/health,https://ontrackchain-ai-service-staging.onrender.com/health"
+    ; sleep 300 ; done
+  envVars:
+  - key: OTK_QA_INTERVAL_SECONDS
+    value: '300'
+- type: web
+  name: ontrackchain-frontend-staging
+  plan: free
+  cpuLimitMhz: 2000
+  memoryLimitMB: 512
+  runtime: docker
+  dockerContext: ./ontrackchain/apps/frontend
+  dockerfilePath: ./Dockerfile
+  dockerBuildTarget: runtime
+  healthCheckPath: /api/healthz
+  buildFilter:
+    paths:
+    - apps/frontend/**
+    - components/**
+    - packages/**/*.ts
+    - packages/**/*.tsx
+  buildEnvVars:
+  - key: NEXT_PUBLIC_APP_ENV
+    value: staging
+  - key: NEXT_PUBLIC_AUTH_MODE
+    value: oidc
+  - key: NEXT_PUBLIC_DEV_AUTH_ENABLED
+    value: 'false'
+  - key: NEXT_PUBLIC_APP_URL
+    value: https://ontrackchain-gateway-staging.onrender.com
+  - key: NEXT_PUBLIC_FRONTEND_URL
+    value: https://ontrackchain-frontend-staging.onrender.com
+  - key: NEXT_PUBLIC_API_BASE_URL
+    value: https://ontrackchain-gateway-staging.onrender.com
+  - key: NEXT_TELEMETRY_DISABLED
+    value: '1'
+  - key: NEXT_DISABLE_SOURCE_MAPS
+    value: 'true'
+  envVars:
+  - key: APP_ENV
+    value: staging
+  - key: AUTH_MODE
+    value: oidc
+  - key: DEV_AUTH_ENABLED
+    value: 'false'
+  - key: NEXT_PUBLIC_APP_ENV
+    value: staging
+  - key: NEXT_PUBLIC_AUTH_MODE
+    value: oidc
+  - key: NEXT_PUBLIC_DEV_AUTH_ENABLED
+    value: 'false'
+  - key: NEXT_PUBLIC_APP_URL
+    value: https://ontrackchain-gateway-staging.onrender.com
+  - key: NEXT_PUBLIC_FRONTEND_URL
+    value: https://ontrackchain-frontend-staging.onrender.com
+  - key: ONTRACKCHAIN_EXPECT_FRONTEND_DEPLOYMENT_MODEL
+    value: render-full-stack-staging
+  - key: ONTRACKCHAIN_ALLOW_FRONTEND_SHOWCASE_FALLBACK
+    value: 'false'
+  - key: INTERNAL_API_BASE_URL
+    value: https://ontrackchain-gateway-staging.onrender.com
+  - key: INTERNAL_AUTH_BASE_URL
+    value: https://ontrackchain-auth-service-staging.onrender.com
+  - key: INTERNAL_KEYCLOAK_BASE_URL
+    value: https://ontrackchain-keycloak-staging.onrender.com
+  - key: NEXT_PUBLIC_API_BASE_URL
+    value: https://ontrackchain-gateway-staging.onrender.com
+  - key: OIDC_PROVIDER
+    value: keycloak
+  - key: OIDC_CLIENT_ID
+    value: ontrackchain-web
+  - key: OIDC_AUDIENCE
+    value: ontrackchain-api
+  - key: OIDC_ISSUER_URL
+    value: https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain
+  - key: OIDC_AUTHORIZATION_URL
+    value: https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/auth
+  - key: OIDC_JWKS_URL
+    value: https://ontrackchain-keycloak-staging.onrender.com/realms/ontrackchain/protocol/openid-connect/certs
+  - key: ONTRACKCHAIN_ALLOW_INSECURE_OIDC_URLS
+    value: 'false'
+  - key: ONTRACKCHAIN_ALLOW_LOCALHOST_OIDC_URLS
+    value: 'false'
