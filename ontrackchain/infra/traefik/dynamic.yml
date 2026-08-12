@@ -38,6 +38,24 @@ http:
       service: "auth-service"
       priority: 200
 
+    validate:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/validate`)"
+      service: "auth-service"
+      priority: 199
+
+    team-auth:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/api/v1/team/`)"
+      service: "auth-service"
+      priority: 180
+
+    health-auth:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/health`) && Method(`GET`)"
+      service: "auth-service"
+      priority: 170
+
     public:
       entryPoints: ["web"]
       rule: "PathPrefix(`/public`)"

@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell, MetricCard, MetricGrid, ModuleCard, ModuleGrid, Panel, Pill } from "../../components/ui";
 import { DashboardQuickActions } from "./dashboard-quick-actions";
-import { canManageFederatedIdentity, canReadBilling, canReadTeam } from "../lib/authz";
+import { canReadBilling, canReadTeam } from "../lib/authz";
 import { formatDateTime } from "../lib/date-format";
 import { LOCALE_COOKIE_NAME, normalizeLocale, translate, type MessageKey } from "../lib/i18n";
 import {
@@ -195,14 +195,6 @@ export default async function DashboardPage() {
   const twofa = cookieStore.get("otc_2fa")?.value;
   const locale = normalizeLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
   const t = (key: MessageKey) => translate(locale, key);
-  const hasAcceptedSecondFactor =
-    !twofa ||
-    twofa === "ok" ||
-    twofa === "verified" ||
-    twofa === "pending" ||
-    twofa === "managed_externally" ||
-    twofa === "managed_externally_homologated" ||
-    isFrontendStandaloneShowcaseMode();
 
   if (!token && !isFrontendStandaloneShowcaseMode()) {
     redirect("/login");
@@ -229,45 +221,16 @@ export default async function DashboardPage() {
     fetchJson<DashboardKpiSnapshot>(`${baseUrl}/api/v1/dashboard/summary`, { method: "GET", headers, cache: "no-store" })
   ]);
 
-  const defaultCases: OperationsSnapshot["recent_cases"] = [
-    {
-      case_id: "CASE-2026-0701",
-      status: "COMPLETED",
-      target_address: "0x8589427373d6d84e98730d7795d8f6f8731fda16",
-      target_chain: "ethereum",
-      created_at: new Date().toISOString(),
-      completed_at: new Date().toISOString(),
-      queue_state: "done",
-      last_error: null,
-      attempt_count: 1,
-      report_type_canonical: "full_investigation",
-      charged_cost: 15.0,
-      duration_ms: 1240
-    },
-    {
-      case_id: "CASE-2026-0702",
-      status: "PROCESSING",
-      target_address: "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
-      target_chain: "arbitrum",
-      created_at: new Date().toISOString(),
-      completed_at: null,
-      queue_state: "processing",
-      last_error: null,
-      attempt_count: 1,
-      report_type_canonical: "sanctions_check",
-      charged_cost: 5.0,
-      duration_ms: 450
-    }
-  ];
+  const defaultCases: OperationsSnapshot["recent_cases"] = [];
 
-  const watchlistsCount = watchlistsRes.ok ? watchlistsRes.data.length : 6;
-  const creditsAvailable = billingRes.ok ? billingRes.data.credits_available : 10000;
+  const watchlistsCount = watchlistsRes.ok ? watchlistsRes.data.length : 0;
+  const creditsAvailable = billingRes.ok ? billingRes.data.credits_available : 0;
   const creditsReserved = billingRes.ok ? billingRes.data.credits_reserved : 0;
-  const creditsUsedTotal = billingRes.ok ? billingRes.data.credits_used_total : 250;
-  const orgActive = operationsRes.ok ? operationsRes.data.concurrency.org_active : 1;
-  const orgLimit = operationsRes.ok ? operationsRes.data.concurrency.org_limit : 10;
+  const creditsUsedTotal = billingRes.ok ? billingRes.data.credits_used_total : 0;
+  const orgActive = operationsRes.ok ? operationsRes.data.concurrency.org_active : 0;
+  const orgLimit = operationsRes.ok ? operationsRes.data.concurrency.org_limit : 0;
   const queuedCount = operationsRes.ok ? operationsRes.data.states.queued : 0;
-  const processingCount = operationsRes.ok ? operationsRes.data.states.processing : 1;
+  const processingCount = operationsRes.ok ? operationsRes.data.states.processing : 0;
   const firingPendingAlertsTotal = platformAlertsRes.ok ? platformAlertsRes.data.total_count : 0;
   const recentCases = operationsRes.ok ? operationsRes.data.recent_cases.slice(0, 10) : defaultCases;
   const kpiTotalCases = dashboardKpiRes.ok ? dashboardKpiRes.data.total_cases : 0;

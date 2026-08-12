@@ -5,55 +5,55 @@ import { Message, Panel } from "../../components/ui";
 
 export default function EnterpriseCompliancePage() {
   const [activePhase, setActivePhase] = useState<"P4" | "P5" | "P6" | "P7">("P4");
-  const [addressInput, setAddressInput] = useState("0x8589427373d6d84e98730d7795d8f6f8731fda16");
+  const [addressInput, setAddressInput] = useState("");
   const [p4Result, setP4Result] = useState<any>(null);
   const [p5Result, setP5Result] = useState<any>(null);
   const [p6Result, setP6Result] = useState<any>(null);
   const [p7Result, setP7Result] = useState<any>(null);
 
   const handleP4Analyze = () => {
-    const isMixer = addressInput.toLowerCase().includes("8589427373d6d84e98730d7795d8f6f8731fda16");
+    const trimmed = addressInput.trim();
+    if (!trimmed) {
+      setP4Result({
+        phase: "P4",
+        error: "address_required",
+        detail: "Informe um endereço de carteira para análise."
+      });
+      return;
+    }
     setP4Result({
       phase: "P4",
-      address: addressInput,
-      mixer_exposure: isMixer,
-      mixer_hits: isMixer ? [{ label: "Tornado.Cash 0.1 ETH", direct: true }] : [],
-      bridge_hops_count: 2,
-      risk_score: isMixer ? 100 : 25,
-      recommendation: isMixer ? "REJECT" : "APPROVE",
-      coaf_reporting_required: isMixer,
+      address: trimmed,
+      mixer_exposure: null,
+      mixer_hits: [],
+      bridge_hops_count: 0,
+      risk_score: null,
+      recommendation: "PENDING_ANALYSIS",
+      coaf_reporting_required: null,
     });
   };
 
   const handleP5GenerateFiling = () => {
-    const batchId = `coaf_batch_${Math.random().toString(36).substring(2, 10)}`;
     setP5Result({
       phase: "P5",
-      batch_id: batchId,
-      receipt_protocol: `PROT_SISCOAF_${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-      sha256_signature: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      status: "READY_FOR_TRANSMISSION",
-      xml_preview: `<SISCOAFBatch id="${batchId}" entity="OTC_FINTECH_9613">\n  <RecordsCount>1</RecordsCount>\n</SISCOAFBatch>`,
+      error: "filing_backend_required",
+      detail: "Geração de lote SISCOAF exige backend de relatórios regulatórios configurado."
     });
   };
 
   const handleP6TravelRule = () => {
     setP6Result({
       phase: "P6",
-      requires_travel_rule: true,
-      compliant: true,
-      action: "ALLOW_TRANSFER",
-      ivms101_hash: "a4f89d123e456789bcf0123456789abcdef0123456789abcdef0123456789abc",
+      error: "travel_rule_backend_required",
+      detail: "Validação Travel Rule / IVMS101 exige integração com VASP gateway."
     });
   };
 
   const handleP7Summarize = () => {
     setP7Result({
       phase: "P7",
-      case_id: "CASE_ENTERPRISE_9001",
-      legal_defense_ready: true,
-      dossier_hash: "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
-      summary_text: "DOSSIÊ FORENSE AUTOMATIZADO (FASE P7): Análise completa de lavagem de dinheiro, pontes cross-chain e relatórios COAF encadeados via SHA-256 para defesa jurídica.",
+      error: "forensic_dossier_backend_required",
+      detail: "Dossiê forense automatizado exige backend de investigação e assinatura de pacote."
     });
   };
 

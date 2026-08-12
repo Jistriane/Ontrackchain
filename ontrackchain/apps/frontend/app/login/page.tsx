@@ -128,7 +128,12 @@ export default function LoginPage() {
       const resToken = await fetch("/api/oidc/mock-token", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ role })
+        body: JSON.stringify({
+          role,
+          org: "00000000-0000-0000-0000-000000000001",
+          plan: "enterprise",
+          sub: `${role.toLowerCase()}@ontrackchain`
+        })
       });
       const tokenBody = (await resToken.json().catch(() => null)) as { access_token?: string } | null;
       const token = tokenBody?.access_token?.trim();
@@ -140,7 +145,7 @@ export default function LoginPage() {
       const resSession = await fetch("/api/session/start", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ token })
+        body: JSON.stringify({ token, role })
       });
       if (!resSession.ok) {
         setError(t("login.errorStartOidc"));

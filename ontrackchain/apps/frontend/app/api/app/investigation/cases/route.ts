@@ -14,37 +14,6 @@ function buildEmptyCasesResponse(request: Request) {
   } as const;
 }
 
-const DEFAULT_DEMO_CASES = [
-  {
-    case_id: "CASE-2026-0701",
-    status: "COMPLETED",
-    target_address: "0x8589427373d6d84e98730d7795d8f6f8731fda16",
-    target_chain: "ethereum",
-    created_at: new Date().toISOString(),
-    completed_at: new Date().toISOString(),
-    queue_state: "done",
-    last_error: null,
-    attempt_count: 1,
-    report_type_canonical: "technical_full",
-    charged_cost: 15.0,
-    duration_ms: 1240
-  },
-  {
-    case_id: "CASE-2026-0702",
-    status: "PROCESSING",
-    target_address: "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
-    target_chain: "arbitrum",
-    created_at: new Date().toISOString(),
-    completed_at: null,
-    queue_state: "processing",
-    last_error: null,
-    attempt_count: 1,
-    report_type_canonical: "sanctions_check",
-    charged_cost: 5.0,
-    duration_ms: 450
-  }
-];
-
 export async function GET(request: Request) {
   const token = cookies().get("otc_token")?.value ?? "system_admin_token";
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
@@ -68,14 +37,8 @@ export async function GET(request: Request) {
   }
 
   const fallbackData = buildEmptyCasesResponse(request);
-  return new Response(
-    JSON.stringify({
-      ...fallbackData,
-      data: DEFAULT_DEMO_CASES
-    }),
-    {
-      status: 200,
-      headers: { "content-type": "application/json" }
-    }
-  );
+  return new Response(JSON.stringify(fallbackData), {
+    status: 200,
+    headers: { "content-type": "application/json" }
+  });
 }

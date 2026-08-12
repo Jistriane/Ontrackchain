@@ -3,18 +3,6 @@ import { canReadInvestigationAdmin } from "../../../../lib/authz";
 
 const EMPTY_METRICS_PREVIEW = "# metrics_unavailable_anonymous 1\n";
 
-const DEFAULT_METRICS_PREVIEW = `# HELP ontrackchain_investigation_jobs_total Total investigation jobs processed
-# TYPE ontrackchain_investigation_jobs_total counter
-ontrackchain_investigation_jobs_total{status="completed"} 42
-ontrackchain_investigation_jobs_total{status="failed"} 0
-# HELP ontrackchain_active_watchlists Active monitoring watchlists
-# TYPE ontrackchain_active_watchlists gauge
-ontrackchain_active_watchlists 5
-# HELP ontrack_investigation_states_dlq_failed Cases in failed_permanent DLQ state
-# TYPE ontrack_investigation_states_dlq_failed gauge
-ontrack_investigation_states_dlq_failed 1
-`;
-
 const PRIVILEGED_READ_DENIED = {
   detail: "privileged_read_role_required"
 } as const;
@@ -50,7 +38,7 @@ export async function GET(request: Request) {
     // Fallback on network error
   }
 
-  return new Response(DEFAULT_METRICS_PREVIEW, {
+  return new Response(EMPTY_METRICS_PREVIEW, {
     status: 200,
     headers: { "content-type": "text/plain; charset=utf-8" }
   });

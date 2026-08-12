@@ -1,0 +1,123 @@
+{
+  "network": "testnet",
+  "rpc": "https://soroban-testnet.stellar.org:443",
+  "horizon": "https://horizon-testnet.stellar.org",
+  "deployer": "GBPX3KRAFQPGEOI6453KT67C44KY3R54UTZIBX57IDXCSG7WSJZZ4JR3",
+  "timestamp_utc": "2026-08-12T00:37:55Z",
+  "contracts": {
+    "eternal-storage": {
+      "wasm_file": "eternal_storage.wasm",
+      "wasm_size_bytes": 2928,
+      "wasm_id_sha256": "01f0f5f5a6b1220748bea4dda99d07108b96ce1f5c24d0d7f1e15bc462117566",
+      "contract_id": "CAMOJXCTMDZNHIMOXAU5E2WMGK5BY3WVXCI33R5VTTJX5ZJHUTN2QQIP",
+      "constructor_args_debug": [
+        "<SCVal [type=18, address=<SCAddress [type=0, account_id=<AccountID [account_id=<PublicKey [type=0, ed25519=<Uint256 [uint256=b'_}\\xaa ,\\x1eb9\\x1e\\xe7v\\xa9\\xfb\\xe2\\xe7\\x15\\x8d\\xc7\\xbc\\xa4\\xf2\\x80\\xdf\\xbf@\\xee)\\x1b\\xf6\\x92s\\x9e']>]>]>]>]>"
+      ]
+    },
+    "access-control-multisig": {
+      "wasm_file": "access_control_multisig.wasm",
+      "wasm_size_bytes": 3069,
+      "wasm_id_sha256": "a5f22a70933a10e51a22a10805332fcde97210018966bea4010ae30d8e69721f",
+      "contract_id": "CAEYOHJ4NAHOWCWU46QCZFOXPPDIVUDK3C6SYVYCTQOJ4V6PKKZHN5VS",
+      "constructor_args_debug": [
+        "<SCVal [type=18, address=<SCAddress [type=0, account_id=<AccountID [account_id=<PublicKey [type=0, ed25519=<Uint256 [uint256=b'_}\\xaa ,\\x1eb9\\x1e\\xe7v\\xa9\\xfb\\xe2\\xe7\\x15\\x8d\\xc7\\xbc\\xa4\\xf2\\x80\\xdf\\xbf@\\xee)\\x1b\\xf6\\x92s\\x9e']>]>]>]>]>",
+        "<SCVal [type=3, u32=<Uint32 [uint32=1]>]>"
+      ]
+    },
+    "evidence-anchor-v1": {
+      "wasm_file": "evidence_anchor_v1.wasm",
+      "wasm_size_bytes": 10380,
+      "wasm_id_sha256": "be893b64e02c216fab4276e334c11f4c21057f8cd110848eec5f86cc7a58110f",
+      "contract_id": "CDBYVFOXT6W7FGHVALHLBPP4WINOX5MTU44LDKMWZJVZ5BHTX6XAC3Y6",
+      "constructor_args_debug": [
+        "<SCVal [type=18, address=<SCAddress [type=0, account_id=<AccountID [account_id=<PublicKey [type=0, ed25519=<Uint256 [uint256=b'_}\\xaa ,\\x1eb9\\x1e\\xe7v\\xa9\\xfb\\xe2\\xe7\\x15\\x8d\\xc7\\xbc\\xa4\\xf2\\x80\\xdf\\xbf@\\xee)\\x1b\\xf6\\x92s\\x9e']>]>]>]>]>"
+      ]
+    },
+    "protocol-address-book": {
+      "wasm_file": "protocol_address_book.wasm",
+      "wasm_size_bytes": 3152,
+      "wasm_id_sha256": "d5f8bdc18bcaab8a047e13ea8ccf48606dce55a34da08ddbd7181d76da0d75e4",
+      "contract_id": "CBYNPSHQH5MQGSH3LGHR3HWVXJN6HJYK7G4F6IJ3VDDA64WKHXIXJR6O",
+      "constructor_args_debug": [
+        "<SCVal [type=18, address=<SCAddress [type=0, account_id=<AccountID [account_id=<PublicKey [type=0, ed25519=<Uint256 [uint256=b'_}\\xaa ,\\x1eb9\\x1e\\xe7v\\xa9\\xfb\\xe2\\xe7\\x15\\x8d\\xc7\\xbc\\xa4\\xf2\\x80\\xdf\\xbf@\\xee)\\x1b\\xf6\\x92s\\x9e']>]>]>]>]>"
+      ]
+    },
+    "reputation-sbt-badge": {
+      "wasm_file": "reputation_sbt_badge.wasm",
+      "wasm_size_bytes": 6242,
+      "wasm_id_sha256": "3afb3405e46c5e578171fc95027320fca8b78dc25ceebeb191d65fa0d3659898",
+      "contract_id": "CCMBGMYSVLO6WFQNTFERIWWBDJFJFGGPXA4V7D7LKWUZHXNUHUB3366D",
+      "constructor_args_debug": [
+        "<SCVal [type=18, address=<SCAddress [type=0, account_id=<AccountID [account_id=<PublicKey [type=0, ed25519=<Uint256 [uint256=b'_}\\xaa ,\\x1eb9\\x1e\\xe7v\\xa9\\xfb\\xe2\\xe7\\x15\\x8d\\xc7\\xbc\\xa4\\xf2\\x80\\xdf\\xbf@\\xee)\\x1b\\xf6\\x92s\\x9e']>]>]>]>]>"
+      ]
+    },
+    "reputation-scoring-oracle": {
+      "wasm_file": "reputation_scoring_oracle.wasm",
+      "wasm_size_bytes": 4197,
+      "wasm_id_sha256": "dbc8154bcc516bdaf3c4f93e863cb9bdeecfcbe79a127e1277eeda7a49337f4d",
+      "contract_id": "CCG5SR2YMWZVZVEKBK5INNLSWNU3KWWQ6M3ABS27UYWI2EAHUZX4IROI",
+      "constructor_args_debug": [
+        "<SCVal [type=18, address=<SCAddress [type=0, account_id=<AccountID [account_id=<PublicKey [type=0, ed25519=<Uint256 [uint256=b'_}\\xaa ,\\x1eb9\\x1e\\xe7v\\xa9\\xfb\\xe2\\xe7\\x15\\x8d\\xc7\\xbc\\xa4\\xf2\\x80\\xdf\\xbf@\\xee)\\x1b\\xf6\\x92s\\x9e']>]>]>]>]>",
+        "<SCVal [type=18, address=<SCAddress [type=1, contract_id=<ContractID [contract_id=<Hash [hash=b'\\x98\\x133\\x12\\xaa\\xdd\\xeb\\x16\\r\\x99I\\x14Z\\xc1\\x1aJ\\x92\\x98\\xcf\\xb89_\\x8f\\xebU\\xa9\\x93\\xdd\\xb4=\\x03\\xbd']>]>]>]>"
+      ]
+    },
+    "fee-distribution-multisig": {
+      "wasm_file": "fee_distribution_multisig.wasm",
+      "wasm_size_bytes": 5171,
+      "wasm_id_sha256": "a14c3c20069b4f796dc15e90065c14fba7dc3ce6a362243e7aaea1ce5c609f7f",
+      "contract_id": "CBVFCDJTLIJKR53PW6T4OZMLF77COML6C5X6L7TPNU7HTCHFCCOSMM62",
+      "constructor_args_debug": [
+        "<SCVal [type=18, address=<SCAddress [type=0, account_id=<AccountID [account_id=<PublicKey [type=0, ed25519=<Uint256 [uint256=b'_}\\xaa ,\\x1eb9\\x1e\\xe7v\\xa9\\xfb\\xe2\\xe7\\x15\\x8d\\xc7\\xbc\\xa4\\xf2\\x80\\xdf\\xbf@\\xee)\\x1b\\xf6\\x92s\\x9e']>]>]>]>]>",
+        "<SCVal [type=16, vec=<SCVec [sc_vec=[<SCVal [type=18, address=<SCAddress [type=0, account_id=<AccountID [account_id=<PublicKey [type=0, ed25519=<Uint256 [uint256=b'_}\\xaa ,\\x1eb9\\x1e\\xe7v\\xa9\\xfb\\xe2\\xe7\\x15\\x8d\\xc7\\xbc\\xa4\\xf2\\x80\\xdf\\xbf@\\xee)\\x1b\\xf6\\x92s\\x9e']>]>]>]>]>]]>]>",
+        "<SCVal [type=3, u32=<Uint32 [uint32=1]>]>"
+      ]
+    },
+    "payment-escrow-v1": {
+      "wasm_file": "payment_escrow_v1.wasm",
+      "wasm_size_bytes": 6779,
+      "wasm_id_sha256": "5c9512b15b4f79b7012564b2de81d4300a4a893a3e2955bd351e112f3f99c71e",
+      "contract_id": "CDDM37RYMRPHT5BCGW7TM22MMKDRJK3QKQ2B56MTNCFEM6NB4ZMIC6PT",
+      "constructor_args_debug": [
+        "<SCVal [type=18, address=<SCAddress [type=0, account_id=<AccountID [account_id=<PublicKey [type=0, ed25519=<Uint256 [uint256=b'_}\\xaa ,\\x1eb9\\x1e\\xe7v\\xa9\\xfb\\xe2\\xe7\\x15\\x8d\\xc7\\xbc\\xa4\\xf2\\x80\\xdf\\xbf@\\xee)\\x1b\\xf6\\x92s\\x9e']>]>]>]>]>",
+        "<SCVal [type=18, address=<SCAddress [type=1, contract_id=<ContractID [contract_id=<Hash [hash=b'\\xc3\\x8a\\x95\\xd7\\x9f\\xad\\xf2\\x98\\xf5\\x02\\xce\\xb0\\xbd\\xfc\\xb2\\x1a\\xeb\\xf5\\x93\\xa78\\xb1\\xa9\\x96\\xcak\\x9e\\x84\\xf3\\xbf\\xae\\x01']>]>]>]>",
+        "<SCVal [type=18, address=<SCAddress [type=1, contract_id=<ContractID [contract_id=<Hash [hash=b\"jQ\\r3Z\\x12\\xa8\\xf7o\\xb7\\xa7\\xc7e\\x8b/\\xfe'1~\\x17o\\xe5\\xfeom>y\\x88\\xe5\\x10\\x9d&\"]>]>]>]>",
+        "<SCVal [type=10, i128=<Int128Parts [hi=<Int64 [int64=0]>, lo=<Uint64 [uint64=0]>]>]>"
+      ]
+    },
+    "governance-voting-weight-calculator": {
+      "wasm_file": "governance_voting_weight_calculator.wasm",
+      "wasm_size_bytes": 3377,
+      "wasm_id_sha256": "16635b993965a1fb24032544f6e822d9c61670a2fda2ef622488edafd37e2913",
+      "contract_id": "CDAUXS2NGKF4OGMAJQUFDC6HAOYDMT4C4X63F7YVA52WVTBXYEEHMK4X",
+      "constructor_args_debug": [
+        "<SCVal [type=18, address=<SCAddress [type=0, account_id=<AccountID [account_id=<PublicKey [type=0, ed25519=<Uint256 [uint256=b'_}\\xaa ,\\x1eb9\\x1e\\xe7v\\xa9\\xfb\\xe2\\xe7\\x15\\x8d\\xc7\\xbc\\xa4\\xf2\\x80\\xdf\\xbf@\\xee)\\x1b\\xf6\\x92s\\x9e']>]>]>]>]>",
+        "<SCVal [type=18, address=<SCAddress [type=1, contract_id=<ContractID [contract_id=<Hash [hash=b'\\x98\\x133\\x12\\xaa\\xdd\\xeb\\x16\\r\\x99I\\x14Z\\xc1\\x1aJ\\x92\\x98\\xcf\\xb89_\\x8f\\xebU\\xa9\\x93\\xdd\\xb4=\\x03\\xbd']>]>]>]>"
+      ]
+    },
+    "governance-timelock-controller": {
+      "wasm_file": "governance_timelock_controller.wasm",
+      "wasm_size_bytes": 7339,
+      "wasm_id_sha256": "5f6b4a2e1fca2c1dd361015d6d19081fe68d9aa0898dcc79773dd654d5ce1223",
+      "contract_id": "CADUI2JZHXVCFWGUF3RGZWEZNJ77O62A5K6QVY3MZ7SY7NKGUCN66PAE",
+      "constructor_args_debug": [
+        "<SCVal [type=18, address=<SCAddress [type=0, account_id=<AccountID [account_id=<PublicKey [type=0, ed25519=<Uint256 [uint256=b'_}\\xaa ,\\x1eb9\\x1e\\xe7v\\xa9\\xfb\\xe2\\xe7\\x15\\x8d\\xc7\\xbc\\xa4\\xf2\\x80\\xdf\\xbf@\\xee)\\x1b\\xf6\\x92s\\x9e']>]>]>]>]>",
+        "<SCVal [type=18, address=<SCAddress [type=0, account_id=<AccountID [account_id=<PublicKey [type=0, ed25519=<Uint256 [uint256=b'_}\\xaa ,\\x1eb9\\x1e\\xe7v\\xa9\\xfb\\xe2\\xe7\\x15\\x8d\\xc7\\xbc\\xa4\\xf2\\x80\\xdf\\xbf@\\xee)\\x1b\\xf6\\x92s\\x9e']>]>]>]>]>",
+        "<SCVal [type=5, u64=<Uint64 [uint64=172800]>]>"
+      ]
+    },
+    "governance-governor-v1": {
+      "wasm_file": "governance_governor_v1.wasm",
+      "wasm_size_bytes": 9851,
+      "wasm_id_sha256": "50760a56357374eda95017515b789b2ee84390ab6d576e47d1b9a98503b3fa83",
+      "contract_id": "CDOCXMCKN7LMXTEGSJA2WOFJI67EYYCPPLGYP55GGN3RQ5U4XH33SJ2R",
+      "constructor_args_debug": [
+        "<SCVal [type=18, address=<SCAddress [type=0, account_id=<AccountID [account_id=<PublicKey [type=0, ed25519=<Uint256 [uint256=b'_}\\xaa ,\\x1eb9\\x1e\\xe7v\\xa9\\xfb\\xe2\\xe7\\x15\\x8d\\xc7\\xbc\\xa4\\xf2\\x80\\xdf\\xbf@\\xee)\\x1b\\xf6\\x92s\\x9e']>]>]>]>]>",
+        "<SCVal [type=18, address=<SCAddress [type=1, contract_id=<ContractID [contract_id=<Hash [hash=b'\\xc1K\\xcbM2\\x8b\\xc7\\x19\\x80L(Q\\x8b\\xc7\\x03\\xb06O\\x82\\xe5\\xfd\\xb2\\xff\\x15\\x07uj\\xcc7\\xc1\\x08v']>]>]>]>",
+        "<SCVal [type=18, address=<SCAddress [type=1, contract_id=<ContractID [contract_id=<Hash [hash=b'\\x07Di9=\\xea\"\\xd8\\xd4.\\xe2l\\xd8\\x99j\\x7f\\xf7{@\\xea\\xbd\\n\\xe3l\\xcf\\xe5\\x8f\\xb5F\\xa0\\x9b\\xef']>]>]>]>",
+        "<SCVal [type=5, u64=<Uint64 [uint64=259200]>]>",
+        "<SCVal [type=3, u32=<Uint32 [uint32=10]>]>",
+        "<SCVal [type=3, u32=<Uint32 [uint32=1]>]>"
+      ]
+    }
+  }
+}

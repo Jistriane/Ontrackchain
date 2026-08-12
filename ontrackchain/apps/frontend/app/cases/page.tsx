@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useI18n } from "../../components/i18n-provider";
 import { AuthShell, Panel, Pill } from "../../components/ui";
 
 type Case = {
@@ -26,8 +25,26 @@ type CaseMetrics = {
   cases_by_category: Record<string, number>;
 };
 
+const EMPTY_METRICS: CaseMetrics = {
+  total_cases: 0,
+  open_cases: 0,
+  closed_cases: 0,
+  avg_resolution_time_hours: 0,
+  cases_by_priority: {},
+  cases_by_category: {}
+};
+
+function resolveApiBase(): string {
+  if (typeof window !== "undefined") {
+    const fromEnv = (window as any).__NEXT_PUBLIC_API_BASE_URL__ || process.env.NEXT_PUBLIC_API_BASE_URL;
+    if (fromEnv) return fromEnv.replace(/\/$/, "");
+    const { protocol, hostname } = window.location;
+    return `${protocol}//${hostname}:8080`;
+  }
+  return process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "http://traefik";
+}
+
 export default function CasesPage() {
-  const { t } = useI18n();
   const [cases, setCases] = useState<Case[]>([]);
   const [metrics, setMetrics] = useState<CaseMetrics | null>(null);
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
@@ -43,54 +60,20 @@ export default function CasesPage() {
   const fetchCases = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/v1/cases", { cache: "no-store" });
+      const res = await fetch(`${resolveApiBase()}/api/v1/cases`, {
+        cache: "no-store",
+        credentials: "include",
+        headers: { "Accept": "application/json" }
+      });
       if (res.ok) {
         const data = await res.json();
         setCases(data.data ?? []);
       } else {
-        // Fallback to sample data if API not available
-        const sampleCases: Case[] = [
-          {
-            case_id: "CASE-2026-0156",
-            title: "Suspicious Transaction Pattern",
-            description: "High volume transactions to sanctioned address",
-            status: "open",
-            priority: "high",
-            category: "aml",
-            assigned_to: "analyst@ontrackchain.com",
-            risk_score: 85,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          },
-          {
-            case_id: "CASE-2026-0157",
-            title: "KYC Verification Pending",
-            description: "Counterparty KYC documentation under review",
-            status: "in_progress",
-            priority: "medium",
-            category: "kyc",
-            assigned_to: "jibso@ontrackchain.com",
-            risk_score: 45,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          },
-          {
-            case_id: "CASE-2026-0158",
-            title: "Sanctions Screening Alert",
-            description: "Potential match with OFAC SDN list",
-            status: "open",
-            priority: "critical",
-            category: "sanctions",
-            assigned_to: "auditor@ontrackchain.com",
-            risk_score: 92,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
-        ];
-        setCases(sampleCases);
+        setCases([]);
       }
     } catch (err) {
       console.error("Failed to fetch cases");
+      setCases([]);
     } finally {
       setLoading(false);
     }
@@ -98,38 +81,38 @@ export default function CasesPage() {
 
   const fetchMetrics = async () => {
     try {
-      const res = await fetch("/api/v1/cases/metrics", { cache: "no-store" });
+      const res = await fetch(`${resolveApiBase()}/api/v1/cases/metrics`, {
+        cache: "no-store",
+        credentials: "include",
+        headers: { "Accept": "application/json" }
+      });
       if (res.ok) {
         const data = await res.json();
-        setMetrics(data);
+        setMetrics(data ?? EMPTY_METRICS);
       } else {
-        // Fallback to sample data if API not available
-        const sampleMetrics: CaseMetrics = {
-          total_cases: 156,
-          open_cases: 42,
-          closed_cases: 114,
-          avg_resolution_time_hours: 48.5,
-          cases_by_priority: { low: 23, medium: 67, high: 45, critical: 21 },
-          cases_by_category: { sanctions: 45, aml: 67, kyc: 23, investigation: 21 }
-        };
-        setMetrics(sampleMetrics);
+        setMetrics(EMPTY_METRICS);
       }
     } catch (err) {
       console.error("Failed to fetch metrics");
+      setMetrics(EMPTY_METRICS);
     }
   };
 
   const createCase = async () => {
     try {
-      const res = await fetch("/api/v1/cases", {
+      const res = await fetch(`${resolveApiBase()}/api/v1/cases`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
         body: JSON.stringify(newCase)
       });
-      const data = await res.json();
-      setCases([data, ...cases]);
-      setShowCreateModal(false);
-      setNewCase({ title: "", description: "", priority: "medium", category: "aml" });
+      if (res.ok) {
+        const data = await res.json();
+        setCases([data, ...cases]);
+        setShowCreateModal(false);
+        setNewCase({ title: "", description: "", priority: "medium", category: "aml" });
+        fetchMetrics();
+      }
     } catch (err) {
       console.error("Failed to create case");
     }

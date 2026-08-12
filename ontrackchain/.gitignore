@@ -33,4 +33,9 @@ tmp/
 # Secrets (never commit)
 *secret*
 !*secrets_loader.py
-!.env-secrets.template
+!*.env-secrets.template
+!*.secrets.template
+!infra/render/.env.render-staging-secrets.template
+!*render-secrets-checklist.sh
+!*smoke-tests.sh
+!*deploy-checklist.sh
