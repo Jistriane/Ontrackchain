@@ -7,6 +7,8 @@ services:
   - type: keyvalue
     name: ontrackchain-redis-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     maxmemoryPolicy: allkeys-lru
     ipAllowList: []
 
@@ -16,6 +18,9 @@ services:
     runtime: docker
     dockerContext: .
     dockerfilePath: ./infra/render/postgres-pgvector/Dockerfile
+    memoryLimitMB: 512
+    cpuLimitMhz: 2000
+    autoDeploy: no
     disk:
       name: pgvector-data
       mountPath: /var/lib/postgresql/data
@@ -103,6 +108,12 @@ services:
         value: risk_service
       - key: RISK_DB_PASSWORD
         sync: false
+      - key: MONITORING_DB_NAME
+        value: monitoring_service
+      - key: MONITORING_DB_USER
+        value: monitoring_service
+      - key: MONITORING_DB_PASSWORD
+        sync: false
       - key: AI_DB_NAME
         value: ai_service
       - key: AI_DB_USER
@@ -143,6 +154,8 @@ services:
   - type: web
     name: ontrackchain-gateway-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     runtime: docker
     dockerContext: .
     dockerfilePath: ./infra/render/traefik/Dockerfile
@@ -197,6 +210,8 @@ services:
   - type: web
     name: ontrackchain-keycloak-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     runtime: docker
     dockerContext: .
     dockerfilePath: ./infra/render/keycloak/Dockerfile
@@ -255,6 +270,8 @@ services:
   - type: web
     name: ontrackchain-auth-service-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     runtime: docker
     dockerContext: .
     dockerfilePath: ./infra/render/auth-service/Dockerfile
@@ -348,6 +365,8 @@ services:
   - type: pserv
     name: ontrackchain-public-api-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     runtime: docker
     dockerContext: ./apps/public-api
     dockerfilePath: ./apps/public-api/Dockerfile
@@ -366,6 +385,8 @@ services:
   - type: pserv
     name: ontrackchain-investigation-api-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     runtime: docker
     dockerContext: .
     dockerfilePath: ./apps/investigation-api/Dockerfile
@@ -419,6 +440,8 @@ services:
   - type: worker
     name: ontrackchain-investigation-worker-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     runtime: docker
     dockerContext: .
     dockerfilePath: ./apps/investigation-api/Dockerfile
@@ -484,6 +507,8 @@ services:
   - type: pserv
     name: ontrackchain-compliance-api-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     runtime: docker
     dockerContext: .
     dockerfilePath: ./apps/compliance-api/Dockerfile
@@ -541,6 +566,8 @@ services:
   - type: worker
     name: ontrackchain-compliance-worker-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     runtime: docker
     dockerContext: .
     dockerfilePath: ./apps/compliance-api/Dockerfile
@@ -587,6 +614,8 @@ services:
   - type: pserv
     name: ontrackchain-monitoring-api-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     runtime: docker
     dockerContext: .
     dockerfilePath: ./apps/monitoring-api/Dockerfile
@@ -636,6 +665,8 @@ services:
   - type: pserv
     name: ontrackchain-alertmanager-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     runtime: docker
     dockerContext: .
     dockerfilePath: ./infra/render/alertmanager/Dockerfile
@@ -654,6 +685,8 @@ services:
   - type: pserv
     name: ontrackchain-prometheus-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     runtime: docker
     dockerContext: .
     dockerfilePath: ./infra/render/prometheus/Dockerfile
@@ -687,6 +720,8 @@ services:
   - type: web
     name: ontrackchain-grafana-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     runtime: docker
     dockerContext: .
     dockerfilePath: ./infra/render/grafana/Dockerfile
@@ -709,6 +744,8 @@ services:
   - type: pserv
     name: ontrackchain-report-api-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     runtime: docker
     dockerContext: .
     dockerfilePath: ./apps/report-api/Dockerfile
@@ -746,6 +783,8 @@ services:
   - type: pserv
     name: ontrackchain-ai-service-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     runtime: docker
     dockerContext: .
     dockerfilePath: ./apps/ai-service/Dockerfile
@@ -845,6 +884,8 @@ services:
   - type: worker
     name: ontrackchain-ai-worker-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     runtime: docker
     dockerContext: .
     dockerfilePath: ./apps/ai-service/Dockerfile
@@ -902,6 +943,8 @@ services:
   - type: pserv
     name: ontrackchain-case-management-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     runtime: docker
     dockerContext: .
     dockerfilePath: ./apps/case-management/Dockerfile
@@ -934,6 +977,8 @@ services:
   - type: pserv
     name: ontrackchain-qa-gateway-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     runtime: docker
     dockerContext: .
     dockerfilePath: ./packages/qa-gateway/Dockerfile
@@ -945,6 +990,8 @@ services:
   - type: web
     name: ontrackchain-frontend-staging
     plan: free
+    cpuLimitMhz: 2000
+    memoryLimitMB: 512
     runtime: docker
     dockerContext: ./apps/frontend
     dockerfilePath: ./apps/frontend/Dockerfile
