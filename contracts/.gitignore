@@ -1,7 +1,9 @@
-/target
-/Cargo.lock
-wasm32-unknown-unknown/
-*.wasm
-*.wasm.hashes
-.env
-soroban-host-env/
+/.stellar/
+/.python-local/
+/.pip-bootstrap/
+/target/
+/.stellar-cli/
+/.venv-stellar/
+/test_deploy_*.sh
+
+!deployments/*.log

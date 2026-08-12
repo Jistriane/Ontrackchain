@@ -61,7 +61,7 @@ Resumo em 30 segundos:
 | **T3 · Operações Técnicas** | CI/CD, deploy staging, variáveis ambiente, RBAC, runbooks | `./ontrackchain/docs/ci-cd-and-release.md` · `./ontrackchain/docs/deploy-and-staging.md` · `./ontrackchain/docs/environment-variables.md` · `./ontrackchain/docs/rbac-and-permissions.md` · `./ontrackchain/docs/runbooks.md` + compliance LGPD/ROPD em `./ontrackchain/docs/compliance/` | ✅ Mantido em sprints de ops/infra |
 | **T4 · Evidência & Qualidade** | Matriz de auditoria, catálogo de eventos, RCA incidentes, checklist pré-produção | `./ontrackchain/docs/evidence-and-audit-matrix.md` · `./ontrackchain/docs/evidence-event-catalog.md` · `./ontrackchain/docs/cross-domain-incident-rca-playbook.md` · `./ontrackchain/docs/pre-production-checklist.md` | ✅ Mantido por auditoria + QA |
 | **T5 · Configuração GitHub Actions** | Workflows CI/CD, Issues, CODEOWNERS, settings | **.github/ (RAIZ) = SSOT ATIVO CI/CD + Push Protection + 13 Required Contexts HC-3** · `./ontrackchain/.github/` = mirror ISSUE_TEMPLATE + CODEOWNERS + dependabot (configurações colaboração) · `./github_main/.github/` = LEGADO ARQUIVADO referência (não usar) · Validador: `make settings-dry-run` (G8) | ⚠️ Alterar com **ordem EXPLÍCITA do proprietário** (HC-3 bloqueia alterações em settings.yml) |
-| **T6 · READMEs por App / Package** | Stack e setup de cada serviço individual | `./apps/*/README.md` ×9 (ai/auth/case/compliance/frontend/investigation/mock-oidc/monitoring/public/report) · `./packages/*/README.md` ×3 (shared/qa-gateway/agents) | ✅ Atualizado em sprints de app individual |
+| **T6 · READMEs por App / Package / Contratos** | Stack e setup de cada serviço individual e contratos Soroban | `./apps/*/README.md` ×9 (ai/auth/case/compliance/frontend/investigation/mock-oidc/monitoring/public/report) · `./packages/*/README.md` ×3 (shared/qa-gateway/agents) · `./contracts/` = workspace Cargo Soroban (11 crates + deployments/*.json oficial) | ✅ Atualizado em sprints de app individual / deploy on-chain |
 | **T7 · Histórico Imutável (NÃO ATUALIZAR)** | Snapshots semanais, ciclos de governança, baselines, signoffs | `./ontrackchain/docs/governance-weekly/` (cycles/generated/archive) · `./ontrackchain/docs/history/` · `./ontrackchain/docs/baselines/` · `./ontrackchain/docs/governance-sign-offs/SIGNOFF-M5.md` (INTACTO HC-1, NÃO ALTERAR) | 🚫 **NÃO EDITAR** — snapshots de eventos passados. SIGNOFF-M5.md = hash L7 fixo. |
 
 > 💡 **Acesso conveniência 3 docs principais**: `make readme` + `make contributing` + `make changelog` (Trindade Docs S28+60, 3/3 headers padronizados).
@@ -502,6 +502,59 @@ Use quando a meta for validar a arquitetura real do produto com `OIDC`, banco, w
   - `gateway`, `frontend`, `auth-service`, `Keycloak`, APIs e workers convergem
   - `/api/healthz` do frontend responde `render-full-stack-staging`
   - se faltarem envs internas criticas, o frontend pode cair em `hostedShowcaseFallback`; isso preserva UX seeded, mas nao prova integração real
+
+### 3. Contratos Inteligentes Stellar Soroban · Testnet
+
+> **Status**: ✅ Deploy executado 2026-08-11 21:54 BRT. 11/11 contratos inicializados on-chain. `protocol-address-book` slots 1..11 100% populados e validados via `get_address(slot)`.
+> **Rede**: Stellar Testnet SDF · Passphrase `Test SDF Network ; September 2015`
+> - RPC Soroban: `https://soroban-testnet.stellar.org`
+> - Horizon: `https://horizon-testnet.stellar.org`
+> **Conta deployer**: `GBPX3KRAFQPGEOI6453KT67C44KY3R54UTZIBX57IDXCSG7WSJZZ4JR3`
+> **Lab Stellar (transação exemplo / contas / operações)**: [Lab Ontrackchain · Testnet](https://lab.stellar.org/account/create?$=network$id=testnet&label=Testnet&horizonUrl=https:////horizon-testnet.stellar.org&rpcUrl=https:////soroban-testnet.stellar.org&passphrase=Test%20SDF%20Network%20/;%20September%202015;&transaction$build$classic$operations@$operation_type=manage_sell_offer&params$offer_id=0&selling$code=USDC&issuer=GCG2MUBX3OSSN554QHSQFW5JEJUUD6ZAMD7NYUFFRULOXMRS2KZEVLPQ&type=credit_alphanum4;&amount=10&price=100&buying$code=USDC&issuer=GDEQ2Z64VF4Q3ZZAJ4LHN4NLMLSFASL7UT4UFZSPVRLITIZ56XYB7JVK&type=credit_alphanum4;;&source_account=;;;&soroban$operation$params@;;;&params$source_account=GCSO24MDZIXWTR4BYAICRBWFPYHN5OUQ2L2WLSG6CWFJERC2ZVD5GKMD&seq_num=3993018210189314&cond$time$min_time=1&max_time=0;;&memo=none;&isValid$params:true&operations:true;;&sign$activeView=overview&importXdr=AAAAAgAAAACk7XGDyi9px4HAECiGxX4O3rqQ0vVlyN4VipJEWs1H0wAAAGQADi+hAAAAAgAAAAEAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAwAAAAFVU0RDAAAAAI2mUDfbpSb3vIHlAtupImlB+yBg//txQpY0W67Iy0rJKAAAAAVVTREMAAAAAyQ1n3Kl5DecgTxZ28ati5FBJf6T5QuZPrFaJoz318B8AAAAABfXhAAAAAGQAAAABAAAAAAAAAAAAAAAAAAAAAA==;;&xdr$blob=AAAAAgAAAACk7XGDyi9px4HAECiGxX4O3rqQ0vVlyN4VipJEWs1H0wAAAGQADi+hAAAAAgAAAAEAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAwAAAAFVU0RDAAAAAI2mUDfbpSb3vIHlAtupImlB+yBg//txQpY0W67Iy0rJKAAAAAVVTREMAAAAAyQ1n3Kl5DecgTxZ28ati5FBJf6T5QuZPrFaJoz318B8AAAAABfXhAAAAAGQAAAABAAAAAAAAAAAAAAAAAAAAAVrNR9MAAABAg3A62jEtoH77+KfAlmHB7U1KvspD1vsfq//ypwXTlm//oLQxmiKZJps6cG//KZ5EXHOsNxZZxzXxaFI08dn7hPtAQ==;;)
+> **Script de deploy**: [deploy_all_testnet_stellar_cli.sh](./contracts/deploy_all_testnet_stellar_cli.sh)
+> **Artefato oficial JSON (latest)**: [testnet-latest.json](./contracts/deployments/testnet-latest.json) + [testnet-20260812-005406.json](./contracts/deployments/testnet-20260812-005406.json) (timestampado imutável)
+> **Log completo da execução**: [testnet-run.log](./contracts/deployments/testnet-run.log)
+
+#### Tabela 11 Contratos Deployados
+
+| Slot | Nome do Contrato | Contract ID (C...) | Link Stellar Lab · Interact | Resumo do Constructor |
+|:---:|---|---|---|---|
+| 1 | `eternal-storage` | `CCLUZYA3WOK2BAKONC4FBSCPLP2LJFX3BDI5ZVIZHPUB6UOWHMXZTKCT` | [Lab · Eternal Storage](https://lab.stellar.org/r/testnet/contract/CCLUZYA3WOK2BAKONC4FBSCPLP2LJFX3BDI5ZVIZHPUB6UOWHMXZTKCT) | `admin = deployer` |
+| 2 | `access-control-multisig` | `CC5J3DWPWLWCZHXTTYNNRKWX2SWNYILO4XHZINJRITCMSTR2R2Y5ANSJ` | [Lab · Access Control](https://lab.stellar.org/r/testnet/contract/CC5J3DWPWLWCZHXTTYNNRKWX2SWNYILO4XHZINJRITCMSTR2R2Y5ANSJ) | `owner = deployer`, `threshold_writers = 1` |
+| 3 | `evidence-anchor-v1` | `CAAMPPGTMOKKP6FNLBZU7NOROZYBPZCVPIC33SBVS7YDEDQJI5YIDUFZ` | [Lab · Evidence Anchor](https://lab.stellar.org/r/testnet/contract/CAAMPPGTMOKKP6FNLBZU7NOROZYBPZCVPIC33SBVS7YDEDQJI5YIDUFZ) | `owner = deployer` |
+| 4 | `protocol-address-book` | `CDXNCPAHHFSHIV6OWVA2ORUG3WXCBH6VYQGCIMH4JT3R3XFJL7TSCYUG` | [Lab · Address Book](https://lab.stellar.org/r/testnet/contract/CDXNCPAHHFSHIV6OWVA2ORUG3WXCBH6VYQGCIMH4JT3R3XFJL7TSCYUG) | `owner = deployer` (SSOT on-chain de CIDs) |
+| 5 | `reputation-sbt-badge` | `CALOOU3TI67TSJ767R2GOQVXH5YMKKPJQEPSKC6ONVOMYLIIS7GW32FK` | [Lab · SBT Badge](https://lab.stellar.org/r/testnet/contract/CALOOU3TI67TSJ767R2GOQVXH5YMKKPJQEPSKC6ONVOMYLIIS7GW32FK) | `owner = deployer` (mint SBT por caso) |
+| 6 | `reputation-scoring-oracle` | `CADKRO2RA4AAIHVSODCRTHZRRZLADTSR3TB6IM2LWFUAIQ5XEWH4JN7Q` | [Lab · Scoring Oracle](https://lab.stellar.org/r/testnet/contract/CADKRO2RA4AAIHVSODCRTHZRRZLADTSR3TB6IM2LWFUAIQ5XEWH4JN7Q) | `owner = deployer`, **`sbt = slot 5`** (CID correto) |
+| 7 | `fee-distribution-multisig` | `CBOXXY45RFYDBC5JVOVZN6QSIZDQTIG232VUV5JI4O4ZZFSMPQMFXOH3` | [Lab · Fee Distribution](https://lab.stellar.org/r/testnet/contract/CBOXXY45RFYDBC5JVOVZN6QSIZDQTIG232VUV5JI4O4ZZFSMPQMFXOH3) | `recipients = [deployer]`, `threshold = 1` |
+| 8 | `payment-escrow-v1` | `CDPTOKHAJPE2LXR7ALIVONW5LFXNNGR6FQVTA6UFQNH7YMHUZQGOJHN3` | [Lab · Payment Escrow](https://lab.stellar.org/r/testnet/contract/CDPTOKHAJPE2LXR7ALIVONW5LFXNNGR6FQVTA6UFQNH7YMHUZQGOJHN3) | **`evidence = slot 3`**, **`fee = slot 7`**, `base_fee = 0 stroops` |
+| 9 | `governance-voting-weight-calculator` | `CAUZKJKVHVQB6J6TONJMZUJTOOLFPX3NO3BZI3CKZNV7RWOF2NWYFEF7` | [Lab · Voting Weight](https://lab.stellar.org/r/testnet/contract/CAUZKJKVHVQB6J6TONJMZUJTOOLFPX3NO3BZI3CKZNV7RWOF2NWYFEF7) | `owner = deployer`, **`sbt = slot 5`** (clamp 0–10) |
+| 10 | `governance-timelock-controller` | `CB7KINZLKX3NGYBZ3GUXD7MUFB5VEE4IJ6U4IGL3RD7DT2Q2WI2XLMWR` | [Lab · Timelock](https://lab.stellar.org/r/testnet/contract/CB7KINZLKX3NGYBZ3GUXD7MUFB5VEE4IJ6U4IGL3RD7DT2Q2WI2XLMWR) | `guardian = deployer`, `delay = 172800s` (48h teste) |
+| 11 | `governance-governor-v1` | `CCSFU6ZJPPFC4ZQQKZYOUGMSMUAXXFDRYIW4WJRGDAKBAEEHQZ25OFMJ` | [Lab · Governor](https://lab.stellar.org/r/testnet/contract/CCSFU6ZJPPFC4ZQQKZYOUGMSMUAXXFDRYIW4WJRGDAKBAEEHQZ25OFMJ) | **`weight = slot 9`**, **`timelock = slot 10`**, `vote_dur = 259200s` (72h), `min_quorum = 10`, `min_proposer = 1` |
+
+#### Validação On-Chain executada
+
+1. ✅ 11/11 CIDs com formato válido base32 56 chars (prefixo `C`)
+2. ✅ 11/11 slots do `protocol-address-book` retornados corretamente via `stellar contract invoke … -- get_address --slot N`
+3. ✅ **Cross-contract references 100% corretas**: oracle→SBT(5), escrow→evidence(3)+fee(7), weight→SBT(5), governor→weight(9)+timelock(10)
+4. ✅ 29 transações confirmadas na conta deployer (11 deploys + 11 `set_address` + retries automáticos)
+5. ✅ Saldo final deployer: **19.992,6504 XLM** (gasto total ≈ 7,35 XLM)
+
+#### Método Oficial de Deploy (Stellar CLI — reproduzível)
+
+- Ferramenta: **Stellar CLI v27.1.0** (Protocol 27)
+- Flags obrigatórias orçamento Soroban: `--resource-fee 500000 --instruction-leeway 5000000` (resolução de `TxMalformed` em contratos > 5 KB)
+- Ordem bottom-up de dependências (contratos independentes primeiro, depois os que referenciam CIDs anteriores)
+- Estratégia resiliência: retry loop 8× (sleep 25s) + sleep 15s após sucesso (evita `TxBadSeq`) + `--no-cache` em todas chamadas
+- Passo único por contrato: `stellar contract deploy --wasm X.wasm --resource-fee=500000 --instruction-leeway=5000000 -- <args_constructor>` (equivalente a upload WASM + create_contract + invoke constructor)
+
+#### Próximos passos — migração para Mainnet
+
+1. 🔐 Auditoria externa dupla (2 firms independentes) dos 11 contratos Soroban
+2. 🏛️ Governança distribuída: transferir OWNER do Governor para o Timelock (hoje = deployer single-sig)
+3. ⏳ Timelock = **7 dias** (em vez de 48h de teste) para execução de propostas
+4. 🔑 Deployer = multi-sig Stellar (`threshold ≥ 2`), nunca conta single-sig
+5. 💸 Recipientes reais no `fee-distribution-multisig` (equipes, tesouraria, stakeholders)
+6. 📊 Snapshot pré-mainnet do `protocol-address-book` com multi-sig OWNER
 
 ## Arquitetura em 60 Segundos
 
