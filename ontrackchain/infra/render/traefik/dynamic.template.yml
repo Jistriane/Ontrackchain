@@ -20,6 +20,12 @@ http:
           - "X-MFA-Provider-Homologated"
 
   routers:
+    health:
+      entryPoints: ["web"]
+      rule: "Path(`/health`)"
+      service: "ping@internal"
+      priority: 2147483647
+
     auth:
       entryPoints: ["web"]
       rule: "PathPrefix(`/auth`)"

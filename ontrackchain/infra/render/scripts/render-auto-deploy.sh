@@ -26,6 +26,13 @@
 
 set -euo pipefail
 
+# =============================================================================
+# DEFAULTS — Projeto Ontrackchain (Team ID fixo do project_memory)
+# Para conta pessoal: export RENDER_OWNER_ID=""
+# =============================================================================
+: "${RENDER_OWNER_ID:=tea-d0mesj63jp1c738a1qbg}"
+export RENDER_OWNER_ID
+
 REQUIRED_VARS=(RENDER_API_KEY RENDER_BLUEPRINT_ID)
 for v in "${REQUIRED_VARS[@]}"; do
   if [[ -z "${!v:-}" ]]; then
@@ -139,31 +146,30 @@ echo ""
 echo "▶️  PASSO 3/4 — Ordem de deploy (prioridade correta)..."
 
 ORDER_REGEX=(
-  "pgvector"
+  "psql-pgvector"
   "postgres"
-  "psql"
+  "pgvector"
+  "valkey"
   "redis"
   "keycloak"
-  "auth-idp"
-  "auth-service"
-  "public-api"
-  "investigation-api"
+  "auth-staging"
+  "mock-oidc"
+  "investigation-staging"
   "investigation-worker"
-  "compliance-api"
-  "compliance-worker"
-  "monitoring-api"
-  "alertmanager"
-  "prometheus"
-  "grafana"
-  "report-api"
+  "compliance-staging"
+  "monitoring-staging"
+  "report-staging"
+  "case-mgmt"
+  "case-management"
+  "public-api-staging"
   "ai-service"
   "ai-worker"
-  "case-management"
+  "prometheus"
+  "alertmanager"
+  "grafana"
   "qa-gateway"
-  "frontend-demo"
-  "frontend-staging"
-  "frontend"
   "gateway"
+  "frontend"
 )
 
 TRIGGERED=0

@@ -9,7 +9,9 @@ COPY infra/render/keycloak/entrypoint.sh /opt/keycloak/bin/ontrackchain-render-e
 
 RUN chmod +x /opt/keycloak/bin/ontrackchain-render-entrypoint.sh \
   && mkdir -p /opt/keycloak/data/import \
-  && chmod -R 777 /opt/keycloak/data/import
+  && chmod -R 777 /opt/keycloak/data/import \
+  && microdnf install -y python3 python3-pip \
+  && microdnf clean all
 
 USER keycloak
 

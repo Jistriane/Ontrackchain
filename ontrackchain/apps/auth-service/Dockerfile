@@ -28,6 +28,15 @@ RUN pip install --no-cache-dir /tmp/ontrackchain-shared \
 COPY --chown=appuser:appuser apps/auth-service/src /app/src
 COPY --chown=appuser:appuser apps/auth-service/tests /app/tests
 
+# 3b. Bootstrap Postgres (scripts SQL + entrypoint de inicialização)
+USER root
+COPY infra/postgres /opt/bootstrap/infra/postgres
+COPY infra/render/scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY infra/render/scripts/apply_postgres_bootstrap.py /usr/local/bin/apply_postgres_bootstrap.py
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
+ && chown -R appuser:appuser /opt/bootstrap
+USER appuser
+
 EXPOSE 9000
 
 # 4. Healthcheck via urllib stdlib (zero deps novas) apontando para /healthz
@@ -37,5 +46,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
 # 5. Executar como usuário não-root
 USER appuser
 
-# 6. CMD usa 'exec' (sh PID 1 → python PID 1) para receber SIGTERM corretamente
+# 6. ENTRYPOINT + CMD: entrypoint roda bootstrap Postgres ANTES do uvicorn (PID 1)
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["sh", "-c", "exec uvicorn auth_service.main:app --host 0.0.0.0 --port ${PORT:-9000}"]
